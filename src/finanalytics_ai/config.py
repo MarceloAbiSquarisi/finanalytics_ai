@@ -52,6 +52,7 @@ class EventQueueBackend(StrEnum):
     MEMORY = "memory"
     REDIS = "redis"
     RABBITMQ = "rabbitmq"
+    KAFKA = "kafka"
 
 
 class Settings(BaseSettings):
@@ -84,6 +85,17 @@ class Settings(BaseSettings):
     # ── Queue ─────────────────────────────────────────────────────────────────
     event_queue_backend: EventQueueBackend = EventQueueBackend.MEMORY
     redis_url: RedisDsn | None = None
+
+    # ── Kafka ─────────────────────────────────────────────────────────────────
+    kafka_bootstrap_servers: str = "localhost:9092"
+    kafka_topic_market_events: str = "market-events"
+    kafka_topic_price_updates: str = "price-updates"
+    kafka_consumer_group: str = "finanalytics-ai"
+    kafka_auto_offset_reset: str = "latest"   # "latest" não reprocesa histórico
+
+    # ── TimescaleDB ───────────────────────────────────────────────────────────
+    timescale_url: str = "postgresql://finanalytics:secret@localhost:5433/finanalytics"
+    timescale_pool_size: Annotated[int, Field(ge=1, le=50)] = 5
 
     # ── BRAPI ────────────────────────────────────────────────────────────────
     brapi_token: str = ""

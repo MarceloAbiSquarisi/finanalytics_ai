@@ -139,23 +139,6 @@ header{position:relative;z-index:100;display:flex;align-items:center;justify-con
 
 /* SIDEBAR RIGHT */
 .sr{border-left:1px solid var(--border);display:flex;flex-direction:column;background:rgba(10,22,40,.45);overflow-y:auto}
-
-/* LIVE FEED */
-.feed-box{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;flex-direction:column}
-.feed-list{display:flex;flex-direction:column;gap:2px;max-height:140px;overflow-y:auto;margin-top:6px}
-.feed-item{display:flex;justify-content:space-between;align-items:center;
-  padding:4px 6px;border-radius:4px;font-size:9px;font-family:'DM Mono',monospace;
-  background:rgba(58,191,248,.05);border:1px solid transparent;
-  animation:feedin .3s ease}
-@keyframes feedin{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
-.feed-item.up{border-color:rgba(46,212,122,.15)}
-.feed-item.dn{border-color:rgba(224,85,85,.15)}
-.feed-tk{font-weight:700;color:var(--blue);min-width:42px}
-.feed-px{color:var(--white)}
-.feed-chg{min-width:50px;text-align:right}
-.feed-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
-.feed-dot.live{background:var(--green);box-shadow:0 0 5px var(--green);animation:pulse 1.5s infinite}
-.feed-dot.off{background:var(--muted)}
 .trade-box{padding:12px;border-bottom:1px solid var(--border)}
 .ttabs{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:9px}
 .ttab{flex:1;padding:6px;font-family:'Syne',sans-serif;font-weight:700;font-size:10px;
@@ -334,20 +317,6 @@ header{position:relative;z-index:100;display:flex;align-items:center;justify-con
 
   <!-- SIDEBAR RIGHT -->
   <div class="sr">
-
-    <!-- Live Feed (Kafka / Demo) -->
-    <div class="feed-box">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div class="lbl" style="margin-bottom:0">Feed ao Vivo</div>
-        <div style="display:flex;align-items:center;gap:5px">
-          <div class="feed-dot off" id="feed-dot"></div>
-          <span style="font-size:8px;color:var(--muted);font-family:'DM Mono',monospace" id="feed-st">desconectado</span>
-        </div>
-      </div>
-      <div class="feed-list" id="feed-list">
-        <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;padding:4px 0">Aguardando eventos…</div>
-      </div>
-    </div>
 
     <!-- Sinais dos indicadores -->
     <div class="signal-box" id="signal-box">
@@ -1001,85 +970,6 @@ function toast(msg,type='ok'){
   t.textContent=msg;t.className=`toast ${type} show`;
   setTimeout(()=>t.className='toast',3200);
 }
-// ── LIVE FEED (SSE) ───────────────────────────────────────────────────────────
-let sseSource = null;
-const FEED_MAX = 30;
-
-function startFeed() {
-  if (sseSource) { sseSource.close(); sseSource = null; }
-
-  const url = `${API}/api/v1/events/stream`;
-  sseSource = new EventSource(url);
-
-  sseSource.onopen = () => {
-    document.getElementById('feed-dot').className = 'feed-dot live';
-    document.getElementById('feed-st').textContent = 'conectado';
-  };
-
-  sseSource.onmessage = (e) => {
-    try {
-      const data = JSON.parse(e.data);
-      if (data.type === 'connected') return;
-      if (data.type === 'error')     return;
-      if (data.type === 'price_update' || data.type === 'trade_executed') {
-        appendFeedItem(data);
-        // Atualiza preço na watchlist se o ticker estiver lá
-        if (data.ticker && data.price) {
-          const wp = document.getElementById(`wp-${data.ticker}`);
-          if (wp) wp.textContent = `R$ ${f2(data.price)}`;
-          const wc = document.getElementById(`wc-${data.ticker}`);
-          if (wc && data.change_pct != null) {
-            const pct = parseFloat(data.change_pct).toFixed(2);
-            wc.textContent = `${parseFloat(pct)>=0?'+':''}${pct}%`;
-            wc.className = `wc ${parseFloat(pct)>=0?'up':'dn'}`;
-          }
-          // Atualiza ticker bar se for o ativo atual
-          if (currentTicker === data.ticker) {
-            document.getElementById('tk-px').textContent = `R$ ${f2(data.price)}`;
-            if (data.change_pct != null) {
-              const pct = parseFloat(data.change_pct).toFixed(2);
-              const el  = document.getElementById('tk-chg');
-              el.textContent = `${parseFloat(pct)>=0?'+':''}${pct}%`;
-              el.className   = `tb-chg ${parseFloat(pct)>=0?'up':'dn'}`;
-            }
-          }
-        }
-      }
-    } catch {}
-  };
-
-  sseSource.onerror = () => {
-    document.getElementById('feed-dot').className = 'feed-dot off';
-    document.getElementById('feed-st').textContent = 'reconectando…';
-    // EventSource reconecta automaticamente — não precisamos fazer nada
-  };
-}
-
-function appendFeedItem(data) {
-  const list = document.getElementById('feed-list');
-
-  // Remove placeholder
-  const ph = list.querySelector('[data-placeholder]');
-  if (ph) ph.remove();
-
-  const isUp = data.change_pct >= 0;
-  const item = document.createElement('div');
-  item.className = `feed-item ${isUp ? 'up' : 'dn'}`;
-  item.innerHTML = `
-    <span class="feed-tk">${data.ticker}</span>
-    <span class="feed-px">R$ ${data.price ? f2(data.price) : '—'}</span>
-    <span class="feed-chg ${isUp?'up':'dn'}">${data.change_pct!=null?(isUp?'+':'')+parseFloat(data.change_pct).toFixed(2)+'%':'—'}</span>`;
-  list.insertBefore(item, list.firstChild);
-
-  // Limita número de itens
-  while (list.children.length > FEED_MAX) {
-    list.removeChild(list.lastChild);
-  }
-}
-
-// Inicia o feed ao carregar a página
-startFeed();
-
 document.addEventListener('keydown',e=>{if(e.key==='Escape')hideModal();});
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===e.currentTarget)hideModal();});
 </script>
