@@ -8,10 +8,16 @@ Design decision:
   - tenacity para retry automático em erros transitórios (5xx, timeout)
   - Nunca retorna dict raw — mapeia para tipos do domínio
   - Headers e auth centralizados no __init__
+
+BRAPI OHLC endpoint:
+  GET /api/quote/{ticker}?range={range}&interval={interval}
+  range:    1d | 5d | 1mo | 3mo | 6mo | 1y | 2y | 5y | 10y | ytd | max
+  interval: 1m | 2m | 5m | 15m | 30m | 60m | 90m | 1h | 1d | 5d | 1wk | 1mo | 3mo
 """
 from __future__ import annotations
 
 import structlog
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -30,6 +36,19 @@ from finanalytics_ai.exceptions import MarketDataUnavailableError, TransientErro
 from finanalytics_ai.observability import market_data_requests_total
 
 logger = structlog.get_logger(__name__)
+
+# Mapeamento range → interval padrão para candlestick
+RANGE_INTERVAL_MAP: dict[str, str] = {
+    "1d":  "5m",
+    "5d":  "15m",
+    "1mo": "1d",
+    "3mo": "1d",
+    "6mo": "1wk",
+    "1y":  "1wk",
+    "2y":  "1mo",
+    "5y":  "1mo",
+    "max": "1mo",
+}
 
 
 class BrapiClient:
@@ -61,7 +80,7 @@ class BrapiClient:
 
     async def get_quote(self, ticker: Ticker) -> Money:
         """Retorna o preço atual do ativo."""
-        data = await self._request_with_retry(f"/quote/{ticker}")
+        data = await self._request_with_retry(f"/quote/{ticker}?fundamental=false")
         try:
             price = data["results"][0]["regularMarketPrice"]
             return Money.of(price)
@@ -72,13 +91,97 @@ class BrapiClient:
             ) from exc
 
     async def get_ohlc_bars(
-        self, ticker: Ticker, timeframe: str = "1d", limit: int = 100
-    ) -> list[OHLCBar]:
-        """Retorna barras OHLC históricas."""
-        params = f"range={timeframe}&interval={timeframe}&fundamental=false"
-        data = await self._request_with_retry(f"/quote/{ticker}?{params}")
-        # TODO: mapear historical data da BRAPI para OHLCBar
-        return []
+        self,
+        ticker: Ticker,
+        range_period: str = "3mo",
+        interval: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Retorna barras OHLC históricas da BRAPI.
+
+        Retorna lista de dicts prontos para o frontend:
+          {time, open, high, low, close, volume}
+
+        Design decision: retorna dict ao invés de OHLCBar para evitar
+        conversão desnecessária quando o destino é serialização JSON.
+        Para persistência usar OHLCBar do domínio.
+        """
+        resolved_interval = interval or RANGE_INTERVAL_MAP.get(range_period, "1d")
+        path = f"/quote/{ticker}?range={range_period}&interval={resolved_interval}&fundamental=false"
+
+        data = await self._request_with_retry(path)
+
+        try:
+            result = data["results"][0]
+            historical = result.get("historicalDataPrice", [])
+        except (KeyError, IndexError, TypeError) as exc:
+            logger.warning("ohlc.parse_error", ticker=str(ticker), error=str(exc))
+            return []
+
+        bars: list[dict[str, Any]] = []
+        for bar in historical:
+            # BRAPI retorna timestamp Unix em segundos
+            ts = bar.get("date")
+            o  = bar.get("open")
+            h  = bar.get("high")
+            l  = bar.get("low")
+            c  = bar.get("close")
+            v  = bar.get("volume", 0)
+
+            # Filtra barras incompletas
+            if not all([ts, o, h, l, c]):
+                continue
+
+            bars.append({
+                "time":   ts,          # Unix timestamp (segundos) — TradingView aceita diretamente
+                "open":   float(o),
+                "high":   float(h),
+                "low":    float(l),
+                "close":  float(c),
+                "volume": int(v or 0),
+            })
+
+        # Ordena por timestamp (BRAPI às vezes retorna desordenado)
+        bars.sort(key=lambda x: x["time"])
+
+        logger.info(
+            "ohlc.fetched",
+            ticker=str(ticker),
+            range=range_period,
+            interval=resolved_interval,
+            bars=len(bars),
+        )
+        return bars
+
+    async def get_quote_full(self, ticker: Ticker) -> dict[str, Any]:
+        """
+        Retorna dados completos do ativo: preço, variação, volume, 52w high/low.
+        Usado no painel de detalhes do ticker.
+        """
+        data = await self._request_with_retry(f"/quote/{ticker}?fundamental=false")
+        try:
+            r = data["results"][0]
+            return {
+                "ticker":               r.get("symbol", str(ticker)),
+                "name":                 r.get("longName") or r.get("shortName", ""),
+                "price":                r.get("regularMarketPrice"),
+                "change":               r.get("regularMarketChange"),
+                "change_pct":           r.get("regularMarketChangePercent"),
+                "volume":               r.get("regularMarketVolume"),
+                "market_cap":           r.get("marketCap"),
+                "high_52w":             r.get("fiftyTwoWeekHigh"),
+                "low_52w":              r.get("fiftyTwoWeekLow"),
+                "avg_volume":           r.get("averageDailyVolume3Month"),
+                "previous_close":       r.get("regularMarketPreviousClose"),
+                "market_time":          r.get("regularMarketTime"),
+                "currency":             r.get("currency", "BRL"),
+                "exchange":             r.get("exchange", ""),
+            }
+        except (KeyError, IndexError, TypeError) as exc:
+            raise MarketDataUnavailableError(
+                message=f"Resposta inesperada da BRAPI para {ticker}",
+                context={"ticker": str(ticker), "error": str(exc)},
+            ) from exc
 
     async def search_assets(self, query: str) -> list[dict[str, str]]:
         data = await self._request_with_retry(f"/quote/list?search={query}")
