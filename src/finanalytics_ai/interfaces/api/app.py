@@ -1,17 +1,16 @@
 """
-FastAPI application factory — Sprint 6: Alertas + Notificações SSE.
+FastAPI application factory — Sprint 7: BRAPI Price Producer.
 
-Lifespan:
-  1. PostgreSQL engine
-  2. TimescaleDB pool
-  3. NotificationBus (singleton em memória)
-  4. AlertService (singleton, injetado no Kafka handler)
-  5. Kafka consumer — avalia alertas a cada PRICE_UPDATE
+Lifespan startup order:
+  1. PostgreSQL
+  2. TimescaleDB
+  3. NotificationBus + AlertService
+  4. Kafka consumer (avalia alertas + persiste ticks)
+  5. BrapiPriceProducer (polling BRAPI → Kafka) — apenas se PRODUCER_ENABLED=true
 """
 from __future__ import annotations
 
 import asyncio
-from contextlib import asynccontextmanager
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Any
 
@@ -23,26 +22,26 @@ from fastapi.responses import JSONResponse
 from finanalytics_ai.config import EventQueueBackend, get_settings
 from finanalytics_ai.exceptions import FinAnalyticsError
 from finanalytics_ai.infrastructure.database.connection import close_engine, get_engine
-from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts
+from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer
 
 logger = structlog.get_logger(__name__)
 
 # ── Singletons globais ────────────────────────────────────────────────────────
-_kafka_consumer: Any = None
-_kafka_task: Any = None
-_alert_service: Any = None
+_kafka_consumer:   Any = None
+_kafka_task:       Any = None
+_alert_service:    Any = None
+_price_producer:   Any = None
+_producer_task:    Any = None
 
 
-def get_kafka_consumer() -> Any:
-    return _kafka_consumer
-
-def get_alert_service() -> Any:
-    return _alert_service
+def get_kafka_consumer()  -> Any: return _kafka_consumer
+def get_alert_service()   -> Any: return _alert_service
+def get_price_producer()  -> Any: return _price_producer
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    global _kafka_consumer, _kafka_task, _alert_service
+    global _kafka_consumer, _kafka_task, _alert_service, _price_producer, _producer_task
 
     settings = get_settings()
     logger.info("api.starting", env=settings.app_env)
@@ -63,12 +62,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # ── 3. NotificationBus + AlertService ─────────────────────────────────────
     from finanalytics_ai.infrastructure.notifications import get_notification_bus
-    from finanalytics_ai.infrastructure.database.connection import get_session as get_async_session
+    from finanalytics_ai.infrastructure.database.connection import get_session
     from finanalytics_ai.application.services.alert_service import AlertService
 
     bus = get_notification_bus()
     _alert_service = AlertService(
-        session_factory=get_async_session,
+        session_factory=get_session,
         notification_bus=bus,
     )
     logger.info("alert_service.ready")
@@ -86,9 +85,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 from finanalytics_ai.domain.entities.event import MarketEvent, EventType
                 if not isinstance(event, MarketEvent):
                     return
-                logger.info("kafka.event.received", type=event.event_type, ticker=event.ticker)
+                logger.debug("kafka.event.received", type=event.event_type, ticker=event.ticker)
 
-                # Avalia alertas para PRICE_UPDATE
                 if event.event_type == EventType.PRICE_UPDATE and _alert_service:
                     price = event.payload.get("price")
                     if price:
@@ -96,7 +94,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                         if triggered:
                             logger.info("alerts.triggered", ticker=event.ticker, count=triggered)
 
-                # Persiste tick no TimescaleDB
                 if event.event_type == EventType.PRICE_UPDATE and timescale_ok:
                     try:
                         from finanalytics_ai.infrastructure.timescale.repository import (
@@ -120,10 +117,59 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         except Exception as exc:
             logger.warning("kafka.unavailable", error=str(exc))
 
-    logger.info("api.ready", postgres=True, timescale=timescale_ok, kafka=kafka_ok)
+    # ── 5. BRAPI Price Producer ───────────────────────────────────────────────
+    producer_ok = False
+    if settings.producer_enabled and kafka_ok and settings.brapi_token:
+        try:
+            from finanalytics_ai.application.services.price_producer import BrapiPriceProducer
+            from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
+            from finanalytics_ai.infrastructure.queue.kafka_adapter import KafkaMarketEventProducer
+
+            tickers = [t.strip() for t in settings.producer_tickers.split(",") if t.strip()]
+            brapi  = BrapiClient()
+            kprod  = KafkaMarketEventProducer()
+
+            _price_producer = BrapiPriceProducer(
+                tickers        = tickers,
+                poll_interval  = settings.producer_poll_interval_seconds,
+                brapi_client   = brapi,
+                kafka_producer = kprod,
+            )
+            await _price_producer.start()
+            _producer_task = asyncio.create_task(_price_producer.run())
+            producer_ok = True
+            logger.info(
+                "price_producer.running",
+                tickers=tickers,
+                interval=settings.producer_poll_interval_seconds,
+            )
+        except Exception as exc:
+            logger.warning("price_producer.unavailable", error=str(exc))
+    elif settings.producer_enabled and not settings.brapi_token:
+        logger.warning(
+            "price_producer.disabled",
+            reason="BRAPI_TOKEN não configurado — adicione ao .env para ativar o producer automático",
+        )
+
+    logger.info(
+        "api.ready",
+        postgres=True,
+        timescale=timescale_ok,
+        kafka=kafka_ok,
+        producer=producer_ok,
+    )
     yield
 
     # ── Shutdown ──────────────────────────────────────────────────────────────
+    if _producer_task:
+        if _price_producer:
+            await _price_producer.stop()
+        _producer_task.cancel()
+        try:
+            await _producer_task
+        except asyncio.CancelledError:
+            pass
+
     if _kafka_task:
         _kafka_task.cancel()
         try:
@@ -182,12 +228,13 @@ def create_app() -> FastAPI:
     app.include_router(quotes.router,     prefix="/api/v1/quotes",     tags=["Cotações"])
     app.include_router(events.router,     prefix="/api/v1/events",     tags=["Eventos"])
     app.include_router(alerts.router,     prefix="/api/v1/alerts",     tags=["Alertas"])
+    app.include_router(producer.router,   prefix="/api/v1/producer",   tags=["Producer"])
 
     return app
 
 
-from fastapi.responses import HTMLResponse
 import pathlib
+from fastapi.responses import HTMLResponse
 
 def mount_static(app: FastAPI) -> None:
     static_dir = pathlib.Path(__file__).parent / "static"

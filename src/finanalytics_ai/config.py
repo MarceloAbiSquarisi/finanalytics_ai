@@ -127,6 +127,11 @@ class Settings(BaseSettings):
     http_retry_wait_seconds: float = 1.0
     http_timeout_seconds: float = 30.0
 
+    # ── Price Producer ────────────────────────────────────────────────────────
+    producer_tickers: str = "PETR4,VALE3,ITUB4,BBDC4,WEGE3,MGLU3,ABEV3,BBAS3"
+    producer_poll_interval_seconds: float = 30.0
+    producer_enabled: bool = True
+
     # ── Feature Flags ────────────────────────────────────────────────────────
     feature_backtesting: bool = True
     feature_neural_networks: bool = False

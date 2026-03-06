@@ -220,6 +220,21 @@ header{position:relative;z-index:100;display:flex;align-items:center;justify-con
 
 /* SIGNAL BOX */
 .signal-box{padding:10px 12px;border-bottom:1px solid var(--border)}
+/* PRODUCER PANEL */
+.prod-box{padding:10px 12px;border-bottom:1px solid var(--border)}
+.prod-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:6px;max-height:130px;overflow-y:auto}
+.prod-tick{padding:4px 6px;border-radius:4px;background:rgba(255,255,255,.03);
+  border:1px solid var(--border);font-size:9px;font-family:'DM Mono',monospace}
+.prod-tick.ok{border-color:rgba(46,212,122,.2)}
+.prod-tick.err{border-color:rgba(224,85,85,.2);opacity:.7}
+.prod-tick .pt{color:var(--blue);font-weight:700;font-size:9px}
+.prod-tick .pp{color:var(--white);font-size:10px;font-weight:600}
+.prod-tick .pc{font-size:8px}
+.prod-tick .pc.up{color:var(--green)}
+.prod-tick .pc.dn{color:var(--red)}
+.prod-status{display:flex;align-items:center;gap:5px;margin-top:4px;font-size:9px;color:var(--muted)}
+.prod-dot{width:6px;height:6px;border-radius:50%;background:var(--muted)}
+.prod-dot.on{background:var(--green);box-shadow:0 0 4px var(--green)}
 .sig-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
 .sig-label{font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
 .sig-badge{font-size:10px;font-family:'DM Mono',monospace;font-weight:700;
@@ -408,6 +423,23 @@ header{position:relative;z-index:100;display:flex;align-items:center;justify-con
 
     <!-- Toast container -->
     <div class="notif-toast-wrap" id="toast-wrap"></div>
+
+    <!-- Producer BRAPI → Kafka -->
+    <div class="prod-box">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="lbl">📡 Producer BRAPI</div>
+        <div class="prod-status">
+          <div class="prod-dot" id="prod-dot"></div>
+          <span id="prod-label">verificando...</span>
+        </div>
+      </div>
+      <div class="prod-grid" id="prod-grid">
+        <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;padding:3px 0;grid-column:1/-1">
+          Carregando...
+        </div>
+      </div>
+    </div>
+
     <div class="signal-box" id="signal-box">
       <div class="lbl" style="margin-bottom:8px">Sinais Técnicos</div>
       <div class="sig-row">
@@ -1059,6 +1091,56 @@ function toast(msg,type='ok'){
   t.textContent=msg;t.className=`toast ${type} show`;
   setTimeout(()=>t.className='toast',3200);
 }
+// ── PRODUCER STATUS ──────────────────────────────────────────────────────────
+async function refreshProducerStatus() {
+  try {
+    const r = await fetch(`${API}/api/v1/producer/status`);
+    const d = await r.json();
+    const dot   = document.getElementById('prod-dot');
+    const label = document.getElementById('prod-label');
+    const grid  = document.getElementById('prod-grid');
+
+    if (!d.running) {
+      dot.className   = 'prod-dot';
+      label.textContent = d.reason ? 'BRAPI_TOKEN ausente' : 'inativo';
+      grid.innerHTML  = `<div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;grid-column:1/-1">${d.reason || 'Producer desabilitado'}</div>`;
+      return;
+    }
+
+    dot.className   = 'prod-dot on';
+    label.textContent = `ciclo #${d.cycle_count} · ${d.healthy_count}/${d.ticker_count} ok`;
+
+    if (d.tickers && d.tickers.length) {
+      grid.innerHTML = d.tickers.map(t => {
+        const price  = t.last_price != null ? `R$ ${parseFloat(t.last_price).toFixed(2)}` : '—';
+        const chg    = t.change_pct != null ? parseFloat(t.change_pct).toFixed(2) : null;
+        const cls    = t.last_error ? 'err' : 'ok';
+        const chgHtml = chg != null
+          ? `<div class="pc ${parseFloat(chg)>=0?'up':'dn'}">${parseFloat(chg)>=0?'+':''}${chg}%</div>`
+          : '';
+        return `<div class="prod-tick ${cls}">
+          <div class="pt">${t.ticker}</div>
+          <div class="pp">${price}</div>
+          ${chgHtml}
+        </div>`;
+      }).join('');
+
+      // Atualiza preços no feed de cotações em tempo real
+      d.tickers.forEach(t => {
+        if (t.last_price && t.ticker === currentTicker) {
+          // Atualiza preço no cabeçalho se o ticker estiver aberto
+          const priceEl = document.getElementById('price');
+          if (priceEl && !priceEl.textContent.startsWith('R$')) return;
+        }
+      });
+    }
+  } catch {}
+}
+
+// Atualiza status do producer a cada 10s
+refreshProducerStatus();
+setInterval(refreshProducerStatus, 10000);
+
 // ── ALERTAS ──────────────────────────────────────────────────────────────────
 let alertsCache = [];
 let alertSse = null;
