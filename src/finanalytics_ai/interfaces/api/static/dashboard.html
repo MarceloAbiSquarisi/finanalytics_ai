@@ -156,6 +156,38 @@ header{position:relative;z-index:100;display:flex;align-items:center;justify-con
 .feed-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
 .feed-dot.live{background:var(--green);box-shadow:0 0 5px var(--green);animation:pulse 1.5s infinite}
 .feed-dot.off{background:var(--muted)}
+
+/* ALERTS PANEL */
+.alert-box{padding:10px 12px;border-bottom:1px solid var(--border)}
+.alert-form{display:flex;flex-direction:column;gap:5px;margin-top:7px}
+.alert-row{display:flex;gap:5px}
+.alert-input{flex:1;background:rgba(255,255,255,.05);border:1px solid var(--border);
+  border-radius:4px;padding:5px 8px;color:var(--white);font-size:10px;
+  font-family:'DM Mono',monospace;outline:none}
+.alert-input:focus{border-color:var(--blue)}
+.alert-select{flex:1;background:rgba(10,22,40,.9);border:1px solid var(--border);
+  border-radius:4px;padding:5px 8px;color:var(--white);font-size:10px;outline:none}
+.alert-btn{background:var(--blue);border:none;border-radius:4px;
+  padding:5px 10px;color:#000;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap}
+.alert-btn:hover{opacity:.85}
+.alert-list{display:flex;flex-direction:column;gap:3px;margin-top:7px;max-height:110px;overflow-y:auto}
+.alert-item{display:flex;justify-content:space-between;align-items:center;
+  padding:4px 6px;border-radius:4px;font-size:9px;font-family:'DM Mono',monospace;
+  background:rgba(58,191,248,.05);border:1px solid rgba(58,191,248,.12)}
+.alert-item.triggered{border-color:rgba(240,180,41,.5);background:rgba(240,180,41,.07);
+  animation:pulse .8s 3}
+.alert-item.cancelled{opacity:.35}
+.alert-del{cursor:pointer;color:var(--muted);font-size:11px;line-height:1;padding:0 2px}
+.alert-del:hover{color:var(--red)}
+.notif-toast-wrap{position:fixed;bottom:24px;right:24px;z-index:9999;
+  display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+.n-toast{background:rgba(8,18,36,.97);border:1px solid var(--border);
+  border-radius:8px;padding:10px 14px;font-size:11px;color:var(--white);max-width:300px;
+  box-shadow:0 6px 24px rgba(0,0,0,.6);animation:slidein .3s ease;cursor:pointer}
+.n-toast.stop{border-left:3px solid var(--red)}
+.n-toast.profit{border-left:3px solid var(--green)}
+.n-toast .n-msg{font-size:10px;margin-top:3px;color:var(--muted)}
+@keyframes slidein{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
 .trade-box{padding:12px;border-bottom:1px solid var(--border)}
 .ttabs{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:9px}
 .ttab{flex:1;padding:6px;font-family:'Syne',sans-serif;font-weight:700;font-size:10px;
@@ -349,7 +381,33 @@ header{position:relative;z-index:100;display:flex;align-items:center;justify-con
       </div>
     </div>
 
-    <!-- Sinais dos indicadores -->
+    <!-- Painel de Alertas -->
+    <div class="alert-box">
+      <div class="lbl" style="margin-bottom:0">🔔 Alertas de Preço</div>
+      <div class="alert-form">
+        <div class="alert-row">
+          <input class="alert-input" id="al-ticker" placeholder="Ticker (ex: PETR4)" maxlength="10">
+          <select class="alert-select" id="al-type">
+            <option value="stop_loss">Stop Loss ↓</option>
+            <option value="take_profit">Take Profit ↑</option>
+            <option value="price_target">Alvo de Preço</option>
+            <option value="pct_drop">Queda %</option>
+            <option value="pct_rise">Alta %</option>
+          </select>
+        </div>
+        <div class="alert-row">
+          <input class="alert-input" id="al-threshold" placeholder="Valor / %" type="number" step="0.01">
+          <input class="alert-input" id="al-ref" placeholder="Preço ref. (opcional)" type="number" step="0.01">
+          <button class="alert-btn" onclick="createAlert()">+ Add</button>
+        </div>
+      </div>
+      <div class="alert-list" id="alert-list">
+        <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;padding:3px 0">Sem alertas ativos</div>
+      </div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="notif-toast-wrap" id="toast-wrap"></div>
     <div class="signal-box" id="signal-box">
       <div class="lbl" style="margin-bottom:8px">Sinais Técnicos</div>
       <div class="sig-row">
@@ -1001,6 +1059,104 @@ function toast(msg,type='ok'){
   t.textContent=msg;t.className=`toast ${type} show`;
   setTimeout(()=>t.className='toast',3200);
 }
+// ── ALERTAS ──────────────────────────────────────────────────────────────────
+let alertsCache = [];
+let alertSse = null;
+
+async function loadAlerts() {
+  try {
+    const r = await fetch(`${API}/api/v1/alerts/?user_id=user-demo`);
+    alertsCache = await r.json();
+    renderAlertList();
+  } catch {}
+}
+
+function renderAlertList() {
+  const list = document.getElementById('alert-list');
+  if (!alertsCache.length) {
+    list.innerHTML = '<div style="font-size:9px;color:var(--muted);font-family:\'DM Mono\',monospace;padding:3px 0">Sem alertas ativos</div>';
+    return;
+  }
+  list.innerHTML = alertsCache.map(a => {
+    const typeLabel = {stop_loss:'SL',take_profit:'TP',price_target:'TG',pct_drop:'↓%',pct_rise:'↑%'}[a.alert_type] || a.alert_type;
+    const cls = a.status === 'triggered' ? 'triggered' : a.status === 'cancelled' ? 'cancelled' : '';
+    const statusIcon = a.status === 'triggered' ? '✅' : a.status === 'cancelled' ? '✗' : '●';
+    return `<div class="alert-item ${cls}">
+      <span style="color:var(--blue);font-weight:700">${a.ticker}</span>
+      <span style="color:var(--muted)">${typeLabel}</span>
+      <span>R$ ${parseFloat(a.threshold).toFixed(2)}</span>
+      <span style="color:${a.status==='triggered'?'var(--gold)':a.status==='active'?'var(--green)':'var(--muted)'}">${statusIcon}</span>
+      ${a.status==='active'?`<span class="alert-del" onclick="deleteAlert('${a.alert_id}')">✕</span>`:'<span style="width:14px"></span>'}
+    </div>`;
+  }).join('');
+}
+
+async function createAlert() {
+  const ticker    = document.getElementById('al-ticker').value.trim().toUpperCase();
+  const alertType = document.getElementById('al-type').value;
+  const threshold = parseFloat(document.getElementById('al-threshold').value);
+  const refPrice  = parseFloat(document.getElementById('al-ref').value) || 0;
+
+  if (!ticker || !threshold) return;
+
+  try {
+    const r = await fetch(`${API}/api/v1/alerts/`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ticker, alert_type: alertType, threshold, reference_price: refPrice, user_id:'user-demo'})
+    });
+    if (r.ok) {
+      document.getElementById('al-ticker').value = '';
+      document.getElementById('al-threshold').value = '';
+      document.getElementById('al-ref').value = '';
+      await loadAlerts();
+    }
+  } catch {}
+}
+
+async function deleteAlert(alertId) {
+  try {
+    await fetch(`${API}/api/v1/alerts/${alertId}?user_id=user-demo`, {method:'DELETE'});
+    await loadAlerts();
+  } catch {}
+}
+
+function startAlertStream() {
+  if (alertSse) { alertSse.close(); alertSse = null; }
+  alertSse = new EventSource(`${API}/api/v1/alerts/stream`);
+  alertSse.onmessage = (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      if (d.type === 'connected') return;
+      showAlertToast(d);
+      // Atualiza lista de alertas
+      loadAlerts();
+    } catch {}
+  };
+}
+
+function showAlertToast(data) {
+  const wrap = document.getElementById('toast-wrap');
+  const isStop = data.alert_type === 'stop_loss' || data.alert_type === 'pct_drop';
+  const cls = isStop ? 'stop' : 'profit';
+
+  const toast = document.createElement('div');
+  toast.className = `n-toast ${cls}`;
+  toast.innerHTML = `
+    <div style="font-weight:700;font-size:11px">${data.ticker} — ${data.alert_type.replace('_',' ').toUpperCase()}</div>
+    <div class="n-msg">${data.message}</div>
+    <div style="font-size:8px;color:var(--muted);margin-top:4px">R$ ${parseFloat(data.current_price).toFixed(2)} → alvo R$ ${parseFloat(data.threshold).toFixed(2)}</div>`;
+  toast.onclick = () => toast.remove();
+  wrap.appendChild(toast);
+
+  // Auto-remove após 8s
+  setTimeout(() => { try { toast.remove(); } catch {} }, 8000);
+}
+
+// Carrega alertas e inicia stream
+loadAlerts();
+startAlertStream();
+
 // ── LIVE FEED (SSE) ───────────────────────────────────────────────────────────
 let sseSource = null;
 const FEED_MAX = 30;
