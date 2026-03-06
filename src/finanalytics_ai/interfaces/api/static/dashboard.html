@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>FinAnalytics AI</title>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap');
 
@@ -480,6 +481,51 @@ header{position:relative;z-index:100;display:flex;align-items:center;justify-con
       <div class="lbl" style="margin-bottom:8px">Posições</div>
       <div id="pos-list"><div style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace">Selecione uma carteira</div></div>
     </div>
+
+<!-- Painel Backtesting -->
+<div id="bt-panel" style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:10px;">
+  <div class="lbl" style="margin-bottom:8px">📈 Backtesting</div>
+
+  <!-- Formulário -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+    <input id="bt-ticker" class="alert-input" placeholder="Ticker (ex: PETR4)" maxlength="10"
+           oninput="this.value=this.value.toUpperCase()" style="grid-column:1/-1">
+    <select id="bt-strategy" class="alert-select">
+      <option value="combined">RSI + MACD (combinado)</option>
+      <option value="rsi">RSI Reversal</option>
+      <option value="macd">MACD Crossover</option>
+    </select>
+    <select id="bt-range" class="alert-select">
+      <option value="3mo">3 meses</option>
+      <option value="6mo">6 meses</option>
+      <option value="1y">1 ano</option>
+      <option value="2y">2 anos</option>
+    </select>
+    <input id="bt-capital" class="alert-input" type="number" placeholder="Capital R$" value="10000" min="100">
+    <input id="bt-pos" class="alert-input" type="number" placeholder="Pos. size (0-1)" value="1" step="0.1" min="0.1" max="1">
+  </div>
+  <button class="alert-btn" style="width:100%;padding:7px" onclick="runBacktest()">▶ Executar Backtest</button>
+
+  <!-- Resultado: métricas -->
+  <div id="bt-metrics" style="display:none;margin-top:10px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px" id="bt-metrics-grid"></div>
+    <!-- Equity curve placeholder -->
+    <div style="margin-top:8px;background:var(--bg);border-radius:6px;padding:6px">
+      <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:4px">EQUITY CURVE</div>
+      <canvas id="bt-equity-chart" height="100"></canvas>
+    </div>
+    <!-- Trades -->
+    <div style="margin-top:8px">
+      <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:4px">TRADES</div>
+      <div id="bt-trades-list" style="max-height:120px;overflow-y:auto"></div>
+    </div>
+  </div>
+  <div id="bt-loading" style="display:none;text-align:center;padding:10px;font-size:10px;color:var(--muted);font-family:'DM Mono',monospace">
+    ⏳ Executando backtest...
+  </div>
+  <div id="bt-error" style="display:none;color:#ef4444;font-size:9px;font-family:'DM Mono',monospace;margin-top:6px;padding:4px;background:#1a0000;border-radius:4px"></div>
+</div>
+
   </div>
 </div>
 
@@ -507,7 +553,7 @@ let currentTicker = null;
 let currentRange  = '1mo';
 let tradeMode     = 'buy';
 let indVisible    = {bb: true, rsi: true, macd: true};
-let indCache      = null;   // último resultado de /indicators — reutilizado no toggle
+let indCache      = null;   // último resultado de /indicators -- reutilizado no toggle
 
 // Charts
 let priceChart = null, priceSeries = null, volSeries = null;
@@ -537,8 +583,8 @@ async function checkHealth() {
 function buildWL() {
   document.getElementById('wl').innerHTML = WATCH.map(t => `
     <div class="wi" id="wi-${t}" onclick="selectTicker('${t}')">
-      <div><div class="wt">${t}</div><div class="wp" id="wp-${t}">—</div></div>
-      <div class="wc" id="wc-${t}">—</div>
+      <div><div class="wt">${t}</div><div class="wp" id="wp-${t}">--</div></div>
+      <div class="wc" id="wc-${t}">--</div>
     </div>`).join('');
 }
 
@@ -586,9 +632,9 @@ async function loadDetail(ticker) {
     }
     document.getElementById('i-vol').textContent  = fmtV(d.volume);
     document.getElementById('i-vavg').textContent = `avg ${fmtV(d.avg_volume)}`;
-    document.getElementById('i-52').textContent   = d.high_52w&&d.low_52w?`${f2(d.high_52w)}/${f2(d.low_52w)}`:'—';
+    document.getElementById('i-52').textContent   = d.high_52w&&d.low_52w?`${f2(d.high_52w)}/${f2(d.low_52w)}`:'--';
     document.getElementById('i-mcap').textContent = fmtB(d.market_cap);
-    document.getElementById('i-prev').textContent = d.previous_close?`R$ ${f2(d.previous_close)}`:'—';
+    document.getElementById('i-prev').textContent = d.previous_close?`R$ ${f2(d.previous_close)}`:'--';
   } catch {
     document.getElementById('tk-sym').textContent = ticker;
     document.getElementById('tk-nm').textContent  = 'Sem dados';
@@ -626,7 +672,7 @@ async function loadChartAndIndicators(ticker, range) {
     renderRSI(indData.rsi, indData.timestamps);
     renderMACD(indData.macd, indData.timestamps);
     updateSignals(indData);
-    toast('BRAPI indisponível — modo demo', 'err');
+    toast('BRAPI indisponível -- modo demo', 'err');
   } finally {
     setLoading(false);
   }
@@ -743,7 +789,7 @@ function renderRSI(rsi, timestamps) {
   rsiOB.setData(obData);
   rsiOS.setData(osData);
 
-  // RSI line — colorida dinamicamente
+  // RSI line -- colorida dinamicamente
   rsiSeries = rsiChart.addLineSeries({
     color:'var(--gold)', lineWidth:1.5,
     priceLineVisible:false, lastValueVisible:true,
@@ -882,13 +928,13 @@ function toggleInd(ind) {
   indVisible[ind] = !indVisible[ind];
   document.getElementById(`tgl-${ind}`).classList.toggle('on', indVisible[ind]);
 
-  if (!indCache) return;   // sem dados carregados ainda — nada a fazer
+  if (!indCache) return;   // sem dados carregados ainda -- nada a fazer
 
   if (ind === 'rsi') {
     const pane = document.getElementById('pane-rsi');
     pane.classList.toggle('hidden', !indVisible.rsi);
     if (indVisible.rsi) {
-      // Re-renderiza do cache — sem chamada de rede
+      // Re-renderiza do cache -- sem chamada de rede
       renderRSI(indCache.rsi, indCache.timestamps);
     } else if (rsiChart) {
       rsiChart.remove(); rsiChart = null;
@@ -906,7 +952,7 @@ function toggleInd(ind) {
   }
 
   if (ind === 'bb') {
-    // Bollinger está sobreposto ao gráfico de preço — precisa re-renderizar
+    // Bollinger está sobreposto ao gráfico de preço -- precisa re-renderizar
     // mas apenas o gráfico de preço, sem nova chamada à API
     if (indCache._bars) renderPriceChart(indCache._bars, indCache.bollinger);
   }
@@ -1084,8 +1130,8 @@ async function post(url,body){
   return r.json();
 }
 function f2(v){return Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
-function fmtV(v){if(!v)return '—';if(v>=1e9)return(v/1e9).toFixed(1)+'B';if(v>=1e6)return(v/1e6).toFixed(1)+'M';if(v>=1e3)return(v/1e3).toFixed(0)+'K';return String(v);}
-function fmtB(v){if(!v)return '—';if(v>=1e12)return'R$ '+(v/1e12).toFixed(1)+'T';if(v>=1e9)return'R$ '+(v/1e9).toFixed(1)+'B';if(v>=1e6)return'R$ '+(v/1e6).toFixed(1)+'M';return'R$ '+f2(v);}
+function fmtV(v){if(!v)return '--';if(v>=1e9)return(v/1e9).toFixed(1)+'B';if(v>=1e6)return(v/1e6).toFixed(1)+'M';if(v>=1e3)return(v/1e3).toFixed(0)+'K';return String(v);}
+function fmtB(v){if(!v)return '--';if(v>=1e12)return'R$ '+(v/1e12).toFixed(1)+'T';if(v>=1e9)return'R$ '+(v/1e9).toFixed(1)+'B';if(v>=1e6)return'R$ '+(v/1e6).toFixed(1)+'M';return'R$ '+f2(v);}
 function toast(msg,type='ok'){
   const t=document.getElementById('toast');
   t.textContent=msg;t.className=`toast ${type} show`;
@@ -1112,7 +1158,7 @@ async function refreshProducerStatus() {
 
     if (d.tickers && d.tickers.length) {
       grid.innerHTML = d.tickers.map(t => {
-        const price  = t.last_price != null ? `R$ ${parseFloat(t.last_price).toFixed(2)}` : '—';
+        const price  = t.last_price != null ? `R$ ${parseFloat(t.last_price).toFixed(2)}` : '--';
         const chg    = t.change_pct != null ? parseFloat(t.change_pct).toFixed(2) : null;
         const cls    = t.last_error ? 'err' : 'ok';
         const chgHtml = chg != null
@@ -1225,7 +1271,7 @@ function showAlertToast(data) {
   const toast = document.createElement('div');
   toast.className = `n-toast ${cls}`;
   toast.innerHTML = `
-    <div style="font-weight:700;font-size:11px">${data.ticker} — ${data.alert_type.replace('_',' ').toUpperCase()}</div>
+    <div style="font-weight:700;font-size:11px">${data.ticker} -- ${data.alert_type.replace('_',' ').toUpperCase()}</div>
     <div class="n-msg">${data.message}</div>
     <div style="font-size:8px;color:var(--muted);margin-top:4px">R$ ${parseFloat(data.current_price).toFixed(2)} → alvo R$ ${parseFloat(data.threshold).toFixed(2)}</div>`;
   toast.onclick = () => toast.remove();
@@ -1289,7 +1335,7 @@ function startFeed() {
   sseSource.onerror = () => {
     document.getElementById('feed-dot').className = 'feed-dot off';
     document.getElementById('feed-st').textContent = 'reconectando…';
-    // EventSource reconecta automaticamente — não precisamos fazer nada
+    // EventSource reconecta automaticamente -- não precisamos fazer nada
   };
 }
 
@@ -1305,14 +1351,133 @@ function appendFeedItem(data) {
   item.className = `feed-item ${isUp ? 'up' : 'dn'}`;
   item.innerHTML = `
     <span class="feed-tk">${data.ticker}</span>
-    <span class="feed-px">R$ ${data.price ? f2(data.price) : '—'}</span>
-    <span class="feed-chg ${isUp?'up':'dn'}">${data.change_pct!=null?(isUp?'+':'')+parseFloat(data.change_pct).toFixed(2)+'%':'—'}</span>`;
+    <span class="feed-px">R$ ${data.price ? f2(data.price) : '--'}</span>
+    <span class="feed-chg ${isUp?'up':'dn'}">${data.change_pct!=null?(isUp?'+':'')+parseFloat(data.change_pct).toFixed(2)+'%':'--'}</span>`;
   list.insertBefore(item, list.firstChild);
 
   // Limita número de itens
   while (list.children.length > FEED_MAX) {
     list.removeChild(list.lastChild);
   }
+}
+
+// ---- BACKTESTING ----
+let btChart = null;
+
+async function runBacktest() {
+  const ticker   = document.getElementById('bt-ticker').value.trim().toUpperCase();
+  const strategy = document.getElementById('bt-strategy').value;
+  const range    = document.getElementById('bt-range').value;
+  const capital  = parseFloat(document.getElementById('bt-capital').value) || 10000;
+  const posSize  = parseFloat(document.getElementById('bt-pos').value) || 1.0;
+
+  if (!ticker) { showToast('Informe o ticker', 'error'); return; }
+
+  document.getElementById('bt-metrics').style.display = 'none';
+  document.getElementById('bt-error').style.display   = 'none';
+  document.getElementById('bt-loading').style.display = 'block';
+
+  try {
+    const url = `/api/v1/backtest/run?ticker=${ticker}&strategy=${strategy}&range_period=${range}&initial_capital=${capital}&position_size=${posSize}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.detail || 'Erro desconhecido');
+    }
+
+    renderBacktestResult(data);
+  } catch(e) {
+    document.getElementById('bt-error').textContent = '⚠ ' + e.message;
+    document.getElementById('bt-error').style.display = 'block';
+  } finally {
+    document.getElementById('bt-loading').style.display = 'none';
+  }
+}
+
+function renderBacktestResult(d) {
+  const m = d.metrics;
+  const isPositive = m.total_return_pct >= 0;
+
+  // Métricas
+  const grid = document.getElementById('bt-metrics-grid');
+  const metrics = [
+    ['Retorno Total',  (isPositive?'+':'')+m.total_return_pct.toFixed(2)+'%', isPositive ? '#22c55e' : '#ef4444'],
+    ['Sharpe Ratio',   m.sharpe_ratio.toFixed(3), m.sharpe_ratio > 1 ? '#22c55e' : m.sharpe_ratio > 0 ? '#f59e0b' : '#ef4444'],
+    ['Max Drawdown',   '-'+m.max_drawdown_pct.toFixed(2)+'%', '#ef4444'],
+    ['Win Rate',       m.win_rate_pct.toFixed(1)+'%', m.win_rate_pct >= 50 ? '#22c55e' : '#f59e0b'],
+    ['Profit Factor',  m.profit_factor.toFixed(2), m.profit_factor >= 1.5 ? '#22c55e' : m.profit_factor >= 1 ? '#f59e0b' : '#ef4444'],
+    ['Trades',         m.total_trades, '#94a3b8'],
+    ['Capital Inicial','R$ '+f2(m.initial_capital), '#94a3b8'],
+    ['Capital Final',  'R$ '+f2(m.final_equity), isPositive ? '#22c55e' : '#ef4444'],
+  ];
+
+  grid.innerHTML = metrics.map(([label, value, color]) => `
+    <div style="background:var(--bg);border-radius:5px;padding:5px 7px">
+      <div style="font-size:8px;color:var(--muted);font-family:'DM Mono',monospace">${label}</div>
+      <div style="font-size:12px;font-weight:700;color:${color};font-family:'DM Mono',monospace">${value}</div>
+    </div>`
+  ).join('');
+
+  // Equity Curve
+  const labels  = d.equity_curve.map(e => {
+    const dt = new Date(e.time * 1000);
+    return dt.toLocaleDateString('pt-BR', {month:'2-digit', day:'2-digit'});
+  });
+  const equities = d.equity_curve.map(e => e.equity);
+
+  if (btChart) btChart.destroy();
+  const ctx = document.getElementById('bt-equity-chart').getContext('2d');
+  btChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: equities,
+        borderColor: isPositive ? '#22c55e' : '#ef4444',
+        borderWidth: 1.5,
+        fill: true,
+        backgroundColor: isPositive ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
+        pointRadius: 0,
+        tension: 0.3,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { display: false },
+        y: {
+          ticks: { color: '#64748b', font: { size: 9 }, callback: v => 'R$'+f2(v) },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        }
+      }
+    }
+  });
+
+  // Trades
+  const tl = document.getElementById('bt-trades-list');
+  if (!d.trades.length) {
+    tl.innerHTML = '<div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace">Nenhum trade executado</div>';
+  } else {
+    tl.innerHTML = d.trades.map((t, i) => `
+      <div style="display:grid;grid-template-columns:1fr auto auto;gap:4px;align-items:center;padding:3px 0;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace">
+        <div>
+          <span style="font-size:8px;color:var(--muted)">#${i+1} ${t.entry_date.slice(0,10)}</span>
+          <span style="font-size:8px;color:var(--muted)"> → ${t.exit_date.slice(0,10)}</span>
+        </div>
+        <span style="font-size:10px;color:${t.is_winner?'#22c55e':'#ef4444'};font-weight:600">
+          ${t.is_winner?'+':''}${t.pnl_pct.toFixed(2)}%
+        </span>
+        <span style="font-size:9px;color:${t.is_winner?'#22c55e':'#ef4444'}">
+          ${t.is_winner?'+':''}R$${f2(Math.abs(t.pnl))}
+        </span>
+      </div>`
+    ).join('');
+  }
+
+  document.getElementById('bt-metrics').style.display = 'block';
+  showToast(`Backtest ${d.ticker} (${d.strategy}): ${isPositive?'+':''}${m.total_return_pct.toFixed(2)}%`);
 }
 
 // Inicia o feed ao carregar a página

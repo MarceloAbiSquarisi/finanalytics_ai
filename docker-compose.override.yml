@@ -1,0 +1,31 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# docker-compose.override.yml — Overrides para DESENVOLVIMENTO local
+#
+# Aplicado automaticamente quando você roda `docker compose up`.
+# NÃO usar em staging/produção.
+#
+# Diferenças do modo dev:
+#   - Volume mount do código fonte (hot reload sem rebuild)
+#   - --reload no uvicorn
+#   - APP_LOG_FORMAT=console (legível no terminal)
+#   - APP_LOG_LEVEL=DEBUG
+# ──────────────────────────────────────────────────────────────────────────────
+services:
+  api:
+    build:
+      target: builder     # usa o stage builder (tem uv + código montado)
+    volumes:
+      - ./src:/app/src:ro  # hot reload: mudanças no src refletem sem rebuild
+    command:
+      - uvicorn
+      - finanalytics_ai.interfaces.api.run:app
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
+      - --reload              # recarrega ao detectar mudança em /app/src
+      - --reload-dir
+      - /app/src
+    environment:
+      APP_LOG_FORMAT: console  # logs coloridos no terminal
+      APP_LOG_LEVEL:  DEBUG

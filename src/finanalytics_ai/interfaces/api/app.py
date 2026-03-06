@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse
 from finanalytics_ai.config import EventQueueBackend, get_settings
 from finanalytics_ai.exceptions import FinAnalyticsError
 from finanalytics_ai.infrastructure.database.connection import close_engine, get_engine
-from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer
+from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer, backtest
 
 logger = structlog.get_logger(__name__)
 
@@ -117,7 +117,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         except Exception as exc:
             logger.warning("kafka.unavailable", error=str(exc))
 
-    # ── 5. BRAPI Price Producer ───────────────────────────────────────────────
+    # ── 5. BacktestService ───────────────────────────────────────────────────
+    if settings.brapi_token:
+        from finanalytics_ai.application.services.backtest_service import BacktestService
+        from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient as _BrapiCli
+        app.state.backtest_service = BacktestService(_BrapiCli())
+        logger.info("backtest_service.ready")
+    else:
+        app.state.backtest_service = None
+        logger.warning("backtest_service.disabled", reason="BRAPI_TOKEN ausente")
+
+    # ── 6. BRAPI Price Producer ───────────────────────────────────────────────
     producer_ok = False
     if settings.producer_enabled and kafka_ok and settings.brapi_token:
         try:
@@ -229,6 +239,7 @@ def create_app() -> FastAPI:
     app.include_router(events.router,     prefix="/api/v1/events",     tags=["Eventos"])
     app.include_router(alerts.router,     prefix="/api/v1/alerts",     tags=["Alertas"])
     app.include_router(producer.router,   prefix="/api/v1/producer",   tags=["Producer"])
+    app.include_router(backtest.router,   tags=["Backtest"])
 
     return app
 

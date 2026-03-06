@@ -1,0 +1,24 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: final
+    image: finanalytics-ai:latest
+    container_name: finanalytics_api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL:            postgresql+asyncpg://finanalytics:secret@finanalytics_postgres:5432/finanalytics
+      TIMESCALE_URL:           postgresql://finanalytics:secret@finanalytics_timescaledb:5432/market_data
+      KAFKA_BOOTSTRAP_SERVERS: finanalytics_kafka:9092
+      EVENT_QUEUE_BACKEND:     kafka
+    ports:
+      - "8000:8000"
+    networks:
+      - platform_net
+
+networks:
+  platform_net:
+    external: true
+    name: finanalytics-platform_default
