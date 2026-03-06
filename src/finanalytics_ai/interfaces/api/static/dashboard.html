@@ -289,6 +289,11 @@ header{position:relative;z-index:100;display:flex;align-items:center;justify-con
   </div>
   <div class="hdr-r">
     <div class="pill"><div class="dot" id="api-dot"></div><span id="api-st">conectando…</span></div>
+    <a href="/backtest" style="padding:4px 12px;border-radius:6px;font-size:10px;font-weight:700;
+      color:#3ABFF8;text-decoration:none;border:1px solid rgba(58,191,248,.2);
+      font-family:'DM Mono',monospace;transition:all .15s"
+      onmouseover="this.style.background='rgba(58,191,248,.08)'"
+      onmouseout="this.style.background='transparent'">Backtest</a>
     <select class="sel" id="pf-sel" onchange="selectPf(this.value)"><option value="">Carteira…</option></select>
     <button class="btn" onclick="showModal()">+ Carteira</button>
   </div>
@@ -553,7 +558,7 @@ let currentTicker = null;
 let currentRange  = '1mo';
 let tradeMode     = 'buy';
 let indVisible    = {bb: true, rsi: true, macd: true};
-let indCache      = null;   // último resultado de /indicators -- reutilizado no toggle
+let indCache      = null;   // ultimo resultado de /indicators -- reutilizado no toggle
 
 // Charts
 let priceChart = null, priceSeries = null, volSeries = null;
@@ -561,7 +566,7 @@ let bbUpper = null, bbMiddle = null, bbLower = null;
 let rsiChart  = null, rsiSeries = null, rsiOB = null, rsiOS = null;
 let macdChart = null, macdLine  = null, sigLine = null, histSeries = null;
 
-// ── BOOT ──────────────────────────────────────────────────────────────────────
+// -- BOOT ----------------------------------------------------------------------
 (async () => {
   await checkHealth();
   buildWL();
@@ -572,14 +577,14 @@ let macdChart = null, macdLine  = null, sigLine = null, histSeries = null;
 async function checkHealth() {
   try {
     const h = await api('/health');
-    document.getElementById('api-st').textContent = `v${h.version} · ${h.env}`;
+    document.getElementById('api-st').textContent = `v${h.version} . ${h.env}`;
   } catch {
     document.getElementById('api-st').textContent = 'offline';
     document.getElementById('api-dot').style.cssText = 'background:var(--red);box-shadow:0 0 6px var(--red)';
   }
 }
 
-// ── WATCHLIST ─────────────────────────────────────────────────────────────────
+// -- WATCHLIST -----------------------------------------------------------------
 function buildWL() {
   document.getElementById('wl').innerHTML = WATCH.map(t => `
     <div class="wi" id="wi-${t}" onclick="selectTicker('${t}')">
@@ -603,7 +608,7 @@ async function refreshWLPrices() {
   }));
 }
 
-// ── TICKER ────────────────────────────────────────────────────────────────────
+// -- TICKER --------------------------------------------------------------------
 async function selectTicker(ticker) {
   currentTicker = ticker;
   document.querySelectorAll('.wi').forEach(e => e.classList.remove('active'));
@@ -641,7 +646,7 @@ async function loadDetail(ticker) {
   }
 }
 
-// ── CHART + INDICATORS ───────────────────────────────────────────────────────
+// -- CHART + INDICATORS -------------------------------------------------------
 async function changeRange(range) {
   currentRange = range;
   document.querySelectorAll('.rb').forEach(b => b.classList.toggle('active', b.textContent === RLBL[range]));
@@ -672,13 +677,13 @@ async function loadChartAndIndicators(ticker, range) {
     renderRSI(indData.rsi, indData.timestamps);
     renderMACD(indData.macd, indData.timestamps);
     updateSignals(indData);
-    toast('BRAPI indisponível -- modo demo', 'err');
+    toast('BRAPI indisponivel -- modo demo', 'err');
   } finally {
     setLoading(false);
   }
 }
 
-// ── PRICE + BOLLINGER CHART ───────────────────────────────────────────────────
+// -- PRICE + BOLLINGER CHART ---------------------------------------------------
 function renderPriceChart(bars, bb) {
   const container = document.getElementById('chart-price');
   if (priceChart) { priceChart.remove(); priceChart=null; priceSeries=null; volSeries=null; bbUpper=null; bbMiddle=null; bbLower=null; }
@@ -755,7 +760,7 @@ function renderPriceChart(bars, bb) {
   }).observe(container);
 }
 
-// ── RSI CHART ─────────────────────────────────────────────────────────────────
+// -- RSI CHART -----------------------------------------------------------------
 function renderRSI(rsi, timestamps) {
   const container = document.getElementById('pane-rsi');
   if (rsiChart) { rsiChart.remove(); rsiChart=null; rsiSeries=null; }
@@ -819,7 +824,7 @@ function renderRSI(rsi, timestamps) {
   }).observe(container);
 }
 
-// ── MACD CHART ────────────────────────────────────────────────────────────────
+// -- MACD CHART ----------------------------------------------------------------
 function renderMACD(macd, timestamps) {
   const container = document.getElementById('pane-macd');
   if (macdChart) { macdChart.remove(); macdChart=null; macdLine=null; sigLine=null; histSeries=null; }
@@ -885,7 +890,7 @@ function renderMACD(macd, timestamps) {
   }).observe(container);
 }
 
-// ── SIGNALS ───────────────────────────────────────────────────────────────────
+// -- SIGNALS -------------------------------------------------------------------
 function updateSignals(data) {
   // RSI Signal
   const rsiVals = data.rsi.values.filter(v => v != null);
@@ -904,8 +909,8 @@ function updateSignals(data) {
   if (mVals.length >= 2 && sVals.length >= 2) {
     const mPrev=mVals[mVals.length-2], mCurr=mVals[mVals.length-1];
     const sPrev=sVals[sVals.length-2], sCurr=sVals[sVals.length-1];
-    if (mPrev < sPrev && mCurr > sCurr) { macdEl.textContent='CRUZAMENTO ↑'; macdEl.className='sig-badge buy'; }
-    else if (mPrev > sPrev && mCurr < sCurr) { macdEl.textContent='CRUZAMENTO ↓'; macdEl.className='sig-badge sell'; }
+    if (mPrev < sPrev && mCurr > sCurr) { macdEl.textContent='CRUZAMENTO ^'; macdEl.className='sig-badge buy'; }
+    else if (mPrev > sPrev && mCurr < sCurr) { macdEl.textContent='CRUZAMENTO v'; macdEl.className='sig-badge sell'; }
     else if (mCurr > sCurr) { macdEl.textContent='ACIMA SINAL'; macdEl.className='sig-badge buy'; }
     else { macdEl.textContent='ABAIXO SINAL'; macdEl.className='sig-badge sell'; }
   }
@@ -923,7 +928,7 @@ function updateSignals(data) {
   }
 }
 
-// ── TOGGLE INDICATORS ─────────────────────────────────────────────────────────
+// -- TOGGLE INDICATORS ---------------------------------------------------------
 function toggleInd(ind) {
   indVisible[ind] = !indVisible[ind];
   document.getElementById(`tgl-${ind}`).classList.toggle('on', indVisible[ind]);
@@ -952,13 +957,13 @@ function toggleInd(ind) {
   }
 
   if (ind === 'bb') {
-    // Bollinger está sobreposto ao gráfico de preço -- precisa re-renderizar
-    // mas apenas o gráfico de preço, sem nova chamada à API
+    // Bollinger esta sobreposto ao grafico de preco -- precisa re-renderizar
+    // mas apenas o grafico de preco, sem nova chamada a API
     if (indCache._bars) renderPriceChart(indCache._bars, indCache.bollinger);
   }
 }
 
-// ── MOCK DATA (fallback sem BRAPI) ────────────────────────────────────────────
+// -- MOCK DATA (fallback sem BRAPI) --------------------------------------------
 function mockBars(range) {
   const counts={'1d':78,'5d':100,'1mo':22,'3mo':65,'6mo':130,'1y':252,'2y':504,'max':600};
   const n=counts[range]||65; const step=range==='1d'?300:range==='5d'?900:86400;
@@ -972,7 +977,7 @@ function mockBars(range) {
   });
 }
 
-// Indicadores computados no frontend como fallback (replicamos a lógica Python)
+// Indicadores computados no frontend como fallback (replicamos a logica Python)
 function computeMockIndicators(bars) {
   const closes = bars.map(b => b.close);
   const ts     = bars.map(b => b.time);
@@ -1028,7 +1033,7 @@ function computeMockIndicators(bars) {
   };
 }
 
-// ── PORTFOLIO ─────────────────────────────────────────────────────────────────
+// -- PORTFOLIO -----------------------------------------------------------------
 async function loadPfs() {
   try {
     const list=await api('/api/v1/portfolios?user_id=user-demo');
@@ -1038,7 +1043,7 @@ async function loadPfs() {
       sel.insertAdjacentHTML('beforeend',`<option value="${p.portfolio_id}">${p.name}</option>`);
       pl.insertAdjacentHTML('beforeend',`
         <div class="pf-item" id="pf-${p.portfolio_id}" onclick="selectPf('${p.portfolio_id}')">
-          <div class="pn">${p.name}</div><div class="pv">${p.positions} posições</div>
+          <div class="pn">${p.name}</div><div class="pv">${p.positions} posicoes</div>
         </div>`);
     });
     selectPf(list[0].portfolio_id); sel.value=list[0].portfolio_id;
@@ -1057,11 +1062,11 @@ async function loadPos(id) {
   const el=document.getElementById('pos-list');
   try {
     const snap=await api(`/api/v1/portfolios/${id}`);
-    if(!snap.positions.length){el.innerHTML='<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace">Sem posições</div>';return;}
+    if(!snap.positions.length){el.innerHTML='<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace">Sem posicoes</div>';return;}
     el.innerHTML=snap.positions.map(p=>{
       const pl=parseFloat(p.profit_loss);
       return `<div class="pos-item" onclick="selectTicker('${p.ticker}')">
-        <div><div class="pos-t">${p.ticker}</div><div class="pos-q">${p.quantity} · R$${f2(parseFloat(p.average_price))}</div></div>
+        <div><div class="pos-t">${p.ticker}</div><div class="pos-q">${p.quantity} . R$${f2(parseFloat(p.average_price))}</div></div>
         <div><div class="pos-v">R$ ${f2(parseFloat(p.current_value))}</div>
              <div class="pos-pl ${pl>=0?'up':'dn'}">${pl>=0?'+':''}${f2(pl)}</div></div>
       </div>`;
@@ -1069,7 +1074,7 @@ async function loadPos(id) {
   } catch { el.innerHTML='<div style="font-size:10px;color:var(--muted)">Erro</div>'; }
 }
 
-// ── TRADE ─────────────────────────────────────────────────────────────────────
+// -- TRADE ---------------------------------------------------------------------
 function setMode(m){
   tradeMode=m;
   document.getElementById('ttab-b').className=`ttab buy  ${m==='buy' ?'active':''}`;
@@ -1089,13 +1094,13 @@ async function executeTrade(){
   if(!tk||!q||!p){toast('Preencha todos os campos','err');return;}
   try{
     await post(`/api/v1/portfolios/${currentPf}/${tradeMode}`,{ticker:tk,quantity:parseFloat(q),price:parseFloat(p)});
-    toast(`${tradeMode==='buy'?'✅ Compra':'✅ Venda'} de ${q} ${tk} registrada!`,'ok');
+    toast(`${tradeMode==='buy'?'OK Compra':'OK Venda'} de ${q} ${tk} registrada!`,'ok');
     await loadPos(currentPf);
     document.getElementById('t-q').value=''; calcTotal();
   }catch(e){toast(`Erro: ${e.message}`,'err');}
 }
 
-// ── MODAL ─────────────────────────────────────────────────────────────────────
+// -- MODAL ---------------------------------------------------------------------
 function showModal(){document.getElementById('modal').classList.add('show');setTimeout(()=>document.getElementById('m-name').focus(),80);}
 function hideModal(){document.getElementById('modal').classList.remove('show');}
 async function createPf(){
@@ -1108,16 +1113,16 @@ async function createPf(){
     document.getElementById('pf-sel').insertAdjacentHTML('beforeend',`<option value="${p.portfolio_id}">${name}</option>`);
     document.getElementById('pf-list').insertAdjacentHTML('beforeend',`
       <div class="pf-item" id="pf-${p.portfolio_id}" onclick="selectPf('${p.portfolio_id}')">
-        <div class="pn">${name}</div><div class="pv">0 posições</div></div>`);
+        <div class="pn">${name}</div><div class="pv">0 posicoes</div></div>`);
     selectPf(p.portfolio_id);
     document.getElementById('m-name').value=document.getElementById('m-cash').value='';
   }catch(e){toast(`Erro: ${e.message}`,'err');}
 }
 
-// ── HELPERS ───────────────────────────────────────────────────────────────────
+// -- HELPERS -------------------------------------------------------------------
 function setLoading(on){
   document.getElementById('ov-price').classList.toggle('hide',!on);
-  if(on){document.getElementById('ov-price').innerHTML='<div class="spin"></div><span>Carregando indicadores…</span>';}
+  if(on){document.getElementById('ov-price').innerHTML='<div class="spin"></div><span>Carregando indicadores...</span>';}
 }
 async function api(url){
   const r=await fetch(API+url);
@@ -1137,7 +1142,7 @@ function toast(msg,type='ok'){
   t.textContent=msg;t.className=`toast ${type} show`;
   setTimeout(()=>t.className='toast',3200);
 }
-// ── PRODUCER STATUS ──────────────────────────────────────────────────────────
+// -- PRODUCER STATUS ----------------------------------------------------------
 async function refreshProducerStatus() {
   try {
     const r = await fetch(`${API}/api/v1/producer/status`);
@@ -1154,7 +1159,7 @@ async function refreshProducerStatus() {
     }
 
     dot.className   = 'prod-dot on';
-    label.textContent = `ciclo #${d.cycle_count} · ${d.healthy_count}/${d.ticker_count} ok`;
+    label.textContent = `ciclo #${d.cycle_count} . ${d.healthy_count}/${d.ticker_count} ok`;
 
     if (d.tickers && d.tickers.length) {
       grid.innerHTML = d.tickers.map(t => {
@@ -1171,10 +1176,10 @@ async function refreshProducerStatus() {
         </div>`;
       }).join('');
 
-      // Atualiza preços no feed de cotações em tempo real
+      // Atualiza precos no feed de cotacoes em tempo real
       d.tickers.forEach(t => {
         if (t.last_price && t.ticker === currentTicker) {
-          // Atualiza preço no cabeçalho se o ticker estiver aberto
+          // Atualiza preco no cabecalho se o ticker estiver aberto
           const priceEl = document.getElementById('price');
           if (priceEl && !priceEl.textContent.startsWith('R$')) return;
         }
@@ -1187,7 +1192,7 @@ async function refreshProducerStatus() {
 refreshProducerStatus();
 setInterval(refreshProducerStatus, 10000);
 
-// ── ALERTAS ──────────────────────────────────────────────────────────────────
+// -- ALERTAS ------------------------------------------------------------------
 let alertsCache = [];
 let alertSse = null;
 
@@ -1206,15 +1211,15 @@ function renderAlertList() {
     return;
   }
   list.innerHTML = alertsCache.map(a => {
-    const typeLabel = {stop_loss:'SL',take_profit:'TP',price_target:'TG',pct_drop:'↓%',pct_rise:'↑%'}[a.alert_type] || a.alert_type;
+    const typeLabel = {stop_loss:'SL',take_profit:'TP',price_target:'TG',pct_drop:'v%',pct_rise:'^%'}[a.alert_type] || a.alert_type;
     const cls = a.status === 'triggered' ? 'triggered' : a.status === 'cancelled' ? 'cancelled' : '';
-    const statusIcon = a.status === 'triggered' ? '✅' : a.status === 'cancelled' ? '✗' : '●';
+    const statusIcon = a.status === 'triggered' ? 'OK' : a.status === 'cancelled' ? 'X' : '*';
     return `<div class="alert-item ${cls}">
       <span style="color:var(--blue);font-weight:700">${a.ticker}</span>
       <span style="color:var(--muted)">${typeLabel}</span>
       <span>R$ ${parseFloat(a.threshold).toFixed(2)}</span>
       <span style="color:${a.status==='triggered'?'var(--gold)':a.status==='active'?'var(--green)':'var(--muted)'}">${statusIcon}</span>
-      ${a.status==='active'?`<span class="alert-del" onclick="deleteAlert('${a.alert_id}')">✕</span>`:'<span style="width:14px"></span>'}
+      ${a.status==='active'?`<span class="alert-del" onclick="deleteAlert('${a.alert_id}')">x</span>`:'<span style="width:14px"></span>'}
     </div>`;
   }).join('');
 }
@@ -1273,11 +1278,11 @@ function showAlertToast(data) {
   toast.innerHTML = `
     <div style="font-weight:700;font-size:11px">${data.ticker} -- ${data.alert_type.replace('_',' ').toUpperCase()}</div>
     <div class="n-msg">${data.message}</div>
-    <div style="font-size:8px;color:var(--muted);margin-top:4px">R$ ${parseFloat(data.current_price).toFixed(2)} → alvo R$ ${parseFloat(data.threshold).toFixed(2)}</div>`;
+    <div style="font-size:8px;color:var(--muted);margin-top:4px">R$ ${parseFloat(data.current_price).toFixed(2)} -> alvo R$ ${parseFloat(data.threshold).toFixed(2)}</div>`;
   toast.onclick = () => toast.remove();
   wrap.appendChild(toast);
 
-  // Auto-remove após 8s
+  // Auto-remove apos 8s
   setTimeout(() => { try { toast.remove(); } catch {} }, 8000);
 }
 
@@ -1285,7 +1290,7 @@ function showAlertToast(data) {
 loadAlerts();
 startAlertStream();
 
-// ── LIVE FEED (SSE) ───────────────────────────────────────────────────────────
+// -- LIVE FEED (SSE) -----------------------------------------------------------
 let sseSource = null;
 const FEED_MAX = 30;
 
@@ -1307,7 +1312,7 @@ function startFeed() {
       if (data.type === 'error')     return;
       if (data.type === 'price_update' || data.type === 'trade_executed') {
         appendFeedItem(data);
-        // Atualiza preço na watchlist se o ticker estiver lá
+        // Atualiza preco na watchlist se o ticker estiver la
         if (data.ticker && data.price) {
           const wp = document.getElementById(`wp-${data.ticker}`);
           if (wp) wp.textContent = `R$ ${f2(data.price)}`;
@@ -1334,8 +1339,8 @@ function startFeed() {
 
   sseSource.onerror = () => {
     document.getElementById('feed-dot').className = 'feed-dot off';
-    document.getElementById('feed-st').textContent = 'reconectando…';
-    // EventSource reconecta automaticamente -- não precisamos fazer nada
+    document.getElementById('feed-st').textContent = 'reconectando...';
+    // EventSource reconecta automaticamente -- nao precisamos fazer nada
   };
 }
 
@@ -1355,21 +1360,21 @@ function appendFeedItem(data) {
     <span class="feed-chg ${isUp?'up':'dn'}">${data.change_pct!=null?(isUp?'+':'')+parseFloat(data.change_pct).toFixed(2)+'%':'--'}</span>`;
   list.insertBefore(item, list.firstChild);
 
-  // Limita número de itens
+  // Limita numero de itens
   while (list.children.length > FEED_MAX) {
     list.removeChild(list.lastChild);
   }
 }
 
 // ---- BACKTESTING ----
-let btChart = null;
+var btChart = null;
 
-async function runBacktest() {
-  const ticker   = document.getElementById('bt-ticker').value.trim().toUpperCase();
-  const strategy = document.getElementById('bt-strategy').value;
-  const range    = document.getElementById('bt-range').value;
-  const capital  = parseFloat(document.getElementById('bt-capital').value) || 10000;
-  const posSize  = parseFloat(document.getElementById('bt-pos').value) || 1.0;
+function runBacktest() {
+  var ticker   = document.getElementById('bt-ticker').value.trim().toUpperCase();
+  var strategy = document.getElementById('bt-strategy').value;
+  var range    = document.getElementById('bt-range').value;
+  var capital  = parseFloat(document.getElementById('bt-capital').value) || 10000;
+  var posSize  = parseFloat(document.getElementById('bt-pos').value) || 1.0;
 
   if (!ticker) { showToast('Informe o ticker', 'error'); return; }
 
@@ -1377,61 +1382,73 @@ async function runBacktest() {
   document.getElementById('bt-error').style.display   = 'none';
   document.getElementById('bt-loading').style.display = 'block';
 
-  try {
-    const url = `/api/v1/backtest/run?ticker=${ticker}&strategy=${strategy}&range_period=${range}&initial_capital=${capital}&position_size=${posSize}`;
-    const res = await fetch(url);
-    const data = await res.json();
+  var url = '/api/v1/backtest/run?ticker=' + ticker + '&strategy=' + strategy +
+            '&range_period=' + range + '&initial_capital=' + capital +
+            '&position_size=' + posSize;
 
-    if (!res.ok) {
-      throw new Error(data.detail || 'Erro desconhecido');
-    }
-
-    renderBacktestResult(data);
-  } catch(e) {
-    document.getElementById('bt-error').textContent = '⚠ ' + e.message;
-    document.getElementById('bt-error').style.display = 'block';
-  } finally {
-    document.getElementById('bt-loading').style.display = 'none';
-  }
+  fetch(url)
+    .then(function(res) { return res.json().then(function(data) { return {ok: res.ok, data: data}; }); })
+    .then(function(result) {
+      if (!result.ok) throw new Error(result.data.detail || 'Erro desconhecido');
+      renderBacktestResult(result.data);
+    })
+    .catch(function(e) {
+      document.getElementById('bt-error').textContent = '(!) ' + e.message;
+      document.getElementById('bt-error').style.display = 'block';
+    })
+    .finally(function() {
+      document.getElementById('bt-loading').style.display = 'none';
+    });
 }
 
 function renderBacktestResult(d) {
-  const m = d.metrics;
-  const isPositive = m.total_return_pct >= 0;
+  var m = d.metrics;
+  var isPositive = m.total_return_pct >= 0;
 
-  // Métricas
-  const grid = document.getElementById('bt-metrics-grid');
-  const metrics = [
-    ['Retorno Total',  (isPositive?'+':'')+m.total_return_pct.toFixed(2)+'%', isPositive ? '#22c55e' : '#ef4444'],
-    ['Sharpe Ratio',   m.sharpe_ratio.toFixed(3), m.sharpe_ratio > 1 ? '#22c55e' : m.sharpe_ratio > 0 ? '#f59e0b' : '#ef4444'],
-    ['Max Drawdown',   '-'+m.max_drawdown_pct.toFixed(2)+'%', '#ef4444'],
-    ['Win Rate',       m.win_rate_pct.toFixed(1)+'%', m.win_rate_pct >= 50 ? '#22c55e' : '#f59e0b'],
-    ['Profit Factor',  m.profit_factor.toFixed(2), m.profit_factor >= 1.5 ? '#22c55e' : m.profit_factor >= 1 ? '#f59e0b' : '#ef4444'],
-    ['Trades',         m.total_trades, '#94a3b8'],
-    ['Capital Inicial','R$ '+f2(m.initial_capital), '#94a3b8'],
-    ['Capital Final',  'R$ '+f2(m.final_equity), isPositive ? '#22c55e' : '#ef4444'],
+  var metrics = [
+    ['Retorno Total',  (isPositive ? '+' : '') + m.total_return_pct.toFixed(2) + '%',
+      isPositive ? '#22c55e' : '#ef4444'],
+    ['Sharpe Ratio',   m.sharpe_ratio.toFixed(3),
+      m.sharpe_ratio > 1 ? '#22c55e' : m.sharpe_ratio > 0 ? '#f59e0b' : '#ef4444'],
+    ['Max Drawdown',   '-' + m.max_drawdown_pct.toFixed(2) + '%', '#ef4444'],
+    ['Win Rate',       m.win_rate_pct.toFixed(1) + '%',
+      m.win_rate_pct >= 50 ? '#22c55e' : '#f59e0b'],
+    ['Profit Factor',  m.profit_factor.toFixed(2),
+      m.profit_factor >= 1.5 ? '#22c55e' : m.profit_factor >= 1 ? '#f59e0b' : '#ef4444'],
+    ['Trades',         String(m.total_trades), '#94a3b8'],
+    ['Capital Inicial','R$ ' + f2(m.initial_capital), '#94a3b8'],
+    ['Capital Final',  'R$ ' + f2(m.final_equity), isPositive ? '#22c55e' : '#ef4444'],
   ];
 
-  grid.innerHTML = metrics.map(([label, value, color]) => `
-    <div style="background:var(--bg);border-radius:5px;padding:5px 7px">
-      <div style="font-size:8px;color:var(--muted);font-family:'DM Mono',monospace">${label}</div>
-      <div style="font-size:12px;font-weight:700;color:${color};font-family:'DM Mono',monospace">${value}</div>
-    </div>`
-  ).join('');
+  var grid = document.getElementById('bt-metrics-grid');
+  var gridHtml = '';
+  for (var i = 0; i < metrics.length; i++) {
+    var label = metrics[i][0];
+    var value = metrics[i][1];
+    var color = metrics[i][2];
+    gridHtml += '<div style="background:var(--bg);border-radius:5px;padding:5px 7px">' +
+      '<div style="font-size:8px;color:var(--muted);font-family:'DM Mono',monospace">' + label + '</div>' +
+      '<div style="font-size:12px;font-weight:700;color:' + color + ';font-family:'DM Mono',monospace">' + value + '</div>' +
+      '</div>';
+  }
+  grid.innerHTML = gridHtml;
 
   // Equity Curve
-  const labels  = d.equity_curve.map(e => {
-    const dt = new Date(e.time * 1000);
-    return dt.toLocaleDateString('pt-BR', {month:'2-digit', day:'2-digit'});
-  });
-  const equities = d.equity_curve.map(e => e.equity);
+  var labels   = [];
+  var equities = [];
+  for (var j = 0; j < d.equity_curve.length; j++) {
+    var e   = d.equity_curve[j];
+    var dt  = new Date(e.time * 1000);
+    labels.push(dt.toLocaleDateString('pt-BR', {month:'2-digit', day:'2-digit'}));
+    equities.push(e.equity);
+  }
 
   if (btChart) btChart.destroy();
-  const ctx = document.getElementById('bt-equity-chart').getContext('2d');
+  var ctx = document.getElementById('bt-equity-chart').getContext('2d');
   btChart = new Chart(ctx, {
     type: 'line',
     data: {
-      labels,
+      labels: labels,
       datasets: [{
         data: equities,
         borderColor: isPositive ? '#22c55e' : '#ef4444',
@@ -1448,7 +1465,9 @@ function renderBacktestResult(d) {
       scales: {
         x: { display: false },
         y: {
-          ticks: { color: '#64748b', font: { size: 9 }, callback: v => 'R$'+f2(v) },
+          ticks: { color: '#64748b', font: { size: 9 },
+            callback: function(v) { return 'R$' + f2(v); }
+          },
           grid: { color: 'rgba(255,255,255,0.04)' }
         }
       }
@@ -1456,31 +1475,32 @@ function renderBacktestResult(d) {
   });
 
   // Trades
-  const tl = document.getElementById('bt-trades-list');
-  if (!d.trades.length) {
-    tl.innerHTML = '<div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace">Nenhum trade executado</div>';
+  var tl = document.getElementById('bt-trades-list');
+  if (!d.trades || !d.trades.length) {
+    tl.innerHTML = '<div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace">Nenhum trade executado no periodo</div>';
   } else {
-    tl.innerHTML = d.trades.map((t, i) => `
-      <div style="display:grid;grid-template-columns:1fr auto auto;gap:4px;align-items:center;padding:3px 0;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace">
-        <div>
-          <span style="font-size:8px;color:var(--muted)">#${i+1} ${t.entry_date.slice(0,10)}</span>
-          <span style="font-size:8px;color:var(--muted)"> → ${t.exit_date.slice(0,10)}</span>
-        </div>
-        <span style="font-size:10px;color:${t.is_winner?'#22c55e':'#ef4444'};font-weight:600">
-          ${t.is_winner?'+':''}${t.pnl_pct.toFixed(2)}%
-        </span>
-        <span style="font-size:9px;color:${t.is_winner?'#22c55e':'#ef4444'}">
-          ${t.is_winner?'+':''}R$${f2(Math.abs(t.pnl))}
-        </span>
-      </div>`
-    ).join('');
+    var tradesHtml = '';
+    for (var k = 0; k < d.trades.length; k++) {
+      var t = d.trades[k];
+      var winColor = t.is_winner ? '#22c55e' : '#ef4444';
+      var sign     = t.is_winner ? '+' : '';
+      tradesHtml += '<div style="display:grid;grid-template-columns:1fr auto auto;gap:4px;align-items:center;padding:3px 0;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace">' +
+        '<div>' +
+          '<span style="font-size:8px;color:var(--muted)">#' + (k+1) + ' ' + t.entry_date.slice(0,10) + '</span>' +
+          '<span style="font-size:8px;color:var(--muted)"> to ' + t.exit_date.slice(0,10) + '</span>' +
+        '</div>' +
+        '<span style="font-size:10px;color:' + winColor + ';font-weight:600">' + sign + t.pnl_pct.toFixed(2) + '%</span>' +
+        '<span style="font-size:9px;color:' + winColor + '">' + sign + 'R$' + f2(Math.abs(t.pnl)) + '</span>' +
+      '</div>';
+    }
+    tl.innerHTML = tradesHtml;
   }
 
   document.getElementById('bt-metrics').style.display = 'block';
-  showToast(`Backtest ${d.ticker} (${d.strategy}): ${isPositive?'+':''}${m.total_return_pct.toFixed(2)}%`);
+  showToast('Backtest ' + d.ticker + ' (' + d.strategy + '): ' + (isPositive?'+':'') + m.total_return_pct.toFixed(2) + '%');
 }
 
-// Inicia o feed ao carregar a página
+// Inicia o feed ao carregar a pagina
 startFeed();
 
 document.addEventListener('keydown',e=>{if(e.key==='Escape')hideModal();});

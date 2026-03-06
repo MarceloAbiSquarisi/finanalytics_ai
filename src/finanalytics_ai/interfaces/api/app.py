@@ -256,3 +256,10 @@ def mount_static(app: FastAPI) -> None:
         if not html_file.exists():
             return HTMLResponse("<h1>Dashboard não encontrado</h1>", status_code=404)
         return HTMLResponse(html_file.read_text(encoding="utf-8"))
+
+    @app.get("/backtest", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_backtest() -> HTMLResponse:
+        html_file = static_dir / "backtest.html"
+        if not html_file.exists():
+            return HTMLResponse("<h1>Backtest page não encontrada</h1>", status_code=404)
+        return HTMLResponse(html_file.read_text(encoding="utf-8"))
