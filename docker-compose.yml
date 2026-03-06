@@ -1,0 +1,47 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: finanalytics_db
+    environment:
+      POSTGRES_DB: finanalytics
+      POSTGRES_USER: finanalytics
+      POSTGRES_PASSWORD: finanalytics
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finanalytics"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: finanalytics_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build: .
+    container_name: finanalytics_api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://finanalytics:finanalytics@db:5432/finanalytics
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: uvicorn finanalytics_ai.interfaces.api.run:app --host 0.0.0.0 --port 8000
+
+volumes:
+  pgdata:
