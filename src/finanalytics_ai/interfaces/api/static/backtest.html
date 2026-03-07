@@ -508,6 +508,128 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
     </div>
   </div>
 
+  <!-- MULTI-TICKER COMPARATIVO -->
+  <div id="multi-area">
+    <div class="opt-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div>
+          <div class="form-title" style="margin:0">Comparativo Multi-Ticker</div>
+          <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:3px">
+            Otimiza a mesma estrategia em varios ativos e ranqueia por performance
+          </div>
+        </div>
+        <button class="run-btn" id="btn-multi" onclick="runMultiTicker()" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)">Comparar</button>
+      </div>
+
+      <!-- Tickers input -->
+      <div style="margin-bottom:12px">
+        <div class="form-title" style="margin-bottom:4px;font-size:9px">Tickers (max 10, separados por virgula)</div>
+        <input id="multi-tickers" class="form-input" type="text"
+          value="PETR4,VALE3,ITUB4,BBDC4,WEGE3"
+          placeholder="PETR4,VALE3,ITUB4,BBDC4,WEGE3"
+          style="width:100%;box-sizing:border-box;font-family:'DM Mono',monospace;letter-spacing:0.04em">
+        <!-- Tag pills -->
+        <div id="multi-ticker-pills" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px"></div>
+      </div>
+
+      <!-- Config row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <div class="form-title" style="margin-bottom:4px;font-size:9px">Estrategia</div>
+          <select id="multi-strategy" class="form-select">
+            <option value="rsi">RSI Reversal</option>
+            <option value="macd">MACD Crossover</option>
+            <option value="combined">RSI + MACD</option>
+            <option value="bollinger">Bollinger Bands</option>
+            <option value="ema_cross">EMA Cross</option>
+            <option value="momentum">Momentum (ROC)</option>
+          </select>
+        </div>
+        <div>
+          <div class="form-title" style="margin-bottom:4px;font-size:9px">Periodo</div>
+          <select id="multi-range" class="form-select">
+            <option value="6mo">6 meses</option>
+            <option value="1y" selected>1 ano</option>
+            <option value="2y">2 anos</option>
+          </select>
+        </div>
+        <div>
+          <div class="form-title" style="margin-bottom:4px;font-size:9px">Objetivo</div>
+          <select id="multi-objective" class="form-select">
+            <option value="sharpe" selected>Sharpe Ratio</option>
+            <option value="return">Retorno Total</option>
+            <option value="calmar">Calmar Ratio</option>
+            <option value="win_rate">Win Rate</option>
+            <option value="profit_factor">Profit Factor</option>
+          </select>
+        </div>
+        <div>
+          <div class="form-title" style="margin-bottom:4px;font-size:9px">Capital Inicial</div>
+          <input id="multi-capital" class="form-input" type="number" value="10000" step="1000" min="1000">
+        </div>
+      </div>
+
+      <!-- Result: loading -->
+      <div id="multi-loading" style="display:none;text-align:center;padding:24px 0">
+        <div style="color:var(--muted);font-size:11px;font-family:'DM Mono',monospace">
+          Otimizando <span id="multi-loading-count">0</span> tickers em paralelo...
+        </div>
+        <div style="margin-top:10px;display:flex;gap:4px;justify-content:center" id="multi-dots"></div>
+      </div>
+
+      <!-- Result: error -->
+      <div id="multi-error" style="display:none;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:6px;padding:10px 14px;color:#f87171;font-size:11px;margin-top:10px"></div>
+
+      <!-- Result: content -->
+      <div id="multi-result" style="display:none">
+
+        <!-- Summary KPIs -->
+        <div id="multi-summary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px"></div>
+
+        <!-- Errors (failed tickers) -->
+        <div id="multi-errors-banner" style="display:none;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:6px;padding:8px 12px;font-size:10px;color:#fbbf24;margin-bottom:12px"></div>
+
+        <!-- Ranking table -->
+        <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Ranking por Score</div>
+        <div style="overflow-x:auto;margin-bottom:16px">
+          <table id="multi-table" style="width:100%;border-collapse:collapse;font-size:11px">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border)">
+                <th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500;font-size:9px">#</th>
+                <th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500;font-size:9px">TICKER</th>
+                <th style="text-align:right;padding:6px 8px;color:var(--muted);font-weight:500;font-size:9px">SCORE</th>
+                <th style="text-align:right;padding:6px 8px;color:var(--muted);font-weight:500;font-size:9px">RETORNO</th>
+                <th style="text-align:right;padding:6px 8px;color:var(--muted);font-weight:500;font-size:9px">SHARPE</th>
+                <th style="text-align:right;padding:6px 8px;color:var(--muted);font-weight:500;font-size:9px">WIN RATE</th>
+                <th style="text-align:right;padding:6px 8px;color:var(--muted);font-weight:500;font-size:9px">TRADES</th>
+                <th style="text-align:right;padding:6px 8px;color:var(--muted);font-weight:500;font-size:9px">DRAWDOWN</th>
+                <th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500;font-size:9px">MELHORES PARAMS</th>
+              </tr>
+            </thead>
+            <tbody id="multi-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Score bar chart -->
+        <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Score Relativo (%)</div>
+        <div id="multi-bars" style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px"></div>
+
+        <!-- Consensus params -->
+        <div id="multi-consensus" style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:8px;padding:12px 14px">
+          <div style="font-size:9px;color:#a78bfa;font-family:'DM Mono',monospace;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Parametros Consenso</div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:6px">
+            Combinacao de parametros mais frequente entre os melhores runs de cada ativo:
+          </div>
+          <div id="multi-consensus-params" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+          <div style="margin-top:8px;font-size:10px;color:var(--muted)">
+            Use estes parametros como ponto de partida para backtests futuros neste grupo de ativos.
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
   <!-- RESULT TABS -->
   <div id="result-area" style="display:none">
     <div class="tabs">
@@ -1489,6 +1611,205 @@ function renderCompareOverlay(results) {
 function hideCompare() {
   document.getElementById('compare-area').style.display = 'none';
 }
+
+// MULTI-TICKER ----
+function updateMultiPills() {
+  var raw = document.getElementById('multi-tickers').value;
+  var tickers = raw.split(',').map(function(t){ return t.trim().toUpperCase(); }).filter(Boolean);
+  var container = document.getElementById('multi-ticker-pills');
+  container.innerHTML = '';
+  tickers.forEach(function(t) {
+    var pill = document.createElement('span');
+    pill.style.cssText = 'display:inline-flex;align-items:center;gap:4px;background:rgba(124,58,237,.12);' +
+      'border:1px solid rgba(124,58,237,.3);border-radius:4px;padding:2px 7px;' +
+      'font-size:10px;font-family:"DM Mono",monospace;color:#a78bfa;cursor:pointer';
+    pill.title = 'Clique para remover';
+    pill.innerHTML = t + ' <span style="opacity:.6">&times;</span>';
+    pill.onclick = function() {
+      var cur = document.getElementById('multi-tickers').value.split(',')
+        .map(function(x){ return x.trim(); }).filter(function(x){ return x.toUpperCase() !== t; });
+      document.getElementById('multi-tickers').value = cur.join(', ');
+      updateMultiPills();
+    };
+    container.appendChild(pill);
+  });
+}
+document.getElementById('multi-tickers').addEventListener('input', updateMultiPills);
+updateMultiPills();
+
+function runMultiTicker() {
+  var raw = document.getElementById('multi-tickers').value;
+  var tickers = raw.split(',').map(function(t){ return t.trim().toUpperCase(); }).filter(Boolean);
+  if (!tickers.length) { alert('Informe ao menos 1 ticker.'); return; }
+  if (tickers.length > 10) { alert('Maximo 10 tickers.'); return; }
+
+  var strategy  = document.getElementById('multi-strategy').value;
+  var range     = document.getElementById('multi-range').value;
+  var objective = document.getElementById('multi-objective').value;
+  var capital   = parseFloat(document.getElementById('multi-capital').value) || 10000;
+
+  document.getElementById('multi-loading').style.display = 'block';
+  document.getElementById('multi-result').style.display  = 'none';
+  document.getElementById('multi-error').style.display   = 'none';
+  document.getElementById('multi-loading-count').textContent = tickers.length;
+  document.getElementById('btn-multi').disabled = true;
+
+  // Animated dots
+  var dotsEl = document.getElementById('multi-dots');
+  dotsEl.innerHTML = '';
+  tickers.forEach(function(t, i) {
+    var d = document.createElement('div');
+    d.id = 'mdot-' + i;
+    d.title = t;
+    d.style.cssText = 'width:8px;height:8px;border-radius:50%;background:rgba(124,58,237,.25);' +
+      'transition:background .3s;font-size:0';
+    d.textContent = t;
+    dotsEl.appendChild(d);
+  });
+
+  var url = '/api/v1/backtest/multi?' +
+    'tickers=' + encodeURIComponent(tickers.join(',')) +
+    '&strategy=' + strategy +
+    '&range_period=' + range +
+    '&objective=' + objective +
+    '&initial_capital=' + capital +
+    '&top_n=5';
+
+  fetch(url)
+    .then(function(r) {
+      if (!r.ok) return r.json().then(function(e){ throw new Error(e.detail || 'Erro'); });
+      return r.json();
+    })
+    .then(function(data) {
+      renderMultiResult(data);
+    })
+    .catch(function(err) {
+      document.getElementById('multi-error').style.display = 'block';
+      document.getElementById('multi-error').textContent = 'Erro: ' + err.message;
+    })
+    .finally(function() {
+      document.getElementById('multi-loading').style.display = 'none';
+      document.getElementById('btn-multi').disabled = false;
+    });
+}
+
+function renderMultiResult(data) {
+  document.getElementById('multi-result').style.display = 'block';
+
+  // Summary KPIs
+  var objLabel = {'sharpe':'Sharpe Medio','return':'Retorno Medio','calmar':'Calmar Medio',
+                  'win_rate':'Win Rate Medio','profit_factor':'Prof. Factor Medio'}[data.objective] || 'Score Medio';
+  var kpis = [
+    { label: objLabel,           value: fmt2(data.avg_score),           accent: '#7c3aed' },
+    { label: 'Consistencia',     value: fmt1(data.hit_rate) + '%',       accent: data.hit_rate >= 60 ? '#10b981' : '#f59e0b' },
+    { label: 'Desvio Padrao',    value: fmt2(data.score_std),            accent: '#6b7280' },
+    { label: 'Melhor Ativo',     value: data.best_ticker || '-',         accent: '#3b82f6' },
+  ];
+  var sumEl = document.getElementById('multi-summary');
+  sumEl.innerHTML = kpis.map(function(k) {
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;' +
+      'padding:10px 12px;border-top:2px solid ' + k.accent + '">' +
+      '<div style="font-size:9px;color:var(--muted);font-family:\'DM Mono\',monospace;' +
+      'text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">' + k.label + '</div>' +
+      '<div style="font-size:16px;font-weight:700;color:var(--text)">' + k.value + '</div></div>';
+  }).join('');
+
+  // Errors banner
+  var errBanner = document.getElementById('multi-errors-banner');
+  if (data.errors && data.errors.length > 0) {
+    errBanner.style.display = 'block';
+    errBanner.innerHTML = '<b>Falha em ' + data.errors.length + ' ticker(s):</b> ' +
+      data.errors.map(function(e){ return e.ticker + ' (' + e.error + ')'; }).join(' &bull; ');
+  } else {
+    errBanner.style.display = 'none';
+  }
+
+  // Ranking table
+  var tbody = document.getElementById('multi-tbody');
+  tbody.innerHTML = '';
+  (data.rankings || []).forEach(function(row) {
+    var m = row.top_metrics || {};
+    var rankColor = row.rank === 1 ? '#fbbf24' : row.rank === 2 ? '#94a3b8' : row.rank === 3 ? '#cd7c2f' : 'var(--muted)';
+    var paramsStr = Object.entries(row.best_params || {})
+      .map(function(kv){ return kv[0] + ':' + (typeof kv[1]==='number'?+kv[1].toFixed(1):kv[1]); })
+      .join(' ');
+    var validBadge = row.has_valid
+      ? '<span style="background:rgba(16,185,129,.1);color:#10b981;border:1px solid rgba(16,185,129,.3);' +
+        'border-radius:3px;padding:0 4px;font-size:8px">OK</span>'
+      : '<span style="background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.3);' +
+        'border-radius:3px;padding:0 4px;font-size:8px">SEM TRADES</span>';
+    var ret = m.total_return_pct;
+    var retColor = ret > 0 ? '#10b981' : ret < 0 ? '#f87171' : 'var(--muted)';
+
+    tbody.innerHTML +=
+      '<tr style="border-bottom:1px solid var(--border);cursor:pointer" ' +
+      'onclick="applyConsensusToRun(\'' + row.ticker + '\',\'' + JSON.stringify(row.best_params).replace(/"/g,"&quot;") + '\')">' +
+      '<td style="padding:7px 8px;color:' + rankColor + ';font-weight:700;font-size:12px">' + row.rank + '</td>' +
+      '<td style="padding:7px 8px"><span style="font-family:\'DM Mono\',monospace;font-weight:600;color:var(--text)">' +
+        row.ticker + '</span> ' + validBadge + '</td>' +
+      '<td style="padding:7px 8px;text-align:right;font-family:\'DM Mono\',monospace">' + fmt3(row.best_score) + '</td>' +
+      '<td style="padding:7px 8px;text-align:right;font-family:\'DM Mono\',monospace;color:' + retColor + '">' +
+        (ret != null ? (ret > 0 ? '+' : '') + fmt1(ret) + '%' : '-') + '</td>' +
+      '<td style="padding:7px 8px;text-align:right;font-family:\'DM Mono\',monospace">' +
+        (m.sharpe_ratio != null ? fmt2(m.sharpe_ratio) : '-') + '</td>' +
+      '<td style="padding:7px 8px;text-align:right;font-family:\'DM Mono\',monospace">' +
+        (m.win_rate_pct != null ? fmt1(m.win_rate_pct) + '%' : '-') + '</td>' +
+      '<td style="padding:7px 8px;text-align:right;font-family:\'DM Mono\',monospace">' +
+        (m.total_trades != null ? m.total_trades : '-') + '</td>' +
+      '<td style="padding:7px 8px;text-align:right;font-family:\'DM Mono\',monospace;color:#f87171">' +
+        (m.max_drawdown_pct != null ? '-' + fmt1(m.max_drawdown_pct) + '%' : '-') + '</td>' +
+      '<td style="padding:7px 8px;font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">' +
+        paramsStr + '</td>' +
+      '</tr>';
+  });
+
+  // Score bar chart
+  var barsEl = document.getElementById('multi-bars');
+  barsEl.innerHTML = '';
+  (data.rankings || []).forEach(function(row) {
+    var pct = Math.max(0, Math.min(100, row.score_pct));
+    var barColor = row.rank === 1 ? '#7c3aed' : row.rank <= 3 ? '#4f46e5' : '#6b7280';
+    barsEl.innerHTML +=
+      '<div style="display:grid;grid-template-columns:60px 1fr 50px;gap:8px;align-items:center">' +
+      '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--text);text-align:right">' + row.ticker + '</div>' +
+      '<div style="background:var(--surface);border-radius:3px;height:12px;overflow:hidden;border:1px solid var(--border)">' +
+        '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';transition:width .6s;border-radius:2px"></div>' +
+      '</div>' +
+      '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted)">' + fmt1(pct) + '%</div>' +
+      '</div>';
+  });
+
+  // Consensus params
+  var cp = data.consensus_params || {};
+  var cpEl = document.getElementById('multi-consensus-params');
+  cpEl.innerHTML = Object.entries(cp).map(function(kv) {
+    return '<div style="background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);' +
+      'border-radius:5px;padding:4px 10px;font-size:11px;font-family:\'DM Mono\',monospace">' +
+      '<span style="color:var(--muted)">' + kv[0] + ':</span> ' +
+      '<span style="color:#c4b5fd;font-weight:600">' +
+        (typeof kv[1]==='number' ? +kv[1].toFixed(2) : kv[1]) +
+      '</span></div>';
+  }).join('');
+
+  // Dot colors done
+  (data.rankings || []).forEach(function(r, i) {
+    var d = document.getElementById('mdot-' + i);
+    if (d) d.style.background = r.has_valid ? '#10b981' : '#f87171';
+  });
+}
+
+function applyConsensusToRun(ticker, paramsJson) {
+  try {
+    // Pre-preenche ticker e navega ao Run section
+    document.getElementById('ticker').value = ticker;
+    // Scroll suave ao topo
+    document.querySelector('#result-area') && window.scrollTo({top: 0, behavior: 'smooth'});
+  } catch(e) {}
+}
+
+function fmt1(v) { return v != null ? parseFloat(v).toFixed(1) : '-'; }
+function fmt2(v) { return v != null ? parseFloat(v).toFixed(2) : '-'; }
+function fmt3(v) { return v != null ? parseFloat(v).toFixed(3) : '-'; }
 
 // HEADER STATUS ----
 function loadStatus() {

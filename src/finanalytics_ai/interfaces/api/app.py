@@ -123,16 +123,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from finanalytics_ai.application.services.optimizer_service import OptimizerService
         from finanalytics_ai.application.services.walkforward_service import WalkForwardService
         from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient as _BrapiCli
-        app.state.backtest_service   = BacktestService(_BrapiCli())
-        app.state.optimizer_service  = OptimizerService(_BrapiCli())
-        app.state.walkforward_service = WalkForwardService(_BrapiCli())
+        from finanalytics_ai.application.services.multi_ticker_service import MultiTickerService
+        brapi = _BrapiCli()
+        app.state.backtest_service     = BacktestService(brapi)
+        app.state.optimizer_service    = OptimizerService(brapi)
+        app.state.walkforward_service  = WalkForwardService(brapi)
+        app.state.multi_ticker_service = MultiTickerService(brapi)
         logger.info("backtest_service.ready")
         logger.info("optimizer_service.ready")
         logger.info("walkforward_service.ready")
+        logger.info("multi_ticker_service.ready")
     else:
-        app.state.backtest_service    = None
-        app.state.optimizer_service   = None
-        app.state.walkforward_service = None
+        app.state.backtest_service     = None
+        app.state.optimizer_service    = None
+        app.state.walkforward_service  = None
+        app.state.multi_ticker_service = None
         logger.warning("backtest_service.disabled", reason="BRAPI_TOKEN ausente")
 
     # ── 6. BRAPI Price Producer ───────────────────────────────────────────────
