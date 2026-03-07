@@ -138,6 +138,16 @@ class ScreenerService:
             errors    = len(errors),
         )
 
+        # Métricas Prometheus
+        try:
+            from finanalytics_ai.metrics import record_screener_run
+            record_screener_run(
+                total_scanned=len(all_stocks),
+                total_passed=len(passed),
+            )
+        except Exception:
+            pass
+
         return ScreenerResult(
             total_universe = len(all_stocks),
             total_passed   = len(passed),

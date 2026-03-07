@@ -1,0 +1,21 @@
+global:
+  scrape_interval:     10s
+  evaluation_interval: 10s
+  external_labels:
+    environment: 'development'
+    project:     'finanalytics_ai'
+
+scrape_configs:
+
+  # API FastAPI — métricas de negócio + HTTP
+  - job_name: 'finanalytics_api'
+    static_configs:
+      - targets: ['host.docker.internal:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout:  8s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

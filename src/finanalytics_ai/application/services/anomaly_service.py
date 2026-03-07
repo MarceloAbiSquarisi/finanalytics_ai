@@ -107,6 +107,18 @@ class AnomalyService:
             with_anomalies  = result.tickers_with_anomalies,
             high_severity   = result.high_severity_count,
         )
+
+        # Métricas Prometheus
+        try:
+            from finanalytics_ai.metrics import record_anomaly_scan
+            record_anomaly_scan(
+                tickers_count=len(tickers),
+                range_period=range_period,
+                results=[r.to_dict() for r in result.results],
+            )
+        except Exception:
+            pass  # metrics nunca quebram o fluxo principal
+
         return result
 
     async def scan_single(

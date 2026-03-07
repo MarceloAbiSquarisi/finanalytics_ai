@@ -23,6 +23,7 @@ from finanalytics_ai.config import EventQueueBackend, get_settings
 from finanalytics_ai.exceptions import FinAnalyticsError
 from finanalytics_ai.infrastructure.database.connection import close_engine, get_engine
 from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer, backtest, correlation, screener, anomaly
+from finanalytics_ai.metrics import PrometheusMiddleware, metrics_endpoint
 
 logger = structlog.get_logger(__name__)
 
@@ -243,6 +244,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(PrometheusMiddleware)
+
+    app.add_route("/metrics", metrics_endpoint, include_in_schema=False)
 
     @app.exception_handler(FinAnalyticsError)
     async def finanalytics_error_handler(request: object, exc: FinAnalyticsError) -> JSONResponse:

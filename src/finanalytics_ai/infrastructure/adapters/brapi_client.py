@@ -248,18 +248,32 @@ class BrapiClient:
         raise MarketDataUnavailableError(message="Retry esgotado", context={"path": path})
 
     async def _request(self, path: str) -> dict[str, Any]:
+        import time as _time
         client = await self._get_client()
+        _start = _time.perf_counter()
         try:
             response = await client.get(path)
         except (httpx.TimeoutException, httpx.ConnectError) as exc:
             market_data_requests_total.labels(provider="brapi", status="error").inc()
+            try:
+                from finanalytics_ai.metrics import record_brapi_call
+                record_brapi_call(path.split("?")[0], False, _time.perf_counter() - _start)
+            except Exception:
+                pass
             raise TransientError(
                 message=f"Timeout/conexão BRAPI: {exc}",
                 context={"path": path},
             ) from exc
 
+        _elapsed = _time.perf_counter() - _start
+
         if response.status_code >= 500:
             market_data_requests_total.labels(provider="brapi", status="5xx").inc()
+            try:
+                from finanalytics_ai.metrics import record_brapi_call
+                record_brapi_call(path.split("?")[0], False, _elapsed)
+            except Exception:
+                pass
             raise TransientError(
                 message=f"BRAPI 5xx: {response.status_code}",
                 context={"path": path, "status": str(response.status_code)},
@@ -275,4 +289,9 @@ class BrapiClient:
             )
 
         market_data_requests_total.labels(provider="brapi", status="ok").inc()
+        try:
+            from finanalytics_ai.metrics import record_brapi_call
+            record_brapi_call(path.split("?")[0], True, _elapsed)
+        except Exception:
+            pass
         return response.json()  # type: ignore[no-any-return]

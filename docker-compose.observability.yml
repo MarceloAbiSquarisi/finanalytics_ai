@@ -1,0 +1,74 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# docker-compose.observability.yml
+#
+# Sobe Prometheus + Grafana integrados à rede do finanalytics-platform.
+#
+# Uso (em D:\Projetos\finanalytics_ai):
+#   docker compose -f docker-compose.observability.yml up -d
+#
+# URLs:
+#   Prometheus : http://localhost:9090
+#   Grafana    : http://localhost:3000  (admin/admin)
+#   Métricas   : http://localhost:8000/metrics
+#
+# Design:
+#   - Prometheus coleta a cada 10s do endpoint /metrics da API
+#   - Grafana está pré-configurado com o datasource Prometheus
+#   - Dashboard pré-importado via provisioning (sem configuração manual)
+#   - Dados do Prometheus persistidos em volume nomeado
+# ──────────────────────────────────────────────────────────────────────────────
+services:
+
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: finanalytics_prometheus
+    restart: unless-stopped
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+    ports:
+      - "9090:9090"
+    networks:
+      - platform_net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: finanalytics_grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER:     admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP:     "false"
+      GF_SERVER_DOMAIN:           localhost
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_INSTALL_PLUGINS:         ""
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - platform_net
+
+networks:
+  platform_net:
+    external: true
+    name: ${PLATFORM_NETWORK:-finanalytics-platform_default}
+
+volumes:
+  prometheus_data:
+    name: finanalytics_prometheus_data
+  grafana_data:
+    name: finanalytics_grafana_data
