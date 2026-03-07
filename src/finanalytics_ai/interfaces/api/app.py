@@ -117,18 +117,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         except Exception as exc:
             logger.warning("kafka.unavailable", error=str(exc))
 
-    # ── 5. BacktestService + OptimizerService ────────────────────────────────
+    # ── 5. BacktestService + OptimizerService + WalkForwardService ───────────
     if settings.brapi_token:
         from finanalytics_ai.application.services.backtest_service import BacktestService
         from finanalytics_ai.application.services.optimizer_service import OptimizerService
+        from finanalytics_ai.application.services.walkforward_service import WalkForwardService
         from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient as _BrapiCli
-        app.state.backtest_service  = BacktestService(_BrapiCli())
-        app.state.optimizer_service = OptimizerService(_BrapiCli())
+        app.state.backtest_service   = BacktestService(_BrapiCli())
+        app.state.optimizer_service  = OptimizerService(_BrapiCli())
+        app.state.walkforward_service = WalkForwardService(_BrapiCli())
         logger.info("backtest_service.ready")
         logger.info("optimizer_service.ready")
+        logger.info("walkforward_service.ready")
     else:
-        app.state.backtest_service  = None
-        app.state.optimizer_service = None
+        app.state.backtest_service    = None
+        app.state.optimizer_service   = None
+        app.state.walkforward_service = None
         logger.warning("backtest_service.disabled", reason="BRAPI_TOKEN ausente")
 
     # ── 6. BRAPI Price Producer ───────────────────────────────────────────────

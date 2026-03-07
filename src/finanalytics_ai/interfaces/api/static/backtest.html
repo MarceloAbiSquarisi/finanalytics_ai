@@ -182,6 +182,31 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
 .progress-bar{height:100%;background:linear-gradient(90deg,var(--blue),var(--gold));
   border-radius:2px;width:0%;transition:width .3s}
 
+
+/* WALK-FORWARD */
+.wf-fold-row{display:grid;grid-template-columns:32px 60px 60px 1fr 1fr 1fr 1fr;
+  gap:6px;align-items:center;padding:8px 10px;border-radius:6px;
+  border:1px solid var(--border);margin-bottom:6px;font-family:'DM Mono',monospace}
+.wf-fold-row:first-child{background:rgba(46,212,122,.04)}
+.wf-badge{display:inline-flex;align-items:center;justify-content:center;
+  padding:2px 7px;border-radius:4px;font-size:8px;font-weight:700;
+  font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.4px}
+.wf-badge.valid{background:rgba(46,212,122,.12);color:var(--green)}
+.wf-badge.invalid{background:rgba(224,85,85,.1);color:var(--red)}
+.wf-stat{text-align:center}
+.wf-stat .val{font-size:18px;font-weight:700;font-family:'Syne',sans-serif;line-height:1.1}
+.wf-stat .lbl{font-size:8px;color:var(--muted);font-family:'DM Mono',monospace;
+  text-transform:uppercase;letter-spacing:.5px;margin-top:3px}
+.wf-gauge-wrap{position:relative;display:flex;align-items:center;justify-content:center;flex-direction:column}
+.efficiency-ring{transform:rotate(-90deg)}
+.run-btn-wf{background:linear-gradient(135deg,rgba(167,139,250,.15),rgba(167,139,250,.05));
+  color:#A78BFA;border:1px solid rgba(167,139,250,.3);border-radius:8px;
+  font-family:'Syne',sans-serif;font-weight:800;font-size:12px;padding:10px 24px;
+  cursor:pointer;transition:all .2s;white-space:nowrap}
+.run-btn-wf:hover{background:rgba(167,139,250,.15)}
+.run-btn-wf:disabled{opacity:.5;cursor:not-allowed}
+.wf-seg{display:inline-block;height:10px;border-radius:2px}
+
 </style>
 </head>
 <body>
@@ -332,6 +357,157 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
     </div>
   </div>
 
+
+  <!-- WALK-FORWARD SECTION -->
+  <div id="wf-area">
+    <div class="opt-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div>
+          <div class="form-title" style="margin:0">Walk-Forward Validation</div>
+          <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:3px">
+            Detecta overfitting dividindo os dados em janelas IS (otimizacao) e OOS (validacao)
+          </div>
+        </div>
+        <button class="run-btn-wf" id="btn-wf" onclick="runWalkForward()">Validar</button>
+      </div>
+
+      <!-- WF Config Row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <div class="form-title" style="margin-bottom:4px;font-size:9px">Splits (folds)</div>
+          <select id="wf-splits" class="form-select">
+            <option value="2">2 folds</option>
+            <option value="3" selected>3 folds</option>
+            <option value="4">4 folds</option>
+            <option value="5">5 folds</option>
+          </select>
+        </div>
+        <div>
+          <div class="form-title" style="margin-bottom:4px;font-size:9px">% OOS por fold</div>
+          <select id="wf-oos-pct" class="form-select">
+            <option value="0.2">20%</option>
+            <option value="0.3" selected>30%</option>
+            <option value="0.4">40%</option>
+          </select>
+        </div>
+        <div>
+          <div class="form-title" style="margin-bottom:4px;font-size:9px">Objetivo</div>
+          <select id="wf-obj" class="form-select">
+            <option value="sharpe" selected>Sharpe</option>
+            <option value="return">Retorno</option>
+            <option value="calmar">Calmar</option>
+            <option value="win_rate">Win Rate</option>
+            <option value="profit_factor">Profit Factor</option>
+          </select>
+        </div>
+        <div style="display:flex;flex-direction:column;justify-content:flex-end">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding-bottom:6px">
+            <input type="checkbox" id="wf-anchored" style="accent-color:var(--blue)">
+            <span style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace">
+              Anchored (expanding)
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div class="progress-bar-wrap" id="wf-progress-wrap">
+        <div class="progress-bar" id="wf-progress-bar"></div>
+      </div>
+      <div class="error-box" id="wf-error" style="display:none;margin:0"></div>
+    </div>
+
+    <!-- WF RESULTS -->
+    <div id="wf-results" style="display:none">
+
+      <!-- Robustness KPIs -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+
+        <div class="opt-card" style="margin:0;text-align:center">
+          <div id="wf-efficiency-gauge">
+            <svg width="80" height="80" viewBox="0 0 80 80">
+              <circle cx="40" cy="40" r="30" fill="none" stroke="rgba(58,191,248,0.1)" stroke-width="8"/>
+              <circle id="wf-ring" cx="40" cy="40" r="30" fill="none"
+                stroke="var(--blue)" stroke-width="8" stroke-linecap="round"
+                stroke-dasharray="188.5" stroke-dashoffset="188.5"
+                style="transform:rotate(-90deg);transform-origin:center;transition:stroke-dashoffset .8s"/>
+              <text id="wf-eff-txt" x="40" y="44" text-anchor="middle"
+                fill="#E8F4FD" font-size="14" font-family="Syne,sans-serif" font-weight="700">0%</text>
+            </svg>
+          </div>
+          <div style="font-size:8px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.5px">Efficiency</div>
+          <div style="font-size:8px;color:var(--muted);margin-top:2px">OOS / IS score</div>
+        </div>
+
+        <div class="opt-card" style="margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+          <div class="wf-stat">
+            <div class="val" id="wf-consistency-val" style="color:var(--green)">--%</div>
+            <div class="lbl">Consistency</div>
+            <div style="font-size:8px;color:var(--muted);margin-top:4px">folds OOS lucrativos</div>
+          </div>
+        </div>
+
+        <div class="opt-card" style="margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+          <div class="wf-stat">
+            <div class="val" id="wf-degradation-val" style="color:var(--gold)">--</div>
+            <div class="lbl">Degradation</div>
+            <div style="font-size:8px;color:var(--muted);margin-top:4px">IS score - OOS score</div>
+          </div>
+        </div>
+
+        <div class="opt-card" style="margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+          <div class="wf-stat">
+            <div class="val" id="wf-return-val">--%</div>
+            <div class="lbl">Retorno OOS</div>
+            <div style="font-size:8px;color:var(--muted);margin-top:4px">capital composto</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fold timeline + table -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+
+        <!-- Timeline visual -->
+        <div class="opt-card" style="margin:0">
+          <div class="form-title" style="margin-bottom:12px">Estrutura dos Folds</div>
+          <div id="wf-timeline"></div>
+        </div>
+
+        <!-- Per-fold metrics -->
+        <div class="opt-card" style="margin:0">
+          <div class="form-title" style="margin-bottom:10px">Resultados por Fold</div>
+          <div id="wf-folds-table"></div>
+        </div>
+
+      </div>
+
+      <!-- Combined OOS equity chart -->
+      <div class="opt-card" style="margin:0;margin-bottom:16px">
+        <div class="form-title" style="margin-bottom:12px">Equity OOS Concatenada (capital composto entre folds)</div>
+        <div style="height:220px">
+          <canvas id="wf-equity-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Interpretation guide -->
+      <div class="opt-card" style="margin:0;background:rgba(167,139,250,.03)">
+        <div class="form-title" style="margin-bottom:8px;color:#A78BFA">Como Interpretar</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;line-height:1.7">
+            <b style="color:#A78BFA">Efficiency &gt; 50%:</b> Bom — parametros generalizam bem<br>
+            <b style="color:#A78BFA">Consistency &gt; 66%:</b> Maioria dos folds OOS lucrativos<br>
+            <b style="color:#A78BFA">Degradation baixo:</b> Pouco overfitting<br>
+          </div>
+          <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;line-height:1.7">
+            <b style="color:var(--red)">Efficiency &lt; 20%:</b> Overfitting provavel<br>
+            <b style="color:var(--red)">Consistency &lt; 33%:</b> Estrategia nao e robusta<br>
+            <b style="color:var(--gold)">IS score alto + OOS baixo:</b> Parametros nao generalizam<br>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <!-- RESULT TABS -->
   <div id="result-area" style="display:none">
     <div class="tabs">
@@ -412,7 +588,7 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
 
 <script>
 
-// ---- OPTIMIZER ----
+// OPTIMIZER ----
 var selectedObj = 'sharpe';
 
 function selectObj(btn) {
@@ -621,17 +797,222 @@ function buildParams(ticker) {
   return base.replace('/api/v1/backtest/run?', '');
 }
 
-// ---- CONFIG ----
+
+// WALK-FORWARD ----
+var wfChart = null;
+
+function runWalkForward() {
+  var ticker  = document.getElementById('f-ticker').value.trim().toUpperCase();
+  var strat   = document.getElementById('f-strategy').value;
+  var range   = document.getElementById('f-range').value;
+  var capital = document.getElementById('f-capital').value;
+  var possize = document.getElementById('f-possize').value;
+  var comm    = document.getElementById('f-commission').value;
+  var splits  = document.getElementById('wf-splits').value;
+  var oosPct  = document.getElementById('wf-oos-pct').value;
+  var obj     = document.getElementById('wf-obj').value;
+  var anchored = document.getElementById('wf-anchored').checked;
+
+  if (!ticker) { showError('Informe o ticker'); return; }
+
+  document.getElementById('btn-wf').disabled  = true;
+  document.getElementById('btn-run').disabled = true;
+  document.getElementById('btn-opt').disabled = true;
+  document.getElementById('wf-error').style.display  = 'none';
+  document.getElementById('wf-results').style.display = 'none';
+
+  var wrap = document.getElementById('wf-progress-wrap');
+  var bar  = document.getElementById('wf-progress-bar');
+  wrap.style.display = 'block'; bar.style.width = '0%';
+  var pct = 0;
+  var timer = setInterval(function() { pct = Math.min(pct + 2, 80); bar.style.width = pct + '%'; }, 300);
+
+  var url = '/api/v1/backtest/walkforward?ticker=' + ticker +
+    '&strategy=' + strat + '&range_period=' + range +
+    '&initial_capital=' + capital + '&position_size=' + possize +
+    '&commission_pct=' + comm + '&objective=' + obj +
+    '&n_splits=' + splits + '&oos_pct=' + oosPct + '&anchored=' + anchored;
+
+  fetch(url)
+    .then(function(r) { return r.json().then(function(d) { return {ok:r.ok, data:d}; }); })
+    .then(function(res) {
+      clearInterval(timer);
+      bar.style.width = '100%';
+      setTimeout(function() { wrap.style.display = 'none'; bar.style.width = '0%'; }, 400);
+      if (!res.ok) throw new Error(res.data.detail || 'Erro no walk-forward');
+      renderWalkForward(res.data);
+    })
+    .catch(function(e) {
+      clearInterval(timer);
+      wrap.style.display = 'none';
+      var errBox = document.getElementById('wf-error');
+      errBox.textContent = '(!) ' + e.message;
+      errBox.style.display = 'block';
+    })
+    .finally(function() {
+      document.getElementById('btn-wf').disabled  = false;
+      document.getElementById('btn-run').disabled = false;
+      document.getElementById('btn-opt').disabled = false;
+    });
+}
+
+function renderWalkForward(d) {
+  //    KPIs                                                                   
+  var eff  = d.efficiency_ratio;
+  var cons = d.consistency;
+  var deg  = d.degradation;
+  var ret  = d.combined_return;
+
+  // Efficiency gauge (SVG ring)
+  var effPct  = Math.min(100, Math.max(0, eff * 100));
+  var circ    = 188.5;
+  var offset  = circ * (1 - effPct / 100);
+  var ring    = document.getElementById('wf-ring');
+  var effTxt  = document.getElementById('wf-eff-txt');
+  ring.setAttribute('stroke-dashoffset', offset);
+  ring.setAttribute('stroke', effPct >= 50 ? 'var(--green)' : effPct >= 25 ? 'var(--gold)' : 'var(--red)');
+  effTxt.textContent = Math.round(effPct) + '%';
+
+  // Consistency
+  var consEl = document.getElementById('wf-consistency-val');
+  consEl.textContent = cons.toFixed(1) + '%';
+  consEl.style.color = cons >= 66 ? 'var(--green)' : cons >= 33 ? 'var(--gold)' : 'var(--red)';
+
+  // Degradation
+  var degEl = document.getElementById('wf-degradation-val');
+  degEl.textContent = deg.toFixed(3);
+  degEl.style.color = deg < 0.5 ? 'var(--green)' : deg < 1.5 ? 'var(--gold)' : 'var(--red)';
+
+  // Return
+  var retEl = document.getElementById('wf-return-val');
+  retEl.textContent = (ret >= 0 ? '+' : '') + ret.toFixed(1) + '%';
+  retEl.style.color = ret >= 0 ? 'var(--green)' : 'var(--red)';
+
+  //    Timeline                                                                
+  var total   = d.total_bars;
+  var tlHtml  = '';
+  var FOLD_COLORS = ['#3ABFF8','#F0B429','#2ED47A','#A78BFA','#FB923C','#F472B6'];
+
+  d.folds.forEach(function(f, i) {
+    var isW  = (f.is_bars  / total * 100).toFixed(1);
+    var oosW = (f.oos_bars / total * 100).toFixed(1);
+    var col  = FOLD_COLORS[i % FOLD_COLORS.length];
+    tlHtml += '<div style="margin-bottom:8px">';
+    tlHtml += '<div style="font-size:8px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:3px">Fold ' + f.fold + '</div>';
+    tlHtml += '<div style="display:flex;gap:2px;height:16px;border-radius:3px;overflow:hidden">';
+    if (f.is_start_bar > 0) {
+      tlHtml += '<div style="width:' + (f.is_start_bar/total*100).toFixed(1) + '%;background:transparent"></div>';
+    }
+    tlHtml += '<div class="wf-seg" style="width:' + isW + '%;background:' + col + '22;border:1px solid ' + col + '44" title="IS: ' + f.is_bars + ' barras"></div>';
+    tlHtml += '<div class="wf-seg" style="width:' + oosW + '%;background:' + col + '99" title="OOS: ' + f.oos_bars + ' barras"></div>';
+    tlHtml += '</div>';
+    tlHtml += '<div style="font-size:7px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:2px">';
+    tlHtml += '<span style="color:' + col + '66">IS: ' + f.is_bars + 'b</span>  ';
+    tlHtml += '<span style="color:' + col + '">OOS: ' + f.oos_bars + 'b</span>';
+    tlHtml += '</div>';
+    tlHtml += '</div>';
+  });
+  tlHtml += '<div style="font-size:7px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:8px">';
+  tlHtml += 'Claro = IS (otimizacao) &nbsp; Solido = OOS (validacao)';
+  tlHtml += '</div>';
+  document.getElementById('wf-timeline').innerHTML = tlHtml;
+
+  //    Per-fold table                                                          
+  var th = '<div style="display:grid;grid-template-columns:40px 70px 70px 1fr;gap:4px;' +
+           'padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:4px">';
+  var HD = ['Fold','IS score','OOS score','Melhores Params'];
+  th += HD.map(function(h) {
+    return '<div style="font-size:8px;color:var(--muted);font-family:\'DM Mono\',monospace;text-transform:uppercase;letter-spacing:.4px">' + h + '</div>';
+  }).join('') + '</div>';
+
+  var rows = d.folds.map(function(f, i) {
+    var col = FOLD_COLORS[i % FOLD_COLORS.length];
+    var isUp = f.oos_score >= 0;
+    var paramStr = Object.entries(f.best_params).map(function(kv) {
+      return kv[0].replace('_period','p').replace('rsi_','r').replace('macd_','m') + ':' + kv[1];
+    }).join(' ');
+    return '<div style="display:grid;grid-template-columns:40px 70px 70px 1fr;gap:4px;' +
+           'padding:5px 0;border-bottom:1px solid rgba(58,191,248,.04);align-items:center">' +
+      '<div style="font-size:10px;font-family:\'DM Mono\',monospace;color:' + col + '">#' + f.fold + '</div>' +
+      '<div style="font-size:10px;font-family:\'DM Mono\',monospace;color:var(--blue)">' + f.best_is_score.toFixed(3) + '</div>' +
+      '<div style="font-size:10px;font-family:\'DM Mono\',monospace;color:' + (isUp?'var(--green)':'var(--red)') + '">' +
+        (f.oos_valid ? f.oos_score.toFixed(3) : '(poucos trades)') + '</div>' +
+      '<div style="font-size:8px;font-family:\'DM Mono\',monospace;color:var(--muted)">' + paramStr + '</div>' +
+    '</div>';
+  }).join('');
+
+  document.getElementById('wf-folds-table').innerHTML = th + rows;
+
+  //    Combined equity chart                                                  
+  if (wfChart) { wfChart.destroy(); wfChart = null; }
+  var ctx = document.getElementById('wf-equity-chart').getContext('2d');
+  var eq  = d.combined_equity;
+
+  if (!eq || !eq.length) {
+    document.getElementById('wf-equity-chart').parentElement.innerHTML =
+      '<div style="font-size:9px;color:var(--muted);font-family:\'DM Mono\',monospace;padding:20px">Sem dados de equity OOS</div>';
+  } else {
+    var labels  = eq.map(function(p) {
+      return new Date(p.time * 1000).toLocaleDateString('pt-BR', {month:'short',day:'numeric'});
+    });
+    var equities = eq.map(function(p) { return p.equity; });
+
+    // Color segments by fold
+    var borderColors = eq.map(function(p) {
+      return FOLD_COLORS[(p.fold - 1) % FOLD_COLORS.length];
+    });
+
+    wfChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Equity OOS',
+          data: equities,
+          borderColor: '#3ABFF8',
+          backgroundColor: 'rgba(58,191,248,0.06)',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          fill: true,
+          tension: 0.3,
+          segment: {
+            borderColor: function(ctx2) {
+              var i = ctx2.p0DataIndex;
+              return FOLD_COLORS[(eq[i] ? eq[i].fold - 1 : 0) % FOLD_COLORS.length];
+            }
+          }
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false },
+          tooltip: {
+            callbacks: { label: function(c) { return 'R$ ' + c.raw.toFixed(2); } }
+          }
+        },
+        scales: {
+          x: { grid: { color: 'rgba(58,191,248,.05)' }, ticks: { color: '#8899AA', font: { size: 9 }, maxTicksLimit: 8 } },
+          y: { grid: { color: 'rgba(58,191,248,.05)' }, ticks: { color: '#8899AA', font: { size: 9 },
+              callback: function(v) { return 'R$' + v.toFixed(0); } } }
+        }
+      }
+    });
+  }
+
+  document.getElementById('wf-results').style.display = 'block';
+}
+
+// CONFIG ----
 var STRATEGY_NAMES = {rsi: 'RSI Reversal', macd: 'MACD Crossover', combined: 'RSI + MACD', bollinger: 'Bollinger Bands', ema_cross: 'EMA Cross', momentum: 'Momentum (ROC)'};
 var STRATEGY_COLORS = {rsi: '#3ABFF8', macd: '#F0B429', combined: '#2ED47A', bollinger: '#A78BFA', ema_cross: '#FB923C', momentum: '#F472B6'};
 
-// ---- STATE ----
+// STATE ----
 var lastResult = null;
 var equityChart = null;
 var ddChart = null;
 var compareChart = null;
 
-// ---- UTILS ----
+// UTILS ----
 function f2(n) {
   return parseFloat(n).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
@@ -643,7 +1024,7 @@ function setDisabled(v) {
   document.getElementById('btn-compare').disabled = v;
 }
 
-// ---- TABS ----
+// TABS ----
 function showTab(name) {
   var tabs = document.querySelectorAll('.tab');
   var contents = document.querySelectorAll('.tab-content');
@@ -653,7 +1034,7 @@ function showTab(name) {
   event.target.classList.add('active');
 }
 
-// ---- SINGLE RUN ----
+// SINGLE RUN ----
 function runSingle() {
   var ticker = document.getElementById('f-ticker').value.trim().toUpperCase();
   if (!ticker) { showError('Informe o ticker'); return; }
@@ -693,7 +1074,7 @@ function buildParams(ticker) {
          '&initial_capital=' + c + '&position_size=' + p + '&commission_pct=' + cm;
 }
 
-// ---- RENDER SINGLE ----
+// RENDER SINGLE ----
 function renderResult(d) {
   var m = d.metrics;
   var pos = m.total_return_pct >= 0;
@@ -901,14 +1282,14 @@ function renderSignals(d) {
   '</div>';
 }
 
-// ---- ERROR / HIDE ----
+// ERROR / HIDE ----
 function showError(msg) {
   var box = document.getElementById('error-box');
   box.textContent = '(!) ' + msg;
   box.style.display = 'block';
 }
 
-// ---- COMPARE ALL STRATEGIES ----
+// COMPARE ALL STRATEGIES ----
 function runCompare() {
   var ticker = document.getElementById('f-ticker').value.trim().toUpperCase();
   if (!ticker) { showError('Informe o ticker'); return; }
@@ -1109,7 +1490,7 @@ function hideCompare() {
   document.getElementById('compare-area').style.display = 'none';
 }
 
-// ---- HEADER STATUS ----
+// HEADER STATUS ----
 function loadStatus() {
   fetch('/health')
     .then(function(r) { return r.json(); })

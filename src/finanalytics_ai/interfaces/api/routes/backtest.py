@@ -261,3 +261,100 @@ async def optimize_strategy_get(
     except Exception as exc:
         logger.error("optimize.unexpected_error", error=str(exc))
         raise HTTPException(500, "Erro interno na otimizacao")
+
+
+# ── Walk-Forward ──────────────────────────────────────────────────────────────
+
+class WalkForwardRequest(BaseModel):
+    ticker:          str   = Field(...,       example="PETR4")
+    strategy:        str   = Field("rsi",     example="rsi|macd|combined|bollinger|ema_cross|momentum")
+    range_period:    str   = Field("2y",      example="1y|2y")
+    initial_capital: float = Field(10_000.0,  ge=100.0)
+    position_size:   float = Field(1.0,       ge=0.1,  le=1.0)
+    commission_pct:  float = Field(0.001,     ge=0.0,  le=0.05)
+    objective:       str   = Field("sharpe",  example="sharpe|return|calmar|win_rate|profit_factor")
+    n_splits:        int   = Field(3,         ge=2,    le=6)
+    oos_pct:         float = Field(0.3,       ge=0.1,  le=0.5)
+    anchored:        bool  = Field(False)
+
+
+def _get_walkforward(request: Request):  # type: ignore[return]
+    from finanalytics_ai.application.services.walkforward_service import WalkForwardService
+    svc = getattr(request.app.state, "walkforward_service", None)
+    if svc is None:
+        raise HTTPException(503, "WalkForwardService nao inicializado")
+    return svc
+
+
+@router.post("/walkforward")
+async def run_walkforward(
+    body:    WalkForwardRequest,
+    request: Request,
+) -> dict[str, Any]:
+    """
+    Executa walk-forward validation para detectar overfitting.
+
+    Divide os dados em n_splits folds. Para cada fold:
+      - IN-SAMPLE:  otimiza parametros via grid search
+      - OUT-OF-SAMPLE: valida com os melhores parametros encontrados
+
+    Retorna metricas de robustez: efficiency_ratio, consistency, degradation.
+    """
+    svc = _get_walkforward(request)
+    try:
+        result = await svc.run(
+            ticker          = body.ticker.upper(),
+            strategy_name   = body.strategy,
+            range_period    = body.range_period,
+            initial_capital = body.initial_capital,
+            position_size   = body.position_size,
+            commission_pct  = body.commission_pct,
+            objective       = body.objective,
+            n_splits        = body.n_splits,
+            oos_pct         = body.oos_pct,
+            anchored        = body.anchored,
+        )
+        return result.to_dict()
+    except BacktestError as exc:
+        raise HTTPException(422, str(exc))
+    except Exception as exc:
+        logger.error("walkforward.unexpected_error", error=str(exc))
+        raise HTTPException(500, "Erro interno no walk-forward")
+
+
+@router.get("/walkforward")
+async def run_walkforward_get(
+    request:         Request,
+    ticker:          str   = Query(...),
+    strategy:        str   = Query("rsi"),
+    range_period:    str   = Query("2y"),
+    initial_capital: float = Query(10_000.0),
+    position_size:   float = Query(1.0),
+    commission_pct:  float = Query(0.001),
+    objective:       str   = Query("sharpe"),
+    n_splits:        int   = Query(3),
+    oos_pct:         float = Query(0.3),
+    anchored:        bool  = Query(False),
+) -> dict[str, Any]:
+    """Walk-forward via GET query params."""
+    body = WalkForwardRequest(
+        ticker=ticker, strategy=strategy, range_period=range_period,
+        initial_capital=initial_capital, position_size=position_size,
+        commission_pct=commission_pct, objective=objective,
+        n_splits=n_splits, oos_pct=oos_pct, anchored=anchored,
+    )
+    svc = _get_walkforward(request)
+    try:
+        result = await svc.run(
+            ticker=body.ticker.upper(), strategy_name=body.strategy,
+            range_period=body.range_period, initial_capital=body.initial_capital,
+            position_size=body.position_size, commission_pct=body.commission_pct,
+            objective=body.objective, n_splits=body.n_splits,
+            oos_pct=body.oos_pct, anchored=body.anchored,
+        )
+        return result.to_dict()
+    except BacktestError as exc:
+        raise HTTPException(422, str(exc))
+    except Exception as exc:
+        logger.error("walkforward.unexpected_error", error=str(exc))
+        raise HTTPException(500, "Erro interno no walk-forward")
