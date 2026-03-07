@@ -278,6 +278,13 @@ from fastapi.responses import HTMLResponse
 def mount_static(app: FastAPI) -> None:
     static_dir = pathlib.Path(__file__).parent / "static"
 
+    @app.get("/hub", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_hub() -> HTMLResponse:
+        html_file = static_dir / "hub.html"
+        if not html_file.exists():
+            return HTMLResponse("<h1>Hub nao encontrado</h1>", status_code=404)
+        return HTMLResponse(html_file.read_text(encoding="utf-8"))
+
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     async def serve_dashboard() -> HTMLResponse:
         html_file = static_dir / "dashboard.html"

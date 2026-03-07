@@ -50,8 +50,8 @@ RUN uv pip install --system \
 
 # Instala o pacote local sem reinstalar deps
 COPY src/ ./src/
-RUN uv pip install --system -e . --no-deps
-
+#RUN uv pip install --system -e . --no-deps
+#
 # ── Final (produção) ──────────────────────────────────────────────────────────
 FROM base AS final
 

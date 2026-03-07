@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinAnalytics AI — Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #04060d;
+  --s1:       #070c18;
+  --s2:       #0b1120;
+  --border:   #111c2e;
+  --border2:  #1a2a42;
+  --text:     #c8d8e8;
+  --muted:    #3a5570;
+  --dim:      #1e2f42;
+  --accent:   #00c8ff;
+  --gold:     #f0b429;
+  --green:    #00e676;
+  --red:      #ff3d5a;
+  --orange:   #ff8c00;
+  --purple:   #a855f7;
+  --raj:      'Rajdhani', sans-serif;
+  --mono:     'JetBrains Mono', monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:var(--raj);}
+
+/* ── Ambient background ── */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse 60% 40% at 10% 20%, rgba(0,200,255,.04) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 50% at 90% 80%, rgba(240,180,41,.03) 0%, transparent 60%),
+    repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,200,255,.012) 40px),
+    repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,200,255,.012) 40px);
+}
+
+/* ── Header ── */
+.hdr{
+  position:relative;z-index:100;
+  height:48px;padding:0 24px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(4,6,13,.9);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border2);
+}
+.hdr-brand{display:flex;align-items:center;gap:12px;}
+.brand-logo{
+  width:32px;height:32px;border-radius:6px;
+  background:linear-gradient(135deg,rgba(0,200,255,.2),rgba(0,200,255,.05));
+  border:1px solid rgba(0,200,255,.3);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent);
+}
+.brand-name{font-size:18px;font-weight:700;letter-spacing:.06em;color:var(--text);}
+.brand-name span{color:var(--accent);}
+.brand-tag{font-family:var(--mono);font-size:8px;font-weight:700;
+            background:linear-gradient(90deg,var(--gold),var(--orange));
+            -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+            background-clip:text;letter-spacing:.15em;}
+.hdr-center{display:flex;gap:2px;}
+.nav-btn{
+  font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.06em;
+  color:var(--muted);text-decoration:none;
+  padding:5px 14px;border-radius:4px;
+  border:1px solid transparent;transition:all .1s;
+}
+.nav-btn:hover{color:var(--text);border-color:var(--border2);background:var(--s2);}
+.nav-btn.active{color:var(--accent);border-color:rgba(0,200,255,.25);background:rgba(0,200,255,.06);}
+.hdr-right{display:flex;align-items:center;gap:16px;}
+.live-pill{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9px;color:var(--muted);}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.clock{font-family:var(--mono);font-size:10px;color:var(--muted);}
+
+/* ── Main layout ── */
+.layout{
+  position:relative;z-index:1;
+  height:calc(100vh - 48px);
+  display:grid;
+  grid-template-columns:1fr 320px;
+  grid-template-rows:auto 1fr auto;
+  gap:0;overflow:hidden;
+}
+
+/* ── Market pulse strip ── */
+.pulse-strip{
+  grid-column:1/-1;
+  background:var(--s1);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;overflow:hidden;height:44px;
+  padding:0 20px;gap:0;
+}
+.pulse-item{
+  display:flex;align-items:center;gap:10px;
+  padding:0 18px;border-right:1px solid var(--border);
+  min-width:140px;cursor:pointer;transition:background .1s;flex-shrink:0;
+}
+.pulse-item:first-child{padding-left:0;}
+.pulse-item:hover{background:rgba(0,200,255,.04);}
+.pulse-ticker{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--accent);letter-spacing:.06em;width:48px;}
+.pulse-price{font-family:var(--mono);font-size:11px;font-weight:500;}
+.pulse-chg{font-family:var(--mono);font-size:9px;font-weight:700;}
+.up{color:var(--green)}.dn{color:var(--red)}.neu{color:var(--muted)}
+.pulse-loading{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.06em;}
+
+/* ── Left content ── */
+.content{overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px;}
+
+/* Module cards grid */
+.modules-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+}
+
+.mod-card{
+  background:var(--s1);border:1px solid var(--border);border-radius:10px;
+  padding:16px;cursor:pointer;text-decoration:none;
+  display:flex;flex-direction:column;gap:10px;
+  transition:all .15s;
+  position:relative;overflow:hidden;
+  animation:fadeUp .3s ease both;
+}
+.mod-card::before{
+  content:'';position:absolute;inset:0;opacity:0;transition:opacity .2s;
+  background:radial-gradient(ellipse 80% 60% at 50% 100%,var(--card-color,.3),transparent);
+}
+.mod-card:hover{border-color:var(--card-color);transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.3);}
+.mod-card:hover::before{opacity:.08;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+.mod-head{display:flex;align-items:flex-start;justify-content:space-between;}
+.mod-icon{
+  width:36px;height:36px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:17px;flex-shrink:0;
+}
+.mod-status{font-family:var(--mono);font-size:8px;font-weight:700;padding:2px 7px;
+              border-radius:3px;letter-spacing:.06em;}
+.st-ok  {background:rgba(0,230,118,.1);color:var(--green);border:1px solid rgba(0,230,118,.2);}
+.st-run {background:rgba(0,200,255,.1);color:var(--accent);border:1px solid rgba(0,200,255,.2);}
+.st-off {background:rgba(100,100,120,.1);color:var(--muted);border:1px solid var(--border);}
+
+.mod-name{font-size:16px;font-weight:700;letter-spacing:.02em;}
+.mod-desc{font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.5;}
+.mod-stat{font-family:var(--mono);font-size:9px;color:var(--dim);
+           border-top:1px solid var(--border);padding-top:8px;margin-top:auto;
+           display:flex;justify-content:space-between;}
+.mod-stat-val{color:var(--text);}
+
+/* Section header */
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.sec-title{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+            color:var(--muted);display:flex;align-items:center;gap:8px;}
+.sec-title::before{content:'';width:3px;height:12px;background:var(--accent);border-radius:2px;display:block;}
+.sec-action{font-family:var(--mono);font-size:9px;color:var(--accent);
+             cursor:pointer;border:none;background:none;letter-spacing:.04em;}
+.sec-action:hover{text-decoration:underline;}
+
+/* Quick anomaly widget */
+.quick-panel{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:14px;}
+.quick-form{display:flex;gap:8px;margin-bottom:10px;}
+.quick-input{
+  flex:1;background:var(--bg);border:1px solid var(--border);border-radius:5px;
+  color:var(--text);font-family:var(--mono);font-size:10px;padding:6px 10px;outline:none;
+  transition:border-color .1s;
+}
+.quick-input:focus{border-color:var(--accent);}
+.quick-btn{
+  background:linear-gradient(135deg,rgba(0,200,255,.15),rgba(0,200,255,.05));
+  border:1px solid rgba(0,200,255,.3);border-radius:5px;
+  color:var(--accent);font-family:var(--mono);font-size:9px;font-weight:700;
+  padding:6px 14px;cursor:pointer;letter-spacing:.06em;white-space:nowrap;transition:all .1s;
+}
+.quick-btn:hover:not(:disabled){background:rgba(0,200,255,.12);}
+.quick-btn:disabled{opacity:.3;cursor:not-allowed;}
+
+.anom-list{display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;}
+.anom-row{
+  display:flex;align-items:center;gap:10px;
+  padding:6px 10px;background:var(--s2);border-radius:6px;
+  border-left:3px solid var(--border);transition:border-color .1s;
+}
+.anom-row.high  {border-color:var(--red);}
+.anom-row.medium{border-color:var(--gold);}
+.anom-row.low   {border-color:var(--accent);}
+.anom-tk{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--accent);width:44px;flex-shrink:0;}
+.anom-type{font-family:var(--mono);font-size:8px;color:var(--muted);width:72px;flex-shrink:0;letter-spacing:.04em;}
+.anom-desc{font-family:var(--mono);font-size:9px;color:var(--text);flex:1;
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.anom-sev{font-family:var(--mono);font-size:8px;font-weight:700;padding:1px 5px;border-radius:2px;}
+.sev-high  {background:rgba(255,61,90,.15);color:var(--red);}
+.sev-medium{background:rgba(240,180,41,.12);color:var(--gold);}
+.sev-low   {background:rgba(0,200,255,.1);color:var(--accent);}
+
+.no-anom{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;padding:16px;}
+
+/* Quick screener results */
+.screen-list{display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;}
+.screen-row{
+  display:flex;align-items:center;gap:10px;
+  padding:5px 10px;background:var(--s2);border-radius:5px;
+}
+.sc-tk  {font-family:var(--mono);font-size:10px;font-weight:700;color:var(--accent);width:44px;}
+.sc-name{font-family:var(--mono);font-size:9px;color:var(--muted);flex:1;
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sc-val {font-family:var(--mono);font-size:9px;color:var(--text);width:48px;text-align:right;}
+.sc-pos {color:var(--green);}
+
+/* ── Right sidebar ── */
+.sidebar{
+  border-left:1px solid var(--border);background:var(--s1);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.sb-block{border-bottom:1px solid var(--border);padding:14px;}
+.sb-title{font-family:var(--mono);font-size:8px;color:var(--muted);
+           letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px;}
+
+/* Service health */
+.svc-list{display:flex;flex-direction:column;gap:5px;}
+.svc-row{display:flex;align-items:center;gap:8px;}
+.svc-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.svc-dot.ok  {background:var(--green);box-shadow:0 0 5px var(--green);}
+.svc-dot.warn{background:var(--gold);}
+.svc-dot.off {background:var(--muted);}
+.svc-name{font-family:var(--mono);font-size:9px;flex:1;color:var(--text);}
+.svc-tag{font-family:var(--mono);font-size:8px;color:var(--muted);}
+
+/* Portfolio KPIs */
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.kpi-cell{background:var(--s2);border-radius:6px;padding:8px 10px;}
+.kpi-lbl{font-family:var(--mono);font-size:7px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px;}
+.kpi-val{font-size:16px;font-weight:700;letter-spacing:-.01em;}
+
+/* Activity feed */
+.feed{flex:1;overflow-y:auto;padding:14px;}
+.feed-item{
+  padding:8px 0;border-bottom:1px solid rgba(17,28,46,.8);
+  display:flex;gap:8px;align-items:flex-start;
+}
+.feed-item:last-child{border-bottom:none;}
+.feed-time{font-family:var(--mono);font-size:8px;color:var(--muted);white-space:nowrap;margin-top:1px;}
+.feed-msg{font-family:var(--mono);font-size:9px;color:var(--text);line-height:1.4;}
+.feed-tag{display:inline-block;font-size:7px;font-weight:700;padding:1px 4px;
+           border-radius:2px;margin-bottom:2px;letter-spacing:.06em;}
+.tag-anom{background:rgba(255,61,90,.15);color:var(--red);}
+.tag-screen{background:rgba(0,230,118,.1);color:var(--green);}
+.tag-corr{background:rgba(168,85,247,.1);color:var(--purple);}
+.tag-bt{background:rgba(0,200,255,.1);color:var(--accent);}
+
+/* Bottom status bar */
+.statusbar{
+  grid-column:1/-1;
+  background:var(--s1);border-top:1px solid var(--border);
+  height:28px;padding:0 20px;
+  display:flex;align-items:center;gap:24px;
+}
+.sb-item{font-family:var(--mono);font-size:8px;color:var(--muted);
+          display:flex;align-items:center;gap:5px;}
+.sb-val{color:var(--text);}
+
+/* Loading skeleton */
+.skel{background:linear-gradient(90deg,var(--border) 25%,var(--border2) 50%,var(--border) 75%);
+       background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:3px;height:10px;}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<div class="hdr">
+  <div class="hdr-brand">
+    <div class="brand-logo">FA</div>
+    <div>
+      <div class="brand-name">Fin<span>Analytics</span> <span style="font-size:11px;color:var(--muted);font-weight:400">AI</span></div>
+      <div class="brand-tag">COMMAND CENTER</div>
+    </div>
+  </div>
+  <div class="hdr-center">
+    <a class="nav-btn active" href="/hub">Hub</a>
+    <a class="nav-btn" href="/">Dashboard</a>
+    <a class="nav-btn" href="/backtest">Backtest</a>
+    <a class="nav-btn" href="/correlation">Correlação</a>
+    <a class="nav-btn" href="/screener">Screener</a>
+    <a class="nav-btn" href="/anomaly">Anomalias</a>
+  </div>
+  <div class="hdr-right">
+    <div class="live-pill"><div class="live-dot"></div>AO VIVO</div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- ── Market Pulse ── -->
+  <div class="pulse-strip" id="pulse-strip">
+    <div class="pulse-loading">Carregando cotações...</div>
+  </div>
+
+  <!-- ── Left: main content ── -->
+  <div class="content">
+
+    <!-- Module cards -->
+    <div>
+      <div class="sec-hdr">
+        <div class="sec-title">Módulos</div>
+      </div>
+      <div class="modules-grid" id="modules-grid">
+        <a class="mod-card" href="/" style="--card-color:rgba(58,191,248,1);animation-delay:.05s">
+          <div class="mod-head">
+            <div class="mod-icon" style="background:rgba(58,191,248,.1)">📈</div>
+            <div class="mod-status st-ok" id="svc-dashboard">ONLINE</div>
+          </div>
+          <div class="mod-name">Dashboard</div>
+          <div class="mod-desc">Cotações em tempo real, gráficos OHLC,<br>indicadores técnicos e alertas de preço.</div>
+          <div class="mod-stat">
+            <span>RSI · MACD · Bollinger</span>
+            <span class="mod-stat-val">Tempo real</span>
+          </div>
+        </a>
+
+        <a class="mod-card" href="/backtest" style="--card-color:rgba(0,230,118,1);animation-delay:.1s">
+          <div class="mod-head">
+            <div class="mod-icon" style="background:rgba(0,230,118,.1)">⚡</div>
+            <div class="mod-status st-ok">ONLINE</div>
+          </div>
+          <div class="mod-name">Backtest</div>
+          <div class="mod-desc">6 estratégias, grid search,<br>walk-forward e comparativo multi-ticker.</div>
+          <div class="mod-stat">
+            <span>RSI · MACD · EMA · Bollinger</span>
+            <span class="mod-stat-val">6 estratégias</span>
+          </div>
+        </a>
+
+        <a class="mod-card" href="/correlation" style="--card-color:rgba(168,85,247,1);animation-delay:.15s">
+          <div class="mod-head">
+            <div class="mod-icon" style="background:rgba(168,85,247,.1)">🔗</div>
+            <div class="mod-status st-ok">ONLINE</div>
+          </div>
+          <div class="mod-name">Correlação</div>
+          <div class="mod-desc">Matriz de correlação entre ativos,<br>score de diversificação, rolling correlation.</div>
+          <div class="mod-stat">
+            <span>Pearson · Rolling · Heatmap</span>
+            <span class="mod-stat-val">Até 10 ativos</span>
+          </div>
+        </a>
+
+        <a class="mod-card" href="/screener" style="--card-color:rgba(0,200,255,1);animation-delay:.2s">
+          <div class="mod-head">
+            <div class="mod-icon" style="background:rgba(0,200,255,.1)">🔍</div>
+            <div class="mod-status st-ok">ONLINE</div>
+          </div>
+          <div class="mod-name">Screener</div>
+          <div class="mod-desc">Filtros fundamentalistas sobre ~75 ativos<br>do Ibovespa. P/L, P/VP, DY, ROE, ROIC.</div>
+          <div class="mod-stat">
+            <span>18 indicadores · 5 presets</span>
+            <span class="mod-stat-val" id="screen-count">—</span>
+          </div>
+        </a>
+
+        <a class="mod-card" href="/anomaly" style="--card-color:rgba(255,61,90,1);animation-delay:.25s">
+          <div class="mod-head">
+            <div class="mod-icon" style="background:rgba(255,61,90,.1)">⚠️</div>
+            <div class="mod-status st-ok" id="anom-mod-status">ONLINE</div>
+          </div>
+          <div class="mod-name">Anomalias ML</div>
+          <div class="mod-desc">Z-Score, Bollinger, CUSUM e Volume Spike.<br>Detecção automática sem threshold fixo.</div>
+          <div class="mod-stat">
+            <span>4 algoritmos · stdlib puro</span>
+            <span class="mod-stat-val" id="anom-mod-count">—</span>
+          </div>
+        </a>
+
+        <div class="mod-card" style="--card-color:rgba(240,180,41,1);animation-delay:.3s;cursor:default;opacity:.5">
+          <div class="mod-head">
+            <div class="mod-icon" style="background:rgba(240,180,41,.1)">📊</div>
+            <div class="mod-status st-off">EM BREVE</div>
+          </div>
+          <div class="mod-name">Relatórios</div>
+          <div class="mod-desc">Exportação PDF da carteira,<br>P&amp;L consolidado e análise de risco.</div>
+          <div class="mod-stat">
+            <span>PDF · Portfólio · P&amp;L</span>
+            <span class="mod-stat-val">Sprint 21</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick anomaly scan -->
+    <div>
+      <div class="sec-hdr">
+        <div class="sec-title">Scan Rápido de Anomalias</div>
+        <button class="sec-action" onclick="runQuickScan()">↻ Atualizar</button>
+      </div>
+      <div class="quick-panel">
+        <div class="quick-form">
+          <input class="quick-input" id="scan-tickers" type="text"
+            value="PETR4,VALE3,ITUB4,WEGE3,ABEV3,MGLU3,BBAS3,BBDC4"
+            placeholder="Tickers separados por vírgula">
+          <button class="quick-btn" id="scan-btn" onclick="runQuickScan()">▶ SCAN</button>
+        </div>
+        <div id="scan-result">
+          <div class="no-anom">Configure os tickers e execute o scan</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick screener -->
+    <div>
+      <div class="sec-hdr">
+        <div class="sec-title">Screener Rápido — Dividendos</div>
+        <a class="sec-action" href="/screener">Ver completo →</a>
+      </div>
+      <div class="quick-panel">
+        <div id="screener-result"><div class="no-anom">Carregando...</div></div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- ── Right sidebar ── -->
+  <div class="sidebar">
+
+    <!-- Health -->
+    <div class="sb-block">
+      <div class="sb-title">Status dos Serviços</div>
+      <div class="svc-list" id="svc-list">
+        <div class="svc-row"><div class="svc-dot ok"></div><span class="svc-name">API</span><span class="svc-tag">FastAPI</span></div>
+        <div class="svc-row"><div class="svc-dot" id="dot-db"></div><span class="svc-name">PostgreSQL</span><span class="svc-tag" id="tag-db">—</span></div>
+        <div class="svc-row"><div class="svc-dot" id="dot-ts"></div><span class="svc-name">TimescaleDB</span><span class="svc-tag" id="tag-ts">—</span></div>
+        <div class="svc-row"><div class="svc-dot" id="dot-kafka"></div><span class="svc-name">Kafka</span><span class="svc-tag" id="tag-kafka">—</span></div>
+        <div class="svc-row"><div class="svc-dot" id="dot-brapi"></div><span class="svc-name">BRAPI</span><span class="svc-tag" id="tag-brapi">—</span></div>
+      </div>
+    </div>
+
+    <!-- Portfolio KPIs -->
+    <div class="sb-block">
+      <div class="sb-title">Portfólio</div>
+      <div class="kpi-grid" id="portfolio-kpis">
+        <div class="kpi-cell"><div class="kpi-lbl">Posições</div><div class="kpi-val" id="kpi-pos">—</div></div>
+        <div class="kpi-cell"><div class="kpi-lbl">Ativos</div><div class="kpi-val" id="kpi-assets">—</div></div>
+        <div class="kpi-cell"><div class="kpi-lbl">Alertas</div><div class="kpi-val" id="kpi-alerts" style="color:var(--gold)">—</div></div>
+        <div class="kpi-cell"><div class="kpi-lbl">Anomalias</div><div class="kpi-val" id="kpi-anom" style="color:var(--red)">—</div></div>
+      </div>
+    </div>
+
+    <!-- Activity feed -->
+    <div class="sb-block" style="flex:1;overflow:hidden;display:flex;flex-direction:column;border-bottom:none;">
+      <div class="sb-title">Atividade Recente</div>
+      <div class="feed" id="activity-feed">
+        <div class="feed-item">
+          <div class="feed-time">agora</div>
+          <div class="feed-msg"><div class="feed-tag tag-bt">HUB</div><br>Hub iniciado. Execute um scan.</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /sidebar -->
+
+  <!-- ── Status bar ── -->
+  <div class="statusbar">
+    <div class="sb-item">UNIVERSO <span class="sb-val">~75 ativos Ibovespa</span></div>
+    <div class="sb-item">ALGORITMOS <span class="sb-val">Z-Score · Bollinger · CUSUM · Volume</span></div>
+    <div class="sb-item">ESTRATÉGIAS <span class="sb-val">RSI · MACD · EMA · Momentum · Combined · Bollinger</span></div>
+    <div class="sb-item" style="margin-left:auto">BUILD <span class="sb-val">Sprint 20</span></div>
+  </div>
+
+</div><!-- /layout -->
+
+<script>
+'use strict';
+
+var PULSE_TICKERS = ['PETR4','VALE3','ITUB4','BBDC4','WEGE3','ABEV3','MGLU3','BBAS3'];
+
+// ── Clock ─────────────────────────────────────────────────────────────────────
+function tick() {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(tick, 1000); tick();
+
+// ── Health ────────────────────────────────────────────────────────────────────
+function loadHealth() {
+  fetch('/health')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var comps = d.components || {};
+      function setDot(id, tagId, ok, label) {
+        var dot = document.getElementById(id);
+        var tag = document.getElementById(tagId);
+        if (!dot) return;
+        dot.className = 'svc-dot ' + (ok ? 'ok' : 'warn');
+        if (tag) tag.textContent = ok ? 'OK' : 'ERR';
+      }
+      setDot('dot-db',    'tag-db',    comps.postgresql !== false, '');
+      setDot('dot-ts',    'tag-ts',    comps.timescaledb !== false, '');
+      setDot('dot-kafka', 'tag-kafka', comps.kafka !== false, '');
+      setDot('dot-brapi', 'tag-brapi', comps.brapi !== false, '');
+    }).catch(function(){});
+}
+loadHealth();
+setInterval(loadHealth, 30000);
+
+// ── Market Pulse ──────────────────────────────────────────────────────────────
+function loadPulse() {
+  var strip = document.getElementById('pulse-strip');
+  Promise.all(PULSE_TICKERS.map(function(t) {
+    return fetch('/api/v1/quotes/' + t)
+      .then(function(r){return r.ok ? r.json() : null;})
+      .catch(function(){return null;});
+  })).then(function(results) {
+    var html = '';
+    results.forEach(function(d, i) {
+      var tk = PULSE_TICKERS[i];
+      if (!d) {
+        html += '<div class="pulse-item"><span class="pulse-ticker">' + tk + '</span><span class="pulse-price neu">—</span></div>';
+        return;
+      }
+      var price  = d.price || d.regularMarketPrice || 0;
+      var chgPct = d.change_pct || d.regularMarketChangePercent || 0;
+      var cls    = chgPct > 0 ? 'up' : chgPct < 0 ? 'dn' : 'neu';
+      var sign   = chgPct > 0 ? '+' : '';
+      html += '<div class="pulse-item" onclick="window.location=\'/?ticker=' + tk + '\'">'
+        + '<span class="pulse-ticker">' + tk + '</span>'
+        + '<span class="pulse-price ' + cls + '">R$' + price.toFixed(2) + '</span>'
+        + '<span class="pulse-chg ' + cls + '">' + sign + chgPct.toFixed(2) + '%</span>'
+        + '</div>';
+    });
+    strip.innerHTML = html || '<div class="pulse-loading">Sem dados</div>';
+  });
+}
+loadPulse();
+setInterval(loadPulse, 30000);
+
+// ── Portfolio KPIs ────────────────────────────────────────────────────────────
+function loadPortfolio() {
+  fetch('/api/v1/portfolio/')
+    .then(function(r){return r.json();})
+    .then(function(portfolios) {
+      var total = Array.isArray(portfolios) ? portfolios.length : 0;
+      document.getElementById('kpi-pos').textContent = total;
+      // Count unique tickers
+      var tickers = new Set();
+      (portfolios || []).forEach(function(p) {
+        (p.positions || []).forEach(function(pos) { tickers.add(pos.ticker); });
+      });
+      document.getElementById('kpi-assets').textContent = tickers.size || '—';
+    }).catch(function(){
+      document.getElementById('kpi-pos').textContent = '—';
+    });
+}
+loadPortfolio();
+
+// ── Quick Anomaly Scan ─────────────────────────────────────────────────────────
+function runQuickScan() {
+  var input   = document.getElementById('scan-tickers');
+  var btn     = document.getElementById('scan-btn');
+  var result  = document.getElementById('scan-result');
+  var tickers = input.value.split(',').map(function(t){return t.trim().toUpperCase();}).filter(Boolean);
+  if (!tickers.length) return;
+
+  btn.disabled = true;
+  result.innerHTML = '<div class="no-anom" style="color:var(--accent)">Escaneando ' + tickers.length + ' ativos...</div>';
+
+  fetch('/api/v1/anomaly/scan', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({tickers:tickers, range_period:'3mo', zscore_threshold:2.5, volume_multiplier:3.0, lookback_bars:100}),
+  })
+  .then(function(r){return r.json();})
+  .then(function(d) {
+    var results = d.results || [];
+    var anomalies = [];
+    results.forEach(function(r) {
+      (r.anomalies || []).forEach(function(a) {
+        anomalies.push({ticker: r.ticker, anomaly: a});
+      });
+    });
+
+    // Update mod card stat
+    document.getElementById('anom-mod-count').textContent = anomalies.length + ' anomalias';
+    document.getElementById('kpi-anom').textContent = anomalies.length;
+
+    if (!anomalies.length) {
+      result.innerHTML = '<div class="no-anom" style="color:var(--green)">✓ Nenhuma anomalia detectada nos ' + tickers.length + ' ativos</div>';
+      addActivity('ANOMALY', 'Scan de ' + tickers.length + ' ativos: 0 anomalias', 'tag-screen');
+      return;
+    }
+
+    // Sort: HIGH first
+    var order = {high:2, medium:1, low:0};
+    anomalies.sort(function(a,b){ return (order[b.anomaly.severity]||0) - (order[a.anomaly.severity]||0); });
+
+    var TYPE_LABEL = {
+      zscore_spike:'Z-SCORE', bollinger_break:'BOLLINGER',
+      cusum_shift:'CUSUM', volume_spike:'VOLUME',
+    };
+    var html = '<div class="anom-list">';
+    anomalies.slice(0, 12).forEach(function(item) {
+      var a = item.anomaly;
+      var typeLabel = TYPE_LABEL[a.anomaly_type] || a.anomaly_type;
+      html += '<div class="anom-row ' + a.severity + '">'
+        + '<span class="anom-tk">' + item.ticker + '</span>'
+        + '<span class="anom-type">' + typeLabel + '</span>'
+        + '<span class="anom-desc">' + a.description + '</span>'
+        + '<span class="anom-sev sev-' + a.severity + '">' + a.severity.toUpperCase() + '</span>'
+        + '</div>';
+    });
+    if (anomalies.length > 12) {
+      html += '<div class="no-anom" style="padding:6px">+ ' + (anomalies.length - 12) + ' mais — <a href="/anomaly" style="color:var(--accent)">ver tudo</a></div>';
+    }
+    html += '</div>';
+    result.innerHTML = html;
+
+    var highCount = anomalies.filter(function(a){return a.anomaly.severity==='high';}).length;
+    addActivity('ANOMALY',
+      'Scan: ' + anomalies.length + ' anomalias (' + highCount + ' HIGH) em ' + tickers.length + ' ativos',
+      'tag-anom');
+  })
+  .catch(function(err) {
+    result.innerHTML = '<div class="no-anom" style="color:var(--red)">Erro: ' + err.message + '</div>';
+  })
+  .finally(function(){ btn.disabled = false; });
+}
+
+// Auto-run on load
+setTimeout(runQuickScan, 800);
+
+// ── Quick Screener ─────────────────────────────────────────────────────────────
+function loadQuickScreener() {
+  fetch('/api/v1/screener/run?dy_min=5&roe_min=12&debt_equity_max=2&pe_max=20')
+    .then(function(r){return r.json();})
+    .then(function(d) {
+      var stocks = (d.stocks || []).slice(0, 8);
+      document.getElementById('screen-count').textContent = d.total_passed + ' encontradas';
+      document.getElementById('kpi-alerts').textContent = d.total_passed;
+
+      if (!stocks.length) {
+        document.getElementById('screener-result').innerHTML =
+          '<div class="no-anom">Nenhuma ação no filtro atual</div>';
+        return;
+      }
+      var html = '<div class="screen-list">';
+      stocks.forEach(function(s) {
+        html += '<div class="screen-row">'
+          + '<span class="sc-tk">' + s.ticker + '</span>'
+          + '<span class="sc-name">' + (s.name || s.sector || '—') + '</span>'
+          + '<span class="sc-val">' + (s.dy !== null ? '<span class="sc-pos">DY ' + s.dy.toFixed(1) + '%</span>' : '—') + '</span>'
+          + '<span class="sc-val">' + (s.pe  !== null ? 'P/L ' + s.pe.toFixed(1)  : '—') + '</span>'
+          + '</div>';
+      });
+      html += '</div>';
+      document.getElementById('screener-result').innerHTML = html;
+      addActivity('SCREENER', 'Screener Dividendos: ' + d.total_passed + ' ações passaram nos filtros', 'tag-screen');
+    })
+    .catch(function(){
+      document.getElementById('screener-result').innerHTML =
+        '<div class="no-anom">Erro ao carregar screener</div>';
+    });
+}
+setTimeout(loadQuickScreener, 1200);
+
+// ── Activity Feed ─────────────────────────────────────────────────────────────
+function addActivity(tag, msg, tagClass) {
+  var feed = document.getElementById('activity-feed');
+  var now  = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  var item = document.createElement('div');
+  item.className = 'feed-item';
+  item.innerHTML = '<div class="feed-time">' + now + '</div>'
+    + '<div class="feed-msg"><div class="feed-tag ' + tagClass + '">' + tag + '</div><br>' + msg + '</div>';
+  feed.insertBefore(item, feed.firstChild);
+  // Keep max 20 items
+  while (feed.children.length > 20) feed.removeChild(feed.lastChild);
+}
+</script>
+</body>
+</html>
