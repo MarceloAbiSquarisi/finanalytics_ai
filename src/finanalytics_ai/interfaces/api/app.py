@@ -135,19 +135,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from finanalytics_ai.application.services.backtest_service import BacktestService
         from finanalytics_ai.application.services.optimizer_service import OptimizerService
         from finanalytics_ai.application.services.walkforward_service import WalkForwardService
-        from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient as _BrapiCli
+        from finanalytics_ai.infrastructure.adapters.market_data_client import create_market_data_client
         from finanalytics_ai.application.services.multi_ticker_service import MultiTickerService
         from finanalytics_ai.application.services.correlation_service import CorrelationService
         from finanalytics_ai.application.services.screener_service import ScreenerService
         from finanalytics_ai.application.services.anomaly_service import AnomalyService
-        brapi = _BrapiCli()
-        app.state.backtest_service     = BacktestService(brapi)
-        app.state.optimizer_service    = OptimizerService(brapi)
-        app.state.walkforward_service  = WalkForwardService(brapi)
-        app.state.multi_ticker_service = MultiTickerService(brapi)
-        app.state.correlation_service  = CorrelationService(brapi)
-        app.state.screener_service     = ScreenerService(brapi)
-        app.state.anomaly_service      = AnomalyService(brapi)
+        market_client = create_market_data_client(settings.brapi_token)
+        app.state.backtest_service     = BacktestService(market_client)
+        app.state.optimizer_service    = OptimizerService(market_client)
+        app.state.walkforward_service  = WalkForwardService(market_client)
+        app.state.multi_ticker_service = MultiTickerService(market_client)
+        app.state.correlation_service  = CorrelationService(market_client)
+        app.state.screener_service     = ScreenerService(market_client)
+        app.state.anomaly_service      = AnomalyService(market_client)
+        logger.info("market_data_client.composite.ready")
         logger.info("backtest_service.ready")
         logger.info("optimizer_service.ready")
         logger.info("walkforward_service.ready")
