@@ -189,6 +189,40 @@ class BrapiClient:
                 context={"ticker": str(ticker), "error": str(exc)},
             ) from exc
 
+    async def get_fundamentals_batch(
+        self,
+        tickers: list[str],
+    ) -> list[dict[str, Any]]:
+        """
+        Retorna dados fundamentalistas de multiplos tickers em uma unica requisicao.
+
+        BRAPI aceita /quote/A,B,C?fundamental=true para busca em batch.
+        Retorna lista de dicts com todos os campos fundamentalistas disponiveis.
+
+        Design decision:
+          Retornamos o dict bruto da BRAPI — o mapeamento para FundamentalData
+          fica no ScreenerService._parse_fundamental(), seguindo o mesmo padrao
+          do get_ohlc_bars que retorna dicts prontos para o frontend.
+          Isso mantem o BrapiClient como adaptador puro sem logica de dominio.
+        """
+        if not tickers:
+            return []
+
+        joined = ",".join(tickers)
+        path   = f"/quote/{joined}?fundamental=true"
+
+        try:
+            data = await self._request_with_retry(path)
+            results = data.get("results", [])
+            return results if isinstance(results, list) else []
+        except Exception as exc:
+            logger.warning(
+                "fundamentals_batch.failed",
+                tickers=tickers,
+                error=str(exc),
+            )
+            return []
+
     async def search_assets(self, query: str) -> list[dict[str, str]]:
         data = await self._request_with_retry(f"/quote/list?search={query}")
         stocks = data.get("stocks", [])
