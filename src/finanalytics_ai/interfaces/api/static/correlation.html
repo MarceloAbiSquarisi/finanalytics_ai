@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Correlacao — FinAnalytics AI</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:      #0b0e14;
+    --surface: #111520;
+    --border:  #1e2535;
+    --text:    #e2e8f0;
+    --muted:   #64748b;
+    --accent:  #7c3aed;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, sans-serif; min-height: 100vh; }
+
+  /* ── Header ── */
+  .hdr { background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 20px;
+         display: flex; align-items: center; justify-content: space-between; }
+  .hdr-title { font-size: 13px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .hdr-dot { width: 6px; height: 6px; border-radius: 50%; background: #10b981; }
+  .nav { display: flex; gap: 4px; }
+  .nav a { font-size: 11px; color: var(--muted); text-decoration: none; padding: 4px 10px;
+            border-radius: 5px; border: 1px solid transparent; transition: all .15s; }
+  .nav a:hover, .nav a.active { color: var(--text); background: rgba(255,255,255,.05); border-color: var(--border); }
+  .hdr-status { font-size: 9px; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  /* ── Layout ── */
+  .main { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
+  .page-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .page-sub { font-size: 11px; color: var(--muted); margin-bottom: 20px; font-family: 'DM Mono', monospace; }
+
+  /* ── Cards ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-bottom: 16px; }
+  .card-title { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace;
+                text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px; }
+
+  /* ── Form elements ── */
+  .form-input, .form-select {
+    background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-size: 12px; padding: 7px 10px; width: 100%; outline: none;
+    transition: border-color .15s;
+  }
+  .form-input:focus, .form-select:focus { border-color: var(--accent); }
+  .form-select option { background: #1a2035; }
+
+  /* ── Buttons ── */
+  .btn-primary {
+    background: linear-gradient(135deg, #7c3aed, #4f46e5);
+    color: #fff; border: none; border-radius: 7px; padding: 9px 22px;
+    font-size: 12px; font-weight: 600; cursor: pointer; transition: opacity .15s;
+  }
+  .btn-primary:hover { opacity: .85; }
+  .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── Ticker pills ── */
+  .pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(124,58,237,.12); border: 1px solid rgba(124,58,237,.3);
+    border-radius: 4px; padding: 2px 8px;
+    font-size: 10px; font-family: 'DM Mono', monospace; color: #a78bfa; cursor: pointer;
+  }
+  .pill:hover { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.3); color: #f87171; }
+
+  /* ── KPI grid ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+  .kpi-label { font-size: 9px; color: var(--muted); font-family: 'DM Mono', monospace;
+                text-transform: uppercase; letter-spacing: .06em; margin-bottom: 5px; }
+  .kpi-value { font-size: 20px; font-weight: 700; }
+
+  /* ── Heatmap ── */
+  #heatmap-wrap { overflow-x: auto; }
+  .heatmap-table { border-collapse: collapse; font-size: 11px; font-family: 'DM Mono', monospace; }
+  .heatmap-table th { padding: 6px 8px; color: var(--muted); font-weight: 500; font-size: 9px; text-align: center; }
+  .heatmap-table td { width: 70px; height: 50px; text-align: center; font-weight: 600;
+                       font-size: 11px; border: 1px solid var(--border); cursor: pointer;
+                       transition: opacity .15s; position: relative; }
+  .heatmap-table td:hover { opacity: .8; }
+  .heatmap-table .row-label { color: var(--muted); font-size: 9px; white-space: nowrap;
+                                padding: 0 10px; text-align: right; font-weight: 500; }
+
+  /* ── Pair selector ── */
+  .pair-btn { background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 5px;
+              color: var(--muted); font-size: 10px; font-family: 'DM Mono', monospace;
+              padding: 4px 10px; cursor: pointer; transition: all .15s; }
+  .pair-btn:hover, .pair-btn.active { background: rgba(124,58,237,.15); border-color: rgba(124,58,237,.4); color: #a78bfa; }
+
+  /* ── Pair list ── */
+  .pair-row { display: flex; align-items: center; gap: 10px; padding: 7px 0;
+              border-bottom: 1px solid var(--border); }
+  .pair-row:last-child { border-bottom: none; }
+  .pair-bar-wrap { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .pair-bar { height: 100%; border-radius: 3px; transition: width .5s; }
+
+  /* ── Error / loading ── */
+  .error-box { background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.25);
+               border-radius: 6px; padding: 10px 14px; color: #f87171; font-size: 11px; }
+  .loading-text { color: var(--muted); font-size: 11px; font-family: 'DM Mono', monospace;
+                  text-align: center; padding: 20px 0; }
+
+  @media (max-width: 700px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .config-row { grid-template-columns: 1fr 1fr !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="hdr">
+  <div class="hdr-title">
+    <div class="hdr-dot"></div>
+    FinAnalytics AI
+  </div>
+  <nav class="nav">
+    <a href="/">Dashboard</a>
+    <a href="/backtest">Backtest</a>
+    <a href="/correlation" class="active">Correlacao</a>
+  </nav>
+  <div class="hdr-status" id="hdr-status"></div>
+</div>
+
+<div class="main">
+  <div class="page-title">Correlacao entre Ativos</div>
+  <div class="page-sub">
+    Analisa co-movimento de retornos diarios. Correlacao de Pearson [-1, +1]. Alinhamento por inner join de datas.
+  </div>
+
+  <!-- Config card -->
+  <div class="card">
+    <div class="card-title">Configuracao</div>
+
+    <!-- Ticker input -->
+    <div style="margin-bottom: 12px">
+      <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:4px">
+        TICKERS (min 2, max 10 — separados por virgula)
+      </div>
+      <div style="display:flex;gap:8px">
+        <input id="inp-tickers" class="form-input" type="text"
+          value="PETR4,VALE3,ITUB4,BBDC4,WEGE3"
+          placeholder="PETR4,VALE3,ITUB4,..."
+          style="font-family:'DM Mono',monospace;letter-spacing:.04em">
+        <button class="btn-primary" id="btn-run" onclick="runCorrelation()">Analisar</button>
+      </div>
+      <div id="ticker-pills" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px"></div>
+    </div>
+
+    <!-- Config row -->
+    <div class="config-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div>
+        <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:4px">PERIODO</div>
+        <select id="sel-range" class="form-select">
+          <option value="6mo">6 meses</option>
+          <option value="1y" selected>1 ano</option>
+          <option value="2y">2 anos</option>
+          <option value="5y">5 anos</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:4px">JANELA ROLANTE (dias)</div>
+        <select id="sel-window" class="form-select">
+          <option value="15">15 dias</option>
+          <option value="30" selected>30 dias</option>
+          <option value="60">60 dias</option>
+          <option value="90">90 dias</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:flex-end">
+        <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;padding-bottom:8px">
+          Retornos diarios. Inner join de datas comuns.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading" style="display:none" class="card">
+    <div class="loading-text">Buscando dados e calculando correlacoes...</div>
+  </div>
+
+  <!-- Error -->
+  <div id="error-box" style="display:none" class="error-box" style="margin-bottom:16px"></div>
+
+  <!-- Results -->
+  <div id="results" style="display:none">
+
+    <!-- KPIs -->
+    <div class="kpi-grid" id="kpi-grid"></div>
+
+    <!-- Heatmap -->
+    <div class="card">
+      <div class="card-title">Matriz de Correlacao (Pearson)</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:12px">
+        Clique em uma celula para ver a correlacao rolante desse par abaixo.
+      </div>
+      <div id="heatmap-wrap"></div>
+      <!-- Legend -->
+      <div style="display:flex;align-items:center;gap:8px;margin-top:12px">
+        <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace">-1.0</div>
+        <div style="flex:1;height:6px;border-radius:3px;background:linear-gradient(to right,#ef4444,#fbbf24,#f3f4f6,#34d399,#10b981)"></div>
+        <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace">+1.0</div>
+        <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-left:8px">
+          Vermelho = correlacao negativa &nbsp;|&nbsp; Verde = positiva &nbsp;|&nbsp; Cinza = neutral
+        </div>
+      </div>
+    </div>
+
+    <!-- Pares -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <!-- Mais correlacionados -->
+      <div class="card">
+        <div class="card-title">Mais Correlacionados</div>
+        <div id="most-corr"></div>
+      </div>
+      <!-- Menos correlacionados -->
+      <div class="card">
+        <div class="card-title">Menos Correlacionados</div>
+        <div id="least-corr"></div>
+      </div>
+    </div>
+
+    <!-- Rolling correlation chart -->
+    <div class="card">
+      <div class="card-title">Correlacao Rolante</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px" id="pair-btns"></div>
+      <div style="position:relative;height:240px">
+        <canvas id="rolling-chart"></canvas>
+      </div>
+      <div style="margin-top:10px;font-size:10px;color:var(--muted)">
+        Linha pontilhada em 0: correlacao nula. Zona verde (+0.6 a +1): alta correlacao positiva.
+        Zona vermelha (-1 a -0.6): correlacao negativa forte.
+      </div>
+    </div>
+
+    <!-- Errors banner -->
+    <div id="errors-banner" style="display:none" class="card" style="border-color:rgba(245,158,11,.3)">
+      <div style="font-size:10px;color:#fbbf24" id="errors-text"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ── State ──────────────────────────────────────────────────────────────────────
+var _data = null;
+var _rollingChart = null;
+var _activePair = null;
+
+// ── Pills ────────────────────────────────────────────────────────────────────
+function updatePills() {
+  var raw = document.getElementById('inp-tickers').value;
+  var tickers = raw.split(',').map(function(t) { return t.trim().toUpperCase(); }).filter(Boolean);
+  var el = document.getElementById('ticker-pills');
+  el.innerHTML = '';
+  tickers.forEach(function(t) {
+    var p = document.createElement('span');
+    p.className = 'pill';
+    p.title = 'Clique para remover';
+    p.innerHTML = t + ' <span style="opacity:.5">&times;</span>';
+    p.onclick = function() {
+      var cur = document.getElementById('inp-tickers').value.split(',')
+        .map(function(x) { return x.trim(); })
+        .filter(function(x) { return x.toUpperCase() !== t; });
+      document.getElementById('inp-tickers').value = cur.join(', ');
+      updatePills();
+    };
+    el.appendChild(p);
+  });
+}
+document.getElementById('inp-tickers').addEventListener('input', updatePills);
+updatePills();
+
+// ── Run ───────────────────────────────────────────────────────────────────────
+function runCorrelation() {
+  var raw = document.getElementById('inp-tickers').value;
+  var tickers = raw.split(',').map(function(t) { return t.trim().toUpperCase(); }).filter(Boolean);
+
+  if (tickers.length < 2) { alert('Informe ao menos 2 tickers.'); return; }
+  if (tickers.length > 10) { alert('Maximo 10 tickers.'); return; }
+
+  var range  = document.getElementById('sel-range').value;
+  var window = parseInt(document.getElementById('sel-window').value, 10);
+
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('results').style.display  = 'none';
+  document.getElementById('error-box').style.display = 'none';
+  document.getElementById('btn-run').disabled = true;
+
+  var url = '/api/v1/correlation?tickers=' + encodeURIComponent(tickers.join(',')) +
+    '&range_period=' + range + '&rolling_window=' + window;
+
+  fetch(url)
+    .then(function(r) {
+      if (!r.ok) return r.json().then(function(e) { throw new Error(e.detail || 'Erro'); });
+      return r.json();
+    })
+    .then(function(d) {
+      _data = d;
+      renderAll(d);
+    })
+    .catch(function(err) {
+      document.getElementById('error-box').style.display = 'block';
+      document.getElementById('error-box').textContent = 'Erro: ' + err.message;
+    })
+    .finally(function() {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('btn-run').disabled = false;
+    });
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderAll(d) {
+  document.getElementById('results').style.display = 'block';
+  renderKPIs(d);
+  renderHeatmap(d);
+  renderPairLists(d);
+  renderPairButtons(d);
+
+  // Auto-seleciona o par com maior correlacao absoluta
+  var firstPair = Object.keys(d.rolling_pairs || {})[0];
+  if (firstPair) selectPair(firstPair);
+
+  // Errors
+  if (d.errors && d.errors.length > 0) {
+    var b = document.getElementById('errors-banner');
+    b.style.display = 'block';
+    document.getElementById('errors-text').innerHTML =
+      '<b>Falha em ' + d.errors.length + ' ticker(s):</b> ' +
+      d.errors.map(function(e) { return e.ticker + ' (' + e.error + ')'; }).join(' &bull; ');
+  }
+}
+
+function renderKPIs(d) {
+  var score = d.diversification_score || 0;
+  var scoreColor = score > 0.5 ? '#10b981' : score > 0.3 ? '#f59e0b' : '#f87171';
+  var scoreLabel = score > 0.5 ? 'Boa diversificacao' : score > 0.3 ? 'Diversificacao moderada' : 'Baixa diversificacao';
+
+  var kpis = [
+    { label: 'Score de Diversificacao', value: (score * 100).toFixed(0) + '%', accent: scoreColor,
+      sub: scoreLabel },
+    { label: 'Dias Comuns', value: d.common_bars || 0, accent: '#3b82f6', sub: d.range_period },
+    { label: 'Ativos Analisados', value: (d.tickers || []).length, accent: '#7c3aed',
+      sub: (d.failed_tickers > 0 ? d.failed_tickers + ' com falha' : 'todos ok') },
+    { label: 'Pares Calculados', value: Object.keys(d.rolling_pairs || {}).length, accent: '#6b7280',
+      sub: 'series rolantes' },
+  ];
+
+  document.getElementById('kpi-grid').innerHTML = kpis.map(function(k) {
+    return '<div class="kpi" style="border-top: 2px solid ' + k.accent + '">' +
+      '<div class="kpi-label">' + k.label + '</div>' +
+      '<div class="kpi-value" style="color:' + k.accent + '">' + k.value + '</div>' +
+      '<div style="font-size:9px;color:var(--muted);margin-top:3px;font-family:\'DM Mono\',monospace">' + (k.sub || '') + '</div>' +
+      '</div>';
+  }).join('');
+}
+
+function corrColor(v) {
+  // -1 = red, 0 = neutral gray, +1 = green
+  // Uses HSL interpolation
+  if (v >= 0) {
+    var g = Math.round(16 + v * (185 - 16));   // 16 -> 185
+    var r = Math.round(52 + (1 - v) * (200 - 52));
+    return 'rgb(' + r + ',' + g + ',80)';
+  } else {
+    var abs = -v;
+    var r2 = Math.round(100 + abs * (239 - 100));
+    var g2 = Math.round(80 + (1 - abs) * (160 - 80));
+    return 'rgb(' + r2 + ',' + g2 + ',80)';
+  }
+}
+
+function corrTextColor(v) {
+  return Math.abs(v) > 0.4 ? '#fff' : 'var(--text)';
+}
+
+function renderHeatmap(d) {
+  var tickers = d.tickers || [];
+  var matrix  = d.matrix  || {};
+  if (!tickers.length) return;
+
+  var html = '<table class="heatmap-table"><thead><tr><th></th>';
+  tickers.forEach(function(t) { html += '<th>' + t + '</th>'; });
+  html += '</tr></thead><tbody>';
+
+  tickers.forEach(function(ta) {
+    html += '<tr><td class="row-label">' + ta + '</td>';
+    tickers.forEach(function(tb) {
+      var v = (matrix[ta] && matrix[ta][tb] != null) ? matrix[ta][tb] : 0;
+      var bg = ta === tb ? 'rgba(124,58,237,.2)' : corrColor(v);
+      var diag = ta === tb;
+      var pairKey = getPairKey(ta, tb, d);
+      html += '<td style="background:' + bg + ';color:' + (diag ? '#a78bfa' : corrTextColor(v)) + '"' +
+        (pairKey ? ' onclick="selectPair(\'' + pairKey + '\')" title="Ver correlacao rolante ' + ta + '/' + tb + '"' : '') + '>' +
+        (diag ? '&#9632;' : v.toFixed(2)) +
+        '</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('heatmap-wrap').innerHTML = html;
+}
+
+function getPairKey(ta, tb, d) {
+  if (ta === tb) return null;
+  var rp = d.rolling_pairs || {};
+  if (rp[ta + '/' + tb]) return ta + '/' + tb;
+  if (rp[tb + '/' + ta]) return tb + '/' + ta;
+  return null;
+}
+
+function renderPairRow(pair, container) {
+  var c = pair.correlation;
+  var abs = Math.abs(c);
+  var barColor = c > 0 ? '#10b981' : '#ef4444';
+  var barW = abs * 100;
+  var prefix = c > 0 ? '+' : '';
+  var row = document.createElement('div');
+  row.className = 'pair-row';
+  row.innerHTML =
+    '<div style="min-width:110px;font-family:\'DM Mono\',monospace;font-size:10px;color:var(--text)">' + pair.label + '</div>' +
+    '<div class="pair-bar-wrap"><div class="pair-bar" style="width:' + barW + '%;background:' + barColor + '"></div></div>' +
+    '<div style="min-width:42px;text-align:right;font-family:\'DM Mono\',monospace;font-size:11px;font-weight:700;color:' + barColor + '">' +
+      prefix + c.toFixed(3) + '</div>';
+  container.appendChild(row);
+}
+
+function renderPairLists(d) {
+  var most  = document.getElementById('most-corr');
+  var least = document.getElementById('least-corr');
+  most.innerHTML = ''; least.innerHTML = '';
+  (d.most_correlated  || []).forEach(function(p) { renderPairRow(p, most); });
+  (d.least_correlated || []).forEach(function(p) { renderPairRow(p, least); });
+  if (!most.children.length)  most.innerHTML  = '<div class="loading-text">—</div>';
+  if (!least.children.length) least.innerHTML = '<div class="loading-text">—</div>';
+}
+
+function renderPairButtons(d) {
+  var el = document.getElementById('pair-btns');
+  el.innerHTML = '';
+  Object.keys(d.rolling_pairs || {}).forEach(function(key) {
+    var btn = document.createElement('button');
+    btn.className = 'pair-btn';
+    btn.id = 'pbtn-' + key.replace('/', '-');
+    btn.textContent = key;
+    btn.onclick = function() { selectPair(key); };
+    el.appendChild(btn);
+  });
+}
+
+function selectPair(pairKey) {
+  _activePair = pairKey;
+  // Update active button
+  document.querySelectorAll('.pair-btn').forEach(function(b) { b.classList.remove('active'); });
+  var btn = document.getElementById('pbtn-' + pairKey.replace('/', '-'));
+  if (btn) btn.classList.add('active');
+
+  var series = (_data && _data.rolling_pairs && _data.rolling_pairs[pairKey]) || [];
+  renderRollingChart(pairKey, series);
+}
+
+function renderRollingChart(label, series) {
+  var canvas = document.getElementById('rolling-chart');
+  if (_rollingChart) { _rollingChart.destroy(); _rollingChart = null; }
+  if (!series.length) return;
+
+  var labels = series.map(function(p) {
+    var d = new Date(p.time * 1000);
+    return d.toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' });
+  });
+  var values = series.map(function(p) { return p.correlation; });
+
+  // Color each segment
+  var pointColors = values.map(function(v) {
+    if (v > 0.6)  return '#10b981';
+    if (v < -0.6) return '#ef4444';
+    if (v > 0.3)  return '#34d399';
+    if (v < -0.3) return '#f87171';
+    return '#94a3b8';
+  });
+
+  _rollingChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: label,
+        data: values,
+        borderColor: '#7c3aed',
+        backgroundColor: 'rgba(124,58,237,.06)',
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        fill: true,
+        tension: 0.3,
+      },
+      // Zero line
+      {
+        label: '',
+        data: new Array(values.length).fill(0),
+        borderColor: 'rgba(100,116,139,.4)',
+        borderWidth: 1,
+        borderDash: [4, 4],
+        pointRadius: 0,
+        fill: false,
+        tension: 0,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a2035',
+          borderColor: '#2d3a55',
+          borderWidth: 1,
+          titleColor: '#94a3b8',
+          bodyColor: '#e2e8f0',
+          callbacks: {
+            label: function(ctx) {
+              if (ctx.datasetIndex === 1) return null;
+              var v = ctx.raw;
+              var tag = v > 0.6 ? 'ALTA +' : v < -0.6 ? 'ALTA -' : v > 0 ? 'POS' : v < 0 ? 'NEG' : 'NEUTRO';
+              return 'Correlacao: ' + (v >= 0 ? '+' : '') + v.toFixed(3) + '  [' + tag + ']';
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(30,37,53,.8)' },
+          ticks: { color: '#475569', font: { size: 9 }, maxTicksLimit: 10 }
+        },
+        y: {
+          min: -1, max: 1,
+          grid: { color: 'rgba(30,37,53,.8)' },
+          ticks: {
+            color: '#475569', font: { size: 9 },
+            callback: function(v) { return v.toFixed(1); }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── Header status ─────────────────────────────────────────────────────────────
+function loadStatus() {
+  fetch('/health')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var p = [];
+      if (d.postgres) p.push('pg:ok');
+      if (d.kafka)    p.push('kafka:ok');
+      document.getElementById('hdr-status').textContent = p.join(' | ');
+    })
+    .catch(function() {});
+}
+loadStatus();
+</script>
+</body>
+</html>

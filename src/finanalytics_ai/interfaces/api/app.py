@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse
 from finanalytics_ai.config import EventQueueBackend, get_settings
 from finanalytics_ai.exceptions import FinAnalyticsError
 from finanalytics_ai.infrastructure.database.connection import close_engine, get_engine
-from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer, backtest
+from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer, backtest, correlation
 
 logger = structlog.get_logger(__name__)
 
@@ -124,20 +124,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from finanalytics_ai.application.services.walkforward_service import WalkForwardService
         from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient as _BrapiCli
         from finanalytics_ai.application.services.multi_ticker_service import MultiTickerService
+        from finanalytics_ai.application.services.correlation_service import CorrelationService
         brapi = _BrapiCli()
         app.state.backtest_service     = BacktestService(brapi)
         app.state.optimizer_service    = OptimizerService(brapi)
         app.state.walkforward_service  = WalkForwardService(brapi)
         app.state.multi_ticker_service = MultiTickerService(brapi)
+        app.state.correlation_service  = CorrelationService(brapi)
         logger.info("backtest_service.ready")
         logger.info("optimizer_service.ready")
         logger.info("walkforward_service.ready")
         logger.info("multi_ticker_service.ready")
+        logger.info("correlation_service.ready")
     else:
         app.state.backtest_service     = None
         app.state.optimizer_service    = None
         app.state.walkforward_service  = None
         app.state.multi_ticker_service = None
+        app.state.correlation_service  = None
         logger.warning("backtest_service.disabled", reason="BRAPI_TOKEN ausente")
 
     # ── 6. BRAPI Price Producer ───────────────────────────────────────────────
@@ -252,7 +256,8 @@ def create_app() -> FastAPI:
     app.include_router(events.router,     prefix="/api/v1/events",     tags=["Eventos"])
     app.include_router(alerts.router,     prefix="/api/v1/alerts",     tags=["Alertas"])
     app.include_router(producer.router,   prefix="/api/v1/producer",   tags=["Producer"])
-    app.include_router(backtest.router,   tags=["Backtest"])
+    app.include_router(backtest.router,     tags=["Backtest"])
+    app.include_router(correlation.router,  tags=["Correlation"])
 
     return app
 
@@ -275,4 +280,11 @@ def mount_static(app: FastAPI) -> None:
         html_file = static_dir / "backtest.html"
         if not html_file.exists():
             return HTMLResponse("<h1>Backtest page não encontrada</h1>", status_code=404)
+        return HTMLResponse(html_file.read_text(encoding="utf-8"))
+
+    @app.get("/correlation", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_correlation() -> HTMLResponse:
+        html_file = static_dir / "correlation.html"
+        if not html_file.exists():
+            return HTMLResponse("<h1>Correlation page nao encontrada</h1>", status_code=404)
         return HTMLResponse(html_file.read_text(encoding="utf-8"))
