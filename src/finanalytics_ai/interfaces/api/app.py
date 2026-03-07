@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse
 from finanalytics_ai.config import EventQueueBackend, get_settings
 from finanalytics_ai.exceptions import FinAnalyticsError
 from finanalytics_ai.infrastructure.database.connection import close_engine, get_engine
-from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer, backtest, correlation, screener, anomaly, reports, watchlist
+from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer, backtest, correlation, screener, anomaly, reports, watchlist, performance, fixed_income
 from finanalytics_ai.metrics import PrometheusMiddleware, metrics_endpoint
 from finanalytics_ai.infrastructure.cache.backend import create_cache_backend
 from finanalytics_ai.infrastructure.cache.rate_limiter import create_rate_limiter
@@ -171,10 +171,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from finanalytics_ai.infrastructure.database.repositories.watchlist_repo import (
         WatchlistItemModel, WatchlistAlertModel,  # noqa: F401
     )
-    from finanalytics_ai.infrastructure.database.connection import Base, get_engine
+    from finanalytics_ai.infrastructure.database.connection import Base
     try:
-        _wl_engine = get_engine()
-        async with _wl_engine.begin() as conn:
+        async with get_engine().begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         logger.info("watchlist_tables.ok")
     except Exception as exc:
@@ -304,61 +303,44 @@ def create_app() -> FastAPI:
     app.include_router(anomaly.router,      tags=["Anomaly"])
     app.include_router(reports.router,      tags=["Reports"])
     app.include_router(watchlist.router,    tags=["Watchlist"])
+    app.include_router(performance.router,     tags=["Performance"])
+    app.include_router(fixed_income.router,    tags=["Renda Fixa"])
 
-    return app
+    # ── Páginas HTML estáticas ────────────────────────────────────────────────
+    import pathlib
+    from fastapi.responses import HTMLResponse
+    _static = pathlib.Path(__file__).parent / "static"
 
+    def _html(name: str) -> HTMLResponse:
+        f = _static / name
+        return HTMLResponse(f.read_text(encoding="utf-8") if f.exists()
+                            else f"<h1>{name} não encontrado</h1>", status_code=200 if f.exists() else 404)
 
-import pathlib
-from fastapi.responses import HTMLResponse
+    @app.get("/hub",         response_class=HTMLResponse, include_in_schema=False)
+    async def serve_hub()         -> HTMLResponse: return _html("hub.html")
 
-def mount_static(app: FastAPI) -> None:
-    static_dir = pathlib.Path(__file__).parent / "static"
+    @app.get("/",            response_class=HTMLResponse, include_in_schema=False)
+    async def serve_dashboard()   -> HTMLResponse: return _html("dashboard.html")
 
-    @app.get("/hub", response_class=HTMLResponse, include_in_schema=False)
-    async def serve_hub() -> HTMLResponse:
-        html_file = static_dir / "hub.html"
-        if not html_file.exists():
-            return HTMLResponse("<h1>Hub nao encontrado</h1>", status_code=404)
-        return HTMLResponse(html_file.read_text(encoding="utf-8"))
-
-    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
-    async def serve_dashboard() -> HTMLResponse:
-        html_file = static_dir / "dashboard.html"
-        if not html_file.exists():
-            return HTMLResponse("<h1>Dashboard não encontrado</h1>", status_code=404)
-        return HTMLResponse(html_file.read_text(encoding="utf-8"))
-
-    @app.get("/backtest", response_class=HTMLResponse, include_in_schema=False)
-    async def serve_backtest() -> HTMLResponse:
-        html_file = static_dir / "backtest.html"
-        if not html_file.exists():
-            return HTMLResponse("<h1>Backtest page não encontrada</h1>", status_code=404)
-        return HTMLResponse(html_file.read_text(encoding="utf-8"))
+    @app.get("/backtest",    response_class=HTMLResponse, include_in_schema=False)
+    async def serve_backtest()    -> HTMLResponse: return _html("backtest.html")
 
     @app.get("/correlation", response_class=HTMLResponse, include_in_schema=False)
-    async def serve_correlation() -> HTMLResponse:
-        html_file = static_dir / "correlation.html"
-        if not html_file.exists():
-            return HTMLResponse("<h1>Correlation page nao encontrada</h1>", status_code=404)
-        return HTMLResponse(html_file.read_text(encoding="utf-8"))
+    async def serve_correlation() -> HTMLResponse: return _html("correlation.html")
 
-    @app.get("/screener", response_class=HTMLResponse, include_in_schema=False)
-    async def serve_screener() -> HTMLResponse:
-        html_file = static_dir / "screener.html"
-        if not html_file.exists():
-            return HTMLResponse("<h1>Screener page nao encontrada</h1>", status_code=404)
-        return HTMLResponse(html_file.read_text(encoding="utf-8"))
+    @app.get("/screener",    response_class=HTMLResponse, include_in_schema=False)
+    async def serve_screener()    -> HTMLResponse: return _html("screener.html")
 
-    @app.get("/anomaly", response_class=HTMLResponse, include_in_schema=False)
-    async def serve_anomaly() -> HTMLResponse:
-        html_file = static_dir / "anomaly.html"
-        if not html_file.exists():
-            return HTMLResponse("<h1>Anomaly page nao encontrada</h1>", status_code=404)
-        return HTMLResponse(html_file.read_text(encoding="utf-8"))
+    @app.get("/anomaly",     response_class=HTMLResponse, include_in_schema=False)
+    async def serve_anomaly()     -> HTMLResponse: return _html("anomaly.html")
 
-    @app.get("/watchlist", response_class=HTMLResponse, include_in_schema=False)
-    async def serve_watchlist() -> HTMLResponse:
-        html_file = static_dir / "watchlist.html"
-        if not html_file.exists():
-            return HTMLResponse("<h1>Watchlist page nao encontrada</h1>", status_code=404)
-        return HTMLResponse(html_file.read_text(encoding="utf-8"))
+    @app.get("/watchlist",   response_class=HTMLResponse, include_in_schema=False)
+    async def serve_watchlist()   -> HTMLResponse: return _html("watchlist.html")
+
+    @app.get("/performance", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_performance() -> HTMLResponse: return _html("performance.html")
+
+    @app.get("/fixed-income", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_fixed_income() -> HTMLResponse: return _html("fixed_income.html")
+
+    return app

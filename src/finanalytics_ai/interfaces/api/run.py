@@ -2,10 +2,9 @@
 import uvicorn
 from finanalytics_ai.logging_config import configure_logging
 configure_logging()
-from finanalytics_ai.interfaces.api.app import create_app, mount_static
+from finanalytics_ai.interfaces.api.app import create_app
 
 app = create_app()
-mount_static(app)
 
 if __name__ == "__main__":
     uvicorn.run("finanalytics_ai.interfaces.api.run:app",
