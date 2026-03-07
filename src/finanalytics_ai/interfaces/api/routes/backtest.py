@@ -17,6 +17,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from finanalytics_ai.application.services.backtest_service import BacktestError, BacktestService
+from finanalytics_ai.application.services.optimizer_service import OptimizerService
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/backtest", tags=["backtest"])
@@ -169,3 +170,94 @@ async def _execute(request: Request, body: BacktestRequest) -> dict[str, Any]:
     except Exception as exc:
         logger.error("backtest.unexpected_error", error=str(exc))
         raise HTTPException(500, "Erro interno ao executar backtest")
+
+
+# ── Optimize ──────────────────────────────────────────────────────────────────
+
+class OptimizeRequest(BaseModel):
+    ticker:          str   = Field(..., example="PETR4")
+    strategy:        str   = Field("rsi", example="rsi|macd|combined|bollinger|ema_cross|momentum")
+    range_period:    str   = Field("1y",  example="6mo|1y|2y")
+    initial_capital: float = Field(10_000.0, ge=100.0)
+    position_size:   float = Field(1.0, ge=0.1, le=1.0)
+    commission_pct:  float = Field(0.001, ge=0.0, le=0.05)
+    objective:       str   = Field("sharpe", example="sharpe|return|calmar|win_rate|profit_factor")
+    top_n:           int   = Field(10, ge=1, le=20)
+
+
+def _get_optimizer(request: Request) -> OptimizerService:
+    svc = getattr(request.app.state, "optimizer_service", None)
+    if svc is None:
+        raise HTTPException(503, "OptimizerService nao inicializado")
+    return svc
+
+
+@router.post("/optimize")
+async def optimize_strategy(
+    body:    OptimizeRequest,
+    request: Request,
+) -> dict[str, Any]:
+    """
+    Otimiza parametros de uma estrategia via grid search.
+
+    Executa todos os parametros no espaco predefinido e retorna
+    os top_n melhores de acordo com o objetivo escolhido.
+
+    Objetivos: sharpe | return | calmar | win_rate | profit_factor
+    """
+    svc = _get_optimizer(request)
+    try:
+        result = await svc.optimize(
+            ticker          = body.ticker.upper(),
+            strategy_name   = body.strategy,
+            range_period    = body.range_period,
+            initial_capital = body.initial_capital,
+            position_size   = body.position_size,
+            commission_pct  = body.commission_pct,
+            objective       = body.objective,
+            top_n           = body.top_n,
+        )
+        return result.to_dict()
+    except BacktestError as exc:
+        raise HTTPException(422, str(exc))
+    except Exception as exc:
+        logger.error("optimize.unexpected_error", error=str(exc))
+        raise HTTPException(500, "Erro interno na otimizacao")
+
+
+@router.get("/optimize")
+async def optimize_strategy_get(
+    request:         Request,
+    ticker:          str   = Query(...),
+    strategy:        str   = Query("rsi"),
+    range_period:    str   = Query("1y"),
+    initial_capital: float = Query(10_000.0),
+    position_size:   float = Query(1.0),
+    commission_pct:  float = Query(0.001),
+    objective:       str   = Query("sharpe"),
+    top_n:           int   = Query(10),
+) -> dict[str, Any]:
+    """Otimiza via GET query params."""
+    body = OptimizeRequest(
+        ticker=ticker, strategy=strategy, range_period=range_period,
+        initial_capital=initial_capital, position_size=position_size,
+        commission_pct=commission_pct, objective=objective, top_n=top_n,
+    )
+    svc = _get_optimizer(request)
+    try:
+        result = await svc.optimize(
+            ticker          = body.ticker.upper(),
+            strategy_name   = body.strategy,
+            range_period    = body.range_period,
+            initial_capital = body.initial_capital,
+            position_size   = body.position_size,
+            commission_pct  = body.commission_pct,
+            objective       = body.objective,
+            top_n           = body.top_n,
+        )
+        return result.to_dict()
+    except BacktestError as exc:
+        raise HTTPException(422, str(exc))
+    except Exception as exc:
+        logger.error("optimize.unexpected_error", error=str(exc))
+        raise HTTPException(500, "Erro interno na otimizacao")
