@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse
 from finanalytics_ai.config import EventQueueBackend, get_settings
 from finanalytics_ai.exceptions import FinAnalyticsError
 from finanalytics_ai.infrastructure.database.connection import close_engine, get_engine
-from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer, backtest, correlation, screener, anomaly, reports
+from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer, backtest, correlation, screener, anomaly, reports, watchlist
 from finanalytics_ai.metrics import PrometheusMiddleware, metrics_endpoint
 from finanalytics_ai.infrastructure.cache.backend import create_cache_backend
 from finanalytics_ai.infrastructure.cache.rate_limiter import create_rate_limiter
@@ -149,6 +149,35 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.screener_service     = ScreenerService(market_client)
         app.state.anomaly_service      = AnomalyService(market_client)
         logger.info("market_data_client.composite.ready")
+
+    # ── 6. WatchlistService ───────────────────────────────────────────────────
+    try:
+        from finanalytics_ai.application.services.watchlist_service import WatchlistService
+        from finanalytics_ai.infrastructure.database.repositories.watchlist_repo import WatchlistRepository
+        from finanalytics_ai.infrastructure.database.connection import AsyncSessionLocal
+        from finanalytics_ai.infrastructure.database.connection import Base, engine
+        from finanalytics_ai.infrastructure.database.repositories.watchlist_repo import (
+            WatchlistItemModel, WatchlistAlertModel,
+        )
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        market = getattr(app.state, "backtest_service", None)
+        market_client_ref = market._brapi if market else None
+        if market_client_ref is None and settings.brapi_token:
+            from finanalytics_ai.infrastructure.adapters.market_data_client import create_market_data_client
+            market_client_ref = create_market_data_client(settings.brapi_token)
+
+        if market_client_ref:
+            async def _make_watchlist_svc():
+                async with AsyncSessionLocal() as session:
+                    return WatchlistService(WatchlistRepository(session), market_client_ref)
+
+            app.state._watchlist_market = market_client_ref
+            app.state.watchlist_service = None   # created per-request via dependency
+            logger.info("watchlist_service.ready")
+    except Exception as exc:
+        logger.warning("watchlist_service.init_failed", error=str(exc))
         logger.info("backtest_service.ready")
         logger.info("optimizer_service.ready")
         logger.info("walkforward_service.ready")
@@ -286,6 +315,7 @@ def create_app() -> FastAPI:
     app.include_router(screener.router,     tags=["Screener"])
     app.include_router(anomaly.router,      tags=["Anomaly"])
     app.include_router(reports.router,      tags=["Reports"])
+    app.include_router(watchlist.router,    tags=["Watchlist"])
 
     return app
 
@@ -336,4 +366,11 @@ def mount_static(app: FastAPI) -> None:
         html_file = static_dir / "anomaly.html"
         if not html_file.exists():
             return HTMLResponse("<h1>Anomaly page nao encontrada</h1>", status_code=404)
+        return HTMLResponse(html_file.read_text(encoding="utf-8"))
+
+    @app.get("/watchlist", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_watchlist() -> HTMLResponse:
+        html_file = static_dir / "watchlist.html"
+        if not html_file.exists():
+            return HTMLResponse("<h1>Watchlist page nao encontrada</h1>", status_code=404)
         return HTMLResponse(html_file.read_text(encoding="utf-8"))

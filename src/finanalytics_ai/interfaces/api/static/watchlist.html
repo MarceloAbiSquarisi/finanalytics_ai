@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Watchlist — FinAnalytics AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b1118;--surface:#111923;--card:#151f2e;--border:#1e3a5f;
+  --accent:#00c48c;--accent2:#2979ff;--gold:#ffb300;
+  --red:#ff4757;--purple:#7c4dff;--cyan:#00bcd4;
+  --text:#e8eaf6;--muted:#8899aa;--white:#fff;
+}
+body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+/* NAV */
+nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:0;height:46px;position:sticky;top:0;z-index:100}
+.nav-brand{color:var(--accent);font-weight:700;font-size:15px;letter-spacing:1px;margin-right:24px;white-space:nowrap}
+.nav-links{display:flex;gap:2px;flex-wrap:wrap}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:12px;font-weight:600;padding:4px 10px;border-radius:4px;letter-spacing:.5px;transition:all .15s}
+.nav-links a:hover,.nav-links a.active{color:var(--accent);background:rgba(0,196,140,.08)}
+/* LAYOUT */
+.page{max-width:1280px;margin:0 auto;padding:20px;flex:1;width:100%}
+h1{font-size:22px;font-weight:700;color:var(--white);letter-spacing:.5px;margin-bottom:4px}
+.subtitle{color:var(--muted);font-size:12px;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+/* PANEL */
+.panel{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.panel-header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;justify-content:space-between}
+.panel-title{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+.panel-body{padding:14px}
+/* ADD FORM */
+.add-row{display:flex;gap:8px;margin-bottom:14px}
+.add-row input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:13px;padding:7px 10px;outline:none;transition:border .15s}
+.add-row input:focus{border-color:var(--accent)}
+.btn{background:var(--accent);border:none;border-radius:6px;color:#000;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;padding:7px 14px;transition:opacity .15s;white-space:nowrap}
+.btn:hover{opacity:.85}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,196,140,.06)}
+.btn-danger{background:var(--red);color:#fff}
+.btn-sm{padding:4px 10px;font-size:11px}
+/* WATCHLIST ITEMS */
+.wl-list{display:flex;flex-direction:column;gap:4px}
+.wl-item{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 12px;cursor:pointer;transition:border .15s;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.wl-item:hover{border-color:var(--accent)}
+.wl-item.selected{border-color:var(--accent);background:rgba(0,196,140,.05)}
+.wl-ticker{font-size:14px;font-weight:700;color:var(--white);min-width:60px}
+.wl-price{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text)}
+.wl-chg{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;padding:2px 6px;border-radius:4px}
+.chg-pos{background:rgba(0,196,140,.12);color:var(--accent)}
+.chg-neg{background:rgba(255,71,87,.12);color:var(--red)}
+.chg-neu{background:rgba(136,153,170,.1);color:var(--muted)}
+.wl-alert-badge{font-size:9px;background:rgba(255,179,0,.15);color:var(--gold);border:1px solid rgba(255,179,0,.3);border-radius:10px;padding:1px 6px;white-space:nowrap}
+.wl-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 4px;line-height:1;opacity:.6;transition:opacity .15s}
+.wl-del:hover{opacity:1;color:var(--red)}
+/* DETAIL PANEL */
+.detail-ticker{font-size:28px;font-weight:700;color:var(--white);letter-spacing:.5px}
+.detail-price{font-family:'JetBrains Mono',monospace;font-size:22px;color:var(--accent)}
+.detail-meta{display:flex;gap:16px;margin-top:8px;flex-wrap:wrap}
+.meta-item{font-size:11px;color:var(--muted)}
+.meta-item b{color:var(--text);font-size:12px}
+.section-label{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin:18px 0 8px}
+/* ALERTS */
+.alert-list{display:flex;flex-direction:column;gap:6px}
+.alert-card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 12px;display:flex;align-items:center;gap:10px}
+.alert-icon{font-size:16px;width:24px;text-align:center}
+.alert-info{flex:1;min-width:0}
+.alert-type{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px}
+.alert-note{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alert-status{font-size:9px;padding:2px 7px;border-radius:10px}
+.status-active{background:rgba(0,196,140,.12);color:var(--accent)}
+.status-cooldown{background:rgba(255,179,0,.12);color:var(--gold)}
+.status-paused{background:rgba(136,153,170,.1);color:var(--muted)}
+/* ADD ALERT FORM */
+.add-alert-form{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:12px;margin-top:10px}
+.form-row{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.form-row label{font-size:10px;color:var(--muted);display:block;margin-bottom:3px;letter-spacing:.5px;text-transform:uppercase}
+.form-row select,.form-row input{background:var(--card);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:12px;padding:6px 9px;outline:none;width:100%}
+.form-row select:focus,.form-row input:focus{border-color:var(--accent)}
+.form-col{flex:1;min-width:140px}
+/* TRIGGERED ALERTS */
+.triggered-panel{background:rgba(255,179,0,.04);border:1px solid rgba(255,179,0,.2);border-radius:6px;padding:12px;margin-bottom:16px}
+.triggered-header{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--gold);text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.triggered-header::before{content:'⚡';font-size:13px}
+.triggered-item{background:rgba(255,179,0,.06);border:1px solid rgba(255,179,0,.15);border-radius:5px;padding:8px 10px;margin-bottom:5px;font-size:12px}
+.triggered-item .t-ticker{font-weight:700;color:var(--white)}
+.triggered-item .t-msg{color:var(--muted);font-size:11px;margin-top:2px}
+.severity-warning{border-color:rgba(255,179,0,.3)!important}
+.severity-critical{border-color:rgba(255,71,87,.4)!important;background:rgba(255,71,87,.05)!important}
+.severity-info{border-color:rgba(41,121,255,.3)!important;background:rgba(41,121,255,.04)!important}
+/* EMPTY STATES */
+.empty{text-align:center;padding:32px;color:var(--muted);font-size:12px}
+.empty-icon{font-size:32px;margin-bottom:8px;opacity:.4}
+/* LOADING */
+.loading{color:var(--muted);font-size:12px;padding:12px;text-align:center}
+.dot{display:inline-block;width:6px;height:6px;background:var(--accent);border-radius:50%;margin:0 2px;animation:bounce .9s infinite}
+.dot:nth-child(2){animation-delay:.2s}
+.dot:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
+/* EVALUATE BTN */
+.evaluate-bar{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+.evaluate-status{font-size:11px;color:var(--muted);flex:1}
+/* TOAST */
+.toast-container{position:fixed;top:56px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:6px}
+.toast{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:12px;max-width:320px;animation:slideIn .25s ease;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.toast.success{border-color:var(--accent)}
+.toast.warning{border-color:var(--gold)}
+.toast.error{border-color:var(--red)}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+<nav>
+  <span class="nav-brand">FINANALYTICS AI</span>
+  <div class="nav-links">
+    <a href="/">Dashboard</a>
+    <a href="/hub">Hub</a>
+    <a href="/backtest">Backtest</a>
+    <a href="/correlation">Correlacao</a>
+    <a href="/screener">Screener</a>
+    <a href="/anomaly">Anomalias</a>
+    <a href="/watchlist" class="active">Watchlist</a>
+  </div>
+</nav>
+
+<div class="page">
+  <h1>Watchlist</h1>
+  <p class="subtitle">Monitore ativos com alertas inteligentes baseados em indicadores tecnicos</p>
+
+  <div id="triggered-section"></div>
+
+  <div class="grid">
+    <!-- COLUNA ESQUERDA: lista + adicionar -->
+    <div>
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Minha Lista</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span id="wl-count" style="font-size:10px;color:var(--muted)"></span>
+            <button class="btn btn-sm" onclick="evaluateAll()">Avaliar Alertas</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="add-row">
+            <input id="add-ticker" placeholder="Ticker ex: PETR4" maxlength="10"
+                   oninput="this.value=this.value.toUpperCase()"
+                   onkeydown="if(event.key==='Enter')addItem()">
+            <button class="btn" onclick="addItem()">+ Adicionar</button>
+          </div>
+          <div id="wl-list" class="wl-list">
+            <div class="loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COLUNA DIREITA: detalhe + alertas -->
+    <div id="detail-col">
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Selecione um ativo</span></div>
+        <div class="panel-body">
+          <div class="empty">
+            <div class="empty-icon">👁</div>
+            Clique em um ativo para ver detalhes e configurar alertas inteligentes.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script>
+const USER_ID = 'user_default';
+let watchlistData = [];
+let selectedItemId = null;
+
+const ALERT_TYPES = [
+  { value: 'rsi_oversold',   label: 'RSI Oversold (< 30)',        icon: '📉', desc: 'Dispara quando RSI(14) < 30 — possivel oportunidade de compra' },
+  { value: 'rsi_overbought', label: 'RSI Overbought (> 70)',       icon: '📈', desc: 'Dispara quando RSI(14) > 70 — possivel sobrecompra' },
+  { value: 'ma_cross_up',    label: 'Cruzamento MM para cima',     icon: '⬆', desc: 'Preco cruza media movel (20) de baixo para cima' },
+  { value: 'ma_cross_down',  label: 'Cruzamento MM para baixo',    icon: '⬇', desc: 'Preco cruza media movel (20) de cima para baixo' },
+  { value: 'volume_spike',   label: 'Spike de Volume (2.5x)',      icon: '📊', desc: 'Volume 2.5x acima da media — evento relevante' },
+  { value: 'new_high_52w',   label: 'Novo maximo 52 semanas',      icon: '🚀', desc: 'Ativo atinge novo maximo historico anual' },
+  { value: 'new_low_52w',    label: 'Novo minimo 52 semanas',      icon: '⚠', desc: 'Ativo atinge novo minimo anual — alerta de risco' },
+  { value: 'price_above',    label: 'Preco acima de R$ ...',       icon: '🎯', desc: 'Preco ultrapassa valor definido' },
+  { value: 'price_below',    label: 'Preco abaixo de R$ ...',      icon: '🛑', desc: 'Preco cai abaixo de valor definido' },
+];
+
+// ── API ─────────────────────────────────────────────────────────────────────
+
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || res.statusText);
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+// ── Load ─────────────────────────────────────────────────────────────────────
+
+async function loadWatchlist() {
+  try {
+    watchlistData = await apiFetch(`/api/v1/watchlist?user_id=${USER_ID}`);
+    renderList();
+    if (selectedItemId) {
+      const item = watchlistData.find(i => i.item_id === selectedItemId);
+      if (item) renderDetail(item);
+    }
+  } catch (e) {
+    document.getElementById('wl-list').innerHTML =
+      `<div class="empty"><div class="empty-icon">⚠</div>${e.message}</div>`;
+  }
+}
+
+function renderList() {
+  const el = document.getElementById('wl-list');
+  document.getElementById('wl-count').textContent = `${watchlistData.length}/50`;
+
+  if (!watchlistData.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📋</div>Lista vazia. Adicione um ticker acima.</div>`;
+    return;
+  }
+
+  el.innerHTML = watchlistData.map(item => {
+    const price  = item.current_price ? `R$ ${item.current_price.toFixed(2)}` : '—';
+    const chg    = item.change_pct;
+    const chgCls = chg === null ? 'chg-neu' : (chg >= 0 ? 'chg-pos' : 'chg-neg');
+    const chgTxt = chg !== null ? (chg >= 0 ? `+${chg.toFixed(2)}%` : `${chg.toFixed(2)}%`) : '—';
+    const alertCount = (item.smart_alerts || []).filter(a => a.status !== 'deleted').length;
+    const sel = item.item_id === selectedItemId ? 'selected' : '';
+    return `
+      <div class="wl-item ${sel}" onclick="selectItem('${item.item_id}')">
+        <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="wl-ticker">${item.ticker}</span>
+            <span class="wl-price">${price}</span>
+            <span class="wl-chg ${chgCls}">${chgTxt}</span>
+          </div>
+          ${alertCount ? `<span class="wl-alert-badge">&#9888; ${alertCount} alerta${alertCount>1?'s':''}</span>` : ''}
+          ${item.note ? `<span style="font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.note}</span>` : ''}
+        </div>
+        <button class="wl-del" onclick="event.stopPropagation();removeItem('${item.item_id}','${item.ticker}')" title="Remover">✕</button>
+      </div>`;
+  }).join('');
+}
+
+function selectItem(itemId) {
+  selectedItemId = itemId;
+  const item = watchlistData.find(i => i.item_id === itemId);
+  if (item) renderDetail(item);
+  renderList();
+}
+
+function renderDetail(item) {
+  const col = document.getElementById('detail-col');
+  const price   = item.current_price ? `R$ ${item.current_price.toFixed(2)}` : '—';
+  const chg     = item.change_pct;
+  const chgCls  = chg === null ? '' : (chg >= 0 ? 'color:var(--accent)' : 'color:var(--red)');
+  const chgTxt  = chg !== null ? (chg >= 0 ? `+${chg.toFixed(2)}%` : `${chg.toFixed(2)}%`) : '';
+  const vol     = item.volume ? item.volume.toLocaleString('pt-BR') : '—';
+  const h52     = item.high_52w ? `R$ ${item.high_52w.toFixed(2)}` : '—';
+  const l52     = item.low_52w  ? `R$ ${item.low_52w.toFixed(2)}`  : '—';
+
+  const activeAlerts = (item.smart_alerts || []).filter(a => a.status !== 'deleted');
+
+  col.innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">${item.ticker}</span>
+        <button class="btn btn-ghost btn-sm" onclick="editNote('${item.item_id}')">&#9998; Nota</button>
+      </div>
+      <div class="panel-body">
+        <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+          <span class="detail-ticker">${item.ticker}</span>
+          <span class="detail-price">${price}</span>
+          ${chgTxt ? `<span style="font-size:16px;font-weight:700;${chgCls}">${chgTxt}</span>` : ''}
+        </div>
+        <div class="detail-meta">
+          <div class="meta-item">Volume<br><b>${vol}</b></div>
+          <div class="meta-item">Max 52s<br><b>${h52}</b></div>
+          <div class="meta-item">Min 52s<br><b>${l52}</b></div>
+          ${item.note ? `<div class="meta-item">Nota<br><b>${item.note}</b></div>` : ''}
+        </div>
+
+        <div class="section-label">Alertas Inteligentes (${activeAlerts.length}/8)</div>
+
+        <div class="alert-list" id="alert-list-${item.item_id}">
+          ${activeAlerts.length ? activeAlerts.map(a => renderAlertCard(a, item.item_id)).join('') :
+            '<div class="empty" style="padding:16px"><div class="empty-icon">🔔</div>Nenhum alerta. Adicione abaixo.</div>'}
+        </div>
+
+        <div class="section-label">Adicionar Alerta</div>
+        <div class="add-alert-form">
+          <div class="form-row">
+            <div class="form-col">
+              <label>Tipo</label>
+              <select id="alert-type-sel" onchange="renderAlertConfig()">
+                ${ALERT_TYPES.map(t => `<option value="${t.value}">${t.icon} ${t.label}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div id="alert-config-area"></div>
+          <div class="form-row" style="margin-bottom:0">
+            <div class="form-col">
+              <label>Nota (opcional)</label>
+              <input id="alert-note-inp" placeholder="Ex: zona de suporte, stop estrategico...">
+            </div>
+          </div>
+          <div style="margin-top:10px;display:flex;gap:8px">
+            <button class="btn btn-sm" onclick="addAlert('${item.item_id}')">+ Adicionar Alerta</button>
+            <span id="alert-type-desc" style="font-size:10px;color:var(--muted);align-self:center"></span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  renderAlertConfig();
+}
+
+function renderAlertCard(alert, itemId) {
+  const t = ALERT_TYPES.find(x => x.value === alert.alert_type) || { icon: '🔔', label: alert.alert_type };
+  const statusClass = { active: 'status-active', cooldown: 'status-cooldown', paused: 'status-paused' }[alert.status] || 'status-paused';
+  const statusLabel = { active: 'Ativo', cooldown: 'Cooldown', paused: 'Pausado' }[alert.status] || alert.status;
+  return `
+    <div class="alert-card" id="alc-${alert.alert_id}">
+      <div class="alert-icon">${t.icon}</div>
+      <div class="alert-info">
+        <div class="alert-type">${t.label}</div>
+        ${alert.note ? `<div class="alert-note">${alert.note}</div>` : ''}
+      </div>
+      <span class="alert-status ${statusClass}">${statusLabel}</span>
+      <button class="wl-del" onclick="removeAlert('${alert.alert_id}')" title="Remover">✕</button>
+    </div>`;
+}
+
+function renderAlertConfig() {
+  const type = document.getElementById('alert-type-sel')?.value;
+  const area = document.getElementById('alert-config-area');
+  const desc = document.getElementById('alert-type-desc');
+  if (!area) return;
+
+  const t = ALERT_TYPES.find(x => x.value === type);
+  if (desc && t) desc.textContent = t.desc;
+
+  let html = '';
+  if (type === 'rsi_oversold') {
+    html = `<div class="form-row"><div class="form-col"><label>RSI Threshold</label><input id="cfg-rsi-os" type="number" value="30" min="10" max="45" step="1"></div><div class="form-col"><label>Periodo RSI</label><input id="cfg-rsi-p" type="number" value="14" min="5" max="21" step="1"></div></div>`;
+  } else if (type === 'rsi_overbought') {
+    html = `<div class="form-row"><div class="form-col"><label>RSI Threshold</label><input id="cfg-rsi-ob" type="number" value="70" min="55" max="90" step="1"></div><div class="form-col"><label>Periodo RSI</label><input id="cfg-rsi-p" type="number" value="14" min="5" max="21" step="1"></div></div>`;
+  } else if (type === 'ma_cross_up' || type === 'ma_cross_down') {
+    html = `<div class="form-row"><div class="form-col"><label>Periodo MM</label><input id="cfg-ma-p" type="number" value="20" min="5" max="200" step="1"></div></div>`;
+  } else if (type === 'volume_spike') {
+    html = `<div class="form-row"><div class="form-col"><label>Multiplicador</label><input id="cfg-vol-m" type="number" value="2.5" min="1.5" max="10" step="0.5"></div></div>`;
+  } else if (type === 'price_above' || type === 'price_below') {
+    html = `<div class="form-row"><div class="form-col"><label>Preco (R$)</label><input id="cfg-price-t" type="number" placeholder="0.00" min="0" step="0.01"></div></div>`;
+  }
+  area.innerHTML = html;
+}
+
+function buildAlertConfig(type) {
+  const g = id => {
+    const el = document.getElementById(id);
+    return el ? parseFloat(el.value) || 0 : null;
+  };
+  const cfg = { cooldown_hours: 4 };
+  if (type === 'rsi_oversold')  { cfg.rsi_oversold = g('cfg-rsi-os') || 30; cfg.rsi_period = g('cfg-rsi-p') || 14; }
+  if (type === 'rsi_overbought'){ cfg.rsi_overbought = g('cfg-rsi-ob') || 70; cfg.rsi_period = g('cfg-rsi-p') || 14; }
+  if (type === 'ma_cross_up' || type === 'ma_cross_down') cfg.ma_period = g('cfg-ma-p') || 20;
+  if (type === 'volume_spike')  cfg.volume_multiplier = g('cfg-vol-m') || 2.5;
+  if (type === 'price_above' || type === 'price_below') cfg.price_threshold = g('cfg-price-t') || 0;
+  return cfg;
+}
+
+// ── Actions ──────────────────────────────────────────────────────────────────
+
+async function addItem() {
+  const ticker = document.getElementById('add-ticker').value.trim().toUpperCase();
+  if (!ticker) return;
+  try {
+    await apiFetch('/api/v1/watchlist', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: USER_ID, ticker }),
+    });
+    document.getElementById('add-ticker').value = '';
+    toast(`${ticker} adicionado`, 'success');
+    await loadWatchlist();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function removeItem(itemId, ticker) {
+  if (!confirm(`Remover ${ticker} da watchlist?`)) return;
+  try {
+    await apiFetch(`/api/v1/watchlist/${itemId}?user_id=${USER_ID}`, { method: 'DELETE' });
+    if (selectedItemId === itemId) { selectedItemId = null; resetDetail(); }
+    toast(`${ticker} removido`, 'success');
+    await loadWatchlist();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function addAlert(itemId) {
+  const type = document.getElementById('alert-type-sel')?.value;
+  const note = document.getElementById('alert-note-inp')?.value || '';
+  if (!type) return;
+  const cfg = buildAlertConfig(type);
+  try {
+    await apiFetch(`/api/v1/watchlist/${itemId}/alerts?user_id=${USER_ID}`, {
+      method: 'POST',
+      body: JSON.stringify({ alert_type: type, note, config: cfg }),
+    });
+    toast('Alerta adicionado', 'success');
+    await loadWatchlist();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function removeAlert(alertId) {
+  try {
+    await apiFetch(`/api/v1/watchlist/alerts/${alertId}?user_id=${USER_ID}`, { method: 'DELETE' });
+    document.getElementById(`alc-${alertId}`)?.remove();
+    toast('Alerta removido', 'success');
+    await loadWatchlist();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function evaluateAll() {
+  try {
+    toast('Avaliando alertas...', 'success');
+    const res = await apiFetch(`/api/v1/watchlist/evaluate?user_id=${USER_ID}`);
+    if (res.triggered === 0) {
+      toast('Nenhum alerta disparado no momento.', 'success');
+      document.getElementById('triggered-section').innerHTML = '';
+    } else {
+      renderTriggered(res.alerts);
+    }
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function renderTriggered(alerts) {
+  if (!alerts.length) { document.getElementById('triggered-section').innerHTML = ''; return; }
+  const html = `
+    <div class="triggered-panel">
+      <div class="triggered-header">${alerts.length} alerta${alerts.length>1?'s':''} disparado${alerts.length>1?'s':''}</div>
+      ${alerts.map(a => `
+        <div class="triggered-item severity-${a.severity}">
+          <div><span class="t-ticker">${a.ticker}</span> &nbsp;
+            <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${a.alert_type.replace(/_/g,' ')}</span>
+          </div>
+          <div class="t-msg">${a.message}</div>
+        </div>`).join('')}
+    </div>`;
+  document.getElementById('triggered-section').innerHTML = html;
+}
+
+async function editNote(itemId) {
+  const item = watchlistData.find(i => i.item_id === itemId);
+  const note = prompt('Nota para este ativo:', item?.note || '');
+  if (note === null) return;
+  try {
+    await apiFetch(`/api/v1/watchlist/${itemId}?user_id=${USER_ID}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ note }),
+    });
+    await loadWatchlist();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function resetDetail() {
+  document.getElementById('detail-col').innerHTML = `
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Selecione um ativo</span></div>
+      <div class="panel-body">
+        <div class="empty"><div class="empty-icon">👁</div>Clique em um ativo para ver detalhes e configurar alertas inteligentes.</div>
+      </div>
+    </div>`;
+}
+
+// ── SSE ──────────────────────────────────────────────────────────────────────
+
+function connectSSE() {
+  const sse = new EventSource(`/api/v1/watchlist/stream?user_id=${USER_ID}`);
+  sse.onmessage = e => {
+    try {
+      const d = JSON.parse(e.data);
+      if (d.type === 'alert_triggered') {
+        toast(`⚡ ${d.ticker}: ${d.message}`, 'warning');
+        renderTriggered([d]);
+      }
+    } catch (_) {}
+  };
+  sse.onerror = () => setTimeout(connectSSE, 30000);
+}
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+
+function toast(msg, type = 'success') {
+  const c = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+
+loadWatchlist();
+connectSSE();
+setInterval(loadWatchlist, 60000);  // refresh a cada 60s
+</script>
+</body>
+</html>
