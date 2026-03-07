@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Renda Fixa — FinAnalytics AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b1118;--surface:#111923;--card:#151f2e;--border:#1e3a5f;
+  --accent:#00c48c;--blue:#2979ff;--gold:#ffb300;--red:#ff4757;
+  --purple:#7c4dff;--cyan:#00bcd4;--orange:#ff6d00;
+  --text:#e8eaf6;--muted:#8899aa;--white:#fff;
+}
+body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* NAV */
+nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:46px;position:sticky;top:0;z-index:100;gap:0}
+.nav-brand{color:var(--accent);font-weight:700;font-size:15px;letter-spacing:1px;margin-right:24px;white-space:nowrap}
+.nav-links{display:flex;gap:2px;flex-wrap:wrap}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:12px;font-weight:600;padding:4px 10px;border-radius:4px;letter-spacing:.5px;transition:all .15s}
+.nav-links a:hover,.nav-links a.active{color:var(--accent);background:rgba(0,196,140,.08)}
+
+.page{max-width:1360px;margin:0 auto;padding:20px}
+
+/* HEADER */
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+.page-title{font-size:22px;font-weight:700;color:var(--white)}
+.page-sub{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* RATES BAR */
+.rates-bar{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 16px;display:flex;gap:24px;align-items:center;flex-wrap:wrap;margin-bottom:20px}
+.rate-item{display:flex;align-items:center;gap:8px}
+.rate-label{font-size:10px;font-weight:700;letter-spacing:.8px;color:var(--muted);text-transform:uppercase}
+.rate-input{background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500;width:72px;padding:4px 8px;text-align:center;outline:none}
+.rate-input:focus{border-color:var(--accent)}
+.rate-unit{font-size:11px;color:var(--muted);margin-left:-4px}
+
+/* TABS */
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:0}
+.tab{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;padding:8px 16px;cursor:pointer;letter-spacing:.5px;transition:all .15s;margin-bottom:-1px}
+.tab.active,.tab:hover{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* PANEL */
+.tab-panel{display:none}.tab-panel.active{display:block}
+
+/* FILTERS */
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+select,input[type=text],input[type=number]{background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:12px;padding:6px 10px;outline:none;cursor:pointer}
+select:focus,input:focus{border-color:var(--accent)}
+.btn{border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer;background:var(--surface);transition:all .15s;letter-spacing:.3px}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn-accent{background:var(--accent);color:#000;border:none;font-weight:700}
+.btn-accent:hover{opacity:.85;color:#000}
+.btn-blue{background:var(--blue);color:#fff;border:none}
+.btn-blue:hover{opacity:.85}
+
+/* BOND TABLE */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{padding:8px 10px;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;background:var(--surface);position:sticky;top:0;z-index:2}
+tbody td{padding:8px 10px;border-bottom:1px solid rgba(30,58,95,.35);font-family:'JetBrains Mono',monospace;font-size:11px;vertical-align:middle}
+tbody td:first-child,tbody td.name-cell{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;color:var(--white)}
+tbody tr:hover td{background:rgba(255,255,255,.025);cursor:pointer}
+
+/* BADGES */
+.badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:10px;text-transform:uppercase}
+.badge-td{background:rgba(255,179,0,.12);color:var(--gold)}
+.badge-cdb{background:rgba(41,121,255,.12);color:var(--blue)}
+.badge-lci,.badge-lca{background:rgba(0,196,140,.12);color:var(--accent)}
+.badge-deb{background:rgba(124,77,255,.12);color:var(--purple)}
+.badge-cri,.badge-cra{background:rgba(0,188,212,.12);color:var(--cyan)}
+.badge-isento{background:rgba(0,196,140,.12);color:var(--accent);margin-left:4px}
+.badge-ir{background:rgba(255,71,87,.1);color:var(--red);margin-left:4px}
+
+/* CARD */
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.card-header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+.card-body{padding:16px}
+
+/* CALC LAYOUT */
+.calc-grid{display:grid;grid-template-columns:340px 1fr;gap:16px}
+@media(max-width:800px){.calc-grid{grid-template-columns:1fr}}
+.form-group{margin-bottom:12px}
+.form-label{display:block;font-size:10px;font-weight:700;letter-spacing:.8px;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
+.form-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;padding:8px 10px;outline:none}
+.form-input:focus{border-color:var(--accent)}
+
+/* RESULT GRID */
+.result-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:16px}
+.result-card{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:10px 12px}
+.result-label{font-size:9px;font-weight:700;letter-spacing:.8px;color:var(--muted);text-transform:uppercase;margin-bottom:3px}
+.result-value{font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:700}
+.result-sub{font-size:10px;color:var(--muted);margin-top:2px}
+.pos{color:var(--accent)}.neg{color:var(--red)}.neu{color:var(--muted)}.gold{color:var(--gold)}
+
+/* COMPARATOR */
+.compare-grid{display:grid;grid-template-columns:280px 1fr;gap:16px}
+@media(max-width:800px){.compare-grid{grid-template-columns:1fr}}
+.bond-select-list{display:flex;flex-direction:column;gap:4px;max-height:400px;overflow-y:auto}
+.bond-check-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:5px;cursor:pointer;transition:background .1s;font-size:12px}
+.bond-check-item:hover{background:rgba(255,255,255,.03)}
+.bond-check-item input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:pointer}
+.bond-check-name{flex:1;font-weight:600;color:var(--text)}
+.bond-check-rate{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)}
+
+/* CHART BODY */
+.chart-body{padding:16px;position:relative}
+canvas{max-height:280px}
+
+/* WINNER BANNER */
+.winner-banner{background:linear-gradient(135deg,rgba(0,196,140,.12),rgba(0,196,140,.04));border:1px solid rgba(0,196,140,.25);border-radius:7px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.winner-icon{font-size:20px}
+.winner-text{font-size:13px;font-weight:600;color:var(--accent)}
+.winner-sub{font-size:11px;color:var(--muted);margin-top:1px}
+
+/* CASH FLOW TABLE */
+.cf-table{width:100%;border-collapse:collapse;font-size:11px}
+.cf-table th{padding:6px 10px;color:var(--muted);font-size:10px;font-weight:700;text-align:left;border-bottom:1px solid var(--border);letter-spacing:.5px;text-transform:uppercase}
+.cf-table td{padding:7px 10px;border-bottom:1px solid rgba(30,58,95,.3);font-family:'JetBrains Mono',monospace}
+.cf-table tr:hover td{background:rgba(255,255,255,.02)}
+
+/* GOAL */
+.goal-result{background:linear-gradient(135deg,var(--card),var(--surface));border:1px solid var(--border);border-radius:8px;padding:24px;text-align:center}
+.goal-amount{font-family:'JetBrains Mono',monospace;font-size:36px;font-weight:700;color:var(--accent);margin-bottom:6px}
+.goal-sub{font-size:13px;color:var(--muted)}
+
+/* LOADER */
+.loader{display:flex;align-items:center;justify-content:center;padding:40px;gap:6px}
+.dot{width:7px;height:7px;background:var(--accent);border-radius:50%;animation:bounce .9s infinite}
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
+
+.empty{text-align:center;padding:40px;color:var(--muted);font-size:13px}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+<nav>
+  <span class="nav-brand">FINANALYTICS AI</span>
+  <div class="nav-links">
+    <a href="/">Dashboard</a>
+    <a href="/hub">Hub</a>
+    <a href="/backtest">Backtest</a>
+    <a href="/correlation">Correlacao</a>
+    <a href="/screener">Screener</a>
+    <a href="/anomaly">Anomalias</a>
+    <a href="/watchlist">Watchlist</a>
+    <a href="/performance">Performance</a>
+    <a href="/fixed-income" class="active">Renda Fixa</a>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Análise de Renda Fixa</div>
+      <div class="page-sub">Tesouro Direto · CDB · LCI · LCA · Debêntures · CRI · CRA</div>
+    </div>
+  </div>
+
+  <!-- RATES BAR -->
+  <div class="rates-bar">
+    <div style="font-size:10px;font-weight:700;letter-spacing:.8px;color:var(--muted);text-transform:uppercase">Taxas de referência:</div>
+    <div class="rate-item">
+      <span class="rate-label">CDI</span>
+      <input class="rate-input" id="r-cdi"   type="number" step="0.01" value="10.65" onchange="onRateChange()">
+      <span class="rate-unit">% a.a.</span>
+    </div>
+    <div class="rate-item">
+      <span class="rate-label">SELIC</span>
+      <input class="rate-input" id="r-selic" type="number" step="0.01" value="10.65" onchange="onRateChange()">
+      <span class="rate-unit">% a.a.</span>
+    </div>
+    <div class="rate-item">
+      <span class="rate-label">IPCA</span>
+      <input class="rate-input" id="r-ipca"  type="number" step="0.01" value="4.83" onchange="onRateChange()">
+      <span class="rate-unit">% a.a.</span>
+    </div>
+    <div class="rate-item">
+      <span class="rate-label">IGPM</span>
+      <input class="rate-input" id="r-igpm"  type="number" step="0.01" value="6.20" onchange="onRateChange()">
+      <span class="rate-unit">% a.a.</span>
+    </div>
+    <div style="margin-left:auto;font-size:10px;color:var(--muted)">Edite as taxas conforme o cenário atual</div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('browser')">🔍 Busca de Títulos</button>
+    <button class="tab"        onclick="switchTab('calc')">🧮 Calculadora</button>
+    <button class="tab"        onclick="switchTab('compare')">⚖ Comparador</button>
+    <button class="tab"        onclick="switchTab('cashflow')">📅 Fluxo de Caixa</button>
+  </div>
+
+  <!-- ═══ TAB: BROWSER ═══════════════════════════════════════════════════════ -->
+  <div id="tab-browser" class="tab-panel active">
+    <div class="filters">
+      <select id="f-type" onchange="loadBonds()">
+        <option value="">Todos os tipos</option>
+        <option value="Tesouro SELIC">Tesouro SELIC</option>
+        <option value="Tesouro IPCA+">Tesouro IPCA+</option>
+        <option value="Tesouro Prefixado">Tesouro Prefixado</option>
+        <option value="CDB">CDB</option>
+        <option value="LCI">LCI</option>
+        <option value="LCA">LCA</option>
+        <option value="Debênture">Debênture</option>
+        <option value="CRI">CRI</option>
+        <option value="CRA">CRA</option>
+      </select>
+      <select id="f-indexer" onchange="loadBonds()">
+        <option value="">Todos indexadores</option>
+        <option value="CDI">CDI</option>
+        <option value="IPCA">IPCA</option>
+        <option value="SELIC">SELIC</option>
+        <option value="Prefixado">Prefixado</option>
+      </select>
+      <input type="text" id="f-issuer" placeholder="Emissor..." oninput="loadBonds()">
+      <input type="number" id="f-min-days" placeholder="Prazo mín. (dias)" style="width:150px" onchange="loadBonds()">
+      <input type="number" id="f-max-days" placeholder="Prazo máx. (dias)" style="width:150px" onchange="loadBonds()">
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Títulos Disponíveis</span>
+        <span id="bond-count" style="font-size:10px;color:var(--muted)"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Título</th><th>Tipo</th><th>Indexador</th><th>Taxa</th>
+            <th>Vencimento</th><th>Prazo</th><th>Inv. Mín.</th>
+            <th>Liquidez</th><th>IR</th><th>Ação</th>
+          </tr></thead>
+          <tbody id="bonds-tbody">
+            <tr><td colspan="10"><div class="loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: CALCULADORA ══════════════════════════════════════════════════ -->
+  <div id="tab-calc" class="tab-panel">
+    <div class="calc-grid">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Parâmetros</span></div>
+        <div class="card-body">
+          <div class="form-group">
+            <label class="form-label">Título</label>
+            <select class="form-input" id="calc-bond" onchange="calcTitleInfo()">
+              <option value="">Selecione...</option>
+            </select>
+          </div>
+          <div id="calc-bond-info" style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.5"></div>
+          <div class="form-group">
+            <label class="form-label">Valor Investido (R$)</label>
+            <input class="form-input" type="number" id="calc-principal" value="10000" min="1" step="100">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Prazo (dias) — deixe vazio para usar vencimento</label>
+            <input class="form-input" type="number" id="calc-days" placeholder="Ex: 365" min="1">
+          </div>
+          <button class="btn btn-accent" style="width:100%;margin-top:4px" onclick="runCalc()">Calcular Rendimento</button>
+        </div>
+      </div>
+
+      <div>
+        <div id="calc-result" class="empty">Preencha os parâmetros e clique em Calcular.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: COMPARADOR ═══════════════════════════════════════════════════ -->
+  <div id="tab-compare" class="tab-panel">
+    <div class="compare-grid">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Selecionar Títulos</span></div>
+        <div class="card-body" style="padding:8px">
+          <div class="form-group" style="padding:8px 0 0 8px">
+            <label class="form-label">Valor (R$)</label>
+            <input class="form-input" type="number" id="cmp-principal" value="10000" min="1" step="100">
+          </div>
+          <div class="form-group" style="padding:0 8px">
+            <label class="form-label">Prazo (dias)</label>
+            <input class="form-input" type="number" id="cmp-days" value="365" min="1">
+          </div>
+          <div class="bond-select-list" id="cmp-bond-list">
+            <div class="empty" style="padding:20px">Carregando...</div>
+          </div>
+          <div style="padding:8px">
+            <button class="btn btn-accent" style="width:100%" onclick="runCompare()">Comparar Selecionados</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div id="compare-result" class="empty">Selecione ao menos 2 títulos e clique em Comparar.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: FLUXO DE CAIXA ═══════════════════════════════════════════════ -->
+  <div id="tab-cashflow" class="tab-panel">
+    <div class="calc-grid">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Parâmetros</span></div>
+        <div class="card-body">
+          <div class="form-group">
+            <label class="form-label">Título</label>
+            <select class="form-input" id="cf-bond">
+              <option value="">Selecione...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Valor Investido (R$)</label>
+            <input class="form-input" type="number" id="cf-principal" value="10000" min="1" step="100">
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.8px;color:var(--muted);text-transform:uppercase;margin-bottom:8px">Simulador de Meta</div>
+            <div class="form-group">
+              <label class="form-label">Quero chegar a (R$)</label>
+              <input class="form-input" type="number" id="goal-target" placeholder="Ex: 15000" min="1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Em (dias)</label>
+              <input class="form-input" type="number" id="goal-days" placeholder="Ex: 730" min="1">
+            </div>
+            <button class="btn btn-blue" style="width:100%;margin-bottom:8px" onclick="runGoal()">Calcular quanto investir</button>
+          </div>
+          <button class="btn btn-accent" style="width:100%;margin-top:4px" onclick="runCashFlow()">Gerar Fluxo de Caixa</button>
+        </div>
+      </div>
+
+      <div>
+        <div id="goal-result-panel"></div>
+        <div id="cf-result" class="empty">Selecione um título e clique em Gerar Fluxo de Caixa.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api/v1/fixed-income';
+let allBonds = [];
+let charts = {};
+
+// ── Rates ─────────────────────────────────────────────────────────────────────
+function rates() {
+  return {
+    cdi_rate:   parseFloat(document.getElementById('r-cdi').value)   || 10.65,
+    selic_rate: parseFloat(document.getElementById('r-selic').value) || 10.65,
+    ipca_rate:  parseFloat(document.getElementById('r-ipca').value)  || 4.83,
+    igpm_rate:  parseFloat(document.getElementById('r-igpm').value)  || 6.20,
+  };
+}
+function onRateChange() { /* taxas editáveis em tempo real */ }
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['browser','calc','compare','cashflow'][i] === id));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+}
+
+// ── Load bonds ────────────────────────────────────────────────────────────────
+async function loadBonds() {
+  const params = new URLSearchParams();
+  const t = document.getElementById('f-type').value;
+  const i = document.getElementById('f-indexer').value;
+  const s = document.getElementById('f-issuer').value;
+  const mn = document.getElementById('f-min-days').value;
+  const mx = document.getElementById('f-max-days').value;
+  if (t) params.append('bond_type', t);
+  if (i) params.append('indexer', i);
+  if (s) params.set('issuer', s);
+  if (mn) params.set('min_days', mn);
+  if (mx) params.set('max_days', mx);
+
+  try {
+    const res  = await fetch(`${API}/bonds?${params}`);
+    allBonds   = await res.json();
+    renderBondsTable(allBonds);
+    populateSelects();
+  } catch(e) {
+    document.getElementById('bonds-tbody').innerHTML =
+      `<tr><td colspan="10" class="empty">Erro: ${e.message}</td></tr>`;
+  }
+}
+
+function renderBondsTable(bonds) {
+  document.getElementById('bond-count').textContent = `${bonds.length} título${bonds.length !== 1 ? 's' : ''}`;
+  const tbody = document.getElementById('bonds-tbody');
+  if (!bonds.length) { tbody.innerHTML = '<tr><td colspan="10" class="empty">Nenhum título encontrado</td></tr>'; return; }
+
+  tbody.innerHTML = bonds.map(b => {
+    const bc = badgeClass(b.bond_type);
+    const rate = formatRate(b);
+    const mat  = b.maturity_date ? b.maturity_date.slice(0,10) : '—';
+    const days = b.days_to_maturity != null ? `${b.days_to_maturity}d` : '—';
+    const min  = b.min_investment ? `R$ ${b.min_investment.toLocaleString('pt-BR')}` : '—';
+    const ir   = b.ir_exempt
+      ? `<span class="badge badge-isento">Isento IR</span>`
+      : `<span class="badge badge-ir">22.5→15%</span>`;
+    const srcIcon = b.source === 'tesouro_direto' ? '🏦' : '🏢';
+    return `<tr onclick="selectBondForCalc('${b.bond_id}')">
+      <td class="name-cell">${srcIcon} ${b.name}</td>
+      <td><span class="badge ${bc}">${b.bond_type}</span></td>
+      <td>${b.indexer}</td>
+      <td style="color:var(--accent);font-weight:600">${rate}</td>
+      <td>${mat}</td>
+      <td>${days}</td>
+      <td>${min}</td>
+      <td style="font-size:10px;color:var(--muted)">${b.liquidity}</td>
+      <td>${ir}</td>
+      <td><button class="btn" style="padding:3px 8px;font-size:10px" onclick="event.stopPropagation();selectBondForCalc('${b.bond_id}')">Calcular</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function badgeClass(t) {
+  const m = {'Tesouro SELIC':'badge-td','Tesouro IPCA+':'badge-td','Tesouro Prefixado':'badge-td',
+             'CDB':'badge-cdb','LCI':'badge-lci','LCA':'badge-lca',
+             'Debênture':'badge-deb','CRI':'badge-cri','CRA':'badge-cra'};
+  return m[t] || 'badge-cdb';
+}
+
+function formatRate(b) {
+  if (b.indexer === 'Prefixado') return `${b.rate_annual.toFixed(2)}% a.a.`;
+  if (b.rate_pct_indexer) return `${b.rate_annual.toFixed(0)}% ${b.indexer}`;
+  return `${b.indexer} + ${b.rate_annual.toFixed(2)}%`;
+}
+
+function populateSelects() {
+  ['calc-bond','cf-bond'].forEach(id => {
+    const sel = document.getElementById(id);
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Selecione...</option>' +
+      allBonds.map(b => `<option value="${b.bond_id}">${b.name}</option>`).join('');
+    if (cur) sel.value = cur;
+  });
+  // Comparador
+  const list = document.getElementById('cmp-bond-list');
+  list.innerHTML = allBonds.map(b => `
+    <label class="bond-check-item">
+      <input type="checkbox" value="${b.bond_id}">
+      <span class="bond-check-name">${b.name}</span>
+      <span class="bond-check-rate">${formatRate(b)}</span>
+    </label>`).join('');
+}
+
+function selectBondForCalc(bondId) {
+  document.getElementById('calc-bond').value = bondId;
+  calcTitleInfo();
+  switchTab('calc');
+}
+
+// ── Calc info ─────────────────────────────────────────────────────────────────
+function calcTitleInfo() {
+  const id   = document.getElementById('calc-bond').value;
+  const bond = allBonds.find(b => b.bond_id === id);
+  const el   = document.getElementById('calc-bond-info');
+  if (!bond) { el.textContent = ''; return; }
+  const rate = formatRate(bond);
+  const ir   = bond.ir_exempt ? '✅ Isento de IR' : '⚠ IR regressivo (22.5% → 15%)';
+  el.innerHTML = `
+    <span style="color:var(--white)">${bond.issuer || 'Tesouro Nacional'}</span> &nbsp;·&nbsp;
+    <span style="color:var(--accent)">${rate}</span><br>
+    ${ir} &nbsp;·&nbsp; ${bond.liquidity}<br>
+    ${bond.maturity_date ? `Venc: ${bond.maturity_date.slice(0,10)} (${bond.days_to_maturity}d)` : ''}
+  `;
+  if (bond.days_to_maturity) document.getElementById('calc-days').placeholder = `${bond.days_to_maturity} (vencimento)`;
+}
+
+// ── Calculator ────────────────────────────────────────────────────────────────
+async function runCalc() {
+  const bondId    = document.getElementById('calc-bond').value;
+  const principal = parseFloat(document.getElementById('calc-principal').value);
+  const days      = parseInt(document.getElementById('calc-days').value) || null;
+  if (!bondId) { alert('Selecione um título'); return; }
+  if (!principal) { alert('Informe o valor a investir'); return; }
+
+  document.getElementById('calc-result').innerHTML =
+    '<div class="loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+
+  try {
+    const res  = await fetch(`${API}/calculate`, { method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({bond_id:bondId, principal, days, ...rates()}) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Erro');
+    renderCalcResult(data);
+  } catch(e) {
+    document.getElementById('calc-result').innerHTML =
+      `<div class="empty" style="color:var(--red)">Erro: ${e.message}</div>`;
+  }
+}
+
+function renderCalcResult(d) {
+  const fmt  = (v,d=2) => v == null ? '—' : Number(v).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+  const sign = v => v >= 0 ? '+' : '';
+  const el   = document.getElementById('calc-result');
+
+  const gross_gain = d.gross_amount - d.principal;
+  const net_gain   = d.net_amount - d.principal;
+  const irTag      = d.ir_exempt ? '<span class="badge badge-isento">Isento IR</span>' : '';
+
+  el.innerHTML = `
+    <div class="result-grid">
+      <div class="result-card">
+        <div class="result-label">Montante Bruto</div>
+        <div class="result-value neu">R$ ${fmt(d.gross_amount)}</div>
+        <div class="result-sub">+R$ ${fmt(gross_gain)} (${fmt(d.gross_return_pct,2)}%)</div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Montante Líquido</div>
+        <div class="result-value pos">R$ ${fmt(d.net_amount)}</div>
+        <div class="result-sub">${sign(net_gain)}R$ ${fmt(net_gain)}</div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Rendimento Líquido</div>
+        <div class="result-value pos">${fmt(d.net_return_pct,2)}%</div>
+        <div class="result-sub">no período (${d.days} dias)</div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">Rendimento Anualizado</div>
+        <div class="result-value gold">${fmt(d.net_annual_return_pct,2)}% a.a.</div>
+        <div class="result-sub">líquido de impostos</div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">IR Pago ${irTag}</div>
+        <div class="result-value neg">R$ ${fmt(d.ir_amount)}</div>
+        <div class="result-sub">alíquota ${d.ir_rate_pct}%</div>
+      </div>
+      <div class="result-card">
+        <div class="result-label">IOF</div>
+        <div class="result-value ${d.iof_amount > 0 ? 'neg' : 'neu'}">R$ ${fmt(d.iof_amount)}</div>
+        <div class="result-sub">${d.iof_rate_pct}% ${d.days < 30 ? '⚠ < 30 dias' : '✓ zerado'}</div>
+      </div>
+      ${d.custody_fee_amount > 0 ? `
+      <div class="result-card">
+        <div class="result-label">Taxa Custódia</div>
+        <div class="result-value neg">R$ ${fmt(d.custody_fee_amount)}</div>
+        <div class="result-sub">0.20% a.a. (B3)</div>
+      </div>` : ''}
+      <div class="result-card">
+        <div class="result-label">Taxa Efetiva</div>
+        <div class="result-value neu">${fmt(d.effective_rate_annual,2)}% a.a.</div>
+        <div class="result-sub">antes de impostos</div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:8px">
+      <div class="card-header"><span class="card-title">Decomposição do Rendimento</span></div>
+      <div class="chart-body"><canvas id="calc-chart"></canvas></div>
+    </div>
+  `;
+
+  if (charts.calc) charts.calc.destroy();
+  const ctx = document.getElementById('calc-chart').getContext('2d');
+  const netKept = d.net_amount - d.principal;
+  charts.calc = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:['Principal','Ganho Líquido','IR','IOF','Custódia'],
+      datasets:[{
+        data:[d.principal, netKept, d.ir_amount, d.iof_amount, d.custody_fee_amount || 0],
+        backgroundColor:['#2979ff44','#00c48c88','#ff475744','#ffb30044','#8899aa44'],
+        borderColor:['#2979ff','#00c48c','#ff4757','#ffb300','#8899aa'],
+        borderWidth:1.5, borderRadius:4,
+      }]
+    },
+    options:{
+      responsive:true, indexAxis:'y',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`R$ ${c.raw.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}`}}},
+      scales:{x:{ticks:{color:'#8899aa',font:{size:10},callback:v=>`R$ ${v.toLocaleString('pt-BR',{maximumFractionDigits:0})}`},grid:{color:'rgba(30,58,95,.3)'}},
+              y:{ticks:{color:'#e8eaf6',font:{size:12}},grid:{display:false}}}
+    }
+  });
+}
+
+// ── Comparador ────────────────────────────────────────────────────────────────
+async function runCompare() {
+  const ids = [...document.querySelectorAll('#cmp-bond-list input:checked')].map(c => c.value);
+  if (ids.length < 2) { alert('Selecione ao menos 2 títulos'); return; }
+  const principal = parseFloat(document.getElementById('cmp-principal').value);
+  const days      = parseInt(document.getElementById('cmp-days').value);
+  if (!principal || !days) { alert('Informe valor e prazo'); return; }
+
+  document.getElementById('compare-result').innerHTML =
+    '<div class="loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+
+  try {
+    const res  = await fetch(`${API}/compare`, { method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({bond_ids:ids, principal, days, ...rates()}) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Erro');
+    renderCompareResult(data);
+  } catch(e) {
+    document.getElementById('compare-result').innerHTML =
+      `<div class="empty" style="color:var(--red)">Erro: ${e.message}</div>`;
+  }
+}
+
+function renderCompareResult(data) {
+  const bonds = data.bonds;
+  const fmt   = (v,d=2) => Number(v).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+  const best  = bonds[0];
+  const el    = document.getElementById('compare-result');
+
+  el.innerHTML = `
+    <div class="winner-banner">
+      <span class="winner-icon">🏆</span>
+      <div>
+        <div class="winner-text">${data.best}</div>
+        <div class="winner-sub">${fmt(best.net_annual_return_pct,2)}% a.a. líquido — melhor rendimento para ${data.period_days} dias</div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-header"><span class="card-title">Rendimento Líquido Anualizado</span></div>
+      <div class="chart-body"><canvas id="cmp-chart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Resultado Detalhado — R$ ${fmt(data.principal)} por ${data.period_days} dias</span></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>#</th><th>Título</th><th>Tipo</th><th>Montante Bruto</th>
+            <th>IR/IOF</th><th>Montante Líquido</th><th>Retorno %</th><th>Anualizado</th>
+          </tr></thead>
+          <tbody>
+            ${bonds.map((b,i) => `<tr>
+              <td style="color:${i===0?'var(--gold)':'var(--muted)'};font-weight:700">${i===0?'🥇':i===1?'🥈':'🥉'} ${i+1}°</td>
+              <td class="name-cell">${b.bond_name}</td>
+              <td><span class="badge ${badgeClass(b.bond_type)}">${b.bond_type}</span></td>
+              <td>R$ ${fmt(b.gross_amount)}</td>
+              <td class="neg">-R$ ${fmt(b.ir_amount + b.iof_amount)}</td>
+              <td class="pos" style="font-weight:700">R$ ${fmt(b.net_amount)}</td>
+              <td class="${b.net_return_pct>0?'pos':'neg'}">${fmt(b.net_return_pct,2)}%</td>
+              <td class="gold" style="font-weight:700">${fmt(b.net_annual_return_pct,2)}% a.a.</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  if (charts.cmp) charts.cmp.destroy();
+  const ctx = document.getElementById('cmp-chart').getContext('2d');
+  const colors = ['#ffb300','#00c48c','#2979ff','#ff4757','#7c4dff','#00bcd4','#ff6d00','#e91e63'];
+  charts.cmp = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: bonds.map(b => b.bond_name.length > 25 ? b.bond_name.slice(0,25)+'…' : b.bond_name),
+      datasets:[{
+        label:'Rendimento Líquido a.a. (%)',
+        data: bonds.map(b => b.net_annual_return_pct),
+        backgroundColor: bonds.map((_,i) => colors[i % colors.length] + '55'),
+        borderColor:     bonds.map((_,i) => colors[i % colors.length]),
+        borderWidth:1.5, borderRadius:4,
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw.toFixed(2)}% a.a.`}}},
+      scales:{x:{ticks:{color:'#8899aa',font:{size:10}},grid:{color:'rgba(30,58,95,.3)'}},
+              y:{ticks:{color:'#8899aa',font:{size:10},callback:v=>`${v.toFixed(1)}%`},grid:{color:'rgba(30,58,95,.3)'}}}
+    }
+  });
+}
+
+// ── Cash Flow ─────────────────────────────────────────────────────────────────
+async function runCashFlow() {
+  const bondId    = document.getElementById('cf-bond').value;
+  const principal = parseFloat(document.getElementById('cf-principal').value);
+  if (!bondId)    { alert('Selecione um título'); return; }
+  if (!principal) { alert('Informe o valor'); return; }
+
+  document.getElementById('cf-result').innerHTML =
+    '<div class="loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+
+  try {
+    const res  = await fetch(`${API}/cash-flow`, { method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({bond_id:bondId, principal, ...rates()}) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Erro');
+    renderCashFlow(data);
+  } catch(e) {
+    document.getElementById('cf-result').innerHTML =
+      `<div class="empty" style="color:var(--red)">Erro: ${e.message}</div>`;
+  }
+}
+
+function renderCashFlow(d) {
+  const fmt = (v,dec=2) => Number(v).toLocaleString('pt-BR',{minimumFractionDigits:dec,maximumFractionDigits:dec});
+  const el  = document.getElementById('cf-result');
+
+  if (!d.items || d.items.length === 0) {
+    el.innerHTML = '<div class="empty">Título sem datas de vencimento definidas para fluxo de caixa.</div>';
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="result-grid" style="margin-bottom:14px">
+      <div class="result-card"><div class="result-label">Total Bruto</div>
+        <div class="result-value neu">R$ ${fmt(d.total_gross + d.principal)}</div></div>
+      <div class="result-card"><div class="result-label">Total IR</div>
+        <div class="result-value neg">-R$ ${fmt(d.total_ir)}</div></div>
+      <div class="result-card"><div class="result-label">Total Líquido</div>
+        <div class="result-value pos">R$ ${fmt(d.total_net + d.principal)}</div></div>
+      <div class="result-card"><div class="result-label">Retorno Líquido</div>
+        <div class="result-value gold">${fmt(d.net_return_pct,2)}%</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">${d.bond_name} — Fluxo de Caixa</span></div>
+      <div class="table-wrap" style="max-height:360px;overflow-y:auto">
+        <table class="cf-table">
+          <thead><tr>
+            <th>#</th><th>Data</th><th>Pagamento Bruto</th>
+            <th>IR</th><th>Pagamento Líquido</th><th>Saldo</th>
+          </tr></thead>
+          <tbody>
+            ${d.items.map(i => `<tr>
+              <td>${i.period}</td>
+              <td>${i.date}</td>
+              <td>R$ ${fmt(i.gross_coupon)}</td>
+              <td class="neg">-R$ ${fmt(i.ir_amount)}</td>
+              <td class="pos" style="font-weight:600">R$ ${fmt(i.net_coupon)}</td>
+              <td>R$ ${fmt(i.balance)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+// ── Goal ──────────────────────────────────────────────────────────────────────
+async function runGoal() {
+  const bondId = document.getElementById('cf-bond').value;
+  const target = parseFloat(document.getElementById('goal-target').value);
+  const days   = parseInt(document.getElementById('goal-days').value);
+  if (!bondId) { alert('Selecione um título'); return; }
+  if (!target || !days) { alert('Informe o valor alvo e o prazo'); return; }
+
+  const el = document.getElementById('goal-result-panel');
+  el.innerHTML = '<div class="loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+
+  try {
+    const res  = await fetch(`${API}/goal`, { method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({bond_id:bondId, target_amount:target, days, ...rates()}) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Erro');
+    const fmt = v => Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    el.innerHTML = `
+      <div class="goal-result" style="margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:6px">
+          Para chegar a R$ ${fmt(target)} em ${days} dias
+        </div>
+        <div class="goal-amount">R$ ${fmt(data.principal_needed)}</div>
+        <div class="goal-sub">investimento necessário hoje em <strong style="color:var(--white)">${data.bond.bond_name}</strong></div>
+        <div style="margin-top:12px;font-size:12px;color:var(--muted)">
+          Rendimento líquido estimado: <span style="color:var(--accent)">${fmt(data.bond.net_annual_return_pct)}% a.a.</span>
+        </div>
+      </div>`;
+  } catch(e) {
+    el.innerHTML = `<div class="empty" style="color:var(--red)">Erro: ${e.message}</div>`;
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadBonds();
+</script>
+</body>
+</html>

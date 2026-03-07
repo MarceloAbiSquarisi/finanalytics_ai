@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Performance — FinAnalytics AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b1118;--surface:#111923;--card:#151f2e;--border:#1e3a5f;
+  --accent:#00c48c;--blue:#2979ff;--gold:#ffb300;--red:#ff4757;
+  --purple:#7c4dff;--cyan:#00bcd4;--orange:#ff6d00;
+  --text:#e8eaf6;--muted:#8899aa;--white:#fff;
+}
+body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:46px;position:sticky;top:0;z-index:100;gap:0}
+.nav-brand{color:var(--accent);font-weight:700;font-size:15px;letter-spacing:1px;margin-right:24px;white-space:nowrap}
+.nav-links{display:flex;gap:2px;flex-wrap:wrap}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:12px;font-weight:600;padding:4px 10px;border-radius:4px;letter-spacing:.5px;transition:all .15s}
+.nav-links a:hover,.nav-links a.active{color:var(--accent);background:rgba(0,196,140,.08)}
+.page{max-width:1360px;margin:0 auto;padding:20px}
+
+/* HEADER */
+.page-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+.page-title{font-size:22px;font-weight:700;color:var(--white)}
+.page-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+select,button{background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:12px;padding:6px 12px;cursor:pointer;outline:none}
+select:focus,button:hover{border-color:var(--accent)}
+.btn-run{background:var(--accent);color:#000;font-weight:700;border:none}
+.btn-run:hover{opacity:.85}
+
+/* KPI GRID */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:20px}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+.kpi-label{font-size:9px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
+.kpi-value{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--white)}
+.kpi-sub{font-size:10px;color:var(--muted);margin-top:2px}
+.pos{color:var(--accent)}.neg{color:var(--red)}.neu{color:var(--muted)}
+
+/* CHARTS GRID */
+.charts-grid{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:20px}
+.chart-panel{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.chart-header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;justify-content:space-between}
+.chart-title{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+.chart-body{padding:16px;position:relative}
+canvas{max-height:320px}
+
+/* BOTTOM GRID */
+.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+@media(max-width:900px){.bottom-grid{grid-template-columns:1fr}}
+
+/* HEATMAP */
+.heatmap-wrap{overflow-x:auto}
+.heatmap{border-collapse:collapse;width:100%;font-size:11px}
+.heatmap th{padding:4px 8px;color:var(--muted);font-weight:600;font-size:10px;text-align:center;border:1px solid var(--border)}
+.heatmap td{padding:5px 8px;text-align:center;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;transition:opacity .15s;cursor:default;border-radius:2px}
+.heatmap td:hover{opacity:.8}
+.hm-row-label{color:var(--muted);font-weight:700;background:var(--surface);font-family:'Rajdhani',sans-serif}
+
+/* CONTRIBUTIONS TABLE */
+.contrib-table{width:100%;border-collapse:collapse;font-size:12px}
+.contrib-table th{padding:6px 10px;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);text-align:left}
+.contrib-table td{padding:8px 10px;border-bottom:1px solid rgba(30,58,95,.4);font-family:'JetBrains Mono',monospace;font-size:11px}
+.contrib-table td:first-child{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;color:var(--white)}
+.contrib-table tr:hover td{background:rgba(255,255,255,.02)}
+
+/* METRICS DETAIL */
+.metrics-detail{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.metric-row{display:flex;justify-content:space-between;padding:6px 10px;background:var(--surface);border-radius:5px;font-size:12px}
+.metric-row .ml{color:var(--muted)}
+.metric-row .mv{font-family:'JetBrains Mono',monospace;font-weight:600}
+
+/* EMPTY / LOADING */
+.empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-icon{font-size:40px;margin-bottom:12px;opacity:.4}
+.loader{display:flex;align-items:center;justify-content:center;padding:60px;gap:6px}
+.dot{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:bounce .9s infinite}
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
+
+/* BADGE */
+.badge{font-size:9px;padding:2px 7px;border-radius:10px;font-weight:700;letter-spacing:.5px}
+.badge-green{background:rgba(0,196,140,.12);color:var(--accent)}
+.badge-red{background:rgba(255,71,87,.12);color:var(--red)}
+.badge-blue{background:rgba(41,121,255,.12);color:var(--blue)}
+
+/* TOOLTIP helper */
+[title]{cursor:help}
+
+/* Period tabs */
+.period-tabs{display:flex;gap:4px}
+.ptab{background:var(--surface);border:1px solid var(--border);border-radius:5px;color:var(--muted);font-size:11px;font-weight:600;padding:4px 10px;cursor:pointer;transition:all .15s}
+.ptab.active,.ptab:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,196,140,.06)}
+
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+<nav>
+  <span class="nav-brand">FINANALYTICS AI</span>
+  <div class="nav-links">
+    <a href="/">Dashboard</a>
+    <a href="/hub">Hub</a>
+    <a href="/backtest">Backtest</a>
+    <a href="/correlation">Correlacao</a>
+    <a href="/screener">Screener</a>
+    <a href="/anomaly">Anomalias</a>
+    <a href="/watchlist">Watchlist</a>
+    <a href="/performance" class="active">Performance</a>
+    <a href="/fixed-income">Renda Fixa</a>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Performance da Carteira</div>
+      <div class="page-sub">Drawdown · Sharpe · Beta · Alpha · Benchmark vs IBOV</div>
+    </div>
+    <div class="controls">
+      <select id="portfolio-sel" onchange="onPortfolioChange()">
+        <option value="">Carregando portfolios...</option>
+      </select>
+      <div class="period-tabs" id="period-tabs">
+        <button class="ptab" onclick="setPeriod('3mo')">3M</button>
+        <button class="ptab active" onclick="setPeriod('1y')">1A</button>
+        <button class="ptab" onclick="setPeriod('2y')">2A</button>
+        <button class="ptab" onclick="setPeriod('3y')">3A</button>
+        <button class="ptab" onclick="setPeriod('5y')">5A</button>
+        <button class="ptab" onclick="setPeriod('ytd')">YTD</button>
+        <button class="ptab" onclick="setPeriod('max')">MAX</button>
+      </div>
+      <button class="btn-run" onclick="loadPerformance()">&#9654; Analisar</button>
+    </div>
+  </div>
+
+  <div id="main-content">
+    <div class="empty-state">
+      <div class="empty-icon">📈</div>
+      <div style="font-size:14px;color:var(--text);margin-bottom:8px">Selecione um portfólio</div>
+      <div>Escolha o portfólio e o período para ver análise completa de performance.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const USER_ID = 'user_default';
+let selectedPeriod = '1y';
+let charts = {};
+let perfData = null;
+
+// ── Period tabs ───────────────────────────────────────────────────────────────
+function setPeriod(p) {
+  selectedPeriod = p;
+  document.querySelectorAll('.ptab').forEach(b => {
+    b.classList.toggle('active', b.textContent.trim() === {
+      '3mo':'3M','1y':'1A','2y':'2A','3y':'3A','5y':'5A','ytd':'YTD','max':'MAX'
+    }[p]);
+  });
+}
+
+// ── Portfolios ────────────────────────────────────────────────────────────────
+async function loadPortfolios() {
+  try {
+    const res = await fetch(`/api/v1/portfolios?user_id=${USER_ID}`);
+    const list = await res.json();
+    const sel = document.getElementById('portfolio-sel');
+    if (!list.length) {
+      sel.innerHTML = '<option value="">Nenhum portfolio encontrado</option>';
+      return;
+    }
+    sel.innerHTML = list.map(p =>
+      `<option value="${p.portfolio_id}">${p.name}</option>`
+    ).join('');
+  } catch(e) {
+    document.getElementById('portfolio-sel').innerHTML = '<option value="">Erro ao carregar</option>';
+  }
+}
+
+function onPortfolioChange() {
+  // Não carrega automaticamente — espera clicar em Analisar
+}
+
+// ── Load performance ──────────────────────────────────────────────────────────
+async function loadPerformance() {
+  const portfolioId = document.getElementById('portfolio-sel').value;
+  if (!portfolioId) { alert('Selecione um portfólio'); return; }
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    <div style="text-align:center;color:var(--muted);font-size:12px;padding-bottom:20px">
+      Buscando dados históricos e calculando métricas...</div>`;
+
+  // Destrói charts anteriores
+  Object.values(charts).forEach(c => c.destroy && c.destroy());
+  charts = {};
+
+  try {
+    const res = await fetch(`/api/v1/portfolios/${portfolioId}/performance?period=${selectedPeriod}`);
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || res.statusText);
+    }
+    perfData = await res.json();
+    renderAll(perfData);
+  } catch(e) {
+    document.getElementById('main-content').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">⚠</div>
+        <div style="font-size:13px;color:var(--red)">${e.message}</div>
+      </div>`;
+  }
+}
+
+// ── Render all ────────────────────────────────────────────────────────────────
+function renderAll(d) {
+  const m = d.metrics;
+  const sign = v => v >= 0 ? '+' : '';
+  const cls  = v => v >= 0 ? 'pos' : 'neg';
+  const fmt  = (v, dec=2) => v == null ? '—' : v.toFixed(dec);
+
+  const mc = document.getElementById('main-content');
+  mc.innerHTML = `
+    <!-- KPIs -->
+    <div class="kpi-grid" id="kpi-grid"></div>
+
+    <!-- Equity Curve -->
+    <div class="chart-panel">
+      <div class="chart-header">
+        <span class="chart-title">Evolucao do Patrimonio — Carteira vs BOVA11 (base 100)</span>
+        <span style="font-size:10px;color:var(--muted)">${m.start_date} → ${m.end_date} &nbsp;|&nbsp; ${m.period_days} dias uteis</span>
+      </div>
+      <div class="chart-body"><canvas id="equity-chart"></canvas></div>
+    </div>
+
+    <!-- Drawdown -->
+    <div class="chart-panel">
+      <div class="chart-header">
+        <span class="chart-title">Drawdown da Carteira</span>
+        <span style="font-size:10px;color:var(--muted)">Max: <span style="color:var(--red);font-family:'JetBrains Mono',monospace">${fmt(m.max_drawdown_pct)}%</span> &nbsp;(${m.max_drawdown_start} → ${m.max_drawdown_end})</span>
+      </div>
+      <div class="chart-body"><canvas id="dd-chart"></canvas></div>
+    </div>
+
+    <!-- Bottom: Heatmap + Contributions -->
+    <div class="bottom-grid">
+      <div class="chart-panel">
+        <div class="chart-header"><span class="chart-title">Retornos Mensais — Carteira</span></div>
+        <div class="chart-body"><div class="heatmap-wrap" id="heatmap-container"></div></div>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-header"><span class="chart-title">Contribuicao por Ativo</span></div>
+        <div class="chart-body" style="padding:0 0 8px 0">
+          <table class="contrib-table" id="contrib-table"></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metrics detail -->
+    <div class="chart-panel">
+      <div class="chart-header"><span class="chart-title">Metricas Detalhadas</span></div>
+      <div class="chart-body"><div class="metrics-detail" id="metrics-detail"></div></div>
+    </div>
+  `;
+
+  renderKPIs(m, d, sign, cls, fmt);
+  renderEquityChart(d.equity_curve);
+  renderDrawdownChart(d.equity_curve);
+  renderHeatmap(d.monthly_returns);
+  renderContrib(d.positions_contribution, fmt);
+  renderMetrics(m, sign, cls, fmt);
+}
+
+// ── KPIs ──────────────────────────────────────────────────────────────────────
+function renderKPIs(m, d, sign, cls, fmt) {
+  const kpis = [
+    { label:'Retorno Total',      value:`${sign(m.total_return_pct)}${fmt(m.total_return_pct)}%`,     cls:cls(m.total_return_pct),  sub:`Benchmark: ${sign(m.benchmark_total_pct)}${fmt(m.benchmark_total_pct)}%` },
+    { label:'Retorno Anualizado', value:`${sign(m.annualized_return_pct)}${fmt(m.annualized_return_pct)}%`, cls:cls(m.annualized_return_pct), sub:`Bench anual: ${sign(m.benchmark_annualized_pct)}${fmt(m.benchmark_annualized_pct)}%` },
+    { label:'Alpha vs IBOV',      value:`${sign(m.alpha_pct)}${fmt(m.alpha_pct)}%`,          cls:cls(m.alpha_pct),       sub:`Beta: ${fmt(m.beta,3)}` },
+    { label:'Sharpe Ratio',       value:fmt(m.sharpe_ratio, 2),                               cls:m.sharpe_ratio>=1?'pos':m.sharpe_ratio>=0?'neu':'neg', sub:'rf = 0%' },
+    { label:'Max Drawdown',       value:`${fmt(m.max_drawdown_pct)}%`,                        cls:'neg',                  sub:`${m.max_drawdown_start}` },
+    { label:'Volatilidade',       value:`${fmt(m.volatility_annual_pct)}%`,                   cls:'neu',                  sub:'Anualizada' },
+    { label:'VaR 95%',            value:`${fmt(m.var_95_pct)}%`,                              cls:'neg',                  sub:`CVaR: ${fmt(m.cvar_95_pct)}%` },
+    { label:'Win Rate',           value:`${fmt(m.win_rate_pct,1)}%`,                          cls:cls(m.win_rate_pct-50), sub:`${m.positive_days}↑ ${m.negative_days}↓` },
+    { label:'Calmar Ratio',       value:fmt(m.calmar_ratio, 2),                               cls:m.calmar_ratio>=1?'pos':'neu', sub:'Retorno/Drawdown' },
+    { label:'Correlacao IBOV',    value:fmt(m.correlation, 3),                                cls:'neu',                  sub:'Pearson diário' },
+  ];
+  document.getElementById('kpi-grid').innerHTML = kpis.map(k => `
+    <div class="kpi-card">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value ${k.cls}">${k.value}</div>
+      <div class="kpi-sub">${k.sub}</div>
+    </div>`).join('');
+}
+
+// ── Equity Chart ──────────────────────────────────────────────────────────────
+function renderEquityChart(curve) {
+  const dates = curve.map(p => p.date);
+  const port  = curve.map(p => p.portfolio);
+  const bench = curve.map(p => p.benchmark);
+  const ctx   = document.getElementById('equity-chart').getContext('2d');
+  charts.equity = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dates,
+      datasets: [
+        { label:'Carteira', data:port, borderColor:'#00c48c', backgroundColor:'rgba(0,196,140,.06)',
+          borderWidth:2, pointRadius:0, fill:true, tension:0.2 },
+        { label:'BOVA11',   data:bench, borderColor:'#2979ff', backgroundColor:'rgba(41,121,255,.04)',
+          borderWidth:1.5, pointRadius:0, fill:true, tension:0.2, borderDash:[4,2] },
+      ]
+    },
+    options: {
+      responsive:true, interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{labels:{color:'#8899aa',font:{size:11}}},
+        tooltip:{
+          backgroundColor:'#151f2e', borderColor:'#1e3a5f', borderWidth:1,
+          callbacks:{label: ctx => ` ${ctx.dataset.label}: ${ctx.raw.toFixed(2)}`}
+        }
+      },
+      scales:{
+        x:{ticks:{color:'#8899aa',font:{size:10},maxTicksLimit:10},grid:{color:'rgba(30,58,95,.3)'}},
+        y:{ticks:{color:'#8899aa',font:{size:10},callback:v=>`${v.toFixed(0)}`},grid:{color:'rgba(30,58,95,.3)'}}
+      }
+    }
+  });
+}
+
+// ── Drawdown Chart ────────────────────────────────────────────────────────────
+function renderDrawdownChart(curve) {
+  const dates = curve.map(p => p.date);
+  const dd    = curve.map(p => p.drawdown);
+  const ctx   = document.getElementById('dd-chart').getContext('2d');
+  charts.dd = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dates,
+      datasets: [{
+        label:'Drawdown %', data:dd, borderColor:'#ff4757',
+        backgroundColor:'rgba(255,71,87,.12)', borderWidth:1.5,
+        pointRadius:0, fill:true, tension:0.1
+      }]
+    },
+    options: {
+      responsive:true, interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#151f2e', borderColor:'#1e3a5f', borderWidth:1,
+          callbacks:{label: ctx => ` ${ctx.raw.toFixed(2)}%`}
+        }
+      },
+      scales:{
+        x:{ticks:{color:'#8899aa',font:{size:10},maxTicksLimit:10},grid:{color:'rgba(30,58,95,.3)'}},
+        y:{ticks:{color:'#8899aa',font:{size:10},callback:v=>`${v.toFixed(1)}%`},grid:{color:'rgba(30,58,95,.3)'}}
+      }
+    }
+  });
+}
+
+// ── Heatmap ───────────────────────────────────────────────────────────────────
+function renderHeatmap(monthly) {
+  if (!monthly.length) {
+    document.getElementById('heatmap-container').innerHTML =
+      '<div class="empty-state" style="padding:20px"><div>Dados insuficientes para heatmap</div></div>';
+    return;
+  }
+  const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const byYear = {};
+  monthly.forEach(r => {
+    if (!byYear[r.year]) byYear[r.year] = {};
+    byYear[r.year][r.month] = r.portfolio_pct;
+  });
+  const years = Object.keys(byYear).sort().reverse();
+
+  function heatColor(v) {
+    if (v == null) return 'background:#1e3a5f22;color:var(--muted)';
+    const abs = Math.min(Math.abs(v), 10);
+    const alpha = 0.15 + (abs / 10) * 0.6;
+    const col = v >= 0 ? `rgba(0,196,140,${alpha})` : `rgba(255,71,87,${alpha})`;
+    const txt = v >= 0 ? '#00c48c' : '#ff4757';
+    return `background:${col};color:${txt}`;
+  }
+
+  let html = '<table class="heatmap"><thead><tr><th>Ano</th>';
+  months.forEach(m => html += `<th>${m}</th>`);
+  html += '<th>Anual</th></tr></thead><tbody>';
+
+  years.forEach(y => {
+    const data = byYear[y];
+    const annual = Object.values(data).reduce((acc, v) => acc * (1 + v/100), 1) - 1;
+    html += `<tr><td class="hm-row-label">${y}</td>`;
+    for (let mo = 1; mo <= 12; mo++) {
+      const v = data[mo];
+      html += v != null
+        ? `<td style="${heatColor(v)}" title="${months[mo-1]}/${y}: ${v >= 0 ? '+' : ''}${v.toFixed(2)}%">${v >= 0 ? '+' : ''}${v.toFixed(1)}%</td>`
+        : `<td style="${heatColor(null)}">—</td>`;
+    }
+    const ac = annual >= 0 ? '#00c48c' : '#ff4757';
+    const ab = Math.min(Math.abs(annual * 100), 10);
+    const aa = 0.15 + (ab / 10) * 0.6;
+    const col = annual >= 0 ? `rgba(0,196,140,${aa})` : `rgba(255,71,87,${aa})`;
+    html += `<td style="background:${col};color:${ac};font-weight:700">
+      ${annual >= 0 ? '+' : ''}${(annual * 100).toFixed(1)}%</td></tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('heatmap-container').innerHTML = html;
+}
+
+// ── Contributions ─────────────────────────────────────────────────────────────
+function renderContrib(contribs, fmt) {
+  if (!contribs.length) {
+    document.getElementById('contrib-table').innerHTML = '<tr><td style="padding:20px;color:var(--muted)">Sem dados</td></tr>';
+    return;
+  }
+  const maxContrib = Math.max(...contribs.map(c => Math.abs(c.contribution_pct)));
+  let html = `<thead><tr>
+    <th>Ativo</th><th>Peso</th><th>Retorno</th><th>Contribuicao</th><th>Volatil.</th>
+  </tr></thead><tbody>`;
+  contribs.forEach(c => {
+    const cc = c.contribution_pct >= 0 ? 'pos' : 'neg';
+    const rc = c.total_return_pct >= 0 ? 'pos' : 'neg';
+    const barW = maxContrib > 0 ? Math.abs(c.contribution_pct) / maxContrib * 100 : 0;
+    const barCol = c.contribution_pct >= 0 ? 'var(--accent)' : 'var(--red)';
+    html += `<tr>
+      <td>${c.ticker}</td>
+      <td class="neu">${fmt(c.weight_pct)}%</td>
+      <td class="${rc}">${c.total_return_pct >= 0 ? '+' : ''}${fmt(c.total_return_pct)}%</td>
+      <td class="${cc}">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:60px;height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden">
+            <div style="width:${barW}%;height:100%;background:${barCol};border-radius:3px"></div>
+          </div>
+          <span>${c.contribution_pct >= 0 ? '+' : ''}${fmt(c.contribution_pct)}%</span>
+        </div>
+      </td>
+      <td class="neu">${fmt(c.volatility_pct)}%</td>
+    </tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('contrib-table').innerHTML = html;
+}
+
+// ── Metrics detail ────────────────────────────────────────────────────────────
+function renderMetrics(m, sign, cls, fmt) {
+  const rows = [
+    ['Melhor dia',         `<span class="pos">${sign(m.best_day_pct)}${fmt(m.best_day_pct)}%</span>`],
+    ['Pior dia',           `<span class="neg">${fmt(m.worst_day_pct)}%</span>`],
+    ['Dias positivos',     `<span class="pos">${m.positive_days}</span>`],
+    ['Dias negativos',     `<span class="neg">${m.negative_days}</span>`],
+    ['Excesso vs Bench',   `<span class="${cls(m.excess_return_pct)}">${sign(m.excess_return_pct)}${fmt(m.excess_return_pct)}%</span>`],
+    ['Sharpe Ratio',       `<span class="${m.sharpe_ratio>=1?'pos':m.sharpe_ratio>=0?'neu':'neg'}">${fmt(m.sharpe_ratio,3)}</span>`],
+    ['Calmar Ratio',       `<span>${fmt(m.calmar_ratio,3)}</span>`],
+    ['Beta (vs BOVA11)',   `<span>${fmt(m.beta,3)}</span>`],
+    ['Alpha Jensen',       `<span class="${cls(m.alpha_pct)}">${sign(m.alpha_pct)}${fmt(m.alpha_pct)}% a.a.</span>`],
+    ['Correlacao',         `<span>${fmt(m.correlation,3)}</span>`],
+    ['VaR 95% (diário)',   `<span class="neg">${fmt(m.var_95_pct)}%</span>`],
+    ['CVaR 95% (diário)',  `<span class="neg">${fmt(m.cvar_95_pct)}%</span>`],
+    ['Volatil. anual',     `<span>${fmt(m.volatility_annual_pct)}%</span>`],
+    ['Max Drawdown',       `<span class="neg">${fmt(m.max_drawdown_pct)}%</span>`],
+    ['Inicio drawdown',    `<span class="neu">${m.max_drawdown_start}</span>`],
+    ['Fim drawdown',       `<span class="neu">${m.max_drawdown_end}</span>`],
+  ];
+  document.getElementById('metrics-detail').innerHTML = rows.map(([l,v]) => `
+    <div class="metric-row">
+      <span class="ml">${l}</span>
+      <span class="mv">${v}</span>
+    </div>`).join('');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadPortfolios();
+</script>
+</body>
+</html>
