@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse
 from finanalytics_ai.config import EventQueueBackend, get_settings
 from finanalytics_ai.exceptions import FinAnalyticsError
 from finanalytics_ai.infrastructure.database.connection import close_engine, get_engine
-from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer, backtest, correlation, screener
+from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer, backtest, correlation, screener, anomaly
 
 logger = structlog.get_logger(__name__)
 
@@ -126,6 +126,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from finanalytics_ai.application.services.multi_ticker_service import MultiTickerService
         from finanalytics_ai.application.services.correlation_service import CorrelationService
         from finanalytics_ai.application.services.screener_service import ScreenerService
+        from finanalytics_ai.application.services.anomaly_service import AnomalyService
         brapi = _BrapiCli()
         app.state.backtest_service     = BacktestService(brapi)
         app.state.optimizer_service    = OptimizerService(brapi)
@@ -133,12 +134,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.multi_ticker_service = MultiTickerService(brapi)
         app.state.correlation_service  = CorrelationService(brapi)
         app.state.screener_service     = ScreenerService(brapi)
+        app.state.anomaly_service      = AnomalyService(brapi)
         logger.info("backtest_service.ready")
         logger.info("optimizer_service.ready")
         logger.info("walkforward_service.ready")
         logger.info("multi_ticker_service.ready")
         logger.info("correlation_service.ready")
         logger.info("screener_service.ready")
+        logger.info("anomaly_service.ready")
     else:
         app.state.backtest_service     = None
         app.state.optimizer_service    = None
@@ -146,6 +149,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.multi_ticker_service = None
         app.state.correlation_service  = None
         app.state.screener_service     = None
+        app.state.anomaly_service      = None
         logger.warning("backtest_service.disabled", reason="BRAPI_TOKEN ausente")
 
     # ── 6. BRAPI Price Producer ───────────────────────────────────────────────
@@ -263,6 +267,7 @@ def create_app() -> FastAPI:
     app.include_router(backtest.router,     tags=["Backtest"])
     app.include_router(correlation.router,  tags=["Correlation"])
     app.include_router(screener.router,     tags=["Screener"])
+    app.include_router(anomaly.router,      tags=["Anomaly"])
 
     return app
 
@@ -299,4 +304,11 @@ def mount_static(app: FastAPI) -> None:
         html_file = static_dir / "screener.html"
         if not html_file.exists():
             return HTMLResponse("<h1>Screener page nao encontrada</h1>", status_code=404)
+        return HTMLResponse(html_file.read_text(encoding="utf-8"))
+
+    @app.get("/anomaly", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_anomaly() -> HTMLResponse:
+        html_file = static_dir / "anomaly.html"
+        if not html_file.exists():
+            return HTMLResponse("<h1>Anomaly page nao encontrada</h1>", status_code=404)
         return HTMLResponse(html_file.read_text(encoding="utf-8"))

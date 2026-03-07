@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anomalias — FinAnalytics AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:      #060810;
+  --s1:      #0a0d16;
+  --s2:      #0f1420;
+  --border:  #1a2030;
+  --text:    #d0dae8;
+  --muted:   #445566;
+  --mono:    'Space Mono', monospace;
+  --sans:    'Syne', sans-serif;
+  --high:    #ff4060;
+  --med:     #ffaa00;
+  --low:     #44aaff;
+  --green:   #00e676;
+  --up:      #00e676;
+  --down:    #ff4060;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
+
+/* grid noise overlay */
+body::after {
+  content: '';
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    linear-gradient(rgba(0,200,255,.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,200,255,.015) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ── Header ── */
+.hdr {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(6,8,16,.92); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px; height: 46px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.hdr-brand { font-family: var(--mono); font-size: 12px; font-weight: 700;
+              letter-spacing: .1em; color: var(--text);
+              display: flex; align-items: center; gap: 10px; }
+.brand-badge {
+  background: linear-gradient(135deg, #ff4060, #ff8800);
+  color: #fff; font-size: 8px; font-weight: 700; padding: 2px 6px;
+  border-radius: 3px; letter-spacing: .08em;
+}
+.nav { display: flex; gap: 2px; }
+.nav a { font-family: var(--mono); font-size: 10px; color: var(--muted);
+          text-decoration: none; padding: 5px 12px; border-radius: 3px;
+          border: 1px solid transparent; transition: all .1s; }
+.nav a:hover { color: var(--text); border-color: var(--border); }
+.nav a.active { color: #ff8800; border-color: rgba(255,136,0,.3); background: rgba(255,136,0,.06); }
+
+/* ── Main layout ── */
+.main { max-width: 1200px; margin: 0 auto; padding: 28px 24px; position: relative; z-index: 1; }
+
+.page-header { margin-bottom: 24px; }
+.page-title { font-size: 28px; font-weight: 800; letter-spacing: -.02em;
+               background: linear-gradient(135deg, #ff4060 0%, #ff8800 50%, #ffdd00 100%);
+               -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+               background-clip: text; margin-bottom: 4px; }
+.page-sub { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: .06em; }
+
+/* ── Config panel ── */
+.config-panel {
+  background: var(--s1); border: 1px solid var(--border); border-radius: 10px;
+  padding: 18px 20px; margin-bottom: 20px;
+}
+.config-row { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: end; }
+.config-fields { display: grid; grid-template-columns: 2fr repeat(4, 1fr); gap: 10px; }
+.cfg-item label { display: block; font-family: var(--mono); font-size: 8px; color: var(--muted);
+                   letter-spacing: .1em; text-transform: uppercase; margin-bottom: 4px; }
+.cfg-input, .cfg-select {
+  width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+  color: var(--text); font-family: var(--mono); font-size: 11px; padding: 7px 9px;
+  outline: none; transition: border-color .12s;
+}
+.cfg-input:focus, .cfg-select:focus { border-color: #ff8800; }
+.cfg-select option { background: #111; }
+
+.btn-scan {
+  background: linear-gradient(135deg, #ff4060, #ff8800);
+  color: #fff; border: none; border-radius: 7px; padding: 10px 28px;
+  font-family: var(--sans); font-size: 13px; font-weight: 700;
+  cursor: pointer; letter-spacing: .02em; white-space: nowrap;
+  transition: opacity .12s; height: 38px;
+}
+.btn-scan:hover:not(:disabled) { opacity: .85; }
+.btn-scan:disabled { opacity: .35; cursor: not-allowed; }
+
+/* ── KPI row ── */
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+.kpi {
+  background: var(--s1); border: 1px solid var(--border); border-radius: 8px;
+  padding: 14px 16px;
+}
+.kpi-label { font-family: var(--mono); font-size: 8px; color: var(--muted);
+              letter-spacing: .1em; text-transform: uppercase; margin-bottom: 6px; }
+.kpi-val { font-size: 26px; font-weight: 800; line-height: 1; }
+
+/* ── Results grid ── */
+.results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+
+/* ── Ticker card ── */
+.ticker-card {
+  background: var(--s1); border: 1px solid var(--border); border-radius: 10px;
+  overflow: hidden; transition: border-color .15s;
+  animation: cardIn .25s ease both;
+}
+@keyframes cardIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+.ticker-card:hover { border-color: rgba(255,136,0,.3); }
+.ticker-card.has-high  { border-top: 2px solid var(--high); }
+.ticker-card.has-med   { border-top: 2px solid var(--med); }
+.ticker-card.has-low   { border-top: 2px solid var(--low); }
+.ticker-card.no-anomaly { border-top: 2px solid var(--border); opacity: .55; }
+
+.card-head {
+  padding: 12px 14px 10px; display: flex; align-items: center;
+  justify-content: space-between; border-bottom: 1px solid var(--border);
+}
+.card-ticker { font-family: var(--mono); font-size: 14px; font-weight: 700;
+                letter-spacing: .06em; }
+.card-badge {
+  font-family: var(--mono); font-size: 9px; font-weight: 700;
+  padding: 3px 8px; border-radius: 3px; letter-spacing: .06em;
+}
+.badge-high  { background: rgba(255,64,96,.15);  color: var(--high); border: 1px solid rgba(255,64,96,.3); }
+.badge-med   { background: rgba(255,170,0,.12);  color: var(--med);  border: 1px solid rgba(255,170,0,.3); }
+.badge-low   { background: rgba(68,170,255,.1);  color: var(--low);  border: 1px solid rgba(68,170,255,.3); }
+.badge-clean { background: rgba(100,100,120,.1); color: var(--muted); border: 1px solid var(--border); }
+
+.card-body { padding: 10px 14px; }
+
+/* Anomaly event row */
+.anom-row {
+  display: flex; gap: 8px; align-items: flex-start;
+  padding: 7px 0; border-bottom: 1px solid rgba(26,32,48,.8);
+}
+.anom-row:last-child { border-bottom: none; }
+.anom-icon { width: 28px; height: 28px; border-radius: 5px; flex-shrink: 0;
+              display: flex; align-items: center; justify-content: center; font-size: 13px; }
+.icon-zscore   { background: rgba(255,64,96,.1); }
+.icon-bollinger{ background: rgba(255,200,0,.1); }
+.icon-cusum    { background: rgba(100,200,255,.1); }
+.icon-volume   { background: rgba(150,100,255,.1); }
+.anom-info { flex: 1; min-width: 0; }
+.anom-type { font-family: var(--mono); font-size: 9px; color: var(--muted);
+              letter-spacing: .08em; text-transform: uppercase; }
+.anom-desc { font-size: 11px; color: var(--text); line-height: 1.4; margin-top: 2px;
+              overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.anom-score { font-family: var(--mono); font-size: 10px; font-weight: 700; white-space: nowrap; }
+
+.dir-up   { color: var(--up); }
+.dir-down { color: var(--down); }
+
+.no-anom-msg { font-family: var(--mono); font-size: 10px; color: var(--muted);
+                text-align: center; padding: 12px 0; }
+
+/* ── States ── */
+.loading-state, .empty-state {
+  text-align: center; padding: 60px 20px; color: var(--muted);
+}
+.loading-ring {
+  width: 40px; height: 40px; border: 3px solid var(--border);
+  border-top-color: #ff8800; border-radius: 50%;
+  animation: spin .8s linear infinite; margin: 0 auto 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-label { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; }
+.empty-label   { font-family: var(--mono); font-size: 12px; letter-spacing: .06em; }
+
+.error-box { background: rgba(255,64,96,.07); border: 1px solid rgba(255,64,96,.2);
+              border-radius: 7px; padding: 12px 16px; color: #ff8fa0;
+              font-family: var(--mono); font-size: 11px; margin-bottom: 16px; }
+
+/* ── Legend ── */
+.legend { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 5px;
+                font-family: var(--mono); font-size: 9px; color: var(--muted); }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-brand">
+    FinAnalytics
+    <span class="brand-badge">ML ANOMALY</span>
+  </div>
+  <nav class="nav">
+    <a href="/">Dashboard</a>
+    <a href="/backtest">Backtest</a>
+    <a href="/correlation">Correlacao</a>
+    <a href="/screener">Screener</a>
+    <a href="/anomaly" class="active">Anomalias</a>
+  </nav>
+</div>
+
+<div class="main">
+  <div class="page-header">
+    <div class="page-title">Deteccao de Anomalias</div>
+    <div class="page-sub">
+      Z-SCORE &nbsp;|&nbsp; BOLLINGER BAND &nbsp;|&nbsp; CUSUM SHIFT &nbsp;|&nbsp; VOLUME SPIKE
+    </div>
+  </div>
+
+  <!-- Config -->
+  <div class="config-panel">
+    <div class="config-row">
+      <div class="config-fields">
+        <div class="cfg-item">
+          <label>Tickers (virgula)</label>
+          <input class="cfg-input" id="inp-tickers" type="text"
+            value="PETR4,VALE3,ITUB4,BBDC4,WEGE3,ABEV3,MGLU3,BBAS3"
+            style="font-family:var(--mono);letter-spacing:.04em">
+        </div>
+        <div class="cfg-item">
+          <label>Periodo</label>
+          <select class="cfg-select" id="sel-range">
+            <option value="3mo" selected>3 meses</option>
+            <option value="6mo">6 meses</option>
+            <option value="1y">1 ano</option>
+          </select>
+        </div>
+        <div class="cfg-item">
+          <label>Z-Score (&sigma;)</label>
+          <input class="cfg-input" id="inp-zscore" type="number" value="2.5" step="0.1" min="1" max="5">
+        </div>
+        <div class="cfg-item">
+          <label>Bollinger (k)</label>
+          <input class="cfg-input" id="inp-bollinger" type="number" value="2.0" step="0.1" min="1" max="4">
+        </div>
+        <div class="cfg-item">
+          <label>Volume (x media)</label>
+          <input class="cfg-input" id="inp-volume" type="number" value="3.0" step="0.5" min="1.5" max="10">
+        </div>
+      </div>
+      <button class="btn-scan" id="btn-scan" onclick="runScan()">
+        &#9650; Escanear
+      </button>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-box" id="error-box" style="display:none"></div>
+
+  <!-- KPIs -->
+  <div class="kpi-row" id="kpi-row" style="display:none">
+    <div class="kpi" style="border-top:2px solid var(--high)">
+      <div class="kpi-label">Alta Severidade</div>
+      <div class="kpi-val" style="color:var(--high)" id="kpi-high">0</div>
+    </div>
+    <div class="kpi" style="border-top:2px solid var(--med)">
+      <div class="kpi-label">Media Severidade</div>
+      <div class="kpi-val" style="color:var(--med)" id="kpi-med">0</div>
+    </div>
+    <div class="kpi" style="border-top:2px solid var(--low)">
+      <div class="kpi-label">Baixa Severidade</div>
+      <div class="kpi-val" style="color:var(--low)" id="kpi-low">0</div>
+    </div>
+    <div class="kpi" style="border-top:2px solid var(--border)">
+      <div class="kpi-label">Ativos Escaneados</div>
+      <div class="kpi-val" id="kpi-total">0</div>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend" id="legend" style="display:none">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--high)"></div> HIGH</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--med)"></div> MEDIUM</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--low)"></div> LOW</div>
+    <div class="legend-item" style="margin-left:12px">
+      <span style="color:#aaa;font-size:9px">
+        Z-SCORE: spike de retorno &nbsp;|&nbsp;
+        BOLLINGER: rompimento de banda &nbsp;|&nbsp;
+        CUSUM: mudanca de tendencia &nbsp;|&nbsp;
+        VOLUME: spike de volume
+      </span>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-state" id="loading" style="display:none">
+    <div class="loading-ring"></div>
+    <div class="loading-label">ANALISANDO ANOMALIAS...</div>
+  </div>
+
+  <!-- Empty -->
+  <div class="empty-state" id="empty-state">
+    <div style="font-size:32px;margin-bottom:12px">&#9888;</div>
+    <div class="empty-label">Configure os tickers e execute o scan</div>
+    <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:6px">
+      Detecta anomalias nos ultimos dados de mercado usando 4 algoritmos
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="results-grid" id="results-grid"></div>
+</div>
+
+<script>
+'use strict';
+
+var ICONS = {
+  zscore_spike:    { emoji: '&#9889;', cls: 'icon-zscore',    label: 'Z-SCORE' },
+  bollinger_break: { emoji: '&#9670;', cls: 'icon-bollinger', label: 'BOLLINGER' },
+  cusum_shift:     { emoji: '&#8593;', cls: 'icon-cusum',     label: 'CUSUM' },
+  volume_spike:    { emoji: '&#9643;', cls: 'icon-volume',    label: 'VOLUME' },
+};
+
+function runScan() {
+  var tickers = document.getElementById('inp-tickers').value
+    .split(',').map(function(t) { return t.trim().toUpperCase(); }).filter(Boolean);
+  if (!tickers.length) { alert('Informe ao menos 1 ticker.'); return; }
+
+  var body = {
+    tickers:          tickers,
+    range_period:     document.getElementById('sel-range').value,
+    zscore_threshold: parseFloat(document.getElementById('inp-zscore').value)    || 2.5,
+    bollinger_k:      parseFloat(document.getElementById('inp-bollinger').value) || 2.0,
+    volume_multiplier: parseFloat(document.getElementById('inp-volume').value)   || 3.0,
+    lookback_bars:    100,
+  };
+
+  document.getElementById('loading').style.display      = 'block';
+  document.getElementById('empty-state').style.display  = 'none';
+  document.getElementById('error-box').style.display    = 'none';
+  document.getElementById('kpi-row').style.display      = 'none';
+  document.getElementById('legend').style.display       = 'none';
+  document.getElementById('results-grid').innerHTML     = '';
+  document.getElementById('btn-scan').disabled          = true;
+
+  fetch('/api/v1/anomaly/scan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  .then(function(r) {
+    if (!r.ok) return r.json().then(function(e) { throw new Error(e.detail || 'Erro'); });
+    return r.json();
+  })
+  .then(function(d) { renderAll(d); })
+  .catch(function(err) {
+    document.getElementById('empty-state').style.display = 'none';
+    var eb = document.getElementById('error-box');
+    eb.style.display = 'block';
+    eb.textContent = 'Erro: ' + err.message;
+  })
+  .finally(function() {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('btn-scan').disabled     = false;
+  });
+}
+
+function renderAll(d) {
+  var results = d.results || [];
+
+  // KPIs
+  var high = 0, med = 0, low = 0;
+  results.forEach(function(r) {
+    (r.anomalies || []).forEach(function(a) {
+      if (a.severity === 'high')   high++;
+      else if (a.severity === 'medium') med++;
+      else low++;
+    });
+  });
+  document.getElementById('kpi-high').textContent  = high;
+  document.getElementById('kpi-med').textContent   = med;
+  document.getElementById('kpi-low').textContent   = low;
+  document.getElementById('kpi-total').textContent = d.total_tickers || 0;
+  document.getElementById('kpi-row').style.display = 'grid';
+  document.getElementById('legend').style.display  = 'flex';
+
+  // Cards
+  var grid = document.getElementById('results-grid');
+  grid.innerHTML = '';
+  results.forEach(function(r, i) {
+    grid.innerHTML += buildCard(r, i);
+  });
+}
+
+function buildCard(r, idx) {
+  var anomalies = r.anomalies || [];
+  var maxSev    = r.max_severity;
+  var cardCls   = 'ticker-card';
+  var badgeHtml = '';
+
+  if (!anomalies.length) {
+    cardCls  += ' no-anomaly';
+    badgeHtml = '<span class="card-badge badge-clean">NORMAL</span>';
+  } else if (maxSev === 'high') {
+    cardCls  += ' has-high';
+    badgeHtml = '<span class="card-badge badge-high">HIGH</span>';
+  } else if (maxSev === 'medium') {
+    cardCls  += ' has-med';
+    badgeHtml = '<span class="card-badge badge-med">MEDIUM</span>';
+  } else {
+    cardCls  += ' has-low';
+    badgeHtml = '<span class="card-badge badge-low">LOW</span>';
+  }
+
+  var bodyHtml = '';
+  if (!anomalies.length) {
+    bodyHtml = '<div class="no-anom-msg">Nenhuma anomalia detectada</div>';
+  } else {
+    anomalies.slice(0, 4).forEach(function(a) {
+      bodyHtml += buildAnomalyRow(a);
+    });
+    if (anomalies.length > 4) {
+      bodyHtml += '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);'
+        + 'padding:6px 0;text-align:center">+ ' + (anomalies.length - 4) + ' mais anomalias</div>';
+    }
+  }
+
+  return '<div class="' + cardCls + '" style="animation-delay:' + (idx * 0.04) + 's">'
+    + '<div class="card-head">'
+    +   '<span class="card-ticker">' + r.ticker + '</span>'
+    +   '<div style="display:flex;align-items:center;gap:6px">'
+    +     '<span style="font-family:var(--mono);font-size:8px;color:var(--muted)">'
+    +       r.bars_analyzed + ' barras</span>'
+    +     badgeHtml
+    +   '</div>'
+    + '</div>'
+    + '<div class="card-body">' + bodyHtml + '</div>'
+    + '</div>';
+}
+
+function buildAnomalyRow(a) {
+  var icon = ICONS[a.anomaly_type] || { emoji: '?', cls: '', label: a.anomaly_type };
+  var dirCls = a.direction === 'up' ? 'dir-up' : a.direction === 'down' ? 'dir-down' : '';
+  var dirArrow = a.direction === 'up' ? ' &#8593;' : a.direction === 'down' ? ' &#8595;' : '';
+  var scoreStr = '';
+  if (a.anomaly_type === 'zscore_spike') {
+    scoreStr = 'Z=' + (a.score >= 0 ? '+' : '') + a.score.toFixed(2);
+  } else if (a.anomaly_type === 'volume_spike') {
+    scoreStr = a.score.toFixed(1) + 'x vol';
+  } else if (a.anomaly_type === 'cusum_shift') {
+    scoreStr = 'S=' + a.score.toFixed(2);
+  } else {
+    scoreStr = (a.score >= 0 ? '+' : '') + a.score.toFixed(2) + 'σ';
+  }
+
+  var sevColor = a.severity === 'high' ? 'var(--high)' : a.severity === 'medium' ? 'var(--med)' : 'var(--low)';
+
+  return '<div class="anom-row">'
+    + '<div class="anom-icon ' + icon.cls + '">' + icon.emoji + '</div>'
+    + '<div class="anom-info">'
+    +   '<div class="anom-type">' + icon.label + '</div>'
+    +   '<div class="anom-desc">' + a.description + '</div>'
+    + '</div>'
+    + '<div class="anom-score ' + dirCls + '" style="color:' + sevColor + '">'
+    +   scoreStr + dirArrow
+    + '</div>'
+    + '</div>';
+}
+</script>
+</body>
+</html>
