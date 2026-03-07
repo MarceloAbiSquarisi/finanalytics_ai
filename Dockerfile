@@ -40,6 +40,7 @@ RUN uv pip install --system \
     "structlog>=24.1" \
     "httpx>=0.27" \
     "tenacity>=8.3" \
+    "redis>=5.0" \
     "aiokafka>=0.11" \
     "python-dotenv>=1.0" \
     "prometheus-client>=0.20" \
@@ -50,8 +51,8 @@ RUN uv pip install --system \
 
 # Instala o pacote local sem reinstalar deps
 COPY src/ ./src/
-#RUN uv pip install --system -e . --no-deps
-#
+RUN uv pip install --system -e . --no-deps
+
 # ── Final (produção) ──────────────────────────────────────────────────────────
 FROM base AS final
 

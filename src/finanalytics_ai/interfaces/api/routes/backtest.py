@@ -13,11 +13,12 @@ from __future__ import annotations
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
 from finanalytics_ai.application.services.backtest_service import BacktestError, BacktestService
 from finanalytics_ai.application.services.optimizer_service import OptimizerService
+from finanalytics_ai.infrastructure.cache.dependencies import cached_route, rate_limit
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/backtest", tags=["backtest"])
@@ -194,8 +195,10 @@ def _get_optimizer(request: Request) -> OptimizerService:
 
 @router.post("/optimize")
 async def optimize_strategy(
-    body:    OptimizeRequest,
-    request: Request,
+    body:     OptimizeRequest,
+    request:  Request,
+    response: Response,
+    _rl: None = Depends(rate_limit(limit=5, window=60)),
 ) -> dict[str, Any]:
     """
     Otimiza parametros de uma estrategia via grid search.
@@ -288,8 +291,10 @@ def _get_walkforward(request: Request):  # type: ignore[return]
 
 @router.post("/walkforward")
 async def run_walkforward(
-    body:    WalkForwardRequest,
-    request: Request,
+    body:     WalkForwardRequest,
+    request:  Request,
+    response: Response,
+    _rl: None = Depends(rate_limit(limit=5, window=60)),
 ) -> dict[str, Any]:
     """
     Executa walk-forward validation para detectar overfitting.
@@ -386,8 +391,10 @@ def _get_multi_ticker(request: Request) -> MultiTickerService:
 
 @router.post("/multi")
 async def compare_multi_ticker(
-    body:    MultiTickerRequest,
-    request: Request,
+    body:     MultiTickerRequest,
+    request:  Request,
+    response: Response,
+    _rl: None = Depends(rate_limit(limit=5, window=60)),
 ) -> dict[str, Any]:
     """
     Compara a mesma estrategia em multiplos tickers via grid search.

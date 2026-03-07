@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
 from finanalytics_ai.application.services.anomaly_service import (
@@ -18,6 +18,10 @@ from finanalytics_ai.application.services.anomaly_service import (
     AnomalyService,
 )
 from finanalytics_ai.domain.anomaly.engine import DetectorConfig
+from finanalytics_ai.infrastructure.cache.dependencies import (
+    cached_route,
+    rate_limit,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -53,6 +57,8 @@ def _make_config(body: ScanRequest) -> DetectorConfig:
 async def scan_anomalies(
     body:    ScanRequest,
     request: Request,
+    response: Response,
+    _rl: None = Depends(rate_limit(limit=10, window=60)),
 ) -> dict[str, Any]:
     """
     Detecta anomalias de mercado em N ativos usando 4 algoritmos:
@@ -79,12 +85,15 @@ async def scan_anomalies(
 
 
 @router.get("/scan")
+@cached_route(ttl=120, prefix="anomaly_scan")
 async def scan_anomalies_get(
     request:          Request,
+    response:         Response,
     tickers:          str   = Query(..., description="Tickers separados por virgula"),
     range_period:     str   = Query("3mo"),
     zscore_threshold: float = Query(2.5),
     volume_multiplier: float = Query(3.0),
+    _rl: None = Depends(rate_limit(limit=15, window=60)),
 ) -> dict[str, Any]:
     """Scan via GET — tickers como string separada por virgula."""
     ticker_list = [t.strip() for t in tickers.split(",") if t.strip()]

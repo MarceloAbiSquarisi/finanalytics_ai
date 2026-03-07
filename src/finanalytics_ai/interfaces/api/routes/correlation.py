@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
 from finanalytics_ai.application.services.backtest_service import BacktestError
@@ -17,6 +17,7 @@ from finanalytics_ai.application.services.correlation_service import (
     MAX_TICKERS,
     CorrelationService,
 )
+from finanalytics_ai.infrastructure.cache.dependencies import cached_route, rate_limit
 
 logger = structlog.get_logger(__name__)
 
@@ -38,8 +39,10 @@ def _get_service(request: Request) -> CorrelationService:
 
 @router.post("")
 async def compute_correlation(
-    body:    CorrelationRequest,
-    request: Request,
+    body:     CorrelationRequest,
+    request:  Request,
+    response: Response,
+    _rl: None = Depends(rate_limit(limit=15, window=60)),
 ) -> dict[str, Any]:
     """
     Calcula matriz de correlacao de Pearson entre multiplos ativos.
@@ -66,11 +69,14 @@ async def compute_correlation(
 
 
 @router.get("")
+@cached_route(ttl=180, prefix="correlation")
 async def compute_correlation_get(
     request:        Request,
+    response:       Response,
     tickers:        str = Query(..., description="Tickers separados por virgula: PETR4,VALE3,ITUB4"),
     range_period:   str = Query("1y"),
     rolling_window: int = Query(30),
+    _rl: None = Depends(rate_limit(limit=20, window=60)),
 ) -> dict[str, Any]:
     """Calcula correlacao via GET — tickers como string separada por virgula."""
     ticker_list = [t.strip() for t in tickers.split(",") if t.strip()]

@@ -19,6 +19,18 @@
 # ──────────────────────────────────────────────────────────────────────────────
 services:
 
+  redis:
+    image: redis:7.2-alpine
+    container_name: finanalytics_redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru --save ""
+    ports:
+      - "6379:6379"
+    networks:
+      - platform_net
+    # Sem volume persistente — cache é efêmero por design.
+    # Se precisar persistência: adicionar volume + appendonly yes
+
   prometheus:
     image: prom/prometheus:v2.51.2
     container_name: finanalytics_prometheus

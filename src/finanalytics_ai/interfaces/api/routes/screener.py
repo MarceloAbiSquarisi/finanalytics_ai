@@ -10,12 +10,13 @@ from __future__ import annotations
 from typing import Any, Optional
 
 import structlog
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
 from finanalytics_ai.application.services.backtest_service import BacktestError
 from finanalytics_ai.application.services.screener_service import ScreenerService
 from finanalytics_ai.domain.screener.engine import FilterCriteria
+from finanalytics_ai.infrastructure.cache.dependencies import cached_route, rate_limit
 
 logger = structlog.get_logger(__name__)
 
@@ -63,8 +64,10 @@ def _get_service(request: Request) -> ScreenerService:
 
 @router.post("/run")
 async def run_screener(
-    body:    ScreenerRequest,
-    request: Request,
+    body:     ScreenerRequest,
+    request:  Request,
+    response: Response,
+    _rl: None = Depends(rate_limit(limit=5, window=60)),
 ) -> dict[str, Any]:
     """
     Executa o screener com criterios fundamentalistas.
@@ -112,8 +115,10 @@ async def run_screener(
 
 
 @router.get("/run")
+@cached_route(ttl=300, prefix="screener_run")
 async def run_screener_get(
     request:          Request,
+    response:         Response,
     pe_max:           Optional[float] = Query(None),
     pvp_max:          Optional[float] = Query(None),
     dy_min:           Optional[float] = Query(None),
@@ -121,6 +126,7 @@ async def run_screener_get(
     debt_equity_max:  Optional[float] = Query(None),
     sector:           Optional[str]   = Query(None),
     extra_tickers:    Optional[str]   = Query(None),
+    _rl: None = Depends(rate_limit(limit=10, window=60)),
 ) -> dict[str, Any]:
     """Screener via GET — subset de filtros para uso rapido."""
     extras = [t.strip() for t in extra_tickers.split(",")] if extra_tickers else []
