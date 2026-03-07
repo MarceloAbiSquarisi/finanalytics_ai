@@ -41,6 +41,7 @@ RUN uv pip install --system \
     "httpx>=0.27" \
     "tenacity>=8.3" \
     "redis>=5.0" \
+    "reportlab>=4.0" \
     "aiokafka>=0.11" \
     "python-dotenv>=1.0" \
     "prometheus-client>=0.20" \
