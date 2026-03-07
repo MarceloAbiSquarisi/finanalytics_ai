@@ -38,15 +38,21 @@ from finanalytics_ai.observability import market_data_requests_total
 logger = structlog.get_logger(__name__)
 
 # Mapeamento range → interval padrão para candlestick
+# Design decision: usamos 1d para todos os ranges ate 2y porque:
+#   - RSI precisa de >= 14 barras de warmup
+#   - MACD precisa de >= 26 + 9 = 35 barras
+#   - Barras semanais/mensais reduzem drasticamente os sinais gerados
+#   - BRAPI (Yahoo Finance) suporta interval=1d para qualquer range
+# Para ranges > 2y usamos 1wk para limitar o payload (~500 barras max)
 RANGE_INTERVAL_MAP: dict[str, str] = {
     "1d":  "5m",
     "5d":  "15m",
     "1mo": "1d",
     "3mo": "1d",
-    "6mo": "1wk",
-    "1y":  "1wk",
-    "2y":  "1mo",
-    "5y":  "1mo",
+    "6mo": "1d",   # ~120 barras diarias
+    "1y":  "1d",   # ~250 barras diarias
+    "2y":  "1d",   # ~500 barras diarias
+    "5y":  "1wk",
     "max": "1mo",
 }
 

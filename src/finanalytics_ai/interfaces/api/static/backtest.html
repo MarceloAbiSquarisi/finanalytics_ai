@@ -109,7 +109,7 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
 .badge-loss{background:rgba(224,85,85,.12);color:var(--red);border:1px solid rgba(224,85,85,.2)}
 
 /* COMPARE VIEW */
-.compare-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.compare-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px} /* 6 strategies in 2 rows */
 .compare-card{background:var(--card);border:1px solid var(--border);border-radius:12px;
   padding:16px;transition:border-color .2s}
 .compare-card.best{border-color:rgba(46,212,122,.4)}
@@ -182,6 +182,9 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
           <option value="combined">RSI + MACD</option>
           <option value="rsi">RSI Reversal</option>
           <option value="macd">MACD Crossover</option>
+          <option value="bollinger">Bollinger Bands</option>
+          <option value="ema_cross">EMA Cross (9/21)</option>
+          <option value="momentum">Momentum (ROC)</option>
         </select>
       </div>
       <div class="fld">
@@ -310,8 +313,8 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
 
 <script>
 // ---- CONFIG ----
-var STRATEGY_NAMES = {rsi: 'RSI Reversal', macd: 'MACD Crossover', combined: 'RSI + MACD'};
-var STRATEGY_COLORS = {rsi: '#3ABFF8', macd: '#F0B429', combined: '#2ED47A'};
+var STRATEGY_NAMES = {rsi: 'RSI Reversal', macd: 'MACD Crossover', combined: 'RSI + MACD', bollinger: 'Bollinger Bands', ema_cross: 'EMA Cross', momentum: 'Momentum (ROC)'};
+var STRATEGY_COLORS = {rsi: '#3ABFF8', macd: '#F0B429', combined: '#2ED47A', bollinger: '#A78BFA', ema_cross: '#FB923C', momentum: '#F472B6'};
 
 // ---- STATE ----
 var lastResult = null;
@@ -618,7 +621,7 @@ function runCompare() {
   document.getElementById('compare-title').textContent = ticker + ' - Comparando estrategias';
   document.getElementById('compare-sub').textContent   = range + ' | R$ ' + f2(capital);
 
-  var strategies = ['rsi', 'macd', 'combined'];
+  var strategies = ['rsi', 'macd', 'combined', 'bollinger', 'ema_cross', 'momentum'];
   var results    = {};
   var pending    = strategies.length;
   var errors     = 0;
@@ -664,7 +667,7 @@ function renderCompare(results, ticker, range) {
   }
 
   var grid = document.getElementById('compare-grid');
-  grid.innerHTML = ['rsi','macd','combined'].map(function(s) {
+  grid.innerHTML = ['rsi','macd','combined','bollinger','ema_cross','momentum'].map(function(s) {
     if (!results[s]) return '<div class="compare-card"><div class="compare-name" style="color:var(--red)">'+STRATEGY_NAMES[s]+' - erro</div></div>';
     var d  = results[s];
     var m  = d.metrics;
@@ -691,7 +694,7 @@ function renderCompare(results, ticker, range) {
 
   // Mini equity charts
   setTimeout(function() {
-    ['rsi','macd','combined'].forEach(function(s) {
+    ['rsi','macd','combined','bollinger','ema_cross','momentum'].forEach(function(s) {
       if (!results[s]) return;
       var d = results[s];
       var labels   = d.equity_curve.map(function(e) { return ''; });
@@ -740,7 +743,7 @@ function renderCompareOverlay(results) {
   var allLabels = null;
   var datasets  = [];
 
-  ['rsi','macd','combined'].forEach(function(s) {
+  ['rsi','macd','combined','bollinger','ema_cross','momentum'].forEach(function(s) {
     if (!results[s]) return;
     var d = results[s];
     var labels   = d.equity_curve.map(function(e) {
