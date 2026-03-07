@@ -7,8 +7,9 @@ FastAPI quanto a infraestrutura concreta. Domínio e Application
 permanecem limpos.
 """
 from __future__ import annotations
-from typing import AsyncGenerator
+from typing import AsyncGenerator, TYPE_CHECKING
 from fastapi import Depends
+from starlette.requests import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from finanalytics_ai.infrastructure.database.connection import get_session_factory
 from finanalytics_ai.infrastructure.database.repositories.portfolio_repo import SQLPortfolioRepository
@@ -52,3 +53,22 @@ async def get_event_processor(
 ) -> EventProcessorService:
     store = SQLEventStore(session)
     return EventProcessorService(event_store=store, market_data=brapi)
+
+
+async def get_watchlist_service(
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+) -> "WatchlistService":
+    """
+    Cria WatchlistService com sessão gerenciada pelo get_db_session.
+    Garante commit/rollback automático após cada request.
+    market_client vem do app.state (injetado no startup).
+    """
+    from finanalytics_ai.application.services.watchlist_service import WatchlistService
+    from finanalytics_ai.infrastructure.database.repositories.watchlist_repo import WatchlistRepository
+    from fastapi import HTTPException
+
+    market = getattr(request.app.state, "market_client", None)
+    if market is None:
+        raise HTTPException(status_code=503, detail="Market data client não disponível.")
+    return WatchlistService(WatchlistRepository(session), market)

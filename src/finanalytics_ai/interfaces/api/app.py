@@ -148,44 +148,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.correlation_service  = CorrelationService(market_client)
         app.state.screener_service     = ScreenerService(market_client)
         app.state.anomaly_service      = AnomalyService(market_client)
+        app.state.market_client        = market_client   # <-- acesso direto para outras dependências
         logger.info("market_data_client.composite.ready")
-
-    # ── 6. WatchlistService ───────────────────────────────────────────────────
-    try:
-        from finanalytics_ai.application.services.watchlist_service import WatchlistService
-        from finanalytics_ai.infrastructure.database.repositories.watchlist_repo import WatchlistRepository
-        from finanalytics_ai.infrastructure.database.connection import AsyncSessionLocal
-        from finanalytics_ai.infrastructure.database.connection import Base, engine
-        from finanalytics_ai.infrastructure.database.repositories.watchlist_repo import (
-            WatchlistItemModel, WatchlistAlertModel,
-        )
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-
-        market = getattr(app.state, "backtest_service", None)
-        market_client_ref = market._brapi if market else None
-        if market_client_ref is None and settings.brapi_token:
-            from finanalytics_ai.infrastructure.adapters.market_data_client import create_market_data_client
-            market_client_ref = create_market_data_client(settings.brapi_token)
-
-        if market_client_ref:
-            async def _make_watchlist_svc():
-                async with AsyncSessionLocal() as session:
-                    return WatchlistService(WatchlistRepository(session), market_client_ref)
-
-            app.state._watchlist_market = market_client_ref
-            app.state.watchlist_service = None   # created per-request via dependency
-            logger.info("watchlist_service.ready")
-    except Exception as exc:
-        logger.warning("watchlist_service.init_failed", error=str(exc))
-        logger.info("backtest_service.ready")
-        logger.info("optimizer_service.ready")
-        logger.info("walkforward_service.ready")
-        logger.info("multi_ticker_service.ready")
-        logger.info("correlation_service.ready")
-        logger.info("screener_service.ready")
-        logger.info("anomaly_service.ready")
     else:
+        # Sem token BRAPI: serviços analíticos indisponíveis, mas watchlist
+        # funciona com Yahoo Finance como fonte primária
+        from finanalytics_ai.infrastructure.adapters.market_data_client import create_market_data_client
+        market_client = create_market_data_client(None)
+        app.state.market_client    = market_client
         app.state.backtest_service     = None
         app.state.optimizer_service    = None
         app.state.walkforward_service  = None
@@ -193,7 +163,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.correlation_service  = None
         app.state.screener_service     = None
         app.state.anomaly_service      = None
-        logger.warning("backtest_service.disabled", reason="BRAPI_TOKEN ausente")
+        logger.warning("brapi_token.missing — analytic services disabled, watchlist uses Yahoo")
+
+    # ── 6. WatchlistService: cria tabelas DB ─────────────────────────────────
+    # Importa os models ANTES do create_all para registrá-los no metadata.
+    # Sem o import, Base.metadata não conhece as tabelas e create_all é no-op.
+    from finanalytics_ai.infrastructure.database.repositories.watchlist_repo import (
+        WatchlistItemModel, WatchlistAlertModel,  # noqa: F401
+    )
+    from finanalytics_ai.infrastructure.database.connection import Base, get_engine
+    try:
+        _wl_engine = get_engine()
+        async with _wl_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("watchlist_tables.ok")
+    except Exception as exc:
+        logger.error("watchlist_tables.FAILED", error=str(exc))
+        logger.info("correlation_service.ready")
+        logger.info("screener_service.ready")
+        logger.info("anomaly_service.ready")
 
     # ── 6. BRAPI Price Producer ───────────────────────────────────────────────
     producer_ok = False
