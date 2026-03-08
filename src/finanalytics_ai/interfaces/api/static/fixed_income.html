@@ -19,14 +19,14 @@ body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);mi
 /* NAV */
 nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:46px;position:sticky;top:0;z-index:100;gap:0}
 .nav-brand{color:var(--accent);font-weight:700;font-size:15px;letter-spacing:1px;margin-right:24px;white-space:nowrap}
-.nav-links{display:flex;gap:2px;flex-wrap:wrap}
+
 .nav-links a{color:var(--muted);text-decoration:none;font-size:12px;font-weight:600;padding:4px 10px;border-radius:4px;letter-spacing:.5px;transition:all .15s}
 .nav-links a:hover,.nav-links a.active{color:var(--accent);background:rgba(0,196,140,.08)}
 
 .page{max-width:1360px;margin:0 auto;padding:20px}
 
 /* HEADER */
-.page-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+.page-
 .page-title{font-size:22px;font-weight:700;color:var(--white)}
 .page-sub{font-size:12px;color:var(--muted);margin-top:2px}
 
@@ -77,7 +77,7 @@ tbody tr:hover td{background:rgba(255,255,255,.025);cursor:pointer}
 
 /* CARD */
 .card{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
-.card-header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;justify-content:space-between}
+.card-
 .card-title{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
 .card-body{padding:16px}
 
@@ -143,14 +143,14 @@ canvas{max-height:280px}
 .curve-svg{width:100%;height:100%}
 .scenario-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-top:12px}
 .scenario-card{background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:14px}
-.scenario-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.scenario-card-
 .scenario-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .scenario-name{font-size:12px;font-weight:700;color:var(--text);letter-spacing:.3px}
 .scenario-rates{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .scenario-rate-tag{background:#0d1e30;border-radius:4px;padding:2px 7px;font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace}
 .scenario-return{font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace}
 .scenario-delta{font-size:11px;margin-top:2px}
-.stress-bond-header{background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px}
+.stress-bond-
 .stress-bond-title{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:6px}
 .stress-meta{display:flex;gap:16px;flex-wrap:wrap}
 .stress-meta-item{font-size:11px;color:var(--muted)}
@@ -176,7 +176,7 @@ canvas{max-height:280px}
 
 
 /* RF PORTFOLIO */
-.pf-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.pf-
 .pf-select-wrap{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .pf-select{background:#0b1520;border:1px solid var(--border);border-radius:6px;color:var(--text);
   font-family:'Rajdhani',sans-serif;font-size:12px;padding:6px 10px;min-width:200px;outline:none}
@@ -219,9 +219,88 @@ canvas{max-height:280px}
 .timeline-dates{font-size:10px;color:var(--muted);margin-top:2px}
 .timeline-value{font-size:13px;font-family:'JetBrains Mono',monospace;font-weight:700;color:#00c48c;text-align:right}
 
+
+/* ── FinAnalytics Unified Topbar ────────────────────────────────── */
+.fa-topbar{position:sticky;top:0;z-index:200;display:flex;align-items:center;
+  gap:16px;padding:0 20px;height:52px;
+  background:#070f1a;border-bottom:1px solid #1e3a5f;
+  box-shadow:0 2px 12px rgba(0,0,0,.4)}
+.fa-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
+.fa-logo svg{display:block}
+.fa-logo-text{font-family:'Georgia','Times New Roman',serif;font-size:17px;
+  font-weight:700;color:#e8f4fd;white-space:nowrap;letter-spacing:-.3px}
+.fa-logo-text em{color:#F0B429;font-style:normal}
+.fa-ai-badge{display:inline-block;background:#1B3A6B;color:#fff;
+  font-family:'Arial',sans-serif;font-size:9px;font-weight:800;
+  letter-spacing:1.5px;padding:2px 5px;border-radius:3px;vertical-align:middle;margin-left:2px}
+.fa-nav{display:flex;align-items:center;gap:2px;overflow-x:auto;
+  scrollbar-width:none;-ms-overflow-style:none;flex:1}
+.fa-nav::-webkit-scrollbar{display:none}
+.fa-nav a{white-space:nowrap;font-family:'Rajdhani','Arial',sans-serif;font-size:12px;
+  font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;
+  padding:5px 10px;border-radius:5px;transition:.15s}
+.fa-nav a:hover{color:#00c48c;background:rgba(0,196,140,.08)}
+.fa-nav a.active{color:#00c48c;background:rgba(0,196,140,.1)}
+/* ── Table overflow fix ────────────────────────────────────────── */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:6px}
+.tbl-wrap table{min-width:600px;border-collapse:collapse;width:100%}
+.tbl-wrap th,.tbl-wrap td{white-space:normal!important;word-break:break-word}
+
 </style>
 </head>
 <body>
+
+<div class="fa-topbar">
+  <a href="/" class="fa-logo" title="FinAnalytics AI">
+    <svg width="34" height="34" viewBox="0 0 170 170" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="lg_gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F0B429"/><stop offset="100%" stop-color="#E08C00"/>
+    </linearGradient>
+    <linearGradient id="lg_neural" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3ABFF8" stop-opacity="0"/>
+      <stop offset="40%" stop-color="#3ABFF8"/><stop offset="100%" stop-color="#F0B429"/>
+    </linearGradient>
+  </defs>
+  <circle cx="85" cy="85" r="82" fill="#0D2144"/>
+  <circle cx="85" cy="85" r="80" fill="#0D2144" stroke="#1e3a5f" stroke-width="1"/>
+  <rect x="38" y="98" width="14" height="36" rx="2.5" fill="#E05555" opacity=".9"/>
+  <line x1="45" y1="89" x2="45" y2="98" stroke="#E05555" stroke-width="2.5" opacity=".9"/>
+  <line x1="45" y1="134" x2="45" y2="142" stroke="#E05555" stroke-width="2.5" opacity=".9"/>
+  <rect x="60" y="72" width="14" height="44" rx="2.5" fill="#2ED47A" opacity=".9"/>
+  <line x1="67" y1="62" x2="67" y2="72" stroke="#2ED47A" stroke-width="2.5"/>
+  <line x1="67" y1="116" x2="67" y2="126" stroke="#2ED47A" stroke-width="2.5"/>
+  <rect x="82" y="50" width="14" height="58" rx="2.5" fill="#2ED47A"/>
+  <line x1="89" y1="38" x2="89" y2="50" stroke="#2ED47A" stroke-width="2.5"/>
+  <line x1="89" y1="108" x2="89" y2="120" stroke="#2ED47A" stroke-width="2.5"/>
+  <rect x="104" y="66" width="14" height="32" rx="2.5" fill="#E05555" opacity=".8"/>
+  <line x1="111" y1="55" x2="111" y2="66" stroke="#E05555" stroke-width="2.5"/>
+  <line x1="111" y1="98" x2="111" y2="108" stroke="#E05555" stroke-width="2.5"/>
+  <rect x="126" y="44" width="14" height="68" rx="2.5" fill="url(#lg_gold)"/>
+  <line x1="133" y1="30" x2="133" y2="44" stroke="#E08C00" stroke-width="2.5"/>
+  <line x1="133" y1="112" x2="133" y2="126" stroke="#E08C00" stroke-width="2.5"/>
+  <circle cx="45" cy="82" r="5" fill="#3ABFF8" opacity=".8"/>
+  <circle cx="89" cy="38" r="5.5" fill="#3ABFF8"/>
+  <circle cx="133" cy="30" r="4.5" fill="#F0B429"/>
+  <circle cx="150" cy="54" r="4" fill="#3ABFF8" opacity=".6"/>
+  <polyline points="45,82 89,38 133,30 150,54" fill="none" stroke="url(#lg_neural)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".8"/>
+</svg>
+    <span class="fa-logo-text">Fin<em>Analytics</em> <span class="fa-ai-badge">AI</span></span>
+  </a>
+  <nav class="fa-nav">
+    <a href="/">Dashboard</a>
+    <a href="/backtest">Backtest</a>
+    <a href="/screener">Screener</a>
+    <a href="/correlation">Correlação</a>
+    <a href="/anomaly">Anomalias</a>
+    <a href="/watchlist">Watchlist</a>
+    <a href="/performance">Performance</a>
+    <a href="/fixed-income" class="active">Renda Fixa</a>
+    <a href="/etf">ETFs</a>
+    <a href="/optimizer">Otimizador</a>
+    <a href="/hub">Hub</a>
+  </nav>
+</div>
 <nav>
   <span class="nav-brand">FINANALYTICS AI</span>
   <div class="nav-links">
@@ -1661,7 +1740,7 @@ function renderFGC(d) {
 
     <!-- Por Título -->
     <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin:14px 0 8px">Status por Título</div>
-    <div style="overflow-x:auto">
+    <div style="overflow-x:auto" class="tbl-wrap">
       <table style="width:100%;border-collapse:collapse;font-size:12px">
         <thead>
           <tr>

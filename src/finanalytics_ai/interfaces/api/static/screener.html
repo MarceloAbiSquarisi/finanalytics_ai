@@ -231,9 +231,88 @@ tbody td:nth-child(2), tbody td:nth-child(3) { text-align: left; }
 .error-banner { background: rgba(255,61,90,.07); border-top: 1px solid rgba(255,61,90,.2);
                  padding: 8px 20px; font-family: var(--mono); font-size: 10px; color: #ff8fa0;
                  flex-shrink: 0; }
+
+/* ── FinAnalytics Unified Topbar ────────────────────────────────── */
+.fa-topbar{position:sticky;top:0;z-index:200;display:flex;align-items:center;
+  gap:16px;padding:0 20px;height:52px;
+  background:#070f1a;border-bottom:1px solid #1e3a5f;
+  box-shadow:0 2px 12px rgba(0,0,0,.4)}
+.fa-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
+.fa-logo svg{display:block}
+.fa-logo-text{font-family:'Georgia','Times New Roman',serif;font-size:17px;
+  font-weight:700;color:#e8f4fd;white-space:nowrap;letter-spacing:-.3px}
+.fa-logo-text em{color:#F0B429;font-style:normal}
+.fa-ai-badge{display:inline-block;background:#1B3A6B;color:#fff;
+  font-family:'Arial',sans-serif;font-size:9px;font-weight:800;
+  letter-spacing:1.5px;padding:2px 5px;border-radius:3px;vertical-align:middle;margin-left:2px}
+.fa-nav{display:flex;align-items:center;gap:2px;overflow-x:auto;
+  scrollbar-width:none;-ms-overflow-style:none;flex:1}
+.fa-nav::-webkit-scrollbar{display:none}
+.fa-nav a{white-space:nowrap;font-family:'Rajdhani','Arial',sans-serif;font-size:12px;
+  font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;
+  padding:5px 10px;border-radius:5px;transition:.15s}
+.fa-nav a:hover{color:#00c48c;background:rgba(0,196,140,.08)}
+.fa-nav a.active{color:#00c48c;background:rgba(0,196,140,.1)}
+/* ── Table overflow fix ────────────────────────────────────────── */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:6px}
+.tbl-wrap table{min-width:900px;border-collapse:collapse;width:100%}
+.tbl-wrap th,.tbl-wrap td{white-space:normal!important;word-break:break-word}
+
 </style>
 </head>
 <body>
+
+<div class="fa-topbar">
+  <a href="/" class="fa-logo" title="FinAnalytics AI">
+    <svg width="34" height="34" viewBox="0 0 170 170" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="lg_gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F0B429"/><stop offset="100%" stop-color="#E08C00"/>
+    </linearGradient>
+    <linearGradient id="lg_neural" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3ABFF8" stop-opacity="0"/>
+      <stop offset="40%" stop-color="#3ABFF8"/><stop offset="100%" stop-color="#F0B429"/>
+    </linearGradient>
+  </defs>
+  <circle cx="85" cy="85" r="82" fill="#0D2144"/>
+  <circle cx="85" cy="85" r="80" fill="#0D2144" stroke="#1e3a5f" stroke-width="1"/>
+  <rect x="38" y="98" width="14" height="36" rx="2.5" fill="#E05555" opacity=".9"/>
+  <line x1="45" y1="89" x2="45" y2="98" stroke="#E05555" stroke-width="2.5" opacity=".9"/>
+  <line x1="45" y1="134" x2="45" y2="142" stroke="#E05555" stroke-width="2.5" opacity=".9"/>
+  <rect x="60" y="72" width="14" height="44" rx="2.5" fill="#2ED47A" opacity=".9"/>
+  <line x1="67" y1="62" x2="67" y2="72" stroke="#2ED47A" stroke-width="2.5"/>
+  <line x1="67" y1="116" x2="67" y2="126" stroke="#2ED47A" stroke-width="2.5"/>
+  <rect x="82" y="50" width="14" height="58" rx="2.5" fill="#2ED47A"/>
+  <line x1="89" y1="38" x2="89" y2="50" stroke="#2ED47A" stroke-width="2.5"/>
+  <line x1="89" y1="108" x2="89" y2="120" stroke="#2ED47A" stroke-width="2.5"/>
+  <rect x="104" y="66" width="14" height="32" rx="2.5" fill="#E05555" opacity=".8"/>
+  <line x1="111" y1="55" x2="111" y2="66" stroke="#E05555" stroke-width="2.5"/>
+  <line x1="111" y1="98" x2="111" y2="108" stroke="#E05555" stroke-width="2.5"/>
+  <rect x="126" y="44" width="14" height="68" rx="2.5" fill="url(#lg_gold)"/>
+  <line x1="133" y1="30" x2="133" y2="44" stroke="#E08C00" stroke-width="2.5"/>
+  <line x1="133" y1="112" x2="133" y2="126" stroke="#E08C00" stroke-width="2.5"/>
+  <circle cx="45" cy="82" r="5" fill="#3ABFF8" opacity=".8"/>
+  <circle cx="89" cy="38" r="5.5" fill="#3ABFF8"/>
+  <circle cx="133" cy="30" r="4.5" fill="#F0B429"/>
+  <circle cx="150" cy="54" r="4" fill="#3ABFF8" opacity=".6"/>
+  <polyline points="45,82 89,38 133,30 150,54" fill="none" stroke="url(#lg_neural)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".8"/>
+</svg>
+    <span class="fa-logo-text">Fin<em>Analytics</em> <span class="fa-ai-badge">AI</span></span>
+  </a>
+  <nav class="fa-nav">
+    <a href="/">Dashboard</a>
+    <a href="/backtest">Backtest</a>
+    <a href="/screener" class="active">Screener</a>
+    <a href="/correlation">Correlação</a>
+    <a href="/anomaly">Anomalias</a>
+    <a href="/watchlist">Watchlist</a>
+    <a href="/performance">Performance</a>
+    <a href="/fixed-income">Renda Fixa</a>
+    <a href="/etf">ETFs</a>
+    <a href="/optimizer">Otimizador</a>
+    <a href="/hub">Hub</a>
+  </nav>
+</div>
 
 <div class="hdr">
   <div class="hdr-brand">

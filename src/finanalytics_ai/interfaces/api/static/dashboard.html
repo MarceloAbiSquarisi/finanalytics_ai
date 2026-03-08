@@ -28,18 +28,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   background-size:100% 100%,100% 100%,44px 44px,44px 44px}
 
 /* HEADER */
-header{position:relative;z-index:100;display:flex;align-items:center;justify-content:space-between;
-  padding:0 24px;height:52px;background:rgba(10,22,40,.95);
-  border-bottom:1px solid var(--border);backdrop-filter:blur(16px)}
-.logo{display:flex;align-items:center;gap:9px}
-.logo-mark{width:30px;height:30px;border-radius:6px;
-  background:linear-gradient(135deg,var(--navy-mid),var(--navy-lgt));
-  border:1px solid rgba(58,191,248,.2);display:flex;align-items:center;justify-content:center}
-.logo-text{font-size:16px;font-weight:800;letter-spacing:-.5px}
+
+
+
+
 .logo-text em{font-style:normal;color:var(--gold)}
 .badge{font-size:8px;font-weight:800;letter-spacing:2px;background:linear-gradient(90deg,var(--gold),var(--gold-dk));
   color:var(--navy);padding:2px 5px;border-radius:3px;margin-left:3px}
-.hdr-r{display:flex;align-items:center;gap:12px}
+
 .pill{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);font-family:'DM Mono',monospace}
 .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
@@ -269,35 +265,90 @@ header{position:relative;z-index:100;display:flex;align-items:center;justify-con
 
 ::-webkit-scrollbar{width:3px}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* ── FinAnalytics Unified Topbar ────────────────────────────────── */
+.fa-topbar{position:sticky;top:0;z-index:200;display:flex;align-items:center;
+  gap:16px;padding:0 20px;height:52px;
+  background:#070f1a;border-bottom:1px solid #1e3a5f;
+  box-shadow:0 2px 12px rgba(0,0,0,.4)}
+.fa-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
+.fa-logo svg{display:block}
+.fa-logo-text{font-family:'Georgia','Times New Roman',serif;font-size:17px;
+  font-weight:700;color:#e8f4fd;white-space:nowrap;letter-spacing:-.3px}
+.fa-logo-text em{color:#F0B429;font-style:normal}
+.fa-ai-badge{display:inline-block;background:#1B3A6B;color:#fff;
+  font-family:'Arial',sans-serif;font-size:9px;font-weight:800;
+  letter-spacing:1.5px;padding:2px 5px;border-radius:3px;vertical-align:middle;margin-left:2px}
+.fa-nav{display:flex;align-items:center;gap:2px;overflow-x:auto;
+  scrollbar-width:none;-ms-overflow-style:none;flex:1}
+.fa-nav::-webkit-scrollbar{display:none}
+.fa-nav a{white-space:nowrap;font-family:'Rajdhani','Arial',sans-serif;font-size:12px;
+  font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;
+  padding:5px 10px;border-radius:5px;transition:.15s}
+.fa-nav a:hover{color:#00c48c;background:rgba(0,196,140,.08)}
+.fa-nav a.active{color:#00c48c;background:rgba(0,196,140,.1)}
+/* ── Table overflow fix ────────────────────────────────────────── */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:6px}
+.tbl-wrap table{min-width:600px;border-collapse:collapse;width:100%}
+.tbl-wrap th,.tbl-wrap td{white-space:normal!important;word-break:break-word}
+
 </style>
 </head>
 <body>
 
-<header>
-  <div class="logo">
-    <div class="logo-mark">
-      <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
-        <rect x="2" y="11" width="3" height="8" rx="1" fill="#E05555" opacity=".9"/>
-        <rect x="7" y="8" width="3" height="11" rx="1" fill="#2ED47A"/>
-        <rect x="12" y="4" width="3" height="15" rx="1" fill="#2ED47A"/>
-        <rect x="17" y="7" width="2" height="7" rx="1" fill="#F0B429"/>
-        <polyline points="3.5,9 8.5,6.5 13.5,3 18,2" fill="none" stroke="#3ABFF8" stroke-width="1.5" stroke-linecap="round"/>
-        <circle cx="13.5" cy="3" r="1.5" fill="#3ABFF8"/><circle cx="18" cy="2" r="1.5" fill="#F0B429"/>
-      </svg>
-    </div>
-    <div class="logo-text">Fin<em>Analytics</em><span class="badge">AI</span></div>
-  </div>
-  <div class="hdr-r">
-    <div class="pill"><div class="dot" id="api-dot"></div><span id="api-st">conectando…</span></div>
-    <a href="/backtest" style="padding:4px 12px;border-radius:6px;font-size:10px;font-weight:700;
-      color:#3ABFF8;text-decoration:none;border:1px solid rgba(58,191,248,.2);
-      font-family:'DM Mono',monospace;transition:all .15s"
-      onmouseover="this.style.background='rgba(58,191,248,.08)'"
-      onmouseout="this.style.background='transparent'">Backtest</a>
-    <select class="sel" id="pf-sel" onchange="selectPf(this.value)"><option value="">Carteira…</option></select>
-    <button class="btn" onclick="showModal()">+ Carteira</button>
-  </div>
-</header>
+<div class="fa-topbar">
+  <a href="/" class="fa-logo" title="FinAnalytics AI">
+    <svg width="34" height="34" viewBox="0 0 170 170" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="lg_gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F0B429"/><stop offset="100%" stop-color="#E08C00"/>
+    </linearGradient>
+    <linearGradient id="lg_neural" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3ABFF8" stop-opacity="0"/>
+      <stop offset="40%" stop-color="#3ABFF8"/><stop offset="100%" stop-color="#F0B429"/>
+    </linearGradient>
+  </defs>
+  <circle cx="85" cy="85" r="82" fill="#0D2144"/>
+  <circle cx="85" cy="85" r="80" fill="#0D2144" stroke="#1e3a5f" stroke-width="1"/>
+  <rect x="38" y="98" width="14" height="36" rx="2.5" fill="#E05555" opacity=".9"/>
+  <line x1="45" y1="89" x2="45" y2="98" stroke="#E05555" stroke-width="2.5" opacity=".9"/>
+  <line x1="45" y1="134" x2="45" y2="142" stroke="#E05555" stroke-width="2.5" opacity=".9"/>
+  <rect x="60" y="72" width="14" height="44" rx="2.5" fill="#2ED47A" opacity=".9"/>
+  <line x1="67" y1="62" x2="67" y2="72" stroke="#2ED47A" stroke-width="2.5"/>
+  <line x1="67" y1="116" x2="67" y2="126" stroke="#2ED47A" stroke-width="2.5"/>
+  <rect x="82" y="50" width="14" height="58" rx="2.5" fill="#2ED47A"/>
+  <line x1="89" y1="38" x2="89" y2="50" stroke="#2ED47A" stroke-width="2.5"/>
+  <line x1="89" y1="108" x2="89" y2="120" stroke="#2ED47A" stroke-width="2.5"/>
+  <rect x="104" y="66" width="14" height="32" rx="2.5" fill="#E05555" opacity=".8"/>
+  <line x1="111" y1="55" x2="111" y2="66" stroke="#E05555" stroke-width="2.5"/>
+  <line x1="111" y1="98" x2="111" y2="108" stroke="#E05555" stroke-width="2.5"/>
+  <rect x="126" y="44" width="14" height="68" rx="2.5" fill="url(#lg_gold)"/>
+  <line x1="133" y1="30" x2="133" y2="44" stroke="#E08C00" stroke-width="2.5"/>
+  <line x1="133" y1="112" x2="133" y2="126" stroke="#E08C00" stroke-width="2.5"/>
+  <circle cx="45" cy="82" r="5" fill="#3ABFF8" opacity=".8"/>
+  <circle cx="89" cy="38" r="5.5" fill="#3ABFF8"/>
+  <circle cx="133" cy="30" r="4.5" fill="#F0B429"/>
+  <circle cx="150" cy="54" r="4" fill="#3ABFF8" opacity=".6"/>
+  <polyline points="45,82 89,38 133,30 150,54" fill="none" stroke="url(#lg_neural)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".8"/>
+</svg>
+    <span class="fa-logo-text">Fin<em>Analytics</em> <span class="fa-ai-badge">AI</span></span>
+  </a>
+  <nav class="fa-nav">
+    <a href="/" class="active">Dashboard</a>
+    <a href="/backtest">Backtest</a>
+    <a href="/screener">Screener</a>
+    <a href="/correlation">Correlação</a>
+    <a href="/anomaly">Anomalias</a>
+    <a href="/watchlist">Watchlist</a>
+    <a href="/performance">Performance</a>
+    <a href="/fixed-income">Renda Fixa</a>
+    <a href="/etf">ETFs</a>
+    <a href="/optimizer">Otimizador</a>
+    <a href="/hub">Hub</a>
+  </nav>
+</div>
+
+
 
 <div class="layout">
 
@@ -1507,95 +1558,5 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')hideModal();});
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===e.currentTarget)hideModal();});
 </script>
 
-<script>
-// ── Auth Interceptor ──────────────────────────────────────────────────────────
-(function() {
-  const PUBLIC_PATHS = ['/login'];
-  if (PUBLIC_PATHS.includes(location.pathname)) return;
-
-  function getToken() { return localStorage.getItem('access_token'); }
-  function getRefresh() { return localStorage.getItem('refresh_token'); }
-  function getExpiry() { return parseInt(localStorage.getItem('token_expires_at') || '0'); }
-
-  async function refreshTokens() {
-    const rt = getRefresh();
-    if (!rt) return false;
-    try {
-      const res = await fetch('/api/v1/auth/refresh', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({refresh_token: rt})
-      });
-      if (!res.ok) return false;
-      const data = await res.json();
-      localStorage.setItem('access_token', data.access_token);
-      localStorage.setItem('refresh_token', data.refresh_token);
-      localStorage.setItem('token_expires_at', String(Date.now() + (data.expires_in || 1800) * 1000));
-      return true;
-    } catch { return false; }
-  }
-
-  async function ensureAuth() {
-    const token   = getToken();
-    const expires = getExpiry();
-    if (!token) { window.location.href = '/login'; return; }
-    // Renova se expira em menos de 5 minutos
-    if (expires - Date.now() < 300000) {
-      const ok = await refreshTokens();
-      if (!ok) { localStorage.clear(); window.location.href = '/login'; return; }
-    }
-  }
-
-  // Intercepta fetch global para injetar Bearer token
-  const _originalFetch = window.fetch;
-  window.fetch = async function(url, opts = {}) {
-    if (typeof url === 'string' && url.startsWith('/api/')) {
-      const token = getToken();
-      if (token) {
-        opts.headers = { ...(opts.headers || {}), 'Authorization': `Bearer ${token}` };
-      }
-    }
-    const res = await _originalFetch(url, opts);
-    if (res.status === 401 && typeof url === 'string' && url.startsWith('/api/')) {
-      const ok = await refreshTokens();
-      if (ok) {
-        const token = getToken();
-        opts.headers = { ...(opts.headers || {}), 'Authorization': `Bearer ${token}` };
-        return _originalFetch(url, opts);
-      }
-      localStorage.clear();
-      window.location.href = '/login';
-    }
-    return res;
-  };
-
-  ensureAuth();
-
-  // Injeta user info no nav quando disponível
-  async function loadUserInfo() {
-    try {
-      const res = await fetch('/api/v1/auth/me');
-      if (!res.ok) return;
-      const user = await res.json();
-      const nav = document.querySelector('nav');
-      if (!nav) return;
-      const btn = document.createElement('div');
-      btn.style.cssText = 'margin-left:auto;display:flex;align-items:center;gap:10px';
-      btn.innerHTML = `
-        <span style="font-size:11px;color:#8899aa">${user.full_name}</span>
-        <button onclick="doLogout()" style="background:transparent;border:1px solid #1e3a5f;border-radius:4px;color:#8899aa;font-family:Rajdhani,sans-serif;font-size:11px;padding:3px 10px;cursor:pointer;letter-spacing:.3px" onmouseover="this.style.borderColor='#ff4757';this.style.color='#ff4757'" onmouseout="this.style.borderColor='#1e3a5f';this.style.color='#8899aa'">Sair</button>
-      `;
-      nav.appendChild(btn);
-    } catch {}
-  }
-
-  window.doLogout = async function() {
-    try { await fetch('/api/v1/auth/logout', {method:'POST'}); } catch {}
-    localStorage.clear();
-    window.location.href = '/login';
-  };
-
-  document.addEventListener('DOMContentLoaded', loadUserInfo);
-})();
-</script>
 </body>
 </html>
