@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Otimizador de Portfólio — FinAnalytics AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#060d14;--card:#0b1520;--border:#1e3a5f;--accent:#00c48c;--text:#e8f4fd;--muted:#8899aa}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh}
+.topbar{background:#070f1a;border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between}
+.topbar-title{font-size:16px;font-weight:700;color:var(--accent);letter-spacing:1px}
+.nav-links{display:flex;gap:10px;flex-wrap:wrap}
+.nav-links a{font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:.5px;font-weight:600;padding:4px 8px;border-radius:4px;transition:.15s}
+.nav-links a:hover{color:var(--accent);background:rgba(0,196,140,.08)}
+.container{max-width:1300px;margin:0 auto;padding:20px}
+.page-title{font-size:24px;font-weight:700;letter-spacing:1px;margin-bottom:4px}
+.page-sub{font-size:12px;color:var(--muted);margin-bottom:20px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-label{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
+.form-input{background:#0d1e30;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:13px;padding:8px 12px;outline:none;transition:.15s;width:100%}
+.form-input:focus{border-color:var(--accent)}
+.btn-primary{background:var(--accent);color:#000;border:none;border-radius:6px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:14px;padding:10px 24px;cursor:pointer;letter-spacing:.5px;transition:.15s}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-secondary{background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:6px;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:12px;padding:7px 14px;cursor:pointer;transition:.15s}
+.btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
+.section-title{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin:14px 0 8px}
+.stat-card{background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:14px}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.stat-value{font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.stat-sub{font-size:10px;color:var(--muted);margin-top:3px}
+.badge{border-radius:3px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.3px}
+.method-card{border:1px solid var(--border);border-radius:10px;padding:16px;transition:.2s;cursor:default}
+.method-card.winner{border-color:var(--accent);box-shadow:0 0 20px rgba(0,196,140,.08)}
+.method-title{font-size:14px;font-weight:700;margin-bottom:10px}
+.method-metric{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(30,58,95,.3);font-size:12px}
+.weight-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.weight-bar-label{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--accent);width:70px;flex-shrink:0}
+.weight-bar-track{flex:1;height:18px;background:#0d1e30;border-radius:3px;overflow:hidden;position:relative}
+.weight-bar-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.weight-bar-pct{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text);width:44px;text-align:right;flex-shrink:0}
+.weight-bar-risk{font-size:10px;color:var(--muted);width:60px;text-align:right;flex-shrink:0}
+/* Fronteira eficiente */
+.frontier-chart{background:#060d14;border-radius:8px;padding:10px}
+/* Preset chips */
+.preset-chip{background:#0d1e30;border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap}
+.preset-chip:hover{border-color:var(--accent);color:var(--accent)}
+/* BL views */
+.bl-view-row{display:grid;grid-template-columns:100px 1fr auto;gap:6px;margin-bottom:6px;align-items:center}
+/* Ticker tags */
+.ticker-tag{display:inline-flex;align-items:center;gap:4px;background:#0d1e30;border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--accent)}
+.ticker-tag button{background:none;border:none;color:#445566;cursor:pointer;font-size:10px;line-height:1;padding:0 2px}
+.ticker-tag button:hover{color:#ff4757}
+/* Spinner */
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid #1e3a5f;border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* Compare table */
+.cmp-table{width:100%;border-collapse:collapse;font-size:12px}
+.cmp-table th{padding:8px 10px;color:var(--muted);font-size:10px;text-align:left;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.5px}
+.cmp-table td{padding:9px 10px;border-bottom:1px solid rgba(30,58,95,.2)}
+.cmp-table .num{text-align:right;font-family:'JetBrains Mono',monospace}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-title">FINANALYTICS AI</div>
+  <div class="nav-links">
+    <a href="/">Dashboard</a>
+    <a href="/backtest">Backtest</a>
+    <a href="/screener">Screener</a>
+    <a href="/correlation">Correlação</a>
+    <a href="/performance">Performance</a>
+    <a href="/fixed-income">Renda Fixa</a>
+    <a href="/etf">ETFs</a>
+    <a href="/watchlist">Watchlist</a>
+    <a href="/hub">Hub</a>
+  </div>
+</div>
+
+<div class="container">
+  <div class="page-title">⚙️ Otimizador de Portfólio</div>
+  <div class="page-sub">Markowitz · Risk Parity · Black-Litterman — comparativo lado a lado</div>
+
+  <!-- ═══ CONFIGURAÇÃO ══════════════════════════════════════════════════════ -->
+  <div class="grid-2" style="align-items:start;margin-bottom:16px">
+
+    <!-- Coluna esquerda: ativos + parâmetros -->
+    <div class="card">
+      <div class="section-title" style="margin-top:0">Ativos</div>
+
+      <!-- Presets -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="preset-chips"></div>
+
+      <!-- Ticker input -->
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input class="form-input" id="ticker-input" placeholder="ex: BOVA11" style="flex:1"
+          onkeydown="if(event.key==='Enter'||event.key===',')addTicker()">
+        <button class="btn-secondary" onclick="addTicker()">+ Adicionar</button>
+      </div>
+      <div id="ticker-tags" style="display:flex;flex-wrap:wrap;gap:5px;min-height:28px;margin-bottom:12px"></div>
+
+      <!-- Parâmetros básicos -->
+      <div class="grid-2" style="gap:8px">
+        <div class="form-group">
+          <label class="form-label">Período</label>
+          <select class="form-input" id="period">
+            <option value="3mo">3 meses</option>
+            <option value="6mo">6 meses</option>
+            <option value="1y" selected>1 ano</option>
+            <option value="2y">2 anos</option>
+            <option value="5y">5 anos</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Taxa Livre de Risco (CDI % a.a.)</label>
+          <input class="form-input" id="risk-free" type="number" value="10.65" step="0.01">
+        </div>
+      </div>
+    </div>
+
+    <!-- Coluna direita: Black-Litterman views -->
+    <div class="card">
+      <div class="section-title" style="margin-top:0">Visões Black-Litterman <span style="font-size:10px;color:var(--muted);font-weight:400">(opcional)</span></div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5">
+        Informe o retorno anual esperado para ativos específicos.<br>
+        Deixe em branco para usar apenas o prior de mercado.
+      </div>
+      <div id="bl-views-list"></div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button class="btn-secondary" onclick="addBLView()">+ Adicionar visão</button>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">τ (incerteza prior)</label>
+          <input class="form-input" id="bl-tau" type="number" value="0.05" step="0.01" min="0.01" max="0.5">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">λ (aversão ao risco)</label>
+          <input class="form-input" id="bl-lambda" type="number" value="3.0" step="0.5" min="0.5" max="10">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Botão de otimizar -->
+  <div style="display:flex;justify-content:center;margin-bottom:20px">
+    <button class="btn-primary" id="btn-optimize" onclick="runOptimize()">
+      ⚙️ Otimizar Portfólio
+    </button>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading" style="display:none;text-align:center;padding:30px;color:var(--muted)">
+    <span class="spinner"></span>
+    Buscando dados e executando otimizações (Markowitz · Risk Parity · Black-Litterman)…
+  </div>
+
+  <!-- ═══ RESULTADOS ══════════════════════════════════════════════════════ -->
+  <div id="results" style="display:none">
+
+    <!-- Comparativo resumido -->
+    <div class="section-title">Comparativo dos Métodos</div>
+    <div style="overflow-x:auto;margin-bottom:16px">
+      <table class="cmp-table" id="cmp-table">
+        <thead>
+          <tr>
+            <th>Método</th>
+            <th class="num">Retorno a.a.</th>
+            <th class="num">Volatilidade</th>
+            <th class="num">Sharpe</th>
+            <th>Maior posição</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="cmp-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Cards dos métodos -->
+    <div class="grid-4" id="method-cards" style="margin-bottom:16px"></div>
+
+    <!-- Fronteira eficiente + pesos -->
+    <div class="grid-2" style="align-items:start">
+      <div>
+        <div class="section-title">Fronteira Eficiente (Markowitz)</div>
+        <div class="frontier-chart">
+          <svg id="frontier-svg" viewBox="0 0 520 300" style="width:100%;height:300px"></svg>
+          <div id="frontier-legend" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px"></div>
+        </div>
+      </div>
+      <div>
+        <div class="section-title">Pesos por Método — <span id="weights-method-label" style="color:var(--accent)">Markowitz</span></div>
+        <div style="display:flex;gap:6px;margin-bottom:10px" id="weights-method-btns"></div>
+        <div id="weights-chart"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Estado ────────────────────────────────────────────────────────────────────
+let _tickers = ["BOVA11","IVVB11","SMAL11","NTNB11","GOLD11"];
+let _blViews = [];
+let _lastResult = null;
+
+const METHOD_COLORS = {
+  markowitz:       "#00c48c",
+  risk_parity:     "#4ecdc4",
+  black_litterman: "#e056fd",
+  equal_weight:    "#8899aa",
+};
+const METHOD_LABELS = {
+  markowitz:       "Markowitz",
+  risk_parity:     "Risk Parity",
+  black_litterman: "Black-Litterman",
+  equal_weight:    "Equal Weight",
+};
+const ASSET_COLORS = ["#00c48c","#4ecdc4","#ffb300","#e056fd","#ff6b35","#45b7d1","#26de81","#ff4757","#a29bfe","#fd9644","#2bcbba","#fd79a8","#6c5ce7","#00b894","#e17055"];
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+(async function init() {
+  renderTickerTags();
+  await loadPresets();
+})();
+
+async function loadPresets() {
+  try {
+    const r = await fetch('/api/v1/optimizer/presets');
+    const presets = await r.json();
+    document.getElementById('preset-chips').innerHTML = presets.map(p =>
+      `<div class="preset-chip" title="${p.description}" onclick="applyPreset(${JSON.stringify(p.tickers)})">${p.name}</div>`
+    ).join('');
+  } catch(e) {}
+}
+
+function applyPreset(tickers) {
+  _tickers = [...tickers];
+  renderTickerTags();
+}
+
+function renderTickerTags() {
+  document.getElementById('ticker-tags').innerHTML = _tickers.map((t, i) =>
+    `<span class="ticker-tag">${t}<button onclick="_tickers.splice(${i},1);renderTickerTags()">✕</button></span>`
+  ).join('');
+}
+
+function addTicker() {
+  const inp = document.getElementById('ticker-input');
+  const val = inp.value.trim().toUpperCase().replace(/,/g,'');
+  if (val && !_tickers.includes(val) && _tickers.length < 15) {
+    _tickers.push(val);
+    renderTickerTags();
+  }
+  inp.value = '';
+  inp.focus();
+}
+
+function addBLView() {
+  _blViews.push({ticker: '', ret: 0.15});
+  renderBLViews();
+}
+
+function renderBLViews() {
+  document.getElementById('bl-views-list').innerHTML = _blViews.map((v, i) => `
+    <div class="bl-view-row">
+      <input class="form-input" value="${v.ticker}" placeholder="Ticker"
+        onchange="_blViews[${i}].ticker=this.value.toUpperCase()"
+        style="font-family:'JetBrains Mono',monospace;font-size:12px">
+      <div style="display:flex;align-items:center;gap:6px">
+        <input class="form-input" type="range" min="0" max="50" step="1" value="${Math.round(v.ret*100)}"
+          oninput="_blViews[${i}].ret=this.value/100;document.getElementById('blv-${i}').textContent=this.value+'%'">
+        <span id="blv-${i}" style="font-size:11px;font-family:'JetBrains Mono',monospace;width:36px">${Math.round(v.ret*100)}%</span>
+      </div>
+      <button onclick="_blViews.splice(${i},1);renderBLViews()"
+        style="background:none;border:1px solid #ff475733;color:#ff4757;border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer">✕</button>
+    </div>`).join('');
+}
+
+// ── Otimização ────────────────────────────────────────────────────────────────
+async function runOptimize() {
+  if (_tickers.length < 2) { alert('Adicione pelo menos 2 ativos.'); return; }
+
+  document.getElementById('loading').style.display  = 'block';
+  document.getElementById('results').style.display  = 'none';
+  document.getElementById('btn-optimize').disabled  = true;
+
+  const body = {
+    tickers:          _tickers,
+    period:           document.getElementById('period').value,
+    risk_free:        parseFloat(document.getElementById('risk-free').value) || 10.65,
+    views:            _blViews.filter(v => v.ticker).map(v => ({ticker: v.ticker, returns: v.ret})),
+    bl_tau:           parseFloat(document.getElementById('bl-tau').value)    || 0.05,
+    bl_risk_aversion: parseFloat(document.getElementById('bl-lambda').value) || 3.0,
+  };
+
+  try {
+    const r    = await fetch('/api/v1/optimizer/optimize', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const err = await r.json();
+      throw new Error(err.detail || 'Erro na otimização');
+    }
+    _lastResult = await r.json();
+    renderResults(_lastResult);
+  } catch(e) {
+    alert('Erro: ' + e.message);
+  } finally {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('btn-optimize').disabled = false;
+  }
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderResults(d) {
+  document.getElementById('results').style.display = 'block';
+
+  const methods = ['markowitz','risk_parity','black_litterman','equal_weight'];
+  const best    = d.best_sharpe_method;
+
+  // Tabela comparativa
+  const fmtPct = (v, inv) => {
+    const c = inv ? (v<=0?'#00c48c':'#ff4757') : (v>=0?'#00c48c':'#ff4757');
+    return `<span style="color:${c}">${v>=0?'+':''}${v.toFixed(2)}%</span>`;
+  };
+  document.getElementById('cmp-tbody').innerHTML = methods.map(m => {
+    const md = d[m];
+    const isBest = m === best;
+    const topW = md.weights.reduce((a,b) => a.weight_pct > b.weight_pct ? a : b, {ticker:'—',weight_pct:0});
+    return `<tr style="${isBest?'background:rgba(0,196,140,.04)':''}">
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:10px;height:10px;border-radius:50%;background:${METHOD_COLORS[m]};flex-shrink:0"></div>
+          <b>${md.method}</b>
+          ${isBest ? '<span class="badge" style="background:rgba(0,196,140,.15);color:#00c48c">Melhor Sharpe</span>' : ''}
+        </div>
+      </td>
+      <td class="num">${fmtPct(md.annual_return_pct)}</td>
+      <td class="num"><span style="color:#8899aa">${md.volatility_pct.toFixed(2)}%</span></td>
+      <td class="num"><b style="color:${md.sharpe>=1?'#00c48c':md.sharpe>=0.5?'#ffb300':'#ff4757'}">${md.sharpe.toFixed(3)}</b></td>
+      <td><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent)">${topW.ticker}</span>
+          <span style="font-size:10px;color:var(--muted)"> ${topW.weight_pct.toFixed(1)}%</span></td>
+      <td><button class="btn-secondary" style="font-size:10px;padding:3px 8px"
+          onclick="showWeights('${m}')">Ver pesos</button></td>
+    </tr>`;
+  }).join('');
+
+  // Cards dos métodos
+  document.getElementById('method-cards').innerHTML = methods.map(m => {
+    const md = d[m];
+    const isBest = m === best;
+    const c = METHOD_COLORS[m];
+    return `<div class="method-card ${isBest?'winner':''}" style="background:${isBest?'rgba(0,196,140,.03)':'var(--card)'}">
+      <div class="method-title" style="color:${c}">${md.method.split('(')[0].trim()}
+        ${isBest?'<span style="font-size:10px;color:var(--accent)">★</span>':''}</div>
+      <div class="method-metric"><span style="color:var(--muted)">Retorno a.a.</span>
+        <span style="color:${md.annual_return_pct>=0?'#00c48c':'#ff4757'}">${md.annual_return_pct>=0?'+':''}${md.annual_return_pct.toFixed(2)}%</span></div>
+      <div class="method-metric"><span style="color:var(--muted)">Volatilidade</span>
+        <span>${md.volatility_pct.toFixed(2)}%</span></div>
+      <div class="method-metric" style="border:none"><span style="color:var(--muted)">Sharpe</span>
+        <span style="color:${md.sharpe>=1?'#00c48c':md.sharpe>=0.5?'#ffb300':'#ff4757'};font-weight:700">${md.sharpe.toFixed(3)}</span></div>
+      ${(md.notes||[]).length > 0 ? `<div style="margin-top:8px;font-size:10px;color:var(--muted);line-height:1.5">${md.notes[0]}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  // Botões de pesos
+  document.getElementById('weights-method-btns').innerHTML = methods.map(m =>
+    `<button class="btn-secondary" id="wbtn-${m}" style="font-size:11px;padding:4px 10px"
+      onclick="showWeights('${m}')">${METHOD_LABELS[m]}</button>`
+  ).join('');
+
+  // Fronteira eficiente
+  drawFrontier(d.frontier, d, methods);
+
+  // Pesos: mostra o melhor por padrão
+  showWeights(best || 'markowitz');
+
+  if (d.errors?.length) {
+    console.warn('Erros:', d.errors);
+  }
+}
+
+function showWeights(method) {
+  if (!_lastResult) return;
+  const d  = _lastResult[method];
+  const c  = METHOD_COLORS[method];
+
+  document.getElementById('weights-method-label').textContent = d.method.split('(')[0].trim();
+
+  // Atualiza botões ativos
+  ['markowitz','risk_parity','black_litterman','equal_weight'].forEach(m => {
+    const btn = document.getElementById(`wbtn-${m}`);
+    if (btn) {
+      btn.style.borderColor = m === method ? METHOD_COLORS[m] : '';
+      btn.style.color       = m === method ? METHOD_COLORS[m] : '';
+    }
+  });
+
+  const tickers = d.weights.map(w => w.ticker);
+  const html = d.weights.map((w, i) => {
+    const color = ASSET_COLORS[i % ASSET_COLORS.length];
+    return `<div class="weight-bar-row">
+      <div class="weight-bar-label">${w.ticker}</div>
+      <div class="weight-bar-track">
+        <div class="weight-bar-fill" style="width:${w.weight_pct}%;background:${color}"></div>
+        <span style="position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:9px;color:#fff;font-weight:700;white-space:nowrap">
+          ret: ${w.ret_contrib>=0?'+':''}${w.ret_contrib.toFixed(1)}%
+        </span>
+      </div>
+      <div class="weight-bar-pct">${w.weight_pct.toFixed(1)}%</div>
+      <div class="weight-bar-risk" title="Contribuição ao risco">risco: ${w.risk_contrib.toFixed(1)}%</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('weights-chart').innerHTML = `
+    <div style="font-size:10px;color:var(--muted);margin-bottom:8px;display:flex;justify-content:space-between">
+      <span>Ativo</span><span style="margin-right:44px">Peso</span><span>Risco</span>
+    </div>
+    ${html}
+    <div style="margin-top:10px;font-size:10px;color:var(--muted)">
+      ${(d.notes||[]).map(n => `<div style="padding:3px 0;border-top:1px solid rgba(30,58,95,.3)">💡 ${n}</div>`).join('')}
+    </div>`;
+}
+
+function drawFrontier(frontier, d, methods) {
+  const svg = document.getElementById('frontier-svg');
+  if (!frontier || !frontier.length) { svg.innerHTML = '<text x="260" y="150" text-anchor="middle" fill="#445566" font-size="12">Sem dados de fronteira</text>'; return; }
+
+  const W=520, H=300, PL=48, PR=20, PT=20, PB=35;
+  const cW=W-PL-PR, cH=H-PT-PB;
+
+  const allVols = frontier.map(p=>p.vol);
+  const allRets = frontier.map(p=>p.ret);
+  const allShs  = frontier.map(p=>p.sharpe);
+  const minV=Math.min(...allVols)*0.95, maxV=Math.max(...allVols)*1.02;
+  const minR=Math.min(...allRets)*0.95, maxR=Math.max(...allRets)*1.05;
+
+  const sx = v => PL + (v-minV)/(maxV-minV)*cW;
+  const sy = r => PT + cH - (r-minR)/(maxR-minR)*cH;
+
+  // Grid
+  let grid = '';
+  for (let i=0;i<=4;i++) {
+    const r = minR + (maxR-minR)*i/4;
+    const y = sy(r);
+    grid += `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="#0d1e30" stroke-width="1"/>`;
+    grid += `<text x="${PL-4}" y="${y+4}" text-anchor="end" fill="#445566" font-size="9">${r.toFixed(1)}%</text>`;
+  }
+  for (let i=0;i<=4;i++) {
+    const v = minV + (maxV-minV)*i/4;
+    const x = sx(v);
+    grid += `<line x1="${x}" y1="${PT}" x2="${x}" y2="${H-PB}" stroke="#0d1e30" stroke-width="1"/>`;
+    grid += `<text x="${x}" y="${H-PB+14}" text-anchor="middle" fill="#445566" font-size="9">${v.toFixed(1)}%</text>`;
+  }
+  grid += `<text x="${W/2}" y="${H-2}" text-anchor="middle" fill="#445566" font-size="9">Volatilidade (%)</text>`;
+  grid += `<text x="10" y="${H/2}" text-anchor="middle" fill="#445566" font-size="9" transform="rotate(-90,10,${H/2})">Retorno (%)</text>`;
+
+  // Pontos MC — coloridos por Sharpe
+  const maxSh = Math.max(...allShs);
+  const minSh = Math.min(...allShs);
+  let pts = '';
+  // Amostra 500 pontos para performance do SVG
+  const step = Math.max(1, Math.floor(frontier.length / 500));
+  for (let i=0; i<frontier.length; i+=step) {
+    const p = frontier[i];
+    const t = (p.sharpe - minSh) / (maxSh - minSh || 1);
+    const r2 = Math.round(t*0 + (1-t)*30);
+    const g2 = Math.round(t*196 + (1-t)*50);
+    const b2 = Math.round(t*140 + (1-t)*80);
+    pts += `<circle cx="${sx(p.vol).toFixed(1)}" cy="${sy(p.ret).toFixed(1)}" r="2" fill="rgba(${r2},${g2},${b2},0.5)"/>`;
+  }
+
+  // Pontos dos 4 métodos
+  let methodPts = '';
+  methods.forEach(m => {
+    const md = d[m];
+    if (!md) return;
+    const x = sx(md.volatility_pct), y = sy(md.annual_return_pct);
+    const c = METHOD_COLORS[m];
+    methodPts += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7" fill="${c}" stroke="#060d14" stroke-width="2"/>`;
+    methodPts += `<text x="${(x+9).toFixed(1)}" y="${(y+4).toFixed(1)}" fill="${c}" font-size="9" font-weight="700">${METHOD_LABELS[m].split(' ')[0]}</text>`;
+  });
+
+  svg.innerHTML = grid + pts + methodPts;
+
+  // Legenda
+  document.getElementById('frontier-legend').innerHTML = methods.map(m =>
+    `<div style="display:flex;align-items:center;gap:5px;font-size:10px">
+      <div style="width:10px;height:10px;border-radius:50%;background:${METHOD_COLORS[m]}"></div>
+      <span style="color:var(--muted)">${METHOD_LABELS[m]}</span>
+    </div>`).join('');
+}
+</script>
+</body>
+</html>

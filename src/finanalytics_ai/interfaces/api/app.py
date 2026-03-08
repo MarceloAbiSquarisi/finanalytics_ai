@@ -22,7 +22,18 @@ from fastapi.responses import JSONResponse
 from finanalytics_ai.config import EventQueueBackend, get_settings
 from finanalytics_ai.exceptions import FinAnalyticsError
 from finanalytics_ai.infrastructure.database.connection import close_engine, get_engine
-from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer, backtest, correlation, screener, anomaly, reports, watchlist, performance, fixed_income, etf as etf_routes
+from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer, backtest, correlation, screener, anomaly, reports, watchlist, performance, fixed_income
+try:
+    from finanalytics_ai.interfaces.api.routes import etf as etf_routes
+    _ETF_AVAILABLE = True
+except ImportError:
+    _ETF_AVAILABLE = False
+
+try:
+    from finanalytics_ai.interfaces.api.routes import portfolio_optimizer as optimizer_routes
+    _OPTIMIZER_AVAILABLE = True
+except ImportError:
+    _OPTIMIZER_AVAILABLE = False
 from finanalytics_ai.metrics import PrometheusMiddleware, metrics_endpoint
 from finanalytics_ai.infrastructure.cache.backend import create_cache_backend
 from finanalytics_ai.infrastructure.cache.rate_limiter import create_rate_limiter
@@ -295,7 +306,10 @@ def create_app() -> FastAPI:
             content={"error": exc.code, "message": exc.message, "context": exc.context},
         )
 
-    app.include_router(etf_routes.router, tags=["ETF"])
+    if _ETF_AVAILABLE:
+        app.include_router(etf_routes.router, tags=["ETF"])
+    if _OPTIMIZER_AVAILABLE:
+        app.include_router(optimizer_routes.router, tags=["Portfolio Optimizer"])
     app.include_router(dashboard.router,  tags=["Dashboard"])
     app.include_router(health.router,     tags=["Health"])
     app.include_router(portfolio.router,  prefix="/api/v1/portfolios", tags=["Portfolio"])
@@ -348,6 +362,12 @@ def create_app() -> FastAPI:
 
     @app.get("/fixed-income", response_class=HTMLResponse, include_in_schema=False)
     async def serve_fixed_income() -> HTMLResponse: return _html("fixed_income.html")
+
+    @app.get("/etf",       response_class=HTMLResponse, include_in_schema=False)
+    async def serve_etf()       -> HTMLResponse: return _html("etf.html")
+
+    @app.get("/optimizer", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_optimizer() -> HTMLResponse: return _html("optimizer.html")
 
 
     return app

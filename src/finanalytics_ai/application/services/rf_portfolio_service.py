@@ -29,10 +29,11 @@ from typing import Any, Optional
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from finanalytics_ai.domain.fixed_income.entities import (
-    calculate_yield, DEFAULT_CDI, DEFAULT_SELIC, DEFAULT_IPCA,
-    Indexer,
-)
+from finanalytics_ai.domain.fixed_income.entities import calculate_yield, Indexer
+
+DEFAULT_SELIC: float = 0.1065
+DEFAULT_CDI:   float = 0.1065
+DEFAULT_IPCA:  float = 0.0483
 from finanalytics_ai.domain.fixed_income.portfolio import (
     RFHolding, RFPortfolio, DiversificationReport,
 )
@@ -214,6 +215,55 @@ class RFPortfolioService:
                 "ir_exempt":         h.ir_exempt,
             })
         return result
+
+    # ── Análise FGC ───────────────────────────────────────────────────────────
+
+    async def fgc_analysis(self, portfolio_id: str) -> Optional[dict[str, Any]]:
+        """
+        Analisa cobertura FGC da carteira.
+        Retorna status por holding, por instituição e alertas globais.
+        """
+        from finanalytics_ai.domain.fixed_income.fgc import analyze_fgc
+        p = await self._repo.get_portfolio(portfolio_id)
+        if p is None:
+            return None
+        analysis = analyze_fgc(portfolio_id, p.active_holdings)
+        return {
+            "portfolio_id":       analysis.portfolio_id,
+            "summary":            analysis.summary,
+            "score":              analysis.score,
+            "alerts":             analysis.alerts,
+            "institutions": [
+                {
+                    "issuer":          i.issuer,
+                    "total_invested":  round(i.total_invested, 2),
+                    "fgc_covered":     i.fgc_covered,
+                    "fgc_uncovered":   i.fgc_uncovered,
+                    "within_limit":    i.within_limit,
+                    "excess_amount":   i.excess_amount,
+                    "alert_level":     i.alert_level,
+                    "alert_message":   i.alert_message,
+                    "n_holdings":      len(i.holdings),
+                }
+                for i in analysis.institutions
+            ],
+            "holdings": [
+                {
+                    "holding_id":     s.holding_id,
+                    "bond_name":      s.bond_name,
+                    "bond_type":      s.bond_type,
+                    "issuer":         s.issuer,
+                    "invested":       round(s.invested, 2),
+                    "coverage":       s.coverage,
+                    "coverage_label": s.coverage_label,
+                    "is_within_limit":s.is_within_limit,
+                    "excess_amount":  s.excess_amount,
+                    "alert_level":    s.alert_level,
+                    "alert_message":  s.alert_message,
+                }
+                for s in analysis.holding_statuses
+            ],
+        }
 
     # ── Helpers ────────────────────────────────────────────────────────────────
 

@@ -13,7 +13,8 @@ from __future__ import annotations
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 
 from finanalytics_ai.application.services.fixed_income_service import (
@@ -378,6 +379,27 @@ async def rf_maturities(
     result = await _rf_svc(session).maturities_timeline(
         portfolio_id, selic=selic/100, cdi=cdi/100, ipca=ipca/100,
     )
+    if result is None:
+        raise HTTPException(404, "Carteira não encontrada")
+    return result
+
+
+@router.get("/portfolio/{portfolio_id}/fgc")
+async def rf_fgc_analysis(
+    portfolio_id: str,
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """
+    Análise de cobertura FGC da carteira de renda fixa.
+
+    Retorna:
+    - Status por holding (coberto / garantia soberana / sem cobertura)
+    - Status por instituição (dentro/acima do limite de R$ 250k)
+    - Alertas: excesso por inst., total > R$ 1M, títulos sem FGC
+    - Score de proteção 0–100
+    """
+    from fastapi import HTTPException
+    result = await _rf_svc(session).fgc_analysis(portfolio_id)
     if result is None:
         raise HTTPException(404, "Carteira não encontrada")
     return result

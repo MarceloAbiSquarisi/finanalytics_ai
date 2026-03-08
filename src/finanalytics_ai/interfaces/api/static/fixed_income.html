@@ -1230,11 +1230,12 @@ window.switchTab = function(tab) {
     <!-- Holdings -->
     <div id="pf-holdings"></div>
 
-    <!-- Abas internas: Diversificação / Timeline -->
+    <!-- Abas internas: Diversificação / Timeline / FGC -->
     <div id="pf-sub-tabs" style="display:none;margin-top:16px">
       <div class="tabs" style="margin-bottom:12px">
         <button class="tab active" onclick="showSubTab('diversification')">🥧 Diversificação</button>
         <button class="tab"        onclick="showSubTab('timeline')">📅 Vencimentos</button>
+        <button class="tab"        onclick="showSubTab('fgc')">🛡️ Cobertura FGC</button>
       </div>
 
       <!-- Diversificação -->
@@ -1245,6 +1246,11 @@ window.switchTab = function(tab) {
       <!-- Timeline -->
       <div id="subtab-timeline" class="tab-panel">
         <div id="pf-timeline"></div>
+      </div>
+
+      <!-- FGC -->
+      <div id="subtab-fgc" class="tab-panel">
+        <div id="fgc-report"></div>
       </div>
     </div>
 
@@ -1530,7 +1536,163 @@ function showSubTab(tab) {
   document.querySelectorAll('#pf-sub-tabs .tab').forEach(t => t.classList.remove('active'));
   document.getElementById(`subtab-${tab}`).classList.add('active');
   event.currentTarget.classList.add('active');
+  if (tab === 'fgc' && _currentPortfolioId) loadFGC(_currentPortfolioId);
 }
+
+async function loadFGC(pid) {
+  const el = document.getElementById('fgc-report');
+  el.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:12px"><span class="spinner"></span>Analisando cobertura FGC...</div>';
+  try {
+    const r = await fetch(`/api/v1/fixed-income/portfolio/${pid}/fgc`);
+    const d = await r.json();
+    renderFGC(d);
+  } catch(e) {
+    el.innerHTML = `<div style="color:#ff4757;padding:10px;font-size:12px">Erro: ${e.message}</div>`;
+  }
+}
+
+function renderFGC(d) {
+  const el  = document.getElementById('fgc-report');
+  const s   = d.summary || {};
+  const fmtBRL = v => 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+  // Cores dos níveis
+  const lvlColor = {ok:'#00c48c', info:'#4ecdc4', warning:'#ffb300', critical:'#ff4757'};
+  const lvlIcon  = {ok:'✅', info:'ℹ️', warning:'⚠️', critical:'🚨'};
+
+  // Score gauge
+  const sc    = d.score || 0;
+  const scClr = sc >= 80 ? '#00c48c' : sc >= 50 ? '#ffb300' : '#ff4757';
+  const scLbl = sc >= 80 ? 'Bem protegida' : sc >= 50 ? 'Atenção necessária' : 'Risco elevado';
+
+  // Alertas
+  const alertsHtml = (d.alerts || []).map(a => `
+    <div style="display:flex;gap:10px;padding:10px 12px;background:rgba(${hexRgb(lvlColor[a.level]||'#8899aa')},0.08);
+      border-left:3px solid ${lvlColor[a.level]||'#8899aa'};border-radius:0 6px 6px 0;margin-bottom:6px">
+      <span style="font-size:16px;flex-shrink:0">${lvlIcon[a.level]||'•'}</span>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:${lvlColor[a.level]||'#8899aa'};text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">${a.type.replace(/_/g,' ')}</div>
+        <div style="font-size:12px;color:var(--text);line-height:1.5">${a.message}</div>
+      </div>
+    </div>`).join('') || '<div style="color:#00c48c;font-size:12px;padding:8px">✅ Nenhum alerta — carteira dentro dos limites FGC.</div>';
+
+  // Instituições
+  const instHtml = (d.institutions || []).map(i => {
+    const c  = lvlColor[i.alert_level] || '#8899aa';
+    const pct = i.total_invested > 0 ? Math.min(100, i.fgc_covered / 250000 * 100) : 0;
+    return `
+    <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;${i.alert_level==='critical'?'border-color:#ff4757;background:rgba(255,71,87,.03)':i.alert_level==='warning'?'border-color:#ffb300':''}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div>
+          <span style="font-size:14px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace">${i.issuer}</span>
+          <span style="font-size:10px;color:var(--muted);margin-left:8px">${i.n_holdings} título(s)</span>
+        </div>
+        <span style="font-size:11px;font-weight:700;color:${c}">${lvlIcon[i.alert_level]} ${i.alert_level.toUpperCase()}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+        <div style="font-size:11px"><span style="color:var(--muted)">Investido</span><br><b>${fmtBRL(i.total_invested)}</b></div>
+        <div style="font-size:11px"><span style="color:var(--muted)">Coberto FGC</span><br><b style="color:#00c48c">${fmtBRL(i.fgc_covered)}</b></div>
+        <div style="font-size:11px"><span style="color:var(--muted)">Acima do limite</span><br><b style="color:${i.fgc_uncovered>0?'#ff4757':'#00c48c'}">${fmtBRL(i.fgc_uncovered)}</b></div>
+      </div>
+      <div style="height:8px;background:#0d1e30;border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${pct>=100?'#ff4757':'#00c48c'};border-radius:4px;transition:width .5s"></div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px">
+        ${fmtBRL(i.fgc_covered)} / ${fmtBRL(250000)} do limite por instituição
+        ${i.fgc_uncovered > 0 ? `<span style="color:#ff4757;margin-left:8px">⚠ ${fmtBRL(i.fgc_uncovered)} desprotegidos</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Holdings tabela
+  const covIcon = {fgc:'🛡️', sovereign:'🏛️', none:'⚠️'};
+  const covColor= {fgc:'#00c48c', sovereign:'#4ecdc4', none:'#ff4757'};
+  const holdHtml = (d.holdings || []).map(h => `
+    <tr>
+      <td><b style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:12px">${h.bond_name}</b><br>
+          <span style="font-size:10px;color:var(--muted)">${h.bond_type} · ${h.issuer}</span></td>
+      <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:12px">${fmtBRL(h.invested)}</td>
+      <td><span style="font-size:11px">${h.coverage_label}</span></td>
+      <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:12px;color:${h.excess_amount>0?'#ff4757':'#00c48c'}">
+        ${h.excess_amount > 0 ? fmtBRL(h.excess_amount) : '—'}</td>
+      <td style="font-size:11px;max-width:260px;color:${lvlColor[h.alert_level]||'#8899aa'}">${h.alert_message}</td>
+    </tr>`).join('');
+
+  el.innerHTML = `
+    <!-- Resumo + Score -->
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;margin-bottom:16px">
+      <div style="text-align:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 24px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Score de Proteção</div>
+        <div style="font-size:52px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${scClr};line-height:1">${sc}</div>
+        <div style="font-size:11px;color:${scClr};margin-top:4px">${scLbl}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Total Investido</div>
+          <div style="font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace">${fmtBRL(s.total_invested||0)}</div>
+        </div>
+        <div style="background:var(--card);border:1px solid rgba(0,196,140,.3);border-radius:8px;padding:12px">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">🛡️ Coberto FGC</div>
+          <div style="font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#00c48c">${fmtBRL(s.total_fgc_covered||0)}</div>
+          <div style="font-size:10px;color:var(--muted)">${s.fgc_coverage_pct||0}% da carteira</div>
+        </div>
+        <div style="background:var(--card);border:1px solid rgba(78,205,196,.3);border-radius:8px;padding:12px">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">🏛️ Garantia Soberana</div>
+          <div style="font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#4ecdc4">${fmtBRL(s.total_sovereign||0)}</div>
+        </div>
+        <div style="background:var(--card);border:1px solid ${(s.total_uncovered||0)>0?'rgba(255,71,87,.3)':'var(--border)'};border-radius:8px;padding:12px">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">⚠️ Sem Cobertura</div>
+          <div style="font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${(s.total_uncovered||0)>0?'#ff4757':'#00c48c'}">${fmtBRL(s.total_uncovered||0)}</div>
+          <div style="font-size:10px;color:var(--muted)">${s.uncovered_pct||0}% da carteira</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alertas -->
+    <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px">Alertas</div>
+    ${alertsHtml}
+
+    <!-- Por Instituição -->
+    ${(d.institutions||[]).length > 0 ? `
+    <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin:14px 0 8px">
+      Por Instituição (limite: R$ 250.000 / inst.)
+    </div>
+    ${instHtml}` : ''}
+
+    <!-- Por Título -->
+    <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin:14px 0 8px">Status por Título</div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr>
+            <th style="padding:7px 10px;color:var(--muted);font-size:10px;text-align:left;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.5px">Título</th>
+            <th style="padding:7px 10px;color:var(--muted);font-size:10px;text-align:right;border-bottom:1px solid var(--border);letter-spacing:.5px">Investido</th>
+            <th style="padding:7px 10px;color:var(--muted);font-size:10px;text-align:left;border-bottom:1px solid var(--border);letter-spacing:.5px">Cobertura</th>
+            <th style="padding:7px 10px;color:var(--muted);font-size:10px;text-align:right;border-bottom:1px solid var(--border);letter-spacing:.5px">Excesso</th>
+            <th style="padding:7px 10px;color:var(--muted);font-size:10px;text-align:left;border-bottom:1px solid var(--border);letter-spacing:.5px">Observação</th>
+          </tr>
+        </thead>
+        <tbody>${holdHtml}</tbody>
+      </table>
+    </div>
+
+    <!-- Nota educacional -->
+    <div style="margin-top:14px;background:#070f1a;border:1px solid var(--border);border-radius:8px;padding:12px;font-size:11px;color:var(--muted);line-height:1.7">
+      <b style="color:var(--text)">📚 Sobre o FGC</b><br>
+      O FGC garante até <b style="color:#00c48c">R$ 250.000 por CPF por instituição</b> e
+      <b style="color:#00c48c">R$ 1.000.000 no total</b> a cada 4 anos para: CDB, LCI, LCA, RDB e Poupança.<br>
+      <b style="color:#4ecdc4">Tesouro Direto</b> não usa FGC — tem garantia soberana do Governo Federal, considerada superior.<br>
+      <b style="color:#ffb300">CRI, CRA e Debêntures</b> não possuem cobertura do FGC. O risco é do emissor/estruturador — avalie rating e garantias.<br>
+      Fonte: <a href="https://www.fgc.org.br" target="_blank" style="color:var(--accent)">fgc.org.br</a>
+    </div>`;
+}
+
+function hexRgb(hex) {
+  if (!hex || hex[0]!=='#') return '136,153,170';
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return `${r},${g},${b}`;
+}
+
 
 function hexToRgb(hex) {
   const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
