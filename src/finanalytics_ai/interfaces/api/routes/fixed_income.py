@@ -228,3 +228,156 @@ async def default_scenarios() -> list[dict]:
         }
         for s in STANDARD_SCENARIOS
     ]
+
+
+# ── Sprint 30: Carteira RF ────────────────────────────────────────────────────
+
+from datetime import date as _date
+from finanalytics_ai.application.services.rf_portfolio_service import RFPortfolioService
+from finanalytics_ai.interfaces.api.dependencies import get_db_session
+
+
+class CreatePortfolioRFRequest(BaseModel):
+    user_id: str = Field(..., min_length=1)
+    name:    str = Field(..., min_length=1, max_length=200)
+
+
+class AddHoldingRequest(BaseModel):
+    bond_id:          str            = Field(..., min_length=1)
+    invested:         float          = Field(..., gt=0)
+    purchase_date:    str            = Field(..., description="YYYY-MM-DD")
+    # Campos opcionais — preenchidos do catálogo se bond_id for conhecido
+    bond_name:        Optional[str]  = None
+    bond_type:        Optional[str]  = None
+    indexer:          Optional[str]  = None
+    issuer:           Optional[str]  = None
+    rate_annual:      Optional[float]= Field(None, description="% a.a. ex: 12.5")
+    rate_pct_indexer: bool           = False
+    maturity_date:    Optional[str]  = Field(None, description="YYYY-MM-DD")
+    ir_exempt:        Optional[bool] = None
+    note:             str            = ""
+
+
+def _rf_svc(session) -> RFPortfolioService:
+    return RFPortfolioService(session)
+
+
+@router.post("/portfolio", status_code=201)
+async def create_rf_portfolio(
+    body: CreatePortfolioRFRequest,
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Cria uma nova carteira de Renda Fixa para o usuário."""
+    return await _rf_svc(session).create_portfolio(body.user_id, body.name)
+
+
+@router.get("/portfolio")
+async def list_rf_portfolios(
+    user_id: str = Query(..., min_length=1),
+    session: AsyncSession = Depends(get_db_session),
+) -> list[dict]:
+    """Lista todas as carteiras RF do usuário."""
+    return await _rf_svc(session).list_portfolios(user_id)
+
+
+@router.get("/portfolio/{portfolio_id}")
+async def get_rf_portfolio(
+    portfolio_id: str,
+    selic: float = Query(default=10.65),
+    cdi:   float = Query(default=10.65),
+    ipca:  float = Query(default=4.83),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """
+    Retorna carteira RF completa com posição atual de cada holding
+    (rendimento acumulado calculado com as taxas fornecidas).
+    """
+    from fastapi import HTTPException
+    result = await _rf_svc(session).get_portfolio(
+        portfolio_id,
+        selic=selic/100, cdi=cdi/100, ipca=ipca/100,
+    )
+    if result is None:
+        raise HTTPException(404, "Carteira não encontrada")
+    return result
+
+
+@router.delete("/portfolio/{portfolio_id}", status_code=204)
+async def delete_rf_portfolio(
+    portfolio_id: str,
+    session: AsyncSession = Depends(get_db_session),
+) -> None:
+    await _rf_svc(session).delete_portfolio(portfolio_id)
+
+
+@router.post("/portfolio/{portfolio_id}/holdings", status_code=201)
+async def add_rf_holding(
+    portfolio_id: str,
+    body: AddHoldingRequest,
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Adiciona uma posição à carteira RF."""
+    from fastapi import HTTPException
+    try:
+        purchase = _date.fromisoformat(body.purchase_date)
+        maturity = _date.fromisoformat(body.maturity_date) if body.maturity_date else None
+    except ValueError as e:
+        raise HTTPException(422, f"Data inválida: {e}")
+    try:
+        return await _rf_svc(session).add_holding(
+            portfolio_id     = portfolio_id,
+            bond_id          = body.bond_id,
+            invested         = body.invested,
+            purchase_date    = purchase,
+            bond_name        = body.bond_name,
+            bond_type        = body.bond_type,
+            indexer          = body.indexer,
+            issuer           = body.issuer,
+            rate_annual      = body.rate_annual / 100 if body.rate_annual else None,
+            rate_pct_indexer = body.rate_pct_indexer,
+            maturity_date    = maturity,
+            ir_exempt        = body.ir_exempt,
+            note             = body.note,
+        )
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+
+@router.delete("/portfolio/{portfolio_id}/holdings/{holding_id}", status_code=204)
+async def delete_rf_holding(
+    portfolio_id: str,
+    holding_id:   str,
+    session: AsyncSession = Depends(get_db_session),
+) -> None:
+    await _rf_svc(session).delete_holding(holding_id, portfolio_id)
+
+
+@router.get("/portfolio/{portfolio_id}/diversification")
+async def rf_diversification(
+    portfolio_id: str,
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Relatório de diversificação com score, alertas e recomendações."""
+    from fastapi import HTTPException
+    result = await _rf_svc(session).diversification_report(portfolio_id)
+    if result is None:
+        raise HTTPException(404, "Carteira não encontrada")
+    return result
+
+
+@router.get("/portfolio/{portfolio_id}/maturities")
+async def rf_maturities(
+    portfolio_id: str,
+    selic: float = Query(default=10.65),
+    cdi:   float = Query(default=10.65),
+    ipca:  float = Query(default=4.83),
+    session: AsyncSession = Depends(get_db_session),
+) -> list[dict]:
+    """Timeline de vencimentos com valor projetado na data de vencimento."""
+    from fastapi import HTTPException
+    result = await _rf_svc(session).maturities_timeline(
+        portfolio_id, selic=selic/100, cdi=cdi/100, ipca=ipca/100,
+    )
+    if result is None:
+        raise HTTPException(404, "Carteira não encontrada")
+    return result

@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse
 from finanalytics_ai.config import EventQueueBackend, get_settings
 from finanalytics_ai.exceptions import FinAnalyticsError
 from finanalytics_ai.infrastructure.database.connection import close_engine, get_engine
-from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer, backtest, correlation, screener, anomaly, reports, watchlist, performance, fixed_income, auth as auth_routes
+from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer, backtest, correlation, screener, anomaly, reports, watchlist, performance, fixed_income
 from finanalytics_ai.metrics import PrometheusMiddleware, metrics_endpoint
 from finanalytics_ai.infrastructure.cache.backend import create_cache_backend
 from finanalytics_ai.infrastructure.cache.rate_limiter import create_rate_limiter
@@ -173,9 +173,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
     from finanalytics_ai.infrastructure.database.connection import Base
     from finanalytics_ai.infrastructure.database.repositories.user_repo import UserModel  # noqa: F401
+    from finanalytics_ai.infrastructure.database.repositories.rf_repo import (  # noqa: F401
+        RFPortfolioModel, RFHoldingModel, Base as RFBase,
+    )
     try:
         async with get_engine().begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            await conn.run_sync(RFBase.metadata.create_all)
         logger.info("watchlist_tables.ok")
     except Exception as exc:
         logger.error("watchlist_tables.FAILED", error=str(exc))
@@ -291,7 +295,6 @@ def create_app() -> FastAPI:
             content={"error": exc.code, "message": exc.message, "context": exc.context},
         )
 
-    app.include_router(auth_routes.router, tags=["Autenticação"])
     app.include_router(dashboard.router,  tags=["Dashboard"])
     app.include_router(health.router,     tags=["Health"])
     app.include_router(portfolio.router,  prefix="/api/v1/portfolios", tags=["Portfolio"])
@@ -345,7 +348,5 @@ def create_app() -> FastAPI:
     @app.get("/fixed-income", response_class=HTMLResponse, include_in_schema=False)
     async def serve_fixed_income() -> HTMLResponse: return _html("fixed_income.html")
 
-    @app.get("/login", response_class=HTMLResponse, include_in_schema=False)
-    async def serve_login() -> HTMLResponse: return _html("login.html")
 
     return app

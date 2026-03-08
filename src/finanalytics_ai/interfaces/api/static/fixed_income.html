@@ -174,6 +174,51 @@ canvas{max-height:280px}
 .tip-item.neutral{background:rgba(136,153,170,.08);border:1px solid rgba(136,153,170,.2);color:#8899aa}
 .stress-controls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}
 
+
+/* RF PORTFOLIO */
+.pf-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.pf-select-wrap{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pf-select{background:#0b1520;border:1px solid var(--border);border-radius:6px;color:var(--text);
+  font-family:'Rajdhani',sans-serif;font-size:12px;padding:6px 10px;min-width:200px;outline:none}
+.holding-row{background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:12px;
+  margin-bottom:8px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start}
+.holding-main{display:flex;flex-direction:column;gap:4px}
+.holding-name{font-size:13px;font-weight:700;color:var(--text)}
+.holding-tags{display:flex;gap:6px;flex-wrap:wrap}
+.holding-tag{border-radius:3px;padding:1px 7px;font-size:10px;font-weight:600;letter-spacing:.3px}
+.holding-numbers{display:flex;gap:16px;margin-top:4px;flex-wrap:wrap}
+.holding-num{font-size:11px;color:var(--muted)}
+.holding-num span{color:var(--text);font-family:'JetBrains Mono',monospace;font-weight:600}
+.holding-return-pos{color:#00c48c;font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700}
+.holding-return-neg{color:#ff4757;font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700}
+.divScore{font-size:36px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1}
+.divScore-label{font-size:12px;color:var(--muted);margin-top:4px}
+.score-bar-wrap{flex:1;height:10px;background:#0d1e30;border-radius:5px;overflow:hidden}
+.score-bar-fill{height:100%;border-radius:5px;transition:width .5s ease}
+.div-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:12px 0}
+.div-cell{background:#060d14;border-radius:6px;padding:10px}
+.div-cell-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.div-bar-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.div-bar-label{font-size:10px;color:var(--muted);width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.div-bar-track{flex:1;height:12px;background:#0d1e30;border-radius:3px;overflow:hidden}
+.div-bar-fill{height:100%;border-radius:3px}
+.div-bar-pct{font-size:10px;font-family:'JetBrains Mono',monospace;color:#8899aa;width:36px;text-align:right}
+.rec-item{background:#0b1520;border-left:3px solid var(--accent);border-radius:4px;
+  padding:8px 12px;margin-bottom:6px;font-size:11px;color:var(--text)}
+.alert-item{padding:7px 10px;border-radius:5px;font-size:11px;margin-bottom:5px}
+.alert-item.warning{background:rgba(255,179,0,.08);border:1px solid rgba(255,179,0,.2);color:#ffb300}
+.alert-item.critical{background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.2);color:#ff4757}
+.pf-totals{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.pf-total-card{background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:12px}
+.pf-total-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.pf-total-value{font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text)}
+.timeline-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(30,58,95,.3)}
+.timeline-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.timeline-meta{flex:1}
+.timeline-name{font-size:12px;font-weight:600;color:var(--text)}
+.timeline-dates{font-size:10px;color:var(--muted);margin-top:2px}
+.timeline-value{font-size:13px;font-family:'JetBrains Mono',monospace;font-weight:700;color:#00c48c;text-align:right}
+
 </style>
 </head>
 <body>
@@ -233,6 +278,7 @@ canvas{max-height:280px}
     <button class="tab"        onclick="switchTab('compare')">⚖ Comparador</button>
     <button class="tab"        onclick="switchTab('cashflow')">📅 Fluxo de Caixa</button>
     <button class="tab"        onclick="switchTab('scenarios')">📊 Cenários & Stress</button>
+    <button class="tab"        onclick="switchTab('portfolio')">💼 Carteira RF</button>
   </div>
 
   <!-- ═══ TAB: BROWSER ═══════════════════════════════════════════════════════ -->
@@ -1102,6 +1148,399 @@ window.switchTab = function(tab) {
     loadStressBonds();
     loadYieldCurve();
   }
+};
+</script>
+
+
+  <!-- ═══ TAB: CARTEIRA RF ═══════════════════════════════════════════════════ -->
+  <div id="tab-portfolio" class="tab-panel">
+
+    <!-- Header: seletor de carteira + botão nova carteira -->
+    <div class="pf-header">
+      <div class="pf-select-wrap">
+        <select class="pf-select" id="pf-select" onchange="loadPortfolio()">
+          <option value="">— Selecione uma carteira —</option>
+        </select>
+        <button class="btn-secondary" onclick="showNewPortfolioForm()">+ Nova Carteira</button>
+        <button class="btn-secondary" onclick="deletePortfolio()" id="btn-del-pf" style="display:none;border-color:#ff4757;color:#ff4757">🗑 Excluir</button>
+      </div>
+      <button class="btn-primary" onclick="showAddHoldingForm()" id="btn-add-holding" style="display:none">+ Adicionar Título</button>
+    </div>
+
+    <!-- Form: nova carteira (hidden by default) -->
+    <div id="new-pf-form" style="display:none;background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px">Nova Carteira RF</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end">
+        <div class="form-group">
+          <label class="form-label">User ID</label>
+          <input class="form-input" id="new-pf-user" placeholder="ex: user_123" value="demo_user">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nome da carteira</label>
+          <input class="form-input" id="new-pf-name" placeholder="ex: Reserva de Emergência">
+        </div>
+        <button class="btn-primary" onclick="createPortfolio()">Criar</button>
+      </div>
+    </div>
+
+    <!-- Form: adicionar holding (hidden by default) -->
+    <div id="add-holding-form" style="display:none;background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px">Adicionar Título à Carteira</div>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-bottom:8px">
+        <div class="form-group">
+          <label class="form-label">Título</label>
+          <select class="form-input" id="hold-bond-id"><option value="">Carregando...</option></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Valor Investido (R$)</label>
+          <input class="form-input" id="hold-invested" type="number" value="5000" min="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data de Compra</label>
+          <input class="form-input" id="hold-date" type="date">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-primary" onclick="addHolding()">Adicionar</button>
+        <button class="btn-secondary" onclick="document.getElementById('add-holding-form').style.display='none'">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- Totais da carteira -->
+    <div class="pf-totals" id="pf-totals" style="display:none">
+      <div class="pf-total-card">
+        <div class="pf-total-label">Total Investido</div>
+        <div class="pf-total-value" id="pf-total-invested">—</div>
+      </div>
+      <div class="pf-total-card">
+        <div class="pf-total-label">Valor Atual</div>
+        <div class="pf-total-value" id="pf-total-current">—</div>
+      </div>
+      <div class="pf-total-card">
+        <div class="pf-total-label">Rendimento</div>
+        <div class="pf-total-value" id="pf-total-gain">—</div>
+      </div>
+      <div class="pf-total-card">
+        <div class="pf-total-label">Taxa Média / Isentos IR</div>
+        <div class="pf-total-value" id="pf-avg-rate">—</div>
+      </div>
+    </div>
+
+    <!-- Holdings -->
+    <div id="pf-holdings"></div>
+
+    <!-- Abas internas: Diversificação / Timeline -->
+    <div id="pf-sub-tabs" style="display:none;margin-top:16px">
+      <div class="tabs" style="margin-bottom:12px">
+        <button class="tab active" onclick="showSubTab('diversification')">🥧 Diversificação</button>
+        <button class="tab"        onclick="showSubTab('timeline')">📅 Vencimentos</button>
+      </div>
+
+      <!-- Diversificação -->
+      <div id="subtab-diversification" class="tab-panel active">
+        <div id="div-report"></div>
+      </div>
+
+      <!-- Timeline -->
+      <div id="subtab-timeline" class="tab-panel">
+        <div id="pf-timeline"></div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+// ── Carteira RF ───────────────────────────────────────────────────────────────
+
+let _currentPortfolioId = null;
+let _pfBonds = [];
+
+async function initPortfolioTab() {
+  await loadBondsForHolding();
+  const saved = localStorage.getItem('rf_user_id') || 'demo_user';
+  document.getElementById('new-pf-user').value = saved;
+  await loadUserPortfolios(saved);
+  // Set today's date as default
+  document.getElementById('hold-date').value = new Date().toISOString().split('T')[0];
+}
+
+async function loadBondsForHolding() {
+  try {
+    const r = await fetch('/api/v1/fixed-income/bonds');
+    _pfBonds = await r.json();
+    const sel = document.getElementById('hold-bond-id');
+    sel.innerHTML = _pfBonds.map(b =>
+      `<option value="${b.bond_id}">${b.name} (${b.indexer})</option>`
+    ).join('');
+  } catch(e) {}
+}
+
+async function loadUserPortfolios(userId) {
+  try {
+    const r = await fetch(`/api/v1/fixed-income/portfolio?user_id=${userId}`);
+    const portfolios = await r.json();
+    const sel = document.getElementById('pf-select');
+    sel.innerHTML = '<option value="">— Selecione uma carteira —</option>' +
+      portfolios.map(p => `<option value="${p.portfolio_id}">${p.name} (${p.n_holdings} títulos)</option>`).join('');
+  } catch(e) {}
+}
+
+function showNewPortfolioForm() {
+  const f = document.getElementById('new-pf-form');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+
+async function createPortfolio() {
+  const userId = document.getElementById('new-pf-user').value.trim();
+  const name   = document.getElementById('new-pf-name').value.trim();
+  if (!userId || !name) return;
+  localStorage.setItem('rf_user_id', userId);
+  try {
+    const r = await fetch('/api/v1/fixed-income/portfolio', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({user_id: userId, name}),
+    });
+    const p = await r.json();
+    await loadUserPortfolios(userId);
+    document.getElementById('pf-select').value = p.portfolio_id;
+    document.getElementById('new-pf-form').style.display = 'none';
+    await loadPortfolio();
+  } catch(e) { alert('Erro ao criar carteira: ' + e.message); }
+}
+
+async function loadPortfolio() {
+  const sel = document.getElementById('pf-select');
+  const pid = sel.value;
+  _currentPortfolioId = pid || null;
+  const hasPortfolio = !!pid;
+  document.getElementById('btn-add-holding').style.display  = hasPortfolio ? 'inline-block' : 'none';
+  document.getElementById('btn-del-pf').style.display       = hasPortfolio ? 'inline-block' : 'none';
+  document.getElementById('pf-totals').style.display        = hasPortfolio ? 'grid' : 'none';
+  document.getElementById('pf-sub-tabs').style.display      = hasPortfolio ? 'block' : 'none';
+  if (!pid) { document.getElementById('pf-holdings').innerHTML = ''; return; }
+
+  const selic = parseFloat(document.getElementById('rate-selic')?.value || 10.65);
+  const cdi   = parseFloat(document.getElementById('rate-cdi')?.value   || 10.65);
+  const ipca  = parseFloat(document.getElementById('rate-ipca')?.value  || 4.83);
+
+  try {
+    const [pfR, divR, matR] = await Promise.all([
+      fetch(`/api/v1/fixed-income/portfolio/${pid}?selic=${selic}&cdi=${cdi}&ipca=${ipca}`).then(r=>r.json()),
+      fetch(`/api/v1/fixed-income/portfolio/${pid}/diversification`).then(r=>r.json()),
+      fetch(`/api/v1/fixed-income/portfolio/${pid}/maturities?selic=${selic}&cdi=${cdi}&ipca=${ipca}`).then(r=>r.json()),
+    ]);
+    renderPortfolioTotals(pfR);
+    renderHoldings(pfR.holdings || [], pid);
+    renderDiversification(divR);
+    renderTimeline(matR);
+  } catch(e) {
+    document.getElementById('pf-holdings').innerHTML =
+      `<div style="color:#ff4757;font-size:12px;padding:10px">Erro: ${e.message}</div>`;
+  }
+}
+
+function renderPortfolioTotals(pf) {
+  const fmtBRL = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('pf-total-invested').textContent = fmtBRL(pf.total_invested || 0);
+  document.getElementById('pf-total-current').textContent  = fmtBRL(pf.total_current  || 0);
+  const gain = pf.total_gain || 0;
+  const gainEl = document.getElementById('pf-total-gain');
+  gainEl.textContent = (gain >= 0 ? '+' : '') + fmtBRL(gain) + ` (${(pf.total_return_pct||0).toFixed(2)}%)`;
+  gainEl.style.color = gain >= 0 ? '#00c48c' : '#ff4757';
+  document.getElementById('pf-avg-rate').textContent =
+    `${(pf.avg_rate_pct||0).toFixed(2)}% / ${(pf.ir_exempt_pct||0).toFixed(1)}% isentos`;
+}
+
+function renderHoldings(holdings, portfolioId) {
+  if (!holdings.length) {
+    document.getElementById('pf-holdings').innerHTML =
+      '<div style="color:#8899aa;font-size:12px;padding:16px;text-align:center">Nenhum título na carteira. Clique em "+ Adicionar Título".</div>';
+    return;
+  }
+  const COLORS = {CDI:'#4ecdc4',SELIC:'#ffb300',IPCA:'#e056fd',PREFIXADO:'#ff6b35'};
+  const fmtBRL = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('pf-holdings').innerHTML = holdings.map(h => {
+    const color = COLORS[h.indexer] || '#8899aa';
+    const ret   = h.net_return_pct || 0;
+    const retCls = ret >= 0 ? 'holding-return-pos' : 'holding-return-neg';
+    const exemptBadge = h.ir_exempt
+      ? '<span class="holding-tag" style="background:rgba(0,196,140,.15);color:#00c48c">ISENTO IR</span>' : '';
+    return `
+      <div class="holding-row">
+        <div class="holding-main">
+          <div class="holding-name">${h.bond_name}</div>
+          <div class="holding-tags">
+            <span class="holding-tag" style="background:rgba(${hexToRgb(color)},0.15);color:${color}">${h.indexer}</span>
+            <span class="holding-tag" style="background:#0d1e30;color:#8899aa">${h.bond_type}</span>
+            ${exemptBadge}
+            ${h.is_matured ? '<span class="holding-tag" style="background:rgba(255,71,87,.15);color:#ff4757">VENCIDO</span>' : ''}
+          </div>
+          <div class="holding-numbers">
+            <div class="holding-num">Investido: <span>${fmtBRL(h.invested)}</span></div>
+            <div class="holding-num">Atual: <span style="color:#00c48c">${fmtBRL(h.current_net_value||h.invested)}</span></div>
+            <div class="holding-num">Taxa: <span>${h.rate_annual?.toFixed(2)}%${h.rate_pct_indexer ? ' do ' + h.indexer : ' a.a.'}</span></div>
+            <div class="holding-num">Dias: <span>${h.days_held}</span></div>
+            ${h.maturity_date ? `<div class="holding-num">Vence: <span>${h.maturity_date}</span></div>` : '<div class="holding-num">Liquidez: <span>Diária</span></div>'}
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div class="${retCls}">${ret >= 0 ? '+' : ''}${ret.toFixed(2)}%</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">${h.net_annual_return_pct?.toFixed(2) || '—'}% a.a.</div>
+          <button onclick="deleteHolding('${h.holding_id}','${portfolioId}')"
+            style="margin-top:8px;background:none;border:1px solid #ff475733;color:#ff4757;border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer">
+            remover
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderDiversification(rep) {
+  if (!rep) return;
+  const scoreColor = rep.score >= 80 ? '#00c48c' : rep.score >= 60 ? '#ffb300' : '#ff4757';
+  const COLORS_IDX = {CDI:'#4ecdc4',SELIC:'#ffb300',IPCA:'#e056fd',PREFIXADO:'#ff6b35',IGPM:'#a29bfe'};
+  const barRows = (obj, colorFn) => Object.entries(obj).map(([k,v]) =>
+    `<div class="div-bar-row">
+      <div class="div-bar-label" title="${k}">${k}</div>
+      <div class="div-bar-track"><div class="div-bar-fill" style="width:${v}%;background:${colorFn(k)}"></div></div>
+      <div class="div-bar-pct">${v.toFixed(1)}%</div>
+    </div>`).join('');
+
+  const alertsHtml = rep.alerts.map(a =>
+    `<div class="alert-item ${a.severity}">⚠️ ${a.message}</div>`).join('');
+  const recsHtml = rep.recommendations.map(r =>
+    `<div class="rec-item">💡 ${r}</div>`).join('');
+
+  document.getElementById('div-report').innerHTML = `
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:14px">
+      <div style="text-align:center;min-width:70px">
+        <div class="divScore" style="color:${scoreColor}">${rep.score}</div>
+        <div class="divScore-label">${rep.score_label}</div>
+      </div>
+      <div style="flex:1">
+        <div class="score-bar-wrap" style="margin-bottom:8px">
+          <div class="score-bar-fill" style="width:${rep.score}%;background:${scoreColor}"></div>
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted)">
+          <span>Indexadores: <b style="color:var(--text)">${rep.n_indexers}</b></span>
+          <span>Emissores: <b style="color:var(--text)">${rep.n_issuers}</b></span>
+          <span>Tipos: <b style="color:var(--text)">${rep.n_types}</b></span>
+          <span>Isentos IR: <b style="color:#00c48c">${rep.ir_exempt_pct.toFixed(1)}%</b></span>
+          <span>Taxa média: <b style="color:var(--text)">${rep.avg_rate_pct.toFixed(2)}% a.a.</b></span>
+          ${rep.avg_duration_days ? `<span>Duration: <b style="color:var(--text)">${Math.round(rep.avg_duration_days)} dias</b></span>` : ''}
+        </div>
+      </div>
+    </div>
+    ${alertsHtml ? `<div style="margin-bottom:10px">${alertsHtml}</div>` : ''}
+    <div class="div-grid">
+      <div class="div-cell">
+        <div class="div-cell-title">Por Indexador</div>
+        ${barRows(rep.by_indexer, k => COLORS_IDX[k] || '#8899aa')}
+      </div>
+      <div class="div-cell">
+        <div class="div-cell-title">Por Tipo</div>
+        ${barRows(rep.by_type, () => '#4a90e2')}
+      </div>
+      <div class="div-cell">
+        <div class="div-cell-title">Por Emissor</div>
+        ${barRows(rep.by_issuer, () => '#f7971e')}
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <div class="section-title">Recomendações</div>
+      ${recsHtml}
+    </div>
+  `;
+}
+
+function renderTimeline(items) {
+  if (!items || !items.length) {
+    document.getElementById('pf-timeline').innerHTML =
+      '<div style="color:#8899aa;font-size:12px;padding:10px">Nenhum vencimento mapeado.</div>';
+    return;
+  }
+  const fmtBRL = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2});
+  const COLORS_IDX = {CDI:'#4ecdc4',SELIC:'#ffb300',IPCA:'#e056fd',PREFIXADO:'#ff6b35'};
+  const today = new Date();
+  document.getElementById('pf-timeline').innerHTML = items.map(h => {
+    const color = COLORS_IDX[h.indexer] || '#8899aa';
+    const label = h.is_liquid ? 'Liquidez diária'
+      : h.days_to_maturity === 0 ? 'Vencido'
+      : `${h.days_to_maturity} dias restantes`;
+    return `
+      <div class="timeline-item">
+        <div class="timeline-dot" style="background:${color}"></div>
+        <div class="timeline-meta">
+          <div class="timeline-name">${h.bond_name}</div>
+          <div class="timeline-dates">
+            ${h.purchase_date} → ${h.maturity_date || '∞'}
+            <span style="color:${color};margin-left:8px">${label}</span>
+            ${h.ir_exempt ? '<span style="color:#00c48c;margin-left:8px">isento IR</span>' : ''}
+          </div>
+        </div>
+        <div>
+          <div class="timeline-value">${fmtBRL(h.current_net_value)}</div>
+          <div style="font-size:10px;color:#8899aa;text-align:right">+${h.net_return_pct.toFixed(2)}%</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function showAddHoldingForm() {
+  document.getElementById('add-holding-form').style.display = 'block';
+}
+
+async function addHolding() {
+  if (!_currentPortfolioId) return;
+  const bondId   = document.getElementById('hold-bond-id').value;
+  const invested = parseFloat(document.getElementById('hold-invested').value);
+  const date     = document.getElementById('hold-date').value;
+  if (!bondId || !invested || !date) { alert('Preencha todos os campos.'); return; }
+  try {
+    await fetch(`/api/v1/fixed-income/portfolio/${_currentPortfolioId}/holdings`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({bond_id: bondId, invested, purchase_date: date}),
+    });
+    document.getElementById('add-holding-form').style.display = 'none';
+    await loadPortfolio();
+  } catch(e) { alert('Erro: ' + e.message); }
+}
+
+async function deleteHolding(holdingId, portfolioId) {
+  if (!confirm('Remover este título?')) return;
+  await fetch(`/api/v1/fixed-income/portfolio/${portfolioId}/holdings/${holdingId}`, {method:'DELETE'});
+  await loadPortfolio();
+}
+
+async function deletePortfolio() {
+  if (!_currentPortfolioId || !confirm('Excluir esta carteira e todos os títulos?')) return;
+  await fetch(`/api/v1/fixed-income/portfolio/${_currentPortfolioId}`, {method:'DELETE'});
+  _currentPortfolioId = null;
+  document.getElementById('pf-select').value = '';
+  const userId = document.getElementById('new-pf-user').value;
+  await loadUserPortfolios(userId);
+  await loadPortfolio();
+}
+
+function showSubTab(tab) {
+  document.querySelectorAll('#pf-sub-tabs .tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#pf-sub-tabs .tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`subtab-${tab}`).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return `${r},${g},${b}`;
+}
+
+// Hook no switchTab para inicializar a aba de carteira
+const _origSwitchForPf = window.switchTab;
+window.switchTab = function(tab) {
+  if (typeof _origSwitchForPf === 'function') _origSwitchForPf(tab);
+  if (tab === 'portfolio') initPortfolioTab();
 };
 </script>
 
