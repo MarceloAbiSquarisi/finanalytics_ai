@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse
 from finanalytics_ai.config import EventQueueBackend, get_settings
 from finanalytics_ai.exceptions import FinAnalyticsError
 from finanalytics_ai.infrastructure.database.connection import close_engine, get_engine
-from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer, backtest, correlation, screener, anomaly, reports, watchlist, performance, fixed_income
+from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer, backtest, correlation, screener, anomaly, reports, watchlist, performance, fixed_income, etf as etf_routes
 from finanalytics_ai.metrics import PrometheusMiddleware, metrics_endpoint
 from finanalytics_ai.infrastructure.cache.backend import create_cache_backend
 from finanalytics_ai.infrastructure.cache.rate_limiter import create_rate_limiter
@@ -295,6 +295,7 @@ def create_app() -> FastAPI:
             content={"error": exc.code, "message": exc.message, "context": exc.context},
         )
 
+    app.include_router(etf_routes.router, tags=["ETF"])
     app.include_router(dashboard.router,  tags=["Dashboard"])
     app.include_router(health.router,     tags=["Health"])
     app.include_router(portfolio.router,  prefix="/api/v1/portfolios", tags=["Portfolio"])

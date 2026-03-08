@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Análise de ETFs — FinAnalytics AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#060d14;--card:#0b1520;--border:#1e3a5f;--accent:#00c48c;--text:#e8f4fd;--muted:#8899aa}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh}
+.topbar{background:#070f1a;border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between}
+.topbar-title{font-size:16px;font-weight:700;color:var(--accent);letter-spacing:1px}
+.nav-links{display:flex;gap:12px}
+.nav-links a{font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:.5px;font-weight:600;padding:4px 8px;border-radius:4px;transition:.15s}
+.nav-links a:hover{color:var(--accent);background:rgba(0,196,140,.08)}
+.container{max-width:1200px;margin:0 auto;padding:20px}
+.page-title{font-size:22px;font-weight:700;color:var(--text);margin-bottom:4px}
+.page-sub{font-size:12px;color:var(--muted);margin-bottom:18px}
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:0}
+.tab{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;padding:8px 16px;cursor:pointer;letter-spacing:.5px;transition:all .15s;margin-bottom:-1px}
+.tab.active,.tab:hover{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-panel{display:none}.tab-panel.active{display:block}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-label{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
+.form-input{background:#0d1e30;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:13px;padding:8px 12px;outline:none;transition:.15s}
+.form-input:focus{border-color:var(--accent)}
+.btn-primary{background:var(--accent);color:#000;border:none;border-radius:6px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;padding:9px 20px;cursor:pointer;letter-spacing:.5px;transition:.15s}
+.btn-primary:hover{opacity:.9}
+.btn-secondary{background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:6px;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:12px;padding:7px 14px;cursor:pointer;transition:.15s}
+.btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
+.section-title{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin:14px 0 8px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat-card{background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:12px}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.stat-value{font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text)}
+.stat-sub{font-size:10px;color:var(--muted);margin-top:2px}
+.badge{border-radius:3px;padding:1px 7px;font-size:10px;font-weight:700;letter-spacing:.3px}
+.badge-green{background:rgba(0,196,140,.15);color:#00c48c}
+.badge-yellow{background:rgba(255,179,0,.15);color:#ffb300}
+.badge-red{background:rgba(255,71,87,.15);color:#ff4757}
+.badge-purple{background:rgba(224,86,253,.15);color:#e056fd}
+.badge-blue{background:rgba(78,205,196,.15);color:#4ecdc4}
+.badge-gray{background:rgba(136,153,170,.15);color:#8899aa}
+/* Chart containers */
+.chart-wrap{background:#060d14;border-radius:8px;padding:12px;position:relative}
+.chart-svg{width:100%;overflow:visible}
+/* ETF table */
+.etf-table{width:100%;border-collapse:collapse;font-size:12px}
+.etf-table th{padding:8px 10px;color:var(--muted);font-size:10px;font-weight:700;text-align:left;border-bottom:1px solid var(--border);letter-spacing:.5px;text-transform:uppercase}
+.etf-table td{padding:9px 10px;border-bottom:1px solid rgba(30,58,95,.3)}
+.etf-table tr:hover td{background:rgba(255,255,255,.02)}
+.etf-table .num{text-align:right;font-family:'JetBrains Mono',monospace}
+/* Heatmap */
+.heatmap-cell{display:flex;align-items:center;justify-content:center;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;transition:.2s}
+/* Rebalance */
+.rb-row{display:grid;grid-template-columns:140px 1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid rgba(30,58,95,.2)}
+.rb-bar-wrap{position:relative;height:24px;background:#0d1e30;border-radius:4px;overflow:hidden}
+.rb-bar-current{position:absolute;top:0;height:100%;border-radius:4px;opacity:.5}
+.rb-bar-target{position:absolute;top:0;height:100%;border-radius:4px;opacity:.15}
+.rb-marker{position:absolute;top:0;width:2px;height:100%;background:#00c48c}
+/* Catalog */
+.catalog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px}
+.catalog-card{background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:12px;cursor:pointer;transition:.15s}
+.catalog-card:hover{border-color:var(--accent)}
+.catalog-ticker{font-size:18px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace}
+.catalog-name{font-size:11px;color:var(--muted);margin-top:2px}
+.catalog-bench{font-size:10px;color:#445566;margin-top:6px}
+/* Spinner */
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid #1e3a5f;border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-title">FINANALYTICS AI</div>
+  <div class="nav-links">
+    <a href="/">Dashboard</a>
+    <a href="/backtest">Backtest</a>
+    <a href="/correlation">Correlação</a>
+    <a href="/screener">Screener</a>
+    <a href="/performance">Performance</a>
+    <a href="/fixed-income">Renda Fixa</a>
+    <a href="/watchlist">Watchlist</a>
+    <a href="/hub">Hub</a>
+  </div>
+</div>
+
+<div class="container">
+  <div class="page-title">📊 Análise de ETFs</div>
+  <div class="page-sub">Comparativo · Tracking Error · Correlação · Rebalanceamento</div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('compare')">📈 Comparativo</button>
+    <button class="tab"        onclick="switchTab('tracking')">🎯 Tracking Error</button>
+    <button class="tab"        onclick="switchTab('correlation')">🔥 Correlação</button>
+    <button class="tab"        onclick="switchTab('rebalance')">⚖️ Rebalanceamento</button>
+    <button class="tab"        onclick="switchTab('catalog')">📚 Catálogo</button>
+  </div>
+
+  <!-- ═══ COMPARATIVO ══════════════════════════════════════════════════════ -->
+  <div id="tab-compare" class="tab-panel active">
+    <div class="card" style="margin-bottom:12px">
+      <div class="grid-3" style="align-items:end;gap:10px">
+        <div class="form-group" style="grid-column:span 2">
+          <label class="form-label">ETFs para comparar (separados por vírgula)</label>
+          <input class="form-input" id="cmp-tickers" value="BOVA11,IVVB11,SMAL11,HASH11,NTNB11"
+            placeholder="ex: BOVA11, IVVB11, SMAL11">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end">
+          <div class="form-group">
+            <label class="form-label">Período</label>
+            <select class="form-input" id="cmp-period">
+              <option value="3mo">3 meses</option>
+              <option value="6mo">6 meses</option>
+              <option value="1y" selected>1 ano</option>
+              <option value="2y">2 anos</option>
+              <option value="5y">5 anos</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">CDI % a.a.</label>
+            <input class="form-input" id="cmp-cdi" type="number" value="10.65" step="0.01">
+          </div>
+        </div>
+      </div>
+      <button class="btn-primary" style="margin-top:12px" onclick="runCompare()">▶ Comparar ETFs</button>
+    </div>
+
+    <div id="cmp-summary" style="display:none;margin-bottom:12px">
+      <div class="grid-3" id="cmp-winners"></div>
+    </div>
+
+    <div id="cmp-chart-wrap" style="display:none">
+      <div class="section-title">Performance Normalizada (Base 100)</div>
+      <div class="chart-wrap" style="height:260px">
+        <svg id="cmp-chart" class="chart-svg" viewBox="0 0 900 240" style="height:240px"></svg>
+      </div>
+      <div id="cmp-legend" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px"></div>
+    </div>
+
+    <div id="cmp-table-wrap" style="display:none;margin-top:14px">
+      <div class="section-title">Métricas Detalhadas</div>
+      <div style="overflow-x:auto">
+        <table class="etf-table" id="cmp-table">
+          <thead>
+            <tr>
+              <th>ETF</th><th>Categoria</th><th>TER</th>
+              <th class="num">Retorno Total</th>
+              <th class="num">Retorno a.a.</th>
+              <th class="num">Volatilidade</th>
+              <th class="num">Sharpe</th>
+              <th class="num">Max DD</th>
+              <th class="num">VaR 95%</th>
+            </tr>
+          </thead>
+          <tbody id="cmp-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="cmp-loading" style="display:none;padding:20px;color:var(--muted);font-size:12px">
+      <span class="spinner"></span>Buscando dados e calculando métricas...
+    </div>
+  </div>
+
+  <!-- ═══ TRACKING ERROR ══════════════════════════════════════════════════ -->
+  <div id="tab-tracking" class="tab-panel">
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:2fr 1fr auto;gap:10px;align-items:end">
+        <div class="form-group">
+          <label class="form-label">ETF</label>
+          <select class="form-input" id="te-ticker"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Período</label>
+          <select class="form-input" id="te-period">
+            <option value="3mo">3 meses</option>
+            <option value="6mo">6 meses</option>
+            <option value="1y" selected>1 ano</option>
+            <option value="2y">2 anos</option>
+          </select>
+        </div>
+        <button class="btn-primary" onclick="runTrackingError()">Analisar</button>
+      </div>
+    </div>
+    <div id="te-result"></div>
+    <div id="te-loading" style="display:none;padding:20px;color:var(--muted);font-size:12px">
+      <span class="spinner"></span>Calculando tracking error...
+    </div>
+  </div>
+
+  <!-- ═══ CORRELAÇÃO ══════════════════════════════════════════════════════ -->
+  <div id="tab-correlation" class="tab-panel">
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:end">
+        <div class="form-group">
+          <label class="form-label">ETFs (separados por vírgula, máx. 10)</label>
+          <input class="form-input" id="corr-tickers"
+            value="BOVA11,IVVB11,SMAL11,NTNB11,HASH11,GOLD11">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Período</label>
+          <select class="form-input" id="corr-period">
+            <option value="6mo">6 meses</option>
+            <option value="1y" selected>1 ano</option>
+            <option value="2y">2 anos</option>
+          </select>
+        </div>
+        <button class="btn-primary" onclick="runCorrelation()">Calcular</button>
+      </div>
+    </div>
+    <div id="corr-result"></div>
+    <div id="corr-loading" style="display:none;padding:20px;color:var(--muted);font-size:12px">
+      <span class="spinner"></span>Calculando correlações...
+    </div>
+  </div>
+
+  <!-- ═══ REBALANCEAMENTO ══════════════════════════════════════════════════ -->
+  <div id="tab-rebalance" class="tab-panel">
+    <div class="grid-2" style="margin-bottom:12px;align-items:start">
+      <div class="card">
+        <div class="section-title">Posição Atual (R$)</div>
+        <div id="rb-positions-list"></div>
+        <button class="btn-secondary" style="margin-top:8px;width:100%" onclick="addRbPosition()">+ Adicionar ETF</button>
+        <div style="margin-top:12px">
+          <label class="form-label">Aporte adicional (R$)</label>
+          <input class="form-input" id="rb-contribution" type="number" value="0" min="0" style="width:100%;margin-top:4px">
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title">Pesos Alvo (%)</div>
+        <div id="rb-targets-list"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+          <span id="rb-weight-sum" style="font-size:11px;color:var(--muted)">Total: 0%</span>
+          <button class="btn-primary" onclick="runRebalance()">⚖️ Calcular Rebalanceamento</button>
+        </div>
+      </div>
+    </div>
+    <div id="rb-result"></div>
+    <div id="rb-loading" style="display:none;padding:20px;color:var(--muted);font-size:12px">
+      <span class="spinner"></span>Calculando rebalanceamento...
+    </div>
+  </div>
+
+  <!-- ═══ CATÁLOGO ══════════════════════════════════════════════════════ -->
+  <div id="tab-catalog" class="tab-panel">
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap" id="cat-filters"></div>
+    <div class="catalog-grid" id="catalog-grid"></div>
+  </div>
+</div>
+
+<script>
+const COLORS = ['#00c48c','#4ecdc4','#ffb300','#e056fd','#ff6b35','#45b7d1','#26de81','#ff4757','#a29bfe','#fd9644','#2bcbba','#fd79a8'];
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (tab === 'catalog') loadCatalog();
+  if (tab === 'tracking') populateTeSelect();
+  if (tab === 'rebalance') initRebalance();
+}
+
+// ── Comparativo ───────────────────────────────────────────────────────────────
+
+async function runCompare() {
+  const tickers = document.getElementById('cmp-tickers').value.split(',').map(t=>t.trim()).filter(Boolean);
+  const period  = document.getElementById('cmp-period').value;
+  const cdi     = parseFloat(document.getElementById('cmp-cdi').value) || 10.65;
+
+  setLoading('cmp', true);
+  ['cmp-summary','cmp-chart-wrap','cmp-table-wrap'].forEach(id => document.getElementById(id).style.display='none');
+
+  try {
+    const r    = await fetch('/api/v1/etf/compare', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({tickers, period, risk_free: cdi}),
+    });
+    const data = await r.json();
+    renderCompare(data, tickers);
+  } catch(e) {
+    alert('Erro: ' + e.message);
+  } finally {
+    setLoading('cmp', false);
+  }
+}
+
+function renderCompare(data, tickers) {
+  const metrics = data.metrics || [];
+  if (!metrics.length) return;
+
+  // Winners
+  const s = data.summary;
+  const winnerHtml = (label, ticker, sub) => `
+    <div class="stat-card">
+      <div class="stat-label">${label}</div>
+      <div class="stat-value" style="font-size:24px;color:var(--accent)">${ticker || '—'}</div>
+      <div class="stat-sub">${sub || ''}</div>
+    </div>`;
+  const bestR  = metrics.find(m => m.ticker === s.best_return);
+  const bestSh = metrics.find(m => m.ticker === s.best_sharpe);
+  const lowVol = metrics.find(m => m.ticker === s.lowest_vol);
+  document.getElementById('cmp-winners').innerHTML =
+    winnerHtml('🏆 Maior Retorno', s.best_return, bestR ? `+${bestR.total_return_pct.toFixed(2)}% no período` : '') +
+    winnerHtml('⚡ Melhor Sharpe', s.best_sharpe, bestSh ? `Sharpe ${bestSh.sharpe.toFixed(2)}` : '') +
+    winnerHtml('🧘 Menor Volatilidade', s.lowest_vol, lowVol ? `${lowVol.volatility_pct.toFixed(2)}% a.a.` : '');
+  document.getElementById('cmp-summary').style.display = 'block';
+
+  // Gráfico de linhas
+  const series = data.price_series;
+  const tickersOk = Object.keys(series);
+  if (tickersOk.length) {
+    drawLineChart('cmp-chart', series, tickersOk, COLORS);
+    const legend = tickersOk.map((t,i) =>
+      `<div style="display:flex;align-items:center;gap:5px;font-size:11px">
+        <div style="width:10px;height:10px;border-radius:50%;background:${COLORS[i%COLORS.length]}"></div>
+        <span style="color:var(--muted)">${t}</span>
+      </div>`).join('');
+    document.getElementById('cmp-legend').innerHTML = legend;
+    document.getElementById('cmp-chart-wrap').style.display = 'block';
+  }
+
+  // Tabela
+  const catColors = {'Ações BR':'#4ecdc4','Ações EUA':'#45b7d1','Cripto':'#e056fd',
+    'Renda Fixa':'#ffb300','Commodities':'#fd9644','FIIs':'#26de81','Ações Global':'#a29bfe'};
+  const fmtPct = (v, pos=true) => {
+    const c = pos ? (v>=0?'#00c48c':'#ff4757') : (v<=0?'#00c48c':'#ff4757');
+    return `<span style="color:${c}">${v>=0?'+':''}${v.toFixed(2)}%</span>`;
+  };
+  document.getElementById('cmp-tbody').innerHTML = metrics.map(m => {
+    const catColor = catColors[m.category] || '#8899aa';
+    const shColor  = m.sharpe>=1?'#00c48c':m.sharpe>=0.5?'#ffb300':'#ff4757';
+    return `<tr>
+      <td><b style="color:var(--accent);font-family:'JetBrains Mono',monospace">${m.ticker}</b><br>
+          <span style="font-size:10px;color:var(--muted)">${m.name}</span></td>
+      <td><span class="badge" style="background:rgba(${hexRgb(catColor)},0.15);color:${catColor}">${m.category}</span></td>
+      <td style="font-size:11px;color:var(--muted)">${m.ter.toFixed(2)}%</td>
+      <td class="num">${fmtPct(m.total_return_pct)}</td>
+      <td class="num">${fmtPct(m.annual_return_pct)}</td>
+      <td class="num"><span style="color:#8899aa">${m.volatility_pct.toFixed(2)}%</span></td>
+      <td class="num"><b style="color:${shColor}">${m.sharpe.toFixed(2)}</b> <span style="font-size:10px;color:var(--muted)">${m.sharpe_label}</span></td>
+      <td class="num"><span style="color:#ff4757">${m.max_drawdown_pct.toFixed(2)}%</span></td>
+      <td class="num"><span style="color:#ff6b35">${m.var_95_pct.toFixed(2)}%</span></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('cmp-table-wrap').style.display = 'block';
+}
+
+// ── Tracking Error ────────────────────────────────────────────────────────────
+
+async function populateTeSelect() {
+  try {
+    const r = await fetch('/api/v1/etf/catalog');
+    const etfs = await r.json();
+    document.getElementById('te-ticker').innerHTML = etfs.map(e =>
+      `<option value="${e.ticker}">${e.ticker} — ${e.name}</option>`
+    ).join('');
+  } catch(e) {}
+}
+
+async function runTrackingError() {
+  const ticker = document.getElementById('te-ticker').value;
+  const period = document.getElementById('te-period').value;
+  setLoading('te', true);
+  document.getElementById('te-result').innerHTML = '';
+  try {
+    const r    = await fetch(`/api/v1/etf/tracking-error/${ticker}?period=${period}`);
+    const data = await r.json();
+    renderTrackingError(data);
+  } catch(e) {
+    document.getElementById('te-result').innerHTML = `<div style="color:#ff4757;padding:10px;font-size:12px">Erro: ${e.message}</div>`;
+  } finally { setLoading('te', false); }
+}
+
+function renderTrackingError(d) {
+  const teColor = d.tracking_error_pct < 1.5 ? '#00c48c' : d.tracking_error_pct < 3 ? '#ffb300' : '#ff4757';
+  const tdColor = d.tracking_diff_pct  > 0   ? '#ff4757' : '#00c48c';
+  const html = `
+    <div class="grid-4" style="margin-bottom:12px">
+      <div class="stat-card">
+        <div class="stat-label">Tracking Error a.a.</div>
+        <div class="stat-value" style="color:${teColor}">${d.tracking_error_pct.toFixed(2)}%</div>
+        <div class="stat-sub">${d.quality_label}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Tracking Difference</div>
+        <div class="stat-value" style="color:${tdColor}">${d.tracking_diff_pct > 0 ? '+' : ''}${d.tracking_diff_pct.toFixed(2)}%</div>
+        <div class="stat-sub">Benchmark ${d.tracking_diff_pct>0?'superou':'ficou abaixo do'} ETF</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Correlação</div>
+        <div class="stat-value">${d.correlation.toFixed(4)}</div>
+        <div class="stat-sub">Beta: ${d.beta.toFixed(3)} | R²: ${d.r_squared.toFixed(3)}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Information Ratio</div>
+        <div class="stat-value" style="color:${d.information_ratio>=0?'#00c48c':'#ff4757'}">${d.information_ratio.toFixed(3)}</div>
+        <div class="stat-sub">TER: ${d.ter?.toFixed(2) || '—'}% a.a.</div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div>
+        <div class="section-title">Desempenho vs Benchmark (${d.benchmark})</div>
+        <div class="chart-wrap" style="height:200px">
+          <svg id="te-chart" viewBox="0 0 500 180" style="width:100%;height:180px"></svg>
+        </div>
+      </div>
+      <div>
+        <div class="section-title">Interpretação</div>
+        <div class="card" style="display:flex;flex-direction:column;gap:8px">
+          ${Object.values(d.interpretation || {}).map(msg =>
+            `<div style="font-size:11px;color:var(--text);line-height:1.5;padding:6px 0;border-bottom:1px solid rgba(30,58,95,.3)">${msg}</div>`
+          ).join('')}
+          <div style="margin-top:6px;display:flex;gap:10px;flex-wrap:wrap">
+            <div class="stat-card" style="flex:1">
+              <div class="stat-label">Retorno ETF</div>
+              <div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${d.etf_return_pct>=0?'#00c48c':'#ff4757'}">${d.etf_return_pct.toFixed(2)}%</div>
+            </div>
+            <div class="stat-card" style="flex:1">
+              <div class="stat-label">Retorno Benchmark</div>
+              <div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#ffb300">${d.benchmark_return_pct.toFixed(2)}%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('te-result').innerHTML = html;
+  // Desenha gráfico
+  if (d.chart_data && d.chart_data.length) {
+    const s = {
+      [d.etf]:      d.chart_data.map(p=>({date:p.date, normalized:p.etf_normalized})),
+      [d.benchmark]:d.chart_data.map(p=>({date:p.date, normalized:p.bench_normalized})),
+    };
+    setTimeout(() => drawLineChart('te-chart', s, [d.etf, d.benchmark], ['#00c48c','#ffb300'], '0 0 500 180'), 50);
+  }
+}
+
+// ── Correlação ────────────────────────────────────────────────────────────────
+
+async function runCorrelation() {
+  const tickers = document.getElementById('corr-tickers').value.split(',').map(t=>t.trim()).filter(Boolean);
+  const period  = document.getElementById('corr-period').value;
+  setLoading('corr', true);
+  document.getElementById('corr-result').innerHTML = '';
+  try {
+    const r    = await fetch('/api/v1/etf/correlation', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({tickers, period}),
+    });
+    const data = await r.json();
+    renderCorrelation(data);
+  } catch(e) {
+    document.getElementById('corr-result').innerHTML = `<div style="color:#ff4757;padding:10px;font-size:12px">Erro: ${e.message}</div>`;
+  } finally { setLoading('corr', false); }
+}
+
+function renderCorrelation(data) {
+  const t = data.tickers;
+  const m = data.matrix;
+  const n = t.length;
+  if (!n) return;
+
+  // Heatmap
+  const cellSize = Math.min(70, Math.floor(600 / n));
+  const heatmap = t.map((ta, i) =>
+    `<tr>${['<td style="font-size:10px;color:var(--muted);padding:2px 8px;text-align:right;white-space:nowrap">' + ta + '</td>'].concat(
+      t.map((tb, j) => {
+        const v     = m[i][j];
+        const abs_v = Math.abs(v);
+        const r_    = i===j ? 30 : Math.round(abs_v * 200);
+        const g_    = i===j ? 196 : Math.round((1-abs_v) * 100);
+        const b_    = i===j ? 140 : Math.round(abs_v * 80);
+        const bg    = i===j ? '#1e3a5f' : (v >= 0 ? `rgb(0,${g_},${b_})` : `rgb(${r_},${Math.round(g_/2)},0)`);
+        const fg    = abs_v > 0.5 || i===j ? '#fff' : '#8899aa';
+        return `<td style="padding:2px"><div class="heatmap-cell" style="width:${cellSize}px;height:${cellSize}px;background:${bg};color:${fg};font-size:${Math.max(9,cellSize/6)}px">${v.toFixed(2)}</div></td>`;
+      })
+    ).join('')}</tr>`
+  ).join('');
+
+  const xHeader = '<tr><td></td>' + t.map(tk =>
+    `<td style="font-size:10px;color:var(--muted);padding:2px 4px;text-align:center;white-space:nowrap">${tk}</td>`
+  ).join('') + '</tr>';
+
+  const pairHtml = (pairs, label) => pairs.map(p =>
+    `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(30,58,95,.3);font-size:11px">
+      <span style="color:var(--text)">${p.a} × ${p.b}</span>
+      <span style="font-family:'JetBrains Mono',monospace;color:${Math.abs(p.correlation)>0.7?'#ff4757':'#00c48c'}">${p.correlation.toFixed(4)}</span>
+    </div>`
+  ).join('');
+
+  document.getElementById('corr-result').innerHTML = `
+    <div class="grid-2" style="align-items:start">
+      <div>
+        <div class="section-title">Mapa de Calor</div>
+        <div style="overflow-x:auto;background:#060d14;border-radius:8px;padding:12px">
+          <table style="border-collapse:separate;border-spacing:2px">
+            ${xHeader}${heatmap}
+          </table>
+        </div>
+        <div style="margin-top:8px;font-size:10px;color:var(--muted)">
+          Verde = correlação positiva · Vermelho = correlação negativa · 1.00 = idênticos
+        </div>
+      </div>
+      <div>
+        <div class="section-title">Mais Correlacionados</div>
+        <div class="card" style="margin-bottom:10px">${pairHtml(data.top_correlated || [])}</div>
+        <div class="section-title">Menos Correlacionados (melhor diversificação)</div>
+        <div class="card">${pairHtml(data.least_correlated || [])}</div>
+        ${data.errors?.length ? `<div style="margin-top:8px;font-size:10px;color:#ff4757">Erros: ${data.errors.map(e=>e.ticker).join(', ')}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+// ── Rebalanceamento ───────────────────────────────────────────────────────────
+
+let _rbPositions = [
+  {ticker:'BOVA11', value:10000},
+  {ticker:'IVVB11', value:8000},
+  {ticker:'SMAL11', value:4000},
+  {ticker:'NTNB11', value:3000},
+];
+let _rbTargets = {BOVA11:30, IVVB11:30, SMAL11:20, NTNB11:20};
+
+function initRebalance() {
+  renderRbPositions();
+  renderRbTargets();
+}
+
+function renderRbPositions() {
+  document.getElementById('rb-positions-list').innerHTML = _rbPositions.map((p, i) => `
+    <div style="display:grid;grid-template-columns:80px 1fr auto;gap:6px;margin-bottom:6px;align-items:center">
+      <input class="form-input" value="${p.ticker}" onchange="_rbPositions[${i}].ticker=this.value.toUpperCase();renderRbTargets()" style="font-family:'JetBrains Mono',monospace;font-size:12px">
+      <input class="form-input" type="number" value="${p.value}" onchange="_rbPositions[${i}].value=parseFloat(this.value)||0" style="font-family:'JetBrains Mono',monospace;font-size:12px">
+      <button onclick="_rbPositions.splice(${i},1);renderRbPositions()" style="background:none;border:1px solid #ff475733;color:#ff4757;border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer">✕</button>
+    </div>`).join('');
+}
+
+function addRbPosition() {
+  _rbPositions.push({ticker:'', value:0});
+  renderRbPositions();
+}
+
+function renderRbTargets() {
+  const tickers = [...new Set(_rbPositions.map(p => p.ticker).filter(Boolean))];
+  // Adiciona novos tickers ao target map
+  tickers.forEach(t => { if (!(t in _rbTargets)) _rbTargets[t] = 0; });
+  // Remove tickers que não estão mais nas posições
+  Object.keys(_rbTargets).forEach(t => { if (!tickers.includes(t)) delete _rbTargets[t]; });
+
+  document.getElementById('rb-targets-list').innerHTML = tickers.map(t => `
+    <div style="display:grid;grid-template-columns:80px 1fr 40px;gap:6px;margin-bottom:6px;align-items:center">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent)">${t}</span>
+      <input class="form-input" type="range" min="0" max="100" value="${_rbTargets[t]||0}"
+        oninput="_rbTargets['${t}']=parseFloat(this.value);updateWeightSum();document.getElementById('rbw-${t}').textContent=this.value+'%'"
+        style="padding:0;height:28px">
+      <span id="rbw-${t}" style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text)">${_rbTargets[t]||0}%</span>
+    </div>`).join('');
+  updateWeightSum();
+}
+
+function updateWeightSum() {
+  const sum = Object.values(_rbTargets).reduce((a,b) => a + (parseFloat(b)||0), 0);
+  const el  = document.getElementById('rb-weight-sum');
+  if (el) {
+    el.textContent = `Total: ${sum.toFixed(0)}%`;
+    el.style.color = Math.abs(sum - 100) < 1 ? '#00c48c' : '#ff4757';
+  }
+}
+
+async function runRebalance() {
+  const positions    = _rbPositions.filter(p => p.ticker);
+  const contribution = parseFloat(document.getElementById('rb-contribution').value) || 0;
+  setLoading('rb', true);
+  document.getElementById('rb-result').innerHTML = '';
+  try {
+    const r = await fetch('/api/v1/etf/rebalance', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({positions, target_weights: _rbTargets, new_contribution: contribution}),
+    });
+    const data = await r.json();
+    renderRebalance(data);
+  } catch(e) {
+    document.getElementById('rb-result').innerHTML = `<div style="color:#ff4757;padding:10px;font-size:12px">Erro: ${e.message}</div>`;
+  } finally { setLoading('rb', false); }
+}
+
+function renderRebalance(d) {
+  const fmtBRL = v => 'R$ ' + Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const maxW = Math.max(...d.positions.map(p => Math.max(p.current_weight, p.target_weight)), 1);
+  const rows = d.positions.map(p => {
+    const actionColor = p.action==='COMPRAR'?'#00c48c':p.action==='VENDER'?'#ff4757':'#8899aa';
+    const cw  = (p.current_weight / maxW * 100).toFixed(1);
+    const tw  = (p.target_weight  / maxW * 100).toFixed(1);
+    return `<div class="rb-row">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace">${p.ticker}</div>
+        <div style="font-size:10px;color:var(--muted)">${p.name}</div>
+        <span class="badge" style="background:rgba(${hexRgb(actionColor)},0.15);color:${actionColor};margin-top:4px;display:inline-block">${p.action}</span>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px">
+          Atual: <b style="color:var(--text)">${p.current_weight.toFixed(1)}%</b>
+          → Alvo: <b style="color:var(--accent)">${p.target_weight.toFixed(1)}%</b>
+          (desvio: <span style="color:${Math.abs(p.deviation)>5?'#ff4757':'#8899aa'}">${p.deviation>0?'+':''}${p.deviation.toFixed(1)} p.p.</span>)
+        </div>
+        <div class="rb-bar-wrap">
+          <div class="rb-bar-current" style="width:${cw}%;background:#4ecdc4"></div>
+          <div class="rb-bar-target"  style="width:${tw}%;background:var(--accent)"></div>
+          <div class="rb-marker"      style="left:${tw}%"></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px">
+          ${fmtBRL(p.current_value)} atual
+          ${p.current_price > 0 ? `· ~${Math.abs(p.units_approx).toFixed(0)} cotas @ R$${p.current_price.toFixed(2)}` : ''}
+        </div>
+      </div>
+      <div style="text-align:right;min-width:90px">
+        <div style="font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${actionColor}">
+          ${p.amount >= 0 ? '+' : '-'}${fmtBRL(p.amount)}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('rb-result').innerHTML = `
+    <div class="grid-4" style="margin-bottom:14px">
+      <div class="stat-card"><div class="stat-label">Patrimônio Atual</div><div class="stat-value" style="font-size:16px">${fmtBRL(d.total_current)}</div></div>
+      <div class="stat-card"><div class="stat-label">Após Rebalanceamento</div><div class="stat-value" style="font-size:16px;color:var(--accent)">${fmtBRL(d.total_after)}</div></div>
+      <div class="stat-card"><div class="stat-label">Custo de Rebalanceamento</div><div class="stat-value" style="font-size:16px;color:#ffb300">${fmtBRL(d.rebalance_cost)}</div><div class="stat-sub">Turnover: ${d.turnover_pct.toFixed(1)}%</div></div>
+      <div class="stat-card"><div class="stat-label">Operações</div><div class="stat-value" style="font-size:16px"><span style="color:#00c48c">${d.n_buys} compras</span> · <span style="color:#ff4757">${d.n_sells} vendas</span></div></div>
+    </div>
+    <div class="section-title">Ações por ETF</div>
+    <div class="card">${rows}</div>`;
+}
+
+// ── Catálogo ──────────────────────────────────────────────────────────────────
+
+async function loadCatalog(filter) {
+  try {
+    const url  = filter ? `/api/v1/etf/catalog?category=${encodeURIComponent(filter)}` : '/api/v1/etf/catalog';
+    const r    = await fetch(url);
+    const etfs = await r.json();
+
+    if (!filter) {
+      const cats = [...new Set(etfs.map(e => e.category))].sort();
+      document.getElementById('cat-filters').innerHTML =
+        `<button class="btn-secondary" style="border-color:var(--accent);color:var(--accent)" onclick="loadCatalog()">Todos</button>` +
+        cats.map(c => `<button class="btn-secondary" onclick="loadCatalog('${c}')">${c}</button>`).join('');
+    }
+
+    const catColors = {'Ações BR':'#4ecdc4','Ações EUA':'#45b7d1','Cripto':'#e056fd',
+      'Renda Fixa':'#ffb300','Commodities':'#fd9644','FIIs':'#26de81','Ações Global':'#a29bfe'};
+    document.getElementById('catalog-grid').innerHTML = etfs.map(e => {
+      const c = catColors[e.category] || '#8899aa';
+      return `<div class="catalog-card" onclick="useCatalogETF('${e.ticker}')">
+        <div style="display:flex;justify-content:space-between;align-items:start">
+          <div class="catalog-ticker">${e.ticker}</div>
+          <span class="badge" style="background:rgba(${hexRgb(c)},0.15);color:${c}">${e.category}</span>
+        </div>
+        <div class="catalog-name">${e.name}</div>
+        <div class="catalog-bench">Benchmark: ${e.benchmark} · TER: ${e.ter.toFixed(2)}%</div>
+        ${e.description ? `<div style="font-size:10px;color:#445566;margin-top:4px">${e.description}</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) {}
+}
+
+function useCatalogETF(ticker) {
+  const inp = document.getElementById('cmp-tickers');
+  const existing = inp.value.split(',').map(t=>t.trim()).filter(Boolean);
+  if (!existing.includes(ticker)) {
+    inp.value = [...existing, ticker].join(', ');
+  }
+  switchTab('compare');
+  document.querySelectorAll('.tab')[0].classList.add('active');
+}
+
+// ── Helpers de gráfico ────────────────────────────────────────────────────────
+
+function drawLineChart(svgId, seriesMap, tickers, colors, viewBox = '0 0 900 240') {
+  const svg   = document.getElementById(svgId);
+  if (!svg) return;
+  const [, , W, H] = viewBox.split(' ').map(Number);
+  const PL=50, PR=20, PT=15, PB=25;
+  const cW = W - PL - PR, cH = H - PT - PB;
+
+  // Alinha todas as séries por data
+  const dateSet = new Set();
+  tickers.forEach(t => (seriesMap[t]||[]).forEach(p => dateSet.add(p.date)));
+  const dates = [...dateSet].sort();
+  if (!dates.length) return;
+
+  const data = {};
+  tickers.forEach(t => {
+    const map = {};
+    (seriesMap[t]||[]).forEach(p => map[p.date] = p.normalized || p.close);
+    data[t] = dates.map(d => map[d] || null);
+  });
+
+  const allVals = Object.values(data).flat().filter(v => v !== null);
+  if (!allVals.length) return;
+  const minV = Math.min(...allVals) * 0.995;
+  const maxV = Math.max(...allVals) * 1.005;
+
+  const x = (i) => PL + (i / (dates.length - 1)) * cW;
+  const y = (v) => PT + cH - ((v - minV) / (maxV - minV)) * cH;
+
+  let gridHtml = '';
+  for (let i = 0; i <= 4; i++) {
+    const v  = minV + (maxV - minV) * i / 4;
+    const yp = y(v);
+    gridHtml += `<line x1="${PL}" y1="${yp}" x2="${W-PR}" y2="${yp}" stroke="#1e3a5f" stroke-width="0.5"/>`;
+    gridHtml += `<text x="${PL-4}" y="${yp+3}" text-anchor="end" fill="#445566" font-size="9">${v.toFixed(0)}</text>`;
+  }
+
+  // X axis labels (5 labels)
+  const step = Math.floor(dates.length / 4);
+  let xLabels = '';
+  for (let i = 0; i < dates.length; i += step) {
+    xLabels += `<text x="${x(i)}" y="${H-4}" text-anchor="middle" fill="#445566" font-size="9">${dates[i].slice(5)}</text>`;
+  }
+
+  let paths = '';
+  tickers.forEach((t, ci) => {
+    const pts = data[t];
+    let pathD = '';
+    pts.forEach((v, i) => {
+      if (v === null) return;
+      pathD += (pathD ? 'L' : 'M') + `${x(i).toFixed(1)},${y(v).toFixed(1)} `;
+    });
+    if (pathD) paths += `<path d="${pathD}" fill="none" stroke="${colors[ci%colors.length]}" stroke-width="1.5"/>`;
+  });
+
+  svg.innerHTML = gridHtml + xLabels + paths;
+}
+
+function setLoading(prefix, show) {
+  const el = document.getElementById(`${prefix}-loading`);
+  if (el) el.style.display = show ? 'block' : 'none';
+}
+
+function hexRgb(hex) {
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return `${r},${g},${b}`;
+}
+
+// Init
+loadCatalog();
+initRebalance();
+</script>
+</body>
+</html>
