@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse
 from finanalytics_ai.config import EventQueueBackend, get_settings
 from finanalytics_ai.exceptions import FinAnalyticsError
 from finanalytics_ai.infrastructure.database.connection import close_engine, get_engine
-from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer, backtest, correlation, screener, anomaly, reports, watchlist, performance, fixed_income
+from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer, backtest, correlation, screener, anomaly, reports, watchlist, performance, fixed_income, ohlc
 try:
     from finanalytics_ai.interfaces.api.routes import etf as etf_routes
     _ETF_AVAILABLE = True
@@ -34,6 +34,12 @@ try:
     _OPTIMIZER_AVAILABLE = True
 except ImportError:
     _OPTIMIZER_AVAILABLE = False
+
+try:
+    from finanalytics_ai.interfaces.api.routes import patrimony as patrimony_routes
+    _PATRIMONY_AVAILABLE = True
+except ImportError:
+    _PATRIMONY_AVAILABLE = False
 from finanalytics_ai.metrics import PrometheusMiddleware, metrics_endpoint
 from finanalytics_ai.infrastructure.cache.backend import create_cache_backend
 from finanalytics_ai.infrastructure.cache.rate_limiter import create_rate_limiter
@@ -146,12 +152,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from finanalytics_ai.application.services.backtest_service import BacktestService
         from finanalytics_ai.application.services.optimizer_service import OptimizerService
         from finanalytics_ai.application.services.walkforward_service import WalkForwardService
-        from finanalytics_ai.infrastructure.adapters.market_data_client import create_market_data_client
+        from finanalytics_ai.infrastructure.adapters.market_data_client import create_cached_market_data_client
+        from finanalytics_ai.infrastructure.database.connection import get_session_factory
         from finanalytics_ai.application.services.multi_ticker_service import MultiTickerService
         from finanalytics_ai.application.services.correlation_service import CorrelationService
         from finanalytics_ai.application.services.screener_service import ScreenerService
         from finanalytics_ai.application.services.anomaly_service import AnomalyService
-        market_client = create_market_data_client(settings.brapi_token)
+        market_client = create_cached_market_data_client(settings.brapi_token, get_session_factory())
         app.state.backtest_service     = BacktestService(market_client)
         app.state.optimizer_service    = OptimizerService(market_client)
         app.state.walkforward_service  = WalkForwardService(market_client)
@@ -164,8 +171,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     else:
         # Sem token BRAPI: serviços analíticos indisponíveis, mas watchlist
         # funciona com Yahoo Finance como fonte primária
-        from finanalytics_ai.infrastructure.adapters.market_data_client import create_market_data_client
-        market_client = create_market_data_client(None)
+        from finanalytics_ai.infrastructure.adapters.market_data_client import create_cached_market_data_client
+        from finanalytics_ai.infrastructure.database.connection import get_session_factory
+        market_client = create_cached_market_data_client(None, get_session_factory())
         app.state.market_client    = market_client
         app.state.backtest_service     = None
         app.state.optimizer_service    = None
@@ -187,6 +195,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from finanalytics_ai.infrastructure.database.repositories.rf_repo import (  # noqa: F401
         RFPortfolioModel, RFHoldingModel, Base as RFBase,
     )
+    from finanalytics_ai.infrastructure.database.repositories.ohlc_repo import (  # noqa: F401
+        OHLCBarModel, OHLCCacheMetaModel,
+    )
     try:
         async with get_engine().begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -197,6 +208,34 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("correlation_service.ready")
         logger.info("screener_service.ready")
         logger.info("anomaly_service.ready")
+
+    # ── OHLC: TimescaleDB + Updater ───────────────────────────────────────────
+    app.state.ohlc_ts_repo = None
+    app.state.ohlc_updater = None
+    _ohlc_daily_task       = None
+    try:
+        from finanalytics_ai.infrastructure.timescale.connection import (
+            init_ts_pool, ts_pool_available,
+        )
+        from finanalytics_ai.infrastructure.timescale.schema import init_schema
+        from finanalytics_ai.infrastructure.timescale.ohlc_ts_repo import OHLCTimescaleRepo
+        from finanalytics_ai.application.services.ohlc_updater import OHLCUpdaterService
+
+        ts_dsn = settings.timescale_url
+        if await ts_pool_available(ts_dsn):
+            ts_pool = await init_ts_pool(ts_dsn, min_size=2, max_size=8)
+            await init_schema(ts_pool)
+            repo = OHLCTimescaleRepo(ts_pool)
+            updater = OHLCUpdaterService(repo, market_client)
+            app.state.ohlc_ts_repo = repo
+            app.state.ohlc_updater = updater
+            # Inicia loop de atualização diária em background
+            _ohlc_daily_task = asyncio.create_task(updater.run_daily_loop())
+            logger.info("timescale.ohlc.ready")
+        else:
+            logger.warning("timescale.unavailable — OHLC endpoints retornam 503")
+    except Exception as exc:
+        logger.warning("timescale.init.FAILED", error=str(exc))
 
     # ── 6. BRAPI Price Producer ───────────────────────────────────────────────
     producer_ok = False
@@ -268,6 +307,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await close_timescale_pool()
         except Exception:
             pass
+    # Cancela loop de atualização OHLC
+    if _ohlc_daily_task:
+        _ohlc_daily_task.cancel()
+        try:
+            await _ohlc_daily_task
+        except asyncio.CancelledError:
+            pass
+    # Fecha pool TimescaleDB
+    try:
+        from finanalytics_ai.infrastructure.timescale.connection import close_ts_pool
+        await close_ts_pool()
+    except Exception:
+        pass
     await close_engine()
     logger.info("api.stopped")
 
@@ -310,6 +362,8 @@ def create_app() -> FastAPI:
         app.include_router(etf_routes.router, tags=["ETF"])
     if _OPTIMIZER_AVAILABLE:
         app.include_router(optimizer_routes.router, tags=["Portfolio Optimizer"])
+    if _PATRIMONY_AVAILABLE:
+        app.include_router(patrimony_routes.router, tags=["Patrimônio"])
     app.include_router(dashboard.router,  tags=["Dashboard"])
     app.include_router(health.router,     tags=["Health"])
     app.include_router(portfolio.router,  prefix="/api/v1/portfolios", tags=["Portfolio"])
@@ -325,6 +379,13 @@ def create_app() -> FastAPI:
     app.include_router(watchlist.router,    tags=["Watchlist"])
     app.include_router(performance.router,     tags=["Performance"])
     app.include_router(fixed_income.router,    tags=["Renda Fixa"])
+
+    try:
+        from finanalytics_ai.interfaces.api.routes.ohlc import router as ohlc_router
+        app.include_router(ohlc_router, tags=["OHLC"])
+    except ImportError:
+        pass
+    app.include_router(ohlc.router,            tags=["OHLC Cache"])
 
     # ── Páginas HTML estáticas ────────────────────────────────────────────────
     import pathlib
@@ -368,6 +429,9 @@ def create_app() -> FastAPI:
 
     @app.get("/optimizer", response_class=HTMLResponse, include_in_schema=False)
     async def serve_optimizer() -> HTMLResponse: return _html("optimizer.html")
+
+    @app.get("/patrimony", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_patrimony() -> HTMLResponse: return _html("patrimony.html")
 
 
     return app

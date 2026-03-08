@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Patrimônio Consolidado — FinAnalytics AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#060d14;--card:#0b1520;--border:#1e3a5f;--accent:#00c48c;--text:#e8f4fd;--muted:#8899aa}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh}
+.topbar{background:#070f1a;border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between}
+.topbar-title{font-size:16px;font-weight:700;color:var(--accent);letter-spacing:1px}
+.nav-links{display:flex;gap:10px;flex-wrap:wrap}
+.nav-links a{font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:.5px;font-weight:600;padding:4px 8px;border-radius:4px;transition:.15s}
+.nav-links a:hover,.nav-links a.active{color:var(--accent);background:rgba(0,196,140,.08)}
+.container{max-width:1300px;margin:0 auto;padding:20px}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
+.page-title{font-size:24px;font-weight:700;letter-spacing:1px}
+.page-sub{font-size:12px;color:var(--muted)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:18px}
+.tab{background:none;border:none;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;padding:10px 18px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;letter-spacing:.3px;transition:.15s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
+.form-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px}
+.form-group{display:flex;flex-direction:column;gap:3px}
+.form-label{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
+.form-input{background:#0d1e30;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:13px;padding:7px 10px;outline:none;transition:.15s;width:100%}
+.form-input:focus{border-color:var(--accent)}
+.btn{background:var(--accent);color:#000;border:none;border-radius:6px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;padding:8px 20px;cursor:pointer;letter-spacing:.5px;transition:.15s}
+.btn:hover{opacity:.9}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-sm{background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:5px;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:11px;padding:4px 10px;cursor:pointer;transition:.15s}
+.btn-sm:hover{border-color:var(--accent);color:var(--accent)}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.stat-value{font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.stat-sub{font-size:10px;color:var(--muted);margin-top:3px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.section-title{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin:14px 0 8px}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid #1e3a5f;border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* Allocation bar */
+.alloc-bar{height:28px;border-radius:6px;overflow:hidden;display:flex;margin-bottom:10px}
+.alloc-seg{height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#000;min-width:0;overflow:hidden;transition:width .6s ease}
+/* Donut chart SVG */
+.donut-wrap{position:relative;width:180px;height:180px;margin:0 auto}
+/* IR table */
+.ir-table{width:100%;border-collapse:collapse;font-size:12px}
+.ir-table th{padding:8px 10px;color:var(--muted);font-size:10px;text-align:left;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.5px}
+.ir-table td{padding:9px 10px;border-bottom:1px solid rgba(30,58,95,.2);vertical-align:top}
+.ir-table .num{text-align:right;font-family:'JetBrains Mono',monospace}
+.ir-badge{border-radius:3px;padding:2px 7px;font-size:10px;font-weight:700}
+/* Accordion for IR scenarios */
+.accordion-btn{width:100%;text-align:left;background:none;border:none;border-top:1px solid rgba(30,58,95,.3);padding:8px 0;cursor:pointer;color:var(--muted);font-size:11px;font-family:'Rajdhani',sans-serif;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.accordion-btn:hover{color:var(--accent)}
+.accordion-body{overflow:hidden;max-height:0;transition:max-height .3s ease}
+.accordion-body.open{max-height:600px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-title">FINANALYTICS AI</div>
+  <div class="nav-links">
+    <a href="/">Dashboard</a>
+    <a href="/backtest">Backtest</a>
+    <a href="/performance">Performance</a>
+    <a href="/fixed-income">Renda Fixa</a>
+    <a href="/etf">ETFs</a>
+    <a href="/optimizer">Otimizador</a>
+    <a href="/patrimony" class="active">Patrimônio</a>
+    <a href="/hub">Hub</a>
+  </div>
+</div>
+
+<div class="container">
+  <div class="page-header">
+    <div>
+      <div class="page-title">💎 Patrimônio Consolidado</div>
+      <div class="page-sub">Ações · ETFs · Renda Fixa · Caixa — visão unificada</div>
+    </div>
+    <!-- Config -->
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group">
+        <label class="form-label">Usuário</label>
+        <input class="form-input" id="user-id" value="default_user" style="width:130px">
+      </div>
+      <div class="form-group">
+        <label class="form-label">CDI %</label>
+        <input class="form-input" id="cdi" type="number" value="10.65" step="0.01" style="width:70px">
+      </div>
+      <div class="form-group">
+        <label class="form-label">IPCA %</label>
+        <input class="form-input" id="ipca" type="number" value="4.83" step="0.01" style="width:70px">
+      </div>
+      <button class="btn" id="btn-load" onclick="loadAll()">↻ Atualizar</button>
+    </div>
+  </div>
+
+  <!-- Abas principais -->
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('dashboard',this)">💎 Patrimônio</button>
+    <button class="tab"        onclick="showTab('ir',this)">🧾 Calculadora de IR</button>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading" style="display:none;text-align:center;padding:30px;color:var(--muted)">
+    <span class="spinner"></span>Consolidando dados de todas as carteiras…
+  </div>
+
+  <!-- ═══ DASHBOARD ════════════════════════════════════════════════════════ -->
+  <div id="tab-dashboard" class="tab-panel active">
+
+    <!-- Metas de alocação (editável) -->
+    <div class="card" style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase">Metas de Alocação (%)</div>
+        <button class="btn-sm" onclick="resetTargets()">Restaurar padrão</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        <div class="form-group"><label class="form-label" style="color:#00c48c">Ações</label>
+          <input class="form-input" id="t-eq"   type="number" value="40" min="0" max="100" style="border-color:#00c48c33"></div>
+        <div class="form-group"><label class="form-label" style="color:#4ecdc4">ETFs</label>
+          <input class="form-input" id="t-etf"  type="number" value="20" min="0" max="100" style="border-color:#4ecdc433"></div>
+        <div class="form-group"><label class="form-label" style="color:#ffb300">Renda Fixa</label>
+          <input class="form-input" id="t-rf"   type="number" value="35" min="0" max="100" style="border-color:#ffb30033"></div>
+        <div class="form-group"><label class="form-label" style="color:#8899aa">Caixa</label>
+          <input class="form-input" id="t-cash" type="number" value="5"  min="0" max="100" style="border-color:#88990033"></div>
+      </div>
+    </div>
+
+    <div id="dash-content" style="display:none">
+      <!-- KPIs -->
+      <div class="stat-row" id="kpis"></div>
+
+      <!-- Barra de alocação -->
+      <div class="section-title">Alocação Atual</div>
+      <div class="alloc-bar" id="alloc-bar"></div>
+      <div id="alloc-legend" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;font-size:11px"></div>
+
+      <!-- Donut + desvio metas -->
+      <div class="grid-2" style="margin-bottom:14px">
+        <div class="card">
+          <div class="section-title" style="margin-top:0">Composição vs Meta</div>
+          <svg id="donut-svg" viewBox="0 0 200 200" style="width:100%;max-width:220px;display:block;margin:0 auto"></svg>
+          <div id="donut-legend" style="margin-top:10px"></div>
+        </div>
+        <div class="card">
+          <div class="section-title" style="margin-top:0">Desvio da Meta</div>
+          <div id="deviation-bars"></div>
+          <div id="rebalance-msg" style="margin-top:10px;font-size:11px;line-height:1.6"></div>
+        </div>
+      </div>
+
+      <!-- Posições detalhadas -->
+      <div class="grid-2">
+        <div>
+          <div class="section-title">Ações & ETFs</div>
+          <div id="equity-table" style="overflow-x:auto"></div>
+        </div>
+        <div>
+          <div class="section-title">Renda Fixa</div>
+          <div id="rf-table" style="overflow-x:auto"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="dash-empty" style="display:none;text-align:center;padding:40px;color:var(--muted);font-size:13px">
+      Nenhuma posição encontrada para este usuário.<br>
+      Adicione posições em <a href="/performance" style="color:var(--accent)">Portfólio</a> e <a href="/fixed-income" style="color:var(--accent)">Renda Fixa</a>.
+    </div>
+  </div>
+
+  <!-- ═══ IR CALCULATOR ═════════════════════════════════════════════════════ -->
+  <div id="tab-ir" class="tab-panel">
+
+    <!-- Tabela de alíquotas (referência) -->
+    <div class="card" style="margin-bottom:14px">
+      <div class="section-title" style="margin-top:0">Tabela Regressiva de IR — Renda Fixa (Lei 11.033/2004)</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr>
+            <th style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:left;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Prazo</th>
+            <th style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:center;color:var(--muted);font-size:10px;letter-spacing:.5px">Alíquota IR</th>
+            <th style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:left;color:var(--muted);font-size:10px;letter-spacing:.5px">Impacto</th>
+          </tr></thead>
+          <tbody>
+            <tr><td style="padding:8px 12px">Até 180 dias</td><td style="padding:8px 12px;text-align:center"><span class="ir-badge" style="background:rgba(255,71,87,.15);color:#ff4757">22,5%</span></td><td style="padding:8px 12px;font-size:11px;color:var(--muted)">Mais alto — evite resgatar cedo</td></tr>
+            <tr><td style="padding:8px 12px">181–360 dias</td><td style="padding:8px 12px;text-align:center"><span class="ir-badge" style="background:rgba(255,179,0,.15);color:#ffb300">20,0%</span></td><td style="padding:8px 12px;font-size:11px;color:var(--muted)">Redução de 2,5 p.p. após 180 dias</td></tr>
+            <tr><td style="padding:8px 12px">361–720 dias</td><td style="padding:8px 12px;text-align:center"><span class="ir-badge" style="background:rgba(78,205,196,.15);color:#4ecdc4">17,5%</span></td><td style="padding:8px 12px;font-size:11px;color:var(--muted)">Redução de 5 p.p. após 1 ano</td></tr>
+            <tr><td style="padding:8px 12px">Acima de 720 dias</td><td style="padding:8px 12px;text-align:center"><span class="ir-badge" style="background:rgba(0,196,140,.15);color:#00c48c">15,0%</span></td><td style="padding:8px 12px;font-size:11px;color:var(--muted)">Alíquota mínima — ideal para LP</td></tr>
+            <tr style="background:rgba(78,205,196,.04)"><td style="padding:8px 12px">LCI / LCA / CRI / CRA</td><td style="padding:8px 12px;text-align:center"><span class="ir-badge" style="background:rgba(0,196,140,.2);color:#00c48c">Isento</span></td><td style="padding:8px 12px;font-size:11px;color:var(--muted)">Isenção para Pessoa Física</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:8px;font-size:10px;color:var(--muted)">
+        ⚠️ IOF regressivo (0–29 dias): 96% → 3% do rendimento. Do dia 30 em diante: zero IOF.
+      </div>
+    </div>
+
+    <div id="ir-content"></div>
+    <div id="ir-empty" style="display:none;text-align:center;padding:30px;color:var(--muted);font-size:13px">
+      Nenhum título RF encontrado.<br>Adicione posições em <a href="/fixed-income" style="color:var(--accent)">Renda Fixa</a>.
+    </div>
+  </div>
+</div>
+
+<script>
+const fmtBRL  = v => 'R$ ' + Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtPct  = (v,dig=2) => (v>=0?'+':'')+v.toFixed(dig)+'%';
+const clrPL   = v => v >= 0 ? '#00c48c' : '#ff4757';
+const clrIR   = r => r<=15?'#00c48c':r<=17.5?'#4ecdc4':r<=20?'#ffb300':'#ff4757';
+const CLASS_COLORS = {'Ações':'#00c48c','ETFs':'#4ecdc4','Renda Fixa':'#ffb300','Caixa':'#8899aa'};
+
+let _data = null;
+
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+
+function resetTargets() {
+  document.getElementById('t-eq').value   = 40;
+  document.getElementById('t-etf').value  = 20;
+  document.getElementById('t-rf').value   = 35;
+  document.getElementById('t-cash').value = 5;
+}
+
+async function loadAll() {
+  const uid  = document.getElementById('user-id').value.trim() || 'default_user';
+  const cdi  = document.getElementById('cdi').value   || 10.65;
+  const ipca = document.getElementById('ipca').value  || 4.83;
+  const tEq  = document.getElementById('t-eq').value  || 40;
+  const tEtf = document.getElementById('t-etf').value || 20;
+  const tRf  = document.getElementById('t-rf').value  || 35;
+  const tCash= document.getElementById('t-cash').value|| 5;
+
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('dash-content').style.display = 'none';
+  document.getElementById('dash-empty').style.display   = 'none';
+  document.getElementById('btn-load').disabled = true;
+
+  try {
+    const [snapRes, irRes] = await Promise.all([
+      fetch(`/api/v1/patrimony/consolidated/${uid}?cdi=${cdi}&ipca=${ipca}&target_eq=${tEq}&target_etf=${tEtf}&target_rf=${tRf}&target_cash=${tCash}`),
+      fetch(`/api/v1/patrimony/ir-planning/${uid}?cdi=${cdi}&ipca=${ipca}`),
+    ]);
+    const snap = await snapRes.json();
+    const ir   = await irRes.json();
+    _data = {snap, ir};
+    renderDashboard(snap);
+    renderIR(ir);
+  } catch(e) {
+    alert('Erro ao carregar dados: ' + e.message);
+  } finally {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('btn-load').disabled = false;
+  }
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+function renderDashboard(d) {
+  const hasSomething = d.total_value > 0;
+  document.getElementById('dash-content').style.display = hasSomething ? 'block' : 'none';
+  document.getElementById('dash-empty').style.display   = hasSomething ? 'none'  : 'block';
+  if (!hasSomething) return;
+
+  const plColor = clrPL(d.total_pl);
+
+  // KPIs
+  document.getElementById('kpis').innerHTML = `
+    <div class="stat" style="border-color:var(--accent)33">
+      <div class="stat-label">Patrimônio Total</div>
+      <div class="stat-value" style="color:var(--accent)">${fmtBRL(d.total_value)}</div>
+      <div class="stat-sub">Atualizado agora</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Total Investido</div>
+      <div class="stat-value">${fmtBRL(d.total_invested)}</div>
+      <div class="stat-sub">Custo total de aquisição</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Resultado (P&L)</div>
+      <div class="stat-value" style="color:${plColor}">${fmtBRL(d.total_pl)}</div>
+      <div class="stat-sub" style="color:${plColor}">${fmtPct(d.total_pl_pct)}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Caixa Disponível</div>
+      <div class="stat-value" style="color:#8899aa">${fmtBRL(d.cash_value)}</div>
+      <div class="stat-sub">${((d.cash_value/d.total_value)*100).toFixed(1)}% do portfólio</div>
+    </div>`;
+
+  // Barra de alocação
+  const barHtml = d.classes.map(c => {
+    const w = c.weight_pct.toFixed(1);
+    return `<div class="alloc-seg" style="width:${w}%;background:${c.color}" title="${c.asset_class}: ${w}%">
+      ${w > 4 ? w+'%' : ''}
+    </div>`;
+  }).join('');
+  document.getElementById('alloc-bar').innerHTML = barHtml;
+
+  document.getElementById('alloc-legend').innerHTML = d.classes.map(c =>
+    `<div style="display:flex;align-items:center;gap:5px">
+      <div style="width:10px;height:10px;border-radius:50%;background:${c.color}"></div>
+      <span>${c.asset_class} <b style="color:${c.color}">${c.weight_pct.toFixed(1)}%</b></span>
+    </div>`).join('');
+
+  // Donut SVG
+  drawDonut(d.classes);
+
+  // Desvio da meta
+  renderDeviation(d.classes, d.rebalance_needed);
+
+  // Tabelas de posições
+  renderEquityTable(d.equity_details || []);
+  renderRFTable(d.rf_details || []);
+}
+
+function drawDonut(classes) {
+  const svg   = document.getElementById('donut-svg');
+  const cx=100, cy=100, r=80, ri=52;
+  let angle = -Math.PI/2;
+  let paths = '';
+  const total = classes.reduce((s,c) => s + c.current_value, 0);
+
+  classes.forEach(c => {
+    const frac = total > 0 ? c.current_value / total : 0;
+    const sweep = frac * 2 * Math.PI;
+    if (sweep < 0.01) return;
+    const x1=cx+r*Math.cos(angle), y1=cy+r*Math.sin(angle);
+    const x2=cx+r*Math.cos(angle+sweep), y2=cy+r*Math.sin(angle+sweep);
+    const xi1=cx+ri*Math.cos(angle), yi1=cy+ri*Math.sin(angle);
+    const xi2=cx+ri*Math.cos(angle+sweep), yi2=cy+ri*Math.sin(angle+sweep);
+    const large = sweep > Math.PI ? 1 : 0;
+    paths += `<path d="M${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 ${large},1 ${x2.toFixed(1)},${y2.toFixed(1)}
+      L${xi2.toFixed(1)},${yi2.toFixed(1)} A${ri},${ri} 0 ${large},0 ${xi1.toFixed(1)},${yi1.toFixed(1)} Z"
+      fill="${c.color}" opacity="0.85"/>`;
+    angle += sweep;
+  });
+
+  svg.innerHTML = paths + `
+    <text x="100" y="96" text-anchor="middle" fill="#e8f4fd" font-family="JetBrains Mono,monospace" font-size="13" font-weight="700">
+      ${fmtBRL(total).replace('R$ ','')}
+    </text>
+    <text x="100" y="112" text-anchor="middle" fill="#8899aa" font-family="Rajdhani,sans-serif" font-size="10">Total</text>`;
+
+  // Legenda do donut
+  document.getElementById('donut-legend').innerHTML = classes.map(c => `
+    <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(30,58,95,.2);font-size:12px">
+      <div style="display:flex;align-items:center;gap:7px">
+        <div style="width:10px;height:10px;border-radius:50%;background:${c.color};flex-shrink:0"></div>
+        <span>${c.asset_class}</span>
+      </div>
+      <span style="font-family:'JetBrains Mono',monospace;color:${c.color}">${c.weight_pct.toFixed(1)}%</span>
+    </div>`).join('');
+}
+
+function renderDeviation(classes, rebalance) {
+  const html = classes.map(c => {
+    if (!c.target_pct) return '';
+    const dev = c.deviation_ppt;
+    const barW = Math.min(100, Math.abs(dev) * 5);
+    const barClr = Math.abs(dev) <= 2 ? '#00c48c' : Math.abs(dev) <= 5 ? '#ffb300' : '#ff4757';
+    const dir  = dev > 0 ? 'SOBREPESO' : dev < 0 ? 'SUBPESO' : '✓ OK';
+    const dirClr = Math.abs(dev) <= 2 ? '#00c48c' : '#ffb300';
+    return `
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+          <span style="color:${c.color};font-weight:700">${c.asset_class}</span>
+          <span>${c.weight_pct.toFixed(1)}% <span style="color:var(--muted)">/ meta ${c.target_pct.toFixed(0)}%</span>
+          <span style="color:${dirClr};margin-left:6px">${dev>=0?'+':''}${dev.toFixed(1)}pp ${Math.abs(dev)>2?dir:''}</span></span>
+        </div>
+        <div style="height:6px;background:#0d1e30;border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${barW}%;background:${barClr};border-radius:3px;
+            ${dev<0?'margin-left:auto':''}"></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('deviation-bars').innerHTML = html;
+
+  const msg = rebalance.length === 0
+    ? '<span style="color:#00c48c">✅ Alocação dentro das metas (±2 p.p.). Nenhum rebalanceamento necessário.</span>'
+    : `<span style="color:#ffb300">⚖️ Classes que precisam de atenção: <b>${rebalance.join(', ')}</b>.</span><br>
+       <span style="color:var(--muted)">Considere rebalancear adicionando aportes às classes subpeso.</span>`;
+  document.getElementById('rebalance-msg').innerHTML = msg;
+}
+
+function renderEquityTable(positions) {
+  if (!positions.length) {
+    document.getElementById('equity-table').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">Nenhuma posição de ações/ETF.</div>';
+    return;
+  }
+  const rows = positions.map(p => `
+    <tr>
+      <td><b style="font-family:'JetBrains Mono',monospace;color:var(--accent)">${p.ticker}</b>
+          <span class="ir-badge" style="margin-left:4px;background:${p.asset_class==='ETF'?'rgba(78,205,196,.15)':'rgba(0,196,140,.12)'};color:${p.asset_class==='ETF'?'#4ecdc4':'#00c48c'}">${p.asset_class}</span></td>
+      <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:11px">${fmtBRL(p.current_value)}</td>
+      <td style="text-align:right;font-size:11px;color:${clrPL(p.pl)}">${fmtBRL(p.pl)}<br>
+          <span style="font-size:10px">${fmtPct(p.pl_pct)}</span></td>
+    </tr>`).join('');
+
+  document.getElementById('equity-table').innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr>
+        <th style="padding:6px 8px;color:var(--muted);font-size:10px;text-align:left;border-bottom:1px solid var(--border)">Ativo</th>
+        <th style="padding:6px 8px;color:var(--muted);font-size:10px;text-align:right;border-bottom:1px solid var(--border)">Valor</th>
+        <th style="padding:6px 8px;color:var(--muted);font-size:10px;text-align:right;border-bottom:1px solid var(--border)">P&L</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function renderRFTable(holdings) {
+  if (!holdings.length) {
+    document.getElementById('rf-table').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">Nenhuma posição RF.</div>';
+    return;
+  }
+  const rows = holdings.map(h => {
+    const pl = h.current_value - h.invested;
+    return `
+    <tr>
+      <td><b style="font-size:12px">${h.bond_name}</b><br>
+          <span style="font-size:10px;color:var(--muted)">${h.bond_type} · ${h.issuer}</span></td>
+      <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:11px">${fmtBRL(h.current_value)}</td>
+      <td style="text-align:right;font-size:11px;color:${clrPL(pl)}">${fmtPct(h.net_return_pct)}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('rf-table').innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr>
+        <th style="padding:6px 8px;color:var(--muted);font-size:10px;text-align:left;border-bottom:1px solid var(--border)">Título</th>
+        <th style="padding:6px 8px;color:var(--muted);font-size:10px;text-align:right;border-bottom:1px solid var(--border)">Val. Atual</th>
+        <th style="padding:6px 8px;color:var(--muted);font-size:10px;text-align:right;border-bottom:1px solid var(--border)">Retorno</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ── IR Calculator ──────────────────────────────────────────────────────────────
+function renderIR(items) {
+  const el = document.getElementById('ir-content');
+  document.getElementById('ir-empty').style.display = items.length ? 'none' : 'block';
+  if (!items.length) { el.innerHTML = ''; return; }
+
+  // Resumo: total de economia potencial
+  const totalSaving = items.reduce((s,i) => s + i.max_saving, 0);
+  const urgentIOF   = items.filter(i => i.today_scenario && i.today_scenario.iof_rate_pct > 0);
+
+  let summaryHtml = '';
+  if (totalSaving > 0) {
+    summaryHtml = `<div class="card" style="margin-bottom:14px;border-color:#ffb30033">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:36px">💡</div>
+        <div>
+          <div style="font-size:16px;font-weight:700;color:#ffb300">Economia potencial total: ${fmtBRL(totalSaving)}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px">
+            ${urgentIOF.length > 0 ? `⚠️ <b style="color:#ff4757">${urgentIOF.length} título(s) ainda com IOF ativo</b> — resgate após 30 dias desde a compra. · ` : ''}
+            Aguardar os breakpoints fiscais abaixo pode economizar este valor em impostos.
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  const cards = items.map((item, idx) => {
+    const t = item.today_scenario;
+    const b = item.best_scenario;
+    const hasGain = item.max_saving > 0;
+    const irColor = clrIR(t?.ir_rate_pct || 0);
+
+    const scenRows = (item.scenarios || []).map(s => {
+      const isToday  = s.label === 'Hoje';
+      const isBest   = s.redemption_date === b?.redemption_date;
+      const sBg      = isBest && !isToday ? 'background:rgba(0,196,140,.04)' : '';
+      return `
+        <tr style="${sBg}">
+          <td style="padding:7px 10px;font-size:11px">${isBest && !isToday ? '⭐ ' : ''}${s.label}</td>
+          <td class="num" style="padding:7px 10px;font-size:11px">${s.days_held}d</td>
+          <td class="num" style="padding:7px 10px;font-size:11px"><span style="color:${clrIR(s.ir_rate_pct)}">${s.ir_rate_pct}%</span></td>
+          <td class="num" style="padding:7px 10px;font-size:11px;color:#ff4757">${s.total_tax > 0 ? fmtBRL(s.total_tax) : '—'}</td>
+          <td class="num" style="padding:7px 10px;font-size:11px;color:#00c48c">${fmtBRL(s.net_value)}</td>
+          <td class="num" style="padding:7px 10px;font-size:11px">${fmtPct(s.net_annual_pct)} a.a.</td>
+        </tr>`;
+    }).join('');
+
+    return `
+    <div class="card" style="margin-bottom:10px${hasGain && item.max_saving > 100 ? ';border-color:#ffb30044' : ''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        <div>
+          <div style="font-size:14px;font-weight:700">${item.bond_name}</div>
+          <div style="font-size:11px;color:var(--muted)">${item.bond_type} · ${item.issuer} · ${item.portfolio_name}</div>
+        </div>
+        <div style="text-align:right">
+          ${item.ir_exempt
+            ? '<span class="ir-badge" style="background:rgba(0,196,140,.2);color:#00c48c">ISENTO IR</span>'
+            : `<span class="ir-badge" style="background:rgba(${irColor==='#ff4757'?'255,71,87':irColor==='#ffb300'?'255,179,0':'78,205,196'},.15);color:${irColor}">IR HOJE: ${t?.ir_rate_pct||0}%</span>`
+          }
+          ${(t?.iof_rate_pct||0) > 0 ? '<span class="ir-badge" style="background:rgba(255,71,87,.15);color:#ff4757;margin-left:4px">IOF ATIVO</span>' : ''}
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+        <div><div style="font-size:10px;color:var(--muted)">Investido</div><div style="font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace">${fmtBRL(item.invested)}</div></div>
+        <div><div style="font-size:10px;color:var(--muted)">Líquido Hoje</div><div style="font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#00c48c">${fmtBRL(t?.net_value||0)}</div></div>
+        <div><div style="font-size:10px;color:var(--muted)">Imposto Hoje</div><div style="font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#ff4757">${fmtBRL(t?.total_tax||0)}</div></div>
+        <div><div style="font-size:10px;color:var(--muted)">Economia Potencial</div><div style="font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#ffb300">${item.max_saving > 0 ? fmtBRL(item.max_saving) : '—'}</div></div>
+      </div>
+
+      <div style="background:#070f1a;border-left:3px solid ${hasGain?'#ffb300':'#00c48c'};padding:8px 12px;border-radius:0 6px 6px 0;font-size:12px;margin-bottom:8px;line-height:1.5">
+        ${item.recommendation}
+      </div>
+
+      <button class="accordion-btn" onclick="toggleAccordion(${idx})">
+        Ver simulação por breakpoint fiscal
+        <span id="acc-icon-${idx}">▼</span>
+      </button>
+      <div class="accordion-body" id="acc-${idx}">
+        <div style="overflow-x:auto;margin-top:6px">
+          <table class="ir-table">
+            <thead><tr>
+              <th>Cenário</th><th style="text-align:right">Dias</th>
+              <th style="text-align:right">Alíquota IR</th><th style="text-align:right">Imposto</th>
+              <th style="text-align:right">Líquido</th><th style="text-align:right">Retorno a.a.</th>
+            </tr></thead>
+            <tbody>${scenRows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = summaryHtml + cards;
+}
+
+function toggleAccordion(idx) {
+  const body = document.getElementById(`acc-${idx}`);
+  const icon = document.getElementById(`acc-icon-${idx}`);
+  const open = body.classList.toggle('open');
+  icon.textContent = open ? '▲' : '▼';
+}
+
+// Auto-load on page open
+window.addEventListener('load', loadAll);
+</script>
+</body>
+</html>
