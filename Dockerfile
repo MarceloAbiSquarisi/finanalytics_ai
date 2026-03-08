@@ -32,6 +32,8 @@ RUN uv pip install --system \
     "fastapi>=0.111" \
     "uvicorn[standard]>=0.30" \
     "uvloop>=0.19" \
+    "python-jose[cryptography]>=3.3" \
+    "passlib[bcrypt]>=1.7" \
     "httptools>=0.6" \
     "sqlalchemy[asyncio]>=2.0" \
     "asyncpg>=0.29" \

@@ -28,6 +28,9 @@ dependencies = [
     "tenacity>=8.3",
     # Cache / rate limiting
     "redis>=5.0",
+    # Auth
+    "python-jose[cryptography]>=3.3",
+    "passlib[bcrypt]>=1.7",
     # PDF reports
     "reportlab>=4.0",
     # Observability

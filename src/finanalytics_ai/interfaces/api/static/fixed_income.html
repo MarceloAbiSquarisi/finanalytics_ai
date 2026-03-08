@@ -137,6 +137,43 @@ canvas{max-height:280px}
 .empty{text-align:center;padding:40px;color:var(--muted);font-size:13px}
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* YIELD CURVE */
+.curve-wrap{position:relative;height:220px;background:#060d14;border-radius:8px;padding:16px;margin-bottom:12px}
+.curve-svg{width:100%;height:100%}
+.scenario-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-top:12px}
+.scenario-card{background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:14px}
+.scenario-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.scenario-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.scenario-name{font-size:12px;font-weight:700;color:var(--text);letter-spacing:.3px}
+.scenario-rates{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.scenario-rate-tag{background:#0d1e30;border-radius:4px;padding:2px 7px;font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+.scenario-return{font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.scenario-delta{font-size:11px;margin-top:2px}
+.stress-bond-header{background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px}
+.stress-bond-title{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:6px}
+.stress-meta{display:flex;gap:16px;flex-wrap:wrap}
+.stress-meta-item{font-size:11px;color:var(--muted)}
+.stress-meta-item span{color:var(--text);font-weight:600}
+.bar-chart-wrap{background:#060d14;border-radius:8px;padding:16px;margin-top:8px}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.bar-label{font-size:10px;color:var(--muted);width:180px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{flex:1;height:18px;background:#0d1e30;border-radius:3px;position:relative;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width .4s ease;display:flex;align-items:center;padding-left:6px}
+.bar-value{font-size:10px;font-family:'JetBrains Mono',monospace;color:#000;font-weight:700;white-space:nowrap}
+.curve-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+.curve-legend-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
+.curve-legend-dot{width:8px;height:8px;border-radius:50%}
+.context-box{background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px}
+.context-title{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px}
+.context-text{font-size:12px;color:var(--text);line-height:1.6}
+.tip-list{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.tip-item{display:flex;align-items:flex-start;gap:8px;font-size:11px;padding:7px 10px;border-radius:5px}
+.tip-item.opportunity{background:rgba(0,196,140,.08);border:1px solid rgba(0,196,140,.2);color:#00c48c}
+.tip-item.risk{background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.2);color:#ff4757}
+.tip-item.neutral{background:rgba(136,153,170,.08);border:1px solid rgba(136,153,170,.2);color:#8899aa}
+.stress-controls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}
+
 </style>
 </head>
 <body>
@@ -195,6 +232,7 @@ canvas{max-height:280px}
     <button class="tab"        onclick="switchTab('calc')">🧮 Calculadora</button>
     <button class="tab"        onclick="switchTab('compare')">⚖ Comparador</button>
     <button class="tab"        onclick="switchTab('cashflow')">📅 Fluxo de Caixa</button>
+    <button class="tab"        onclick="switchTab('scenarios')">📊 Cenários & Stress</button>
   </div>
 
   <!-- ═══ TAB: BROWSER ═══════════════════════════════════════════════════════ -->
@@ -776,5 +814,296 @@ async function runGoal() {
 // ── Init ──────────────────────────────────────────────────────────────────────
 loadBonds();
 </script>
+
+
+  <!-- ═══ TAB: CENÁRIOS & STRESS TEST ══════════════════════════════════════════ -->
+  <div id="tab-scenarios" class="tab-panel">
+
+    <!-- Rates bar reutiliza a do topo -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div>
+        <label class="form-label">Títulos para análise</label>
+        <select id="stress-bond-select" multiple style="width:100%;background:#0b1520;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:12px;padding:6px;height:120px;outline:none">
+        </select>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">Segure Ctrl/Cmd para selecionar múltiplos</div>
+      </div>
+      <div>
+        <div class="stress-controls" style="grid-template-columns:1fr 1fr">
+          <div class="form-group">
+            <label class="form-label">Principal (R$)</label>
+            <input class="form-input" id="stress-principal" type="number" value="10000" min="100">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Prazo (dias)</label>
+            <input class="form-input" id="stress-days" type="number" value="365" min="1" max="7300">
+          </div>
+        </div>
+        <button class="btn-primary" onclick="runStressTest()" style="width:100%;margin-top:8px">
+          ⚡ Executar Stress Test
+        </button>
+        <button class="btn-secondary" onclick="loadYieldCurve()" style="width:100%;margin-top:6px">
+          📈 Atualizar Curva de Juros
+        </button>
+      </div>
+    </div>
+
+    <!-- Curva de Juros DI Futuro -->
+    <div class="section-title">📈 Curva de Juros DI Futuro</div>
+    <div class="context-box" id="curve-context" style="display:none"></div>
+    <div class="curve-wrap" id="curve-wrap">
+      <svg class="curve-svg" id="curve-svg" viewBox="0 0 800 180" preserveAspectRatio="none">
+        <text x="400" y="90" text-anchor="middle" fill="#445566" font-size="14">
+          Clique em "Atualizar Curva de Juros" para carregar
+        </text>
+      </svg>
+    </div>
+    <div class="curve-legend" id="curve-legend"></div>
+
+    <!-- Resultados do Stress Test -->
+    <div id="stress-results" style="margin-top:16px"></div>
+
+  </div>
+
+<script>
+// ── Cenários & Stress Test ────────────────────────────────────────────────────
+
+async function loadStressBonds() {
+  try {
+    const r = await fetch('/api/v1/fixed-income/bonds');
+    const bonds = await r.json();
+    const sel = document.getElementById('stress-bond-select');
+    sel.innerHTML = bonds.map(b =>
+      `<option value="${b.bond_id}">${b.name}</option>`
+    ).join('');
+  } catch(e) {}
+}
+
+async function loadYieldCurve() {
+  const selic = parseFloat(document.getElementById('rate-selic')?.value || 10.65);
+  const cdi   = parseFloat(document.getElementById('rate-cdi')?.value   || 10.65);
+  const ipca  = parseFloat(document.getElementById('rate-ipca')?.value  || 4.83);
+
+  try {
+    const r    = await fetch(`/api/v1/fixed-income/yield-curve?selic=${selic}&cdi=${cdi}&ipca=${ipca}`);
+    const data = await r.json();
+    renderYieldCurve(data);
+    renderCurveContext(data);
+  } catch(e) {
+    document.getElementById('curve-svg').innerHTML =
+      '<text x="400" y="90" text-anchor="middle" fill="#ff4757" font-size="12">Erro ao carregar curva</text>';
+  }
+}
+
+function renderYieldCurve(data) {
+  const svg    = document.getElementById('curve-svg');
+  const points = data.points;
+  if (!points || !points.length) return;
+
+  const W = 800, H = 180, PL = 50, PR = 20, PT = 20, PB = 30;
+  const cW = W - PL - PR, cH = H - PT - PB;
+
+  const days  = points.map(p => p.maturity_days);
+  const rates = points.map(p => p.rate_pct);
+  const minD  = Math.min(...days),  maxD = Math.max(...days);
+  const minR  = Math.min(...rates) - 0.2;
+  const maxR  = Math.max(...rates) + 0.2;
+
+  const x = d => PL + (d - minD) / (maxD - minD) * cW;
+  const y = r => PT + cH - (r - minR) / (maxR - minR) * cH;
+
+  // Grid lines
+  let gridLines = '';
+  for (let i = 0; i <= 4; i++) {
+    const r   = minR + (maxR - minR) * i / 4;
+    const yp  = y(r);
+    const lbl = r.toFixed(2) + '%';
+    gridLines += `<line x1="${PL}" y1="${yp}" x2="${W-PR}" y2="${yp}" stroke="#1e3a5f" stroke-width="0.5"/>`;
+    gridLines += `<text x="${PL-4}" y="${yp+3}" text-anchor="end" fill="#445566" font-size="9">${lbl}</text>`;
+  }
+
+  // X axis labels
+  let xLabels = '';
+  const labelPoints = points.filter((_, i) => i % 2 === 0 || i === points.length - 1);
+  labelPoints.forEach(p => {
+    const lbl = p.maturity_years < 1
+      ? Math.round(p.maturity_days / 21) + 'm'
+      : p.maturity_years.toFixed(0) + 'a';
+    xLabels += `<text x="${x(p.maturity_days)}" y="${H-4}" text-anchor="middle" fill="#445566" font-size="9">${lbl}</text>`;
+  });
+
+  // Área preenchida
+  const pathD = points.map((p, i) =>
+    (i === 0 ? 'M' : 'L') + `${x(p.maturity_days).toFixed(1)},${y(p.rate_pct).toFixed(1)}`
+  ).join(' ');
+  const areaD = pathD +
+    ` L${x(maxD).toFixed(1)},${(PT+cH).toFixed(1)} L${PL},${(PT+cH).toFixed(1)} Z`;
+
+  // Curva SELIC flat (referência)
+  const selicY = y(data.selic);
+  const selicLine = `<line x1="${PL}" y1="${selicY}" x2="${W-PR}" y2="${selicY}" stroke="#ffb300" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>`;
+  const selicLabel = `<text x="${W-PR+2}" y="${selicY+3}" fill="#ffb300" font-size="9" opacity="0.8">SELIC</text>`;
+
+  // Pontos
+  const dots = points.map(p =>
+    `<circle cx="${x(p.maturity_days).toFixed(1)}" cy="${y(p.rate_pct).toFixed(1)}" r="3"
+      fill="${data.source === 'anbima' ? '#00c48c' : '#4ecdc4'}" opacity="0.9">
+      <title>${p.contract}: ${p.rate_pct}% a.a. (${p.maturity_years}a)</title>
+    </circle>`
+  ).join('');
+
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="curveGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#00c48c" stop-opacity="0.3"/>
+        <stop offset="100%" stop-color="#00c48c" stop-opacity="0.02"/>
+      </linearGradient>
+    </defs>
+    ${gridLines}
+    ${xLabels}
+    ${selicLine}${selicLabel}
+    <path d="${areaD}" fill="url(#curveGrad)"/>
+    <path d="${pathD}" fill="none" stroke="${data.source==='anbima'?'#00c48c':'#4ecdc4'}" stroke-width="2"/>
+    ${dots}
+  `;
+
+  // Legend
+  const shapeColor = data.is_inverted ? '#ff4757' : (Math.abs(data.slope_pp) < 0.5 ? '#ffb300' : '#00c48c');
+  document.getElementById('curve-legend').innerHTML = `
+    <div class="curve-legend-item">
+      <div class="curve-legend-dot" style="background:${data.source==='anbima'?'#00c48c':'#4ecdc4'}"></div>
+      DI Futuro (${data.source === 'anbima' ? 'ANBIMA' : 'Sintética'})
+    </div>
+    <div class="curve-legend-item">
+      <div class="curve-legend-dot" style="background:#ffb300"></div>
+      SELIC ${data.selic}%
+    </div>
+    <div class="curve-legend-item" style="color:${shapeColor}">
+      Curva ${data.shape} | Inclinação: ${data.slope_pp > 0 ? '+' : ''}${data.slope_pp} p.p.
+    </div>
+    <div class="curve-legend-item" style="color:#8899aa">
+      Ref: ${data.reference_date}
+    </div>
+  `;
+}
+
+function renderCurveContext(data) {
+  const box = document.getElementById('curve-context');
+  const ctx = data.context;
+  if (!ctx) return;
+
+  const tipHtml = (ctx.positioning || []).map(t =>
+    `<div class="tip-item ${t.type}">
+      <span>${t.type === 'opportunity' ? '💡' : t.type === 'risk' ? '⚠️' : 'ℹ️'}</span>
+      <span>${t.msg}</span>
+    </div>`
+  ).join('');
+
+  box.innerHTML = `
+    <div class="context-title">Interpretação da Curva</div>
+    <div class="context-text">${ctx.interpretation}</div>
+    ${tipHtml ? `<div class="tip-list">${tipHtml}</div>` : ''}
+  `;
+  box.style.display = 'block';
+}
+
+async function runStressTest() {
+  const sel      = document.getElementById('stress-bond-select');
+  const bondIds  = Array.from(sel.selectedOptions).map(o => o.value);
+  const principal = parseFloat(document.getElementById('stress-principal').value) || 10000;
+  const days      = parseInt(document.getElementById('stress-days').value) || 365;
+  const selic = parseFloat(document.getElementById('rate-selic')?.value || 10.65);
+  const cdi   = parseFloat(document.getElementById('rate-cdi')?.value   || 10.65);
+  const ipca  = parseFloat(document.getElementById('rate-ipca')?.value  || 4.83);
+  const igpm  = parseFloat(document.getElementById('rate-igpm')?.value  || 6.20);
+
+  if (!bondIds.length) {
+    document.getElementById('stress-results').innerHTML =
+      '<div style="color:#ff4757;font-size:12px;padding:10px">Selecione pelo menos um título.</div>';
+    return;
+  }
+
+  document.getElementById('stress-results').innerHTML =
+    '<div style="color:#8899aa;font-size:12px;padding:10px">⏳ Calculando cenários...</div>';
+
+  try {
+    const r = await fetch('/api/v1/fixed-income/stress', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ bond_ids: bondIds, principal, days,
+                             base_selic: selic, base_cdi: cdi,
+                             base_ipca: ipca, base_igpm: igpm })
+    });
+    const data = await r.json();
+    renderStressResults(data, principal);
+  } catch(e) {
+    document.getElementById('stress-results').innerHTML =
+      `<div style="color:#ff4757;font-size:12px;padding:10px">Erro: ${e.message}</div>`;
+  }
+}
+
+function renderStressResults(comparisons, principal) {
+  if (!comparisons.length) {
+    document.getElementById('stress-results').innerHTML =
+      '<div style="color:#8899aa;font-size:12px">Nenhum resultado.</div>';
+    return;
+  }
+
+  const html = comparisons.map(comp => {
+    const maxRet   = Math.max(...comp.results.map(r => r.net_return_pct));
+    const minRet   = Math.min(...comp.results.map(r => r.net_return_pct));
+    const rangeRet = maxRet - minRet || 0.001;
+
+    const bars = comp.results.map(r => {
+      const w    = Math.max(5, ((r.net_return_pct - minRet) / rangeRet) * 100);
+      const isBase = r.scenario_name === 'Base';
+      return `
+        <div class="bar-row">
+          <div class="bar-label" title="${r.scenario_name}">
+            ${isBase ? '<b>' : ''}${r.scenario_name}${isBase ? '</b>' : ''}
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:${w}%;background:${r.color}">
+              <span class="bar-value">${r.net_return_pct.toFixed(2)}%</span>
+            </div>
+          </div>
+          <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#8899aa;width:60px;text-align:right">
+            R$ ${r.net_amount.toLocaleString('pt-BR', {minimumFractionDigits:0,maximumFractionDigits:0})}
+          </div>
+        </div>`;
+    }).join('');
+
+    const exemptBadge = comp.ir_exempt
+      ? '<span style="background:rgba(0,196,140,.15);color:#00c48c;border-radius:3px;padding:1px 6px;font-size:9px;margin-left:6px">ISENTO IR</span>'
+      : '';
+
+    return `
+      <div class="stress-bond-header">
+        <div class="stress-bond-title">${comp.bond_name}${exemptBadge}</div>
+        <div class="stress-meta">
+          <div class="stress-meta-item">Indexador: <span>${comp.indexer}</span></div>
+          <div class="stress-meta-item">Retorno base: <span>${comp.base_net_return_pct?.toFixed(2) ?? '—'}%</span></div>
+          <div class="stress-meta-item">Drawdown máx: <span style="color:#ff4757">-${comp.max_drawdown_pp.toFixed(2)} p.p.</span></div>
+          <div class="stress-meta-item">Upside máx: <span style="color:#00c48c">+${comp.max_upside_pp.toFixed(2)} p.p.</span></div>
+          <div class="stress-meta-item">Pior cenário: <span style="color:#ff4757">${comp.worst_scenario}</span></div>
+          <div class="stress-meta-item">Melhor cenário: <span style="color:#00c48c">${comp.best_scenario}</span></div>
+        </div>
+        <div class="bar-chart-wrap">${bars}</div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('stress-results').innerHTML = html;
+}
+
+// Inicializa quando a aba de cenários é aberta
+const _origSwitch = window.switchTab;
+window.switchTab = function(tab) {
+  if (typeof _origSwitch === 'function') _origSwitch(tab);
+  if (tab === 'scenarios') {
+    loadStressBonds();
+    loadYieldCurve();
+  }
+};
+</script>
+
 </body>
 </html>

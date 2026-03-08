@@ -1,10 +1,10 @@
 """
 finanalytics_ai.interfaces.api.routes.watchlist
 ─────────────────────────────────────────────────
+Sprint 28: user_id vem do JWT (current_user), não de Query param.
+
 ORDEM DAS ROTAS — crítico para FastAPI:
   Rotas fixas ANTES de rotas com parâmetros no mesmo método HTTP.
-  /evaluate e /stream devem vir ANTES de /{item_id}.
-  /alerts/{alert_id} deve vir ANTES de /{item_id}.
 """
 from __future__ import annotations
 
@@ -19,17 +19,17 @@ from pydantic import BaseModel, Field
 from starlette.requests import Request
 
 from finanalytics_ai.application.services.watchlist_service import WatchlistError, WatchlistService
-from finanalytics_ai.interfaces.api.dependencies import get_watchlist_service
+from finanalytics_ai.domain.auth.entities import User
+from finanalytics_ai.interfaces.api.dependencies import get_watchlist_service, get_current_user
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/watchlist", tags=["Watchlist"])
 
 
 class AddItemRequest(BaseModel):
-    user_id: str       = Field(..., min_length=1)
-    ticker:  str       = Field(..., min_length=1, max_length=10)
-    note:    str       = Field("", max_length=500)
-    tags:    list[str] = Field(default_factory=list)
+    ticker: str       = Field(..., min_length=1, max_length=10)
+    note:   str       = Field("", max_length=500)
+    tags:   list[str] = Field(default_factory=list)
 
 class UpdateItemRequest(BaseModel):
     note: str | None       = None
@@ -41,14 +41,14 @@ class AddAlertRequest(BaseModel):
     config: dict[str, Any] = Field(default_factory=dict)
 
 
-# ── ROTAS FIXAS primeiro (antes de /{param}) ──────────────────────────────────
+# ── ROTAS FIXAS primeiro ──────────────────────────────────────────────────────
 
 @router.get("/evaluate")
 async def evaluate_alerts(
-    user_id: str = Query(...),
+    current_user: User = Depends(get_current_user),
     svc: WatchlistService = Depends(get_watchlist_service),
 ) -> dict[str, Any]:
-    results = await svc.evaluate_all(user_id)
+    results = await svc.evaluate_all(current_user.user_id)
     return {
         "triggered": len(results),
         "alerts": [
@@ -63,9 +63,10 @@ async def evaluate_alerts(
 @router.get("/stream")
 async def stream_alerts(
     request: Request,
-    user_id: str = Query(...),
+    current_user: User = Depends(get_current_user),
     svc: WatchlistService = Depends(get_watchlist_service),
 ) -> StreamingResponse:
+    user_id = current_user.user_id
     async def _gen():
         yield 'data: {"type": "connected"}\n\n'
         heartbeat = 0
@@ -86,30 +87,31 @@ async def stream_alerts(
 @router.delete("/alerts/{alert_id}", status_code=204)
 async def remove_alert(
     alert_id: str,
-    user_id: str = Query(...),
+    current_user: User = Depends(get_current_user),
     svc: WatchlistService = Depends(get_watchlist_service),
 ) -> None:
-    await svc.remove_smart_alert(user_id, alert_id)
+    await svc.remove_smart_alert(current_user.user_id, alert_id)
 
 
 # ── ROTAS COM PARÂMETROS depois ───────────────────────────────────────────────
 
 @router.get("")
 async def list_watchlist(
-    user_id: str = Query(..., min_length=1),
+    current_user: User = Depends(get_current_user),
     svc: WatchlistService = Depends(get_watchlist_service),
 ) -> list[dict[str, Any]]:
-    items = await svc.get_watchlist(user_id)
+    items = await svc.get_watchlist(current_user.user_id)
     return [i.to_dict() for i in items]
 
 
 @router.post("", status_code=201)
 async def add_item(
     body: AddItemRequest,
+    current_user: User = Depends(get_current_user),
     svc: WatchlistService = Depends(get_watchlist_service),
 ) -> dict[str, Any]:
     try:
-        item = await svc.add_item(body.user_id, body.ticker, body.note, body.tags)
+        item = await svc.add_item(current_user.user_id, body.ticker, body.note, body.tags)
         return item.to_dict()
     except WatchlistError as e:
         raise HTTPException(422, detail=str(e))
@@ -118,11 +120,11 @@ async def add_item(
 @router.delete("/{item_id}", status_code=204)
 async def remove_item(
     item_id: str,
-    user_id: str = Query(...),
+    current_user: User = Depends(get_current_user),
     svc: WatchlistService = Depends(get_watchlist_service),
 ) -> None:
     try:
-        await svc.remove_item(user_id, item_id)
+        await svc.remove_item(current_user.user_id, item_id)
     except WatchlistError as e:
         raise HTTPException(404, detail=str(e))
 
@@ -130,12 +132,12 @@ async def remove_item(
 @router.patch("/{item_id}")
 async def update_item(
     item_id: str,
-    user_id: str = Query(...),
-    body: UpdateItemRequest = ...,
+    body: UpdateItemRequest,
+    current_user: User = Depends(get_current_user),
     svc: WatchlistService = Depends(get_watchlist_service),
 ) -> dict[str, Any]:
     try:
-        item = await svc.update_item(user_id, item_id, body.note, body.tags)
+        item = await svc.update_item(current_user.user_id, item_id, body.note, body.tags)
         return item.to_dict()
     except WatchlistError as e:
         raise HTTPException(404, detail=str(e))
@@ -144,12 +146,12 @@ async def update_item(
 @router.post("/{item_id}/alerts", status_code=201)
 async def add_alert(
     item_id: str,
-    user_id: str = Query(...),
-    body: AddAlertRequest = ...,
+    body: AddAlertRequest,
+    current_user: User = Depends(get_current_user),
     svc: WatchlistService = Depends(get_watchlist_service),
 ) -> dict[str, Any]:
     try:
-        alert = await svc.add_smart_alert(user_id, item_id, body.alert_type, body.config, body.note)
+        alert = await svc.add_smart_alert(current_user.user_id, item_id, body.alert_type, body.config, body.note)
         return alert.to_dict()
     except WatchlistError as e:
         raise HTTPException(422, detail=str(e))

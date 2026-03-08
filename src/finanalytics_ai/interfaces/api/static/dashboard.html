@@ -1506,5 +1506,96 @@ startFeed();
 document.addEventListener('keydown',e=>{if(e.key==='Escape')hideModal();});
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===e.currentTarget)hideModal();});
 </script>
+
+<script>
+// ── Auth Interceptor ──────────────────────────────────────────────────────────
+(function() {
+  const PUBLIC_PATHS = ['/login'];
+  if (PUBLIC_PATHS.includes(location.pathname)) return;
+
+  function getToken() { return localStorage.getItem('access_token'); }
+  function getRefresh() { return localStorage.getItem('refresh_token'); }
+  function getExpiry() { return parseInt(localStorage.getItem('token_expires_at') || '0'); }
+
+  async function refreshTokens() {
+    const rt = getRefresh();
+    if (!rt) return false;
+    try {
+      const res = await fetch('/api/v1/auth/refresh', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({refresh_token: rt})
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      localStorage.setItem('access_token', data.access_token);
+      localStorage.setItem('refresh_token', data.refresh_token);
+      localStorage.setItem('token_expires_at', String(Date.now() + (data.expires_in || 1800) * 1000));
+      return true;
+    } catch { return false; }
+  }
+
+  async function ensureAuth() {
+    const token   = getToken();
+    const expires = getExpiry();
+    if (!token) { window.location.href = '/login'; return; }
+    // Renova se expira em menos de 5 minutos
+    if (expires - Date.now() < 300000) {
+      const ok = await refreshTokens();
+      if (!ok) { localStorage.clear(); window.location.href = '/login'; return; }
+    }
+  }
+
+  // Intercepta fetch global para injetar Bearer token
+  const _originalFetch = window.fetch;
+  window.fetch = async function(url, opts = {}) {
+    if (typeof url === 'string' && url.startsWith('/api/')) {
+      const token = getToken();
+      if (token) {
+        opts.headers = { ...(opts.headers || {}), 'Authorization': `Bearer ${token}` };
+      }
+    }
+    const res = await _originalFetch(url, opts);
+    if (res.status === 401 && typeof url === 'string' && url.startsWith('/api/')) {
+      const ok = await refreshTokens();
+      if (ok) {
+        const token = getToken();
+        opts.headers = { ...(opts.headers || {}), 'Authorization': `Bearer ${token}` };
+        return _originalFetch(url, opts);
+      }
+      localStorage.clear();
+      window.location.href = '/login';
+    }
+    return res;
+  };
+
+  ensureAuth();
+
+  // Injeta user info no nav quando disponível
+  async function loadUserInfo() {
+    try {
+      const res = await fetch('/api/v1/auth/me');
+      if (!res.ok) return;
+      const user = await res.json();
+      const nav = document.querySelector('nav');
+      if (!nav) return;
+      const btn = document.createElement('div');
+      btn.style.cssText = 'margin-left:auto;display:flex;align-items:center;gap:10px';
+      btn.innerHTML = `
+        <span style="font-size:11px;color:#8899aa">${user.full_name}</span>
+        <button onclick="doLogout()" style="background:transparent;border:1px solid #1e3a5f;border-radius:4px;color:#8899aa;font-family:Rajdhani,sans-serif;font-size:11px;padding:3px 10px;cursor:pointer;letter-spacing:.3px" onmouseover="this.style.borderColor='#ff4757';this.style.color='#ff4757'" onmouseout="this.style.borderColor='#1e3a5f';this.style.color='#8899aa'">Sair</button>
+      `;
+      nav.appendChild(btn);
+    } catch {}
+  }
+
+  window.doLogout = async function() {
+    try { await fetch('/api/v1/auth/logout', {method:'POST'}); } catch {}
+    localStorage.clear();
+    window.location.href = '/login';
+  };
+
+  document.addEventListener('DOMContentLoaded', loadUserInfo);
+})();
+</script>
 </body>
 </html>

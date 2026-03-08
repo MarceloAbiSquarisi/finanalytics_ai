@@ -21,7 +21,7 @@ from finanalytics_ai.domain.fixed_income.entities import (
     YieldResult, ComparisonResult, CashFlowResult,
     calculate_yield, compare_bonds, calculate_cash_flow, goal_investment,
 )
-from finanalytics_ai.infrastructure.adapters.tesouro_client import TesouroDiretoClient
+from finanalytics_ai.infrastructure.adapters.tesouro_client import TesouroDiretoClient, get_tesouro_client
 
 logger = structlog.get_logger(__name__)
 
@@ -301,3 +301,170 @@ def _yield_to_dict(y: YieldResult) -> dict[str, Any]:
         "iof_rate_pct":         y.iof_rate_pct,
         "ir_exempt":            y.ir_exempt,
     }
+
+
+# ── Yield Curve + Stress Test ─────────────────────────────────────────────────
+# Métodos adicionados na Sprint 28b (Curva de Juros + Stress Test)
+
+from finanalytics_ai.domain.fixed_income.yield_curve import (
+    YieldCurve, StressScenario, StressResult, ScenarioComparison, STANDARD_SCENARIOS,
+)
+from finanalytics_ai.infrastructure.adapters.anbima_client import get_anbima_client
+
+
+async def get_yield_curve_with_stress(
+    selic:     float = DEFAULT_SELIC,
+    cdi:       float = DEFAULT_CDI,
+    ipca:      float = DEFAULT_IPCA,
+) -> dict[str, Any]:
+    """
+    Retorna curva DI Futuro + análise contextual.
+    Usa ANBIMA real com fallback sintético.
+    """
+    client = get_anbima_client()
+    curve  = await client.get_yield_curve(selic, cdi, ipca)
+
+    points_out = [
+        {
+            "maturity_days":  p.maturity_days,
+            "maturity_years": p.maturity_years,
+            "maturity_date":  p.maturity_date.isoformat() if p.maturity_date else None,
+            "rate_annual":    p.rate_annual,
+            "rate_pct":       p.rate_pct,
+            "contract":       p.contract,
+            "source":         p.source,
+        }
+        for p in curve.points
+    ]
+
+    return {
+        "reference_date": curve.reference_date.isoformat(),
+        "source":         curve.source,
+        "selic":          round(curve.selic * 100, 4),
+        "cdi":            round(curve.cdi   * 100, 4),
+        "ipca":           round(curve.ipca  * 100, 4),
+        "short_rate_pct": round(curve.short_rate * 100, 4),
+        "long_rate_pct":  round(curve.long_rate  * 100, 4),
+        "slope_pp":       curve.slope,
+        "is_inverted":    curve.is_inverted,
+        "shape":          "invertida" if curve.is_inverted else (
+                          "plana" if abs(curve.slope) < 0.5 else "normal"),
+        "points":         points_out,
+        "context": {
+            "interpretation": _curve_interpretation(curve),
+            "positioning":    _curve_positioning(curve),
+        },
+    }
+
+
+async def run_stress_test(
+    bond_ids:   list[str],
+    principal:  float,
+    days:       int,
+    scenarios:  list[StressScenario] | None = None,
+    base_selic: float = DEFAULT_SELIC,
+    base_cdi:   float = DEFAULT_CDI,
+    base_ipca:  float = DEFAULT_IPCA,
+    base_igpm:  float = DEFAULT_IGPM,
+) -> list[dict[str, Any]]:
+    """
+    Executa stress test para os bonds selecionados × cenários.
+
+    Para cada bond × cenário, calcula o yield líquido com as taxas estressadas
+    e retorna a comparação completa.
+    """
+    _svc = FixedIncomeService(get_tesouro_client())
+    if scenarios is None:
+        scenarios = STANDARD_SCENARIOS
+
+    comparisons: list[dict[str, Any]] = []
+
+    for bond_id in bond_ids:
+        bond = await _svc._find_bond(bond_id)
+        if bond is None:
+            continue
+
+        results: list[dict[str, Any]] = []
+
+        for scenario in scenarios:
+            stressed = scenario.apply_to_rates(base_selic, base_cdi, base_ipca, base_igpm)
+            idx_rate = _indexer_rate(bond.indexer,
+                                     stressed["cdi"],
+                                     stressed["selic"],
+                                     stressed["ipca"])
+            yr = calculate_yield(
+                bond           = bond,
+                principal      = principal,
+                days           = days,
+                indexer_rate   = idx_rate,
+                inflation_rate = stressed["ipca"],
+            )
+            results.append({
+                "scenario_name":  scenario.name,
+                "color":          scenario.color,
+                "selic_applied":  round(stressed["selic"] * 100, 4),
+                "cdi_applied":    round(stressed["cdi"]   * 100, 4),
+                "ipca_applied":   round(stressed["ipca"]  * 100, 4),
+                "net_return_pct": yr.net_return_pct,
+                "gross_return_pct": yr.gross_return_pct,
+                "net_amount":     yr.net_amount,
+                "ir_amount":      yr.ir_amount,
+                "iof_amount":     yr.iof_amount,
+                "effective_rate_annual": yr.effective_rate_annual,
+                "net_annual_return_pct": yr.net_annual_return_pct,
+            })
+
+        # Calcula drawdown máximo vs cenário base
+        base_r = next((r for r in results if r["scenario_name"] == "Base"), results[0])
+        worst_r = min(results, key=lambda r: r["net_return_pct"])
+        best_r  = max(results, key=lambda r: r["net_return_pct"])
+
+        comparisons.append({
+            "bond_id":           bond.bond_id,
+            "bond_name":         bond.name,
+            "bond_type":         bond.bond_type.value,
+            "indexer":           bond.indexer.value,
+            "ir_exempt":         bond.ir_exempt,
+            "principal":         principal,
+            "days":              days,
+            "base_net_return_pct": base_r["net_return_pct"],
+            "max_drawdown_pp":   round(base_r["net_return_pct"] - worst_r["net_return_pct"], 4),
+            "max_upside_pp":     round(best_r["net_return_pct"] - base_r["net_return_pct"], 4),
+            "worst_scenario":    worst_r["scenario_name"],
+            "best_scenario":     best_r["scenario_name"],
+            "results":           results,
+        })
+
+    return comparisons
+
+
+def _curve_interpretation(curve: YieldCurve) -> str:
+    if curve.is_inverted:
+        return ("Curva invertida: taxas longas abaixo das curtas. "
+                "O mercado precifica queda da SELIC no médio prazo. "
+                "Favorável para prefixados longos.")
+    if abs(curve.slope) < 0.5:
+        return ("Curva plana: mercado sem consenso claro sobre juros futuros. "
+                "Incerteza elevada. Prefira liquidez ou pós-fixados.")
+    return ("Curva normal: taxas longas acima das curtas. "
+            "Prêmio por prazo positivo. "
+            "CDI/SELIC remunera bem no curto prazo sem risco de duration.")
+
+
+def _curve_positioning(curve: YieldCurve) -> list[dict[str, str]]:
+    tips: list[dict[str, str]] = []
+    if curve.is_inverted:
+        tips.append({"type": "opportunity",
+                     "msg": "Prefixados longos estão atrativos — trave a taxa antes da queda da SELIC."})
+        tips.append({"type": "risk",
+                     "msg": "CDBs pós-fixados perdem com a queda do CDI. Avalie duration."})
+    else:
+        tips.append({"type": "neutral",
+                     "msg": "Pós-fixados (CDI/SELIC) remuneram bem sem risco de marcação a mercado."})
+    if curve.selic > 0.12:
+        tips.append({"type": "opportunity",
+                     "msg": f"SELIC em {curve.selic*100:.2f}%: LCI/LCA isentas superam muitos fundos."})
+    if curve.long_rate > curve.selic + 0.02:
+        tips.append({"type": "opportunity",
+                     "msg": f"Prêmio longo de {curve.slope:.1f} p.p.: Tesouro IPCA+ longo vale análise."})
+    return tips
