@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse
 from finanalytics_ai.config import EventQueueBackend, get_settings
 from finanalytics_ai.exceptions import FinAnalyticsError
 from finanalytics_ai.infrastructure.database.connection import close_engine, get_engine
-from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer, backtest, correlation, screener, anomaly, reports, watchlist, performance, fixed_income, ohlc
+from finanalytics_ai.interfaces.api.routes import dashboard, health, portfolio, quotes, events, alerts, producer, backtest, correlation, screener, anomaly, reports, watchlist, performance, fixed_income
 try:
     from finanalytics_ai.interfaces.api.routes import etf as etf_routes
     _ETF_AVAILABLE = True
@@ -34,6 +34,13 @@ try:
     _OPTIMIZER_AVAILABLE = True
 except ImportError:
     _OPTIMIZER_AVAILABLE = False
+
+try:
+    from finanalytics_ai.interfaces.api.routes import fund_analysis as fund_analysis_routes
+    _FUND_ANALYSIS_AVAILABLE = True
+except (ImportError, RuntimeError):
+    # RuntimeError quando python-multipart ausente (UploadFile/File dependency)
+    _FUND_ANALYSIS_AVAILABLE = False
 
 try:
     from finanalytics_ai.interfaces.api.routes import patrimony as patrimony_routes
@@ -362,6 +369,8 @@ def create_app() -> FastAPI:
         app.include_router(etf_routes.router, tags=["ETF"])
     if _OPTIMIZER_AVAILABLE:
         app.include_router(optimizer_routes.router, tags=["Portfolio Optimizer"])
+    if _FUND_ANALYSIS_AVAILABLE:
+        app.include_router(fund_analysis_routes.router, tags=["Análise de Lâminas"])
     if _PATRIMONY_AVAILABLE:
         app.include_router(patrimony_routes.router, tags=["Patrimônio"])
     app.include_router(dashboard.router,  tags=["Dashboard"])
@@ -385,7 +394,6 @@ def create_app() -> FastAPI:
         app.include_router(ohlc_router, tags=["OHLC"])
     except ImportError:
         pass
-    app.include_router(ohlc.router,            tags=["OHLC Cache"])
 
     # ── Páginas HTML estáticas ────────────────────────────────────────────────
     import pathlib
@@ -429,6 +437,9 @@ def create_app() -> FastAPI:
 
     @app.get("/optimizer", response_class=HTMLResponse, include_in_schema=False)
     async def serve_optimizer() -> HTMLResponse: return _html("optimizer.html")
+
+    @app.get("/laminas", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_laminas() -> HTMLResponse: return _html("laminas.html")
 
     @app.get("/patrimony", response_class=HTMLResponse, include_in_schema=False)
     async def serve_patrimony() -> HTMLResponse: return _html("patrimony.html")

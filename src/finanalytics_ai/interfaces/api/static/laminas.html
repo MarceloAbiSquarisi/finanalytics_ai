@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Análise de Lâminas — FinAnalytics AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#060d14;--card:#0b1520;--border:#1e3a5f;--accent:#00c48c;--text:#e8f4fd;--muted:#8899aa}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh}
+.topbar{background:#070f1a;border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between}
+.topbar-title{font-size:16px;font-weight:700;color:var(--accent);letter-spacing:1px}
+.nav-links{display:flex;gap:10px;flex-wrap:wrap}
+.nav-links a{font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:.5px;font-weight:600;padding:4px 8px;border-radius:4px;transition:.15s}
+.nav-links a:hover,.nav-links a.active{color:var(--accent);background:rgba(0,196,140,.08)}
+.container{max-width:1100px;margin:0 auto;padding:24px 20px}
+.page-title{font-size:26px;font-weight:700;letter-spacing:1px;margin-bottom:4px}
+.page-sub{font-size:12px;color:var(--muted);margin-bottom:24px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px}
+
+/* Upload zone */
+.upload-zone{border:2px dashed var(--border);border-radius:12px;padding:40px;text-align:center;cursor:pointer;transition:.2s;position:relative}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(0,196,140,.03)}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-icon{font-size:40px;margin-bottom:12px}
+.upload-title{font-size:16px;font-weight:700;margin-bottom:6px}
+.upload-sub{font-size:12px;color:var(--muted)}
+
+/* Spinner */
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid #1e3a5f;border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Progress */
+.progress-bar{height:4px;background:#0d1e30;border-radius:2px;overflow:hidden;margin:12px 0}
+.progress-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--accent),#4ecdc4);transition:width .5s}
+
+/* Recomendação */
+.rec-banner{border-radius:12px;padding:24px;text-align:center;margin-bottom:20px}
+.rec-badge{font-size:36px;font-weight:700;letter-spacing:2px;font-family:'JetBrains Mono',monospace}
+.rec-summary{font-size:14px;margin-top:8px;line-height:1.6;max-width:600px;margin-left:auto;margin-right:auto}
+.score-ring{display:inline-flex;align-items:center;justify-content:center;width:80px;height:80px;border-radius:50%;border:4px solid;font-size:28px;font-weight:700;font-family:'JetBrains Mono',monospace;margin:0 auto 8px}
+
+/* Métricas grid */
+.metrics-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:16px}
+.metric-card{background:#070f1a;border:1px solid var(--border);border-radius:8px;padding:12px}
+.metric-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.metric-value{font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.metric-value.pos{color:#00c48c}
+.metric-value.neg{color:#ff4757}
+.metric-value.neutral{color:var(--text)}
+.metric-value.warn{color:#ffb300}
+
+/* Dimensões */
+.dim-row{display:grid;grid-template-columns:140px 1fr auto;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(30,58,95,.3)}
+.dim-row:last-child{border-bottom:none}
+.dim-name{font-size:12px;font-weight:700}
+.dim-bar-track{height:20px;background:#0d1e30;border-radius:4px;overflow:hidden;position:relative}
+.dim-bar-fill{height:100%;border-radius:4px;transition:width .8s ease}
+.dim-bar-label{position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:700;color:#fff}
+.dim-score{font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;width:36px;text-align:right}
+
+/* Lists */
+.check-list{list-style:none;margin:0;padding:0}
+.check-list li{padding:4px 0;font-size:12px;display:flex;gap:8px;line-height:1.4}
+.check-list li::before{flex-shrink:0}
+.check-list.pros li::before{content:"✅"}
+.check-list.cons li::before{content:"❌"}
+.check-list.risks li::before{content:"⚠️"}
+.check-list.strengths li::before{content:"💪"}
+.check-list.flags li::before{content:"🚨"}
+
+/* Red flags banner */
+.red-flags-banner{background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.3);border-radius:8px;padding:12px;margin-bottom:14px}
+
+/* Section title */
+.section-title{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:18px 0 10px}
+
+/* Tag */
+.tag{display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.3px}
+
+/* History list */
+.history-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:#070f1a;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;cursor:pointer;transition:.15s}
+.history-item:hover{border-color:var(--accent)}
+.history-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* Tooltip */
+[title]{cursor:help}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-title">FINANALYTICS AI</div>
+  <div class="nav-links">
+    <a href="/">Dashboard</a>
+    <a href="/optimizer">Otimizador</a>
+    <a href="/backtest">Backtest</a>
+    <a href="/screener">Screener</a>
+    <a href="/performance">Performance</a>
+    <a href="/fixed-income">Renda Fixa</a>
+    <a href="/etf">ETFs</a>
+    <a href="/laminas" class="active">Lâminas</a>
+    <a href="/hub">Hub</a>
+  </div>
+</div>
+
+<div class="container">
+  <div class="page-title">🔍 Análise de Lâminas</div>
+  <div class="page-sub">Faça upload de uma lâmina de fundo de investimento e receba uma análise completa com recomendação de investimento baseada em IA.</div>
+
+  <!-- Status da API -->
+  <div id="api-status" style="margin-bottom:16px"></div>
+
+  <div style="display:grid;grid-template-columns:1fr 280px;gap:16px;align-items:start">
+
+    <!-- Coluna principal -->
+    <div>
+      <!-- Upload -->
+      <div class="card" style="margin-bottom:16px" id="upload-card">
+        <div class="upload-zone" id="drop-zone" ondragover="onDrag(event,true)" ondragleave="onDrag(event,false)" ondrop="onDrop(event)">
+          <input type="file" accept=".pdf" onchange="onFileSelect(event)" id="file-input">
+          <div class="upload-icon">📄</div>
+          <div class="upload-title">Arraste a lâmina aqui ou clique para selecionar</div>
+          <div class="upload-sub">PDF · até 20MB · Tempo de análise: 30–90 segundos</div>
+        </div>
+        <div id="upload-status" style="display:none;margin-top:14px">
+          <div id="upload-filename" style="font-size:13px;font-weight:700;margin-bottom:8px"></div>
+          <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+          <div id="upload-msg" style="font-size:11px;color:var(--muted)"></div>
+        </div>
+      </div>
+
+      <!-- Resultado -->
+      <div id="result" style="display:none"></div>
+    </div>
+
+    <!-- Sidebar: histórico -->
+    <div>
+      <div class="card">
+        <div class="section-title" style="margin-top:0">Análises recentes</div>
+        <div id="history-list">
+          <div style="font-size:11px;color:var(--muted)">Nenhuma análise realizada nesta sessão.</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <div class="section-title" style="margin-top:0">Como usar</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.8">
+          1. Baixe a lâmina do fundo no site da CVM ou da gestora<br>
+          2. Faça upload aqui (PDF)<br>
+          3. Aguarde a análise (30–90s)<br>
+          4. Revise as dimensões e a recomendação<br><br>
+          <b style="color:var(--text)">Onde encontrar lâminas?</b><br>
+          • <a href="https://cvmweb.cvm.gov.br/swb/default.asp?sg_sistema=fundosnet" target="_blank" style="color:var(--accent)">CVM FundosNet</a><br>
+          • Site da gestora do fundo<br>
+          • Plataforma da corretora
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const _history = [];
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+(async function init() {
+  try {
+    const r = await fetch('/api/v1/fund-analysis/status');
+    const d = await r.json();
+    const el = document.getElementById('api-status');
+    if (d.available) {
+      el.innerHTML = `<div style="background:rgba(0,196,140,.08);border:1px solid rgba(0,196,140,.2);border-radius:6px;padding:8px 14px;font-size:12px;color:#00c48c">✅ ${d.message}</div>`;
+    } else {
+      el.innerHTML = `
+        <div style="background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.3);border-radius:6px;padding:12px 14px;font-size:12px">
+          <div style="color:#ff4757;font-weight:700;margin-bottom:6px">⚠️ API Key não configurada</div>
+          <div style="color:var(--muted);line-height:1.7">
+            Adicione ao arquivo <code style="color:var(--accent)">.env</code> do projeto:<br>
+            <code style="color:#ffb300;background:#070f1a;padding:2px 6px;border-radius:3px;display:inline-block;margin-top:4px">ANTHROPIC_API_KEY=sk-ant-...</code><br><br>
+            Em seguida reinicie o container: <code style="color:var(--accent)">docker restart finanalytics_api</code><br>
+            Obtenha sua chave em: <a href="https://console.anthropic.com" target="_blank" style="color:var(--accent)">console.anthropic.com</a>
+          </div>
+        </div>`;
+    }
+  } catch(e) {}
+})();
+
+// ── Upload handlers ───────────────────────────────────────────────────────────
+function onDrag(e, entering) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.toggle('drag', entering);
+}
+
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+}
+
+function onFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) processFile(file);
+}
+
+async function processFile(file) {
+  if (!file.name.toLowerCase().endsWith('.pdf')) {
+    alert('Somente arquivos PDF são aceitos.');
+    return;
+  }
+
+  const status = document.getElementById('upload-status');
+  const filename = document.getElementById('upload-filename');
+  const msg      = document.getElementById('upload-msg');
+  const progress = document.getElementById('progress-fill');
+  const result   = document.getElementById('result');
+
+  status.style.display = 'block';
+  result.style.display = 'none';
+  filename.textContent = `📄 ${file.name} (${(file.size/1024).toFixed(0)} KB)`;
+
+  // Simula progresso enquanto espera
+  let pct = 5;
+  msg.innerHTML = '<span class="spinner"></span>Enviando PDF para análise…';
+  progress.style.width = pct + '%';
+  const ticker = setInterval(() => {
+    if (pct < 85) { pct += Math.random() * 3; progress.style.width = pct + '%'; }
+    if (pct > 20) msg.innerHTML = '<span class="spinner"></span>IA lendo a lâmina e extraindo dados…';
+    if (pct > 50) msg.innerHTML = '<span class="spinner"></span>Analisando rentabilidade, risco e custos…';
+    if (pct > 70) msg.innerHTML = '<span class="spinner"></span>Gerando recomendação final…';
+  }, 1200);
+
+  const form = new FormData();
+  form.append('file', file);
+
+  try {
+    const r = await fetch('/api/v1/fund-analysis/analyze', {method:'POST', body: form});
+    clearInterval(ticker);
+    progress.style.width = '100%';
+
+    if (!r.ok) {
+      const err = await r.json();
+      throw new Error(err.detail || `Erro ${r.status}`);
+    }
+
+    const data = await r.json();
+    msg.innerHTML = '✅ Análise concluída!';
+    renderResult(data);
+    addToHistory(data, file.name);
+  } catch(e) {
+    clearInterval(ticker);
+    progress.style.width = '100%';
+    progress.style.background = '#ff4757';
+    msg.innerHTML = `❌ ${e.message}`;
+  }
+}
+
+// ── Render resultado ──────────────────────────────────────────────────────────
+function renderResult(d) {
+  const el = document.getElementById('result');
+  el.style.display = 'block';
+
+  const rec   = d.recommendation || 'AGUARDAR';
+  const recColor = d.recommendation_color || '#ffb300';
+  const score = d.total_score || 0;
+  const scColor = score >= 75 ? '#00c48c' : score >= 50 ? '#ffb300' : '#ff4757';
+  const m     = d.metrics || {};
+  const fmtPct = (v, inv) => {
+    if (v === null || v === undefined) return '<span style="color:var(--muted)">—</span>';
+    const c = inv ? (v<=0?'#00c48c':'#ff4757') : (v>=0?'#00c48c':'#ff4757');
+    return `<span style="color:${c}">${v>=0?'+':''}${v.toFixed(2)}%</span>`;
+  };
+  const fmtVal = (v, suffix='', warn=false) => {
+    if (v === null || v === undefined) return '<span style="color:var(--muted)">—</span>';
+    return `<span class="${warn?'warn':'neutral'}">${v}${suffix}</span>`;
+  };
+  const fmtBRL = v => v ? 'R$ ' + Number(v).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}) : '—';
+
+  // Red flags
+  const redFlagsHtml = (d.red_flags||[]).length > 0 ? `
+    <div class="red-flags-banner">
+      <div style="font-size:11px;font-weight:700;color:#ff4757;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">🚨 Alertas Críticos</div>
+      <ul class="check-list flags">${(d.red_flags||[]).map(f=>`<li>${f}</li>`).join('')}</ul>
+    </div>` : '';
+
+  // Banner de recomendação
+  const recHtml = `
+    <div class="rec-banner" style="background:${hexBg(recColor)};border:2px solid ${recColor}">
+      <div class="score-ring" style="border-color:${scColor};color:${scColor}">${score}</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:10px">${d.score_label || ''}</div>
+      <div class="rec-badge" style="color:${recColor}">${recIcon(rec)} ${rec}</div>
+      <div class="rec-summary" style="color:var(--text)">${d.recommendation_summary || ''}</div>
+      <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        ${d.suggested_profile ? `<span class="tag" style="background:rgba(255,255,255,.06);color:var(--muted)">👤 ${d.suggested_profile}</span>` : ''}
+        ${d.horizon            ? `<span class="tag" style="background:rgba(255,255,255,.06);color:var(--muted)">⏱️ ${d.horizon}</span>` : ''}
+        ${m.fund_type          ? `<span class="tag" style="background:rgba(255,255,255,.06);color:var(--accent)">${m.fund_type}</span>` : ''}
+      </div>
+    </div>`;
+
+  // Identificação
+  const infoHtml = `
+    <div class="section-title">Identificação do Fundo</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;margin-bottom:16px">
+      <div><span style="color:var(--muted)">Nome</span><br><b style="color:var(--accent)">${m.fund_name || '—'}</b></div>
+      <div><span style="color:var(--muted)">CNPJ</span><br><b style="font-family:'JetBrains Mono',monospace">${m.cnpj || '—'}</b></div>
+      <div><span style="color:var(--muted)">Gestora</span><br><b>${m.manager || '—'}</b></div>
+      <div><span style="color:var(--muted)">Administrador</span><br><b>${m.administrator || '—'}</b></div>
+      <div><span style="color:var(--muted)">Benchmark</span><br><b style="color:#4ecdc4">${m.benchmark || '—'}</b></div>
+      <div><span style="color:var(--muted)">Início</span><br><b>${m.inception_date || '—'}</b></div>
+    </div>
+    ${m.investment_policy ? `<div style="background:#070f1a;border:1px solid var(--border);border-radius:6px;padding:10px;font-size:11px;color:var(--muted);line-height:1.6">${m.investment_policy}</div>` : ''}`;
+
+  // Métricas numéricas
+  const metricsHtml = `
+    <div class="section-title">Rentabilidade & Risco</div>
+    <div class="metrics-grid">
+      <div class="metric-card"><div class="metric-label">1 mês</div>${fmtPct(m.return_1m)}</div>
+      <div class="metric-card"><div class="metric-label">3 meses</div>${fmtPct(m.return_3m)}</div>
+      <div class="metric-card"><div class="metric-label">6 meses</div>${fmtPct(m.return_6m)}</div>
+      <div class="metric-card"><div class="metric-label">12 meses</div>${fmtPct(m.return_12m)}</div>
+      <div class="metric-card"><div class="metric-label">24 meses</div>${fmtPct(m.return_24m)}</div>
+      <div class="metric-card"><div class="metric-label">Desde início</div>${fmtPct(m.return_since_start)}</div>
+      <div class="metric-card"><div class="metric-label">Benchmark 12m</div>${fmtPct(m.benchmark_12m)}</div>
+      <div class="metric-card" title="Desvio padrão anualizado"><div class="metric-label">Volatilidade</div>${fmtPct(m.volatility_12m)}</div>
+      <div class="metric-card" title="Maior queda do pico ao fundo"><div class="metric-label">Max Drawdown</div>${fmtPct(m.max_drawdown,true)}</div>
+      <div class="metric-card" title="Retorno ajustado ao risco"><div class="metric-label">Sharpe</div><span class="metric-value ${m.sharpe>=1?'pos':m.sharpe>=0?'neutral':'neg'}">${m.sharpe!==null&&m.sharpe!==undefined?m.sharpe.toFixed(2):'—'}</span></div>
+    </div>
+    <div class="section-title">Custos & Liquidez</div>
+    <div class="metrics-grid">
+      <div class="metric-card" title="Taxa de administração anual"><div class="metric-label">Taxa Adm.</div><span class="metric-value ${m.admin_fee>2?'warn neg':m.admin_fee>1?'warn':'pos'}">${m.admin_fee!==null&&m.admin_fee!==undefined?m.admin_fee.toFixed(2)+'% a.a.':'—'}</span></div>
+      <div class="metric-card"><div class="metric-label">Taxa Perf.</div>${fmtVal(m.performance_fee,'%',m.performance_fee>25)} ${m.performance_hurdle?`<div style="font-size:9px;color:var(--muted)">${m.performance_hurdle}</div>`:''}</div>
+      <div class="metric-card" title="Dias para resgate (cotização + liquidação)"><div class="metric-label">Liquidez</div><span class="metric-value ${m.redemption_days<=1?'pos':m.redemption_days<=5?'neutral':m.redemption_days<=30?'warn':'neg'}">${m.redemption_days!==null&&m.redemption_days!==undefined?'D+'+m.redemption_days:'—'}</span></div>
+      <div class="metric-card"><div class="metric-label">Invest. mínimo</div><span class="metric-value neutral" style="font-size:13px">${fmtBRL(m.min_investment)}</span></div>
+      <div class="metric-card" title="Patrimônio líquido em R$ milhões"><div class="metric-label">PL (R$ mi)</div><span class="metric-value ${m.aum>100?'pos':m.aum>10?'neutral':'warn'}">${m.aum?'R$ '+m.aum.toFixed(0)+'M':'—'}</span></div>
+    </div>`;
+
+  // Dimensões
+  const dimColors = {80:'#00c48c',60:'#4ecdc4',40:'#ffb300',0:'#ff4757'};
+  const dimsHtml = `
+    <div class="section-title">Análise por Dimensão</div>
+    <div style="background:#070f1a;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px">
+      ${(d.dimensions||[]).map(dim => {
+        const c = Object.entries(dimColors).reverse().find(([k])=>dim.score>=Number(k))?.[1]||'#ff4757';
+        const detailId = 'dim-' + dim.name.replace(/\s+/g,'_');
+        return `<div class="dim-row">
+          <div class="dim-name">${dim.name}</div>
+          <div>
+            <div class="dim-bar-track" onclick="document.getElementById('${detailId}').classList.toggle('hidden')" style="cursor:pointer">
+              <div class="dim-bar-fill" style="width:${dim.score}%;background:${c}"></div>
+              <span class="dim-bar-label">${dim.label}</span>
+            </div>
+            <div id="${detailId}" class="hidden" style="margin-top:6px;font-size:11px;color:var(--muted);line-height:1.5;padding:8px;background:var(--bg);border-radius:4px">
+              ${dim.notes ? `<div style="margin-bottom:5px">${dim.notes}</div>` : ''}
+              ${dim.pros.length ? `<div style="color:#00c48c">${dim.pros.map(p=>`✅ ${p}`).join('<br>')}</div>` : ''}
+              ${dim.cons.length ? `<div style="color:#ff4757;margin-top:4px">${dim.cons.map(c=>`❌ ${c}`).join('<br>')}</div>` : ''}
+            </div>
+          </div>
+          <div class="dim-score" style="color:${c}">${dim.score}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  // Pontos fortes / fracos / riscos
+  const swotHtml = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div class="card" style="padding:14px">
+        <div class="section-title" style="margin-top:0">💪 Pontos Fortes</div>
+        <ul class="check-list strengths">${(d.key_strengths||[]).map(s=>`<li>${s}</li>`).join('') || '<li style="color:var(--muted)">Nenhum identificado</li>'}</ul>
+      </div>
+      <div class="card" style="padding:14px">
+        <div class="section-title" style="margin-top:0">⚠️ Riscos</div>
+        <ul class="check-list risks">${(d.key_risks||[]).map(r=>`<li>${r}</li>`).join('') || '<li style="color:var(--muted)">Nenhum identificado</li>'}</ul>
+      </div>
+    </div>`;
+
+  // Contexto
+  const ctxHtml = (d.context_notes||[]).length ? `
+    <div class="section-title">Contexto e Observações</div>
+    <div style="background:#070f1a;border:1px solid var(--border);border-radius:8px;padding:12px;font-size:11px;color:var(--muted);line-height:1.8">
+      ${d.context_notes.map(n=>`<div>💡 ${n}</div>`).join('')}
+    </div>` : '';
+
+  // Disclaimer
+  const disclaimerHtml = `
+    <div style="margin-top:20px;background:#060d14;border:1px solid var(--border);border-radius:8px;padding:12px;font-size:10px;color:var(--muted);line-height:1.7">
+      ⚠️ <b>Aviso importante:</b> Esta análise é gerada por inteligência artificial com base exclusivamente nos dados da lâmina enviada.
+      Não constitui recomendação de investimento. Consulte um assessor financeiro certificado antes de tomar qualquer decisão.
+      Análise realizada em: ${d.analyzed_at} | Modelo: ${d.model_used}
+    </div>`;
+
+  el.innerHTML = `
+    <div class="card">
+      ${recHtml}
+      ${redFlagsHtml}
+      ${infoHtml}
+      ${metricsHtml}
+      ${dimsHtml}
+      ${swotHtml}
+      ${ctxHtml}
+      ${disclaimerHtml}
+    </div>`;
+
+  // Anima barras após render
+  setTimeout(() => {
+    document.querySelectorAll('.dim-bar-fill').forEach(b => {
+      const w = b.style.width; b.style.width = '0'; setTimeout(()=>b.style.width=w, 50);
+    });
+  }, 100);
+}
+
+function recIcon(rec) {
+  return {INVESTIR:'✅', 'NÃO INVESTIR':'❌', AGUARDAR:'⏳'}[rec] || '🔍';
+}
+
+function hexBg(hex) {
+  if (!hex || hex[0]!=='#') return 'rgba(136,153,170,.05)';
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},0.06)`;
+}
+
+function addToHistory(d, fname) {
+  const rec = d.recommendation || 'AGUARDAR';
+  const color = d.recommendation_color || '#ffb300';
+  _history.unshift({data: d, fname, rec, color, name: d.metrics?.fund_name || fname});
+  renderHistory();
+}
+
+function renderHistory() {
+  const el = document.getElementById('history-list');
+  if (!_history.length) {
+    el.innerHTML = '<div style="font-size:11px;color:var(--muted)">Nenhuma análise realizada nesta sessão.</div>';
+    return;
+  }
+  el.innerHTML = _history.slice(0,8).map((h,i) => `
+    <div class="history-item" onclick="renderResult(_history[${i}].data)">
+      <div class="history-dot" style="background:${h.color}"></div>
+      <div style="flex:1;overflow:hidden">
+        <div style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${h.name}</div>
+        <div style="font-size:10px;color:var(--muted)">${h.rec} · score ${h.data.total_score}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── CSS helper ────────────────────────────────────────────────────────────────
+const style = document.createElement('style');
+style.textContent = '.hidden{display:none!important}';
+document.head.appendChild(style);
+</script>
+</body>
+</html>
