@@ -6,18 +6,19 @@ param([switch]$NoPlatform)
 
 Set-Location $PSScriptRoot
 
-$base  = "docker-compose.yml"
-$obs   = "docker-compose.observability.yml"
-$plat  = "docker-compose.platform.yml"
+$base     = "docker-compose.yml"
+$override = "docker-compose.override.yml"
+$obs      = "docker-compose.observability.yml"
+$plat     = "docker-compose.platform.yml"
 
 Write-Host "Subindo infra base..." -ForegroundColor Cyan
 if ($NoPlatform) {
-    docker compose -f $base -f $obs up -d
+    docker compose -f $base -f $override -f $obs up -d
 } else {
-    docker compose -f $base -f $obs -f $plat up -d
+    docker compose -f $base -f $override -f $obs -f $plat up -d
 }
 
-Write-Host "`nAguardando health checks..." -ForegroundColor Cyan
+Write-Host "`nAguardando health checks (30s)..." -ForegroundColor Cyan
 Start-Sleep 30
 
 Write-Host "`nStatus dos containers:" -ForegroundColor Cyan
