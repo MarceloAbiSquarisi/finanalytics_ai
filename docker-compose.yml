@@ -121,6 +121,7 @@ services:
       TIMESCALE_URL:           postgresql://finanalytics:${TIMESCALE_PASSWORD:-timescale_secret}@timescale:5432/market_data
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       EVENT_QUEUE_BACKEND:     kafka
+      REDIS_URL:               redis://redis:6379/0
     ports:
       - "${API_PORT:-8000}:8000"
     healthcheck:
@@ -151,6 +152,7 @@ services:
       PYTHONPATH:        /app/src
       APP_SECRET_KEY:    ${APP_SECRET_KEY:-ingestor-local}
       DATABASE_URL:      postgresql+asyncpg://finanalytics:${POSTGRES_PASSWORD:-secret}@postgres:5432/finanalytics
+      REDIS_URL:         redis://redis:6379/0
     volumes:
       - ./src:/app/src:ro
     command: python /app/src/finanalytics_ai/workers/ohlc_1m_ingestor.py
