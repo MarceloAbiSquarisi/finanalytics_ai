@@ -34,11 +34,9 @@ async def run():
     sf = async_sessionmaker(bind=engine, expire_on_commit=False, autoflush=False)
     from finanalytics_ai.infrastructure.database.repositories.ohlc_1m_repo import Base
     async with engine.begin() as c: await c.run_sync(Base.metadata.create_all)
-    import httpx
     from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
     from finanalytics_ai.application.services.ohlc_1m_service import OHLC1mService
-    http = httpx.AsyncClient(timeout=30)
-    svc = OHLC1mService(sf, BrapiClient(token=BRAPI_TOKEN, http_client=http))
+    svc = OHLC1mService(sf, BrapiClient(token=BRAPI_TOKEN))
     logger.info("ingestor.init_fetch")
     sem = asyncio.Semaphore(3)
     async def _one(t):
@@ -53,7 +51,7 @@ async def run():
             await asyncio.sleep(max(0, POLL_INTERVAL - (time.monotonic()-t0)))
         else:
             await asyncio.sleep(min(_wait(), 300))
-    await http.aclose(); await engine.dispose()
+    await engine.dispose()
 
 if __name__ == "__main__":
     signal.signal(signal.SIGTERM, lambda s,f: globals().update(_shutdown=True))
