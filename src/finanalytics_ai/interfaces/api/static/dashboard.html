@@ -36,11 +36,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .badge{font-size:8px;font-weight:800;letter-spacing:2px;background:linear-gradient(90deg,var(--gold),var(--gold-dk));
   color:var(--navy);padding:2px 5px;border-radius:3px;margin-left:3px}
 
-.pill{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);font-family:'DM Mono',monospace}
+.pill{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);font-family:DM Mono,monospace}
 .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .sel{background:var(--card);border:1px solid var(--border);color:var(--white);
-  font-family:'DM Mono',monospace;font-size:11px;padding:5px 9px;border-radius:6px;outline:none;cursor:pointer}
+  font-family:DM Mono,monospace;font-size:11px;padding:5px 9px;border-radius:6px;outline:none;cursor:pointer}
 .btn{background:linear-gradient(135deg,var(--blue-dk),var(--blue));color:var(--navy);border:none;
   font-family:'Syne',sans-serif;font-weight:700;font-size:11px;padding:5px 12px;
   border-radius:6px;cursor:pointer;letter-spacing:.4px;transition:all .2s}
@@ -57,12 +57,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .pf-item{padding:6px 8px;border-radius:6px;cursor:pointer;font-size:11px;transition:all .15s;border:1px solid transparent}
 .pf-item:hover{background:rgba(58,191,248,.06)}
 .pf-item.active{background:rgba(58,191,248,.12);border-color:rgba(58,191,248,.2);color:var(--blue)}
-.pf-item .pn{font-weight:700;font-size:11px}.pf-item .pv{font-size:9px;color:var(--muted);font-family:'DM Mono',monospace}
+.pf-item .pn{font-weight:700;font-size:11px}.pf-item .pv{font-size:9px;color:var(--muted);font-family:DM Mono,monospace}
 .watchlist{display:flex;flex-direction:column;gap:1px;flex:1;overflow-y:auto}
 .wi{display:flex;justify-content:space-between;align-items:center;padding:6px 9px;border-radius:5px;cursor:pointer;transition:background .12s}
 .wi:hover{background:rgba(58,191,248,.06)}.wi.active{background:rgba(58,191,248,.1)}
-.wt{font-size:11px;font-weight:700;color:var(--blue)}.wp{font-size:10px;font-family:'DM Mono',monospace}
-.wc{font-size:9px;font-family:'DM Mono',monospace}
+.wt{font-size:11px;font-weight:700;color:var(--blue)}.wp{font-size:10px;font-family:DM Mono,monospace}
+.wc{font-size:9px;font-family:DM Mono,monospace}
 .up{color:var(--green)}.dn{color:var(--red)}
 
 /* MAIN */
@@ -74,8 +74,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   background:rgba(10,22,40,.4);flex-shrink:0}
 .tb-sym{font-size:18px;font-weight:800;letter-spacing:-.5px}
 .tb-nm{font-size:9px;color:var(--muted);margin-top:1px}
-.tb-px{font-size:24px;font-weight:800;font-family:'DM Mono',monospace;color:var(--gold)}
-.tb-chg{font-size:11px;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:4px}
+.tb-px{font-size:24px;font-weight:800;font-family:DM Mono,monospace;color:var(--gold)}
+.tb-chg{font-size:11px;font-family:DM Mono,monospace;padding:2px 7px;border-radius:4px}
 .tb-chg.up{background:rgba(46,212,122,.15);color:var(--green)}
 .tb-chg.dn{background:rgba(224,85,85,.15);color:var(--red)}
 .tb-chg.flat{background:rgba(106,158,191,.12);color:var(--muted)}
@@ -83,13 +83,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 /* RANGE + INDICATOR TOGGLES */
 .ctrl-bar{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap}
 .ranges{display:flex;gap:3px}
-.rb{padding:3px 8px;font-size:10px;font-family:'DM Mono',monospace;border-radius:4px;
+.rb{padding:3px 8px;font-size:10px;font-family:DM Mono,monospace;border-radius:4px;
   border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s}
 .rb:hover{border-color:rgba(58,191,248,.3);color:var(--white)}
 .rb.active{background:rgba(58,191,248,.15);border-color:rgba(58,191,248,.35);color:var(--blue)}
 .sep{width:1px;height:18px;background:var(--border)}
 .ind-toggles{display:flex;gap:4px}
-.itgl{padding:3px 9px;font-size:9px;font-family:'DM Mono',monospace;font-weight:500;
+.itgl{padding:3px 9px;font-size:9px;font-family:DM Mono,monospace;font-weight:500;
   border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;
   letter-spacing:.5px;transition:all .15s;text-transform:uppercase}
 .itgl:hover{color:var(--white)}
@@ -109,11 +109,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .pane-label{
   position:absolute;top:4px;left:8px;z-index:10;
   font-size:9px;letter-spacing:1.5px;text-transform:uppercase;
-  color:var(--muted);font-family:'DM Mono',monospace;pointer-events:none;
+  color:var(--muted);font-family:DM Mono,monospace;pointer-events:none;
 }
 .pane-label span{color:var(--white);font-weight:500;margin-left:4px}
 .pane-ref{position:absolute;right:8px;top:4px;z-index:10;
-  font-size:9px;font-family:'DM Mono',monospace;color:var(--muted);pointer-events:none}
+  font-size:9px;font-family:DM Mono,monospace;color:var(--muted);pointer-events:none}
 
 /* INDICATORS ROW */
 .inds{height:68px;flex-shrink:0;border-top:1px solid var(--border);
@@ -121,18 +121,18 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .ind{padding:8px 14px;border-right:1px solid var(--border);display:flex;flex-direction:column;justify-content:center}
 .ind:last-child{border-right:none}
 .ind-l{font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
-.ind-v{font-size:15px;font-weight:800;font-family:'DM Mono',monospace;margin-top:2px}
-.ind-s{font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:1px}
+.ind-v{font-size:15px;font-weight:800;font-family:DM Mono,monospace;margin-top:2px}
+.ind-s{font-size:9px;color:var(--muted);font-family:DM Mono,monospace;margin-top:1px}
 
 /* LOADING OVERLAY */
 .ov{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;gap:8px;
-  background:rgba(10,22,40,.85);font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;transition:opacity .3s}
+  background:rgba(10,22,40,.85);font-size:11px;color:var(--muted);font-family:DM Mono,monospace;transition:opacity .3s}
 .ov.hide{opacity:0;pointer-events:none}
 .spin{width:13px;height:13px;border:2px solid var(--border);border-top-color:var(--blue);
   border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;color:var(--muted)}
-.empty p{font-size:11px;font-family:'DM Mono',monospace}
+.empty p{font-size:11px;font-family:DM Mono,monospace}
 
 /* SIDEBAR RIGHT */
 .sr{border-left:1px solid var(--border);display:flex;flex-direction:column;background:rgba(10,22,40,.45);overflow-y:auto}
@@ -141,7 +141,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .feed-box{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;flex-direction:column}
 .feed-list{display:flex;flex-direction:column;gap:2px;max-height:140px;overflow-y:auto;margin-top:6px}
 .feed-item{display:flex;justify-content:space-between;align-items:center;
-  padding:4px 6px;border-radius:4px;font-size:9px;font-family:'DM Mono',monospace;
+  padding:4px 6px;border-radius:4px;font-size:9px;font-family:DM Mono,monospace;
   background:rgba(58,191,248,.05);border:1px solid transparent;
   animation:feedin .3s ease}
 @keyframes feedin{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
@@ -160,7 +160,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .alert-row{display:flex;gap:5px}
 .alert-input{flex:1;background:rgba(255,255,255,.05);border:1px solid var(--border);
   border-radius:4px;padding:5px 8px;color:var(--white);font-size:10px;
-  font-family:'DM Mono',monospace;outline:none}
+  font-family:DM Mono,monospace;outline:none}
 .alert-input:focus{border-color:var(--blue)}
 .alert-select{flex:1;background:rgba(10,22,40,.9);border:1px solid var(--border);
   border-radius:4px;padding:5px 8px;color:var(--white);font-size:10px;outline:none}
@@ -169,7 +169,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .alert-btn:hover{opacity:.85}
 .alert-list{display:flex;flex-direction:column;gap:3px;margin-top:7px;max-height:110px;overflow-y:auto}
 .alert-item{display:flex;justify-content:space-between;align-items:center;
-  padding:4px 6px;border-radius:4px;font-size:9px;font-family:'DM Mono',monospace;
+  padding:4px 6px;border-radius:4px;font-size:9px;font-family:DM Mono,monospace;
   background:rgba(58,191,248,.05);border:1px solid rgba(58,191,248,.12)}
 .alert-item.triggered{border-color:rgba(240,180,41,.5);background:rgba(240,180,41,.07);
   animation:pulse .8s 3}
@@ -194,12 +194,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .fld{display:flex;flex-direction:column;gap:3px;margin-bottom:7px}
 .fld label{font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
 .fld input{background:rgba(10,22,40,.6);border:1px solid var(--border);color:var(--white);
-  font-family:'DM Mono',monospace;font-size:12px;padding:6px 8px;border-radius:6px;outline:none;transition:border-color .2s}
+  font-family:DM Mono,monospace;font-size:12px;padding:6px 8px;border-radius:6px;outline:none;transition:border-color .2s}
 .fld input:focus{border-color:var(--blue)}
 .frow{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:7px}
 .total{background:rgba(10,22,40,.8);border:1px solid var(--border);border-radius:6px;
   padding:7px 9px;display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
-.total .tl{font-size:9px;color:var(--muted)}.total .tv{font-size:13px;font-weight:700;font-family:'DM Mono',monospace;color:var(--gold)}
+.total .tl{font-size:9px;color:var(--muted)}.total .tv{font-size:13px;font-weight:700;font-family:DM Mono,monospace;color:var(--gold)}
 .btn-tr{width:100%;padding:8px;font-family:'Syne',sans-serif;font-weight:800;font-size:10px;
   letter-spacing:1px;text-transform:uppercase;border:none;border-radius:6px;cursor:pointer;transition:all .2s}
 .btn-tr.buy{background:linear-gradient(135deg,#1a7a45,var(--green));color:var(--navy)}
@@ -211,9 +211,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .pos-item{display:flex;justify-content:space-between;align-items:center;
   padding:6px 0;border-bottom:1px solid rgba(58,191,248,.05);cursor:pointer}
 .pos-item:last-child{border-bottom:none}
-.pos-t{font-size:11px;font-weight:700;color:var(--blue)}.pos-q{font-size:9px;color:var(--muted);font-family:'DM Mono',monospace}
-.pos-v{font-size:11px;font-family:'DM Mono',monospace;text-align:right}
-.pos-pl{font-size:9px;font-family:'DM Mono',monospace;text-align:right}
+.pos-t{font-size:11px;font-weight:700;color:var(--blue)}.pos-q{font-size:9px;color:var(--muted);font-family:DM Mono,monospace}
+.pos-v{font-size:11px;font-family:DM Mono,monospace;text-align:right}
+.pos-pl{font-size:9px;font-family:DM Mono,monospace;text-align:right}
 
 /* SIGNAL BOX */
 .signal-box{padding:10px 12px;border-bottom:1px solid var(--border)}
@@ -221,7 +221,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .prod-box{padding:10px 12px;border-bottom:1px solid var(--border)}
 .prod-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:6px;max-height:130px;overflow-y:auto}
 .prod-tick{padding:4px 6px;border-radius:4px;background:rgba(255,255,255,.03);
-  border:1px solid var(--border);font-size:9px;font-family:'DM Mono',monospace}
+  border:1px solid var(--border);font-size:9px;font-family:DM Mono,monospace}
 .prod-tick.ok{border-color:rgba(46,212,122,.2)}
 .prod-tick.err{border-color:rgba(224,85,85,.2);opacity:.7}
 .prod-tick .pt{color:var(--blue);font-weight:700;font-size:9px}
@@ -234,7 +234,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .prod-dot.on{background:var(--green);box-shadow:0 0 4px var(--green)}
 .sig-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
 .sig-label{font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
-.sig-badge{font-size:10px;font-family:'DM Mono',monospace;font-weight:700;
+.sig-badge{font-size:10px;font-family:DM Mono,monospace;font-weight:700;
   padding:2px 8px;border-radius:4px}
 .sig-badge.buy    {background:rgba(46,212,122,.15);color:var(--green)}
 .sig-badge.sell   {background:rgba(224,85,85,.15);color:var(--red)}
@@ -248,7 +248,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .mtitle{font-size:15px;font-weight:800;margin-bottom:16px}
 .mfld{margin-bottom:11px}.mfld label{display:block;font-size:8px;letter-spacing:2px;color:var(--muted);margin-bottom:4px}
 .mfld input{width:100%;background:rgba(10,22,40,.6);border:1px solid var(--border);color:var(--white);
-  font-family:'DM Mono',monospace;font-size:13px;padding:8px 11px;border-radius:7px;outline:none}
+  font-family:DM Mono,monospace;font-size:13px;padding:8px 11px;border-radius:7px;outline:none}
 .mfld input:focus{border-color:var(--blue)}
 .mbtns{display:flex;gap:7px;margin-top:16px}
 .btn-x{flex:1;padding:8px;background:transparent;border:1px solid var(--border);color:var(--muted);
@@ -356,7 +356,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <div class="sl">
     <div class="sl-sec">
       <div class="lbl">Portfólios</div>
-      <div class="pf-list" id="pf-list"><div style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace">Nenhum</div></div>
+      <div class="pf-list" id="pf-list"><div style="font-size:10px;color:var(--muted);font-family:DM Mono,monospace">Nenhum</div></div>
     </div>
     <div class="sl-sec" style="flex:1;display:flex;flex-direction:column;min-height:0;border-bottom:none">
       <div class="lbl">Watchlist</div>
@@ -369,9 +369,20 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
     <!-- Ticker bar + controles -->
     <div class="tb">
-      <div>
-        <div class="tb-sym" id="tk-sym">—</div>
-        <div class="tb-nm"  id="tk-nm">Selecione um ativo</div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <div>
+          <div class="tb-sym" id="tk-sym">—</div>
+          <div class="tb-nm"  id="tk-nm">Selecione um ativo</div>
+        </div>
+        <div id="tk-search-wrap" style="position:relative">
+          <input id="tk-search" autocomplete="off" placeholder="Buscar ticker..."
+            style="background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:7px;color:var(--fg);padding:6px 12px;font-size:12px;font-family:DM Mono,monospace;width:170px;outline:none"
+            oninput="tkSearchInput(this.value)"
+            onkeydown="tkSearchKey(event)"
+            onfocus="tkSearchInput(this.value)" />
+          <div id="tk-dropdown" style="display:none;position:absolute;top:34px;left:0;min-width:220px;background:#1a2035;border:1px solid var(--border);border-radius:8px;z-index:9999;max-height:240px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.6)"></div>
+        </div>
+      </div>
       </div>
       <div style="display:flex;align-items:baseline;gap:7px">
         <div class="tb-px"  id="tk-px">—</div>
@@ -445,11 +456,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <div class="lbl" style="margin-bottom:0">Feed ao Vivo</div>
         <div style="display:flex;align-items:center;gap:5px">
           <div class="feed-dot off" id="feed-dot"></div>
-          <span style="font-size:8px;color:var(--muted);font-family:'DM Mono',monospace" id="feed-st">desconectado</span>
+          <span style="font-size:8px;color:var(--muted);font-family:DM Mono,monospace" id="feed-st">desconectado</span>
         </div>
       </div>
       <div class="feed-list" id="feed-list">
-        <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;padding:4px 0">Aguardando eventos…</div>
+        <div style="font-size:9px;color:var(--muted);font-family:DM Mono,monospace;padding:4px 0">Aguardando eventos…</div>
       </div>
     </div>
 
@@ -474,7 +485,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         </div>
       </div>
       <div class="alert-list" id="alert-list">
-        <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;padding:3px 0">Sem alertas ativos</div>
+        <div style="font-size:9px;color:var(--muted);font-family:DM Mono,monospace;padding:3px 0">Sem alertas ativos</div>
       </div>
     </div>
 
@@ -491,7 +502,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         </div>
       </div>
       <div class="prod-grid" id="prod-grid">
-        <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;padding:3px 0;grid-column:1/-1">
+        <div style="font-size:9px;color:var(--muted);font-family:DM Mono,monospace;padding:3px 0;grid-column:1/-1">
           Carregando...
         </div>
       </div>
@@ -535,7 +546,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <!-- Posições -->
     <div class="pos-box">
       <div class="lbl" style="margin-bottom:8px">Posições</div>
-      <div id="pos-list"><div style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace">Selecione uma carteira</div></div>
+      <div id="pos-list"><div style="font-size:10px;color:var(--muted);font-family:DM Mono,monospace">Selecione uma carteira</div></div>
     </div>
 
 <!-- Painel Backtesting -->
@@ -567,19 +578,19 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px" id="bt-metrics-grid"></div>
     <!-- Equity curve placeholder -->
     <div style="margin-top:8px;background:var(--bg);border-radius:6px;padding:6px">
-      <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:4px">EQUITY CURVE</div>
+      <div style="font-size:9px;color:var(--muted);font-family:DM Mono,monospace;margin-bottom:4px">EQUITY CURVE</div>
       <canvas id="bt-equity-chart" height="100"></canvas>
     </div>
     <!-- Trades -->
     <div style="margin-top:8px">
-      <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:4px">TRADES</div>
+      <div style="font-size:9px;color:var(--muted);font-family:DM Mono,monospace;margin-bottom:4px">TRADES</div>
       <div id="bt-trades-list" style="max-height:120px;overflow-y:auto"></div>
     </div>
   </div>
-  <div id="bt-loading" style="display:none;text-align:center;padding:10px;font-size:10px;color:var(--muted);font-family:'DM Mono',monospace">
+  <div id="bt-loading" style="display:none;text-align:center;padding:10px;font-size:10px;color:var(--muted);font-family:DM Mono,monospace">
     ⏳ Executando backtest...
   </div>
-  <div id="bt-error" style="display:none;color:#ef4444;font-size:9px;font-family:'DM Mono',monospace;margin-top:6px;padding:4px;background:#1a0000;border-radius:4px"></div>
+  <div id="bt-error" style="display:none;color:#ef4444;font-size:9px;font-family:DM Mono,monospace;margin-top:6px;padding:4px;background:#1a0000;border-radius:4px"></div>
 </div>
 
   </div>
@@ -1205,7 +1216,7 @@ async function refreshProducerStatus() {
     if (!d.running) {
       dot.className   = 'prod-dot';
       label.textContent = d.reason ? 'BRAPI_TOKEN ausente' : 'inativo';
-      grid.innerHTML  = `<div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;grid-column:1/-1">${d.reason || 'Producer desabilitado'}</div>`;
+      grid.innerHTML  = `<div style="font-size:9px;color:var(--muted);font-family:DM Mono,monospace;grid-column:1/-1">${d.reason || 'Producer desabilitado'}</div>`;
       return;
     }
 
@@ -1478,8 +1489,8 @@ function renderBacktestResult(d) {
     var value = metrics[i][1];
     var color = metrics[i][2];
     gridHtml += '<div style="background:var(--bg);border-radius:5px;padding:5px 7px">' +
-      '<div style="font-size:8px;color:var(--muted);font-family:'DM Mono',monospace">' + label + '</div>' +
-      '<div style="font-size:12px;font-weight:700;color:' + color + ';font-family:'DM Mono',monospace">' + value + '</div>' +
+      '<div style="font-size:8px;color:var(--muted);font-family:DM Mono,monospace">' + label + '</div>' +
+      '<div style="font-size:12px;font-weight:700;color:' + color + ';font-family:DM Mono,monospace">' + value + '</div>' +
       '</div>';
   }
   grid.innerHTML = gridHtml;
@@ -1528,14 +1539,14 @@ function renderBacktestResult(d) {
   // Trades
   var tl = document.getElementById('bt-trades-list');
   if (!d.trades || !d.trades.length) {
-    tl.innerHTML = '<div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace">Nenhum trade executado no periodo</div>';
+    tl.innerHTML = '<div style="font-size:9px;color:var(--muted);font-family:DM Mono,monospace">Nenhum trade executado no periodo</div>';
   } else {
     var tradesHtml = '';
     for (var k = 0; k < d.trades.length; k++) {
       var t = d.trades[k];
       var winColor = t.is_winner ? '#22c55e' : '#ef4444';
       var sign     = t.is_winner ? '+' : '';
-      tradesHtml += '<div style="display:grid;grid-template-columns:1fr auto auto;gap:4px;align-items:center;padding:3px 0;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace">' +
+      tradesHtml += '<div style="display:grid;grid-template-columns:1fr auto auto;gap:4px;align-items:center;padding:3px 0;border-bottom:1px solid var(--border);font-family:DM Mono,monospace">' +
         '<div>' +
           '<span style="font-size:8px;color:var(--muted)">#' + (k+1) + ' ' + t.entry_date.slice(0,10) + '</span>' +
           '<span style="font-size:8px;color:var(--muted)"> to ' + t.exit_date.slice(0,10) + '</span>' +
@@ -1556,6 +1567,78 @@ startFeed();
 
 document.addEventListener('keydown',e=>{if(e.key==='Escape')hideModal();});
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===e.currentTarget)hideModal();});
+
+// ── Ticker Search ──────────────────────────────────────────────────────────
+var _tkDeb = null;
+var _tkHl  = -1;
+
+function tkSearchInput(val) {
+  clearTimeout(_tkDeb);
+  var dd = document.getElementById('tk-dropdown');
+  if (!val || val.length < 1) { dd.style.display = 'none'; return; }
+  _tkDeb = setTimeout(function() {
+    fetch('/api/v1/tickers/search?q=' + encodeURIComponent(val) + '&limit=12')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        _tkHl = -1;
+        dd.innerHTML = '';
+        if (!d.results || !d.results.length) { dd.style.display = 'none'; return; }
+        d.results.forEach(function(item) {
+          var el = document.createElement('div');
+          el.setAttribute('data-ticker', item.ticker);
+          el.style.cssText = 'padding:8px 14px;font-size:12px;cursor:pointer;' +
+            'display:flex;justify-content:space-between;align-items:center;' +
+            'border-bottom:1px solid rgba(255,255,255,0.05);color:#e2e8f0';
+          el.innerHTML = '<b>' + item.ticker + '</b>' +
+            '<span style="font-size:10px;background:rgba(255,255,255,0.07);' +
+            'padding:2px 6px;border-radius:4px;color:#94a3b8">' + item.type + '</span>';
+          el.onmouseenter = function() { this.style.background = 'rgba(59,130,246,0.2)'; };
+          el.onmouseleave = function() { this.style.background = ''; };
+          el.onclick = function() {
+            var t = this.getAttribute('data-ticker');
+            document.getElementById('tk-search').value = '';
+            document.getElementById('tk-dropdown').style.display = 'none';
+            selectTicker(t);
+          };
+          dd.appendChild(el);
+        });
+        dd.style.display = 'block';
+      })
+      .catch(function() { dd.style.display = 'none'; });
+  }, 180);
+}
+
+function tkSearchKey(e) {
+  var dd  = document.getElementById('tk-dropdown');
+  var its = dd.querySelectorAll('div[data-ticker]');
+  if (e.key === 'Enter') {
+    if (_tkHl >= 0 && its[_tkHl]) {
+      var t = its[_tkHl].getAttribute('data-ticker');
+      document.getElementById('tk-search').value = '';
+      dd.style.display = 'none';
+      selectTicker(t);
+    } else {
+      var v = document.getElementById('tk-search').value.trim().toUpperCase();
+      if (v) { document.getElementById('tk-dropdown').style.display = 'none'; selectTicker(v); }
+    }
+    return;
+  }
+  if (!its.length) return;
+  if (e.key === 'ArrowDown') { _tkHl = Math.min(_tkHl + 1, its.length - 1); e.preventDefault(); }
+  else if (e.key === 'ArrowUp')  { _tkHl = Math.max(_tkHl - 1, 0); e.preventDefault(); }
+  else if (e.key === 'Escape')   { dd.style.display = 'none'; return; }
+  Array.prototype.forEach.call(its, function(el, i) {
+    el.style.background = (i === _tkHl) ? 'rgba(59,130,246,0.2)' : '';
+  });
+}
+
+document.addEventListener('click', function(e) {
+  var w = document.getElementById('tk-search-wrap');
+  if (w && !w.contains(e.target)) {
+    document.getElementById('tk-dropdown').style.display = 'none';
+  }
+});
+
 </script>
 
 </body>
