@@ -11,7 +11,7 @@ services:
     environment:
       DATABASE_URL:            postgresql+asyncpg://finanalytics:secret@finanalytics_postgres:5432/finanalytics
       TIMESCALE_URL:           postgresql://finanalytics:secret@finanalytics_timescaledb:5432/market_data
-      KAFKA_BOOTSTRAP_SERVERS: finanalytics_kafka:9092
+      KAFKA_BOOTSTRAP_SERVERS: finanalytics_kafka:29092
       EVENT_QUEUE_BACKEND:     kafka
     ports:
       - "8000:8000"

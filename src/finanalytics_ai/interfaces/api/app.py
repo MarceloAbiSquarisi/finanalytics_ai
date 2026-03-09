@@ -217,6 +217,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("anomaly_service.ready")
 
     # ── OHLC: TimescaleDB + Updater ───────────────────────────────────────────
+
+    # ── OHLC 1m Service (cache + agregacao livre de intervalos) ──────────────
+    app.state.ohlc_1m_service = None
+    try:
+        from finanalytics_ai.infrastructure.database.repositories.ohlc_1m_repo import Base as _B1m
+        from finanalytics_ai.application.services.ohlc_1m_service import OHLC1mService as _S1m
+        from finanalytics_ai.infrastructure.database.connection import get_engine as _ge2, get_session_factory as _gsf2
+        from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient as _BC2
+        async with _ge2().begin() as _c2:
+            await _c2.run_sync(_B1m.metadata.create_all)
+        _bt2 = getattr(get_settings(), "brapi_token", "")
+        _bc2 = _BC2(token=_bt2)
+        app.state.ohlc_1m_service = _S1m(session_factory=_gsf2(), brapi_client=_bc2)
+        logger.info("ohlc_1m_service.ready")
+    except Exception as _e1m:
+        logger.warning("ohlc_1m_service.FAILED", error=str(_e1m))
+
     app.state.ohlc_ts_repo = None
     app.state.ohlc_updater = None
     _ohlc_daily_task       = None
@@ -243,6 +260,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger.warning("timescale.unavailable — OHLC endpoints retornam 503")
     except Exception as exc:
         logger.warning("timescale.init.FAILED", error=str(exc))
+
+    # -- Ticker Service ------------------------------------------------
+    app.state.ticker_service = None
+    try:
+        from finanalytics_ai.infrastructure.database.repositories.ticker_repo import TickerModel, Base as TickerBase
+        from finanalytics_ai.infrastructure.database.repositories.ticker_service import TickerService
+        from finanalytics_ai.infrastructure.database.connection import get_engine as _get_eng, get_session_factory
+        async with _get_eng().begin() as conn:
+            await conn.run_sync(TickerBase.metadata.create_all)
+        app.state.ticker_service = TickerService(get_session_factory())
+        logger.info('ticker_service.ready')
+    except Exception as exc:
+        logger.warning('ticker_service.FAILED', error=str(exc))
 
     # ── 6. BRAPI Price Producer ───────────────────────────────────────────────
     producer_ok = False
@@ -392,6 +422,11 @@ def create_app() -> FastAPI:
     try:
         from finanalytics_ai.interfaces.api.routes.ohlc import router as ohlc_router
         app.include_router(ohlc_router, tags=["OHLC"])
+    except ImportError:
+        pass
+    try:
+        from finanalytics_ai.interfaces.api.routes.ticker_routes import router as ticker_router
+        app.include_router(ticker_router, tags=["Tickers"])
     except ImportError:
         pass
 

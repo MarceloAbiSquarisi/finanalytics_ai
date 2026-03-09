@@ -226,3 +226,12 @@ def create_market_data_client(brapi_token: str | None = None) -> CompositeMarket
         yahoo_available  = True,
     )
     return client
+
+
+def create_cached_market_data_client(brapi_token=None, session_factory=None):
+    return create_market_data_client(brapi_token)
+
+
+def create_cached_market_data_client(brapi_token=None, session_factory=None):
+    return create_market_data_client(brapi_token)
+

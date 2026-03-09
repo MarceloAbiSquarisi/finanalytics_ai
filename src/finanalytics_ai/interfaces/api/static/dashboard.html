@@ -66,7 +66,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .up{color:var(--green)}.dn{color:var(--red)}
 
 /* MAIN */
-.main{display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.main{display:flex;flex-direction:column;overflow:hidden;min-height:0;width:100%;min-width:0}
 
 /* TICKER BAR */
 .tb{padding:10px 18px;border-bottom:1px solid var(--border);
@@ -83,6 +83,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 /* RANGE + INDICATOR TOGGLES */
 .ctrl-bar{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap}
 .ranges{display:flex;gap:3px}
+.ranges .rb{font-size:9px;padding:3px 6px}
+#ranges-intraday .rb{color:#94a3b8}
+#ranges-intraday .rb.active{color:#0D2144}
+#ranges-swing .rb{color:#e2e8f0}
+#ranges-swing .rb.active{color:#0D2144}
 .rb{padding:3px 8px;font-size:10px;font-family:DM Mono,monospace;border-radius:4px;
   border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s}
 .rb:hover{border-color:rgba(58,191,248,.3);color:var(--white)}
@@ -98,14 +103,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .itgl.on.bb    {background:rgba(46,212,122,.12);border-color:rgba(46,212,122,.35);color:var(--green)}
 
 /* CHART AREA */
-.chart-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
-#chart-price{flex:1;min-height:0;position:relative}
+.chart-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;width:100%;min-width:0}
+#chart-price{flex:1;min-height:0;position:relative;width:100%}
 
 /* INDICATOR PANES */
 .ind-pane{flex-shrink:0;border-top:1px solid var(--border);position:relative;overflow:hidden}
 .ind-pane.hidden{display:none}
-#pane-rsi {height:100px}
-#pane-macd{height:100px}
+#pane-rsi {height:72px}
+#pane-macd{height:72px}
 .pane-label{
   position:absolute;top:4px;left:8px;z-index:10;
   font-size:9px;letter-spacing:1.5px;text-transform:uppercase;
@@ -116,7 +121,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   font-size:9px;font-family:DM Mono,monospace;color:var(--muted);pointer-events:none}
 
 /* INDICATORS ROW */
-.inds{height:68px;flex-shrink:0;border-top:1px solid var(--border);
+.inds{height:50px;flex-shrink:0;border-top:1px solid var(--border);
   display:grid;grid-template-columns:repeat(4,1fr)}
 .ind{padding:8px 14px;border-right:1px solid var(--border);display:flex;flex-direction:column;justify-content:center}
 .ind:last-child{border-right:none}
@@ -389,14 +394,25 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <div class="tb-chg flat" id="tk-chg">—</div>
       </div>
       <div class="ctrl-bar">
-        <div class="ranges">
-          <button class="rb"        onclick="changeRange('1d')">1D</button>
-          <button class="rb active" onclick="changeRange('1mo')">1M</button>
-          <button class="rb"        onclick="changeRange('3mo')">3M</button>
-          <button class="rb"        onclick="changeRange('6mo')">6M</button>
-          <button class="rb"        onclick="changeRange('1y')">1A</button>
-          <button class="rb"        onclick="changeRange('2y')">2A</button>
-          <button class="rb"        onclick="changeRange('max')">MAX</button>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <!-- Linha 1: Intraday -->
+          <div class="ranges" id="ranges-intraday">
+            <button class="rb" onclick="changeInterval('1m')">1m</button>
+            <button class="rb" onclick="changeInterval('2m')">2m</button>
+            <button class="rb" onclick="changeInterval('5m')">5m</button>
+            <button class="rb" onclick="changeInterval('15m')">15m</button>
+            <button class="rb" onclick="changeInterval('30m')">30m</button>
+            <button class="rb" onclick="changeInterval('60m')">60m</button>
+            <button class="rb" onclick="changeInterval('90m')">90m</button>
+          </div>
+          <!-- Linha 2: Swing/Position -->
+          <div class="ranges" id="ranges-swing">
+            <button class="rb" onclick="changeInterval('1d')">1D</button>
+            <button class="rb" onclick="changeInterval('5d')">5D</button>
+            <button class="rb active" onclick="changeInterval('1wk')">1S</button>
+            <button class="rb" onclick="changeInterval('1mo')">1M</button>
+            <button class="rb" onclick="changeInterval('3mo')">3M</button>
+          </div>
         </div>
         <div class="sep"></div>
         <div class="ind-toggles">
@@ -410,7 +426,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <!-- Chart Area -->
     <div class="chart-area">
       <!-- Candlestick + Bollinger -->
-      <div id="chart-price">
+      <div id="chart-price" style="min-height:0">
         <div class="empty" id="empty">
           <svg width="44" height="44" viewBox="0 0 44 44" fill="none" opacity=".22">
             <rect x="5" y="20" width="6" height="17" rx="2" fill="#3ABFF8"/>
@@ -618,6 +634,7 @@ const RLBL  = {'1d':'1D','5d':'5D','1mo':'1M','3mo':'3M','6mo':'6M','1y':'1A','2
 let currentPf     = null;
 let currentTicker = null;
 let currentRange  = '1mo';
+var currentInterval = '1wk';
 let tradeMode     = 'buy';
 let indVisible    = {bb: true, rsi: true, macd: true};
 let indCache      = null;   // ultimo resultado de /indicators -- reutilizado no toggle
@@ -709,18 +726,61 @@ async function loadDetail(ticker) {
 }
 
 // -- CHART + INDICATORS -------------------------------------------------------
+
+// ── Interval selector ──────────────────────────────────────────────────────
+var INTERVAL_RANGE_MAP = {
+  '1m':  '1d',
+  '2m':  '1d',
+  '5m':  '5d',
+  '15m': '5d',
+  '30m': '1mo',
+  '60m': '1mo',
+  '90m': '1mo',
+  '1h':  '1mo',
+  '1d':  '3mo',
+  '5d':  '1y',
+  '1wk': '2y',
+  '1mo': 'max',
+  '3mo': 'max'
+};
+
+var INTERVAL_LABEL = {
+  '1m':'1m','2m':'2m','5m':'5m','15m':'15m','30m':'30m','60m':'60m','90m':'90m',
+  '1h':'1h','1d':'1D','5d':'5D','1wk':'1S','1mo':'1M','3mo':'3M'
+};
+
+var currentInterval = '1wk';
+
+function changeInterval(interval) {
+  currentInterval = interval;
+  currentRange = INTERVAL_RANGE_MAP[interval] || '3mo';
+
+  // Atualizar botões ativos
+  document.querySelectorAll('.rb').forEach(function(b) {
+    b.classList.remove('active');
+  });
+  document.querySelectorAll('.rb').forEach(function(b) {
+    if (b.textContent.trim() === (INTERVAL_LABEL[interval] || interval)) {
+      b.classList.add('active');
+    }
+  });
+
+  if (currentTicker) loadChartAndIndicators(currentTicker, currentRange, currentInterval);
+}
+
 async function changeRange(range) {
   currentRange = range;
   document.querySelectorAll('.rb').forEach(b => b.classList.toggle('active', b.textContent === RLBL[range]));
-  if (currentTicker) await loadChartAndIndicators(currentTicker, range);
+  if (currentTicker) await loadChartAndIndicators(currentTicker, range, currentInterval);
 }
 
-async function loadChartAndIndicators(ticker, range) {
+async function loadChartAndIndicators(ticker, range, interval) {
+  interval = interval || currentInterval || '1wk';
   setLoading(true);
   try {
     // Busca OHLC e indicadores em paralelo
     const [histData, indData] = await Promise.all([
-      api(`/api/v1/quotes/${ticker}/history?range=${range}`),
+      api(`/api/v1/quotes/${ticker}/history?range=${range}&interval=${interval}`),
       api(`/api/v1/quotes/${ticker}/indicators?range=${range}`),
     ]);
     indCache = indData;   // salva para reuso no toggle
@@ -746,14 +806,74 @@ async function loadChartAndIndicators(ticker, range) {
 }
 
 // -- PRICE + BOLLINGER CHART ---------------------------------------------------
+
+// -- DAY SEPARATORS -----------------------------------------------------------
+function drawDaySeparators(chart, bars, container) {
+  var intraday = ['1m','2m','5m','15m','30m','60m','90m','1h'];
+  if (intraday.indexOf(currentInterval) === -1) return;
+  if (!bars || !bars.length) return;
+
+  var canvas = document.getElementById('day-sep-canvas');
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    canvas.id = 'day-sep-canvas';
+    canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2';
+    container.style.position = 'relative';
+    container.appendChild(canvas);
+  }
+
+  function redraw() {
+    var W = container.clientWidth;
+    var H = container.clientHeight;
+    canvas.width  = W;
+    canvas.height = H;
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+
+    var dayChanges = [];
+    var prevDay = null;
+    bars.forEach(function(b) {
+      var ts  = typeof b.time === 'number' ? b.time : (new Date(b.time).getTime() / 1000);
+      var d   = new Date(ts * 1000);
+      var day = d.getUTCFullYear() + '-' + d.getUTCMonth() + '-' + d.getUTCDate();
+      if (prevDay !== null && day !== prevDay) {
+        dayChanges.push({ time: b.time,
+          label: d.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'}) });
+      }
+      prevDay = day;
+    });
+    if (!dayChanges.length) return;
+
+    ctx.setLineDash([3, 4]);
+    ctx.lineWidth = 1;
+    ctx.font      = '9px "DM Mono", monospace';
+    ctx.textAlign = 'center';
+
+    dayChanges.forEach(function(dc) {
+      try {
+        var x = chart.timeScale().timeToCoordinate(dc.time);
+        if (x === null || x < 20 || x > W - 20) return;
+        ctx.strokeStyle = 'rgba(58,191,248,0.20)';
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H - 16); ctx.stroke();
+        ctx.fillStyle = 'rgba(58,191,248,0.55)';
+        ctx.fillText(dc.label, x, H - 4);
+      } catch(e) {}
+    });
+  }
+
+  setTimeout(redraw, 80);
+  chart.timeScale().subscribeVisibleLogicalRangeChange(function() { setTimeout(redraw, 30); });
+  new ResizeObserver(function() { setTimeout(redraw, 80); }).observe(container);
+}
+
 function renderPriceChart(bars, bb) {
   const container = document.getElementById('chart-price');
   if (priceChart) { priceChart.remove(); priceChart=null; priceSeries=null; volSeries=null; bbUpper=null; bbMiddle=null; bbLower=null; }
   if (!bars.length) return;
 
   priceChart = LightweightCharts.createChart(container, {
-    width: container.clientWidth, height: container.clientHeight,
-    layout: { background:{color:'transparent'}, textColor:'#6A9EBF', fontFamily:"'DM Mono',monospace", fontSize:10 },
+    autoSize: true,
+    layout: { background:{color:'transparent'}, textColor:'#6A9EBF', fontFamily:"DM Mono,monospace", fontSize:10 },
     grid: { vertLines:{color:'rgba(58,191,248,.05)'}, horzLines:{color:'rgba(58,191,248,.05)'} },
     crosshair: { mode:LightweightCharts.CrosshairMode.Normal,
       vertLine:{color:'rgba(58,191,248,.4)',labelBackgroundColor:'#0D2144'},
@@ -818,8 +938,10 @@ function renderPriceChart(bars, bb) {
   });
 
   new ResizeObserver(() => {
-    if (priceChart) priceChart.applyOptions({width:container.clientWidth, height:container.clientHeight});
+    if (priceChart) priceChart.applyOptions({autoSize: true});
   }).observe(container);
+
+  drawDaySeparators(priceChart, bars, container);
 }
 
 // -- RSI CHART -----------------------------------------------------------------
@@ -882,7 +1004,7 @@ function renderRSI(rsi, timestamps) {
   }
 
   new ResizeObserver(() => {
-    if (rsiChart) rsiChart.applyOptions({width:container.clientWidth, height:container.clientHeight});
+    if (rsiChart) rsiChart.applyOptions({autoSize: true});
   }).observe(container);
 }
 
@@ -948,7 +1070,7 @@ function renderMACD(macd, timestamps) {
   }
 
   new ResizeObserver(() => {
-    if (macdChart) macdChart.applyOptions({width:container.clientWidth, height:container.clientHeight});
+    if (macdChart) macdChart.applyOptions({autoSize: true});
   }).observe(container);
 }
 
