@@ -1,24 +1,124 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# docker-compose.platform.yml
+# Serviços do platform (worker, ingestion, processing, rv, optimization, rf)
+# gerenciados pelo projeto finanalytics_ai com variáveis corretas.
+#
+# Uso:
+#   docker compose -f docker-compose.yml \
+#                  -f docker-compose.observability.yml \
+#                  -f docker-compose.platform.yml up -d
+# ──────────────────────────────────────────────────────────────────────────────
 services:
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: final
-    image: finanalytics-ai:latest
-    container_name: finanalytics_api
+
+  worker:
+    image: finanalytics-worker:latest
+    container_name: finanalytics_worker
     restart: unless-stopped
-    env_file: .env
     environment:
-      DATABASE_URL:            postgresql+asyncpg://finanalytics:secret@finanalytics_postgres:5432/finanalytics
-      TIMESCALE_URL:           postgresql://finanalytics:secret@finanalytics_timescaledb:5432/market_data
-      KAFKA_BOOTSTRAP_SERVERS: finanalytics_kafka:29092
-      EVENT_QUEUE_BACKEND:     kafka
-    ports:
-      - "8000:8000"
+      DATABASE_DSN:         postgresql://finanalytics:${POSTGRES_PASSWORD:-secret}@postgres:5432/finanalytics
+      REDIS_URL:            redis://redis:6379/0
+      REDIS_STREAM_NAME:    market:events
+      REDIS_CONSUMER_GROUP: event-processor
+      REDIS_CONSUMER_NAME:  worker-1
+      REDIS_BLOCK_MS:       "5000"
+      REDIS_MAX_RETRIES:    "3"
+      DATABASE_POOL_MIN:    "2"
+      DATABASE_POOL_MAX:    "10"
+      DATABASE_COMMAND_TIMEOUT: "30"
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
+      - finanalytics_net
+      - platform_net
+
+  ingestion:
+    image: finanalytics-platform-market-ingestion:latest
+    container_name: finanalytics_ingestion
+    restart: unless-stopped
+    environment:
+      # INTERNAL listener — obrigatório para comunicação inter-container
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_URL:               redis://redis:6379
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - finanalytics_net
+      - platform_net
+
+  processing:
+    image: finanalytics-platform-market-processing:latest
+    container_name: finanalytics_processing
+    restart: unless-stopped
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      TIMESCALEDB_URL:         postgresql://finanalytics:${TIMESCALE_PASSWORD:-timescale_secret}@timescale:5432/market_data
+      LOG_LEVEL:               INFO
+      PYTHONPATH:              /app/service
+    depends_on:
+      kafka:
+        condition: service_healthy
+      timescale:
+        condition: service_healthy
+    networks:
+      - finanalytics_net
+      - platform_net
+
+  rv:
+    image: finanalytics-platform-rv-service:latest
+    container_name: finanalytics_rv
+    restart: unless-stopped
+    environment:
+      REDIS_URL:            redis://redis:6379
+      DATABASE_URL:         postgresql://finanalytics:${POSTGRES_PASSWORD:-secret}@postgres:5432/finanalytics
+      TIMESCALEDB_URL:      postgresql://finanalytics:${TIMESCALE_PASSWORD:-timescale_secret}@timescale:5432/market_data
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      timescale:
+        condition: service_healthy
+    networks:
+      - finanalytics_net
+      - platform_net
+
+  optimization:
+    image: finanalytics-platform-optimization-service:latest
+    container_name: finanalytics_optimization
+    restart: unless-stopped
+    environment:
+      DATABASE_URL:         postgresql://finanalytics:${POSTGRES_PASSWORD:-secret}@postgres:5432/finanalytics
+      TIMESCALEDB_URL:      postgresql://finanalytics:${TIMESCALE_PASSWORD:-timescale_secret}@timescale:5432/market_data
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_URL:            redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - finanalytics_net
+      - platform_net
+
+  rf:
+    image: finanalytics-platform-rf-service:latest
+    container_name: finanalytics_rf
+    restart: unless-stopped
+    environment:
+      DATABASE_URL:         postgresql://finanalytics:${POSTGRES_PASSWORD:-secret}@postgres:5432/finanalytics
+      TIMESCALEDB_URL:      postgresql://finanalytics:${TIMESCALE_PASSWORD:-timescale_secret}@timescale:5432/market_data
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_URL:            redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - finanalytics_net
       - platform_net
 
 networks:
+  finanalytics_net:
+    external: true
+    name: finanalytics_net
   platform_net:
     external: true
     name: finanalytics-platform_default

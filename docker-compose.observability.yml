@@ -1,21 +1,5 @@
 # ──────────────────────────────────────────────────────────────────────────────
-# docker-compose.observability.yml
-#
-# Sobe Prometheus + Grafana integrados à rede do finanalytics-platform.
-#
-# Uso (em D:\Projetos\finanalytics_ai):
-#   docker compose -f docker-compose.observability.yml up -d
-#
-# URLs:
-#   Prometheus : http://localhost:9090
-#   Grafana    : http://localhost:3000  (admin/admin)
-#   Métricas   : http://localhost:8000/metrics
-#
-# Design:
-#   - Prometheus coleta a cada 10s do endpoint /metrics da API
-#   - Grafana está pré-configurado com o datasource Prometheus
-#   - Dashboard pré-importado via provisioning (sem configuração manual)
-#   - Dados do Prometheus persistidos em volume nomeado
+# docker-compose.observability.yml — Redis + Prometheus + Grafana
 # ──────────────────────────────────────────────────────────────────────────────
 services:
 
@@ -27,9 +11,10 @@ services:
     ports:
       - "6379:6379"
     networks:
-      - platform_net
-    # Sem volume persistente — cache é efêmero por design.
-    # Se precisar persistência: adicionar volume + appendonly yes
+      finanalytics_net:
+        aliases: [redis, finanalytics_redis]
+      platform_net:
+        aliases: [redis, finanalytics_redis]
 
   prometheus:
     image: prom/prometheus:v2.51.2
@@ -43,8 +28,6 @@ services:
       - "--storage.tsdb.path=/prometheus"
       - "--storage.tsdb.retention.time=30d"
       - "--web.enable-lifecycle"
-      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
-      - "--web.console.templates=/usr/share/prometheus/consoles"
     ports:
       - "9090:9090"
     networks:
@@ -57,12 +40,10 @@ services:
     container_name: finanalytics_grafana
     restart: unless-stopped
     environment:
-      GF_SECURITY_ADMIN_USER:     admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
-      GF_USERS_ALLOW_SIGN_UP:     "false"
-      GF_SERVER_DOMAIN:           localhost
-      GF_ANALYTICS_REPORTING_ENABLED: "false"
-      GF_INSTALL_PLUGINS:         ""
+      GF_SECURITY_ADMIN_USER:          admin
+      GF_SECURITY_ADMIN_PASSWORD:      admin
+      GF_USERS_ALLOW_SIGN_UP:          "false"
+      GF_ANALYTICS_REPORTING_ENABLED:  "false"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -75,9 +56,12 @@ services:
       - platform_net
 
 networks:
+  finanalytics_net:
+    external: true
+    name: finanalytics_net
   platform_net:
     external: true
-    name: ${PLATFORM_NETWORK:-finanalytics-platform_default}
+    name: finanalytics-platform_default
 
 volumes:
   prometheus_data:

@@ -1,25 +1,8 @@
 # ──────────────────────────────────────────────────────────────────────────────
-# FinAnalytics AI — Stack completa standalone
-#
-# Serviços:
-#   postgres    → banco principal (portfolios, eventos, alertas)
-#   timescale   → TimescaleDB para séries temporais (ticks, OHLC)
-#   zookeeper   → dependência do Kafka
-#   kafka       → broker de mensagens
-#   api         → FastAPI + consumer + producer
-#
-# Uso rápido:
-#   cp .env.docker .env
-#   docker compose up -d
-#   docker compose logs -f api
-#
-# Para parar e limpar volumes:
-#   docker compose down -v
+# FinAnalytics AI — Stack principal
 # ──────────────────────────────────────────────────────────────────────────────
-
 services:
 
-  # ── PostgreSQL (banco principal) ──────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: finanalytics_postgres
@@ -27,12 +10,12 @@ services:
     environment:
       POSTGRES_DB:       finanalytics
       POSTGRES_USER:     finanalytics
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-finanalytics_secret}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./init:/docker-entrypoint-initdb.d:ro   # cria tabelas na 1ª inicialização
+      - ./init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test:     ["CMD-SHELL", "pg_isready -U finanalytics -d finanalytics"]
       interval: 5s
@@ -40,8 +23,8 @@ services:
       retries:  10
     networks:
       - finanalytics_net
+      - platform_net
 
-  # ── TimescaleDB (séries temporais) ────────────────────────────────────────
   timescale:
     image: timescale/timescaledb:latest-pg16
     container_name: finanalytics_timescale
@@ -60,9 +43,11 @@ services:
       timeout:  5s
       retries:  10
     networks:
-      - finanalytics_net
+      finanalytics_net:
+        aliases: [timescale, timescaledb]
+      platform_net:
+        aliases: [timescale, timescaledb]
 
-  # ── Zookeeper (dependência do Kafka) ──────────────────────────────────────
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
     container_name: finanalytics_zookeeper
@@ -80,8 +65,8 @@ services:
       retries:  5
     networks:
       - finanalytics_net
+      - platform_net
 
-  # ── Kafka ─────────────────────────────────────────────────────────────────
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     container_name: finanalytics_kafka
@@ -92,15 +77,13 @@ services:
     environment:
       KAFKA_BROKER_ID:                        1
       KAFKA_ZOOKEEPER_CONNECT:                zookeeper:2181
-      # INTERNAL: comunicação entre containers
-      # EXTERNAL: acesso do host (localhost:9092)
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:  INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:   INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS:             INTERNAL://kafka:29092,EXTERNAL://localhost:9092
       KAFKA_LISTENERS:                        INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
       KAFKA_INTER_BROKER_LISTENER_NAME:       INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE:        "true"
-      KAFKA_LOG_RETENTION_HOURS:              168   # 7 dias
+      KAFKA_LOG_RETENTION_HOURS:              168
     ports:
       - "${KAFKA_PORT:-9092}:9092"
     volumes:
@@ -112,9 +95,11 @@ services:
       retries:  10
       start_period: 30s
     networks:
-      - finanalytics_net
+      finanalytics_net:
+        aliases: [kafka]
+      platform_net:
+        aliases: [kafka]
 
-  # ── API FastAPI ────────────────────────────────────────────────────────────
   api:
     build:
       context: .
@@ -132,10 +117,9 @@ services:
         condition: service_healthy
     env_file: .env
     environment:
-      # Sobrescreve os valores do .env com hostnames internos do Docker
-      DATABASE_URL:     postgresql+asyncpg://finanalytics:${POSTGRES_PASSWORD:-finanalytics_secret}@postgres:5432/finanalytics
-      TIMESCALE_URL:    postgresql://finanalytics:${TIMESCALE_PASSWORD:-timescale_secret}@timescale:5432/market_data
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092   # listener INTERNAL
+      DATABASE_URL:            postgresql+asyncpg://finanalytics:${POSTGRES_PASSWORD:-secret}@postgres:5432/finanalytics
+      TIMESCALE_URL:           postgresql://finanalytics:${TIMESCALE_PASSWORD:-timescale_secret}@timescale:5432/market_data
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       EVENT_QUEUE_BACKEND:     kafka
     ports:
       - "${API_PORT:-8000}:8000"
@@ -147,10 +131,38 @@ services:
       start_period: 40s
     networks:
       - finanalytics_net
+      - platform_net
+
+  ohlc_ingestor:
+    image: finanalytics-ai:latest
+    container_name: finanalytics_ohlc_ingestor
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    env_file: .env
+    environment:
+      DATABASE_DSN:      postgresql://finanalytics:${POSTGRES_PASSWORD:-secret}@postgres:5432/finanalytics
+      BRAPI_TOKEN:       ${BRAPI_TOKEN}
+      BRAPI_BASE_URL:    ${BRAPI_BASE_URL:-https://brapi.dev/api}
+      POLL_INTERVAL:     "60"
+      PYTHONPATH:        /app/src
+      APP_SECRET_KEY:    ${APP_SECRET_KEY:-ingestor-local}
+      DATABASE_URL:      postgresql+asyncpg://finanalytics:${POSTGRES_PASSWORD:-secret}@postgres:5432/finanalytics
+    volumes:
+      - ./src:/app/src:ro
+    command: python /app/src/finanalytics_ai/workers/ohlc_1m_ingestor.py
+    networks:
+      - finanalytics_net
 
 networks:
   finanalytics_net:
     name: finanalytics_net
+    driver: bridge
+  platform_net:
+    name: finanalytics-platform_default
     driver: bridge
 
 volumes:
