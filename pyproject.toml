@@ -54,7 +54,6 @@ dev = [
     "mypy>=1.10",
     "ruff>=0.4",
     "black>=24.4",
-    "types-python-dotenv",
     "sqlalchemy[mypy]",
 ]
 
