@@ -4,6 +4,7 @@ Rotas de correlacao entre ativos.
 GET  /api/v1/correlation   — calcula via query params (ticker=A&ticker=B&...)
 POST /api/v1/correlation   — calcula via body JSON
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -25,8 +26,8 @@ router = APIRouter(prefix="/api/v1/correlation", tags=["Correlation"])
 
 
 class CorrelationRequest(BaseModel):
-    tickers:        list[str] = Field(..., min_length=2, max_length=MAX_TICKERS)
-    range_period:   str = Field("1y")
+    tickers: list[str] = Field(..., min_length=2, max_length=MAX_TICKERS)
+    range_period: str = Field("1y")
     rolling_window: int = Field(30, ge=5, le=120)
 
 
@@ -39,8 +40,8 @@ def _get_service(request: Request) -> CorrelationService:
 
 @router.post("")
 async def compute_correlation(
-    body:     CorrelationRequest,
-    request:  Request,
+    body: CorrelationRequest,
+    request: Request,
     response: Response,
     _rl: None = Depends(rate_limit(limit=15, window=60)),
 ) -> dict[str, Any]:
@@ -56,9 +57,9 @@ async def compute_correlation(
     svc = _get_service(request)
     try:
         result = await svc.compute(
-            tickers        = body.tickers,
-            range_period   = body.range_period,
-            rolling_window = body.rolling_window,
+            tickers=body.tickers,
+            range_period=body.range_period,
+            rolling_window=body.rolling_window,
         )
         return result.to_dict()
     except BacktestError as exc:
@@ -71,10 +72,10 @@ async def compute_correlation(
 @router.get("")
 @cached_route(ttl=180, prefix="correlation")
 async def compute_correlation_get(
-    request:        Request,
-    response:       Response,
-    tickers:        str = Query(..., description="Tickers separados por virgula: PETR4,VALE3,ITUB4"),
-    range_period:   str = Query("1y"),
+    request: Request,
+    response: Response,
+    tickers: str = Query(..., description="Tickers separados por virgula: PETR4,VALE3,ITUB4"),
+    range_period: str = Query("1y"),
     rolling_window: int = Query(30),
     _rl: None = Depends(rate_limit(limit=20, window=60)),
 ) -> dict[str, Any]:
@@ -83,9 +84,9 @@ async def compute_correlation_get(
     svc = _get_service(request)
     try:
         result = await svc.compute(
-            tickers        = ticker_list,
-            range_period   = range_period,
-            rolling_window = rolling_window,
+            tickers=ticker_list,
+            range_period=range_period,
+            rolling_window=rolling_window,
         )
         return result.to_dict()
     except BacktestError as exc:

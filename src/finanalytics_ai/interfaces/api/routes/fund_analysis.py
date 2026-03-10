@@ -1,9 +1,10 @@
 """finanalytics_ai.interfaces.api.routes.fund_analysis"""
+
 from __future__ import annotations
 
+import structlog
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
-import structlog
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/fund-analysis", tags=["Análise de Lâminas"])
@@ -13,8 +14,11 @@ _MAX_UPLOAD = 20 * 1024 * 1024  # 20 MB
 
 def _get_service():
     from finanalytics_ai.application.services.fund_analysis_service import (
-        FundAnalysisService, FundAnalysisError, ConfigurationError,
+        ConfigurationError,
+        FundAnalysisError,
+        FundAnalysisService,
     )
+
     return FundAnalysisService(), FundAnalysisError, ConfigurationError
 
 
@@ -47,7 +51,7 @@ async def analyze_fund(file: UploadFile = File(...)) -> JSONResponse:
 
     content = await file.read()
     if len(content) > _MAX_UPLOAD:
-        raise HTTPException(413, f"PDF muito grande. Máximo: 20MB.")
+        raise HTTPException(413, "PDF muito grande. Máximo: 20MB.")
 
     try:
         result = await svc.analyze_pdf(content, filename=file.filename)

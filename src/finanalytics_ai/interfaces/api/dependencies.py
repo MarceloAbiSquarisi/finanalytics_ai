@@ -12,18 +12,31 @@ Auth:
   Rotas protegidas: Depends(get_current_user).
   Rotas públicas (login, register, health, docs): sem Depends.
 """
+
 from __future__ import annotations
-from typing import AsyncGenerator, TYPE_CHECKING
+
+from typing import TYPE_CHECKING
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from starlette.requests import Request
-from sqlalchemy.ext.asyncio import AsyncSession
-from finanalytics_ai.infrastructure.database.connection import get_session_factory
-from finanalytics_ai.infrastructure.database.repositories.portfolio_repo import SQLPortfolioRepository
-from finanalytics_ai.infrastructure.database.repositories.event_store_repo import SQLEventStore
-from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
-from finanalytics_ai.application.services.portfolio_service import PortfolioService
+
 from finanalytics_ai.application.services.event_processor import EventProcessorService
+from finanalytics_ai.application.services.portfolio_service import PortfolioService
+from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
+from finanalytics_ai.infrastructure.database.connection import get_session_factory
+from finanalytics_ai.infrastructure.database.repositories.event_store_repo import SQLEventStore
+from finanalytics_ai.infrastructure.database.repositories.portfolio_repo import (
+    SQLPortfolioRepository,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from starlette.requests import Request
+
+    from finanalytics_ai.application.services.watchlist_service import WatchlistService
+    from finanalytics_ai.domain.auth.entities import User
 
 # OAuth2PasswordBearer lê o token do header Authorization: Bearer <token>
 # tokenUrl aponta para o endpoint de login compatível com Swagger UI
@@ -31,6 +44,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 # Singleton do cliente BRAPI (reutiliza conexão HTTP)
 _brapi_client: BrapiClient | None = None
+
 
 def get_brapi_client() -> BrapiClient:
     global _brapi_client
@@ -53,7 +67,7 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     session: AsyncSession = Depends(get_db_session),
-) -> "User":
+) -> User:
     """
     Dependência de autenticação para rotas protegidas.
 
@@ -67,16 +81,14 @@ async def get_current_user(
       Verificação de role/permissão é responsabilidade de cada rota
       (ex: require_admin). get_current_user só garante autenticação.
     """
-    from finanalytics_ai.domain.auth.entities import (
-        TokenExpiredError, TokenInvalidError, AuthError
-    )
+    from finanalytics_ai.domain.auth.entities import TokenExpiredError, TokenInvalidError
     from finanalytics_ai.infrastructure.auth.jwt_handler import get_jwt_handler
     from finanalytics_ai.infrastructure.database.repositories.user_repo import UserRepository
 
     credentials_exception = HTTPException(
-        status_code = status.HTTP_401_UNAUTHORIZED,
-        detail      = "Não autenticado. Faça login para continuar.",
-        headers     = {"WWW-Authenticate": "Bearer"},
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Não autenticado. Faça login para continuar.",
+        headers={"WWW-Authenticate": "Bearer"},
     )
     try:
         payload = get_jwt_handler().decode(token)
@@ -84,9 +96,9 @@ async def get_current_user(
             raise credentials_exception
     except (TokenExpiredError, TokenInvalidError):
         raise HTTPException(
-            status_code = status.HTTP_401_UNAUTHORIZED,
-            detail      = "Token expirado ou inválido. Faça login novamente.",
-            headers     = {"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token expirado ou inválido. Faça login novamente.",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     user = await UserRepository(session).find_by_id(payload.sub)
@@ -114,15 +126,18 @@ async def get_event_processor(
 async def get_watchlist_service(
     request: Request,
     session: AsyncSession = Depends(get_db_session),
-) -> "WatchlistService":
+) -> WatchlistService:
     """
     Cria WatchlistService com sessão gerenciada pelo get_db_session.
     Garante commit/rollback automático após cada request.
     market_client vem do app.state (injetado no startup).
     """
-    from finanalytics_ai.application.services.watchlist_service import WatchlistService
-    from finanalytics_ai.infrastructure.database.repositories.watchlist_repo import WatchlistRepository
     from fastapi import HTTPException
+
+    from finanalytics_ai.application.services.watchlist_service import WatchlistService
+    from finanalytics_ai.infrastructure.database.repositories.watchlist_repo import (
+        WatchlistRepository,
+    )
 
     market = getattr(request.app.state, "market_client", None)
     if market is None:

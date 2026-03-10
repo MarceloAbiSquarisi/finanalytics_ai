@@ -1,0 +1,104 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.0.2, pluggy-1.6.0
+rootdir: D:\Projetos\finanalytics_ai
+configfile: pytest.ini (WARNING: ignoring pytest config in pyproject.toml!)
+plugins: anyio-4.12.1, asyncio-1.3.0, cov-7.0.0, mock-3.15.1
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 717 items
+
+tests\unit\application\test_event_processor.py ...                       [  0%]
+tests\unit\domain\test_anomaly.py ...................................... [  5%]
+.......................                                                  [  8%]
+tests\unit\domain\test_auth.py ......................................... [ 14%]
+...                                                                      [ 15%]
+tests\unit\domain\test_correlation.py .................................. [ 19%]
+................................                                         [ 24%]
+tests\unit\domain\test_etf.py ..........................                 [ 27%]
+tests\unit\domain\test_fgc.py ..................F.....                   [ 31%]
+tests\unit\domain\test_fund_analysis.py ............                     [ 32%]
+tests\unit\domain\test_indicators.py ...........................         [ 36%]
+tests\unit\domain\test_multi_ticker.py ................................. [ 41%]
+............                                                             [ 42%]
+tests\unit\domain\test_new_strategies.py ............................... [ 47%]
+................                                                         [ 49%]
+tests\unit\domain\test_optimizer.py .................................... [ 54%]
+...................................                                      [ 59%]
+tests\unit\domain\test_patrimony_ir.py ..............................    [ 63%]
+tests\unit\domain\test_portfolio.py ........                             [ 64%]
+tests\unit\domain\test_portfolio_optimizer.py ..............             [ 66%]
+tests\unit\domain\test_rf_portfolio.py ............                      [ 68%]
+tests\unit\domain\test_screener.py ..................................... [ 73%]
+........................                                                 [ 76%]
+tests\unit\domain\test_stop_loss.py .....                                [ 77%]
+tests\unit\domain\test_value_objects.py ........................         [ 80%]
+tests\unit\domain\test_watchlist.py .................................... [ 85%]
+.....                                                                    [ 86%]
+tests\unit\domain\test_yield_curve.py ...................                [ 89%]
+tests\unit\infrastructure\test_cache.py ................................ [ 93%]
+........                                                                 [ 94%]
+tests\unit\infrastructure\test_market_data_client.py ................... [ 97%]
+..................                                                       [100%]
+
+================================== FAILURES ===================================
+__________________________ test_uncovered_score_low ___________________________
+tests\unit\domain\test_fgc.py:49: in test_uncovered_score_low
+    def test_uncovered_score_low():      assert _unc.score <= 50
+                                         ^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: assert 75 <= 50
+E    +  where 75 = FGCAnalysis(portfolio_id='p1', total_invested=80000, total_fgc_covered=0, total_sovereign=0, total_uncovered=80000, to...00, 'total_at_risk': 0.0, 'fgc_coverage_pct': 0.0, 'uncovered_pct': 100.0, 'n_institutions': 0, 'score': 75}, score=75).score
+============================== warnings summary ===============================
+tests/unit/application/test_event_processor.py::TestEventProcessorService::test_processes_new_event
+tests/unit/application/test_event_processor.py::TestEventProcessorService::test_skips_duplicate_event
+tests/unit/application/test_event_processor.py::TestEventProcessorService::test_idempotency_event_id_is_key
+tests/unit/application/test_event_processor.py::TestEventProcessorService::test_idempotency_event_id_is_key
+  <string>:7: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+
+tests/unit/application/test_event_processor.py::TestEventProcessorService::test_processes_new_event
+tests/unit/application/test_event_processor.py::TestEventProcessorService::test_idempotency_event_id_is_key
+  D:\Projetos\finanalytics_ai\src\finanalytics_ai\domain\entities\event.py:79: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    processed_at=datetime.utcnow(),
+
+tests/unit/domain/test_new_strategies.py: 3 warnings
+tests/unit/domain/test_optimizer.py: 4109 warnings
+  D:\Projetos\finanalytics_ai\src\finanalytics_ai\domain\backtesting\engine.py:213: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    entry_date   = datetime.utcnow()
+
+tests/unit/domain/test_portfolio.py: 7 warnings
+tests/unit/domain/test_watchlist.py: 5 warnings
+  <string>:9: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+
+tests/unit/domain/test_portfolio.py: 7 warnings
+tests/unit/domain/test_watchlist.py: 32 warnings
+  <string>:10: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+
+tests/unit/domain/test_portfolio.py::TestPortfolio::test_add_position
+tests/unit/domain/test_portfolio.py::TestPortfolio::test_remove_position
+tests/unit/domain/test_portfolio.py::TestPortfolio::test_average_price_calculation
+tests/unit/domain/test_portfolio.py::TestPortfolio::test_average_price_calculation
+tests/unit/domain/test_portfolio.py::TestPortfolio::test_total_invested
+tests/unit/domain/test_portfolio.py::TestPortfolio::test_total_invested
+  D:\Projetos\finanalytics_ai\src\finanalytics_ai\domain\entities\portfolio.py:85: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    self.updated_at = datetime.utcnow()
+
+tests/unit/domain/test_portfolio.py::TestPortfolio::test_remove_position
+  D:\Projetos\finanalytics_ai\src\finanalytics_ai\domain\entities\portfolio.py:111: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    self.updated_at = datetime.utcnow()
+
+tests/unit/domain/test_watchlist.py::TestSmartAlertCooldown::test_cooldown_in_effect_not_evaluatable
+tests/unit/domain/test_watchlist.py::TestSmartAlertCooldown::test_mark_triggered_sets_cooldown
+  D:\Projetos\finanalytics_ai\src\finanalytics_ai\domain\watchlist\entities.py:134: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    self.last_triggered_at = datetime.utcnow()
+
+tests/unit/domain/test_watchlist.py::TestSmartAlertCooldown::test_cooldown_in_effect_not_evaluatable
+tests/unit/domain/test_watchlist.py::TestSmartAlertCooldown::test_cooldown_expired_becomes_evaluatable
+  D:\Projetos\finanalytics_ai\src\finanalytics_ai\domain\watchlist\entities.py:127: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    if datetime.utcnow() < cooldown_end:
+
+tests/unit/domain/test_watchlist.py::TestSmartAlertCooldown::test_cooldown_expired_becomes_evaluatable
+  D:\Projetos\finanalytics_ai\tests\unit\domain\test_watchlist.py:178: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    alert.last_triggered_at = datetime.utcnow() - timedelta(hours=2)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/unit/domain/test_fgc.py::test_uncovered_score_low - AssertionErr...
+================ 1 failed, 716 passed, 4181 warnings in 2.86s =================

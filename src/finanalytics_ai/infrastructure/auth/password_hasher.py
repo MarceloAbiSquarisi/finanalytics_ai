@@ -12,6 +12,7 @@ Estratégia SHA-256 + bcrypt (pepper-hash):
   do bcrypt. Não há truncamento silencioso nem erro de tamanho.
   Segurança mantida: SHA-256 é pré-imagem resistente.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -20,6 +21,7 @@ import os
 
 try:
     from passlib.context import CryptContext
+
     _PASSLIB_AVAILABLE = True
 except ImportError:
     _PASSLIB_AVAILABLE = False

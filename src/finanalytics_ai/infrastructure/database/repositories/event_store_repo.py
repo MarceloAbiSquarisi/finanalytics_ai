@@ -4,23 +4,28 @@ Implementação concreta de EventStore usando SQLAlchemy + PostgreSQL.
 Implementa o Port EventStore do domínio.
 Design decision: Repository Pattern — o domínio nunca importa SQLAlchemy.
 """
+
 from __future__ import annotations
 
 import json
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 import structlog
 from sqlalchemy import Column, DateTime, Integer, String, Text, select, update
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from finanalytics_ai.domain.entities.event import EventStatus, EventType, MarketEvent
 from finanalytics_ai.infrastructure.database.connection import Base
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 
 
 class EventModel(Base):
     """Modelo ORM para eventos de mercado."""
+
     __tablename__ = "market_events"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -70,9 +75,7 @@ class SQLEventStore:
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none() is not None
 
-    async def update_status(
-        self, event_id: str, status: EventStatus, error: str = ""
-    ) -> None:
+    async def update_status(self, event_id: str, status: EventStatus, error: str = "") -> None:
         values: dict[str, object] = {"status": status.value}
         if error:
             values["error_message"] = error

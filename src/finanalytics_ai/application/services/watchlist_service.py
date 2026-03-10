@@ -33,26 +33,36 @@ Design decisions:
     Se ticker já está na watchlist do usuário, retorna o item existente
     ao invés de duplicar. Comportamento documentado no contrato.
 """
+
 from __future__ import annotations
 
 import asyncio
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
 from finanalytics_ai.domain.watchlist.entities import (
-    SmartAlert, SmartAlertConfig, SmartAlertStatus, SmartAlertType,
-    WatchlistItem, evaluate_smart_alert, SmartAlertResult,
+    SmartAlert,
+    SmartAlertConfig,
+    SmartAlertResult,
+    SmartAlertStatus,
+    SmartAlertType,
+    WatchlistItem,
+    evaluate_smart_alert,
 )
-from finanalytics_ai.infrastructure.database.repositories.watchlist_repo import WatchlistRepository
+
+if TYPE_CHECKING:
+    from finanalytics_ai.infrastructure.database.repositories.watchlist_repo import (
+        WatchlistRepository,
+    )
 
 logger = structlog.get_logger(__name__)
 
-_MAX_ITEMS_PER_USER   = 50
-_MAX_ALERTS_PER_ITEM  = 8
-_OHLC_RANGE           = "3mo"
-_FETCH_SEMAPHORE      = 5
+_MAX_ITEMS_PER_USER = 50
+_MAX_ALERTS_PER_ITEM = 8
+_OHLC_RANGE = "3mo"
+_FETCH_SEMAPHORE = 5
 
 
 class WatchlistError(Exception):
@@ -60,9 +70,8 @@ class WatchlistError(Exception):
 
 
 class WatchlistService:
-
     def __init__(self, repo: WatchlistRepository, market_client: Any) -> None:
-        self._repo   = repo
+        self._repo = repo
         self._market = market_client
 
     # ── CRUD de itens ─────────────────────────────────────────────────────────
@@ -87,10 +96,10 @@ class WatchlistService:
             raise WatchlistError(f"Limite de {_MAX_ITEMS_PER_USER} itens atingido.")
 
         item = WatchlistItem(
-            ticker  = ticker,
-            user_id = user_id,
-            note    = note,
-            tags    = tags or [],
+            ticker=ticker,
+            user_id=user_id,
+            note=note,
+            tags=tags or [],
         )
         await self._repo.save_item(item)
         logger.info("watchlist.item.added", user_id=user_id, ticker=ticker)
@@ -135,12 +144,13 @@ class WatchlistService:
             async with sem:
                 try:
                     from finanalytics_ai.domain.value_objects.money import Ticker
+
                     quote = await self._market.get_quote_full(Ticker(item.ticker))
-                    item.current_price   = float(quote.get("regularMarketPrice", 0) or 0)
-                    item.change_pct      = float(quote.get("regularMarketChangePercent", 0) or 0)
-                    item.volume          = int(quote.get("regularMarketVolume", 0) or 0)
-                    item.high_52w        = float(quote.get("fiftyTwoWeekHigh", 0) or 0) or None
-                    item.low_52w         = float(quote.get("fiftyTwoWeekLow", 0) or 0) or None
+                    item.current_price = float(quote.get("regularMarketPrice", 0) or 0)
+                    item.change_pct = float(quote.get("regularMarketChangePercent", 0) or 0)
+                    item.volume = int(quote.get("regularMarketVolume", 0) or 0)
+                    item.high_52w = float(quote.get("fiftyTwoWeekHigh", 0) or 0) or None
+                    item.low_52w = float(quote.get("fiftyTwoWeekLow", 0) or 0) or None
                     item.last_updated_at = datetime.utcnow()
                 except Exception as exc:
                     logger.warning("watchlist.enrich.failed", ticker=item.ticker, error=str(exc))
@@ -175,11 +185,11 @@ class WatchlistService:
 
         cfg = SmartAlertConfig(**(config or {})) if config else SmartAlertConfig()
         alert = SmartAlert(
-            ticker     = item.ticker,
-            user_id    = user_id,
-            alert_type = at,
-            config     = cfg,
-            note       = note,
+            ticker=item.ticker,
+            user_id=user_id,
+            alert_type=at,
+            config=cfg,
+            note=note,
         )
         await self._repo.save_alert(alert, item_id)
         logger.info("watchlist.alert.added", ticker=item.ticker, type=alert_type)
@@ -208,9 +218,7 @@ class WatchlistService:
         for item in items:
             evaluatable = [a for a in item.smart_alerts if a.is_evaluatable()]
             if evaluatable:
-                tickers_with_alerts[item.ticker] = [
-                    (a, item.item_id) for a in evaluatable
-                ]
+                tickers_with_alerts[item.ticker] = [(a, item.item_id) for a in evaluatable]
 
         if not tickers_with_alerts:
             return []
@@ -222,7 +230,8 @@ class WatchlistService:
             async with sem:
                 try:
                     from finanalytics_ai.domain.value_objects.money import Ticker as T
-                    bars  = await self._market.get_ohlc_bars(T(ticker), range_period=_OHLC_RANGE)
+
+                    bars = await self._market.get_ohlc_bars(T(ticker), range_period=_OHLC_RANGE)
                     price = await self._market.get_quote(T(ticker))
                     return ticker, bars, float(price.amount)
                 except Exception as exc:
@@ -245,9 +254,9 @@ class WatchlistService:
                     triggered.append(result)
                     logger.info(
                         "watchlist.alert.triggered",
-                        ticker     = ticker,
-                        alert_type = alert.alert_type.value,
-                        message    = result.message,
+                        ticker=ticker,
+                        alert_type=alert.alert_type.value,
+                        message=result.message,
                     )
 
         return triggered

@@ -28,10 +28,11 @@ Design decisions:
   Sem tenacity aqui:
     Uma falha na curva não deve derrubar o serviço. Fallback imediato.
 """
+
 from __future__ import annotations
 
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Any
 
 import httpx
@@ -44,15 +45,15 @@ logger = structlog.get_logger(__name__)
 # Prêmios históricos sobre SELIC por prazo (estimativa conservadora)
 # Estrutura típica da curva DI brasileira em ambiente de normalidade
 _SYNTHETIC_PREMIUMS: list[tuple[int, float]] = [
-    (21,   -0.0010),   # 1 mês   — abaixo da SELIC (liquidez)
-    (63,    0.0000),   # 3 meses — par com SELIC
-    (126,   0.0015),   # 6 meses
-    (252,   0.0035),   # 1 ano
-    (504,   0.0075),   # 2 anos
-    (756,   0.0120),   # 3 anos
-    (1008,  0.0160),   # 4 anos
-    (1260,  0.0195),   # 5 anos
-    (2520,  0.0240),   # 10 anos
+    (21, -0.0010),  # 1 mês   — abaixo da SELIC (liquidez)
+    (63, 0.0000),  # 3 meses — par com SELIC
+    (126, 0.0015),  # 6 meses
+    (252, 0.0035),  # 1 ano
+    (504, 0.0075),  # 2 anos
+    (756, 0.0120),  # 3 anos
+    (1008, 0.0160),  # 4 anos
+    (1260, 0.0195),  # 5 anos
+    (2520, 0.0240),  # 10 anos
 ]
 
 
@@ -60,7 +61,7 @@ class AnbimaClient:
     """Adapter para curva DI Futuro da ANBIMA com fallback sintético."""
 
     ANBIMA_BASE = "https://data.anbima.com.br/indicadores/di-futuro"
-    CACHE_TTL   = 3600  # 60 minutos
+    CACHE_TTL = 3600  # 60 minutos
 
     def __init__(self) -> None:
         self._cache: dict[str, Any] = {}
@@ -68,8 +69,8 @@ class AnbimaClient:
     async def get_yield_curve(
         self,
         selic: float,
-        cdi:   float,
-        ipca:  float,
+        cdi: float,
+        ipca: float,
     ) -> YieldCurve:
         """
         Retorna curva DI Futuro atual.
@@ -90,32 +91,30 @@ class AnbimaClient:
         self._cache[cache_key] = (curve, now)
         return curve
 
-    async def _fetch_anbima(
-        self, selic: float, cdi: float, ipca: float
-    ) -> YieldCurve | None:
+    async def _fetch_anbima(self, selic: float, cdi: float, ipca: float) -> YieldCurve | None:
         """
         Tenta buscar dados reais da ANBIMA Data API.
         Retorna None se indisponível (timeout, erro HTTP, etc.).
         """
         try:
             today = date.today().isoformat()
-            url   = f"{self.ANBIMA_BASE}/taxas?data={today}"
+            url = f"{self.ANBIMA_BASE}/taxas?data={today}"
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.get(url, headers={"Accept": "application/json"})
                 if resp.status_code != 200:
                     return None
-                data   = resp.json()
+                data = resp.json()
                 points = self._parse_anbima_response(data)
                 if not points:
                     return None
                 logger.info("anbima.yield_curve.fetched", points=len(points))
                 return YieldCurve(
-                    reference_date = date.today(),
-                    selic          = selic,
-                    cdi            = cdi,
-                    ipca           = ipca,
-                    points         = sorted(points, key=lambda p: p.maturity_days),
-                    source         = "anbima",
+                    reference_date=date.today(),
+                    selic=selic,
+                    cdi=cdi,
+                    ipca=ipca,
+                    points=sorted(points, key=lambda p: p.maturity_days),
+                    source="anbima",
                 )
         except Exception as exc:
             logger.warning("anbima.fetch.failed", error=str(exc))
@@ -131,26 +130,26 @@ class AnbimaClient:
             data = data.get("taxas", data.get("data", []))
         for item in data:
             try:
-                days  = int(item.get("prazo", item.get("diasCorridos", 0)))
-                rate  = float(item.get("taxa", item.get("taxaAnual", 0))) / 100
-                venc  = item.get("vencimento", item.get("dataVencimento"))
-                mat   = date.fromisoformat(venc) if venc else None
-                code  = item.get("codigo", item.get("contrato", ""))
+                days = int(item.get("prazo", item.get("diasCorridos", 0)))
+                rate = float(item.get("taxa", item.get("taxaAnual", 0))) / 100
+                venc = item.get("vencimento", item.get("dataVencimento"))
+                mat = date.fromisoformat(venc) if venc else None
+                code = item.get("codigo", item.get("contrato", ""))
                 if days > 0 and rate > 0:
-                    points.append(YieldCurvePoint(
-                        maturity_days = days,
-                        rate_annual   = rate,
-                        maturity_date = mat,
-                        contract      = code,
-                        source        = "anbima",
-                    ))
+                    points.append(
+                        YieldCurvePoint(
+                            maturity_days=days,
+                            rate_annual=rate,
+                            maturity_date=mat,
+                            contract=code,
+                            source="anbima",
+                        )
+                    )
             except (KeyError, ValueError, TypeError):
                 continue
         return points
 
-    def _build_synthetic(
-        self, selic: float, cdi: float, ipca: float
-    ) -> YieldCurve:
+    def _build_synthetic(self, selic: float, cdi: float, ipca: float) -> YieldCurve:
         """
         Constrói curva sintética baseada na SELIC atual + prêmios históricos.
 
@@ -158,32 +157,34 @@ class AnbimaClient:
           - SELIC alta (>12%): curva flat ou ligeiramente invertida no longo prazo
           - SELIC baixa (<8%): inclinação positiva mais acentuada
         """
-        today   = date.today()
-        points  = []
+        today = date.today()
+        points = []
 
         # Fator de ajuste: curva mais plana com SELIC alta
         slope_factor = 1.0 if selic < 0.10 else (0.7 if selic < 0.13 else 0.5)
 
         for days, premium in _SYNTHETIC_PREMIUMS:
             adjusted_rate = selic + (premium * slope_factor)
-            mat_date      = today + timedelta(days=days)
-            months        = days // 21
-            code          = f"DI1{'FGHJKMNQUVXZ'[months % 12]}{(today.year + months // 12) % 100:02d}"
-            points.append(YieldCurvePoint(
-                maturity_days = days,
-                rate_annual   = max(0.01, adjusted_rate),
-                maturity_date = mat_date,
-                contract      = code,
-                source        = "synthetic",
-            ))
+            mat_date = today + timedelta(days=days)
+            months = days // 21
+            code = f"DI1{'FGHJKMNQUVXZ'[months % 12]}{(today.year + months // 12) % 100:02d}"
+            points.append(
+                YieldCurvePoint(
+                    maturity_days=days,
+                    rate_annual=max(0.01, adjusted_rate),
+                    maturity_date=mat_date,
+                    contract=code,
+                    source="synthetic",
+                )
+            )
 
         return YieldCurve(
-            reference_date = today,
-            selic          = selic,
-            cdi            = cdi,
-            ipca           = ipca,
-            points         = points,
-            source         = "synthetic",
+            reference_date=today,
+            selic=selic,
+            cdi=cdi,
+            ipca=ipca,
+            points=points,
+            source="synthetic",
         )
 
 

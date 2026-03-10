@@ -39,14 +39,15 @@ Design:
     Importante: só cacheia respostas 200 OK.
     O decorator preserva assinatura para FastAPI via functools.wraps.
 """
+
 from __future__ import annotations
 
 import functools
 import json
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import structlog
-from fastapi import Depends, HTTPException, Request, Response
+from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 
 from finanalytics_ai.infrastructure.cache.backend import (
@@ -58,9 +59,9 @@ from finanalytics_ai.infrastructure.cache.rate_limiter import (
     InMemoryRateLimiter,
     RateLimiterBackend,
 )
-from finanalytics_ai.metrics import (
-    http_requests_total,  # reutiliza métricas já existentes
-)
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = structlog.get_logger(__name__)
 
@@ -85,6 +86,7 @@ def _get_fallback_limiter() -> InMemoryRateLimiter:
 
 # ── Accessors de state ────────────────────────────────────────────────────────
 
+
 def get_cache(request: Request) -> CacheBackend:
     return getattr(request.app.state, "cache_backend", None) or _get_fallback_cache()
 
@@ -103,6 +105,7 @@ def _client_ip(request: Request) -> str:
 
 # ── Rate limit dependency ─────────────────────────────────────────────────────
 
+
 def rate_limit(limit: int = 60, window: int = 60) -> Callable:
     """
     FastAPI Dependency Factory para rate limiting.
@@ -115,11 +118,12 @@ def rate_limit(limit: int = 60, window: int = 60) -> Callable:
       @router.post("/scan")
       async def scan(request: Request, _=Depends(rate_limit(limit=10, window=60))):
     """
+
     async def _dependency(request: Request, response: Response) -> None:
         limiter = get_rate_limiter(request)
-        ip      = _client_ip(request)
-        route   = request.url.path.replace("/api/v1/", "").replace("/", "_")
-        key     = f"ip:{ip}:{route}"
+        ip = _client_ip(request)
+        route = request.url.path.replace("/api/v1/", "").replace("/", "_")
+        key = f"ip:{ip}:{route}"
 
         result = await limiter.check(key, limit=limit, window=window)
 
@@ -131,8 +135,8 @@ def rate_limit(limit: int = 60, window: int = 60) -> Callable:
             raise HTTPException(
                 status_code=429,
                 detail={
-                    "error":       "RATE_LIMIT_EXCEEDED",
-                    "message":     f"Limite de {limit} requests por {window}s excedido.",
+                    "error": "RATE_LIMIT_EXCEEDED",
+                    "message": f"Limite de {limit} requests por {window}s excedido.",
                     "retry_after": result.retry_after,
                 },
                 headers=result.headers(),
@@ -142,6 +146,7 @@ def rate_limit(limit: int = 60, window: int = 60) -> Callable:
 
 
 # ── Cache decorator ───────────────────────────────────────────────────────────
+
 
 def cached_route(
     ttl: int = 300,
@@ -160,6 +165,7 @@ def cached_route(
     Cache miss → executa handler → armazena se status 200.
     Cache hit  → retorna JSONResponse do cache, bypassa handler.
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -220,4 +226,5 @@ def cached_route(
             return result
 
         return wrapper
+
     return decorator

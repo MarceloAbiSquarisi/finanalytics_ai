@@ -6,42 +6,52 @@ Sprint 28: user_id vem do JWT (current_user), não de Query param.
 ORDEM DAS ROTAS — crítico para FastAPI:
   Rotas fixas ANTES de rotas com parâmetros no mesmo método HTTP.
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from starlette.requests import Request
 
 from finanalytics_ai.application.services.watchlist_service import WatchlistError, WatchlistService
-from finanalytics_ai.domain.auth.entities import User
-from finanalytics_ai.interfaces.api.dependencies import get_watchlist_service, get_current_user
+from finanalytics_ai.interfaces.api.dependencies import get_current_user, get_watchlist_service
+
+if TYPE_CHECKING:
+    from starlette.requests import Request
+
+    from finanalytics_ai.domain.auth.entities import User
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/watchlist", tags=["Watchlist"])
 
 
 class AddItemRequest(BaseModel):
-    ticker: str       = Field(..., min_length=1, max_length=10)
-    note:   str       = Field("", max_length=500)
-    tags:   list[str] = Field(default_factory=list)
+    ticker: str = Field(..., min_length=1, max_length=10)
+    note: str = Field("", max_length=500)
+    tags: list[str] = Field(default_factory=list)
+
 
 class UpdateItemRequest(BaseModel):
-    note: str | None       = None
+    note: str | None = None
     tags: list[str] | None = None
 
+
 class AddAlertRequest(BaseModel):
-    alert_type: str        = Field(..., description="rsi_oversold|rsi_overbought|ma_cross_up|ma_cross_down|volume_spike|new_high_52w|new_low_52w|price_above|price_below")
-    note:   str            = ""
+    alert_type: str = Field(
+        ...,
+        description="rsi_oversold|rsi_overbought|ma_cross_up|ma_cross_down|volume_spike|new_high_52w|new_low_52w|price_above|price_below",
+    )
+    note: str = ""
     config: dict[str, Any] = Field(default_factory=dict)
 
 
 # ── ROTAS FIXAS primeiro ──────────────────────────────────────────────────────
+
 
 @router.get("/evaluate")
 async def evaluate_alerts(
@@ -52,9 +62,15 @@ async def evaluate_alerts(
     return {
         "triggered": len(results),
         "alerts": [
-            {"alert_id": r.alert_id, "ticker": r.ticker, "alert_type": r.alert_type.value,
-             "message": r.message, "severity": r.severity,
-             "indicator_value": r.indicator_value, "context": r.context}
+            {
+                "alert_id": r.alert_id,
+                "ticker": r.ticker,
+                "alert_type": r.alert_type.value,
+                "message": r.message,
+                "severity": r.severity,
+                "indicator_value": r.indicator_value,
+                "context": r.context,
+            }
             for r in results
         ],
     }
@@ -67,6 +83,7 @@ async def stream_alerts(
     svc: WatchlistService = Depends(get_watchlist_service),
 ) -> StreamingResponse:
     user_id = current_user.user_id
+
     async def _gen():
         yield 'data: {"type": "connected"}\n\n'
         heartbeat = 0
@@ -75,13 +92,17 @@ async def stream_alerts(
             if heartbeat % 3 == 0:
                 try:
                     for r in await svc.evaluate_all(user_id):
-                        yield f"data: {json.dumps({'type':'alert_triggered','alert_id':r.alert_id,'ticker':r.ticker,'alert_type':r.alert_type.value,'message':r.message,'severity':r.severity,'indicator_value':r.indicator_value})}\n\n"
+                        yield f"data: {json.dumps({'type': 'alert_triggered', 'alert_id': r.alert_id, 'ticker': r.ticker, 'alert_type': r.alert_type.value, 'message': r.message, 'severity': r.severity, 'indicator_value': r.indicator_value})}\n\n"  # noqa: E501
                 except Exception as exc:
                     logger.warning("watchlist.stream.error", error=str(exc))
             yield ": heartbeat\n\n"
             await asyncio.sleep(20)
-    return StreamingResponse(_gen(), media_type="text/event-stream",
-                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    return StreamingResponse(
+        _gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.delete("/alerts/{alert_id}", status_code=204)
@@ -94,6 +115,7 @@ async def remove_alert(
 
 
 # ── ROTAS COM PARÂMETROS depois ───────────────────────────────────────────────
+
 
 @router.get("")
 async def list_watchlist(
@@ -151,7 +173,9 @@ async def add_alert(
     svc: WatchlistService = Depends(get_watchlist_service),
 ) -> dict[str, Any]:
     try:
-        alert = await svc.add_smart_alert(current_user.user_id, item_id, body.alert_type, body.config, body.note)
+        alert = await svc.add_smart_alert(
+            current_user.user_id, item_id, body.alert_type, body.config, body.note
+        )
         return alert.to_dict()
     except WatchlistError as e:
         raise HTTPException(422, detail=str(e))

@@ -5,25 +5,28 @@ Design decision: Herança rasa + dataclasses. Evitamos ORM no domínio —
 entidades são POPOs (Plain Old Python Objects). Mapeamento para DB é
 responsabilidade da infra.
 """
+
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
+
 from finanalytics_ai.domain.value_objects.money import Currency, Money, Ticker
 
 
 class AssetClass(StrEnum):
-    STOCK = "stock"                   # Renda Variável — Ações
-    STOCK_OPTION = "stock_option"     # Opções
-    FII = "fii"                       # Fundo Imobiliário
-    ETF = "etf"                       # ETF
-    BDR = "bdr"                       # BDR
-    FIXED_INCOME = "fixed_income"     # Renda Fixa (LCI, LCA, CDB, Tesouro)
-    COMMODITY = "commodity"           # Commodities
-    CRYPTO = "crypto"                 # Criptoativos
-    FUND = "fund"                     # Fundos de Investimento
+    STOCK = "stock"  # Renda Variável — Ações
+    STOCK_OPTION = "stock_option"  # Opções
+    FII = "fii"  # Fundo Imobiliário
+    ETF = "etf"  # ETF
+    BDR = "bdr"  # BDR
+    FIXED_INCOME = "fixed_income"  # Renda Fixa (LCI, LCA, CDB, Tesouro)
+    COMMODITY = "commodity"  # Commodities
+    CRYPTO = "crypto"  # Criptoativos
+    FUND = "fund"  # Fundos de Investimento
 
 
 class FixedIncomeType(StrEnum):
@@ -42,10 +45,11 @@ class FixedIncomeType(StrEnum):
 class Asset:
     """
     Entidade base de um ativo financeiro.
-    
+
     Contém apenas dados que pertencem ao ativo em si,
     não à posição do investidor nele.
     """
+
     ticker: Ticker
     name: str
     asset_class: AssetClass
@@ -62,8 +66,11 @@ class Asset:
 
     def is_variable_income(self) -> bool:
         return self.asset_class in {
-            AssetClass.STOCK, AssetClass.STOCK_OPTION,
-            AssetClass.FII, AssetClass.ETF, AssetClass.BDR,
+            AssetClass.STOCK,
+            AssetClass.STOCK_OPTION,
+            AssetClass.FII,
+            AssetClass.ETF,
+            AssetClass.BDR,
         }
 
     def is_fixed_income(self) -> bool:
@@ -73,6 +80,7 @@ class Asset:
 @dataclass
 class StockAsset(Asset):
     """Ação listada em bolsa."""
+
     cnpj: str = ""
     exchange: str = "B3"
     free_float: Decimal = Decimal("0")
@@ -85,13 +93,14 @@ class StockAsset(Asset):
 @dataclass
 class FixedIncomeAsset(Asset):
     """Título de renda fixa."""
+
     fixed_income_type: FixedIncomeType = FixedIncomeType.CDB
     issuer: str = ""
     maturity_date: datetime | None = None
     rate: Decimal = Decimal("0")  # taxa em % ao ano
-    index: str = ""               # CDI, IPCA, SELIC, etc.
+    index: str = ""  # CDI, IPCA, SELIC, etc.
     minimum_investment: Money = field(default_factory=lambda: Money.of("1000"))
-    fgc_covered: bool = False     # Coberto pelo FGC até R$ 250k
+    fgc_covered: bool = False  # Coberto pelo FGC até R$ 250k
 
     def __post_init__(self) -> None:
         self.asset_class = AssetClass.FIXED_INCOME

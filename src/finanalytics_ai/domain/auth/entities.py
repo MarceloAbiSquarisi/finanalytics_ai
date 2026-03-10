@@ -21,37 +21,42 @@ Design decisions:
     → Tokens decodificados são lidos, nunca modificados.
     → Falha rapidamente se código tenta mutar payload.
 """
+
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field
-from datetime import datetime
-from enum import Enum
-from typing import Optional
+from dataclasses import dataclass
+from enum import StrEnum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
-class UserRole(str, Enum):
-    USER  = "user"
+class UserRole(StrEnum):
+    USER = "user"
     ADMIN = "admin"
 
 
-class AuthErrorCode(str, Enum):
+class AuthErrorCode(StrEnum):
     INVALID_CREDENTIALS = "invalid_credentials"
-    TOKEN_EXPIRED       = "token_expired"
-    TOKEN_INVALID       = "token_invalid"
-    USER_NOT_FOUND      = "user_not_found"
+    TOKEN_EXPIRED = "token_expired"
+    TOKEN_INVALID = "token_invalid"
+    USER_NOT_FOUND = "user_not_found"
     EMAIL_ALREADY_EXISTS = "email_already_exists"
-    INACTIVE_USER       = "inactive_user"
+    INACTIVE_USER = "inactive_user"
     INSUFFICIENT_PERMISSIONS = "insufficient_permissions"
 
 
 # ── Exceções customizadas ─────────────────────────────────────────────────────
 
+
 class AuthError(Exception):
     """Base para erros de autenticação/autorização."""
+
     def __init__(self, code: AuthErrorCode, message: str) -> None:
         super().__init__(message)
-        self.code    = code
+        self.code = code
         self.message = message
 
 
@@ -93,29 +98,32 @@ class InsufficientPermissionsError(AuthError):
 
 # ── Entidades ─────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class User:
     """Usuário autenticado do sistema."""
-    user_id:        str
-    email:          str
+
+    user_id: str
+    email: str
     hashed_password: str
-    full_name:      str
-    role:           UserRole       = UserRole.USER
-    is_active:      bool           = True
-    created_at:     Optional[datetime] = None
-    last_login_at:  Optional[datetime] = None
+    full_name: str
+    role: UserRole = UserRole.USER
+    is_active: bool = True
+    created_at: datetime | None = None
+    last_login_at: datetime | None = None
 
     @staticmethod
-    def new(email: str, hashed_password: str, full_name: str,
-            role: UserRole = UserRole.USER) -> "User":
+    def new(
+        email: str, hashed_password: str, full_name: str, role: UserRole = UserRole.USER
+    ) -> User:
         """Factory: cria novo usuário com UUID gerado no domínio."""
         return User(
-            user_id         = str(uuid.uuid4()),
-            email           = email.lower().strip(),
-            hashed_password = hashed_password,
-            full_name       = full_name.strip(),
-            role            = role,
-            is_active       = True,
+            user_id=str(uuid.uuid4()),
+            email=email.lower().strip(),
+            hashed_password=hashed_password,
+            full_name=full_name.strip(),
+            role=role,
+            is_active=True,
         )
 
     def ensure_active(self) -> None:
@@ -130,23 +138,25 @@ class User:
 @dataclass(frozen=True)
 class TokenPayload:
     """Payload decodificado de um JWT. Imutável por design."""
-    sub:      str        # user_id
-    email:    str
-    role:     str
-    exp:      int        # Unix timestamp de expiração
-    token_type: str      # "access" | "refresh"
-    jti:      str = ""   # JWT ID — para revogação futura
+
+    sub: str  # user_id
+    email: str
+    role: str
+    exp: int  # Unix timestamp de expiração
+    token_type: str  # "access" | "refresh"
+    jti: str = ""  # JWT ID — para revogação futura
 
 
 @dataclass
 class UserRegistration:
     """DTO de entrada para registro de novo usuário."""
-    email:     str
-    password:  str        # texto puro — descartado após hash
+
+    email: str
+    password: str  # texto puro — descartado após hash
     full_name: str
 
     def __post_init__(self) -> None:
-        self.email     = self.email.lower().strip()
+        self.email = self.email.lower().strip()
         self.full_name = self.full_name.strip()
         if len(self.password) < 8:
             raise ValueError("Senha deve ter no mínimo 8 caracteres.")
@@ -159,7 +169,8 @@ class UserRegistration:
 @dataclass
 class TokenPair:
     """Par de tokens retornado no login."""
-    access_token:  str
+
+    access_token: str
     refresh_token: str
-    token_type:    str = "bearer"
-    expires_in:    int = 1800   # segundos até expirar o access token
+    token_type: str = "bearer"
+    expires_in: int = 1800  # segundos até expirar o access token

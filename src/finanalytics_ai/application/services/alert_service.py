@@ -16,21 +16,22 @@ Design decisions:
   - evaluate_price é fire-and-forget no Kafka handler — não bloqueia o pipeline
   - Logging estruturado por alerta para rastreabilidade
 """
+
 from __future__ import annotations
 
+from collections.abc import Callable, Coroutine
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Callable, Coroutine
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from finanalytics_ai.domain.entities.alert import Alert, AlertStatus, AlertType
+from finanalytics_ai.domain.entities.alert import Alert, AlertType
 from finanalytics_ai.infrastructure.database.repositories.alert_repo import SQLAlertRepository
 from finanalytics_ai.infrastructure.notifications import (
     AlertNotification,
     NotificationBus,
-    dispatch_webhook,
 )
 
 logger = structlog.get_logger(__name__)
@@ -48,7 +49,7 @@ class AlertService:
 
     def __init__(
         self,
-        session_factory: Any,   # AsyncGenerator que yield AsyncSession
+        session_factory: Any,  # AsyncGenerator que yield AsyncSession
         notification_bus: NotificationBus,
     ) -> None:
         self._session_factory = session_factory
@@ -64,41 +65,40 @@ class AlertService:
         current = Decimal(str(price))
         triggered_count = 0
 
-        async with self._session_factory() as session:
-            async with session.begin():
-                repo = SQLAlertRepository(session)
-                alerts = await repo.find_active_by_ticker(ticker)
+        async with self._session_factory() as session, session.begin():
+            repo = SQLAlertRepository(session)
+            alerts = await repo.find_active_by_ticker(ticker)
 
-                if not alerts:
-                    return 0
+            if not alerts:
+                return 0
 
-                for alert in alerts:
-                    result = alert.evaluate(current)
-                    if result.triggered:
-                        await repo.mark_triggered(alert.alert_id)
-                        triggered_count += 1
+            for alert in alerts:
+                result = alert.evaluate(current)
+                if result.triggered:
+                    await repo.mark_triggered(alert.alert_id)
+                    triggered_count += 1
 
-                        notif = AlertNotification(
-                            alert_id      = alert.alert_id,
-                            ticker        = alert.ticker,
-                            alert_type    = alert.alert_type.value,
-                            message       = result.message,
-                            current_price = float(current),
-                            threshold     = float(alert.threshold),
-                            user_id       = alert.user_id,
-                            triggered_at  = datetime.utcnow().isoformat(),
-                            context       = result.context,
-                        )
-                        await self._bus.broadcast(notif)
+                    notif = AlertNotification(
+                        alert_id=alert.alert_id,
+                        ticker=alert.ticker,
+                        alert_type=alert.alert_type.value,
+                        message=result.message,
+                        current_price=float(current),
+                        threshold=float(alert.threshold),
+                        user_id=alert.user_id,
+                        triggered_at=datetime.utcnow().isoformat(),
+                        context=result.context,
+                    )
+                    await self._bus.broadcast(notif)
 
-                        logger.info(
-                            "alert.triggered",
-                            alert_id=alert.alert_id,
-                            ticker=ticker,
-                            alert_type=alert.alert_type,
-                            price=price,
-                            threshold=str(alert.threshold),
-                        )
+                    logger.info(
+                        "alert.triggered",
+                        alert_id=alert.alert_id,
+                        ticker=ticker,
+                        alert_type=alert.alert_type,
+                        price=price,
+                        threshold=str(alert.threshold),
+                    )
 
         return triggered_count
 
@@ -114,18 +114,17 @@ class AlertService:
     ) -> Alert:
         """Cria e persiste um novo alerta."""
         alert = Alert(
-            user_id         = user_id,
-            ticker          = ticker.upper(),
-            alert_type      = AlertType(alert_type),
-            threshold       = Decimal(str(threshold)),
-            reference_price = Decimal(str(reference_price)),
-            note            = note,
-            expires_at      = expires_at,
+            user_id=user_id,
+            ticker=ticker.upper(),
+            alert_type=AlertType(alert_type),
+            threshold=Decimal(str(threshold)),
+            reference_price=Decimal(str(reference_price)),
+            note=note,
+            expires_at=expires_at,
         )
-        async with self._session_factory() as session:
-            async with session.begin():
-                repo = SQLAlertRepository(session)
-                await repo.save(alert)
+        async with self._session_factory() as session, session.begin():
+            repo = SQLAlertRepository(session)
+            await repo.save(alert)
 
         logger.info(
             "alert.created",
@@ -142,10 +141,9 @@ class AlertService:
             return await repo.find_by_user(user_id)
 
     async def cancel_alert(self, alert_id: str, user_id: str) -> bool:
-        async with self._session_factory() as session:
-            async with session.begin():
-                repo = SQLAlertRepository(session)
-                cancelled = await repo.cancel(alert_id, user_id)
+        async with self._session_factory() as session, session.begin():
+            repo = SQLAlertRepository(session)
+            cancelled = await repo.cancel(alert_id, user_id)
         if cancelled:
             logger.info("alert.cancelled", alert_id=alert_id)
         return cancelled

@@ -25,8 +25,10 @@ Design decisions:
     A API retorna nomes como "Tesouro Selic 2027" — mapeamos para
     nossos enums de BondType / Indexer para compatibilidade com o domínio.
 """
+
 from __future__ import annotations
 
+import contextlib
 import time
 from datetime import date
 from typing import Any
@@ -39,8 +41,7 @@ from finanalytics_ai.domain.fixed_income.entities import Bond, BondType, Indexer
 logger = structlog.get_logger(__name__)
 
 TD_API_URL = (
-    "https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/"
-    "service/api/treasurybond.json"
+    "https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybond.json"
 )
 CACHE_TTL = 900  # 15 minutos
 
@@ -58,15 +59,18 @@ class TesouroDiretoClient:
 
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.get(TD_API_URL, headers={
-                    "User-Agent": "FinAnalyticsAI/1.0",
-                    "Accept": "application/json",
-                })
+                resp = await client.get(
+                    TD_API_URL,
+                    headers={
+                        "User-Agent": "FinAnalyticsAI/1.0",
+                        "Accept": "application/json",
+                    },
+                )
                 resp.raise_for_status()
                 data = resp.json()
 
             bonds = self._parse(data)
-            self._cache    = bonds
+            self._cache = bonds
             self._cache_at = time.time()
             logger.info("tesouro.fetched", count=len(bonds))
             return bonds
@@ -87,41 +91,41 @@ class TesouroDiretoClient:
             try:
                 td = item.get("TrsrBd", item)
 
-                name     = td.get("nm", "")
-                bond_id  = f"td_{td.get('cd', name).lower().replace(' ', '_')}"
-                mat_str  = td.get("mtrtyDt", "")
-                min_inv  = float(td.get("minInvstmtAmt", 0) or 0)
+                name = td.get("nm", "")
+                bond_id = f"td_{td.get('cd', name).lower().replace(' ', '_')}"
+                mat_str = td.get("mtrtyDt", "")
+                min_inv = float(td.get("minInvstmtAmt", 0) or 0)
 
                 # Taxa de compra (% a.a.)
                 rate_str = td.get("anulInvstmtRate") or td.get("BuyAnulRate") or 0
-                rate     = float(rate_str) / 100 if rate_str else 0.0
+                rate = float(rate_str) / 100 if rate_str else 0.0
 
                 # Vencimento
                 maturity: date | None = None
                 if mat_str:
-                    try:
+                    with contextlib.suppress(ValueError):
                         maturity = date.fromisoformat(mat_str[:10])
-                    except ValueError:
-                        pass
 
                 bond_type, indexer, rate_pct, payment_freq = _classify_td(name)
 
-                bonds.append(Bond(
-                    bond_id          = bond_id,
-                    name             = name,
-                    bond_type        = bond_type,
-                    indexer          = indexer,
-                    rate_annual      = rate,
-                    rate_pct_indexer = rate_pct,
-                    maturity_date    = maturity,
-                    issuer           = "Tesouro Nacional",
-                    min_investment   = min_inv,
-                    payment_freq     = payment_freq,
-                    ir_exempt        = False,
-                    liquidity        = "Diária (recompra garantida)",
-                    source           = "tesouro_direto",
-                    available        = True,
-                ))
+                bonds.append(
+                    Bond(
+                        bond_id=bond_id,
+                        name=name,
+                        bond_type=bond_type,
+                        indexer=indexer,
+                        rate_annual=rate,
+                        rate_pct_indexer=rate_pct,
+                        maturity_date=maturity,
+                        issuer="Tesouro Nacional",
+                        min_investment=min_inv,
+                        payment_freq=payment_freq,
+                        ir_exempt=False,
+                        liquidity="Diária (recompra garantida)",
+                        source="tesouro_direto",
+                        available=True,
+                    )
+                )
             except Exception as exc:
                 logger.warning("tesouro.item_parse_error", error=str(exc))
                 continue
@@ -155,6 +159,7 @@ def _classify_td(name: str) -> tuple[BondType, Indexer, bool, PaymentFrequency]:
 
 # Singleton
 _client: TesouroDiretoClient | None = None
+
 
 def get_tesouro_client() -> TesouroDiretoClient:
     global _client

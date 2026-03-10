@@ -6,18 +6,21 @@ Segue o mesmo padrão do PortfolioRepository:
   - Métodos async retornam entidades de domínio, nunca models
   - find_active_by_ticker é o hot path — chamado a cada PRICE_UPDATE do Kafka
 """
+
 from __future__ import annotations
 
-import json
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import structlog
-from sqlalchemy import Column, DateTime, String, Text, Numeric, select, update
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import Column, DateTime, Numeric, String, Text, select, update
 
 from finanalytics_ai.domain.entities.alert import Alert, AlertStatus, AlertType
 from finanalytics_ai.infrastructure.database.connection import Base
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 
@@ -25,17 +28,17 @@ logger = structlog.get_logger(__name__)
 class AlertModel(Base):
     __tablename__ = "alerts"
 
-    alert_id        = Column(String(36), primary_key=True)
-    user_id         = Column(String(100), nullable=False, index=True)
-    ticker          = Column(String(10),  nullable=False, index=True)
-    alert_type      = Column(String(30),  nullable=False)
-    threshold       = Column(Numeric(18, 4), nullable=False)
+    alert_id = Column(String(36), primary_key=True)
+    user_id = Column(String(100), nullable=False, index=True)
+    ticker = Column(String(10), nullable=False, index=True)
+    alert_type = Column(String(30), nullable=False)
+    threshold = Column(Numeric(18, 4), nullable=False)
     reference_price = Column(Numeric(18, 4), nullable=False, default=0)
-    status          = Column(String(20),  nullable=False, default=AlertStatus.ACTIVE, index=True)
-    note            = Column(Text,        nullable=False, default="")
-    created_at      = Column(DateTime,    nullable=False, default=datetime.utcnow)
-    triggered_at    = Column(DateTime,    nullable=True)
-    expires_at      = Column(DateTime,    nullable=True)
+    status = Column(String(20), nullable=False, default=AlertStatus.ACTIVE, index=True)
+    note = Column(Text, nullable=False, default="")
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    triggered_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
 
 
 class SQLAlertRepository:
@@ -45,21 +48,23 @@ class SQLAlertRepository:
     async def save(self, alert: Alert) -> None:
         existing = await self._session.get(AlertModel, alert.alert_id)
         if existing:
-            existing.status       = alert.status.value
+            existing.status = alert.status.value
             existing.triggered_at = alert.triggered_at
         else:
-            self._session.add(AlertModel(
-                alert_id        = alert.alert_id,
-                user_id         = alert.user_id,
-                ticker          = alert.ticker.upper(),
-                alert_type      = alert.alert_type.value,
-                threshold       = alert.threshold,
-                reference_price = alert.reference_price,
-                status          = alert.status.value,
-                note            = alert.note,
-                created_at      = alert.created_at,
-                expires_at      = alert.expires_at,
-            ))
+            self._session.add(
+                AlertModel(
+                    alert_id=alert.alert_id,
+                    user_id=alert.user_id,
+                    ticker=alert.ticker.upper(),
+                    alert_type=alert.alert_type.value,
+                    threshold=alert.threshold,
+                    reference_price=alert.reference_price,
+                    status=alert.status.value,
+                    note=alert.note,
+                    created_at=alert.created_at,
+                    expires_at=alert.expires_at,
+                )
+            )
         await self._session.flush()
         logger.debug("alert.saved", alert_id=alert.alert_id, status=alert.status)
 
@@ -107,15 +112,15 @@ class SQLAlertRepository:
 
     def _to_domain(self, m: AlertModel) -> Alert:
         return Alert(
-            alert_id        = str(m.alert_id),
-            user_id         = str(m.user_id),
-            ticker          = str(m.ticker),
-            alert_type      = AlertType(m.alert_type),
-            threshold       = Decimal(str(m.threshold)),
-            reference_price = Decimal(str(m.reference_price)),
-            status          = AlertStatus(m.status),
-            note            = str(m.note),
-            created_at      = m.created_at,       # type: ignore[arg-type]
-            triggered_at    = m.triggered_at,     # type: ignore[arg-type]
-            expires_at      = m.expires_at,       # type: ignore[arg-type]
+            alert_id=str(m.alert_id),
+            user_id=str(m.user_id),
+            ticker=str(m.ticker),
+            alert_type=AlertType(m.alert_type),
+            threshold=Decimal(str(m.threshold)),
+            reference_price=Decimal(str(m.reference_price)),
+            status=AlertStatus(m.status),
+            note=str(m.note),
+            created_at=m.created_at,  # type: ignore[arg-type]
+            triggered_at=m.triggered_at,  # type: ignore[arg-type]
+            expires_at=m.expires_at,  # type: ignore[arg-type]
         )

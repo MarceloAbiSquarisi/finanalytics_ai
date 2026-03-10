@@ -13,44 +13,45 @@ e evita dependência extra.
 O NotificationBus é um singleton registrado no lifespan da app.
 AlertService recebe via injeção de dependência.
 """
+
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
-from dataclasses import asdict, dataclass
-from datetime import datetime
-from decimal import Decimal
-from typing import Any, AsyncIterator
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
-from finanalytics_ai.domain.entities.alert import AlertTriggerResult
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 logger = structlog.get_logger(__name__)
 
 
 @dataclass
 class AlertNotification:
-    alert_id:      str
-    ticker:        str
-    alert_type:    str
-    message:       str
+    alert_id: str
+    ticker: str
+    alert_type: str
+    message: str
     current_price: float
-    threshold:     float
-    user_id:       str
-    triggered_at:  str
-    context:       dict[str, Any]
+    threshold: float
+    user_id: str
+    triggered_at: str
+    context: dict[str, Any]
 
     def to_sse(self) -> str:
         data = {
-            "alert_id":      self.alert_id,
-            "ticker":        self.ticker,
-            "alert_type":    self.alert_type,
-            "message":       self.message,
+            "alert_id": self.alert_id,
+            "ticker": self.ticker,
+            "alert_type": self.alert_type,
+            "message": self.message,
             "current_price": self.current_price,
-            "threshold":     self.threshold,
-            "user_id":       self.user_id,
-            "triggered_at":  self.triggered_at,
+            "threshold": self.threshold,
+            "user_id": self.user_id,
+            "triggered_at": self.triggered_at,
             **self.context,
         }
         return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
@@ -74,9 +75,7 @@ class NotificationBus:
 
     async def subscribe(self) -> asyncio.Queue[AlertNotification]:
         """Registra um novo subscriber SSE. Retorna sua queue."""
-        queue: asyncio.Queue[AlertNotification] = asyncio.Queue(
-            maxsize=self._max_queue_size
-        )
+        queue: asyncio.Queue[AlertNotification] = asyncio.Queue(maxsize=self._max_queue_size)
         async with self._lock:
             self._subscribers.append(queue)
         logger.debug("notification.subscriber.added", total=len(self._subscribers))
@@ -84,10 +83,8 @@ class NotificationBus:
 
     async def unsubscribe(self, queue: asyncio.Queue[AlertNotification]) -> None:
         async with self._lock:
-            try:
+            with contextlib.suppress(ValueError):
                 self._subscribers.remove(queue)
-            except ValueError:
-                pass
         logger.debug("notification.subscriber.removed", total=len(self._subscribers))
 
     async def broadcast(self, notification: AlertNotification) -> None:
@@ -100,7 +97,7 @@ class NotificationBus:
             try:
                 q.put_nowait(notification)
             except asyncio.QueueFull:
-                dropped += 1   # cliente lento — descarta silenciosamente
+                dropped += 1  # cliente lento — descarta silenciosamente
 
         logger.info(
             "notification.broadcast",
@@ -120,7 +117,7 @@ class NotificationBus:
         user_id: str | None = None,
     ) -> AsyncIterator[str]:
         """Iterador SSE — yield de eventos até a conexão fechar."""
-        yield f"data: {json.dumps({'type':'connected','subscribers':self.subscriber_count})}\n\n"
+        yield f"data: {json.dumps({'type': 'connected', 'subscribers': self.subscriber_count})}\n\n"
         try:
             while True:
                 try:
@@ -130,7 +127,7 @@ class NotificationBus:
                         continue
                     yield notif.to_sse()
                     queue.task_done()
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     yield ": heartbeat\n\n"
         except asyncio.CancelledError:
             pass
@@ -149,6 +146,7 @@ def get_notification_bus() -> NotificationBus:
 
 # ── Webhook dispatcher (opcional) ────────────────────────────────────────────
 
+
 async def dispatch_webhook(url: str, notification: AlertNotification) -> None:
     """
     Envia notificação via HTTP POST para um webhook externo.
@@ -156,14 +154,15 @@ async def dispatch_webhook(url: str, notification: AlertNotification) -> None:
     """
     try:
         import httpx
+
         payload = {
-            "alert_id":      notification.alert_id,
-            "ticker":        notification.ticker,
-            "alert_type":    notification.alert_type,
-            "message":       notification.message,
+            "alert_id": notification.alert_id,
+            "ticker": notification.ticker,
+            "alert_type": notification.alert_type,
+            "message": notification.message,
             "current_price": notification.current_price,
-            "threshold":     notification.threshold,
-            "triggered_at":  notification.triggered_at,
+            "threshold": notification.threshold,
+            "triggered_at": notification.triggered_at,
         }
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.post(url, json=payload)

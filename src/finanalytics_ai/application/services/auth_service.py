@@ -6,18 +6,26 @@ Orquestra registro, login e refresh de tokens.
 Não contém lógica de negócio pura — delega ao domínio (User, erros)
 e à infra (hasher, JWT, repositório). Camada de aplicação correta.
 """
+
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import structlog
 
 from finanalytics_ai.domain.auth.entities import (
-    User, UserRegistration, TokenPair, TokenPayload,
-    InvalidCredentialsError, EmailAlreadyExistsError, UserNotFoundError,
-    InactiveUserError,
+    EmailAlreadyExistsError,
+    InvalidCredentialsError,
+    TokenPair,
+    User,
+    UserNotFoundError,
+    UserRegistration,
 )
-from finanalytics_ai.infrastructure.auth.password_hasher import PasswordHasher
-from finanalytics_ai.infrastructure.auth.jwt_handler import JWTHandler
-from finanalytics_ai.infrastructure.database.repositories.user_repo import UserRepository
+
+if TYPE_CHECKING:
+    from finanalytics_ai.infrastructure.auth.jwt_handler import JWTHandler
+    from finanalytics_ai.infrastructure.auth.password_hasher import PasswordHasher
+    from finanalytics_ai.infrastructure.database.repositories.user_repo import UserRepository
 
 logger = structlog.get_logger(__name__)
 
@@ -26,12 +34,12 @@ class AuthService:
     def __init__(
         self,
         user_repo: UserRepository,
-        hasher:    PasswordHasher,
-        jwt:       JWTHandler,
+        hasher: PasswordHasher,
+        jwt: JWTHandler,
     ) -> None:
-        self._repo   = user_repo
+        self._repo = user_repo
         self._hasher = hasher
-        self._jwt    = jwt
+        self._jwt = jwt
 
     async def register(self, registration: UserRegistration) -> TokenPair:
         """
@@ -43,10 +51,10 @@ class AuthService:
             raise EmailAlreadyExistsError(registration.email)
 
         hashed = self._hasher.hash(registration.password)
-        user   = User.new(
-            email           = registration.email,
-            hashed_password = hashed,
-            full_name       = registration.full_name,
+        user = User.new(
+            email=registration.email,
+            hashed_password=hashed,
+            full_name=registration.full_name,
         )
         user = await self._repo.create(user)
         logger.info("auth.registered", user_id=user.user_id)
@@ -78,7 +86,7 @@ class AuthService:
         Lança TokenInvalidError/TokenExpiredError se inválido.
         """
         payload = self._jwt.decode_refresh(refresh_token)
-        user    = await self._repo.find_by_id(payload.sub)
+        user = await self._repo.find_by_id(payload.sub)
         if user is None:
             raise UserNotFoundError(payload.sub)
         user.ensure_active()

@@ -28,10 +28,11 @@ Design decisions:
     Com MAX_CONCURRENT=3 e ~2s por ticker, 10 tickers = ~7s de resposta.
     Aceitavel para um endpoint analitico nao critico.
 """
+
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING
 
 import structlog
 
@@ -43,7 +44,9 @@ from finanalytics_ai.domain.backtesting.multi_ticker import (
     build_multi_ticker_result,
 )
 from finanalytics_ai.domain.backtesting.optimizer import OptimizationObjective, OptimizationResult
-from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
+
+if TYPE_CHECKING:
+    from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
 
 logger = structlog.get_logger(__name__)
 
@@ -51,21 +54,20 @@ MAX_CONCURRENT = 3  # requests simultaneas a BRAPI
 
 
 class MultiTickerService:
-
     def __init__(self, brapi_client: BrapiClient) -> None:
-        self._brapi    = brapi_client
+        self._brapi = brapi_client
         self._optimizer = OptimizerService(brapi_client)
 
     async def compare(
         self,
-        tickers:         list[str],
-        strategy_name:   str,
-        range_period:    str   = "1y",
+        tickers: list[str],
+        strategy_name: str,
+        range_period: str = "1y",
         initial_capital: float = 10_000.0,
-        position_size:   float = 1.0,
-        commission_pct:  float = 0.001,
-        objective:       str   = "sharpe",
-        top_n:           int   = 5,
+        position_size: float = 1.0,
+        commission_pct: float = 0.001,
+        objective: str = "sharpe",
+        top_n: int = 5,
     ) -> MultiTickerResult:
         """
         Otimiza a mesma estrategia em N tickers e retorna ranking comparativo.
@@ -85,8 +87,7 @@ class MultiTickerService:
             raise BacktestError("Informe pelo menos 1 ticker.")
         if len(tickers) > MAX_TICKERS:
             raise BacktestError(
-                f"Maximo de {MAX_TICKERS} tickers por comparativo. "
-                f"Recebidos: {len(tickers)}."
+                f"Maximo de {MAX_TICKERS} tickers por comparativo. Recebidos: {len(tickers)}."
             )
 
         try:
@@ -98,8 +99,10 @@ class MultiTickerService:
             )
 
         log = logger.bind(
-            tickers=tickers, strategy=strategy_name,
-            range=range_period, objective=objective,
+            tickers=tickers,
+            strategy=strategy_name,
+            range=range_period,
+            objective=objective,
         )
         log.info("multi_ticker.starting")
 
@@ -109,14 +112,14 @@ class MultiTickerService:
             async with sem:
                 try:
                     result = await self._optimizer.optimize(
-                        ticker          = ticker,
-                        strategy_name   = strategy_name,
-                        range_period    = range_period,
-                        initial_capital = initial_capital,
-                        position_size   = position_size,
-                        commission_pct  = commission_pct,
-                        objective       = objective,
-                        top_n           = top_n,
+                        ticker=ticker,
+                        strategy_name=strategy_name,
+                        range_period=range_period,
+                        initial_capital=initial_capital,
+                        position_size=position_size,
+                        commission_pct=commission_pct,
+                        objective=objective,
+                        top_n=top_n,
                     )
                     return ticker, result
                 except Exception as exc:
@@ -127,19 +130,19 @@ class MultiTickerService:
         raw = await asyncio.gather(*[_optimize_one(t) for t in tickers])
 
         result = build_multi_ticker_result(
-            results      = list(raw),
-            strategy     = strategy_name,
-            range_period = range_period,
-            objective    = objective,
+            results=list(raw),
+            strategy=strategy_name,
+            range_period=range_period,
+            objective=objective,
         )
 
         log.info(
             "multi_ticker.done",
-            tickers_ok     = len(result.rankings),
-            tickers_failed = len(result.errors),
-            best_ticker    = result.best_ticker,
-            avg_score      = result.avg_score,
-            hit_rate       = result.hit_rate,
+            tickers_ok=len(result.rankings),
+            tickers_failed=len(result.errors),
+            best_ticker=result.best_ticker,
+            avg_score=result.avg_score,
+            hit_rate=result.hit_rate,
         )
 
         return result

@@ -27,6 +27,7 @@ Design decisions:
     Após um SELL, exige novo ciclo antes de reentrar.
     Evita whipsawing em mercados laterais.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -34,9 +35,9 @@ from typing import Any
 
 from finanalytics_ai.domain.backtesting.engine import Signal
 from finanalytics_ai.domain.indicators.technical import (
-    compute_rsi,
-    compute_macd,
     compute_bollinger,
+    compute_macd,
+    compute_rsi,
 )
 
 
@@ -62,15 +63,16 @@ class RSIStrategy:
 
     Compra na saída de sobrevenda, vende na entrada de sobrecompra.
     """
+
     name: str = "RSI Reversal"
-    period:     int   = 14
-    oversold:   float = 30.0
+    period: int = 14
+    oversold: float = 30.0
     overbought: float = 70.0
 
     def generate_signals(self, bars: list[dict[str, Any]]) -> list[Signal]:
-        closes  = [float(b["close"]) for b in bars]
-        result  = compute_rsi(closes, self.period)
-        rsi     = result["values"]
+        closes = [float(b["close"]) for b in bars]
+        result = compute_rsi(closes, self.period)
+        rsi = result["values"]
         signals = [Signal.HOLD] * len(bars)
 
         for i in range(1, len(rsi)):
@@ -102,16 +104,17 @@ class MACDCrossStrategy:
     Crossover bullish (MACD cruza Signal de baixo pra cima) → BUY
     Crossover bearish (MACD cruza Signal de cima pra baixo) → SELL
     """
+
     name: str = "MACD Crossover"
-    fast:          int = 12
-    slow:          int = 26
+    fast: int = 12
+    slow: int = 26
     signal_period: int = 9
 
     def generate_signals(self, bars: list[dict[str, Any]]) -> list[Signal]:
-        closes  = [float(b["close"]) for b in bars]
-        result  = compute_macd(closes, self.fast, self.slow, self.signal_period)
-        macd    = result["macd"]
-        signal  = result["signal"]
+        closes = [float(b["close"]) for b in bars]
+        result = compute_macd(closes, self.fast, self.slow, self.signal_period)
+        macd = result["macd"]
+        signal = result["signal"]
         signals = [Signal.HOLD] * len(bars)
 
         for i in range(1, len(bars)):
@@ -124,11 +127,11 @@ class MACDCrossStrategy:
                 continue
 
             # Bullish crossover: MACD cruza Signal de baixo para cima
-            if m_prev <= s_prev and m_curr > s_curr:      # type: ignore[operator]
+            if m_prev <= s_prev and m_curr > s_curr:  # type: ignore[operator]
                 signals[i] = Signal.BUY
 
             # Bearish crossover: MACD cruza Signal de cima para baixo
-            elif m_prev >= s_prev and m_curr < s_curr:    # type: ignore[operator]
+            elif m_prev >= s_prev and m_curr < s_curr:  # type: ignore[operator]
                 signals[i] = Signal.SELL
 
         return signals
@@ -148,16 +151,17 @@ class CombinedStrategy:
 
     Reduz operações mas aumenta qualidade dos trades.
     """
+
     name: str = "RSI + MACD Combined"
-    rsi_period:     int   = 14
-    rsi_oversold:   float = 30.0
+    rsi_period: int = 14
+    rsi_oversold: float = 30.0
     rsi_overbought: float = 70.0
-    macd_fast:      int   = 12
-    macd_slow:      int   = 26
-    macd_signal:    int   = 9
+    macd_fast: int = 12
+    macd_slow: int = 26
+    macd_signal: int = 9
 
     def generate_signals(self, bars: list[dict[str, Any]]) -> list[Signal]:
-        rsi_strategy  = RSIStrategy(
+        rsi_strategy = RSIStrategy(
             period=self.rsi_period,
             oversold=self.rsi_oversold,
             overbought=self.rsi_overbought,
@@ -168,9 +172,9 @@ class CombinedStrategy:
             signal_period=self.macd_signal,
         )
 
-        rsi_signals  = rsi_strategy.generate_signals(bars)
+        rsi_signals = rsi_strategy.generate_signals(bars)
         macd_signals = macd_strategy.generate_signals(bars)
-        combined     = [Signal.HOLD] * len(bars)
+        combined = [Signal.HOLD] * len(bars)
 
         for i in range(len(bars)):
             r = rsi_signals[i]
@@ -195,7 +199,6 @@ class CombinedStrategy:
         }
 
 
-
 @dataclass
 class BollingerBandsStrategy:
     """
@@ -209,15 +212,16 @@ class BollingerBandsStrategy:
     Design decision: espera confirmacao de 1 barra para evitar
     entrar em breakouts falsos no meio de uma tendencia forte.
     """
-    period:  int   = 20
+
+    period: int = 20
     std_dev: float = 2.0
     name: str = "Bollinger Bands"
 
     def generate_signals(self, bars: list[dict[str, Any]]) -> list[Signal]:
-        closes  = [float(b["close"]) for b in bars]
-        bb      = compute_bollinger(closes, self.period, self.std_dev)
-        lower   = bb["lower"]
-        upper   = bb["upper"]
+        closes = [float(b["close"]) for b in bars]
+        bb = compute_bollinger(closes, self.period, self.std_dev)
+        lower = bb["lower"]
+        upper = bb["upper"]
         signals = [Signal.HOLD] * len(bars)
 
         for i in range(1, len(bars)):
@@ -264,14 +268,15 @@ class EMACrossStrategy:
     recentes de preco, reduzindo o lag inerente de SMA em tendencias fortes.
     Trade-off: mais whipsaws em mercados laterais.
     """
+
     fast: int = 9
     slow: int = 21
     name: str = "EMA Cross"
 
     def generate_signals(self, bars: list[dict[str, Any]]) -> list[Signal]:
-        closes  = [float(b["close"]) for b in bars]
-        ema_f   = _compute_ema(closes, self.fast)
-        ema_s   = _compute_ema(closes, self.slow)
+        closes = [float(b["close"]) for b in bars]
+        ema_f = _compute_ema(closes, self.fast)
+        ema_s = _compute_ema(closes, self.slow)
         signals = [Signal.HOLD] * len(bars)
 
         for i in range(1, len(bars)):
@@ -284,11 +289,11 @@ class EMACrossStrategy:
                 continue
 
             # Golden cross: EMA rapida cruza acima da EMA lenta
-            if f_prev <= s_prev and f_curr > s_curr:      # type: ignore[operator]
+            if f_prev <= s_prev and f_curr > s_curr:  # type: ignore[operator]
                 signals[i] = Signal.BUY
 
             # Death cross: EMA rapida cruza abaixo da EMA lenta
-            elif f_prev >= s_prev and f_curr < s_curr:    # type: ignore[operator]
+            elif f_prev >= s_prev and f_curr < s_curr:  # type: ignore[operator]
                 signals[i] = Signal.SELL
 
         return signals
@@ -315,13 +320,14 @@ class MomentumStrategy:
     osciladores de momentum (TRIX, PPO). O cruzamento do zero
     e um sinal limpo de inversao de forca relativa.
     """
-    period:     int   = 10
+
+    period: int = 10
     rsi_filter: float = 65.0
     name: str = "Momentum (ROC)"
 
     def generate_signals(self, bars: list[dict[str, Any]]) -> list[Signal]:
-        closes  = [float(b["close"]) for b in bars]
-        n       = len(closes)
+        closes = [float(b["close"]) for b in bars]
+        n = len(closes)
         signals = [Signal.HOLD] * n
 
         # Calcula ROC
@@ -334,8 +340,8 @@ class MomentumStrategy:
         # Calcula RSI para filtro (se habilitado)
         rsi_values: list[float | None] = [None] * n
         if self.rsi_filter > 0:
-            rsi_result  = compute_rsi(closes, 14)
-            rsi_values  = rsi_result["values"]
+            rsi_result = compute_rsi(closes, 14)
+            rsi_values = rsi_result["values"]
 
         for i in range(1, n):
             r_prev = roc[i - 1]
@@ -368,12 +374,12 @@ class MomentumStrategy:
 
 # Registro de estratégias disponíveis
 STRATEGIES: dict[str, Any] = {
-    "rsi":       RSIStrategy,
-    "macd":      MACDCrossStrategy,
-    "combined":  CombinedStrategy,
+    "rsi": RSIStrategy,
+    "macd": MACDCrossStrategy,
+    "combined": CombinedStrategy,
     "bollinger": BollingerBandsStrategy,
     "ema_cross": EMACrossStrategy,
-    "momentum":  MomentumStrategy,
+    "momentum": MomentumStrategy,
 }
 
 

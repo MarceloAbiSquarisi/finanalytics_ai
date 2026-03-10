@@ -19,46 +19,46 @@ Fontes de ativos suportadas:
      mas é honesto: incluir RF num portfólio Markowitz é correto
      apenas para fins ilustrativos de diversificação.)
 """
+
 from __future__ import annotations
 
 import asyncio
-import functools
-import math
 from typing import Any
 
 import structlog
 
 from finanalytics_ai.domain.portfolio_optimizer.engine import (
-    OptimizationComparison, PortfolioResult,
-    markowitz_optimize, risk_parity_optimize,
-    black_litterman_optimize, equal_weight,
-    _covariance_matrix, _portfolio_stats,
     TRADING_DAYS,
+    OptimizationComparison,
+    _covariance_matrix,
+    black_litterman_optimize,
+    equal_weight,
+    markowitz_optimize,
+    risk_parity_optimize,
 )
 
 logger = structlog.get_logger(__name__)
 
-DEFAULT_CDI   = 0.1065
+DEFAULT_CDI = 0.1065
 DEFAULT_SELIC = 0.1065
-MAX_TICKERS   = 15
-MIN_BARS      = 60
+MAX_TICKERS = 15
+MIN_BARS = 60
 MAX_CONCURRENT = 4
 
 
 class PortfolioOptimizerService:
-
     def __init__(self, market_client: Any) -> None:
         self._market = market_client
 
     async def optimize(
         self,
-        tickers:       list[str],
-        period:        str = "1y",
-        risk_free:     float = DEFAULT_CDI,
-        views:         list[dict] | None = None,       # [{"ticker": "BOVA11", "return": 0.15}]
-        market_weights:list[float] | None = None,
-        rf_tickers:    list[str] | None = None,        # tickers tratados como RF
-        bl_tau:        float = 0.05,
+        tickers: list[str],
+        period: str = "1y",
+        risk_free: float = DEFAULT_CDI,
+        views: list[dict] | None = None,  # [{"ticker": "BOVA11", "return": 0.15}]
+        market_weights: list[float] | None = None,
+        rf_tickers: list[str] | None = None,  # tickers tratados como RF
+        bl_tau: float = 0.05,
         bl_risk_aversion: float = 3.0,
     ) -> dict[str, Any]:
         """
@@ -75,7 +75,7 @@ class PortfolioOptimizerService:
         if len(tickers) > MAX_TICKERS:
             raise ValueError(f"Máximo de {MAX_TICKERS} ativos por otimização.")
 
-        rf_set = set(t.upper() for t in (rf_tickers or []))
+        rf_set = {t.upper() for t in (rf_tickers or [])}
 
         log = logger.bind(tickers=tickers, period=period)
         log.info("portfolio_optimizer.starting")
@@ -85,7 +85,7 @@ class PortfolioOptimizerService:
 
         async def _fetch(t: str) -> tuple[str, list[dict] | Exception]:
             if t in rf_set:
-                return t, []   # RF: sem dados de mercado, tratado abaixo
+                return t, []  # RF: sem dados de mercado, tratado abaixo
             async with sem:
                 try:
                     bars = await self._market.get_ohlc_bars(Ticker(t), range_period=period)
@@ -114,34 +114,43 @@ class PortfolioOptimizerService:
                 continue
             dates, prices = _extract_prices(result)
             if len(prices) < MIN_BARS:
-                errors.append({"ticker": t, "error": f"Apenas {len(prices)} barras (mín. {MIN_BARS})"})
+                errors.append(
+                    {"ticker": t, "error": f"Apenas {len(prices)} barras (mín. {MIN_BARS})"}
+                )
                 continue
             price_series[t] = (dates, prices)
 
         valid_tickers = [t for t in tickers if t in price_series]
         if len(valid_tickers) < 2:
-            raise ValueError(f"Dados válidos para apenas {len(valid_tickers)} ativo(s). "
-                             f"Erros: {[e['ticker'] for e in errors]}")
+            raise ValueError(
+                f"Dados válidos para apenas {len(valid_tickers)} ativo(s). "
+                f"Erros: {[e['ticker'] for e in errors]}"
+            )
 
         # Alinha datas (interseção)
         returns_matrix, final_tickers = _align_and_compute_returns(price_series, valid_tickers)
         mean_rets = [sum(r) / len(r) if r else 0.0 for r in returns_matrix]
         cov = _covariance_matrix(returns_matrix)
 
-        log.info("portfolio_optimizer.data_ready",
-                 tickers=final_tickers, n_days=len(returns_matrix[0]) if returns_matrix else 0)
+        log.info(
+            "portfolio_optimizer.data_ready",
+            tickers=final_tickers,
+            n_days=len(returns_matrix[0]) if returns_matrix else 0,
+        )
 
         # ── Executa algoritmos em thread ──────────────────────────────────────
-        bl_views = [(v["ticker"], v["return"]) for v in (views or [])
-                    if v.get("ticker") in final_tickers]
+        bl_views = [
+            (v["ticker"], v["return"]) for v in (views or []) if v.get("ticker") in final_tickers
+        ]
 
-        def _run_all():
-            mz, frontier = markowitz_optimize(
-                final_tickers, mean_rets, cov, risk_free
-            )
+        def _run_all() -> None:
+            mz, frontier = markowitz_optimize(final_tickers, mean_rets, cov, risk_free)
             rp = risk_parity_optimize(final_tickers, mean_rets, cov, risk_free)
             bl = black_litterman_optimize(
-                final_tickers, mean_rets, cov, risk_free,
+                final_tickers,
+                mean_rets,
+                cov,
+                risk_free,
                 views=bl_views,
                 market_weights=market_weights,
                 tau=bl_tau,
@@ -154,9 +163,14 @@ class PortfolioOptimizerService:
                 p.period = period
 
             return OptimizationComparison(
-                tickers=final_tickers, period=period, risk_free=risk_free,
-                markowitz=mz, risk_parity=rp, black_litterman=bl,
-                equal_weight=ew, frontier=frontier,
+                tickers=final_tickers,
+                period=period,
+                risk_free=risk_free,
+                markowitz=mz,
+                risk_parity=rp,
+                black_litterman=bl,
+                equal_weight=ew,
+                frontier=frontier,
             )
 
         comparison = await asyncio.to_thread(_run_all)
@@ -164,20 +178,23 @@ class PortfolioOptimizerService:
         result["errors"] = errors
         result["n_days"] = len(returns_matrix[0]) if returns_matrix else 0
 
-        log.info("portfolio_optimizer.done",
-                 best_method=result.get("best_sharpe_method"),
-                 markowitz_sharpe=round(comparison.markowitz.sharpe, 3))
+        log.info(
+            "portfolio_optimizer.done",
+            best_method=result.get("best_sharpe_method"),
+            markowitz_sharpe=round(comparison.markowitz.sharpe, 3),
+        )
 
-        return result
+        return result  # type: ignore[no-any-return]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _extract_prices(bars: list[dict]) -> tuple[list[str], list[float]]:
     dates, prices = [], []
     for b in bars:
         close = b.get("close") or b.get("adjclose") or b.get("regularMarketPrice")
-        date  = b.get("date") or b.get("datetime") or b.get("timestamp")
+        date = b.get("date") or b.get("datetime") or b.get("timestamp")
         if close and date and float(close) > 0:
             dates.append(str(date)[:10])
             prices.append(float(close))
@@ -212,11 +229,11 @@ def _align_and_compute_returns(
 
     for t in tickers:
         dates, prices = price_series[t]
-        date_map = dict(zip(dates, prices))
+        date_map = dict(zip(dates, prices, strict=False))
         ps = [date_map[d] for d in common_dates if d in date_map]
         if len(ps) < MIN_BARS + 1:
             continue
-        rets = [(ps[i] - ps[i-1]) / ps[i-1] for i in range(1, len(ps))]
+        rets = [(ps[i] - ps[i - 1]) / ps[i - 1] for i in range(1, len(ps))]
         returns_matrix.append(rets)
         valid_tickers.append(t)
 

@@ -5,18 +5,22 @@ Design decision: Portfolio é a aggregate root. Position representa
 a posição do investidor em um ativo específico. O Portfolio é responsável
 por manter a consistência (invariantes) das posições.
 """
+
 from __future__ import annotations
+
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
-from finanalytics_ai.domain.value_objects.money import Money, Ticker, Currency, Quantity
+
+from finanalytics_ai.domain.value_objects.money import Currency, Money, Quantity, Ticker
 from finanalytics_ai.exceptions import InsufficientFundsError, PortfolioNotFoundError
 
 
 @dataclass
 class Position:
     """Posição em um ativo dentro de um portfólio."""
+
     ticker: Ticker
     quantity: Quantity
     average_price: Money
@@ -26,7 +30,7 @@ class Position:
     def total_cost(self) -> Money:
         return self.average_price * self.quantity.value
 
-    def update_with_purchase(self, qty: Quantity, price: Money) -> "Position":
+    def update_with_purchase(self, qty: Quantity, price: Money) -> Position:
         """
         Calcula novo preço médio após compra (FIFO simplificado).
         PM = (qtd_atual * pm_atual + qtd_nova * preço_novo) / qtd_total
@@ -55,10 +59,11 @@ class Position:
 class Portfolio:
     """
     Aggregate Root: representa o portfólio de um investidor.
-    
+
     Todas as operações de compra/venda passam por aqui para
     manter os invariantes do domínio.
     """
+
     portfolio_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     user_id: str = ""
     name: str = "Portfólio Principal"
@@ -80,7 +85,9 @@ class Portfolio:
         if existing:
             self.positions[ticker.symbol] = existing.update_with_purchase(quantity, price)
         else:
-            self.positions[ticker.symbol] = Position(ticker=ticker, quantity=quantity, average_price=price)
+            self.positions[ticker.symbol] = Position(
+                ticker=ticker, quantity=quantity, average_price=price
+            )
         self.cash = self.cash - cost
         self.updated_at = datetime.utcnow()
 

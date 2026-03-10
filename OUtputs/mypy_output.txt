@@ -1,0 +1,1 @@
+src\finanalytics_ai\__init__.py: error: Source file found twice under different module names: "finanalytics_ai.src.finanalytics_ai" and "finanalytics_ai"

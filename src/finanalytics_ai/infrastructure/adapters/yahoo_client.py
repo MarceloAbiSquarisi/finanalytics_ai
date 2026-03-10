@@ -38,10 +38,10 @@ Design decisions:
     yfinance pode retornar NaN para dias sem negociação.
     Filtramos barras com close=NaN ou 0 antes de retornar.
 """
+
 from __future__ import annotations
 
 import asyncio
-import time
 from typing import Any
 
 import structlog
@@ -50,14 +50,14 @@ logger = structlog.get_logger(__name__)
 
 # Ranges Yahoo → intervalos padrão
 YAHOO_INTERVAL_MAP: dict[str, str] = {
-    "1d":  "1m",
-    "5d":  "5m",
+    "1d": "1m",
+    "5d": "5m",
     "1mo": "1d",
     "3mo": "1d",
     "6mo": "1d",
-    "1y":  "1d",
-    "2y":  "1d",
-    "5y":  "1wk",
+    "1y": "1d",
+    "2y": "1d",
+    "5y": "1wk",
     "10y": "1wk",
     "ytd": "1d",
     "max": "1mo",
@@ -80,7 +80,7 @@ def _to_yahoo_ticker(ticker: str) -> str:
     """
     ticker = ticker.upper().strip()
     if "." in ticker:
-        return ticker   # Já tem sufixo (PETR4.SA, etc.)
+        return ticker  # Já tem sufixo (PETR4.SA, etc.)
 
     # Heurística: se tem dígito no final → provavelmente B3
     # PETR4, VALE3, ITUB4, BOVA11, XPLG11...
@@ -95,7 +95,7 @@ def _normalize_volume(vol: Any) -> int:
     """Converte volume que pode ser float/NaN/None para int."""
     try:
         v = float(vol)
-        if v != v:   # NaN check (NaN != NaN)
+        if v != v:  # NaN check (NaN != NaN)
             return 0
         return int(v)
     except (TypeError, ValueError):
@@ -129,7 +129,7 @@ def _fetch_ohlc_sync(
         for idx, row in df.iterrows():
             close = row.get("Close", 0)
             # Filtra barras inválidas
-            if not close or close != close:   # 0 ou NaN
+            if not close or close != close:  # 0 ou NaN
                 continue
 
             # Converte timestamp pandas para Unix segundos
@@ -138,23 +138,25 @@ def _fetch_ohlc_sync(
             except Exception:
                 continue
 
-            bars.append({
-                "time":   ts,
-                "open":   float(row.get("Open", close)),
-                "high":   float(row.get("High", close)),
-                "low":    float(row.get("Low", close)),
-                "close":  float(close),
-                "volume": _normalize_volume(row.get("Volume", 0)),
-            })
+            bars.append(
+                {
+                    "time": ts,
+                    "open": float(row.get("Open", close)),
+                    "high": float(row.get("High", close)),
+                    "low": float(row.get("Low", close)),
+                    "close": float(close),
+                    "volume": _normalize_volume(row.get("Volume", 0)),
+                }
+            )
 
         bars.sort(key=lambda x: x["time"])
 
         logger.info(
             "yahoo.ohlc.fetched",
-            ticker    = yahoo_ticker,
-            range     = range_period,
-            interval  = interval,
-            bars      = len(bars),
+            ticker=yahoo_ticker,
+            range=range_period,
+            interval=interval,
+            bars=len(bars),
         )
         return bars
 
@@ -180,7 +182,7 @@ class YahooFinanceClient:
 
     async def get_ohlc_bars(
         self,
-        ticker: Any,   # Ticker value object ou str
+        ticker: Any,  # Ticker value object ou str
         range_period: str = "1y",
         interval: str | None = None,
     ) -> list[dict[str, Any]]:
@@ -188,7 +190,7 @@ class YahooFinanceClient:
         Busca OHLC do Yahoo Finance.
         Ticker é convertido para formato .SA automaticamente.
         """
-        ticker_str   = str(ticker).upper()
+        ticker_str = str(ticker).upper()
         yahoo_ticker = _to_yahoo_ticker(ticker_str)
         resolved_interval = interval or YAHOO_INTERVAL_MAP.get(range_period, "1d")
 
@@ -203,6 +205,7 @@ class YahooFinanceClient:
         """Verifica se yfinance está instalado e acessível."""
         try:
             import yfinance  # noqa: F401
+
             return True
         except ImportError:
             return False

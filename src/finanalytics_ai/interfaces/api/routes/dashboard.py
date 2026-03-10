@@ -1,9 +1,12 @@
 """Serve o dashboard HTML estático."""
-from fastapi import APIRouter
-from fastapi.responses import HTMLResponse
+
 import pathlib
 
+from fastapi import APIRouter
+from fastapi.responses import HTMLResponse
+
 router = APIRouter()
+
 
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard() -> HTMLResponse:

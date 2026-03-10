@@ -1,7 +1,8 @@
-﻿from sqlalchemy import Column, String, Float, DateTime, Integer, UniqueConstraint
+from sqlalchemy import Column, DateTime, Float, Integer, String, UniqueConstraint
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
+
 
 class OHLCBarModel(Base):
     __tablename__ = "ohlc_bars"
@@ -14,6 +15,7 @@ class OHLCBarModel(Base):
     close = Column(Float, nullable=False)
     volume = Column(Float, nullable=True)
     __table_args__ = (UniqueConstraint("ticker", "timestamp", name="uq_ohlc_ticker_ts"),)
+
 
 class OHLCCacheMetaModel(Base):
     __tablename__ = "ohlc_cache_meta"

@@ -30,24 +30,29 @@ Design decisions:
   Período "ytd" e "max":
     Delegados ao Yahoo Finance via CompositeMarketDataClient.
 """
+
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC
 from typing import Any
 
 import structlog
 
 from finanalytics_ai.domain.performance.engine import (
-    _align_price_series, _prices_to_returns, build_portfolio_returns,
-    compute_performance, PerformanceResult,
+    PerformanceResult,
+    _align_price_series,
+    _prices_to_returns,
+    build_portfolio_returns,
+    compute_performance,
 )
 from finanalytics_ai.domain.value_objects.money import Ticker
 
 logger = structlog.get_logger(__name__)
 
-BENCHMARK_TICKERS = ["BOVA11", "IBOV"]   # tenta em ordem
-MIN_BARS          = 20
-SEMAPHORE         = 3
+BENCHMARK_TICKERS = ["BOVA11", "IBOV"]  # tenta em ordem
+MIN_BARS = 20
+SEMAPHORE = 3
 
 VALID_PERIODS = {"1mo", "3mo", "6mo", "1y", "2y", "3y", "5y", "ytd", "max"}
 
@@ -57,9 +62,8 @@ class PerformanceError(Exception):
 
 
 class PerformanceService:
-
     def __init__(self, portfolio_repo: Any, market_client: Any) -> None:
-        self._repo   = portfolio_repo
+        self._repo = portfolio_repo
         self._market = market_client
 
     async def get_performance(
@@ -98,7 +102,7 @@ class PerformanceService:
         # Valor de mercado de cada posição
         market_values: dict[str, float] = {}
         for sym, pos in portfolio.positions.items():
-            qty   = float(pos.quantity.value)
+            qty = float(pos.quantity.value)
             price = current_prices.get(sym, float(pos.average_price.amount))
             market_values[sym] = qty * price
 
@@ -109,23 +113,22 @@ class PerformanceService:
         weights = {sym: mv / total_mkt for sym, mv in market_values.items()}
 
         # ── 3. Histórico OHLC por ticker + benchmark ──────────────────────────
-        all_tickers = tickers + [BENCHMARK_TICKERS[0]]
+        all_tickers = [*tickers, BENCHMARK_TICKERS[0]]
 
         async def _get_ohlc(ticker_sym: str) -> tuple[str, dict[str, float]]:
             """Retorna (ticker, {date: close_price})."""
             async with sem:
                 try:
-                    bars = await self._market.get_ohlc_bars(
-                        Ticker(ticker_sym), range_period=period
-                    )
+                    bars = await self._market.get_ohlc_bars(Ticker(ticker_sym), range_period=period)
                     series = {}
                     for b in bars:
                         if b.get("close") and b.get("close") > 0:
                             # timestamp → date string
                             ts = b.get("time", 0)
                             try:
-                                from datetime import datetime, timezone
-                                dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+                                from datetime import datetime
+
+                                dt = datetime.fromtimestamp(ts, tz=UTC)
                                 date_str = dt.strftime("%Y-%m-%d")
                             except Exception:
                                 date_str = str(ts)
@@ -162,11 +165,11 @@ class PerformanceService:
             logger.warning("performance.tickers_excluded", tickers=list(missing))
             # Recalcula pesos excluindo tickers sem dados
             total_mkt = sum(market_values[t] for t in valid_tickers)
-            weights   = {t: market_values[t] / total_mkt for t in valid_tickers}
+            weights = {t: market_values[t] / total_mkt for t in valid_tickers}
 
         # ── 4. Alinha séries ──────────────────────────────────────────────────
         series_for_align = {t: ohlc_map[t] for t in valid_tickers}
-        if bench_sym in ohlc_map and ohlc_map[bench_sym]:
+        if ohlc_map.get(bench_sym):
             series_for_align[bench_sym] = ohlc_map[bench_sym]
 
         dates, aligned = _align_price_series(series_for_align)
@@ -183,8 +186,8 @@ class PerformanceService:
 
         for t in valid_tickers:
             prices = aligned[t]
-            rets   = _prices_to_returns(prices)
-            ticker_returns_map[t]       = rets
+            rets = _prices_to_returns(prices)
+            ticker_returns_map[t] = rets
             price_series_for_weights[t] = prices
 
         portfolio_rets = build_portfolio_returns(price_series_for_weights, weights)
@@ -192,7 +195,7 @@ class PerformanceService:
         # Benchmark
         if bench_sym in aligned:
             bench_prices = aligned[bench_sym]
-            bench_rets   = _prices_to_returns(bench_prices)
+            bench_rets = _prices_to_returns(bench_prices)
         else:
             bench_rets = [0.0] * len(portfolio_rets)
 
@@ -201,22 +204,22 @@ class PerformanceService:
 
         # ── 6. Calcula métricas ───────────────────────────────────────────────
         result = compute_performance(
-            portfolio_id        = portfolio_id,
-            portfolio_name      = portfolio.name,
-            period              = period,
-            dates               = return_dates,
-            portfolio_returns   = portfolio_rets,
-            benchmark_returns   = bench_rets,
-            weights             = weights,
-            ticker_returns_map  = ticker_returns_map,
+            portfolio_id=portfolio_id,
+            portfolio_name=portfolio.name,
+            period=period,
+            dates=return_dates,
+            portfolio_returns=portfolio_rets,
+            benchmark_returns=bench_rets,
+            weights=weights,
+            ticker_returns_map=ticker_returns_map,
         )
 
         logger.info(
             "performance.computed",
-            portfolio_id = portfolio_id,
-            period       = period,
-            n_days       = result.metrics.period_days,
-            sharpe       = result.metrics.sharpe_ratio,
-            max_dd       = result.metrics.max_drawdown_pct,
+            portfolio_id=portfolio_id,
+            period=period,
+            n_days=result.metrics.period_days,
+            sharpe=result.metrics.sharpe_ratio,
+            max_dd=result.metrics.max_drawdown_pct,
         )
         return result

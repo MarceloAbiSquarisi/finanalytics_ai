@@ -21,32 +21,38 @@ Resiliência:
   - enable_auto_commit=False: commit manual após processamento bem-sucedido
     (garantia at-least-once — idempotência no EventProcessor evita duplicatas)
 """
+
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import uuid
 from datetime import datetime
-from typing import Any, AsyncIterator
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
 from finanalytics_ai.config import get_settings
 from finanalytics_ai.domain.entities.event import EventStatus, EventType, MarketEvent
 
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
 logger = structlog.get_logger(__name__)
 
 
 # ── SERIALIZAÇÃO ──────────────────────────────────────────────────────────────
 
+
 def _event_to_bytes(event: MarketEvent) -> bytes:
     """Serializa MarketEvent para JSON bytes."""
     data = {
-        "event_id":   event.event_id,
+        "event_id": event.event_id,
         "event_type": event.event_type.value,
-        "ticker":     event.ticker,
-        "payload":    event.payload,
-        "source":     event.source,
+        "ticker": event.ticker,
+        "payload": event.payload,
+        "source": event.source,
         "occurred_at": event.occurred_at.isoformat(),
     }
     return json.dumps(data).encode("utf-8")
@@ -62,12 +68,14 @@ def _bytes_to_event(raw: bytes) -> MarketEvent:
         payload=data.get("payload", {}),
         source=data.get("source", "kafka"),
         occurred_at=datetime.fromisoformat(data["occurred_at"])
-            if "occurred_at" in data else datetime.utcnow(),
+        if "occurred_at" in data
+        else datetime.utcnow(),
         status=EventStatus.PENDING,
     )
 
 
 # ── PRODUCER ─────────────────────────────────────────────────────────────────
+
 
 class KafkaMarketEventProducer:
     """
@@ -90,26 +98,25 @@ class KafkaMarketEventProducer:
     ) -> None:
         s = get_settings()
         self._bootstrap = bootstrap_servers or s.kafka_bootstrap_servers
-        self._topic     = topic or s.kafka_topic_market_events
+        self._topic = topic or s.kafka_topic_market_events
         self._producer: Any = None  # AIOKafkaProducer — import lazy
 
     async def start(self) -> None:
         try:
             from aiokafka import AIOKafkaProducer  # type: ignore[import]
+
             self._producer = AIOKafkaProducer(
                 bootstrap_servers=self._bootstrap,
                 value_serializer=lambda v: v,  # já bytes
                 compression_type="gzip",
-                acks="all",                     # durabilidade máxima
+                acks="all",  # durabilidade máxima
                 max_batch_size=32768,
-                linger_ms=5,                    # micro-batching
+                linger_ms=5,  # micro-batching
             )
             await self._producer.start()
             logger.info("kafka.producer.started", topic=self._topic)
         except ImportError:
-            raise RuntimeError(
-                "aiokafka não instalado. Execute: pip install aiokafka"
-            )
+            raise RuntimeError("aiokafka não instalado. Execute: pip install aiokafka")
         except Exception as exc:
             logger.error("kafka.producer.start_failed", error=str(exc))
             raise
@@ -130,7 +137,7 @@ class KafkaMarketEventProducer:
         )
         logger.debug("kafka.event.published", event_id=event.event_id, ticker=event.ticker)
 
-    async def __aenter__(self) -> "KafkaMarketEventProducer":
+    async def __aenter__(self) -> KafkaMarketEventProducer:
         await self.start()
         return self
 
@@ -139,6 +146,7 @@ class KafkaMarketEventProducer:
 
 
 # ── CONSUMER ─────────────────────────────────────────────────────────────────
+
 
 class KafkaMarketEventConsumer:
     """
@@ -168,8 +176,8 @@ class KafkaMarketEventConsumer:
     ) -> None:
         s = get_settings()
         self._bootstrap = bootstrap_servers or s.kafka_bootstrap_servers
-        self._topics    = topics or [s.kafka_topic_market_events, s.kafka_topic_price_updates]
-        self._group_id  = group_id or s.kafka_consumer_group
+        self._topics = topics or [s.kafka_topic_market_events, s.kafka_topic_price_updates]
+        self._group_id = group_id or s.kafka_consumer_group
         self._buffer: asyncio.Queue[MarketEvent] = asyncio.Queue(maxsize=buffer_size)
         self._consumer: Any = None
         self._running = False
@@ -177,12 +185,13 @@ class KafkaMarketEventConsumer:
     async def start(self) -> None:
         try:
             from aiokafka import AIOKafkaConsumer  # type: ignore[import]
+
             self._consumer = AIOKafkaConsumer(
                 *self._topics,
                 bootstrap_servers=self._bootstrap,
                 group_id=self._group_id,
                 auto_offset_reset=get_settings().kafka_auto_offset_reset,
-                enable_auto_commit=False,       # commit manual — at-least-once
+                enable_auto_commit=False,  # commit manual — at-least-once
                 session_timeout_ms=30_000,
                 heartbeat_interval_ms=10_000,
                 max_poll_records=100,
@@ -263,19 +272,19 @@ class KafkaMarketEventConsumer:
                     try:
                         await handler(event)
                     except Exception as exc:
-                        log.error("kafka.event.handler_error", error=str(exc), event_id=event.event_id)
+                        log.error(
+                            "kafka.event.handler_error", error=str(exc), event_id=event.event_id
+                        )
                     finally:
                         self._buffer.task_done()
-                except asyncio.TimeoutError:
-                    continue   # sem mensagem no buffer — volta ao loop
+                except TimeoutError:
+                    continue  # sem mensagem no buffer — volta ao loop
         except asyncio.CancelledError:
             log.info("kafka.consume_loop.cancelled")
         finally:
             poll_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await poll_task
-            except asyncio.CancelledError:
-                pass
 
     # ── EventQueue Protocol ──────────────────────────────────────────────────
     # Permite usar KafkaConsumer onde EventQueue é esperado (ex: testes)

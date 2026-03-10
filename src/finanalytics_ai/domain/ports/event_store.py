@@ -1,7 +1,11 @@
 """Port: EventStore — persistência e consulta de eventos."""
+
 from __future__ import annotations
-from typing import Protocol, runtime_checkable
-from finanalytics_ai.domain.entities.event import MarketEvent, EventStatus
+
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from finanalytics_ai.domain.entities.event import EventStatus, MarketEvent
 
 
 @runtime_checkable

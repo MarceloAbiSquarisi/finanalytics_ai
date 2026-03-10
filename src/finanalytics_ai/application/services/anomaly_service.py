@@ -19,39 +19,40 @@ Design decisions:
     O acoplamento e unidirecional: AnomalyService -> AlertEventBus,
     nunca o contrario.
 """
+
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING
 
 import structlog
 
 from finanalytics_ai.domain.anomaly.engine import (
+    AnomalyResult,
     DetectorConfig,
     MultiAnomalyResult,
-    AnomalyResult,
     build_multi_anomaly_result,
-    analyze_ticker,
 )
 from finanalytics_ai.domain.value_objects.money import Ticker
-from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
+
+if TYPE_CHECKING:
+    from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
 
 logger = structlog.get_logger(__name__)
 
-MAX_TICKERS    = 20
+MAX_TICKERS = 20
 MAX_CONCURRENT = 3
 
 
 class AnomalyService:
-
     def __init__(self, brapi_client: BrapiClient) -> None:
         self._brapi = brapi_client
 
     async def scan(
         self,
-        tickers:      list[str],
+        tickers: list[str],
         range_period: str = "3mo",
-        config:       DetectorConfig | None = None,
+        config: DetectorConfig | None = None,
     ) -> MultiAnomalyResult:
         """
         Busca barras e detecta anomalias para N tickers.
@@ -95,7 +96,7 @@ class AnomalyService:
 
         # CPU-bound: roda em thread para nao bloquear event loop
         result = await asyncio.to_thread(
-            build_multi_anomaly_result,
+            build_multi_anomaly_result,  # type: ignore[arg-type]
             ticker_bars,
             range_period,
             cfg,
@@ -103,14 +104,15 @@ class AnomalyService:
 
         log.info(
             "anomaly.scan.done",
-            total           = result.total_tickers,
-            with_anomalies  = result.tickers_with_anomalies,
-            high_severity   = result.high_severity_count,
+            total=result.total_tickers,
+            with_anomalies=result.tickers_with_anomalies,
+            high_severity=result.high_severity_count,
         )
 
         # Métricas Prometheus
         try:
             from finanalytics_ai.metrics import record_anomaly_scan
+
             record_anomaly_scan(
                 tickers_count=len(tickers),
                 range_period=range_period,
@@ -123,12 +125,14 @@ class AnomalyService:
 
     async def scan_single(
         self,
-        ticker:       str,
+        ticker: str,
         range_period: str = "3mo",
-        config:       DetectorConfig | None = None,
+        config: DetectorConfig | None = None,
     ) -> AnomalyResult:
         """Escaneia um unico ticker. Convenience wrapper."""
         result = await self.scan([ticker], range_period, config)
-        return result.results[0] if result.results else AnomalyResult(
-            ticker=ticker, bars_analyzed=0, anomalies=[], error="Sem resultado"
+        return (
+            result.results[0]
+            if result.results
+            else AnomalyResult(ticker=ticker, bars_analyzed=0, anomalies=[], error="Sem resultado")
         )

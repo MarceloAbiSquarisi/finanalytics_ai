@@ -32,20 +32,21 @@ Design decisions:
     Varia de 0 (todos perfeitamente correlacionados) a 1 (todos ortogonais).
     Nao e uma metrica academica rigorosa, mas intuitiva para o usuario.
 """
+
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # ── Tipos ──────────────────────────────────────────────────────────────────────
 
-ReturnSeries = list[float]          # serie de retornos diarios de um ativo
+ReturnSeries = list[float]  # serie de retornos diarios de um ativo
 AlignedMatrix = dict[str, ReturnSeries]  # {ticker: [r_t0, r_t1, ...]} mesmo comprimento
 
 
 # ── Extracao de retornos ───────────────────────────────────────────────────────
+
 
 def extract_returns(bars: list[dict[str, Any]]) -> dict[int, float]:
     """
@@ -63,7 +64,7 @@ def extract_returns(bars: list[dict[str, Any]]) -> dict[int, float]:
     for i in range(1, len(bars)):
         prev_close = bars[i - 1]["close"]
         curr_close = bars[i]["close"]
-        ts         = bars[i]["time"]
+        ts = bars[i]["time"]
 
         if prev_close and prev_close != 0:
             result[ts] = (curr_close - prev_close) / prev_close * 100.0
@@ -87,22 +88,20 @@ def align_returns(
         return [], {}
 
     # Timestamps comuns (inner join)
-    common_ts: set[int] = set.intersection(
-        *[set(series.keys()) for series in series_map.values()]
-    )
+    common_ts: set[int] = set.intersection(*[set(series.keys()) for series in series_map.values()])
 
     if not common_ts:
         return [], {}
 
     timestamps = sorted(common_ts)
     aligned: AlignedMatrix = {
-        ticker: [series[ts] for ts in timestamps]
-        for ticker, series in series_map.items()
+        ticker: [series[ts] for ts in timestamps] for ticker, series in series_map.items()
     }
     return timestamps, aligned
 
 
 # ── Pearson correlation ───────────────────────────────────────────────────────
+
 
 def _pearson(x: ReturnSeries, y: ReturnSeries) -> float:
     """
@@ -118,7 +117,7 @@ def _pearson(x: ReturnSeries, y: ReturnSeries) -> float:
     mean_x = sum(x) / n
     mean_y = sum(y) / n
 
-    cov  = sum((x[i] - mean_x) * (y[i] - mean_y) for i in range(n))
+    cov = sum((x[i] - mean_x) * (y[i] - mean_y) for i in range(n))
     std_x = math.sqrt(sum((xi - mean_x) ** 2 for xi in x))
     std_y = math.sqrt(sum((yi - mean_y) ** 2 for yi in y))
 
@@ -155,11 +154,12 @@ def correlation_matrix(aligned: AlignedMatrix) -> dict[str, dict[str, float]]:
 
 # ── Correlacao rolante ────────────────────────────────────────────────────────
 
+
 def rolling_correlation(
-    series_a:   ReturnSeries,
-    series_b:   ReturnSeries,
+    series_a: ReturnSeries,
+    series_b: ReturnSeries,
     timestamps: list[int],
-    window:     int = 30,
+    window: int = 30,
 ) -> list[dict[str, Any]]:
     """
     Calcula correlacao de Pearson rolante entre dois ativos.
@@ -176,23 +176,26 @@ def rolling_correlation(
     for i in range(window, n + 1):
         window_a = series_a[i - window : i]
         window_b = series_b[i - window : i]
-        corr     = _pearson(window_a, window_b)
-        result.append({
-            "time":        timestamps[i - 1],
-            "correlation": round(corr, 4),
-        })
+        corr = _pearson(window_a, window_b)
+        result.append(
+            {
+                "time": timestamps[i - 1],
+                "correlation": round(corr, 4),
+            }
+        )
 
     return result
 
 
 # ── Resultados ────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class CorrelationPair:
-    ticker_a:    str
-    ticker_b:    str
+    ticker_a: str
+    ticker_b: str
     correlation: float
-    label:       str = ""
+    label: str = ""
 
     def __post_init__(self) -> None:
         if not self.label:
@@ -200,49 +203,51 @@ class CorrelationPair:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "ticker_a":    self.ticker_a,
-            "ticker_b":    self.ticker_b,
+            "ticker_a": self.ticker_a,
+            "ticker_b": self.ticker_b,
             "correlation": self.correlation,
-            "label":       self.label,
+            "label": self.label,
         }
 
 
 @dataclass
 class CorrelationResult:
     """Resultado completo da analise de correlacao."""
-    tickers:             list[str]
-    range_period:        str
-    common_bars:         int                           # dias em comum (inner join)
-    matrix:              dict[str, dict[str, float]]  # NxN Pearson
-    most_correlated:     list[CorrelationPair]         # top-3 pares mais correlacionados
-    least_correlated:    list[CorrelationPair]         # top-3 pares menos correlacionados
-    diversification_score: float                       # 0-1, maior = mais diversificado
-    rolling_pairs:       dict[str, list[dict]]         # {"A/B": [{time, correlation}]}
-    errors:              list[dict[str, str]] = field(default_factory=list)
+
+    tickers: list[str]
+    range_period: str
+    common_bars: int  # dias em comum (inner join)
+    matrix: dict[str, dict[str, float]]  # NxN Pearson
+    most_correlated: list[CorrelationPair]  # top-3 pares mais correlacionados
+    least_correlated: list[CorrelationPair]  # top-3 pares menos correlacionados
+    diversification_score: float  # 0-1, maior = mais diversificado
+    rolling_pairs: dict[str, list[dict]]  # {"A/B": [{time, correlation}]}
+    errors: list[dict[str, str]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "tickers":              self.tickers,
-            "range_period":         self.range_period,
-            "common_bars":          self.common_bars,
-            "matrix":               self.matrix,
-            "most_correlated":      [p.to_dict() for p in self.most_correlated],
-            "least_correlated":     [p.to_dict() for p in self.least_correlated],
+            "tickers": self.tickers,
+            "range_period": self.range_period,
+            "common_bars": self.common_bars,
+            "matrix": self.matrix,
+            "most_correlated": [p.to_dict() for p in self.most_correlated],
+            "least_correlated": [p.to_dict() for p in self.least_correlated],
             "diversification_score": round(self.diversification_score, 3),
-            "rolling_pairs":        self.rolling_pairs,
-            "errors":               self.errors,
-            "total_tickers":        len(self.tickers),
-            "failed_tickers":       len(self.errors),
+            "rolling_pairs": self.rolling_pairs,
+            "errors": self.errors,
+            "total_tickers": len(self.tickers),
+            "failed_tickers": len(self.errors),
         }
 
 
 # ── Factory principal ─────────────────────────────────────────────────────────
 
+
 def build_correlation_result(
-    bars_map:     dict[str, list[dict[str, Any]]],   # {ticker: [bars]}
+    bars_map: dict[str, list[dict[str, Any]]],  # {ticker: [bars]}
     range_period: str,
     rolling_window: int = 30,
-    errors:       list[dict[str, str]] | None = None,
+    errors: list[dict[str, str]] | None = None,
 ) -> CorrelationResult:
     """
     Constroi CorrelationResult a partir de barras OHLC de multiplos tickers.
@@ -260,8 +265,7 @@ def build_correlation_result(
 
     # 1. Extrai retornos
     returns_map: dict[str, dict[int, float]] = {
-        ticker: extract_returns(bars)
-        for ticker, bars in bars_map.items()
+        ticker: extract_returns(bars) for ticker, bars in bars_map.items()
     }
 
     # 2. Alinha
@@ -270,9 +274,15 @@ def build_correlation_result(
 
     if not aligned or common_bars < 2:
         return CorrelationResult(
-            tickers=tickers, range_period=range_period, common_bars=0,
-            matrix={}, most_correlated=[], least_correlated=[],
-            diversification_score=0.0, rolling_pairs={}, errors=errors,
+            tickers=tickers,
+            range_period=range_period,
+            common_bars=0,
+            matrix={},
+            most_correlated=[],
+            least_correlated=[],
+            diversification_score=0.0,
+            rolling_pairs={},
+            errors=errors,
         )
 
     # 3. Matriz
@@ -284,14 +294,16 @@ def build_correlation_result(
     for i in range(len(ticker_list)):
         for j in range(i + 1, len(ticker_list)):
             ta, tb = ticker_list[i], ticker_list[j]
-            pairs.append(CorrelationPair(
-                ticker_a    = ta,
-                ticker_b    = tb,
-                correlation = matrix[ta][tb],
-            ))
+            pairs.append(
+                CorrelationPair(
+                    ticker_a=ta,
+                    ticker_b=tb,
+                    correlation=matrix[ta][tb],
+                )
+            )
 
     pairs_by_corr = sorted(pairs, key=lambda p: p.correlation, reverse=True)
-    most_correlated  = pairs_by_corr[:3]
+    most_correlated = pairs_by_corr[:3]
     least_correlated = list(reversed(pairs_by_corr[-3:]))
 
     # 5. Correlacao rolante por par (todos os pares)
@@ -306,19 +318,16 @@ def build_correlation_result(
 
     # 6. Score de diversificacao
     off_diagonal = [abs(p.correlation) for p in pairs]
-    diversification_score = (
-        1.0 - (sum(off_diagonal) / len(off_diagonal))
-        if off_diagonal else 0.0
-    )
+    diversification_score = 1.0 - (sum(off_diagonal) / len(off_diagonal)) if off_diagonal else 0.0
 
     return CorrelationResult(
-        tickers               = tickers,
-        range_period          = range_period,
-        common_bars           = common_bars,
-        matrix                = matrix,
-        most_correlated       = most_correlated,
-        least_correlated      = least_correlated,
-        diversification_score = max(0.0, min(1.0, diversification_score)),
-        rolling_pairs         = rolling_pairs,
-        errors                = errors,
+        tickers=tickers,
+        range_period=range_period,
+        common_bars=common_bars,
+        matrix=matrix,
+        most_correlated=most_correlated,
+        least_correlated=least_correlated,
+        diversification_score=max(0.0, min(1.0, diversification_score)),
+        rolling_pairs=rolling_pairs,
+        errors=errors,
     )

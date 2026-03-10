@@ -7,25 +7,28 @@ POST /api/v1/auth/refresh    — renova access token via refresh token
 GET  /api/v1/auth/me         — retorna dados do usuário logado
 POST /api/v1/auth/logout     — invalida tokens (client-side; sem blacklist por ora)
 """
+
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field, EmailStr
-from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel, Field
 
 from finanalytics_ai.application.services.auth_service import AuthService
 from finanalytics_ai.domain.auth.entities import (
-    UserRegistration, AuthError, TokenPair, User,
-    EmailAlreadyExistsError, InvalidCredentialsError,
-    TokenExpiredError, TokenInvalidError,
+    AuthError,
+    User,
+    UserRegistration,
 )
 from finanalytics_ai.infrastructure.auth.jwt_handler import get_jwt_handler
 from finanalytics_ai.infrastructure.auth.password_hasher import get_password_hasher
 from finanalytics_ai.infrastructure.database.repositories.user_repo import UserRepository
-from finanalytics_ai.interfaces.api.dependencies import get_db_session, get_current_user
+from finanalytics_ai.interfaces.api.dependencies import get_current_user, get_db_session
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/auth", tags=["Autenticação"])
@@ -33,14 +36,15 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Autenticação"])
 
 # ── Schemas de request/response ───────────────────────────────────────────────
 
+
 class RegisterRequest(BaseModel):
-    email:     str  = Field(..., min_length=5, max_length=255)
-    password:  str  = Field(..., min_length=8, max_length=128)
-    full_name: str  = Field(..., min_length=2, max_length=255)
+    email: str = Field(..., min_length=5, max_length=255)
+    password: str = Field(..., min_length=8, max_length=128)
+    full_name: str = Field(..., min_length=2, max_length=255)
 
 
 class LoginRequest(BaseModel):
-    email:    str = Field(..., min_length=5)
+    email: str = Field(..., min_length=5)
     password: str = Field(..., min_length=1)
 
 
@@ -49,47 +53,50 @@ class RefreshRequest(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    access_token:  str
+    access_token: str
     refresh_token: str
-    token_type:    str = "bearer"
-    expires_in:    int
+    token_type: str = "bearer"
+    expires_in: int
 
 
 class UserResponse(BaseModel):
-    user_id:   str
-    email:     str
+    user_id: str
+    email: str
     full_name: str
-    role:      str
+    role: str
     is_active: bool
 
 
 # ── DI ────────────────────────────────────────────────────────────────────────
 
+
 def _svc(session: AsyncSession) -> AuthService:
     return AuthService(
-        user_repo = UserRepository(session),
-        hasher    = get_password_hasher(),
-        jwt       = get_jwt_handler(),
+        user_repo=UserRepository(session),
+        hasher=get_password_hasher(),
+        jwt=get_jwt_handler(),
     )
 
 
 def _auth_error_to_http(err: AuthError) -> HTTPException:
     """Mapeia erros de domínio para HTTP status codes."""
     from finanalytics_ai.domain.auth.entities import AuthErrorCode
+
     code_map = {
-        AuthErrorCode.INVALID_CREDENTIALS:       status.HTTP_401_UNAUTHORIZED,
-        AuthErrorCode.TOKEN_EXPIRED:             status.HTTP_401_UNAUTHORIZED,
-        AuthErrorCode.TOKEN_INVALID:             status.HTTP_401_UNAUTHORIZED,
-        AuthErrorCode.USER_NOT_FOUND:            status.HTTP_404_NOT_FOUND,
-        AuthErrorCode.EMAIL_ALREADY_EXISTS:      status.HTTP_409_CONFLICT,
-        AuthErrorCode.INACTIVE_USER:             status.HTTP_403_FORBIDDEN,
-        AuthErrorCode.INSUFFICIENT_PERMISSIONS:  status.HTTP_403_FORBIDDEN,
+        AuthErrorCode.INVALID_CREDENTIALS: status.HTTP_401_UNAUTHORIZED,
+        AuthErrorCode.TOKEN_EXPIRED: status.HTTP_401_UNAUTHORIZED,
+        AuthErrorCode.TOKEN_INVALID: status.HTTP_401_UNAUTHORIZED,
+        AuthErrorCode.USER_NOT_FOUND: status.HTTP_404_NOT_FOUND,
+        AuthErrorCode.EMAIL_ALREADY_EXISTS: status.HTTP_409_CONFLICT,
+        AuthErrorCode.INACTIVE_USER: status.HTTP_403_FORBIDDEN,
+        AuthErrorCode.INSUFFICIENT_PERMISSIONS: status.HTTP_403_FORBIDDEN,
     }
     http_code = code_map.get(err.code, status.HTTP_400_BAD_REQUEST)
     return HTTPException(status_code=http_code, detail=err.message)
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def register(
@@ -98,12 +105,12 @@ async def register(
 ) -> TokenResponse:
     """Cria nova conta e retorna par de tokens para login imediato."""
     try:
-        reg   = UserRegistration(body.email, body.password, body.full_name)
-        pair  = await _svc(session).register(reg)
+        reg = UserRegistration(body.email, body.password, body.full_name)
+        pair = await _svc(session).register(reg)
         return TokenResponse(
-            access_token  = pair.access_token,
-            refresh_token = pair.refresh_token,
-            expires_in    = pair.expires_in,
+            access_token=pair.access_token,
+            refresh_token=pair.refresh_token,
+            expires_in=pair.expires_in,
         )
     except ValueError as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
@@ -120,13 +127,12 @@ async def login(
     try:
         pair = await _svc(session).login(body.email, body.password)
         return TokenResponse(
-            access_token  = pair.access_token,
-            refresh_token = pair.refresh_token,
-            expires_in    = pair.expires_in,
+            access_token=pair.access_token,
+            refresh_token=pair.refresh_token,
+            expires_in=pair.expires_in,
         )
     except AuthError as e:
         raise _auth_error_to_http(e)
-
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -138,9 +144,9 @@ async def refresh(
     try:
         pair = await _svc(session).refresh(body.refresh_token)
         return TokenResponse(
-            access_token  = pair.access_token,
-            refresh_token = pair.refresh_token,
-            expires_in    = pair.expires_in,
+            access_token=pair.access_token,
+            refresh_token=pair.refresh_token,
+            expires_in=pair.expires_in,
         )
     except AuthError as e:
         raise _auth_error_to_http(e)
@@ -150,11 +156,11 @@ async def refresh(
 async def me(current_user: User = Depends(get_current_user)) -> UserResponse:
     """Retorna dados do usuário autenticado."""
     return UserResponse(
-        user_id   = current_user.user_id,
-        email     = current_user.email,
-        full_name = current_user.full_name,
-        role      = current_user.role.value,
-        is_active = current_user.is_active,
+        user_id=current_user.user_id,
+        email=current_user.email,
+        full_name=current_user.full_name,
+        role=current_user.role.value,
+        is_active=current_user.is_active,
     )
 
 

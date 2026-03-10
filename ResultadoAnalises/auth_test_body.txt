@@ -1,0 +1,80 @@
+# ── User entity ───────────────────────────────────────────────────────────────
+
+class TestUser:
+    def test_new_user_generates_uuid(self):
+        u = User.new("test@example.com", "hash", "Test User")
+        assert len(u.user_id) == 36
+        assert "-" in u.user_id
+
+    def test_new_user_two_calls_different_ids(self):
+        u1 = User.new("a@b.com", "h", "A")
+        u2 = User.new("a@b.com", "h", "A")
+        assert u1.user_id != u2.user_id
+
+    def test_email_lowercased(self):
+        u = User.new("TEST@EXAMPLE.COM", "h", "Test")
+        assert u.email == "test@example.com"
+
+    def test_default_role_is_user(self):
+        u = User.new("a@b.com", "h", "A")
+        assert u.role == UserRole.USER
+
+    def test_is_active_by_default(self):
+        u = User.new("a@b.com", "h", "A")
+        assert u.is_active is True
+
+    def test_ensure_active_raises_for_inactive(self):
+        u = User.new("a@b.com", "h", "A")
+        u.is_active = False
+        with pytest.raises(InactiveUserError):
+            u.ensure_active()
+
+    def test_ensure_active_passes_for_active(self):
+        u = User.new("a@b.com", "h", "A")
+        u.ensure_active()  # não deve lançar
+
+    def test_ensure_admin_raises_for_user(self):
+        u = User.new("a@b.com", "h", "A")
+        with pytest.raises(InsufficientPermissionsError):
+            u.ensure_admin()
+
+    def test_ensure_admin_passes_for_admin(self):
+        u = User.new("a@b.com", "h", "A", role=UserRole.ADMIN)
+        u.ensure_admin()  # não deve lançar
+
+
+# ── UserRegistration ──────────────────────────────────────────────────────────
+
+class TestUserRegistration:
+    def test_valid_registration(self):
+        r = UserRegistration("test@example.com", "password123", "Test User")
+        assert r.email == "test@example.com"
+
+    def test_email_normalized(self):
+        r = UserRegistration("  TEST@EXAMPLE.COM  ", "pass1234", "Name")
+        assert r.email == "test@example.com"
+
+    def test_short_password_raises(self):
+        with pytest.raises(ValueError, match="8 caracteres"):
+            UserRegistration("a@b.com", "short", "Name")
+
+    def test_invalid_email_raises(self):
+        with pytest.raises(ValueError, match="Email inválido"):
+            UserRegistration("not-an-email", "password123", "Name")
+
+    def test_empty_name_raises(self):
+        with pytest.raises(ValueError, match="Nome"):
+            UserRegistration("a@b.com", "password123", "   ")
+
+    def test_exact_8_chars_password_ok(self):
+        r = UserRegistration("a@b.com", "12345678", "Name")
+        assert r.password == "12345678"
+
+
+# ── Auth Exceptions ───────────────────────────────────────────────────────────
+
+class TestAuthExceptions:
+    def test_invalid_credentials_code(self):
+        e = InvalidCredentialsError()
+        assert e.code == AuthErrorCode.INVALID_CREDENTIALS
+        assert "inválidos" in e.message

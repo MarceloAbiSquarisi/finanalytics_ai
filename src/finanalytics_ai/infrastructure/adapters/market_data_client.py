@@ -49,15 +49,18 @@ Design do CompositeMarketDataClient:
     30 barras = ~1.5 meses de dados diários. Abaixo disso, o backtest
     não teria warmup suficiente para a maioria das estratégias.
 """
+
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
 from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
 from finanalytics_ai.infrastructure.adapters.yahoo_client import YahooFinanceClient
-from finanalytics_ai.domain.value_objects.money import Money, Ticker
+
+if TYPE_CHECKING:
+    from finanalytics_ai.domain.value_objects.money import Money, Ticker
 
 logger = structlog.get_logger(__name__)
 
@@ -81,8 +84,8 @@ class CompositeMarketDataClient:
         brapi_client: BrapiClient,
         yahoo_client: YahooFinanceClient | None = None,
     ) -> None:
-        self._brapi  = brapi_client
-        self._yahoo  = yahoo_client or YahooFinanceClient()
+        self._brapi = brapi_client
+        self._yahoo = yahoo_client or YahooFinanceClient()
 
     # ── Interface principal ───────────────────────────────────────────────────
 
@@ -109,22 +112,25 @@ class CompositeMarketDataClient:
         if len(brapi_bars) >= MIN_BARS_THRESHOLD:
             logger.debug(
                 "market_data.source.brapi",
-                ticker=str(ticker), range=range_period, bars=len(brapi_bars),
+                ticker=str(ticker),
+                range=range_period,
+                bars=len(brapi_bars),
             )
             return brapi_bars
 
         # BRAPI insuficiente → tenta Yahoo
         logger.info(
             "market_data.fallback.yahoo",
-            ticker       = str(ticker),
-            range        = range_period,
-            brapi_bars   = len(brapi_bars),
-            reason       = "insufficient_bars" if brapi_bars else "empty_response",
+            ticker=str(ticker),
+            range=range_period,
+            brapi_bars=len(brapi_bars),
+            reason="insufficient_bars" if brapi_bars else "empty_response",
         )
 
         # Instrumentação de fallback (best-effort, não bloqueia)
         try:
             from finanalytics_ai.metrics import brapi_requests_total
+
             brapi_requests_total.labels(endpoint="ohlc_fallback", status="yahoo").inc()
         except Exception:
             pass
@@ -134,14 +140,17 @@ class CompositeMarketDataClient:
         if yahoo_bars:
             logger.info(
                 "market_data.source.yahoo",
-                ticker=str(ticker), range=range_period, bars=len(yahoo_bars),
+                ticker=str(ticker),
+                range=range_period,
+                bars=len(yahoo_bars),
             )
             return yahoo_bars
 
         # Ambos falharam → retorna o que o BRAPI tinha (pode ser vazio)
         logger.warning(
             "market_data.both_failed",
-            ticker=str(ticker), range=range_period,
+            ticker=str(ticker),
+            range=range_period,
         )
         return brapi_bars
 
@@ -152,7 +161,9 @@ class CompositeMarketDataClient:
         interval: str | None,
     ) -> list[dict[str, Any]]:
         try:
-            return await self._brapi.get_ohlc_bars(ticker, range_period=range_period, interval=interval)
+            return await self._brapi.get_ohlc_bars(
+                ticker, range_period=range_period, interval=interval
+            )
         except Exception as exc:
             logger.warning("market_data.brapi_error", ticker=str(ticker), error=str(exc))
             return []
@@ -164,7 +175,9 @@ class CompositeMarketDataClient:
         interval: str | None,
     ) -> list[dict[str, Any]]:
         try:
-            return await self._yahoo.get_ohlc_bars(ticker, range_period=range_period, interval=interval)
+            return await self._yahoo.get_ohlc_bars(
+                ticker, range_period=range_period, interval=interval
+            )
         except Exception as exc:
             logger.warning("market_data.yahoo_error", ticker=str(ticker), error=str(exc))
             return []
@@ -180,7 +193,8 @@ class CompositeMarketDataClient:
             # Último recurso: tenta BRAPI com o range mais longo que suporta
             logger.info(
                 "market_data.yahoo_failed.brapi_fallback",
-                ticker=str(ticker), range=range_period,
+                ticker=str(ticker),
+                range=range_period,
             )
             return await self._fetch_brapi_safe(ticker, "2y", interval)
         return bars
@@ -212,26 +226,26 @@ class CompositeMarketDataClient:
 
 # ── Factory ───────────────────────────────────────────────────────────────────
 
+
 def create_market_data_client(brapi_token: str | None = None) -> CompositeMarketDataClient:
     """
     Cria o cliente composto com token BRAPI.
     Se token ausente, BRAPI falhará e Yahoo será o primário de fato.
     """
-    brapi  = BrapiClient()
-    yahoo  = YahooFinanceClient()
+    brapi = BrapiClient()
+    yahoo = YahooFinanceClient()
     client = CompositeMarketDataClient(brapi, yahoo)
     logger.info(
         "market_data_client.created",
-        brapi_configured = bool(brapi_token),
-        yahoo_available  = True,
+        brapi_configured=bool(brapi_token),
+        yahoo_available=True,
     )
     return client
 
 
-def create_cached_market_data_client(brapi_token=None, session_factory=None):
+def create_cached_market_data_client(
+    brapi_token: str | None = None,
+    session_factory: Any | None = None,
+) -> CompositeMarketDataClient:
+    """Alias de create_market_data_client mantido para compatibilidade."""
     return create_market_data_client(brapi_token)
-
-
-def create_cached_market_data_client(brapi_token=None, session_factory=None):
-    return create_market_data_client(brapi_token)
-

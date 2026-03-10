@@ -1,14 +1,31 @@
 """Portfolio Repository — SQLAlchemy async."""
+
 from __future__ import annotations
+
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint, select, delete
-from sqlalchemy.ext.asyncio import AsyncSession
-from finanalytics_ai.domain.entities.portfolio import Portfolio, Position
-from finanalytics_ai.domain.value_objects.money import Money, Ticker, Quantity, Currency
-from finanalytics_ai.infrastructure.database.connection import Base
+from typing import TYPE_CHECKING
+
 import structlog
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    UniqueConstraint,
+    delete,
+    select,
+)
+
+from finanalytics_ai.domain.entities.portfolio import Portfolio, Position
+from finanalytics_ai.domain.value_objects.money import Currency, Money, Quantity, Ticker
+from finanalytics_ai.infrastructure.database.connection import Base
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 
@@ -27,7 +44,9 @@ class PortfolioModel(Base):
 class PositionModel(Base):
     __tablename__ = "positions"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    portfolio_id = Column(String(36), ForeignKey("portfolios.id", ondelete="CASCADE"), nullable=False, index=True)
+    portfolio_id = Column(
+        String(36), ForeignKey("portfolios.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     ticker = Column(String(10), nullable=False)
     quantity = Column(Numeric(18, 8), nullable=False)
     average_price = Column(Numeric(18, 2), nullable=False)
@@ -61,13 +80,15 @@ class SQLPortfolioRepository:
             delete(PositionModel).where(PositionModel.portfolio_id == portfolio.portfolio_id)
         )
         for pos in portfolio.positions.values():
-            self._session.add(PositionModel(
-                portfolio_id=portfolio.portfolio_id,
-                ticker=pos.ticker.symbol,
-                quantity=pos.quantity.value,
-                average_price=pos.average_price.amount,
-                asset_class=pos.asset_class,
-            ))
+            self._session.add(
+                PositionModel(
+                    portfolio_id=portfolio.portfolio_id,
+                    ticker=pos.ticker.symbol,
+                    quantity=pos.quantity.value,
+                    average_price=pos.average_price.amount,
+                    asset_class=pos.asset_class,
+                )
+            )
         await self._session.flush()
         logger.debug("portfolio.saved", portfolio_id=portfolio.portfolio_id)
 
@@ -86,9 +107,7 @@ class SQLPortfolioRepository:
         return portfolios
 
     async def delete(self, portfolio_id: str) -> None:
-        await self._session.execute(
-            delete(PortfolioModel).where(PortfolioModel.id == portfolio_id)
-        )
+        await self._session.execute(delete(PortfolioModel).where(PortfolioModel.id == portfolio_id))
 
     async def _hydrate(self, pm: PortfolioModel) -> Portfolio:
         stmt = select(PositionModel).where(PositionModel.portfolio_id == pm.id)

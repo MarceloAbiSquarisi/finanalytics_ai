@@ -8,11 +8,14 @@ Design decision: Protocol (structural subtyping) ao invés de ABC.
 Permite que qualquer classe que implemente os métodos seja aceita
 sem herança explícita — duck typing com checagem estática do mypy.
 """
+
 from __future__ import annotations
-from decimal import Decimal
-from typing import Protocol, runtime_checkable
-from finanalytics_ai.domain.entities.event import OHLCBar
-from finanalytics_ai.domain.value_objects.money import Money, Ticker
+
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from finanalytics_ai.domain.entities.event import OHLCBar
+    from finanalytics_ai.domain.value_objects.money import Money, Ticker
 
 
 @runtime_checkable

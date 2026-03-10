@@ -1,0 +1,402 @@
+﻿=== pytest.ini ===
+[pytest]
+pythonpath = src
+testpaths = tests
+asyncio_mode = auto
+addopts = --strict-markers --tb=short -v
+importmode = importlib
+markers =
+    unit: Unit tests
+    integration: Integration tests
+    slow: Slow tests
+
+=== pyproject.toml ===
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "finanalytics-ai"
+version = "0.1.0"
+description = "FinAnalytics AI â€” Framework de AnÃ¡lise e Busca de Investimentos"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+authors = [{ name = "FinAnalytics AI Team" }]
+
+dependencies = [
+    # Async HTTP
+    "aiohttp>=3.9",
+    "httpx>=0.27",
+    # Database (async)
+    "asyncpg>=0.29",
+    "sqlalchemy[asyncio]>=2.0",
+    "alembic>=1.13",
+    # Data validation & settings
+    "pydantic>=2.7",
+    "pydantic-settings>=2.2",
+    # Structured logging
+    "structlog>=24.1",
+    # Retry / resilience
+    "tenacity>=8.3",
+    # Cache / rate limiting
+    "redis>=5.0",
+    # Auth
+    "python-jose[cryptography]>=3.3",
+    "passlib[bcrypt]>=1.7",
+    # PDF reports
+    "reportlab>=4.0",
+    # Observability
+    "opentelemetry-api>=1.24",
+    "opentelemetry-sdk>=1.24",
+    "prometheus-client>=0.20",
+    # Numerics & time series
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "scipy>=1.13",
+    # Environment
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "pytest-mock>=3.14",
+    "mypy>=1.10",
+    "ruff>=0.4",
+    "black>=24.4",
+    "types-python-dotenv",
+    "sqlalchemy[mypy]",
+]
+
+[project.scripts]
+finanalytics = "finanalytics_ai.interfaces.cli.commands:main"
+
+# â”€â”€ pytest â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+addopts = [
+    "--strict-markers",
+    "--tb=short",
+    "-v",
+    "--cov=src/finanalytics_ai",
+    "--cov-report=term-missing",
+    "--cov-report=html:reports/coverage",
+]
+markers = [
+    "unit: fast, isolated unit tests",
+    "integration: tests that hit real I/O (db, network)",
+    "slow: tests that take more than 1s",
+]
+
+# â”€â”€ mypy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+[tool.mypy]
+python_version = "3.12"
+strict = true
+# src layout â€” tell mypy where to look
+mypy_path = "src"
+packages = ["finanalytics_ai"]
+# Plugins
+plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
+
+# Relax only for third-party stubs that aren't typed
+[[tool.mypy.overrides]]
+module = ["aiohttp.*", "asyncpg.*", "tenacity.*", "scipy.*", "pandas.*"]
+ignore_missing_imports = true
+
+# â”€â”€ ruff â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+[tool.ruff]
+src = ["src"]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # isort
+    "UP",       # pyupgrade
+    "B",        # flake8-bugbear
+    "C4",       # flake8-comprehensions
+    "SIM",      # flake8-simplify
+    "TCH",      # flake8-type-checking
+    "ANN",      # flake8-annotations
+    "PT",       # flake8-pytest-style
+    "RUF",      # ruff-specific rules
+]
+ignore = [
+    "ANN101",  # self annotation â€” unnecessary
+    "ANN102",  # cls annotation â€” unnecessary
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["finanalytics_ai"]
+
+[tool.ruff.format]
+# Make ruff format compatible with black
+quote-style = "double"
+indent-style = "space"
+
+# â”€â”€ black â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+# â”€â”€ coverage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+[tool.coverage.run]
+source = ["src/finanalytics_ai"]
+omit = ["*/migrations/*", "*/__init__.py"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80
+
+# â”€â”€ hatch (build) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+[tool.hatch.build.targets.wheel]
+packages = ["src/finanalytics_ai"]
+
+# Sprint 2 additions (append to [project] dependencies manually)
+# fastapi>=0.111, uvicorn[standard]>=0.30, alembic>=1.13
+
+
+=== tests\conftest.py ===
+from __future__ import annotations
+import sys
+import os
+
+# â”€â”€ Fix: pytest rootdir detection adds D:\Projetos to sys.path[0], which
+# causes Python to find finanalytics_ai as a namespace package pointing to
+# D:\Projetos\finanalytics_ai (no `domain` there). We must:
+# 1. Remove any path that shadows the real package (dirs containing
+#    finanalytics_ai/ without __init__.py = namespace package hijack)
+# 2. Clear sys.modules cache of any already-imported namespace entries
+# 3. Ensure src/ is first
+
+_SRC = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "src")
+)
+
+# Step 1: purge shadowing paths
+sys.path = [
+    p for p in sys.path
+    if not (
+        os.path.isdir(os.path.join(p, "finanalytics_ai"))
+        and not os.path.isfile(os.path.join(p, "finanalytics_ai", "__init__.py"))
+    )
+]
+
+# Step 2: clear stale namespace package cache
+for key in list(sys.modules.keys()):
+    if "finanalytics_ai" in key:
+        del sys.modules[key]
+
+# Step 3: ensure src is first
+if _SRC not in sys.path:
+    sys.path.insert(0, _SRC)
+
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+import pytest
+from decimal import Decimal
+from unittest.mock import AsyncMock
+
+# ForÃ§a config de teste antes de qualquer import de settings
+os.environ.setdefault("APP_SECRET_KEY", "test-secret-key-32-chars-minimum!!")
+os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://test:test@localhost:5432/test_fa")
+os.environ.setdefault("APP_ENV", "development")
+os.environ.setdefault("APP_LOG_LEVEL", "WARNING")
+
+from finanalytics_ai.domain.value_objects.money import Money, Ticker, Quantity, Currency
+from finanalytics_ai.domain.entities.portfolio import Portfolio
+from finanalytics_ai.domain.entities.event import MarketEvent, EventType
+
+
+@pytest.fixture
+def ticker_petr4() -> Ticker:
+    return Ticker("PETR4")
+
+
+@pytest.fixture
+def ticker_vale3() -> Ticker:
+    return Ticker("VALE3")
+
+
+@pytest.fixture
+def money_100() -> Money:
+    return Money.of("100.00")
+
+
+@pytest.fixture
+def qty_10() -> Quantity:
+    return Quantity.of("10")
+
+
+@pytest.fixture
+def portfolio_with_cash() -> Portfolio:
+    p = Portfolio(user_id="user-001", name="Carteira Teste")
+    p.cash = Money.of("10000.00")
+    return p
+
+
+@pytest.fixture
+def sample_market_event() -> MarketEvent:
+    return MarketEvent(
+        event_id="evt-test-001",
+        event_type=EventType.PRICE_UPDATE,
+        ticker="PETR4",
+        payload={"price": "32.50"},
+        source="brapi",
+    )
+
+
+@pytest.fixture
+def mock_event_store() -> AsyncMock:
+    store = AsyncMock()
+    store.exists.return_value = False
+    store.find_by_id.return_value = None
+    return store
+
+
+@pytest.fixture
+def mock_market_data() -> AsyncMock:
+    provider = AsyncMock()
+    provider.get_quote.return_value = Money.of("32.50")
+    return provider
+
+=== conftest.py (raiz) ===
+N A O   E X I S T E  
+ 
+=== src\finanalytics_ai\__init__.py ===
+"""FinAnalytics AI â€” Framework de AnÃ¡lise e Busca de Investimentos."""
+__version__ = "0.1.0"
+__author__ = "FinAnalytics AI Team"
+
+=== src\finanalytics_ai\domain\__init__.py ===
+
+=== src\finanalytics_ai\domain\value_objects\money.py ===
+"""Value Objects: Money, Ticker, Quantity, Percentage."""
+from __future__ import annotations
+from dataclasses import dataclass
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from enum import StrEnum
+from typing import ClassVar
+from finanalytics_ai.exceptions import InvalidQuantityError, InvalidTickerError
+
+class Currency(StrEnum):
+    BRL = "BRL"; USD = "USD"; EUR = "EUR"
+
+@dataclass(frozen=True)
+class Money:
+    """Valor monetÃ¡rio com moeda. Usa Decimal para precisÃ£o financeira."""
+    amount: Decimal
+    currency: Currency = Currency.BRL
+    _PLACES: ClassVar[Decimal] = Decimal("0.01")
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "amount", self.amount.quantize(self._PLACES, ROUND_HALF_UP))
+
+    @classmethod
+    def of(cls, value: str | float | int | Decimal, currency: Currency = Currency.BRL) -> "Money":
+        try:
+            return cls(amount=Decimal(str(value)), currency=currency)
+        except InvalidOperation as exc:
+            raise ValueError(f"Valor invÃ¡lido: {value!r}") from exc
+
+    def __add__(self, other: "Money") -> "Money":
+        self._check(other); return Money(self.amount + other.amount, self.currency)
+    def __sub__(self, other: "Money") -> "Money":
+        self._check(other); return Money(self.amount - other.amount, self.currency)
+    def __mul__(self, factor: Decimal | int | float) -> "Money":
+        return Money(self.amount * Decimal(str(factor)), self.currency)
+    def __lt__(self, other: "Money") -> bool:
+        self._check(other); return self.amount < other.amount
+    def __le__(self, other: "Money") -> bool:
+        self._check(other); return self.amount <= other.amount
+    def is_positive(self) -> bool: return self.amount > Decimal("0")
+    def is_zero(self) -> bool: return self.amount == Decimal("0")
+    def _check(self, other: "Money") -> None:
+        if self.currency != other.currency:
+            raise ValueError(f"Moedas diferentes: {self.currency} vs {other.currency}")
+    def __repr__(self) -> str: return f"Money({self.amount} {self.currency})"
+
+VALID_CHARS = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+@dataclass(frozen=True)
+class Ticker:
+    """CÃ³digo de negociaÃ§Ã£o normalizado (PETR4, VALE3, MXRF11)."""
+    symbol: str
+    def __post_init__(self) -> None:
+        n = self.symbol.upper().strip()
+        if not n: raise InvalidTickerError(message="Ticker vazio")
+        if not all(c in VALID_CHARS for c in n):
+            raise InvalidTickerError(message=f"Ticker invÃ¡lido: {self.symbol!r}", context={"symbol": self.symbol})
+        if len(n) > 10:
+            raise InvalidTickerError(message=f"Ticker longo: {self.symbol!r}", context={"symbol": self.symbol})
+        object.__setattr__(self, "symbol", n)
+    def __str__(self) -> str: return self.symbol
+
+@dataclass(frozen=True)
+class Quantity:
+    """Quantidade de ativos (suporta fraÃ§Ãµes para fundos/cripto)."""
+    value: Decimal
+    _PLACES: ClassVar[Decimal] = Decimal("0.00000001")
+    def __post_init__(self) -> None:
+        if self.value <= Decimal("0"):
+            raise InvalidQuantityError(message=f"Quantidade positiva requerida: {self.value}")
+        object.__setattr__(self, "value", self.value.quantize(self._PLACES, ROUND_HALF_UP))
+    @classmethod
+    def of(cls, value: str | int | float | Decimal) -> "Quantity":
+        try: return cls(Decimal(str(value)))
+        except InvalidOperation as exc:
+            raise InvalidQuantityError(message=f"InvÃ¡lido: {value!r}") from exc
+    def __add__(self, other: "Quantity") -> "Quantity": return Quantity(self.value + other.value)
+    def __sub__(self, other: "Quantity") -> "Quantity": return Quantity(self.value - other.value)
+    def __repr__(self) -> str: return f"Quantity({self.value})"
+
+@dataclass(frozen=True)
+class Percentage:
+    """Percentual [-100, 100]. Use from_fraction(0.05) -> 5.0."""
+    value: Decimal
+    def __post_init__(self) -> None:
+        if not (Decimal("-100") <= self.value <= Decimal("100")):
+            raise ValueError(f"Fora do range: {self.value}")
+    @classmethod
+    def from_fraction(cls, f: float | Decimal) -> "Percentage":
+        return cls(Decimal(str(f)) * Decimal("100"))
+    def as_fraction(self) -> Decimal: return self.value / Decimal("100")
+    def __repr__(self) -> str: return f"Percentage({self.value}%)"
+
+=== sys.path dentro do pytest ===
+
+C:\Users\marce\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\python312.zip
+C:\Users\marce\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\DLLs
+C:\Users\marce\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib
+D:\Projetos\finanalytics_ai\.venv2\Scripts
+D:\Projetos\finanalytics_ai\.venv2
+D:\Projetos\finanalytics_ai\.venv2\Lib\site-packages
+D:\Projetos\finanalytics_ai\src
+
+=== site-packages finanalytics ===
+
+
+    Diretório: D:\Projetos\finanalytics_ai\.venv2\Lib\site-packages
+
+
+Mode                 LastWriteTime         Length Name                                                                                            
+----                 -------------         ------ ----                                                                                            
+d-r---        06/03/2026     08:37                finanalytics_ai-0.1.0.dist-info                                                                 
+-a----        06/03/2026     08:37             31 _finanalytics_ai.pth                                                                            
+
+
+
+=== .pth files content ===
+--- a1_coverage.pth ---
+import sys; exec('import os\n\nif os.getenv("COVERAGE_PROCESS_START") or os.getenv("COVERAGE_PROCESS_CONFIG"):\n try:\n  import coverage\n except:\n  pass\n else:\n  coverage.process_startup(slug="pth")')
+--- _finanalytics_ai.pth ---
+D:\Projetos\finanalytics_ai\src
+--- _virtualenv.pth ---
+import _virtualenv

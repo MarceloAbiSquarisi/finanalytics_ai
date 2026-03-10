@@ -12,11 +12,12 @@ Design decision — asyncio.to_thread vs ProcessPoolExecutor:
   Para grids muito grandes ou uso intenso, escalar para ProcessPoolExecutor
   com um pool de workers dedicado seria o proximo passo.
 """
+
 from __future__ import annotations
 
 import asyncio
 import functools
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
@@ -26,7 +27,9 @@ from finanalytics_ai.domain.backtesting.optimizer import (
     OptimizationResult,
     grid_search,
 )
-from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
+
+if TYPE_CHECKING:
+    from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
 
 logger = structlog.get_logger(__name__)
 
@@ -44,15 +47,15 @@ class OptimizerService:
 
     async def optimize(
         self,
-        ticker:          str,
-        strategy_name:   str,
-        range_period:    str           = "1y",
-        initial_capital: float         = 10_000.0,
-        position_size:   float         = 1.0,
-        commission_pct:  float         = 0.001,
-        objective:       str           = "sharpe",
-        top_n:           int           = 10,
-        custom_space:    dict[str, list[Any]] | None = None,
+        ticker: str,
+        strategy_name: str,
+        range_period: str = "1y",
+        initial_capital: float = 10_000.0,
+        position_size: float = 1.0,
+        commission_pct: float = 0.001,
+        objective: str = "sharpe",
+        top_n: int = 10,
+        custom_space: dict[str, list[Any]] | None = None,
     ) -> OptimizationResult:
         """
         Executa grid search otimizando os parametros da estrategia.
@@ -69,8 +72,9 @@ class OptimizerService:
           top_n:        Numero de melhores resultados a retornar (max 20)
           custom_space: Espaco de parametros customizado (opcional)
         """
-        log = logger.bind(ticker=ticker, strategy=strategy_name,
-                          range=range_period, objective=objective)
+        log = logger.bind(
+            ticker=ticker, strategy=strategy_name, range=range_period, objective=objective
+        )
 
         # Valida objetivo
         try:
@@ -89,9 +93,7 @@ class OptimizerService:
         bars = await self._brapi.get_ohlc_bars(ticker, range_period=range_period)  # type: ignore[arg-type]
 
         if not bars:
-            raise BacktestError(
-                f"Sem dados historicos para {ticker} no periodo {range_period}."
-            )
+            raise BacktestError(f"Sem dados historicos para {ticker} no periodo {range_period}.")
 
         if len(bars) < 50:
             raise BacktestError(
@@ -104,16 +106,16 @@ class OptimizerService:
         # Executa grid_search em thread (CPU-bound)
         fn = functools.partial(
             grid_search,
-            bars            = bars,
-            strategy_name   = strategy_name,
-            ticker          = ticker,
-            range_period    = range_period,
-            initial_capital = initial_capital,
-            position_size   = position_size,
-            commission_pct  = commission_pct,
-            objective       = obj,
-            top_n           = top_n,
-            custom_space    = custom_space,
+            bars=bars,
+            strategy_name=strategy_name,
+            ticker=ticker,
+            range_period=range_period,
+            initial_capital=initial_capital,
+            position_size=position_size,
+            commission_pct=commission_pct,
+            objective=obj,
+            top_n=top_n,
+            custom_space=custom_space,
         )
 
         try:
@@ -123,10 +125,10 @@ class OptimizerService:
 
         log.info(
             "optimizer.done",
-            total_runs  = result.total_runs,
-            valid_runs  = result.valid_runs,
-            best_score  = result.best_score,
-            best_params = result.best_params,
+            total_runs=result.total_runs,
+            valid_runs=result.valid_runs,
+            best_score=result.best_score,
+            best_params=result.best_params,
         )
 
         return result

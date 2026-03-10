@@ -35,10 +35,11 @@ Design decisions:
     fundamentalistas mudam no maximo diariamente.
     Trade-off aceito: simplicidade > performance para o MVP.
 """
+
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
@@ -50,25 +51,26 @@ from finanalytics_ai.domain.screener.engine import (
     ScreenerResult,
     apply_filters,
 )
-from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
+
+if TYPE_CHECKING:
+    from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
 
 logger = structlog.get_logger(__name__)
 
-BATCH_SIZE     = 20   # tickers por requisicao BRAPI
-MAX_CONCURRENT = 3    # batches em paralelo
-MAX_CUSTOM     = 20   # tickers customizados adicionais
+BATCH_SIZE = 20  # tickers por requisicao BRAPI
+MAX_CONCURRENT = 3  # batches em paralelo
+MAX_CUSTOM = 20  # tickers customizados adicionais
 
 
 class ScreenerService:
-
     def __init__(self, brapi_client: BrapiClient) -> None:
         self._brapi = brapi_client
 
     async def screen(
         self,
-        criteria:        FilterCriteria,
-        extra_tickers:   list[str] | None = None,
-        use_universe:    bool = True,
+        criteria: FilterCriteria,
+        extra_tickers: list[str] | None = None,
+        use_universe: bool = True,
     ) -> ScreenerResult:
         """
         Busca fundamentalistas e aplica filtros.
@@ -99,7 +101,7 @@ class ScreenerService:
         log.info("screener.starting")
 
         # Divide em batches
-        batches = [tickers[i:i + BATCH_SIZE] for i in range(0, len(tickers), BATCH_SIZE)]
+        batches = [tickers[i : i + BATCH_SIZE] for i in range(0, len(tickers), BATCH_SIZE)]
         sem = asyncio.Semaphore(MAX_CONCURRENT)
 
         async def _fetch_batch(batch: list[str]) -> list[dict[str, Any]]:
@@ -114,7 +116,7 @@ class ScreenerService:
 
         # Converte para FundamentalData
         all_stocks: list[FundamentalData] = []
-        errors:     list[dict[str, str]]  = []
+        errors: list[dict[str, str]] = []
 
         for raw_list in raw_batches:
             for raw in raw_list:
@@ -133,14 +135,15 @@ class ScreenerService:
 
         log.info(
             "screener.done",
-            total     = len(all_stocks),
-            passed    = len(passed),
-            errors    = len(errors),
+            total=len(all_stocks),
+            passed=len(passed),
+            errors=len(errors),
         )
 
         # Métricas Prometheus
         try:
             from finanalytics_ai.metrics import record_screener_run
+
             record_screener_run(
                 total_scanned=len(all_stocks),
                 total_passed=len(passed),
@@ -149,16 +152,17 @@ class ScreenerService:
             pass
 
         return ScreenerResult(
-            total_universe = len(all_stocks),
-            total_passed   = len(passed),
-            criteria       = _criteria_to_dict(criteria),
-            stocks         = passed,
-            errors         = errors,
-            sectors        = list(sectors),
+            total_universe=len(all_stocks),
+            total_passed=len(passed),
+            criteria=_criteria_to_dict(criteria),
+            stocks=passed,
+            errors=errors,
+            sectors=list(sectors),
         )
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _pct(value: Any) -> float | None:
     """Converte fracao decimal da BRAPI para percentual. None se invalido."""
@@ -191,24 +195,24 @@ def _parse_fundamental(raw: dict[str, Any]) -> FundamentalData:
       earningsPerShare, marketCap, sector, regularMarketPrice, etc.
     """
     return FundamentalData(
-        ticker          = raw.get("symbol", ""),
-        name            = raw.get("longName") or raw.get("shortName") or "",
-        sector          = raw.get("sector") or "",
-        price           = _num(raw.get("regularMarketPrice")),
-        market_cap      = _num(raw.get("marketCap")),
-        pe              = _num(raw.get("priceEarnings")),
-        pvp             = _num(raw.get("priceToBook")),
-        dy              = _pct(raw.get("dividendYield")),
-        roe             = _pct(raw.get("returnOnEquity")),
-        roic            = _pct(raw.get("returnOnInvestedCapital")),
-        ebitda_margin   = _pct(raw.get("ebitdaMargins")),
-        net_margin      = _pct(raw.get("profitMargins")),
-        debt_equity     = _num(raw.get("debtToEquity")),
-        revenue_growth  = _pct(raw.get("revenueGrowth")),
-        eps             = _num(raw.get("earningsPerShare")),
-        high_52w        = _num(raw.get("fiftyTwoWeekHigh")),
-        low_52w         = _num(raw.get("fiftyTwoWeekLow")),
-        volume          = _num(raw.get("regularMarketVolume")),
+        ticker=raw.get("symbol", ""),
+        name=raw.get("longName") or raw.get("shortName") or "",
+        sector=raw.get("sector") or "",
+        price=_num(raw.get("regularMarketPrice")),
+        market_cap=_num(raw.get("marketCap")),
+        pe=_num(raw.get("priceEarnings")),
+        pvp=_num(raw.get("priceToBook")),
+        dy=_pct(raw.get("dividendYield")),
+        roe=_pct(raw.get("returnOnEquity")),
+        roic=_pct(raw.get("returnOnInvestedCapital")),
+        ebitda_margin=_pct(raw.get("ebitdaMargins")),
+        net_margin=_pct(raw.get("profitMargins")),
+        debt_equity=_num(raw.get("debtToEquity")),
+        revenue_growth=_pct(raw.get("revenueGrowth")),
+        eps=_num(raw.get("earningsPerShare")),
+        high_52w=_num(raw.get("fiftyTwoWeekHigh")),
+        low_52w=_num(raw.get("fiftyTwoWeekLow")),
+        volume=_num(raw.get("regularMarketVolume")),
     )
 
 
@@ -218,4 +222,5 @@ def _criteria_summary(c: FilterCriteria) -> dict[str, Any]:
 
 def _criteria_to_dict(c: FilterCriteria) -> dict[str, Any]:
     from dataclasses import fields as dc_fields
+
     return {f.name: getattr(c, f.name) for f in dc_fields(c)}

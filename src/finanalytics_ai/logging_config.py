@@ -22,16 +22,19 @@ from __future__ import annotations
 
 import logging
 import sys
+from typing import TYPE_CHECKING
 
 import structlog
-from structlog.types import EventDict, WrappedLogger
 
-from finanalytics_ai.config import AppEnv, LogFormat, get_settings
+from finanalytics_ai.config import LogFormat, get_settings
+
+if TYPE_CHECKING:
+    from structlog.types import EventDict, WrappedLogger
 
 
 def _add_app_context(
-    logger: WrappedLogger,  # noqa: ARG001
-    method_name: str,  # noqa: ARG001
+    logger: WrappedLogger,
+    method_name: str,
     event_dict: EventDict,
 ) -> EventDict:
     """Injeta metadados padrão em todos os logs."""
@@ -42,8 +45,8 @@ def _add_app_context(
 
 
 def _drop_color_message_key(
-    logger: WrappedLogger,  # noqa: ARG001
-    method_name: str,  # noqa: ARG001
+    logger: WrappedLogger,
+    method_name: str,
     event_dict: EventDict,
 ) -> EventDict:
     """Remove campo interno do uvicorn que polui o JSON."""

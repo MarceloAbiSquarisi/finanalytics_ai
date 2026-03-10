@@ -15,19 +15,21 @@ Design:
   - Cache de 60s: PDF do mesmo portfólio não muda em segundos.
     Reduz carga na BRAPI (que é chamada pelo get_snapshot).
 """
+
 from __future__ import annotations
 
 import asyncio
 import io
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from starlette.requests import Request
 
-from finanalytics_ai.application.services.portfolio_service import PortfolioService
 from finanalytics_ai.interfaces.api.dependencies import get_portfolio_service
+
+if TYPE_CHECKING:
+    from finanalytics_ai.application.services.portfolio_service import PortfolioService
 
 logger = structlog.get_logger(__name__)
 
@@ -84,6 +86,7 @@ async def export_portfolio_pdf(
 
     try:
         from finanalytics_ai.infrastructure.reports.portfolio_pdf import generate_portfolio_pdf
+
         pdf_bytes: bytes = await asyncio.to_thread(generate_portfolio_pdf, snap_dict)
     except Exception as exc:
         logger.error("report.pdf.failed", portfolio_id=portfolio_id, error=str(exc))

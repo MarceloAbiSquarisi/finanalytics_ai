@@ -6,10 +6,11 @@ create_async_engine é lazy — não conecta até o primeiro uso.
 O session_factory usa AsyncSession com expire_on_commit=False para
 evitar lazy loading implícito em código async.
 """
+
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import TYPE_CHECKING
 
 import structlog
 from sqlalchemy.ext.asyncio import (
@@ -23,6 +24,9 @@ from sqlalchemy.orm import DeclarativeBase
 from finanalytics_ai.config import get_settings
 from finanalytics_ai.exceptions import DatabaseError
 
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+
 logger = structlog.get_logger(__name__)
 
 _engine: AsyncEngine | None = None
@@ -31,6 +35,7 @@ _session_factory: async_sessionmaker[AsyncSession] | None = None
 
 class Base(DeclarativeBase):
     """Base declarativa para todos os modelos ORM."""
+
     pass
 
 
@@ -66,7 +71,7 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     """
     Context manager para sessions com rollback automático em erro.
-    
+
     Usage:
         async with get_session() as session:
             result = await session.execute(stmt)

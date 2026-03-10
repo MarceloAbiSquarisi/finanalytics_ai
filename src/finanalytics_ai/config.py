@@ -91,7 +91,7 @@ class Settings(BaseSettings):
     kafka_topic_market_events: str = "market-events"
     kafka_topic_price_updates: str = "price-updates"
     kafka_consumer_group: str = "finanalytics-ai"
-    kafka_auto_offset_reset: str = "latest"   # "latest" não reprocesa histórico
+    kafka_auto_offset_reset: str = "latest"  # "latest" não reprocesa histórico
 
     # ── TimescaleDB ───────────────────────────────────────────────────────────
     timescale_url: str = "postgresql://finanalytics:secret@localhost:5433/finanalytics"

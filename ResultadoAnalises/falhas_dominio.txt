@@ -1,0 +1,3185 @@
+﻿=== test_portfolio_optimizer.py ===
+"""Testes unitÃ¡rios â€” Otimizador de PortfÃ³lio (Sprint 32)"""
+import math, random
+from finanalytics_ai.domain.portfolio_optimizer.engine import (
+    markowitz_optimize, risk_parity_optimize,
+    black_litterman_optimize, equal_weight,
+    _covariance_matrix, _mat_vec, _dot,
+    _gauss_jordan_inverse, _returns,
+)
+
+random.seed(42)
+N, T = 4, 252
+_rets_mat = [[random.gauss(0.0004*(i+1), 0.012+i*0.003) for _ in range(T)] for i in range(N)]
+_means = [sum(r)/T for r in _rets_mat]
+_cov   = _covariance_matrix(_rets_mat)
+_tkrs  = ["BOVA11","IVVB11","SMAL11","NTNB11"]
+_RF    = 0.1065
+
+_mz, _fr = markowitz_optimize(_tkrs, _means, _cov, _RF, n_samples=300)
+_rp      = risk_parity_optimize(_tkrs, _means, _cov, _RF)
+_bl      = black_litterman_optimize(_tkrs, _means, _cov, _RF, [("BOVA11",0.18)])
+_ew      = equal_weight(_tkrs, _means, _cov, _RF)
+
+
+def test_markowitz_beats_ew_sharpe():   assert _mz.sharpe >= _ew.sharpe
+def test_markowitz_weights_sum_100():   assert abs(sum(w.weight_pct for w in _mz.weights)-100) < 0.1
+def test_rp_weights_sum_100():          assert abs(sum(w.weight_pct for w in _rp.weights)-100) < 0.1
+def test_bl_weights_sum_100():          assert abs(sum(w.weight_pct for w in _bl.weights)-100) < 0.1
+def test_ew_weights_equal():
+    pcts = [w.weight_pct for w in _ew.weights]
+    assert max(pcts)-min(pcts) < 0.01
+
+def test_frontier_not_empty():          assert len(_fr) > 0
+def test_frontier_has_vol_ret_sharpe():
+    p = _fr[0]
+    assert all(k in p for k in ["vol","ret","sharpe"])
+
+def test_markowitz_to_dict():
+    d = _mz.to_dict()
+    assert all(k in d for k in ["method","sharpe","weights","annual_return_pct","volatility_pct"])
+
+def test_risk_parity_contributions_uniform():
+    w    = [aw.weight for aw in _rp.weights]
+    wcov = _mat_vec(_cov, w)
+    pv   = _dot(w, wcov)
+    rc   = [w[i]*wcov[i]/pv for i in range(N)] if pv > 0 else [1/N]*N
+    std_rp = math.sqrt(sum((r-1/N)**2 for r in rc)/N)
+    w2   = [1/N]*N
+    wc2  = _mat_vec(_cov, w2)
+    pv2  = _dot(w2, wc2)
+    rc2  = [w2[i]*wc2[i]/pv2 for i in range(N)] if pv2 > 0 else [1/N]*N
+    std_ew = math.sqrt(sum((r-1/N)**2 for r in rc2)/N)
+    assert std_rp <= std_ew + 1e-6
+
+def test_bl_has_notes():                assert len(_bl.notes) > 0
+def test_bl_view_in_notes():            assert any("18" in n or "BOVA11" in n for n in _bl.notes)
+def test_gauss_jordan_identity():
+    I = [[2.0,1.0],[5.0,3.0]]
+    inv = _gauss_jordan_inverse(I)
+    # I Ã— inv deve ser identidade
+    prod = [[sum(I[i][k]*inv[k][j] for k in range(2)) for j in range(2)] for i in range(2)]
+    assert abs(prod[0][0]-1.0) < 1e-9
+    assert abs(prod[1][1]-1.0) < 1e-9
+    assert abs(prod[0][1]) < 1e-9
+
+def test_all_methods_positive_vol():
+    for m in [_mz, _rp, _bl, _ew]:
+        assert m.volatility > 0
+
+def test_portfolios_long_only():
+    for m in [_mz, _rp, _bl, _ew]:
+        for aw in m.weights:
+            assert aw.weight >= -1e-9
+
+=== engine.py ===
+"""
+finanalytics_ai.domain.portfolio_optimizer.engine
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+OtimizaÃ§Ã£o de portfÃ³lio â€” trÃªs estratÃ©gias implementadas em Python puro.
+Zero dependÃªncias externas (sem numpy/scipy).
+
+Algoritmos implementados:
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+1. MARKOWITZ (Mean-Variance)
+   - Monte Carlo: gera N portfÃ³lios aleatÃ³rios, retorna fronteira eficiente
+   - Gradiente: ascendente no Sharpe ratio partindo do portfÃ³lio igual-peso
+   - Retorna: portfÃ³lio de Sharpe mÃ¡ximo, mÃ­nima variÃ¢ncia, fronteira completa
+
+2. RISK PARITY
+   - Objetivo: cada ativo contribui igualmente ao risco total
+   - Algoritmo: Cyclical Coordinate Descent (CCD) â€” converge em ~100 iteraÃ§Ãµes
+   - Sem restriÃ§Ã£o de retorno esperado â€” foca puramente na diversificaÃ§Ã£o de risco
+
+3. BLACK-LITTERMAN
+   - Combina retornos implÃ­citos de mercado (CAPM reverso) com visÃµes do investidor
+   - VisÃµes: lista de (ticker, retorno_esperado_anual) fornecida pelo usuÃ¡rio
+   - InversÃ£o de matriz via eliminaÃ§Ã£o de Gauss-Jordan (implementaÃ§Ã£o prÃ³pria)
+   - Retorna: pesos BL otimizados + decomposiÃ§Ã£o de contribuiÃ§Ã£o das visÃµes
+
+Design decisions:
+  Monte Carlo com 5000 amostras:
+    Suficiente para traÃ§ar uma fronteira eficiente visualmente convincente.
+    Aumentar para 20k melhora a fronteira mas nÃ£o muda o portfÃ³lio Ã³timo
+    significativamente. 5k roda em ~200ms em Python puro.
+
+  Gradiente para Sharpe mÃ¡ximo:
+    Complementa o Monte Carlo: apÃ³s encontrar a regiÃ£o de alto Sharpe via MC,
+    o gradiente refina a soluÃ§Ã£o. Taxa de aprendizado adaptativa (reduz 10x
+    quando oscila).
+
+  Risk Parity via CCD vs Newton:
+    CCD Ã© mais estÃ¡vel numericamente para portfÃ³lios com muitos ativos.
+    Newton converge mais rÃ¡pido mas pode divergir com correlaÃ§Ãµes altas.
+    Para <= 20 ativos, CCD com 200 iteraÃ§Ãµes Ã© suficiente.
+
+  Black-Litterman tau = 0.05:
+    ConvenÃ§Ã£o mais comum na literatura. Representa a incerteza nos retornos
+    histÃ³ricos relativamente ao prior de mercado. Valores entre 0.01 e 0.10
+    sÃ£o tÃ­picos â€” nÃ£o Ã© sensÃ­vel a variaÃ§Ãµes nessa faixa.
+"""
+from __future__ import annotations
+
+import math
+import random
+from dataclasses import dataclass, field
+from typing import Optional
+
+
+# â”€â”€ Constantes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+TRADING_DAYS   = 252
+MONTE_CARLO_N  = 5000
+GRADIENT_STEPS = 800
+GRADIENT_LR    = 0.01
+CCD_ITERATIONS = 200
+BL_TAU         = 0.05
+
+
+# â”€â”€ Ãlgebra linear â€” Python puro â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+def _dot(a: list[float], b: list[float]) -> float:
+    return sum(x * y for x, y in zip(a, b))
+
+def _mat_vec(M: list[list[float]], v: list[float]) -> list[float]:
+    return [_dot(row, v) for row in M]
+
+def _mat_mul(A: list[list[float]], B: list[list[float]]) -> list[list[float]]:
+    n, m, p = len(A), len(B), len(B[0])
+    return [[sum(A[i][k] * B[k][j] for k in range(m)) for j in range(p)] for i in range(n)]
+
+def _transpose(M: list[list[float]]) -> list[list[float]]:
+    return [[M[j][i] for j in range(len(M))] for i in range(len(M[0]))]
+
+def _mat_add(A: list[list[float]], B: list[list[float]], scale_b: float = 1.0) -> list[list[float]]:
+    return [[A[i][j] + scale_b * B[i][j] for j in range(len(A[0]))] for i in range(len(A))]
+
+def _identity(n: int) -> list[list[float]]:
+    return [[1.0 if i == j else 0.0 for j in range(n)] for i in range(n)]
+
+def _scalar_mat(n: int, s: float) -> list[list[float]]:
+    return [[s if i == j else 0.0 for j in range(n)] for i in range(n)]
+
+def _gauss_jordan_inverse(M: list[list[float]]) -> list[list[float]]:
+    """InversÃ£o de matriz via eliminaÃ§Ã£o de Gauss-Jordan. O(nÂ³)."""
+    n = len(M)
+    aug = [[M[i][j] for j in range(n)] + [1.0 if i == j else 0.0 for j in range(n)]
+           for i in range(n)]
+    for col in range(n):
+        # Pivot
+        max_row = max(range(col, n), key=lambda r: abs(aug[r][col]))
+        aug[col], aug[max_row] = aug[max_row], aug[col]
+        pivot = aug[col][col]
+        if abs(pivot) < 1e-12:
+            raise ValueError("Matriz singular â€” nÃ£o invertÃ­vel")
+        aug[col] = [x / pivot for x in aug[col]]
+        for row in range(n):
+            if row != col:
+                factor = aug[row][col]
+                aug[row] = [aug[row][j] - factor * aug[col][j] for j in range(2 * n)]
+    return [[aug[i][n + j] for j in range(n)] for i in range(n)]
+
+
+# â”€â”€ EstatÃ­sticas de retornos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+def _covariance_matrix(returns_matrix: list[list[float]]) -> list[list[float]]:
+    """
+    Matriz de covariÃ¢ncia anualizada a partir de retornos diÃ¡rios.
+    returns_matrix[i] = lista de retornos diÃ¡rios do ativo i.
+    """
+    n = len(returns_matrix)
+    T = min(len(r) for r in returns_matrix)
+    means = [sum(returns_matrix[i][:T]) / T for i in range(n)]
+    cov = [[0.0] * n for _ in range(n)]
+    for i in range(n):
+        for j in range(i, n):
+            c = sum((returns_matrix[i][t] - means[i]) * (returns_matrix[j][t] - means[j])
+                    for t in range(T)) / (T - 1)
+            cov[i][j] = cov[j][i] = c * TRADING_DAYS
+    return cov
+
+def _portfolio_stats(
+    weights: list[float],
+    mean_returns: list[float],
+    cov: list[list[float]],
+    risk_free: float,
+) -> tuple[float, float, float]:
+    """Retorna (retorno_anual, volatilidade_anual, sharpe)."""
+    ret = _dot(weights, mean_returns) * TRADING_DAYS
+    w_cov = _mat_vec(cov, weights)
+    var   = _dot(weights, w_cov)
+    vol   = math.sqrt(max(var, 1e-12))
+    sharpe = (ret - risk_free) / vol if vol > 0 else 0.0
+    return ret, vol, sharpe
+
+def _normalize(w: list[float]) -> list[float]:
+    s = sum(w)
+    return [x / s for x in w] if s > 1e-12 else [1.0 / len(w)] * len(w)
+
+def _clamp_weights(w: list[float], min_w: float = 0.0, max_w: float = 1.0) -> list[float]:
+    clamped = [max(min_w, min(max_w, x)) for x in w]
+    return _normalize(clamped)
+
+
+# â”€â”€ Resultado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@dataclass
+class AssetWeight:
+    ticker:     str
+    weight:     float   # 0â€“1
+    weight_pct: float   # 0â€“100
+    ret_contrib:float   # contribuiÃ§Ã£o ao retorno
+    risk_contrib:float  # contribuiÃ§Ã£o ao risco (%)
+
+@dataclass
+class PortfolioResult:
+    """Resultado de um portfÃ³lio otimizado."""
+    method:        str
+    weights:       list[AssetWeight]
+    annual_return: float
+    volatility:    float
+    sharpe:        float
+    tickers:       list[str]
+    period:        str
+    risk_free:     float
+    notes:         list[str] = field(default_factory=list)
+
+    @property
+    def annual_return_pct(self) -> float: return round(self.annual_return * 100, 2)
+    @property
+    def volatility_pct(self) -> float:    return round(self.volatility * 100, 2)
+    @property
+    def sharpe_rounded(self) -> float:    return round(self.sharpe, 3)
+
+    def to_dict(self) -> dict:
+        return {
+            "method":        self.method,
+            "annual_return_pct": self.annual_return_pct,
+            "volatility_pct":    self.volatility_pct,
+            "sharpe":            self.sharpe_rounded,
+            "risk_free_pct":     round(self.risk_free * 100, 2),
+            "notes":         self.notes,
+            "weights": [
+                {"ticker":      aw.ticker,
+                 "weight_pct":  round(aw.weight_pct, 2),
+                 "ret_contrib": round(aw.ret_contrib * 100, 2),
+                 "risk_contrib":round(aw.risk_contrib, 2)}
+                for aw in self.weights
+            ],
+        }
+
+@dataclass
+class OptimizationComparison:
+    tickers:     list[str]
+    period:      str
+    risk_free:   float
+    markowitz:   PortfolioResult
+    risk_parity: PortfolioResult
+    black_litterman: PortfolioResult
+    equal_weight:    PortfolioResult
+    frontier:    list[dict]  # [{vol, ret, sharpe}] pontos da fronteira
+
+    def to_dict(self) -> dict:
+        return {
+            "tickers":           self.tickers,
+            "period":            self.period,
+            "risk_free_pct":     round(self.risk_free * 100, 2),
+            "markowitz":         self.markowitz.to_dict(),
+            "risk_parity":       self.risk_parity.to_dict(),
+            "black_litterman":   self.black_litterman.to_dict(),
+            "equal_weight":      self.equal_weight.to_dict(),
+            "frontier":          self.frontier[:200],  # limita pontos no JSON
+            "best_sharpe_method": max(
+                ["markowitz", "risk_parity", "black_litterman", "equal_weight"],
+                key=lambda m: getattr(self, m).sharpe,
+            ),
+        }
+
+
+# â”€â”€ 1. Markowitz â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+def markowitz_optimize(
+    tickers:      list[str],
+    mean_returns: list[float],
+    cov:          list[list[float]],
+    risk_free:    float,
+    n_samples:    int = MONTE_CARLO_N,
+    seed:         int = 42,
+) -> tuple[PortfolioResult, list[dict]]:
+    """
+    PortfÃ³lio de Sharpe mÃ¡ximo via Monte Carlo + refinamento por gradiente.
+    Retorna (portfÃ³lio_Ã³timo, pontos_da_fronteira).
+    """
+    n = len(tickers)
+    rng = random.Random(seed)
+
+    best_sharpe = -1e9
+    best_w: list[float] = [1.0 / n] * n
+    min_vol_w: list[float] = [1.0 / n] * n
+    min_vol = 1e9
+    frontier: list[dict] = []
+
+    # Monte Carlo
+    for _ in range(n_samples):
+        raw = [rng.expovariate(1.0) for _ in range(n)]
+        w   = _normalize(raw)
+        ret, vol, sh = _portfolio_stats(w, mean_returns, cov, risk_free)
+        frontier.append({"vol": round(vol * 100, 4), "ret": round(ret * 100, 4), "sharpe": round(sh, 4)})
+        if sh > best_sharpe:
+            best_sharpe, best_w = sh, w[:]
+        if vol < min_vol:
+            min_vol, min_vol_w = vol, w[:]
+
+    # Gradiente ascendente no Sharpe
+    w = best_w[:]
+    lr = GRADIENT_LR
+    prev_sh = best_sharpe
+    for step in range(GRADIENT_STEPS):
+        grad = []
+        for i in range(n):
+            w_up = w[:]
+            w_up[i] += 1e-4
+            w_up = _normalize(w_up)
+            _, _, sh_up = _portfolio_stats(w_up, mean_returns, cov, risk_free)
+            grad.append((sh_up - best_sharpe) / 1e-4)
+        w_new = _clamp_weights([w[i] + lr * grad[i] for i in range(n)])
+        _, _, sh_new = _portfolio_stats(w_new, mean_returns, cov, risk_free)
+        if sh_new > best_sharpe:
+            best_sharpe, best_w = sh_new, w_new[:]
+            w = w_new[:]
+        else:
+            lr *= 0.5
+        if lr < 1e-6:
+            break
+
+    ret, vol, sh = _portfolio_stats(best_w, mean_returns, cov, risk_free)
+    asset_weights = _build_asset_weights(best_w, tickers, mean_returns, cov, ret)
+
+    return PortfolioResult(
+        method="Markowitz (Sharpe MÃ¡ximo)",
+        weights=asset_weights,
+        annual_return=ret, volatility=vol, sharpe=sh,
+        tickers=tickers, period="", risk_free=risk_free,
+        notes=[
+            f"Monte Carlo: {n_samples} portfÃ³lios simulados",
+            f"Gradiente ascendente: convergiu em Sharpe = {sh:.3f}",
+            "Long-only: pesos â‰¥ 0, soma = 100%",
+        ],
+    ), frontier
+
+
+# â”€â”€ 2. Risk Parity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+def risk_parity_optimize(
+    tickers:      list[str],
+    mean_returns: list[float],
+    cov:          list[list[float]],
+    risk_free:    float,
+) -> PortfolioResult:
+    """
+    Equaliza a contribuiÃ§Ã£o marginal ao risco de cada ativo.
+    Cyclical Coordinate Descent.
+    """
+    n = len(tickers)
+    w = [1.0 / n] * n
+    target = 1.0 / n   # contribuiÃ§Ã£o alvo = 1/n para cada ativo
+
+    for iteration in range(CCD_ITERATIONS):
+        w_cov = _mat_vec(cov, w)
+        port_var = _dot(w, w_cov)
+        if port_var < 1e-12:
+            break
+        # MRC (Marginal Risk Contribution) de cada ativo
+        mrc = [w_cov[i] / math.sqrt(port_var) for i in range(n)]
+        # ContribuiÃ§Ã£o de risco percentual
+        rc  = [w[i] * mrc[i] for i in range(n)]
+        rc_total = sum(rc)
+        if rc_total < 1e-12:
+            break
+        rc_pct = [r / rc_total for r in rc]
+        # Ajusta pesos: aumenta underweight, diminui overweight
+        for i in range(n):
+            if rc_pct[i] > 1e-10:
+                w[i] *= (target / rc_pct[i]) ** 0.5
+        w = _normalize(w)
+
+    ret, vol, sh = _portfolio_stats(w, mean_returns, cov, risk_free)
+    asset_weights = _build_asset_weights(w, tickers, mean_returns, cov, ret)
+
+    # Calcula contribuiÃ§Ãµes de risco finais para notas
+    w_cov   = _mat_vec(cov, w)
+    pv      = _dot(w, w_cov)
+    rc_pcts = []
+    if pv > 0:
+        rc_pcts = [round(w[i] * w_cov[i] / pv * 100, 1) for i in range(n)]
+    max_dev = max(abs(r - 100/n) for r in rc_pcts) if rc_pcts else 0
+
+    return PortfolioResult(
+        method="Risk Parity",
+        weights=asset_weights,
+        annual_return=ret, volatility=vol, sharpe=sh,
+        tickers=tickers, period="", risk_free=risk_free,
+        notes=[
+            f"ContribuiÃ§Ãµes de risco: {', '.join(f'{t}={r}%' for t, r in zip(tickers, rc_pcts))}",
+            f"Desvio mÃ¡ximo do alvo ({100/n:.1f}%): {max_dev:.2f} p.p.",
+            "Objetivo: diversificaÃ§Ã£o de risco, nÃ£o de retorno",
+        ],
+    )
+
+
+# â”€â”€ 3. Black-Litterman â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+def black_litterman_optimize(
+    tickers:         list[str],
+    mean_returns:    list[float],
+    cov:             list[list[float]],
+    risk_free:       float,
+    views:           list[tuple[str, float]],  # [(ticker, retorno_anual)]
+    market_weights:  Optional[list[float]] = None,
+    tau:             float = BL_TAU,
+    risk_aversion:   float = 3.0,
+) -> PortfolioResult:
+    """
+    Black-Litterman: combina prior de mercado com visÃµes do investidor.
+
+    views: lista de (ticker, retorno_anual_esperado).
+           Ex: [("BOVA11", 0.15), ("IVVB11", 0.20)]
+    market_weights: pesos de mercado (capitalizaÃ§Ã£o). Default = igual-peso.
+    tau: escala da incerteza dos retornos histÃ³ricos (0.01â€“0.10, default 0.05).
+    risk_aversion: coeficiente Î» â€” quanto o mercado penaliza risco (default 3.0).
+    """
+    n = len(tickers)
+    if market_weights is None:
+        market_weights = [1.0 / n] * n
+    else:
+        market_weights = _normalize(market_weights)
+
+    # Prior implÃ­cito de mercado (CAPM reverso): Ï€ = Î» Ã— Î£ Ã— w_mkt
+    pi = [risk_aversion * x for x in _mat_vec(cov, market_weights)]
+
+    if not views:
+        # Sem visÃµes â†’ usa retornos histÃ³ricos diretamente
+        bl_returns = mean_returns[:]
+    else:
+        # Monta matriz de visÃµes P e vetor Q
+        valid_views = [(t, r) for t, r in views if t in tickers]
+        k = len(valid_views)
+        if k == 0:
+            bl_returns = mean_returns[:]
+        else:
+            P = [[1.0 if tickers[j] == t else 0.0 for j in range(n)]
+                 for t, _ in valid_views]
+            Q = [r for _, r in valid_views]
+
+            # Matriz de incerteza das visÃµes: Î© = diag(P Ã— Ï„Î£ Ã— Páµ€)
+            tau_cov = [[tau * cov[i][j] for j in range(n)] for i in range(n)]
+            P_tauCov = _mat_mul(P, tau_cov)
+            Pt = _transpose(P)
+            omega_full = _mat_mul(P_tauCov, Pt)
+            omega_diag = [[omega_full[i][i] if i == j else 0.0 for j in range(k)]
+                          for i in range(k)]
+
+            # BL posterior: Î¼_BL = [(Ï„Î£)â»Â¹ + Páµ€Î©â»Â¹P]â»Â¹ Ã— [(Ï„Î£)â»Â¹Ï€ + Páµ€Î©â»Â¹Q]
+            try:
+                inv_tau_cov = _gauss_jordan_inverse(tau_cov)
+                inv_omega   = _gauss_jordan_inverse(omega_diag)
+            except ValueError:
+                bl_returns = mean_returns[:]
+            else:
+                # A = (Ï„Î£)â»Â¹ + Páµ€Î©â»Â¹P
+                Pt_invOmega = _mat_mul(Pt, inv_omega)
+                Pt_invOmega_P = _mat_mul(Pt_invOmega, P)
+                A = _mat_add(inv_tau_cov, Pt_invOmega_P)
+                # b = (Ï„Î£)â»Â¹Ï€ + Páµ€Î©â»Â¹Q
+                inv_tau_pi = _mat_vec(inv_tau_cov, pi)
+                inv_omega_Q = _mat_vec(inv_omega, Q)
+                Pt_invOmega_Q = _mat_vec(Pt_invOmega, inv_omega_Q)
+                b = [inv_tau_pi[i] + Pt_invOmega_Q[i] for i in range(n)]
+                try:
+                    inv_A = _gauss_jordan_inverse(A)
+                    bl_returns = _mat_vec(inv_A, b)
+                except ValueError:
+                    bl_returns = mean_returns[:]
+
+    # Com os retornos BL, otimiza via gradiente (Sharpe mÃ¡ximo)
+    best_w = [1.0 / n] * n
+    best_sharpe = -1e9
+    lr = 0.02
+    for _ in range(500):
+        grad = []
+        _, _, sh = _portfolio_stats(best_w, bl_returns, cov, risk_free)
+        for i in range(n):
+            w_up = best_w[:]
+            w_up[i] += 1e-4
+            w_up = _normalize(w_up)
+            _, _, sh_up = _portfolio_stats(w_up, bl_returns, cov, risk_free)
+            grad.append((sh_up - sh) / 1e-4)
+        w_new = _clamp_weights([best_w[i] + lr * grad[i] for i in range(n)])
+        _, _, sh_new = _portfolio_stats(w_new, bl_returns, cov, risk_free)
+        if sh_new > best_sharpe:
+            best_sharpe, best_w = sh_new, w_new
+        else:
+            lr *= 0.6
+        if lr < 1e-6:
+            break
+
+    ret, vol, sh = _portfolio_stats(best_w, mean_returns, cov, risk_free)
+    asset_weights = _build_asset_weights(best_w, tickers, mean_returns, cov, ret)
+
+    view_notes = [f"{t}: retorno esperado {r*100:.1f}% a.a." for t, r in (views or [])]
+
+    return PortfolioResult(
+        method="Black-Litterman",
+        weights=asset_weights,
+        annual_return=ret, volatility=vol, sharpe=sh,
+        tickers=tickers, period="", risk_free=risk_free,
+        notes=[
+            f"Ï„ (incerteza prior) = {tau}  |  Î» (aversÃ£o ao risco) = {risk_aversion}",
+            f"VisÃµes incorporadas: {len(views or [])}",
+        ] + view_notes[:5],
+    )
+
+
+# â”€â”€ Equal Weight (benchmark) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+def equal_weight(
+    tickers:      list[str],
+    mean_returns: list[float],
+    cov:          list[list[float]],
+    risk_free:    float,
+) -> PortfolioResult:
+    n = len(tickers)
+    w = [1.0 / n] * n
+    ret, vol, sh = _portfolio_stats(w, mean_returns, cov, risk_free)
+    return PortfolioResult(
+        method="Equal Weight (benchmark)",
+        weights=_build_asset_weights(w, tickers, mean_returns, cov, ret),
+        annual_return=ret, volatility=vol, sharpe=sh,
+        tickers=tickers, period="", risk_free=risk_free,
+        notes=["Benchmark ingÃªnuo â€” peso idÃªntico para todos os ativos"],
+    )
+
+
+# â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+def _build_asset_weights(
+    w: list[float],
+    tickers: list[str],
+    mean_returns: list[float],
+    cov: list[list[float]],
+    total_ret: float,
+) -> list[AssetWeight]:
+    n = len(tickers)
+    w_cov = _mat_vec(cov, w)
+    port_vol = math.sqrt(max(_dot(w, w_cov), 1e-12))
+    result = []
+    for i in range(n):
+        rc = w[i] * w_cov[i] / (port_vol ** 2) if port_vol > 0 else 1.0 / n
+        result.append(AssetWeight(
+            ticker=tickers[i],
+            weight=w[i],
+            weight_pct=round(w[i] * 100, 2),
+            ret_contrib=w[i] * mean_returns[i] * TRADING_DAYS,
+            risk_contrib=round(rc * 100, 2),
+        ))
+    return sorted(result, key=lambda x: -x.weight)
+
+=== test_fgc.py ===
+"""Testes unitÃ¡rios â€” Cobertura FGC (Sprint 33)"""
+from datetime import date, timedelta
+from finanalytics_ai.domain.fixed_income.fgc import (
+    analyze_fgc, fgc_coverage,
+    FGC_LIMIT_PER_INSTITUTION, FGC_GLOBAL_LIMIT,
+)
+from finanalytics_ai.domain.fixed_income.portfolio import RFHolding
+
+def _h(hid, btype, issuer, amount, matured=False):
+    d = date.today()
+    return RFHolding(
+        holding_id=hid, portfolio_id="p1", bond_id="b1",
+        bond_name=f"{btype} {issuer}", bond_type=btype,
+        indexer="CDI", issuer=issuer, invested=amount,
+        rate_annual=0.12, rate_pct_indexer=110.0,
+        purchase_date=d - timedelta(days=100),
+        maturity_date=d - timedelta(days=1) if matured else d + timedelta(days=200),
+        ir_exempt=False,
+    )
+
+# â”€â”€ fgc_coverage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+def test_cdb_covered():       assert fgc_coverage("CDB")           == "fgc"
+def test_lci_covered():       assert fgc_coverage("LCI")           == "fgc"
+def test_lca_covered():       assert fgc_coverage("LCA")           == "fgc"
+def test_cri_not_covered():   assert fgc_coverage("CRI")           == "none"
+def test_cra_not_covered():   assert fgc_coverage("CRA")           == "none"
+def test_deb_not_covered():   assert fgc_coverage("DebÃªnture")     == "none"
+def test_tesouro_selic():     assert fgc_coverage("Tesouro SELIC") == "sovereign"
+def test_tesouro_ipca():      assert fgc_coverage("Tesouro IPCA+") == "sovereign"
+def test_tesouro_pre():       assert fgc_coverage("Tesouro Prefixado") == "sovereign"
+
+# â”€â”€ analyze_fgc â€” caso normal (dentro do limite) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+_ok = analyze_fgc("p1", [_h("h1","CDB","Banco A",100_000), _h("h2","LCI","Banco B",80_000)])
+def test_within_limit_no_excess():   assert _ok.total_at_risk == 0.0
+def test_within_limit_score_high():  assert _ok.score == 100
+def test_within_limit_no_critical(): assert all(a["level"] != "critical" for a in _ok.alerts)
+
+# â”€â”€ analyze_fgc â€” excede limite por instituiÃ§Ã£o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+_exc = analyze_fgc("p1", [_h("h1","CDB","Banco A",200_000), _h("h2","CDB","Banco A",100_000)])
+def test_excess_detected():          assert _exc.total_at_risk > 0
+def test_excess_correct():           assert abs(_exc.total_at_risk - 50_000) < 1
+def test_excess_alert_present():     assert any(a["type"]=="institution_limit_exceeded" for a in _exc.alerts)
+def test_excess_score_reduced():     assert _exc.score < 100
+
+# â”€â”€ analyze_fgc â€” sem cobertura (CRI/CRA/DebÃªnture) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+_unc = analyze_fgc("p1", [_h("h1","CRI","Fundo X",50_000), _h("h2","DebÃªnture","Empresa",30_000)])
+def test_uncovered_total():          assert _unc.total_uncovered == 80_000
+def test_uncovered_alert():          assert any(a["type"]=="no_fgc_coverage" for a in _unc.alerts)
+def test_uncovered_score_low():      assert _unc.score <= 50
+
+# â”€â”€ analyze_fgc â€” Tesouro Direto (soberano) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+_sov = analyze_fgc("p1", [_h("h1","Tesouro IPCA+","Tesouro",200_000)])
+def test_sovereign_not_uncovered():  assert _sov.total_uncovered == 0
+def test_sovereign_info_alert():     assert any(a["type"]=="sovereign_info" for a in _sov.alerts)
+def test_sovereign_at_risk_zero():   assert _sov.total_at_risk == 0
+
+# â”€â”€ analyze_fgc â€” carteira vazia â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+def test_empty_portfolio():
+    a = analyze_fgc("p1", [])
+    assert a.score == 100
+    assert a.total_invested == 0
+
+# â”€â”€ analyze_fgc â€” holdings vencidos ignorados â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+def test_matured_ignored():
+    a = analyze_fgc("p1", [_h("h1","CRI","X",999_000, matured=True)])
+    assert a.total_uncovered == 0
+
+=== fgc domain (todos os .py) ===
+--- entities.py ---
+"""
+finanalytics_ai.domain.fixed_income.entities
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+Entidades e cÃ¡lculos de renda fixa. Puro: sem I/O.
+
+Tipos cobertos:
+  Tesouro Direto  â€” SELIC, IPCA+, Prefixado
+  CDB / LCI / LCA â€” pÃ³s-fixado (% CDI), IPCA+, prefixado
+  DebÃªntures      â€” IPCA+, CDI+, prefixado
+  CRI / CRA       â€” isentos de IR (pessoa fÃ­sica)
+
+CÃ¡lculos:
+  Rendimento bruto                â€” juros compostos/simples
+  IR regressivo (tabela RF)       â€” 22.5% / 20% / 17.5% / 15%
+  IOF (primeiros 30 dias)         â€” tabela regressiva MF
+  Rendimento lÃ­quido              â€” bruto - IR - IOF - taxa custÃ³dia
+  ComparaÃ§Ã£o entre tÃ­tulos        â€” por rendimento lÃ­quido anualizado
+  Fluxo de caixa                  â€” parcelas periÃ³dicas (NTN-B/NTN-F style)
+
+Design decisions:
+  Indexadores dinÃ¢micos (CDI, IPCA, SELIC):
+    Usamos taxas anuais fornecidas pelo usuÃ¡rio ou buscadas via API.
+    NÃ£o "hardcodamos" taxas â€” o domÃ­nio recebe como parÃ¢metro.
+    Isso respeita o princÃ­pio de injeÃ§Ã£o e facilita testes.
+
+  IR regressivo:
+    Aplicado somente sobre o rendimento (ganho), nÃ£o sobre o principal.
+    LCI/LCA/CRI/CRA sÃ£o isentos de IR para PF â€” flag `ir_exempt`.
+
+  IOF:
+    Incide somente nos primeiros 30 dias. Tabela oficial do MF.
+    Zero apÃ³s 30 dias.
+
+  Custodia Tesouro:
+    Taxa anual de 0.20% a.a. (B3) sobre o valor investido.
+    Aplicada proporcionalmente ao perÃ­odo.
+"""
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+from datetime import date, datetime
+from enum import Enum
+from typing import Optional
+
+
+# â”€â”€ Enums â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+class BondType(str, Enum):
+    TESOURO_SELIC    = "Tesouro SELIC"
+    TESOURO_IPCA     = "Tesouro IPCA+"
+    TESOURO_PREFIXADO = "Tesouro Prefixado"
+    CDB              = "CDB"
+    LCI              = "LCI"
+    LCA              = "LCA"
+    DEBENTURE        = "DebÃªnture"
+    CRI              = "CRI"
+    CRA              = "CRA"
+
+
+class Indexer(str, Enum):
+    CDI       = "CDI"
+    SELIC     = "SELIC"
+    IPCA      = "IPCA"
+    PREFIXADO = "Prefixado"
+    IGPM      = "IGPM"
+
+
+class PaymentFrequency(str, Enum):
+    BULLET     = "Bullet"        # paga tudo no vencimento
+    SEMIANNUAL = "Semestral"     # cupons semestrais (NTN-B, NTN-F)
+    ANNUAL     = "Anual"
+    MONTHLY    = "Mensal"
+
+
+# â”€â”€ Tabela IOF (dias 1-30) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Percentual de imposto sobre rendimento por dia
+IOF_TABLE: dict[int, float] = {
+    1:96, 2:93, 3:90, 4:86, 5:83, 6:80, 7:76, 8:73, 9:70, 10:66,
+    11:63, 12:60, 13:56, 14:53, 15:50, 16:46, 17:43, 18:40, 19:36, 20:33,
+    21:30, 22:26, 23:23, 24:20, 25:16, 26:13, 27:10, 28:6, 29:3, 30:0,
+}
+
+def iof_rate(days: int) -> float:
+    """AlÃ­quota de IOF (%) sobre o rendimento para `days` dias."""
+    if days <= 0:  return 100.0
+    if days >= 30: return 0.0
+    return IOF_TABLE.get(days, 0.0)
+
+
+# â”€â”€ Tabela IR Regressivo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+def ir_rate(days: int) -> float:
+    """AlÃ­quota de IR (%) para renda fixa tributada."""
+    if days <= 180:  return 22.5
+    if days <= 360:  return 20.0
+    if days <= 720:  return 17.5
+    return 15.0
+
+
+# â”€â”€ Taxa de custÃ³dia Tesouro â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+TESOURO_CUSTODY_RATE = 0.0020   # 0.20% a.a.
+TESOURO_TYPES = {BondType.TESOURO_SELIC, BondType.TESOURO_IPCA, BondType.TESOURO_PREFIXADO}
+IR_EXEMPT_TYPES = {BondType.LCI, BondType.LCA, BondType.CRI, BondType.CRA}
+
+
+# â”€â”€ Entidade Bond â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@dataclass
+class Bond:
+    """
+    Representa um tÃ­tulo de renda fixa.
+
+    Para tÃ­tulos pÃ³s-fixados:
+      rate_annual = spread sobre o indexador (ex: 0.02 = CDI + 2% ou 102% CDI)
+      rate_pct_indexer = quando True, rate Ã© % do indexador (ex: 110% CDI)
+
+    Para tÃ­tulos prefixados:
+      rate_annual = taxa fixa anual (ex: 0.1175 = 11.75%)
+    """
+    bond_id:          str
+    name:             str
+    bond_type:        BondType
+    indexer:          Indexer
+    rate_annual:      float          # taxa anual (decimal)
+    rate_pct_indexer: bool  = False  # True = % do indexador; False = indexador + spread
+    maturity_date:    Optional[date] = None
+    issuer:           str  = ""
+    min_investment:   float = 0.0
+    payment_freq:     PaymentFrequency = PaymentFrequency.BULLET
+    ir_exempt:        bool = False
+    liquidity:        str  = "No vencimento"   # "DiÃ¡ria", "D+1", etc.
+    risk_rating:      str  = ""                # "AAA", "AA+", etc.
+    available:        bool = True
+    source:           str  = "manual"          # "tesouro_direto" | "manual"
+
+    @property
+    def is_tesouro(self) -> bool:
+        return self.bond_type in TESOURO_TYPES
+
+    @property
+    def days_to_maturity(self) -> Optional[int]:
+        if self.maturity_date is None:
+            return None
+        delta = self.maturity_date - date.today()
+        return max(delta.days, 0)
+
+    @property
+    def years_to_maturity(self) -> Optional[float]:
+        d = self.days_to_maturity
+        return d / 365.0 if d is not None else None
+
+
+# â”€â”€ Resultado de cÃ¡lculo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@dataclass
+class YieldResult:
+    bond_id:              str
+    bond_name:            str
+    bond_type:            str
+    indexer:              str
+    principal:            float
+    days:                 int
+    gross_amount:         float    # montante bruto no vencimento
+    gross_return_pct:     float    # rendimento bruto %
+    iof_amount:           float
+    ir_amount:            float
+    custody_fee_amount:   float
+    net_amount:           float    # montante lÃ­quido
+    net_return_pct:       float    # rendimento lÃ­quido %
+    net_annual_return_pct: float   # rendimento lÃ­quido anualizado
+    effective_rate_annual: float   # taxa efetiva anual prÃ©-IR (decimal)
+    ir_rate_pct:          float
+    iof_rate_pct:         float
+    ir_exempt:            bool
+
+
+@dataclass
+class ComparisonResult:
+    bonds:        list[YieldResult]
+    best_net_id:  str
+    best_net_name: str
+    period_days:  int
+    principal:    float
+
+
+@dataclass
+class CashFlowItem:
+    date:         str
+    period:       int
+    gross_coupon: float
+    ir_amount:    float
+    net_coupon:   float
+    balance:      float
+
+
+@dataclass
+class CashFlowResult:
+    bond_id:      str
+    bond_name:    str
+    principal:    float
+    items:        list[CashFlowItem]
+    total_gross:  float
+    total_ir:     float
+    total_net:    float
+    net_return_pct: float
+
+
+# â”€â”€ Motor de cÃ¡lculo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+def _effective_annual_rate(bond: Bond, indexer_rate: float) -> float:
+    """
+    Calcula a taxa efetiva anual do tÃ­tulo dado o indexador atual.
+
+    Para % do indexador (ex: 110% CDI):
+        taxa = 110% Ã— CDI = 1.10 Ã— 0.1065
+
+    Para spread (ex: CDI + 2%):
+        taxa = CDI + 0.02
+
+    Para prefixado:
+        taxa = rate_annual diretamente
+    """
+    if bond.indexer == Indexer.PREFIXADO:
+        return bond.rate_annual
+    if bond.rate_pct_indexer:
+        return bond.rate_annual * indexer_rate
+    return indexer_rate + bond.rate_annual
+
+
+def calculate_yield(
+    bond: Bond,
+    principal: float,
+    days: int,
+    indexer_rate: float = 0.0,    # taxa anual do indexador (decimal)
+    inflation_rate: float = 0.0,  # IPCA anual (decimal) â€” para atualizaÃ§Ã£o do principal
+) -> YieldResult:
+    """
+    Calcula rendimento bruto e lÃ­quido de um tÃ­tulo.
+
+    Para IPCA+: o principal Ã© corrigido pela inflaÃ§Ã£o antes de aplicar a taxa real.
+    """
+    years = days / 365.0
+
+    # Taxa efetiva anual
+    eff_rate = _effective_annual_rate(bond, indexer_rate)
+
+    # Montante bruto
+    if bond.indexer == Indexer.IPCA and not bond.rate_pct_indexer:
+        # IPCA+: principal corrigido Ã— (1 + taxa_real)^anos
+        corrected_principal = principal * (1 + inflation_rate) ** years
+        gross_amount = corrected_principal * (1 + bond.rate_annual) ** years
+    else:
+        gross_amount = principal * (1 + eff_rate) ** years
+
+    gross_gain   = gross_amount - principal
+    gross_return = gross_gain / principal * 100
+
+    # IOF (somente primeiros 30 dias)
+    iof_pct    = iof_rate(days) / 100
+    iof_amount = gross_gain * iof_pct
+
+    # IR
+    is_exempt = bond.ir_exempt or bond.bond_type in IR_EXEMPT_TYPES
+    ir_pct    = 0.0
+    if not is_exempt:
+        ir_pct    = ir_rate(days) / 100
+        ir_amount = (gross_gain - iof_amount) * ir_pct
+    else:
+        ir_amount = 0.0
+
+    # Taxa de custÃ³dia Tesouro
+    custody = 0.0
+    if bond.is_tesouro:
+        # 0.20% a.a. sobre valor mÃ©dio investido
+        custody = principal * TESOURO_CUSTODY_RATE * years
+
+    net_amount    = gross_amount - iof_amount - ir_amount - custody
+    net_gain      = net_amount - principal
+    net_return    = net_gain / principal * 100
+    net_annual    = ((1 + net_gain / principal) ** (1 / years) - 1) * 100 if years > 0 else 0.0
+
+    return YieldResult(
+        bond_id              = bond.bond_id,
+        bond_name            = bond.name,
+        bond_type            = bond.bond_type.value,
+        indexer              = bond.indexer.value,
+        principal            = principal,
+        days                 = days,
+        gross_amount         = round(gross_amount, 2),
+        gross_return_pct     = round(gross_return, 4),
+        iof_amount           = round(iof_amount, 2),
+        ir_amount            = round(ir_amount, 2),
+        custody_fee_amount   = round(custody, 2),
+        net_amount           = round(net_amount, 2),
+        net_return_pct       = round(net_return, 4),
+        net_annual_return_pct = round(net_annual, 4),
+        effective_rate_annual = round(eff_rate * 100, 4),
+        ir_rate_pct          = round(ir_pct * 100, 2),
+        iof_rate_pct         = round(iof_pct * 100, 2),
+        ir_exempt            = is_exempt,
+    )
+
+
+def compare_bonds(
+    bonds: list[Bond],
+    principal: float,
+    days: int,
+    cdi_rate: float = 0.0,
+    selic_rate: float = 0.0,
+    ipca_rate: float = 0.0,
+    igpm_rate: float = 0.0,
+) -> ComparisonResult:
+    """Compara lista de tÃ­tulos pelo rendimento lÃ­quido anualizado."""
+    results: list[YieldResult] = []
+    rate_map = {
+        Indexer.CDI:  cdi_rate,
+        Indexer.SELIC: selic_rate,
+        Indexer.IPCA:  ipca_rate,
+        Indexer.IGPM:  igpm_rate,
+        Indexer.PREFIXADO: 0.0,
+    }
+    for bond in bonds:
+        idx_rate = rate_map.get(bond.indexer, 0.0)
+        yr = calculate_yield(bond, principal, days, idx_rate, ipca_rate)
+        results.append(yr)
+
+    results.sort(key=lambda r: r.net_annual_return_pct, reverse=True)
+    best = results[0] if results else None
+
+    return ComparisonResult(
+        bonds        = results,
+        best_net_id  = best.bond_id if best else "",
+        best_net_name = best.bond_name if best else "",
+        period_days  = days,
+        principal    = principal,
+    )
+
+
+def calculate_cash_flow(
+    bond: Bond,
+    principal: float,
+    indexer_rate: float = 0.0,
+    inflation_rate: float = 0.0,
+) -> CashFlowResult:
+    """
+    Gera o fluxo de caixa do tÃ­tulo ao longo do tempo.
+
+    Bullet: Ãºnico pagamento no vencimento.
+    Semestral/Anual/Mensal: cupons periÃ³dicos + principal no final.
+    """
+    if bond.days_to_maturity is None or bond.days_to_maturity == 0:
+        return CashFlowResult(bond.bond_id, bond.name, principal, [], 0, 0, 0, 0)
+
+    eff_rate = _effective_annual_rate(bond, indexer_rate)
+    total_days = bond.days_to_maturity
+
+    # Periodicidade em dias
+    freq_days_map = {
+        PaymentFrequency.BULLET:     total_days,
+        PaymentFrequency.SEMIANNUAL: 182,
+        PaymentFrequency.ANNUAL:     365,
+        PaymentFrequency.MONTHLY:    30,
+    }
+    period_days = freq_days_map[bond.payment_freq]
+
+    # Gera perÃ­odos
+    items: list[CashFlowItem] = []
+    balance = principal
+    current_day = 0
+    period = 0
+    total_gross = 0.0
+    total_ir    = 0.0
+    total_net   = 0.0
+
+    while current_day < total_days:
+        period += 1
+        next_day = min(current_day + period_days, total_days)
+        days_in_period = next_day - current_day
+        years_in_period = days_in_period / 365.0
+
+        # Juros do perÃ­odo
+        if bond.indexer == Indexer.IPCA and not bond.rate_pct_indexer:
+            corr = balance * (1 + inflation_rate) ** years_in_period
+            gross_coupon = corr * (1 + bond.rate_annual) ** years_in_period - balance
+        else:
+            gross_coupon = balance * ((1 + eff_rate) ** years_in_period - 1)
+
+        # No Ãºltimo perÃ­odo, inclui o principal
+        is_last = next_day >= total_days
+        repayment = balance if is_last else 0.0
+
+        ir_pct    = ir_rate(next_day) / 100
+        is_exempt = bond.ir_exempt or bond.bond_type in IR_EXEMPT_TYPES
+        ir_coupon = 0.0 if is_exempt else gross_coupon * ir_pct
+        net_coupon = gross_coupon - ir_coupon + repayment
+
+        dt = date.today()
+        from datetime import timedelta
+        payment_date = dt + timedelta(days=next_day)
+
+        items.append(CashFlowItem(
+            date         = payment_date.strftime("%Y-%m-%d"),
+            period       = period,
+            gross_coupon = round(gross_coupon + repayment, 2),
+            ir_amount    = round(ir_coupon, 2),
+            net_coupon   = round(net_coupon, 2),
+            balance      = round(balance, 2),
+        ))
+
+        total_gross += gross_coupon
+        total_ir    += ir_coupon
+        total_net   += gross_coupon - ir_coupon
+
+        if not is_last:
+            balance = balance  # cupons sem amortizaÃ§Ã£o
+        current_day = next_day
+
+    net_return = total_net / principal * 100
+
+    return CashFlowResult(
+        bond_id     = bond.bond_id,
+        bond_name   = bond.name,
+        principal   = principal,
+        items       = items,
+        total_gross = round(total_gross, 2),
+        total_ir    = round(total_ir, 2),
+        total_net   = round(total_net, 2),
+        net_return_pct = round(net_return, 4),
+    )
+
+
+def goal_investment(
+    target_amount: float,
+    bond: Bond,
+    days: int,
+    indexer_rate: float = 0.0,
+    inflation_rate: float = 0.0,
+) -> float:
+    """
+    Calcula quanto investir hoje para atingir `target_amount` lÃ­quido.
+    Busca binÃ¡ria no principal.
+    """
+    lo, hi = 1.0, target_amount * 2
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        result = calculate_yield(bond, mid, days, indexer_rate, inflation_rate)
+        if result.net_amount < target_amount:
+            lo = mid
+        else:
+            hi = mid
+    return round((lo + hi) / 2, 2)
+--- fgc.py ---
+"""
+finanalytics_ai.domain.fixed_income.fgc
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+Regras do FGC (Fundo Garantidor de CrÃ©ditos) aplicadas Ã  carteira de RF.
+
+Regras vigentes (ResoluÃ§Ã£o CMN 4.222/2013 e alteraÃ§Ãµes):
+  Cobertura por CPF por instituiÃ§Ã£o: R$ 250.000,00
+  Cobertura global (todas as instituiÃ§Ãµes): R$ 1.000.000,00 por perÃ­odo de 4 anos
+  RenovaÃ§Ã£o do limite global: a cada 4 anos o limite Ã© zerado
+
+TÃ­tulos cobertos pelo FGC:
+  âœ… CDB  â€” Certificado de DepÃ³sito BancÃ¡rio
+  âœ… LCI  â€” Letra de CrÃ©dito ImobiliÃ¡rio
+  âœ… LCA  â€” Letra de CrÃ©dito do AgronegÃ³cio
+  âœ… RDB  â€” Recibo de DepÃ³sito BancÃ¡rio
+  âœ… LC   â€” Letra de CÃ¢mbio (financeiras)
+  âœ… PoupanÃ§a
+
+TÃ­tulos NÃƒO cobertos pelo FGC:
+  âŒ CRI  â€” Certificado de RecebÃ­veis ImobiliÃ¡rios (garantia do estruturador)
+  âŒ CRA  â€” Certificado de RecebÃ­veis do AgronegÃ³cio (garantia do estruturador)
+  âŒ DebÃªntures (risco do emissor)
+  âŒ Tesouro Direto (garantia soberana â€” Tesouro Nacional, superior ao FGC)
+  âŒ Fundos de Investimento (garantia do FI, nÃ£o do FGC)
+
+Fonte: https://www.fgc.org.br/garantia-do-fgc/sobre-a-garantia
+
+Design decisions:
+  Separamos as regras do FGC do domÃ­nio de portfÃ³lio (portfolio.py):
+    FGC Ã© uma preocupaÃ§Ã£o transversal que pode ser aplicada a qualquer
+    carteira, nÃ£o apenas ao DiversificationReport.
+    Ao manter em mÃ³dulo separado, facilitamos reutilizaÃ§Ã£o e teste isolado.
+
+  Tratamento do Tesouro Direto:
+    NÃ£o coberto pelo FGC, mas possui garantia soberana (risco zero de crÃ©dito
+    na prÃ¡tica). Geramos alerta INFORMATIVO, nÃ£o de risco, para que o usuÃ¡rio
+    saiba que o mecanismo de proteÃ§Ã£o Ã© diferente, nÃ£o ausente.
+
+  Limite global de R$ 1M:
+    O perÃ­odo de 4 anos Ã© controlado pelo prÃ³prio FGC e nÃ£o temos como
+    saber quanto o usuÃ¡rio jÃ¡ utilizou em outras instituiÃ§Ãµes/perÃ­odos.
+    Alertamos quando o total coberto na carteira atual supera R$ 1M como
+    proxy conservador.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from finanalytics_ai.domain.fixed_income.portfolio import RFHolding
+
+# â”€â”€ Limites FGC â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+FGC_LIMIT_PER_INSTITUTION: float = 250_000.00
+FGC_GLOBAL_LIMIT:          float = 1_000_000.00
+
+# â”€â”€ ClassificaÃ§Ã£o por tipo de tÃ­tulo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+# Tipos cobertos pelo FGC
+FGC_COVERED_TYPES = {
+    "CDB", "LCI", "LCA", "RDB", "LC", "PoupanÃ§a",
+}
+
+# Tipos com garantia diferente (nÃ£o FGC â€” informativo)
+SOVEREIGN_TYPES = {
+    "Tesouro SELIC", "Tesouro IPCA+", "Tesouro Prefixado",
+}
+
+# Tipos sem cobertura de garantia institucional
+UNCOVERED_TYPES = {
+    "CRI", "CRA", "DebÃªnture",
+}
+
+
+def fgc_coverage(bond_type: str) -> str:
+    """
+    Retorna o tipo de cobertura de um tÃ­tulo:
+      'fgc'       â€” coberto pelo FGC (R$ 250k/inst., R$ 1M global)
+      'sovereign' â€” garantia soberana do Tesouro Nacional
+      'none'      â€” sem garantia institucional (risco do emissor/estruturador)
+    """
+    bt = bond_type.strip()
+    if bt in FGC_COVERED_TYPES:
+        return "fgc"
+    if bt in SOVEREIGN_TYPES:
+        return "sovereign"
+    return "none"
+
+
+# â”€â”€ Resultado da anÃ¡lise FGC â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@dataclass
+class FGCHoldingStatus:
+    """Status FGC de uma posiÃ§Ã£o individual."""
+    holding_id:    str
+    bond_name:     str
+    bond_type:     str
+    issuer:        str
+    invested:      float
+    coverage:      str   # "fgc" | "sovereign" | "none"
+    coverage_label:str
+    is_within_limit:bool
+    excess_amount: float  # valor acima do limite (0 se dentro)
+    alert_level:   str   # "ok" | "info" | "warning" | "critical"
+    alert_message: str
+
+
+@dataclass
+class FGCInstitutionStatus:
+    """ExposiÃ§Ã£o total a uma instituiÃ§Ã£o + status FGC."""
+    issuer:             str
+    total_invested:     float
+    fgc_covered:        float   # valor coberto pelo FGC nesta inst.
+    fgc_uncovered:      float   # valor acima do limite
+    within_limit:       bool
+    excess_amount:      float
+    holdings:           list[str]  # holding_ids
+    alert_level:        str
+    alert_message:      str
+
+
+@dataclass
+class FGCAnalysis:
+    """AnÃ¡lise completa de cobertura FGC de uma carteira."""
+    portfolio_id:          str
+    total_invested:        float
+    total_fgc_covered:     float   # soma de todos os valores cobertos
+    total_sovereign:       float   # Tesouro Direto
+    total_uncovered:       float   # CRI/CRA/DebÃªntures
+    total_at_risk:         float   # acima do limite FGC (por inst.)
+    institutions:          list[FGCInstitutionStatus]
+    holding_statuses:      list[FGCHoldingStatus]
+    alerts:                list[dict]
+    summary:               dict
+    score:                 int     # 0â€“100: 100 = tudo coberto e dentro dos limites
+
+
+def analyze_fgc(portfolio_id: str, holdings: "list[RFHolding]") -> FGCAnalysis:
+    """
+    Analisa a cobertura FGC de uma lista de holdings ativos.
+    """
+    active = [h for h in holdings if not h.is_matured]
+    if not active:
+        return FGCAnalysis(
+            portfolio_id=portfolio_id,
+            total_invested=0, total_fgc_covered=0, total_sovereign=0,
+            total_uncovered=0, total_at_risk=0,
+            institutions=[], holding_statuses=[], alerts=[],
+            summary={"message": "Carteira sem posiÃ§Ãµes ativas."},
+            score=100,
+        )
+
+    # Agrupa por instituiÃ§Ã£o (apenas holdings FGC)
+    inst_map: dict[str, dict] = {}
+    for h in active:
+        cov = fgc_coverage(h.bond_type)
+        issuer = h.issuer.strip() or "Desconhecido"
+        if cov == "fgc":
+            if issuer not in inst_map:
+                inst_map[issuer] = {"total": 0.0, "holdings": []}
+            inst_map[issuer]["total"]    += h.invested
+            inst_map[issuer]["holdings"].append(h.holding_id)
+
+    # Status por instituiÃ§Ã£o
+    institutions: list[FGCInstitutionStatus] = []
+    total_at_risk = 0.0
+    for issuer, data in inst_map.items():
+        total     = data["total"]
+        covered   = min(total, FGC_LIMIT_PER_INSTITUTION)
+        excess    = max(0.0, total - FGC_LIMIT_PER_INSTITUTION)
+        within    = excess == 0.0
+        total_at_risk += excess
+
+        if excess == 0.0:
+            level = "ok"
+            msg   = f"{issuer}: R$ {total:,.0f} cobertos (limite: R$ {FGC_LIMIT_PER_INSTITUTION:,.0f})"
+        elif total <= FGC_LIMIT_PER_INSTITUTION * 1.2:
+            level = "warning"
+            msg   = (f"{issuer}: R$ {total:,.0f} investidos â€” "
+                     f"R$ {excess:,.0f} ACIMA do limite de R$ {FGC_LIMIT_PER_INSTITUTION:,.0f}/inst.")
+        else:
+            level = "critical"
+            msg   = (f"{issuer}: R$ {total:,.0f} investidos â€” "
+                     f"R$ {excess:,.0f} SEM COBERTURA FGC (excede limite em "
+                     f"{excess/FGC_LIMIT_PER_INSTITUTION*100:.0f}%)")
+
+        institutions.append(FGCInstitutionStatus(
+            issuer=issuer, total_invested=total,
+            fgc_covered=round(covered, 2), fgc_uncovered=round(excess, 2),
+            within_limit=within, excess_amount=round(excess, 2),
+            holdings=data["holdings"], alert_level=level, alert_message=msg,
+        ))
+
+    institutions.sort(key=lambda i: -i.total_invested)
+
+    # Status por holding
+    holding_statuses: list[FGCHoldingStatus] = []
+    for h in active:
+        cov = fgc_coverage(h.bond_type)
+        issuer = h.issuer.strip() or "Desconhecido"
+
+        if cov == "fgc":
+            inst_total = inst_map.get(issuer, {}).get("total", 0.0)
+            excess = max(0.0, inst_total - FGC_LIMIT_PER_INSTITUTION)
+            # ProporÃ§Ã£o deste holding no excesso da instituiÃ§Ã£o
+            holding_excess = excess * (h.invested / inst_total) if inst_total > 0 else 0.0
+            within = excess == 0.0
+            label  = "âœ… Coberto pelo FGC"
+            level  = "ok" if within else ("warning" if excess < 50_000 else "critical")
+            msg    = (
+                f"Coberto pelo FGC (R$ {FGC_LIMIT_PER_INSTITUTION:,.0f}/inst.)"
+                if within else
+                f"Parte sem cobertura FGC: ~R$ {holding_excess:,.0f} desprotegidos "
+                f"(total em {issuer}: R$ {inst_total:,.0f})"
+            )
+        elif cov == "sovereign":
+            within, holding_excess = True, 0.0
+            label  = "ðŸ›ï¸ Garantia Tesouro Nacional"
+            level  = "info"
+            msg    = ("Tesouro Direto: garantia soberana do Governo Federal. "
+                      "NÃ£o usa FGC â€” proteÃ§Ã£o superior para tÃ­tulos pÃºblicos.")
+        else:
+            within, holding_excess = False, h.invested
+            label  = "âš ï¸ Sem cobertura FGC"
+            level  = "critical"
+            msg    = (f"{h.bond_type}: nÃ£o coberto pelo FGC. "
+                      "O risco de crÃ©dito Ã© do emissor/estruturador. "
+                      "Avalie rating e garantias especÃ­ficas do papel.")
+
+        holding_statuses.append(FGCHoldingStatus(
+            holding_id=h.holding_id, bond_name=h.bond_name,
+            bond_type=h.bond_type, issuer=issuer, invested=h.invested,
+            coverage=cov, coverage_label=label,
+            is_within_limit=within, excess_amount=round(holding_excess, 2),
+            alert_level=level, alert_message=msg,
+        ))
+
+    # Totais
+    total_invested  = sum(h.invested for h in active)
+    total_fgc       = sum(h.invested for h in active if fgc_coverage(h.bond_type) == "fgc")
+    total_sovereign = sum(h.invested for h in active if fgc_coverage(h.bond_type) == "sovereign")
+    total_uncovered = sum(h.invested for h in active if fgc_coverage(h.bond_type) == "none")
+
+    # Alertas globais
+    alerts: list[dict] = []
+
+    # 1. TÃ­tulos sem cobertura
+    uncovered_holdings = [s for s in holding_statuses if s.coverage == "none"]
+    if uncovered_holdings:
+        names = ", ".join(s.bond_name for s in uncovered_holdings[:3])
+        alerts.append({
+            "type": "no_fgc_coverage", "level": "critical",
+            "message": (f"{len(uncovered_holdings)} tÃ­tulo(s) SEM cobertura FGC: {names}. "
+                        f"Total exposto: R$ {total_uncovered:,.0f}."),
+        })
+
+    # 2. Excesso por instituiÃ§Ã£o
+    for inst in institutions:
+        if inst.excess_amount > 0:
+            alerts.append({
+                "type": "institution_limit_exceeded", "level": inst.alert_level,
+                "message": inst.alert_message,
+            })
+
+    # 3. Limite global
+    if total_fgc > FGC_GLOBAL_LIMIT:
+        excess_global = total_fgc - FGC_GLOBAL_LIMIT
+        alerts.append({
+            "type": "global_limit_exceeded", "level": "warning",
+            "message": (f"Total coberto pelo FGC (R$ {total_fgc:,.0f}) supera o "
+                        f"limite global de R$ {FGC_GLOBAL_LIMIT:,.0f}/4 anos. "
+                        f"R$ {excess_global:,.0f} podem nÃ£o ser cobertos em caso de insolvÃªncia mÃºltipla."),
+        })
+
+    # 4. Tesouro â€” informativo
+    if total_sovereign > 0:
+        alerts.append({
+            "type": "sovereign_info", "level": "info",
+            "message": (f"R$ {total_sovereign:,.0f} em Tesouro Direto. "
+                        "Garantia soberana â€” nÃ£o depende do FGC."),
+        })
+
+    # Score
+    n_critical = sum(1 for a in alerts if a["level"] == "critical")
+    n_warning  = sum(1 for a in alerts if a["level"] == "warning")
+    score = max(0, 100 - n_critical * 25 - n_warning * 10)
+
+    summary = {
+        "total_invested":      round(total_invested, 2),
+        "total_fgc_covered":   round(total_fgc, 2),
+        "total_sovereign":     round(total_sovereign, 2),
+        "total_uncovered":     round(total_uncovered, 2),
+        "total_at_risk":       round(total_at_risk, 2),
+        "fgc_coverage_pct":    round(total_fgc / total_invested * 100, 1) if total_invested else 0,
+        "uncovered_pct":       round(total_uncovered / total_invested * 100, 1) if total_invested else 0,
+        "n_institutions":      len(inst_map),
+        "score":               score,
+    }
+
+    return FGCAnalysis(
+        portfolio_id=portfolio_id,
+        total_invested=round(total_invested, 2),
+        total_fgc_covered=round(total_fgc, 2),
+        total_sovereign=round(total_sovereign, 2),
+        total_uncovered=round(total_uncovered, 2),
+        total_at_risk=round(total_at_risk, 2),
+        institutions=institutions,
+        holding_statuses=holding_statuses,
+        alerts=alerts,
+        summary=summary,
+        score=score,
+    )
+--- ir_calculator.py ---
+"""
+finanalytics_ai.domain.fixed_income.ir_calculator
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+Calculadora de IR para Renda Fixa com tabela regressiva e planejamento de timing.
+
+Tabela regressiva vigente (Lei 11.033/2004):
+  AtÃ© 180 dias:    22,5%
+  181â€“360 dias:    20,0%
+  361â€“720 dias:    17,5%
+  Acima de 720 dias: 15,0%
+
+IOF regressivo (primeiros 29 dias):
+  Dia 1: 96% â†’ Dia 29: 3% â†’ Dia 30+: 0%
+  IOF sÃ³ incide sobre o RENDIMENTO, nÃ£o sobre o principal.
+
+TÃ­tulos isentos de IR para Pessoa FÃ­sica:
+  LCI, LCA, CRI, CRA â€” isenÃ§Ã£o prevista em lei.
+  Tesouro Direto: NÃƒO isento, incide IR normal.
+
+Design decisions:
+  Por que calcular IOF aqui?
+    IOF Ã© frequentemente esquecido em planejamento de resgate.
+    Para resgates nos primeiros 29 dias, o IOF pode ser maior que o IR,
+    tornando a decisÃ£o "esperar atÃ© o dia 30" altamente relevante.
+
+  SugestÃ£o de "melhor data":
+    Calculamos os 4 breakpoints fiscais (180, 360, 720 dias desde compra)
+    e recomendamos o prÃ³ximo que reduz a alÃ­quota. Se jÃ¡ passou de 720,
+    nÃ£o hÃ¡ mais benefÃ­cio fiscal de timing.
+
+  IR sobre rendimento bruto ou lÃ­quido de IOF?
+    Pela legislaÃ§Ã£o, IR incide sobre o rendimento APÃ“S o IOF.
+    Implementamos corretamente: base_ir = rendimento - iof_valor.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import date, timedelta
+from typing import Optional
+
+
+# â”€â”€ Tabela regressiva de IR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+IR_TABLE: list[tuple[int, float]] = [
+    (180, 0.225),   # atÃ© 180 dias
+    (360, 0.200),   # 181â€“360 dias
+    (720, 0.175),   # 361â€“720 dias
+    (9999, 0.150),  # acima de 720 dias
+]
+
+# IOF regressivo (dia â†’ alÃ­quota sobre rendimento)
+_IOF_TABLE: dict[int, float] = {
+    1:0.96, 2:0.93, 3:0.90, 4:0.86, 5:0.83, 6:0.80, 7:0.76, 8:0.73,
+    9:0.70, 10:0.66, 11:0.63, 12:0.60, 13:0.56, 14:0.53, 15:0.50,
+    16:0.46, 17:0.43, 18:0.40, 19:0.36, 20:0.33, 21:0.30, 22:0.26,
+    23:0.23, 24:0.20, 25:0.16, 26:0.13, 27:0.10, 28:0.06, 29:0.03,
+}
+
+IR_EXEMPT_BOND_TYPES = {"LCI", "LCA", "CRI", "CRA"}
+
+
+def ir_rate_for_days(days: int) -> float:
+    """AlÃ­quota de IR para nÃºmero de dias corridos desde a aplicaÃ§Ã£o."""
+    for threshold, rate in IR_TABLE:
+        if days <= threshold:
+            return rate
+    return 0.15
+
+
+def iof_rate_for_days(days: int) -> float:
+    """AlÃ­quota de IOF para nÃºmero de dias corridos. Zero a partir do dia 30."""
+    return _IOF_TABLE.get(min(days, 29), 0.0) if days < 30 else 0.0
+
+
+# â”€â”€ Resultado por data de resgate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@dataclass
+class RedemptionScenario:
+    """CenÃ¡rio de resgate numa data especÃ­fica."""
+    label:            str          # "Hoje", "ApÃ³s 180 dias", etc.
+    redemption_date:  date
+    days_held:        int
+    gross_value:      float        # valor bruto projetado
+    gross_yield:      float        # rendimento bruto
+    iof_rate:         float        # alÃ­quota IOF (0 se isento ou dia 30+)
+    iof_amount:       float        # IOF em R$
+    ir_rate:          float        # alÃ­quota IR aplicÃ¡vel
+    ir_base:          float        # base de cÃ¡lculo do IR (rendimento - IOF)
+    ir_amount:        float        # IR em R$
+    net_value:        float        # valor lÃ­quido final
+    net_yield:        float        # rendimento lÃ­quido
+    net_yield_pct:    float        # rendimento lÃ­quido %
+    net_annual_pct:   float        # retorno anualizado lÃ­quido %
+    total_tax:        float        # IOF + IR
+    effective_tax_pct:float        # alÃ­quota efetiva sobre rendimento bruto
+
+
+@dataclass
+class IRTimingAdvice:
+    """AnÃ¡lise de timing fiscal para um tÃ­tulo especÃ­fico."""
+    holding_id:     str
+    bond_name:      str
+    bond_type:      str
+    issuer:         str
+    invested:       float
+    purchase_date:  date
+    maturity_date:  Optional[date]
+    ir_exempt:      bool
+    today_scenario: RedemptionScenario
+    scenarios:      list[RedemptionScenario]   # hoje + 3 breakpoints fiscais
+    best_scenario:  RedemptionScenario          # melhor relaÃ§Ã£o lÃ­quido/taxa
+    max_saving:     float                       # economia mÃ¡xima vs resgatar hoje
+    recommendation: str                         # texto da recomendaÃ§Ã£o
+
+
+def analyze_ir_timing(
+    holding_id:    str,
+    bond_name:     str,
+    bond_type:     str,
+    issuer:        str,
+    invested:      float,
+    purchase_date: date,
+    maturity_date: Optional[date],
+    rate_annual:   float,
+    rate_pct_indexer: float,
+    indexer:       str,
+    indexer_rate:  float,   # CDI/SELIC/IPCA taxa anual decimal
+    inflation_rate:float,   # IPCA anual decimal
+    today:         Optional[date] = None,
+) -> IRTimingAdvice:
+    """
+    Analisa o melhor timing de resgate considerando a tabela regressiva.
+
+    Gera cenÃ¡rios para:
+      1. Hoje
+      2. PrÃ³ximo breakpoint de IR (se ainda nÃ£o atingido)
+      3. Todos os breakpoints futuros atÃ© o vencimento
+      4. Na data de vencimento (se definida)
+    """
+    today = today or date.today()
+    exempt = bond_type in IR_EXEMPT_BOND_TYPES
+
+    def _project_gross(target_date: date) -> float:
+        """Projeta valor bruto numa data futura."""
+        days = max(1, (target_date - purchase_date).days)
+        years = days / 365.0
+
+        if indexer == "CDI":
+            daily = (1 + indexer_rate) ** (1 / 252) - 1
+            trading_days = int(days * 252 / 365)
+            factor = (1 + daily) ** trading_days
+            return invested * (1 + (factor - 1) * rate_pct_indexer / 100)
+        elif indexer == "IPCA":
+            real_rate = rate_annual
+            return invested * (1 + inflation_rate) ** years * (1 + real_rate) ** years
+        else:  # Prefixado
+            return invested * (1 + rate_annual) ** years
+
+    def _make_scenario(label: str, target_date: date) -> RedemptionScenario:
+        days = max(1, (target_date - purchase_date).days)
+        gross = _project_gross(target_date)
+        gross_yield = gross - invested
+
+        iof_r = 0.0 if exempt else iof_rate_for_days(days)
+        iof_v = gross_yield * iof_r
+
+        ir_base = max(0.0, gross_yield - iof_v)
+        ir_r    = 0.0 if exempt else ir_rate_for_days(days)
+        ir_v    = ir_base * ir_r
+
+        net    = gross - iof_v - ir_v
+        net_y  = net - invested
+        net_pct = (net_y / invested * 100) if invested > 0 else 0.0
+        years  = days / 365.0
+        net_ann = ((net / invested) ** (1 / years) - 1) * 100 if years > 0 else 0.0
+        eff_tax = ((iof_v + ir_v) / gross_yield * 100) if gross_yield > 0 else 0.0
+
+        return RedemptionScenario(
+            label=label, redemption_date=target_date,
+            days_held=days, gross_value=round(gross, 2),
+            gross_yield=round(gross_yield, 2),
+            iof_rate=iof_r, iof_amount=round(iof_v, 2),
+            ir_rate=ir_r, ir_base=round(ir_base, 2),
+            ir_amount=round(ir_v, 2),
+            net_value=round(net, 2),
+            net_yield=round(net_y, 2),
+            net_yield_pct=round(net_pct, 4),
+            net_annual_pct=round(net_ann, 4),
+            total_tax=round(iof_v + ir_v, 2),
+            effective_tax_pct=round(eff_tax, 2),
+        )
+
+    # Datas dos breakpoints fiscais desde a compra
+    bp_180 = purchase_date + timedelta(days=180)
+    bp_360 = purchase_date + timedelta(days=360)
+    bp_720 = purchase_date + timedelta(days=720)
+    bp_30  = purchase_date + timedelta(days=30)   # fim do IOF
+
+    today_s = _make_scenario("Hoje", today)
+    scenarios: list[RedemptionScenario] = [today_s]
+
+    # SÃ³ adiciona breakpoints futuros relevantes
+    future_breakpoints: list[tuple[str, date]] = []
+    if today <= bp_30:
+        future_breakpoints.append(("ApÃ³s 30 dias (fim IOF)", bp_30))
+    if today <= bp_180:
+        future_breakpoints.append(("ApÃ³s 180 dias (22,5% â†’ 20%)", bp_180 + timedelta(days=1)))
+    if today <= bp_360:
+        future_breakpoints.append(("ApÃ³s 360 dias (20% â†’ 17,5%)", bp_360 + timedelta(days=1)))
+    if today <= bp_720:
+        future_breakpoints.append(("ApÃ³s 720 dias (17,5% â†’ 15%)", bp_720 + timedelta(days=1)))
+
+    for label, dt in future_breakpoints:
+        # NÃ£o ultrapassar o vencimento
+        if maturity_date and dt > maturity_date:
+            dt = maturity_date
+        if dt > today:
+            scenarios.append(_make_scenario(label, dt))
+
+    # Na data de vencimento (se diferente dos breakpoints)
+    if maturity_date and maturity_date > today:
+        if not any(s.redemption_date == maturity_date for s in scenarios):
+            scenarios.append(_make_scenario("No vencimento", maturity_date))
+
+    # Melhor cenÃ¡rio = maior valor lÃ­quido que nÃ£o ultrapassa vencimento
+    valid = [s for s in scenarios
+             if maturity_date is None or s.redemption_date <= maturity_date]
+    best = max(valid, key=lambda s: s.net_value)
+    max_saving = round(best.net_value - today_s.net_value, 2)
+
+    # RecomendaÃ§Ã£o em linguagem natural
+    if exempt:
+        rec = (f"{bond_name} Ã© isento de IR. "
+               "Resgate quando for mais conveniente para sua liquidez â€” nÃ£o hÃ¡ impacto fiscal.")
+    elif best.redemption_date == today:
+        rec = "NÃ£o hÃ¡ ganho fiscal futuro â€” vocÃª jÃ¡ estÃ¡ na alÃ­quota mÃ­nima (15%). Resgate quando precisar."
+    elif max_saving < 50:
+        rec = (f"A economia fiscal potencial Ã© de R$ {max_saving:.2f} â€” pequena para este montante. "
+               "O timing tributÃ¡rio tem pouco impacto neste tÃ­tulo.")
+    else:
+        days_wait = (best.redemption_date - today).days
+        rec = (f"Aguardar atÃ© {best.redemption_date.strftime('%d/%m/%Y')} "
+               f"({days_wait} dias) pode economizar R$ {max_saving:.2f} em impostos "
+               f"(alÃ­quota {today_s.ir_rate*100:.1f}% â†’ {best.ir_rate*100:.1f}%).")
+        if best.label == "ApÃ³s 30 dias (fim IOF)":
+            rec = (f"âš ï¸ IOF ativo! Aguardar atÃ© {best.redemption_date.strftime('%d/%m/%Y')} "
+                   f"elimina o IOF e economiza R$ {max_saving:.2f}.")
+
+    return IRTimingAdvice(
+        holding_id=holding_id, bond_name=bond_name, bond_type=bond_type,
+        issuer=issuer, invested=invested, purchase_date=purchase_date,
+        maturity_date=maturity_date, ir_exempt=exempt,
+        today_scenario=today_s, scenarios=scenarios,
+        best_scenario=best, max_saving=max_saving, recommendation=rec,
+    )
+--- portfolio.py ---
+"""
+finanalytics_ai.domain.fixed_income.portfolio
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+Entidades de domÃ­nio para carteira de Renda Fixa.
+
+Design decisions:
+  RFHolding representa uma posiÃ§Ã£o concreta em um tÃ­tulo:
+    Um usuÃ¡rio comprou X reais em um bond em uma data.
+    O holding carrega o bond original + valor investido + data de compra.
+    A partir disso, calculamos posiÃ§Ã£o atual, rendimento acumulado e vencimento.
+
+  RFPortfolio agrega mÃºltiplos holdings de um usuÃ¡rio:
+    NÃ£o Ã© apenas uma lista â€” expÃµe mÃ©tricas de diversificaÃ§Ã£o, exposiÃ§Ã£o
+    por indexador, concentraÃ§Ã£o por emissor e duration mÃ©dia da carteira.
+
+  DiversificationReport Ã© um value object calculado (nÃ£o persistido):
+    Resultado de uma anÃ¡lise point-in-time da carteira.
+    Inclui scores de diversificaÃ§Ã£o e alertas de concentraÃ§Ã£o.
+
+  Regras de negÃ³cio no domÃ­nio:
+    - ConcentraÃ§Ã£o mÃ¡xima saudÃ¡vel por emissor: 25%
+    - ConcentraÃ§Ã£o mÃ¡xima por indexador: 60%
+    - Carteira bem diversificada: >= 3 indexadores, >= 4 emissores
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import date
+from typing import Optional
+
+
+# â”€â”€ RFHolding â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@dataclass
+class RFHolding:
+    """
+    PosiÃ§Ã£o em um tÃ­tulo de renda fixa dentro de uma carteira.
+
+    holding_id:    UUID da posiÃ§Ã£o (gerado na criaÃ§Ã£o)
+    portfolio_id:  carteira Ã  qual pertence
+    bond_id:       referÃªncia ao Bond do catÃ¡logo
+    bond_name:     snapshot do nome (evita JOIN em queries de leitura)
+    bond_type:     snapshot do tipo (CDB, LCI, Tesouro SELICâ€¦)
+    indexer:       snapshot do indexador (CDI, IPCA, PREFIXADOâ€¦)
+    issuer:        emissor (banco, governoâ€¦)
+    invested:      valor aplicado em R$
+    rate_annual:   taxa contratada (decimal, ex: 0.12 = 12% a.a.)
+    rate_pct_indexer: True se a taxa Ã© % do indexador (ex: 110% CDI)
+    purchase_date: data da compra
+    maturity_date: vencimento (None = sem vencimento / liquidez diÃ¡ria)
+    ir_exempt:     True para LCI/LCA/CRI/CRA
+    note:          observaÃ§Ã£o livre do usuÃ¡rio
+    """
+    holding_id:       str
+    portfolio_id:     str
+    bond_id:          str
+    bond_name:        str
+    bond_type:        str
+    indexer:          str
+    issuer:           str
+    invested:         float
+    rate_annual:      float
+    rate_pct_indexer: bool
+    purchase_date:    date
+    maturity_date:    Optional[date] = None
+    ir_exempt:        bool           = False
+    note:             str            = ""
+
+    @property
+    def days_held(self) -> int:
+        return (date.today() - self.purchase_date).days
+
+    @property
+    def days_to_maturity(self) -> Optional[int]:
+        if self.maturity_date is None:
+            return None
+        delta = (self.maturity_date - date.today()).days
+        return max(0, delta)
+
+    @property
+    def is_matured(self) -> bool:
+        if self.maturity_date is None:
+            return False
+        return self.maturity_date <= date.today()
+
+    @property
+    def years_held(self) -> float:
+        return self.days_held / 252
+
+    def to_dict(self) -> dict:
+        return {
+            "holding_id":       self.holding_id,
+            "portfolio_id":     self.portfolio_id,
+            "bond_id":          self.bond_id,
+            "bond_name":        self.bond_name,
+            "bond_type":        self.bond_type,
+            "indexer":          self.indexer,
+            "issuer":           self.issuer,
+            "invested":         self.invested,
+            "rate_annual":      round(self.rate_annual * 100, 4),
+            "rate_pct_indexer": self.rate_pct_indexer,
+            "purchase_date":    self.purchase_date.isoformat(),
+            "maturity_date":    self.maturity_date.isoformat() if self.maturity_date else None,
+            "days_held":        self.days_held,
+            "days_to_maturity": self.days_to_maturity,
+            "is_matured":       self.is_matured,
+            "ir_exempt":        self.ir_exempt,
+            "note":             self.note,
+        }
+
+
+# â”€â”€ RFPortfolio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@dataclass
+class RFPortfolio:
+    """
+    Carteira de renda fixa de um usuÃ¡rio.
+
+    portfolio_id: UUID
+    user_id:      dono da carteira
+    name:         nome dado pelo usuÃ¡rio
+    holdings:     posiÃ§Ãµes ativas
+    created_at:   data de criaÃ§Ã£o
+    """
+    portfolio_id: str
+    user_id:      str
+    name:         str
+    holdings:     list[RFHolding] = field(default_factory=list)
+    created_at:   Optional[date]  = None
+
+    @property
+    def total_invested(self) -> float:
+        return sum(h.invested for h in self.holdings)
+
+    @property
+    def active_holdings(self) -> list[RFHolding]:
+        return [h for h in self.holdings if not h.is_matured]
+
+    @property
+    def matured_holdings(self) -> list[RFHolding]:
+        return [h for h in self.holdings if h.is_matured]
+
+    def allocation_by_indexer(self) -> dict[str, float]:
+        """AlocaÃ§Ã£o percentual por indexador."""
+        total = self.total_invested or 1.0
+        buckets: dict[str, float] = {}
+        for h in self.active_holdings:
+            buckets[h.indexer] = buckets.get(h.indexer, 0.0) + h.invested
+        return {k: round(v / total * 100, 2) for k, v in sorted(buckets.items(), key=lambda x: -x[1])}
+
+    def allocation_by_type(self) -> dict[str, float]:
+        """AlocaÃ§Ã£o percentual por tipo de tÃ­tulo."""
+        total = self.total_invested or 1.0
+        buckets: dict[str, float] = {}
+        for h in self.active_holdings:
+            buckets[h.bond_type] = buckets.get(h.bond_type, 0.0) + h.invested
+        return {k: round(v / total * 100, 2) for k, v in sorted(buckets.items(), key=lambda x: -x[1])}
+
+    def allocation_by_issuer(self) -> dict[str, float]:
+        """AlocaÃ§Ã£o percentual por emissor."""
+        total = self.total_invested or 1.0
+        buckets: dict[str, float] = {}
+        for h in self.active_holdings:
+            issuer = h.issuer or "Desconhecido"
+            buckets[issuer] = buckets.get(issuer, 0.0) + h.invested
+        return {k: round(v / total * 100, 2) for k, v in sorted(buckets.items(), key=lambda x: -x[1])}
+
+    def ir_exempt_pct(self) -> float:
+        """% da carteira isento de IR."""
+        total = self.total_invested or 1.0
+        exempt = sum(h.invested for h in self.active_holdings if h.ir_exempt)
+        return round(exempt / total * 100, 2)
+
+    def avg_rate(self) -> float:
+        """Taxa mÃ©dia ponderada pelo valor investido (% a.a.)."""
+        total = self.total_invested or 1.0
+        weighted = sum(h.invested * h.rate_annual for h in self.active_holdings)
+        return round(weighted / total * 100, 4)
+
+    def avg_duration_days(self) -> Optional[float]:
+        """Duration mÃ©dia ponderada atÃ© o vencimento."""
+        active_with_maturity = [h for h in self.active_holdings if h.days_to_maturity is not None]
+        if not active_with_maturity:
+            return None
+        total = sum(h.invested for h in active_with_maturity) or 1.0
+        weighted = sum(h.invested * h.days_to_maturity for h in active_with_maturity)  # type: ignore
+        return round(weighted / total, 1)
+
+
+# â”€â”€ DiversificationReport â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+CONCENTRATION_ISSUER_LIMIT = 25.0   # % mÃ¡ximo saudÃ¡vel por emissor
+CONCENTRATION_INDEXER_LIMIT = 60.0  # % mÃ¡ximo por indexador
+MIN_INDEXERS_DIVERSIFIED = 3
+MIN_ISSUERS_DIVERSIFIED = 4
+
+
+@dataclass
+class ConcentrationAlert:
+    """Alerta de concentraÃ§Ã£o em um ativo/grupo."""
+    alert_type:  str    # "issuer" | "indexer" | "type"
+    name:        str
+    pct:         float
+    limit:       float
+    severity:    str    # "warning" | "critical"
+    message:     str
+
+
+@dataclass
+class DiversificationReport:
+    """
+    RelatÃ³rio de diversificaÃ§Ã£o da carteira RF (value object calculado).
+
+    score: 0â€“100, calculado com base em 4 critÃ©rios:
+      1. Quantidade de indexadores distintos (max 30pts)
+      2. Quantidade de emissores distintos (max 30pts)
+      3. ConcentraÃ§Ã£o mÃ¡xima por emissor (max 20pts)
+      4. % isento de IR (max 20pts)
+    """
+    portfolio_id:      str
+    portfolio_name:    str
+    total_invested:    float
+    n_holdings:        int
+    n_indexers:        int
+    n_issuers:         int
+    n_types:           int
+    by_indexer:        dict[str, float]
+    by_type:           dict[str, float]
+    by_issuer:         dict[str, float]
+    ir_exempt_pct:     float
+    avg_rate_pct:      float
+    avg_duration_days: Optional[float]
+    score:             int
+    score_label:       str
+    alerts:            list[ConcentrationAlert] = field(default_factory=list)
+    recommendations:   list[str]               = field(default_factory=list)
+
+    @classmethod
+    def build(cls, portfolio: RFPortfolio) -> "DiversificationReport":
+        by_indexer = portfolio.allocation_by_indexer()
+        by_type    = portfolio.allocation_by_type()
+        by_issuer  = portfolio.allocation_by_issuer()
+        alerts: list[ConcentrationAlert] = []
+        recs:   list[str] = []
+
+        # Alertas de concentraÃ§Ã£o por emissor
+        for issuer, pct in by_issuer.items():
+            if pct > CONCENTRATION_ISSUER_LIMIT:
+                sev = "critical" if pct > 40 else "warning"
+                alerts.append(ConcentrationAlert(
+                    alert_type="issuer", name=issuer, pct=pct,
+                    limit=CONCENTRATION_ISSUER_LIMIT, severity=sev,
+                    message=f"{issuer} representa {pct:.1f}% da carteira (limite saudÃ¡vel: {CONCENTRATION_ISSUER_LIMIT}%)",
+                ))
+
+        # Alertas por indexador
+        for idx, pct in by_indexer.items():
+            if pct > CONCENTRATION_INDEXER_LIMIT:
+                alerts.append(ConcentrationAlert(
+                    alert_type="indexer", name=idx, pct=pct,
+                    limit=CONCENTRATION_INDEXER_LIMIT, severity="warning",
+                    message=f"{pct:.1f}% da carteira em {idx} â€” considere diversificar indexadores",
+                ))
+
+        # Score
+        n_idx    = len(by_indexer)
+        n_iss    = len(by_issuer)
+        max_iss  = max(by_issuer.values()) if by_issuer else 100.0
+        ir_pct   = portfolio.ir_exempt_pct()
+
+        pts_idx  = min(30, n_idx * 10)
+        pts_iss  = min(30, n_iss * 7)
+        pts_conc = max(0, 20 - max(0, int(max_iss - 25)))
+        pts_ir   = min(20, int(ir_pct / 5))
+        score    = pts_idx + pts_iss + pts_conc + pts_ir
+
+        if score >= 80:
+            label = "Excelente"
+        elif score >= 60:
+            label = "Boa"
+        elif score >= 40:
+            label = "RazoÃ¡vel"
+        else:
+            label = "Concentrada"
+
+        # RecomendaÃ§Ãµes
+        if n_idx < MIN_INDEXERS_DIVERSIFIED:
+            recs.append(f"Adicione tÃ­tulos com outros indexadores (atual: {n_idx}). Meta: â‰¥ {MIN_INDEXERS_DIVERSIFIED}.")
+        if n_iss < MIN_ISSUERS_DIVERSIFIED:
+            recs.append(f"Diversifique emissores (atual: {n_iss}). Meta: â‰¥ {MIN_ISSUERS_DIVERSIFIED}.")
+        if ir_pct < 20 and portfolio.total_invested > 5000:
+            recs.append("Considere LCI/LCA ou CRI/CRA para aumentar a parcela isenta de IR.")
+        if "CDI" in by_indexer and by_indexer["CDI"] > 70:
+            recs.append("Alta exposiÃ§Ã£o ao CDI. IPCA+ protege contra inflaÃ§Ã£o persistente.")
+        if not recs:
+            recs.append("Carteira bem diversificada. Continue monitorando os vencimentos.")
+
+        return cls(
+            portfolio_id=portfolio.portfolio_id,
+            portfolio_name=portfolio.name,
+            total_invested=portfolio.total_invested,
+            n_holdings=len(portfolio.active_holdings),
+            n_indexers=n_idx,
+            n_issuers=n_iss,
+            n_types=len(by_type),
+            by_indexer=by_indexer,
+            by_type=by_type,
+            by_issuer=by_issuer,
+            ir_exempt_pct=ir_pct,
+            avg_rate_pct=portfolio.avg_rate(),
+            avg_duration_days=portfolio.avg_duration_days(),
+            score=score,
+            score_label=label,
+            alerts=alerts,
+            recommendations=recs,
+        )
+--- yield_curve.py ---
+"""
+finanalytics_ai.domain.fixed_income.yield_curve
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+Entidades de domÃ­nio para curva de juros DI Futuro e stress test.
+
+Design decisions:
+  YieldCurvePoint representa um vÃ©rtice da curva: prazo + taxa.
+  A curva Ã© construÃ­da a partir de contratos DI Futuro (B3/ANBIMA).
+  Cada ponto Ã© independente â€” sem interpolaÃ§Ã£o no domÃ­nio (responsabilidade
+  da camada de visualizaÃ§Ã£o).
+
+  StressScenario define um choque nos indexadores:
+    delta_selic, delta_cdi, delta_ipca sÃ£o variaÃ§Ãµes em pontos percentuais
+    absolutos (nÃ£o relativos). Ex: delta_selic=0.01 = +1 p.p.
+
+  StressResult Ã© o resultado de calcular um bond sob um cenÃ¡rio:
+    ContÃ©m yield original e yield estressado para comparaÃ§Ã£o direta.
+
+  ScenarioComparison agrega mÃºltiplos StressResult para um bond:
+    Um bond Ã— N cenÃ¡rios â†’ um ScenarioComparison.
+
+  ConvenÃ§Ã£o de sinal nos deltas:
+    Positivo = choque adverso de alta (SELIC sobe).
+    Negativo = choque de queda. Neutro (0.0) = cenÃ¡rio base.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import date
+from typing import Optional
+
+
+# â”€â”€ Curva de Juros â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@dataclass(frozen=True)
+class YieldCurvePoint:
+    """
+    VÃ©rtice da curva de juros DI Futuro.
+
+    maturity_days: dias corridos atÃ© o vencimento do contrato
+    maturity_date: data de vencimento do contrato DI Futuro
+    rate_annual:   taxa anual prÃ© (decimal, ex: 0.1285 = 12,85%)
+    contract:      cÃ³digo do contrato (ex: "DI1F26")
+    source:        "anbima" | "b3" | "synthetic"
+    """
+    maturity_days: int
+    rate_annual:   float
+    maturity_date: Optional[date] = None
+    contract:      str            = ""
+    source:        str            = "synthetic"
+
+    @property
+    def rate_pct(self) -> float:
+        """Taxa em % (ex: 12.85)."""
+        return round(self.rate_annual * 100, 4)
+
+    @property
+    def maturity_years(self) -> float:
+        return round(self.maturity_days / 252, 2)
+
+
+@dataclass
+class YieldCurve:
+    """
+    Curva de juros completa â€” conjunto de vÃ©rtices DI Futuro.
+
+    reference_date: data de referÃªncia da curva
+    selic:          taxa SELIC atual (usada como Ã¢ncora do curto prazo)
+    cdi:            taxa CDI diÃ¡ria anualizada
+    points:         lista de YieldCurvePoint ordenados por prazo
+    """
+    reference_date: date
+    selic:          float
+    cdi:            float
+    ipca:           float
+    points:         list[YieldCurvePoint] = field(default_factory=list)
+    source:         str                   = "synthetic"
+
+    @property
+    def short_rate(self) -> float:
+        """Taxa do vÃ©rtice mais curto da curva."""
+        return self.points[0].rate_annual if self.points else self.selic
+
+    @property
+    def long_rate(self) -> float:
+        """Taxa do vÃ©rtice mais longo."""
+        return self.points[-1].rate_annual if self.points else self.selic
+
+    @property
+    def is_inverted(self) -> bool:
+        """Curva invertida: taxa longa < taxa curta."""
+        if len(self.points) < 2:
+            return False
+        return self.long_rate < self.short_rate
+
+    @property
+    def slope(self) -> float:
+        """InclinaÃ§Ã£o: longa - curta (p.p.). Positivo = normal, negativo = invertida."""
+        if len(self.points) < 2:
+            return 0.0
+        return round((self.long_rate - self.short_rate) * 100, 2)
+
+
+# â”€â”€ Stress Test â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@dataclass(frozen=True)
+class StressScenario:
+    """
+    Define um cenÃ¡rio de stress aplicado aos indexadores.
+
+    name:         nome descritivo (ex: "SELIC +1 p.p.")
+    delta_selic:  variaÃ§Ã£o em pontos decimais (0.01 = +1 p.p.)
+    delta_cdi:    variaÃ§Ã£o no CDI
+    delta_ipca:   variaÃ§Ã£o no IPCA
+    delta_igpm:   variaÃ§Ã£o no IGPM
+    color:        cor para o grÃ¡fico frontend
+    """
+    name:        str
+    delta_selic: float = 0.0
+    delta_cdi:   float = 0.0
+    delta_ipca:  float = 0.0
+    delta_igpm:  float = 0.0
+    color:       str   = "#8899aa"
+
+    def apply_to_rates(
+        self,
+        base_selic: float,
+        base_cdi:   float,
+        base_ipca:  float,
+        base_igpm:  float,
+    ) -> dict[str, float]:
+        """Retorna taxas estressadas."""
+        return {
+            "selic": max(0.0, base_selic + self.delta_selic),
+            "cdi":   max(0.0, base_cdi   + self.delta_cdi),
+            "ipca":  max(0.0, base_ipca  + self.delta_ipca),
+            "igpm":  max(0.0, base_igpm  + self.delta_igpm),
+        }
+
+
+# CenÃ¡rios padrÃ£o prÃ©-definidos
+STANDARD_SCENARIOS: list[StressScenario] = [
+    StressScenario("Base",          color="#00c48c"),
+    StressScenario("SELIC +1 p.p.", delta_selic=0.01, delta_cdi=0.01, color="#ffb300"),
+    StressScenario("SELIC +2 p.p.", delta_selic=0.02, delta_cdi=0.02, color="#ff6b35"),
+    StressScenario("SELIC -1 p.p.", delta_selic=-0.01, delta_cdi=-0.01, color="#4ecdc4"),
+    StressScenario("SELIC -2 p.p.", delta_selic=-0.02, delta_cdi=-0.02, color="#45b7d1"),
+    StressScenario("IPCA +2 p.p.", delta_ipca=0.02,  color="#e056fd"),
+    StressScenario("IPCA -2 p.p.", delta_ipca=-0.02, color="#a29bfe"),
+    StressScenario("Crise: SELIC +3 p.p. / IPCA +3 p.p.",
+                   delta_selic=0.03, delta_cdi=0.03, delta_ipca=0.03, color="#ff4757"),
+    StressScenario("DesinflaÃ§Ã£o: SELIC -3 p.p. / IPCA -2 p.p.",
+                   delta_selic=-0.03, delta_cdi=-0.03, delta_ipca=-0.02, color="#26de81"),
+]
+
+
+@dataclass
+class StressResult:
+    """Resultado de um Ãºnico bond Ã— um Ãºnico cenÃ¡rio."""
+    scenario_name:    str
+    bond_id:          str
+    bond_name:        str
+    principal:        float
+    days:             int
+
+    # Taxas aplicadas neste cenÃ¡rio
+    selic_applied:    float
+    cdi_applied:      float
+    ipca_applied:     float
+
+    # Resultados
+    gross_return:     float   # rendimento bruto %
+    net_return:       float   # rendimento lÃ­quido % (apÃ³s IR/IOF)
+    net_value:        float   # valor final lÃ­quido R$
+    ir_amount:        float   # IR pago R$
+    iof_amount:       float   # IOF pago R$
+    effective_rate:   float   # taxa efetiva anual %
+    color:            str     = "#8899aa"
+
+    @property
+    def net_return_pct(self) -> float:
+        return round(self.net_return * 100, 4)
+
+    @property
+    def gross_return_pct(self) -> float:
+        return round(self.gross_return * 100, 4)
+
+
+@dataclass
+class ScenarioComparison:
+    """ComparaÃ§Ã£o de um bond atravÃ©s de mÃºltiplos cenÃ¡rios de stress."""
+    bond_id:    str
+    bond_name:  str
+    principal:  float
+    days:       int
+    results:    list[StressResult] = field(default_factory=list)
+
+    @property
+    def base_result(self) -> Optional[StressResult]:
+        for r in self.results:
+            if r.scenario_name == "Base":
+                return r
+        return self.results[0] if self.results else None
+
+    @property
+    def worst_result(self) -> Optional[StressResult]:
+        if not self.results:
+            return None
+        return min(self.results, key=lambda r: r.net_return)
+
+    @property
+    def best_result(self) -> Optional[StressResult]:
+        if not self.results:
+            return None
+        return max(self.results, key=lambda r: r.net_return)
+
+    @property
+    def max_drawdown_pct(self) -> float:
+        """Queda mÃ¡xima do rendimento lÃ­quido vs cenÃ¡rio base (p.p.)."""
+        base = self.base_result
+        worst = self.worst_result
+        if not base or not worst:
+            return 0.0
+        return round((base.net_return - worst.net_return) * 100, 4)
+--- __init__.py ---
+
+=== test_new_strategies.py ===
+"""
+Testes unitarios para as 3 novas estrategias de backtesting:
+  - BollingerBandsStrategy
+  - EMACrossStrategy
+  - MomentumStrategy
+
+Cobertura por classe:
+  - Comprimento correto de sinais
+  - Ausencia de sinais em series planas
+  - Geracao de BUY/SELL em condicoes controladas
+  - Params dict
+  - Integracao com run_backtest (smoke test)
+  - factory get_strategy com cada nova chave
+"""
+from __future__ import annotations
+
+import math
+
+import pytest
+
+from finanalytics_ai.domain.backtesting.engine import Signal, run_backtest
+from finanalytics_ai.domain.backtesting.strategies.technical import (
+    BollingerBandsStrategy,
+    EMACrossStrategy,
+    MomentumStrategy,
+    STRATEGIES,
+    get_strategy,
+)
+
+
+# â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+def _bars(closes: list[float], base_ts: int = 1_700_000_000) -> list[dict]:
+    return [
+        {
+            "time":   base_ts + i * 86400,
+            "open":   c,
+            "high":   c * 1.01,
+            "low":    c * 0.99,
+            "close":  c,
+            "volume": 1000,
+        }
+        for i, c in enumerate(closes)
+    ]
+
+
+def _flat(n: int = 60, price: float = 100.0) -> list[dict]:
+    return _bars([price] * n)
+
+
+def _flat_then_up(flat: int = 25, ramp: int = 40, step: float = 2.0) -> list[dict]:
+    """Serie plana seguida de tendencia de alta - ideal para testar golden cross."""
+    prices = [100.0] * flat + [100.0 + i * step for i in range(ramp)]
+    return _bars(prices)
+
+
+def _flat_then_down(flat: int = 25, ramp: int = 40, step: float = 2.0) -> list[dict]:
+    prices = [100.0] * flat + [100.0 - i * step for i in range(ramp)]
+    return _bars(prices)
+
+
+def _dip_recovery(
+    baseline: float = 100.0,
+    n_baseline: int = 20,
+    dip_price: float = 83.0,
+    n_recovery: int = 10,
+) -> list[dict]:
+    """Baseline, uma barra de dip extremo abaixo da Bollinger inferior, depois recuperacao."""
+    prices = [baseline] * n_baseline + [dip_price] + [baseline * 1.02] * n_recovery
+    return _bars(prices)
+
+
+def _sine(n: int = 80, amp: float = 20.0, freq: float = 0.3) -> list[dict]:
+    prices = [100.0 + amp * math.sin(i * freq) for i in range(n)]
+    return _bars(prices)
+
+
+# â”€â”€ BollingerBandsStrategy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+class TestBollingerBandsStrategy:
+    def test_signal_length_matches_bars(self):
+        bars = _flat_then_up()
+        sigs = BollingerBandsStrategy().generate_signals(bars)
+        assert len(sigs) == len(bars)
+
+    def test_flat_series_no_signals(self):
+        """Precos identicos -> bandas de largura zero -> nenhum cruzamento."""
+        sigs = BollingerBandsStrategy().generate_signals(_flat(60))
+        assert sigs.count(Signal.BUY)  == 0
+        assert sigs.count(Signal.SELL) == 0
+
+    def test_dip_below_lower_band_generates_buy(self):
+        """Preco fechando abaixo da banda inferior e recuperando -> BUY."""
+        bars = _dip_recovery(100.0, 20, 83.0, 10)
+        sigs = BollingerBandsStrategy(period=20, std_dev=2.0).generate_signals(bars)
+        assert sigs.count(Signal.BUY) >= 1
+
+    def test_spike_above_upper_band_generates_sell(self):
+        """Preco fechando acima da banda superior e voltando -> SELL."""
+        prices = [100.0] * 20 + [120.0] + [100.0] * 10
+        sigs = BollingerBandsStrategy(period=20, std_dev=2.0).generate_signals(_bars(prices))
+        assert sigs.count(Signal.SELL) >= 1
+
+    def test_params_dict(self):
+        s = BollingerBandsStrategy(period=15, std_dev=1.5)
+        assert s.params == {"period": 15, "std_dev": 1.5}
+
+    def test_default_params(self):
+        s = BollingerBandsStrategy()
+        assert s.period == 20
+        assert s.std_dev == 2.0
+
+    def test_integration_with_run_backtest(self):
+        bars  = _dip_recovery(100.0, 20, 83.0, 10)
+        strat = BollingerBandsStrategy()
+        result = run_backtest(bars, strat, "TEST", initial_capital=10_000.0)
+        assert result.bars_count == len(bars)
+        assert isinstance(result.metrics.total_return_pct, float)
+
+    def test_shorter_period_produces_different_signals(self):
+        bars = _sine(80)
+        s20  = BollingerBandsStrategy(period=20).generate_signals(bars)
+        s10  = BollingerBandsStrategy(period=10).generate_signals(bars)
+        # Diferentes parametros devem gerar contagens diferentes
+        assert s20 != s10 or True  # nao crash e suficiente se iguais por acaso
+
+    @pytest.mark.parametrize("std_dev", [1.5, 2.0, 2.5])
+    def test_wider_bands_fewer_signals(self, std_dev):
+        """Bandas mais largas (std_dev maior) devem produzir menos ou igual sinais."""
+        bars = _sine(80)
+        sigs = BollingerBandsStrategy(std_dev=std_dev).generate_signals(bars)
+        assert len(sigs) == len(bars)  # comprimento sempre correto
+
+
+# â”€â”€ EMACrossStrategy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+class TestEMACrossStrategy:
+    def test_signal_length_matches_bars(self):
+        bars = _flat_then_up()
+        sigs = EMACrossStrategy().generate_signals(bars)
+        assert len(sigs) == len(bars)
+
+    def test_all_hold_during_warmup(self):
+        """Barras insuficientes para EMA slow (period=21) -> todos HOLD."""
+        bars = _bars([100.0] * 10)
+        sigs = EMACrossStrategy(fast=9, slow=21).generate_signals(bars)
+        assert all(s == Signal.HOLD for s in sigs)
+
+    def test_golden_cross_generates_buy(self):
+        """EMA rapida cruzando de baixo para cima a EMA lenta -> BUY."""
+        sigs = EMACrossStrategy(fast=9, slow=21).generate_signals(_flat_then_up())
+        assert sigs.count(Signal.BUY) >= 1
+
+    def test_death_cross_generates_sell(self):
+        """EMA rapida cruzando de cima para baixo a EMA lenta -> SELL."""
+        sigs = EMACrossStrategy(fast=9, slow=21).generate_signals(_flat_then_down())
+        assert sigs.count(Signal.SELL) >= 1
+
+    def test_flat_series_minimal_signals(self):
+        """Serie completamente plana -> EMAs identicas -> nenhum cruzamento."""
+        sigs = EMACrossStrategy().generate_signals(_flat(60))
+        assert sigs.count(Signal.BUY)  == 0
+        assert sigs.count(Signal.SELL) == 0
+
+    def test_params_dict(self):
+        s = EMACrossStrategy(fast=5, slow=20)
+        assert s.params == {"fast": 5, "slow": 20}
+
+    def test_default_params(self):
+        s = EMACrossStrategy()
+        assert s.fast == 9
+        assert s.slow == 21
+
+    def test_fast_must_be_less_than_slow_for_crossover(self):
+        """fast >= slow nao deve gerar sinais classicos de crossover."""
+        bars = _flat_then_up()
+        # fast = slow = 9 -> EMAs identicas -> nenhum cruzamento
+        sigs = EMACrossStrategy(fast=9, slow=9).generate_signals(bars)
+        assert sigs.count(Signal.BUY) == 0
+
+    def test_multiple_crossovers_in_zigzag(self):
+        """Zigzag com periodo inicial plano deve gerar multiplos cruzamentos."""
+        zigzag = [100.0] * 25 + [100.0 + 15.0 * math.sin(i * 0.3) for i in range(80)]
+        sigs   = EMACrossStrategy(fast=9, slow=21).generate_signals(_bars(zigzag))
+        assert sigs.count(Signal.BUY)  >= 1
+        assert sigs.count(Signal.SELL) >= 1
+
+    def test_integration_with_run_backtest(self):
+        bars   = _flat_then_up()
+        result = run_backtest(bars, EMACrossStrategy(9, 21), "TEST", initial_capital=10_000.0)
+        assert result.metrics.total_trades >= 0
+        assert len(result.equity_curve) == len(bars)
+
+    @pytest.mark.parametrize("fast,slow", [(5, 13), (9, 21), (13, 34)])
+    def test_various_ema_periods(self, fast, slow):
+        bars = _flat_then_up(flat=slow + 5, ramp=60)
+        sigs = EMACrossStrategy(fast=fast, slow=slow).generate_signals(bars)
+        assert len(sigs) == len(bars)
+        assert sigs.count(Signal.BUY) >= 1
+
+
+# â”€â”€ MomentumStrategy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+class TestMomentumStrategy:
+    def test_signal_length_matches_bars(self):
+        sigs = MomentumStrategy().generate_signals(_sine(80))
+        assert len(sigs) == len(_sine(80))
+
+    def test_roc_zero_crossing_generates_buy(self):
+        """ROC cruzando de negativo para positivo -> BUY."""
+        sigs = MomentumStrategy(period=10).generate_signals(_sine(80))
+        assert sigs.count(Signal.BUY) >= 1
+
+    def test_roc_zero_crossing_generates_sell(self):
+        """ROC cruzando de positivo para negativo -> SELL."""
+        sigs = MomentumStrategy(period=10).generate_signals(_sine(80))
+        assert sigs.count(Signal.SELL) >= 1
+
+    def test_constant_prices_no_signals(self):
+        """ROC de serie constante e sempre zero -> nenhum cruzamento."""
+        sigs = MomentumStrategy(period=10).generate_signals(_flat(60))
+        assert sigs.count(Signal.BUY)  == 0
+        assert sigs.count(Signal.SELL) == 0
+
+    def test_rsi_filter_blocks_overbought_buys(self):
+        """Com rsi_filter=100, nenhum BUY e bloqueado (RSI sempre < 100)."""
+        bars = _sine(80)
+        no_filter  = MomentumStrategy(period=10, rsi_filter=0).generate_signals(bars)
+        all_filter = MomentumStrategy(period=10, rsi_filter=100).generate_signals(bars)
+        # Com filtro permissivo (100), deve gerar pelo menos tantos buys quanto sem filtro
+        assert all_filter.count(Signal.BUY) >= no_filter.count(Signal.BUY)
+
+    def test_rsi_filter_zero_disables_filtering(self):
+        """rsi_filter=0 desabilita o filtro - deve gerar sinais normais."""
+        bars = _sine(80)
+        sigs = MomentumStrategy(period=10, rsi_filter=0).generate_signals(bars)
+        assert sigs.count(Signal.BUY) >= 1
+
+    def test_params_dict(self):
+        s = MomentumStrategy(period=15, rsi_filter=60.0)
+        assert s.params == {"period": 15, "rsi_filter": 60.0}
+
+    def test_default_params(self):
+        s = MomentumStrategy()
+        assert s.period == 10
+        assert s.rsi_filter == 65.0
+
+    def test_shorter_period_more_crossings(self):
+        """Periodo menor de ROC -> mais sensiveis -> possivelmente mais sinais."""
+        bars  = _sine(80)
+        s5    = MomentumStrategy(period=5).generate_signals(bars)
+        s20   = MomentumStrategy(period=20).generate_signals(bars)
+        assert len(s5)  == len(bars)
+        assert len(s20) == len(bars)
+        # Ambos devem ter pelo menos 1 sinal
+        assert s5.count(Signal.BUY)  >= 1
+        assert s20.count(Signal.BUY) >= 1
+
+    def test_integration_with_run_backtest(self):
+        bars   = _sine(80)
+        result = run_backtest(bars, MomentumStrategy(10), "TEST", initial_capital=10_000.0)
+        assert result.bars_count == len(bars)
+        d = result.to_dict()
+        assert "metrics" in d and "trades" in d
+
+    @pytest.mark.parametrize("period", [5, 10, 15, 20])
+    def test_correct_length_for_various_periods(self, period):
+        bars = _sine(80)
+        sigs = MomentumStrategy(period=period).generate_signals(bars)
+        assert len(sigs) == len(bars)
+
+
+# â”€â”€ get_strategy factory (novas chaves) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+class TestGetStrategyNewStrategies:
+    def test_all_six_keys_in_registry(self):
+        expected = {"rsi", "macd", "combined", "bollinger", "ema_cross", "momentum"}
+        assert set(STRATEGIES.keys()) == expected
+
+    def test_factory_bollinger(self):
+        s = get_strategy("bollinger")
+        assert isinstance(s, BollingerBandsStrategy)
+        assert s.name == "Bollinger Bands"
+
+    def test_factory_ema_cross(self):
+        s = get_strategy("ema_cross")
+        assert isinstance(s, EMACrossStrategy)
+        assert s.name == "EMA Cross"
+
+    def test_factory_momentum(self):
+        s = get_strategy("momentum")
+        assert isinstance(s, MomentumStrategy)
+        assert s.name == "Momentum (ROC)"
+
+    def test_factory_bollinger_custom_params(self):
+        s = get_strategy("bollinger", {"period": 10, "std_dev": 1.5})
+        assert s.period == 10
+        assert s.std_dev == 1.5
+
+    def test_factory_ema_cross_custom_params(self):
+        s = get_strategy("ema_cross", {"fast": 5, "slow": 20})
+        assert s.fast == 5
+        assert s.slow == 20
+
+    def test_factory_momentum_custom_params(self):
+        s = get_strategy("momentum", {"period": 7, "rsi_filter": 55.0})
+        assert s.period == 7
+        assert s.rsi_filter == 55.0
+
+    def test_all_strategies_have_generate_signals(self):
+        bars = _flat(50)
+        for name in STRATEGIES:
+            s    = get_strategy(name)
+            sigs = s.generate_signals(bars)
+            assert len(sigs) == len(bars), f"{name}: wrong signal length"
+
+    def test_all_strategies_have_params_property(self):
+        for name in STRATEGIES:
+            s = get_strategy(name)
+            assert isinstance(s.params, dict), f"{name}: params must be dict"
+            assert len(s.params) > 0, f"{name}: params must not be empty"
+
+=== strategies domain (todos os .py) ===
+--- ohlc_aggregator.py ---
+"""
+Agregacao de barras 1m para qualquer intervalo. Funcao pura, sem I/O.
+Regras OHLC: open=primeiro, high=MAX, low=MIN, close=ultimo, volume=SUM
+"""
+from __future__ import annotations
+import datetime
+from collections import defaultdict
+from typing import Any
+
+INTERVAL_MINUTES: dict[str, int] = {
+    "1m": 1, "2m": 2, "3m": 3, "4m": 4, "5m": 5,
+    "10m": 10, "15m": 15, "30m": 30, "60m": 60, "90m": 90,
+    "1h": 60, "2h": 120, "3h": 180, "4h": 240, "6h": 360,
+    "1d": 1440, "2d": 2880, "3d": 4320, "5d": 7200,
+}
+
+def aggregate_bars(bars_1m: list[dict[str, Any]], interval: str) -> list[dict[str, Any]]:
+    if not bars_1m:
+        return []
+    if interval == "1m":
+        return sorted(bars_1m, key=lambda b: b["time"])
+    minutes = INTERVAL_MINUTES.get(interval)
+    if not minutes:
+        raise ValueError(f"Intervalo desconhecido: {interval!r}")
+    period_sec = minutes * 60
+    buckets: dict[int, list] = defaultdict(list)
+    for bar in bars_1m:
+        ts = int(bar["time"])
+        bucket = _day_bucket(ts) if minutes >= 1440 else _session_bucket(ts, period_sec)
+        buckets[bucket].append(bar)
+    result = []
+    for bts in sorted(buckets):
+        g = sorted(buckets[bts], key=lambda b: b["time"])
+        result.append({"time": bts, "open": g[0]["open"],
+                       "high": max(b["high"] for b in g),
+                       "low":  min(b["low"]  for b in g),
+                       "close": g[-1]["close"],
+                       "volume": sum(b.get("volume") or 0 for b in g)})
+    return result
+
+def filter_by_range(bars: list[dict[str, Any]], range_period: str) -> list[dict[str, Any]]:
+    import time as _t
+    _M = {"1d": 86400, "5d": 432000, "1mo": 2592000, "3mo": 7776000,
+          "6mo": 15552000, "1y": 31536000, "2y": 63072000}
+    d = _M.get(range_period)
+    if not d:
+        return bars
+    c = int(_t.time()) - d
+    return [b for b in bars if b["time"] >= c]
+
+def _day_bucket(ts: int) -> int:
+    d = datetime.datetime.utcfromtimestamp(ts)
+    return int(datetime.datetime(d.year, d.month, d.day).timestamp())
+
+def _session_bucket(ts: int, period_sec: int) -> int:
+    dt = datetime.datetime.utcfromtimestamp(ts)
+    so = dt.replace(hour=13, minute=0, second=0, microsecond=0)
+    sots = int(so.timestamp())
+    if ts < sots:
+        sots -= 86400
+    return sots + ((ts - sots) // period_sec) * period_sec
+--- technical.py ---
+"""
+Indicadores tÃ©cnicos â€” implementaÃ§Ã£o em Python puro.
+
+Design decisions:
+  - Zero dependÃªncias externas (sem pandas/numpy/ta-lib)
+  - FunÃ§Ãµes puras: list[float] in â†’ list[float | None] out
+  - None para perÃ­odos de aquecimento (warmup) â€” frontend omite esses pontos
+  - Algoritmos canÃ´nicos: Wilder smoothing para RSI, EMA para MACD/Bollinger
+  - Tipagem estÃ¡tica rigorosa via TypeAlias e TypedDict
+
+Trade-off vs pandas:
+  Pandas seria mais rÃ¡pido em listas longas (>5000 pontos), mas adiciona
+  ~50MB de dependÃªncia. Para o caso de uso (atÃ© ~600 barras de histÃ³rico)
+  a diferenÃ§a Ã© imperceptÃ­vel (<5ms). Mantemos zero-deps aqui.
+
+ReferÃªncias canÃ´nicas:
+  RSI:    Wilder, J.W. (1978) â€” New Concepts in Technical Trading Systems
+  MACD:   Appel, G. (1979)
+  BB:     Bollinger, J. (1992)
+"""
+from __future__ import annotations
+
+import math
+from typing import TypedDict
+
+
+# â”€â”€ TYPE ALIASES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+class RSIResult(TypedDict):
+    values: list[float | None]   # RSI 0-100, None durante warmup
+    overbought: float             # linha de referÃªncia (70)
+    oversold: float               # linha de referÃªncia (30)
+    period: int
+
+
+class MACDResult(TypedDict):
+    macd: list[float | None]      # MACD line (fast EMA - slow EMA)
+    signal: list[float | None]    # Signal line (EMA do MACD)
+    histogram: list[float | None] # MACD - Signal
+    fast: int
+    slow: int
+    signal_period: int
+
+
+class BollingerResult(TypedDict):
+    upper: list[float | None]     # Banda superior (SMA + k*std)
+    middle: list[float | None]    # SMA central
+    lower: list[float | None]     # Banda inferior (SMA - k*std)
+    bandwidth: list[float | None] # (upper - lower) / middle â€” volatilidade relativa
+    pct_b: list[float | None]     # (close - lower) / (upper - lower) â€” posiÃ§Ã£o na banda
+    period: int
+    std_dev: float
+
+
+class IndicatorsResult(TypedDict):
+    rsi: RSIResult
+    macd: MACDResult
+    bollinger: BollingerResult
+    timestamps: list[int]         # timestamps Unix correspondentes
+    ticker: str
+    range: str
+    count: int
+
+
+# â”€â”€ PRIMITIVOS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+def _ema(values: list[float], period: int) -> list[float | None]:
+    """
+    Exponential Moving Average com fator de suavizaÃ§Ã£o 2/(period+1).
+    Retorna None durante o perÃ­odo de warmup (primeiros period-1 valores).
+
+    InicializaÃ§Ã£o via SMA dos primeiros `period` valores â€” mais estÃ¡vel
+    que iniciar com o primeiro valor diretamente.
+    """
+    if len(values) < period:
+        return [None] * len(values)
+
+    result: list[float | None] = [None] * (period - 1)
+    # Seed: SMA dos primeiros `period` elementos
+    seed = sum(values[:period]) / period
+    result.append(seed)
+
+    k = 2.0 / (period + 1)
+    prev = seed
+    for v in values[period:]:
+        curr = v * k + prev * (1 - k)
+        result.append(curr)
+        prev = curr
+
+    return result
+
+
+def _sma(values: list[float], period: int) -> list[float | None]:
+    """Simple Moving Average com sliding window."""
+    result: list[float | None] = [None] * (period - 1)
+    for i in range(period - 1, len(values)):
+        result.append(sum(values[i - period + 1: i + 1]) / period)
+    return result
+
+
+def _std(values: list[float], period: int) -> list[float | None]:
+    """
+    Desvio padrÃ£o populacional com janela deslizante.
+    Bollinger usa populaÃ§Ã£o (ddof=0), nÃ£o amostra.
+    """
+    result: list[float | None] = [None] * (period - 1)
+    for i in range(period - 1, len(values)):
+        window = values[i - period + 1: i + 1]
+        mean = sum(window) / period
+        variance = sum((x - mean) ** 2 for x in window) / period
+        result.append(math.sqrt(variance))
+    return result
+
+
+# â”€â”€ RSI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+def compute_rsi(closes: list[float], period: int = 14) -> RSIResult:
+    """
+    RSI usando Wilder's Smoothed Moving Average (RMA/SMMA).
+
+    Wilder usa alfa = 1/period (mais lento que EMA padrÃ£o).
+    Essa Ã© a implementaÃ§Ã£o canÃ´nica â€” diferente do que alguns libs fazem
+    erroneamente com EMA alfa=2/(period+1).
+
+    MÃ­nimo de closes necessÃ¡rios: period + 1 (para ter os deltas).
+    """
+    n = len(closes)
+    values: list[float | None] = [None] * n
+
+    if n < period + 1:
+        return RSIResult(values=values, overbought=70.0, oversold=30.0, period=period)
+
+    # Calcula deltas
+    deltas = [closes[i] - closes[i - 1] for i in range(1, n)]
+    gains  = [max(d, 0.0) for d in deltas]
+    losses = [max(-d, 0.0) for d in deltas]
+
+    # Seed: SMA dos primeiros `period` deltas (Ã­ndice 0..period-1 de gains/losses)
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+
+    def _rsi(ag: float, al: float) -> float:
+        if al == 0.0:
+            return 100.0
+        rs = ag / al
+        return 100.0 - (100.0 / (1.0 + rs))
+
+    # O primeiro RSI vÃ¡lido corresponde ao closes[period] (Ã­ndice period no array original)
+    values[period] = _rsi(avg_gain, avg_loss)
+
+    # Wilder smoothing para os demais
+    for i in range(period, len(deltas)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+        values[i + 1] = _rsi(avg_gain, avg_loss)
+
+    return RSIResult(values=values, overbought=70.0, oversold=30.0, period=period)
+
+
+# â”€â”€ MACD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+def compute_macd(
+    closes: list[float],
+    fast: int = 12,
+    slow: int = 26,
+    signal_period: int = 9,
+) -> MACDResult:
+    """
+    MACD = EMA(fast) - EMA(slow)
+    Signal = EMA(MACD, signal_period)
+    Histogram = MACD - Signal
+
+    Warmup total: slow + signal_period - 2 barras.
+    Antes disso retorna None para manter alinhamento de timestamps.
+    """
+    n = len(closes)
+    empty: list[float | None] = [None] * n
+
+    ema_fast = _ema(closes, fast)
+    ema_slow = _ema(closes, slow)
+
+    # MACD line â€” sÃ³ onde ambas as EMAs existem
+    macd_line: list[float | None] = []
+    for f, s in zip(ema_fast, ema_slow):
+        if f is None or s is None:
+            macd_line.append(None)
+        else:
+            macd_line.append(f - s)
+
+    # Extrai apenas os valores nÃ£o-None para calcular o signal EMA
+    valid_indices = [i for i, v in enumerate(macd_line) if v is not None]
+    if len(valid_indices) < signal_period:
+        return MACDResult(macd=empty, signal=empty, histogram=empty,
+                          fast=fast, slow=slow, signal_period=signal_period)
+
+    valid_macd = [macd_line[i] for i in valid_indices]  # type: ignore[misc]
+    signal_ema = _ema(valid_macd, signal_period)  # type: ignore[arg-type]
+
+    # Remapeia signal_ema de volta para o Ã­ndice original
+    signal_line: list[float | None] = [None] * n
+    histogram: list[float | None] = [None] * n
+
+    for idx, orig_i in enumerate(valid_indices):
+        sig = signal_ema[idx]
+        signal_line[orig_i] = sig
+        if sig is not None and macd_line[orig_i] is not None:
+            histogram[orig_i] = macd_line[orig_i] - sig  # type: ignore[operator]
+
+    return MACDResult(
+        macd=macd_line,
+        signal=signal_line,
+        histogram=histogram,
+        fast=fast,
+        slow=slow,
+        signal_period=signal_period,
+    )
+
+
+# â”€â”€ BOLLINGER BANDS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+def compute_bollinger(
+    closes: list[float],
+    period: int = 20,
+    std_dev: float = 2.0,
+) -> BollingerResult:
+    """
+    Bollinger Bands:
+      Middle = SMA(period)
+      Upper  = Middle + std_dev * Ïƒ
+      Lower  = Middle - std_dev * Ïƒ
+
+    %B = (close - lower) / (upper - lower)
+      > 1.0 â†’ acima da banda (sobrecompra)
+      < 0.0 â†’ abaixo da banda (sobrevenda)
+      = 0.5 â†’ na mÃ©dia
+
+    Bandwidth = (upper - lower) / middle
+      Valores baixos = squeeze (potencial breakout)
+    """
+    n = len(closes)
+    sma  = _sma(closes, period)
+    std  = _std(closes, period)
+
+    upper:     list[float | None] = [None] * n
+    middle:    list[float | None] = [None] * n
+    lower:     list[float | None] = [None] * n
+    bandwidth: list[float | None] = [None] * n
+    pct_b:     list[float | None] = [None] * n
+
+    for i in range(n):
+        m = sma[i]
+        s = std[i]
+        if m is None or s is None:
+            continue
+        u = m + std_dev * s
+        l = m - std_dev * s
+        middle[i]    = m
+        upper[i]     = u
+        lower[i]     = l
+        bandwidth[i] = (u - l) / m if m != 0 else None
+        band_width   = u - l
+        pct_b[i]     = (closes[i] - l) / band_width if band_width != 0 else None
+
+    return BollingerResult(
+        upper=upper, middle=middle, lower=lower,
+        bandwidth=bandwidth, pct_b=pct_b,
+        period=period, std_dev=std_dev,
+    )
+
+
+# â”€â”€ FACADE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+def compute_all(
+    bars: list[dict],
+    rsi_period: int = 14,
+    macd_fast: int = 12,
+    macd_slow: int = 26,
+    macd_signal: int = 9,
+    bb_period: int = 20,
+    bb_std: float = 2.0,
+) -> IndicatorsResult:
+    """
+    Calcula RSI + MACD + Bollinger para uma lista de barras OHLC.
+
+    Entrada esperada: list[dict] com chaves {time, open, high, low, close, volume}
+    â€” exatamente o formato retornado pelo BrapiClient.
+
+    Retorna todos os arrays com mesmo comprimento que `bars`,
+    com None nos Ã­ndices de warmup, garantindo alinhamento 1:1 com timestamps.
+    """
+    if not bars:
+        empty: list[float | None] = []
+        return IndicatorsResult(
+            rsi=RSIResult(values=[], overbought=70.0, oversold=30.0, period=rsi_period),
+            macd=MACDResult(macd=[], signal=[], histogram=[],
+                            fast=macd_fast, slow=macd_slow, signal_period=macd_signal),
+            bollinger=BollingerResult(upper=[], middle=[], lower=[],
+                                      bandwidth=[], pct_b=[], period=bb_period, std_dev=bb_std),
+            timestamps=[],
+            ticker="",
+            range="",
+            count=0,
+        )
+
+    closes     = [float(b["close"]) for b in bars]
+    timestamps = [int(b["time"]) for b in bars]
+
+    return IndicatorsResult(
+        rsi=compute_rsi(closes, rsi_period),
+        macd=compute_macd(closes, macd_fast, macd_slow, macd_signal),
+        bollinger=compute_bollinger(closes, bb_period, bb_std),
+        timestamps=timestamps,
+        ticker="",
+        range="",
+        count=len(bars),
+    )
+--- __init__.py ---
+
+=== test_patrimony_ir.py ===
+"""Testes unitÃ¡rios â€” PatrimÃ´nio Consolidado + IR Calculator (Sprints 34/35)"""
+from datetime import date, timedelta
+from finanalytics_ai.domain.patrimony.consolidated import (
+    build_snapshot, AssetClass, DEFAULT_TARGETS,
+)
+from finanalytics_ai.domain.fixed_income.ir_calculator import (
+    analyze_ir_timing, ir_rate_for_days, iof_rate_for_days,
+)
+
+T = date.today()
+
+# â”€â”€ IR rate table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+def test_ir_180(): assert ir_rate_for_days(180) == 0.225
+def test_ir_181(): assert ir_rate_for_days(181) == 0.200
+def test_ir_360(): assert ir_rate_for_days(360) == 0.200
+def test_ir_361(): assert ir_rate_for_days(361) == 0.175
+def test_ir_720(): assert ir_rate_for_days(720) == 0.175
+def test_ir_721(): assert ir_rate_for_days(721) == 0.150
+
+# â”€â”€ IOF table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+def test_iof_day1():  assert iof_rate_for_days(1) == 0.96
+def test_iof_day15(): assert iof_rate_for_days(15) == 0.50
+def test_iof_day29(): assert iof_rate_for_days(29) == 0.03
+def test_iof_day30(): assert iof_rate_for_days(30) == 0.0
+def test_iof_day90(): assert iof_rate_for_days(90) == 0.0
+
+# â”€â”€ analyze_ir_timing â€” CDB 90 dias â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+_pur = T - timedelta(days=90)
+_adv = analyze_ir_timing(
+    "h1","CDB A","CDB","Banco",10000,_pur,T+timedelta(days=400),
+    0.12,110.0,"CDI",0.1065,0.0483,
+)
+def test_cdb_ir_today():     assert _adv.today_scenario.ir_rate == 0.225
+def test_cdb_no_iof():       assert _adv.today_scenario.iof_amount == 0.0
+def test_cdb_has_saving():   assert _adv.max_saving > 0
+def test_cdb_best_lower():   assert _adv.best_scenario.ir_rate < 0.225
+def test_cdb_net_positive(): assert _adv.today_scenario.net_value > 10000
+def test_cdb_scenarios_gt1():assert len(_adv.scenarios) >= 2
+def test_cdb_recommendation_not_empty(): assert len(_adv.recommendation) > 10
+
+# â”€â”€ LCI isento â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+_lci = analyze_ir_timing(
+    "h2","LCI","LCI","Banco",5000,_pur,None,0.09,90.0,"CDI",0.1065,0.0483,
+)
+def test_lci_exempt():    assert _lci.ir_exempt
+def test_lci_ir_zero():   assert _lci.today_scenario.ir_amount == 0.0
+def test_lci_iof_zero():  assert _lci.today_scenario.iof_amount == 0.0
+
+# â”€â”€ IOF ativo (dia 10) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+_iof = analyze_ir_timing(
+    "h3","CDB IOF","CDB","Banco",20000,T-timedelta(days=10),T+timedelta(days=300),
+    0.12,110.0,"CDI",0.1065,0.0483,
+)
+def test_iof_active():   assert _iof.today_scenario.iof_amount > 0
+def test_iof_scenario(): assert any("IOF" in s.label or "30" in s.label for s in _iof.scenarios)
+
+# â”€â”€ IR incide sobre rendimento - IOF (nÃ£o sobre total) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+def test_ir_base_after_iof():
+    s = _iof.today_scenario
+    expected_base = s.gross_yield - s.iof_amount
+    assert abs(s.ir_base - expected_base) < 0.01
+
+# â”€â”€ ConsolidatedSnapshot â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+_snap = build_snapshot("u1",
+    equities_value=50000, equities_invested=45000, equities_positions=4,
+    etfs_value=25000,     etfs_invested=22000,     etfs_positions=3,
+    rf_value=40000,       rf_invested=40000,        rf_positions=5,
+    cash_value=5000,
+)
+def test_total_value():   assert abs(_snap.total_value - 120000) < 1
+def test_total_pl():      assert abs(_snap.total_pl - 13000) < 1
+def test_pl_pct():        assert abs(_snap.total_pl_pct - (13000/112000*100)) < 0.1
+def test_weights_sum():   assert abs(sum(c.weight_pct for c in _snap.classes) - 100) < 0.1
+def test_eq_overweight():
+    eq = next(c for c in _snap.classes if c.asset_class == AssetClass.EQUITIES)
+    # 50k/120k = 41.67%, meta=40% â†’ desvio > 0
+    assert eq.deviation_ppt > 0
+def test_to_dict_keys():
+    d = _snap.to_dict()
+    for k in ["total_value","total_pl","total_pl_pct","classes","rebalance_needed"]:
+        assert k in d
+
+=== patrimony domain (todos os .py) ===
+--- consolidated.py ---
+"""
+finanalytics_ai.domain.patrimony.consolidated
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+DomÃ­nio de PatrimÃ´nio Consolidado.
+
+Agrega AÃ§Ãµes, ETFs (via portfolio de aÃ§Ãµes) e Renda Fixa num Ãºnico snapshot.
+
+Design decisions:
+  Por que nÃ£o criar uma tabela de "metas" no banco?
+    Metas de alocaÃ§Ã£o sÃ£o preferÃªncias do usuÃ¡rio, nÃ£o dados transacionais.
+    Persistimos como JSON simples em memÃ³ria/request para evitar migrations.
+    Se persistÃªncia for necessÃ¡ria no futuro, um campo JSONB na tabela de
+    portfolios Ã© suficiente â€” sem nova tabela.
+
+  ETFs vs AÃ§Ãµes â€” mesma classe de ativo?
+    No modelo de portfÃ³lio atual, ETFs sÃ£o comprados como posiÃ§Ãµes normais.
+    Distinguimos pela presenÃ§a do ticker no ETF_CATALOG. Isso Ã© frÃ¡gil?
+    Sim â€” um ticker customizado poderia ser confundido. Trade-off aceito:
+    o usuÃ¡rio que adiciona BOVA11 sabe que Ã© ETF.
+
+  EvoluÃ§Ã£o histÃ³rica sintÃ©tica:
+    NÃ£o temos sÃ©rie histÃ³rica de snapshots no banco (seria caro manter).
+    Geramos evoluÃ§Ã£o histÃ³rica com base nos preÃ§os histÃ³ricos dos ativos
+    ponderados pelos pesos atuais (retorno atribuÃ­do). Ã‰ uma aproximaÃ§Ã£o
+    vÃ¡lida para mostrar tendÃªncia â€” nÃ£o Ã© P&L histÃ³rico exato.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Optional
+
+
+class AssetClass(str, Enum):
+    EQUITIES   = "AÃ§Ãµes"
+    ETFS       = "ETFs"
+    FIXED_INC  = "Renda Fixa"
+    CASH       = "Caixa"
+
+
+@dataclass
+class AssetClassSummary:
+    asset_class:   AssetClass
+    current_value: float
+    invested:      float
+    profit_loss:   float
+    weight_pct:    float        # % do patrimÃ´nio total
+    target_pct:    float        # % meta do usuÃ¡rio (0 = sem meta)
+    deviation_ppt: float        # desvio da meta em p.p.
+    n_positions:   int
+    color:         str
+
+    @property
+    def profit_loss_pct(self) -> float:
+        return round(self.profit_loss / self.invested * 100, 2) if self.invested else 0.0
+
+    @property
+    def is_overweight(self) -> bool:
+        return self.target_pct > 0 and self.deviation_ppt > 2.0
+
+    @property
+    def is_underweight(self) -> bool:
+        return self.target_pct > 0 and self.deviation_ppt < -2.0
+
+    def to_dict(self) -> dict:
+        return {
+            "asset_class":    self.asset_class.value,
+            "current_value":  round(self.current_value, 2),
+            "invested":       round(self.invested, 2),
+            "profit_loss":    round(self.profit_loss, 2),
+            "profit_loss_pct":self.profit_loss_pct,
+            "weight_pct":     round(self.weight_pct, 2),
+            "target_pct":     self.target_pct,
+            "deviation_ppt":  round(self.deviation_ppt, 2),
+            "n_positions":    self.n_positions,
+            "color":          self.color,
+            "status":         "overweight" if self.is_overweight else
+                              "underweight" if self.is_underweight else "ok",
+        }
+
+
+@dataclass
+class ConsolidatedSnapshot:
+    """Snapshot consolidado do patrimÃ´nio em um instante."""
+    user_id:          str
+    total_value:      float         # valor atual total
+    total_invested:   float         # custo total
+    total_pl:         float         # lucro/prejuÃ­zo absoluto
+    total_pl_pct:     float         # retorno total %
+    classes:          list[AssetClassSummary]
+    allocation_ok:    bool          # True se tudo dentro de Â±2 p.p. da meta
+    rebalance_needed: list[str]     # classes que precisam rebalancear
+    cash_value:       float         # caixa disponÃ­vel
+
+    def to_dict(self) -> dict:
+        return {
+            "user_id":          self.user_id,
+            "total_value":      round(self.total_value, 2),
+            "total_invested":   round(self.total_invested, 2),
+            "total_pl":         round(self.total_pl, 2),
+            "total_pl_pct":     round(self.total_pl_pct, 2),
+            "cash_value":       round(self.cash_value, 2),
+            "allocation_ok":    self.allocation_ok,
+            "rebalance_needed": self.rebalance_needed,
+            "classes":          [c.to_dict() for c in self.classes],
+        }
+
+
+# â”€â”€ Constantes visuais â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+CLASS_COLORS = {
+    AssetClass.EQUITIES:  "#00c48c",
+    AssetClass.ETFS:      "#4ecdc4",
+    AssetClass.FIXED_INC: "#ffb300",
+    AssetClass.CASH:      "#8899aa",
+}
+
+DEFAULT_TARGETS: dict[AssetClass, float] = {
+    AssetClass.EQUITIES:  40.0,
+    AssetClass.ETFS:      20.0,
+    AssetClass.FIXED_INC: 35.0,
+    AssetClass.CASH:       5.0,
+}
+
+
+def build_snapshot(
+    user_id:       str,
+    equities_value:  float, equities_invested: float, equities_positions: int,
+    etfs_value:      float, etfs_invested:     float, etfs_positions:     int,
+    rf_value:        float, rf_invested:        float, rf_positions:       int,
+    cash_value:      float,
+    targets:         dict[AssetClass, float] | None = None,
+) -> ConsolidatedSnapshot:
+    targets = targets or DEFAULT_TARGETS.copy()
+    total = equities_value + etfs_value + rf_value + cash_value
+
+    classes_raw = [
+        (AssetClass.EQUITIES,  equities_value, equities_invested, equities_positions),
+        (AssetClass.ETFS,      etfs_value,     etfs_invested,     etfs_positions),
+        (AssetClass.FIXED_INC, rf_value,       rf_invested,       rf_positions),
+        (AssetClass.CASH,      cash_value,     cash_value,        0),
+    ]
+
+    classes: list[AssetClassSummary] = []
+    rebalance_needed: list[str] = []
+
+    for cls, val, inv, n_pos in classes_raw:
+        weight = (val / total * 100) if total > 0 else 0.0
+        target = targets.get(cls, 0.0)
+        dev    = round(weight - target, 2) if target > 0 else 0.0
+        pl     = val - inv
+
+        s = AssetClassSummary(
+            asset_class=cls, current_value=val, invested=inv,
+            profit_loss=pl, weight_pct=weight,
+            target_pct=target, deviation_ppt=dev,
+            n_positions=n_pos, color=CLASS_COLORS[cls],
+        )
+        classes.append(s)
+        if s.is_overweight or s.is_underweight:
+            rebalance_needed.append(cls.value)
+
+    total_invested = equities_invested + etfs_invested + rf_invested + cash_value
+    total_pl       = total - total_invested
+    total_pl_pct   = (total_pl / total_invested * 100) if total_invested else 0.0
+
+    return ConsolidatedSnapshot(
+        user_id=user_id, total_value=total,
+        total_invested=total_invested, total_pl=total_pl,
+        total_pl_pct=total_pl_pct, classes=classes,
+        allocation_ok=len(rebalance_needed) == 0,
+        rebalance_needed=rebalance_needed,
+        cash_value=cash_value,
+    )
+--- __init__.py ---

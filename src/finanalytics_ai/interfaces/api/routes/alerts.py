@@ -8,15 +8,18 @@ Endpoints:
   GET    /alerts/stream        — SSE: notificações em tempo real
   GET    /alerts/status        — status do bus de notificações
 """
+
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)
@@ -24,33 +27,36 @@ logger = structlog.get_logger(__name__)
 
 # ── Schemas de entrada/saída ──────────────────────────────────────────────────
 
+
 class CreateAlertRequest(BaseModel):
-    ticker:          str   = Field(..., min_length=1, max_length=10)
-    alert_type:      str   = Field(..., description="stop_loss|take_profit|price_target|pct_drop|pct_rise")
-    threshold:       float = Field(..., gt=0)
+    ticker: str = Field(..., min_length=1, max_length=10)
+    alert_type: str = Field(..., description="stop_loss|take_profit|price_target|pct_drop|pct_rise")
+    threshold: float = Field(..., gt=0)
     reference_price: float = Field(default=0.0, ge=0)
-    note:            str   = Field(default="", max_length=200)
-    user_id:         str   = Field(default="user-demo")
-    expires_at:      datetime | None = None
+    note: str = Field(default="", max_length=200)
+    user_id: str = Field(default="user-demo")
+    expires_at: datetime | None = None
 
 
 class AlertResponse(BaseModel):
-    alert_id:        str
-    ticker:          str
-    alert_type:      str
-    threshold:       float
+    alert_id: str
+    ticker: str
+    alert_type: str
+    threshold: float
     reference_price: float
-    status:          str
-    note:            str
-    user_id:         str
-    created_at:      str
-    triggered_at:    str | None
+    status: str
+    note: str
+    user_id: str
+    created_at: str
+    triggered_at: str | None
 
 
 # ── Dependency: AlertService ──────────────────────────────────────────────────
 
+
 def _get_alert_service() -> Any:
     from finanalytics_ai.interfaces.api.app import get_alert_service
+
     svc = get_alert_service()
     if svc is None:
         raise HTTPException(503, detail="AlertService não disponível")
@@ -59,18 +65,19 @@ def _get_alert_service() -> Any:
 
 # ── CRUD ─────────────────────────────────────────────────────────────────────
 
+
 @router.post("/", response_model=AlertResponse, status_code=201)
 async def create_alert(body: CreateAlertRequest) -> AlertResponse:
     """Cria um novo alerta de preço."""
     svc = _get_alert_service()
     alert = await svc.create_alert(
-        user_id         = body.user_id,
-        ticker          = body.ticker,
-        alert_type      = body.alert_type,
-        threshold       = body.threshold,
-        reference_price = body.reference_price,
-        note            = body.note,
-        expires_at      = body.expires_at,
+        user_id=body.user_id,
+        ticker=body.ticker,
+        alert_type=body.alert_type,
+        threshold=body.threshold,
+        reference_price=body.reference_price,
+        note=body.note,
+        expires_at=body.expires_at,
     )
     return _to_response(alert)
 
@@ -100,6 +107,7 @@ async def cancel_alert(
 
 # ── SSE Stream ────────────────────────────────────────────────────────────────
 
+
 @router.get("/stream")
 async def alerts_stream(
     user_id: str | None = Query(default=None, description="Filtrar por user_id"),
@@ -116,7 +124,7 @@ async def alerts_stream(
     """
     from finanalytics_ai.infrastructure.notifications import get_notification_bus
 
-    bus   = get_notification_bus()
+    bus = get_notification_bus()
     queue = await bus.subscribe()
 
     async def _generator():
@@ -137,6 +145,7 @@ async def alerts_stream(
 async def alerts_status() -> dict:
     """Status do bus de notificações."""
     from finanalytics_ai.infrastructure.notifications import get_notification_bus
+
     bus = get_notification_bus()
     return {
         "subscribers": bus.subscriber_count,
@@ -147,6 +156,7 @@ async def alerts_status() -> dict:
 def get_alert_service_status() -> bool:
     try:
         from finanalytics_ai.interfaces.api.app import get_alert_service
+
         return get_alert_service() is not None
     except Exception:
         return False
@@ -154,16 +164,17 @@ def get_alert_service_status() -> bool:
 
 # ── Helper ────────────────────────────────────────────────────────────────────
 
+
 def _to_response(alert: Any) -> AlertResponse:
     return AlertResponse(
-        alert_id        = alert.alert_id,
-        ticker          = alert.ticker,
-        alert_type      = alert.alert_type.value,
-        threshold       = float(alert.threshold),
-        reference_price = float(alert.reference_price),
-        status          = alert.status.value,
-        note            = alert.note,
-        user_id         = alert.user_id,
-        created_at      = alert.created_at.isoformat(),
-        triggered_at    = alert.triggered_at.isoformat() if alert.triggered_at else None,
+        alert_id=alert.alert_id,
+        ticker=alert.ticker,
+        alert_type=alert.alert_type.value,
+        threshold=float(alert.threshold),
+        reference_price=float(alert.reference_price),
+        status=alert.status.value,
+        note=alert.note,
+        user_id=alert.user_id,
+        created_at=alert.created_at.isoformat(),
+        triggered_at=alert.triggered_at.isoformat() if alert.triggered_at else None,
     )

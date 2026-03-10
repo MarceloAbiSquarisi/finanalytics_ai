@@ -1,7 +1,11 @@
 """Port: PortfolioRepository — persistência de portfólios."""
+
 from __future__ import annotations
-from typing import Protocol, runtime_checkable
-from finanalytics_ai.domain.entities.portfolio import Portfolio
+
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from finanalytics_ai.domain.entities.portfolio import Portfolio
 
 
 @runtime_checkable

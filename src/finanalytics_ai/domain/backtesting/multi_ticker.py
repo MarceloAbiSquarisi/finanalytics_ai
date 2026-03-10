@@ -29,14 +29,15 @@ Design decisions:
     O limite (MAX_TICKERS = 10) e aplicado na camada de servico/rota.
     Este modulo e agnóstico ao tamanho do input.
 """
+
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
-from finanalytics_ai.domain.backtesting.optimizer import OptimizationResult
-
+if TYPE_CHECKING:
+    from finanalytics_ai.domain.backtesting.optimizer import OptimizationResult
 
 MAX_TICKERS = 10  # limite aplicado no service/rota
 
@@ -44,72 +45,74 @@ MAX_TICKERS = 10  # limite aplicado no service/rota
 @dataclass
 class TickerRanking:
     """Resultado de um ticker no comparativo."""
-    rank:           int
-    ticker:         str
-    best_score:     float
-    score_pct:      float          # 0-100, relativo ao melhor do grupo
-    best_params:    dict[str, Any]
-    total_runs:     int
-    valid_runs:     int
-    top_metrics:    dict[str, Any]  # metricas do melhor run
-    has_valid:      bool
+
+    rank: int
+    ticker: str
+    best_score: float
+    score_pct: float  # 0-100, relativo ao melhor do grupo
+    best_params: dict[str, Any]
+    total_runs: int
+    valid_runs: int
+    top_metrics: dict[str, Any]  # metricas do melhor run
+    has_valid: bool
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "rank":        self.rank,
-            "ticker":      self.ticker,
-            "best_score":  round(self.best_score, 4),
-            "score_pct":   round(self.score_pct, 1),
+            "rank": self.rank,
+            "ticker": self.ticker,
+            "best_score": round(self.best_score, 4),
+            "score_pct": round(self.score_pct, 1),
             "best_params": self.best_params,
-            "total_runs":  self.total_runs,
-            "valid_runs":  self.valid_runs,
+            "total_runs": self.total_runs,
+            "valid_runs": self.valid_runs,
             "top_metrics": self.top_metrics,
-            "has_valid":   self.has_valid,
+            "has_valid": self.has_valid,
         }
 
 
 @dataclass
 class MultiTickerResult:
     """Resultado consolidado do comparativo multi-ticker."""
-    strategy:      str
-    range_period:  str
-    objective:     str
-    tickers:       list[str]
-    rankings:      list[TickerRanking]
+
+    strategy: str
+    range_period: str
+    objective: str
+    tickers: list[str]
+    rankings: list[TickerRanking]
     # Metricas de consistencia da estrategia no grupo
-    avg_score:     float
-    score_std:     float
-    hit_rate:      float           # % tickers com runs validos
-    best_ticker:   str
-    worst_ticker:  str
+    avg_score: float
+    score_std: float
+    hit_rate: float  # % tickers com runs validos
+    best_ticker: str
+    worst_ticker: str
     # Melhor conjunto de parametros consenso (mais frequente entre top-1 de cada ticker)
     consensus_params: dict[str, Any]
-    errors:        list[dict[str, str]]  # tickers que falharam com motivo
+    errors: list[dict[str, str]]  # tickers que falharam com motivo
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "strategy":        self.strategy,
-            "range_period":    self.range_period,
-            "objective":       self.objective,
-            "tickers":         self.tickers,
-            "rankings":        [r.to_dict() for r in self.rankings],
-            "avg_score":       round(self.avg_score, 4),
-            "score_std":       round(self.score_std, 4),
-            "hit_rate":        round(self.hit_rate, 1),
-            "best_ticker":     self.best_ticker,
-            "worst_ticker":    self.worst_ticker,
+            "strategy": self.strategy,
+            "range_period": self.range_period,
+            "objective": self.objective,
+            "tickers": self.tickers,
+            "rankings": [r.to_dict() for r in self.rankings],
+            "avg_score": round(self.avg_score, 4),
+            "score_std": round(self.score_std, 4),
+            "hit_rate": round(self.hit_rate, 1),
+            "best_ticker": self.best_ticker,
+            "worst_ticker": self.worst_ticker,
             "consensus_params": self.consensus_params,
-            "errors":          self.errors,
-            "total_tickers":   len(self.tickers),
-            "failed_tickers":  len(self.errors),
+            "errors": self.errors,
+            "total_tickers": len(self.tickers),
+            "failed_tickers": len(self.errors),
         }
 
 
 def build_multi_ticker_result(
-    results:      list[tuple[str, OptimizationResult | Exception]],
-    strategy:     str,
+    results: list[tuple[str, OptimizationResult | Exception]],
+    strategy: str,
     range_period: str,
-    objective:    str,
+    objective: str,
 ) -> MultiTickerResult:
     """
     Agrega resultados de N tickers em um MultiTickerResult.
@@ -127,7 +130,7 @@ def build_multi_ticker_result(
       6. Encontra parametros consenso
     """
     successes: list[tuple[str, OptimizationResult]] = []
-    errors:    list[dict[str, str]]                  = []
+    errors: list[dict[str, str]] = []
 
     for ticker, result in results:
         if isinstance(result, Exception):
@@ -139,10 +142,18 @@ def build_multi_ticker_result(
 
     if not successes:
         return MultiTickerResult(
-            strategy=strategy, range_period=range_period, objective=objective,
-            tickers=tickers, rankings=[], avg_score=0.0, score_std=0.0,
-            hit_rate=0.0, best_ticker="", worst_ticker="",
-            consensus_params={}, errors=errors,
+            strategy=strategy,
+            range_period=range_period,
+            objective=objective,
+            tickers=tickers,
+            rankings=[],
+            avg_score=0.0,
+            score_std=0.0,
+            hit_rate=0.0,
+            best_ticker="",
+            worst_ticker="",
+            consensus_params={},
+            errors=errors,
         )
 
     # Extrai scores e build raw rankings
@@ -164,47 +175,46 @@ def build_multi_ticker_result(
             score_pct = 100.0
 
         top = opt_result.top[0] if opt_result.top else None
-        rankings.append(TickerRanking(
-            rank        = rank,
-            ticker      = ticker,
-            best_score  = score,
-            score_pct   = round(score_pct, 1),
-            best_params = opt_result.best_params,
-            total_runs  = opt_result.total_runs,
-            valid_runs  = opt_result.valid_runs,
-            top_metrics = top.metrics.to_dict() if top else {},
-            has_valid   = opt_result.valid_runs > 0,
-        ))
+        rankings.append(
+            TickerRanking(
+                rank=rank,
+                ticker=ticker,
+                best_score=score,
+                score_pct=round(score_pct, 1),
+                best_params=opt_result.best_params,
+                total_runs=opt_result.total_runs,
+                valid_runs=opt_result.valid_runs,
+                top_metrics=top.metrics.to_dict() if top else {},
+                has_valid=opt_result.valid_runs > 0,
+            )
+        )
 
     # Metricas de consistencia
-    scores    = [r.best_score for r in rankings]
+    scores = [r.best_score for r in rankings]
     avg_score = sum(scores) / len(scores) if scores else 0.0
-    variance  = sum((s - avg_score) ** 2 for s in scores) / len(scores) if scores else 0.0
+    variance = sum((s - avg_score) ** 2 for s in scores) / len(scores) if scores else 0.0
     score_std = math.sqrt(variance)
-    hit_rate  = (sum(1 for r in rankings if r.has_valid) / len(rankings) * 100
-                 if rankings else 0.0)
+    hit_rate = sum(1 for r in rankings if r.has_valid) / len(rankings) * 100 if rankings else 0.0
 
-    best_ticker  = rankings[0].ticker  if rankings else ""
+    best_ticker = rankings[0].ticker if rankings else ""
     worst_ticker = rankings[-1].ticker if rankings else ""
 
     # Parametros consenso: valor mais frequente para cada parametro entre top-1 de cada ticker
-    consensus_params = _find_consensus_params(
-        [r.best_params for r in rankings if r.has_valid]
-    )
+    consensus_params = _find_consensus_params([r.best_params for r in rankings if r.has_valid])
 
     return MultiTickerResult(
-        strategy        = strategy,
-        range_period    = range_period,
-        objective       = objective,
-        tickers         = tickers,
-        rankings        = rankings,
-        avg_score       = avg_score,
-        score_std       = score_std,
-        hit_rate        = hit_rate,
-        best_ticker     = best_ticker,
-        worst_ticker    = worst_ticker,
-        consensus_params = consensus_params,
-        errors          = errors,
+        strategy=strategy,
+        range_period=range_period,
+        objective=objective,
+        tickers=tickers,
+        rankings=rankings,
+        avg_score=avg_score,
+        score_std=score_std,
+        hit_rate=hit_rate,
+        best_ticker=best_ticker,
+        worst_ticker=worst_ticker,
+        consensus_params=consensus_params,
+        errors=errors,
     )
 
 
@@ -222,7 +232,7 @@ def _find_consensus_params(params_list: list[dict[str, Any]]) -> dict[str, Any]:
     if not params_list:
         return {}
 
-    all_keys = set()
+    all_keys: set[str] = set()
     for p in params_list:
         all_keys.update(p.keys())
 

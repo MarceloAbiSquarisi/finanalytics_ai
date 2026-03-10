@@ -14,11 +14,12 @@ Design decision: SSE (Server-Sent Events) ao invés de WebSocket porque:
   - Auto-reconexão nativa no browser
   - Mais simples de implementar com FastAPI StreamingResponse
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
-from typing import AsyncIterator
+from typing import TYPE_CHECKING
 
 import structlog
 from fastapi import APIRouter, HTTPException, Query
@@ -26,11 +27,15 @@ from fastapi.responses import StreamingResponse
 
 from finanalytics_ai.config import EventQueueBackend, get_settings
 
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
 router = APIRouter()
 logger = structlog.get_logger(__name__)
 
 
 # ── SSE STREAM (Kafka → Browser) ─────────────────────────────────────────────
+
 
 @router.get("/stream")
 async def event_stream(
@@ -58,6 +63,7 @@ async def event_stream(
             return
 
         from finanalytics_ai.interfaces.api.app import get_kafka_consumer
+
         consumer = get_kafka_consumer()
 
         if consumer is None:
@@ -71,26 +77,26 @@ async def event_stream(
             while True:
                 try:
                     event = await asyncio.wait_for(
-                        consumer.dequeue(),  # type: ignore[attr-defined]
+                        consumer.dequeue(),
                         timeout=15.0,
                     )
                     # Filtro opcional por ticker
                     if ticker and event.ticker.upper() != ticker.upper():
-                        consumer._buffer.task_done()  # type: ignore[attr-defined]
+                        consumer._buffer.task_done()
                         continue
 
                     payload = {
-                        "type":      event.event_type.value,
-                        "ticker":    event.ticker,
-                        "event_id":  event.event_id,
-                        "source":    event.source,
+                        "type": event.event_type.value,
+                        "ticker": event.ticker,
+                        "event_id": event.event_id,
+                        "source": event.source,
                         "occurred_at": event.occurred_at.isoformat(),
                         **event.payload,
                     }
                     yield _sse_event(payload)
-                    consumer._buffer.task_done()  # type: ignore[attr-defined]
+                    consumer._buffer.task_done()
 
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Heartbeat — mantém conexão viva
                     yield ": heartbeat\n\n"
 
@@ -104,8 +110,8 @@ async def event_stream(
         _generator(),
         media_type="text/event-stream",
         headers={
-            "Cache-Control":   "no-cache",
-            "X-Accel-Buffering": "no",   # desativa buffering no nginx
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # desativa buffering no nginx
         },
     )
 
@@ -119,8 +125,8 @@ async def _demo_event_generator(ticker: str | None) -> AsyncIterator[str]:
     Gerador de eventos simulados para modo sem Kafka.
     Emite um evento a cada 2s com preços randômicos.
     """
-    import random
     import math
+    import random
 
     tickers = [ticker] if ticker else ["PETR4", "VALE3", "ITUB4", "BBDC4", "WEGE3"]
     base_prices = {"PETR4": 32.0, "VALE3": 65.0, "ITUB4": 28.0, "BBDC4": 15.0, "WEGE3": 42.0}
@@ -133,20 +139,23 @@ async def _demo_event_generator(ticker: str | None) -> AsyncIterator[str]:
         t = random.choice(tickers)
         base = base_prices.get(t, 30.0)
         price = base * (1 + 0.002 * math.sin(step * 0.3) + random.gauss(0, 0.003))
-        step += 1
+        step += 1  # noqa: SIM113
         base_prices[t] = price
 
-        yield _sse_event({
-            "type":       "price_update",
-            "ticker":     t,
-            "price":      round(price, 2),
-            "change_pct": round((price / base - 1) * 100, 3),
-            "volume":     random.randint(100_000, 5_000_000),
-            "source":     "demo",
-        })
+        yield _sse_event(
+            {
+                "type": "price_update",
+                "ticker": t,
+                "price": round(price, 2),
+                "change_pct": round((price / base - 1) * 100, 3),
+                "volume": random.randint(100_000, 5_000_000),
+                "source": "demo",
+            }
+        )
 
 
 # ── TIMESCALEDB QUERIES ───────────────────────────────────────────────────────
+
 
 @router.get("/ticks/{ticker}")
 async def get_price_ticks(
@@ -159,10 +168,11 @@ async def get_price_ticks(
             TimescalePriceTickRepository,
             get_timescale_pool,
         )
-        pool  = await get_timescale_pool()
-        repo  = TimescalePriceTickRepository(pool)
+
+        pool = await get_timescale_pool()
+        repo = TimescalePriceTickRepository(pool)
         ticks = await repo.query_latest(ticker, limit)
-        vwap  = await repo.query_vwap(ticker)
+        vwap = await repo.query_vwap(ticker)
         return {"ticker": ticker.upper(), "ticks": ticks, "count": len(ticks), "vwap": vwap}
     except Exception as exc:
         logger.warning("timescale.ticks.query_failed", ticker=ticker, error=str(exc))
@@ -173,7 +183,7 @@ async def get_price_ticks(
 async def get_timescale_ohlc(
     ticker: str,
     timeframe: str = Query(default="1d"),
-    limit: int     = Query(default=200, ge=1, le=2000),
+    limit: int = Query(default=200, ge=1, le=2000),
 ) -> dict:
     """Barras OHLC do TimescaleDB (dados locais, sem BRAPI)."""
     try:
@@ -181,16 +191,24 @@ async def get_timescale_ohlc(
             TimescaleOHLCRepository,
             get_timescale_pool,
         )
+
         pool = await get_timescale_pool()
         repo = TimescaleOHLCRepository(pool)
         bars = await repo.query_latest(ticker, timeframe, limit)
-        return {"ticker": ticker.upper(), "timeframe": timeframe, "bars": bars, "count": len(bars), "source": "timescale"}
+        return {
+            "ticker": ticker.upper(),
+            "timeframe": timeframe,
+            "bars": bars,
+            "count": len(bars),
+            "source": "timescale",
+        }
     except Exception as exc:
         logger.warning("timescale.ohlc.query_failed", ticker=ticker, error=str(exc))
         raise HTTPException(503, detail=f"TimescaleDB indisponível: {exc}")
 
 
 # ── KAFKA PUBLISH (debug / ingestão manual) ───────────────────────────────────
+
 
 @router.post("/publish")
 async def publish_event(body: dict) -> dict:
@@ -224,34 +242,36 @@ async def publish_event(body: dict) -> dict:
 
 # ── STATUS ────────────────────────────────────────────────────────────────────
 
+
 @router.get("/status")
 async def events_status() -> dict:
     """Status do consumer Kafka e das conexões de infraestrutura."""
     from finanalytics_ai.interfaces.api.app import get_kafka_consumer
+
     settings = get_settings()
 
     consumer = get_kafka_consumer()
     kafka_status = {
-        "backend":   settings.event_queue_backend,
+        "backend": settings.event_queue_backend,
         "connected": consumer is not None,
         "buffer_size": 0,
     }
     if consumer:
-        try:
-            kafka_status["buffer_size"] = consumer._buffer.qsize()  # type: ignore[attr-defined]
-        except Exception:
-            pass
+        import contextlib
+        with contextlib.suppress(Exception):
+            kafka_status["buffer_size"] = consumer._buffer.qsize()
 
     timescale_status = {"connected": False}
     try:
         from finanalytics_ai.infrastructure.timescale.repository import get_timescale_pool
+
         pool = await get_timescale_pool()
         timescale_status["connected"] = pool is not None
     except Exception as exc:
-        timescale_status["error"] = str(exc)
+        timescale_status["error"] = str(exc)  # type: ignore[assignment]
 
     return {
-        "kafka":     kafka_status,
+        "kafka": kafka_status,
         "timescale": timescale_status,
         "topics": {
             "market_events": settings.kafka_topic_market_events,

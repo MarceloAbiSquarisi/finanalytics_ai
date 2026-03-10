@@ -23,14 +23,17 @@ Design decisions:
     Positivo = choque adverso de alta (SELIC sobe).
     Negativo = choque de queda. Neutro (0.0) = cenário base.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
-from typing import Optional
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from datetime import date
 
 # ── Curva de Juros ────────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class YieldCurvePoint:
@@ -43,11 +46,12 @@ class YieldCurvePoint:
     contract:      código do contrato (ex: "DI1F26")
     source:        "anbima" | "b3" | "synthetic"
     """
+
     maturity_days: int
-    rate_annual:   float
-    maturity_date: Optional[date] = None
-    contract:      str            = ""
-    source:        str            = "synthetic"
+    rate_annual: float
+    maturity_date: date | None = None
+    contract: str = ""
+    source: str = "synthetic"
 
     @property
     def rate_pct(self) -> float:
@@ -69,12 +73,13 @@ class YieldCurve:
     cdi:            taxa CDI diária anualizada
     points:         lista de YieldCurvePoint ordenados por prazo
     """
+
     reference_date: date
-    selic:          float
-    cdi:            float
-    ipca:           float
-    points:         list[YieldCurvePoint] = field(default_factory=list)
-    source:         str                   = "synthetic"
+    selic: float
+    cdi: float
+    ipca: float
+    points: list[YieldCurvePoint] = field(default_factory=list)
+    source: str = "synthetic"
 
     @property
     def short_rate(self) -> float:
@@ -103,6 +108,7 @@ class YieldCurve:
 
 # ── Stress Test ───────────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class StressScenario:
     """
@@ -115,67 +121,79 @@ class StressScenario:
     delta_igpm:   variação no IGPM
     color:        cor para o gráfico frontend
     """
-    name:        str
+
+    name: str
     delta_selic: float = 0.0
-    delta_cdi:   float = 0.0
-    delta_ipca:  float = 0.0
-    delta_igpm:  float = 0.0
-    color:       str   = "#8899aa"
+    delta_cdi: float = 0.0
+    delta_ipca: float = 0.0
+    delta_igpm: float = 0.0
+    color: str = "#8899aa"
 
     def apply_to_rates(
         self,
         base_selic: float,
-        base_cdi:   float,
-        base_ipca:  float,
-        base_igpm:  float,
+        base_cdi: float,
+        base_ipca: float,
+        base_igpm: float,
     ) -> dict[str, float]:
         """Retorna taxas estressadas."""
         return {
             "selic": max(0.0, base_selic + self.delta_selic),
-            "cdi":   max(0.0, base_cdi   + self.delta_cdi),
-            "ipca":  max(0.0, base_ipca  + self.delta_ipca),
-            "igpm":  max(0.0, base_igpm  + self.delta_igpm),
+            "cdi": max(0.0, base_cdi + self.delta_cdi),
+            "ipca": max(0.0, base_ipca + self.delta_ipca),
+            "igpm": max(0.0, base_igpm + self.delta_igpm),
         }
 
 
 # Cenários padrão pré-definidos
 STANDARD_SCENARIOS: list[StressScenario] = [
-    StressScenario("Base",          color="#00c48c"),
+    StressScenario("Base", color="#00c48c"),
     StressScenario("SELIC +1 p.p.", delta_selic=0.01, delta_cdi=0.01, color="#ffb300"),
     StressScenario("SELIC +2 p.p.", delta_selic=0.02, delta_cdi=0.02, color="#ff6b35"),
     StressScenario("SELIC -1 p.p.", delta_selic=-0.01, delta_cdi=-0.01, color="#4ecdc4"),
     StressScenario("SELIC -2 p.p.", delta_selic=-0.02, delta_cdi=-0.02, color="#45b7d1"),
-    StressScenario("IPCA +2 p.p.", delta_ipca=0.02,  color="#e056fd"),
+    StressScenario("IPCA +2 p.p.", delta_ipca=0.02, color="#e056fd"),
     StressScenario("IPCA -2 p.p.", delta_ipca=-0.02, color="#a29bfe"),
-    StressScenario("Crise: SELIC +3 p.p. / IPCA +3 p.p.",
-                   delta_selic=0.03, delta_cdi=0.03, delta_ipca=0.03, color="#ff4757"),
-    StressScenario("Desinflação: SELIC -3 p.p. / IPCA -2 p.p.",
-                   delta_selic=-0.03, delta_cdi=-0.03, delta_ipca=-0.02, color="#26de81"),
+    StressScenario(
+        "Crise: SELIC +3 p.p. / IPCA +3 p.p.",
+        delta_selic=0.03,
+        delta_cdi=0.03,
+        delta_ipca=0.03,
+        color="#ff4757",
+    ),
+    StressScenario(
+        "Desinflação: SELIC -3 p.p. / IPCA -2 p.p.",
+        delta_selic=-0.03,
+        delta_cdi=-0.03,
+        delta_ipca=-0.02,
+        color="#26de81",
+    ),
 ]
 
 
 @dataclass
 class StressResult:
     """Resultado de um único bond × um único cenário."""
-    scenario_name:    str
-    bond_id:          str
-    bond_name:        str
-    principal:        float
-    days:             int
+
+    scenario_name: str
+    bond_id: str
+    bond_name: str
+    principal: float
+    days: int
 
     # Taxas aplicadas neste cenário
-    selic_applied:    float
-    cdi_applied:      float
-    ipca_applied:     float
+    selic_applied: float
+    cdi_applied: float
+    ipca_applied: float
 
     # Resultados
-    gross_return:     float   # rendimento bruto %
-    net_return:       float   # rendimento líquido % (após IR/IOF)
-    net_value:        float   # valor final líquido R$
-    ir_amount:        float   # IR pago R$
-    iof_amount:       float   # IOF pago R$
-    effective_rate:   float   # taxa efetiva anual %
-    color:            str     = "#8899aa"
+    gross_return: float  # rendimento bruto %
+    net_return: float  # rendimento líquido % (após IR/IOF)
+    net_value: float  # valor final líquido R$
+    ir_amount: float  # IR pago R$
+    iof_amount: float  # IOF pago R$
+    effective_rate: float  # taxa efetiva anual %
+    color: str = "#8899aa"
 
     @property
     def net_return_pct(self) -> float:
@@ -189,27 +207,28 @@ class StressResult:
 @dataclass
 class ScenarioComparison:
     """Comparação de um bond através de múltiplos cenários de stress."""
-    bond_id:    str
-    bond_name:  str
-    principal:  float
-    days:       int
-    results:    list[StressResult] = field(default_factory=list)
+
+    bond_id: str
+    bond_name: str
+    principal: float
+    days: int
+    results: list[StressResult] = field(default_factory=list)
 
     @property
-    def base_result(self) -> Optional[StressResult]:
+    def base_result(self) -> StressResult | None:
         for r in self.results:
             if r.scenario_name == "Base":
                 return r
         return self.results[0] if self.results else None
 
     @property
-    def worst_result(self) -> Optional[StressResult]:
+    def worst_result(self) -> StressResult | None:
         if not self.results:
             return None
         return min(self.results, key=lambda r: r.net_return)
 
     @property
-    def best_result(self) -> Optional[StressResult]:
+    def best_result(self) -> StressResult | None:
         if not self.results:
             return None
         return max(self.results, key=lambda r: r.net_return)

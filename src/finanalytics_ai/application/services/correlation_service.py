@@ -17,10 +17,11 @@ Design decisions:
     recebe strings crus do usuario. A conversao str -> Ticker e feita aqui,
     garantindo validacao antes da chamada HTTP.
 """
+
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING
 
 import structlog
 
@@ -30,24 +31,25 @@ from finanalytics_ai.domain.correlation.engine import (
     build_correlation_result,
 )
 from finanalytics_ai.domain.value_objects.money import Ticker
-from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
+
+if TYPE_CHECKING:
+    from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
 
 logger = structlog.get_logger(__name__)
 
-MAX_TICKERS    = 10
+MAX_TICKERS = 10
 MAX_CONCURRENT = 3
-MIN_BARS       = 10
+MIN_BARS = 10
 
 
 class CorrelationService:
-
     def __init__(self, brapi_client: BrapiClient) -> None:
         self._brapi = brapi_client
 
     async def compute(
         self,
-        tickers:        list[str],
-        range_period:   str = "1y",
+        tickers: list[str],
+        range_period: str = "1y",
         rolling_window: int = 30,
     ) -> CorrelationResult:
         """
@@ -68,8 +70,7 @@ class CorrelationService:
             raise BacktestError("Correlacao requer pelo menos 2 tickers.")
         if len(tickers) > MAX_TICKERS:
             raise BacktestError(
-                f"Maximo de {MAX_TICKERS} tickers por analise. "
-                f"Recebidos: {len(tickers)}."
+                f"Maximo de {MAX_TICKERS} tickers por analise. Recebidos: {len(tickers)}."
             )
 
         log = logger.bind(tickers=tickers, range=range_period, window=rolling_window)
@@ -94,8 +95,8 @@ class CorrelationService:
 
         raw = await asyncio.gather(*[_fetch(t) for t in tickers])
 
-        bars_map:  dict[str, list[dict]] = {}
-        errors:    list[dict[str, str]]  = []
+        bars_map: dict[str, list[dict]] = {}
+        errors: list[dict[str, str]] = []
         for ticker, result in raw:
             if isinstance(result, Exception):
                 errors.append({"ticker": ticker, "error": str(result)})
@@ -123,18 +124,18 @@ class CorrelationService:
             )
 
         result = build_correlation_result(
-            bars_map      = bars_map,
-            range_period  = range_period,
-            rolling_window = effective_window,
-            errors        = errors,
+            bars_map=bars_map,
+            range_period=range_period,
+            rolling_window=effective_window,
+            errors=errors,
         )
 
         log.info(
             "correlation.done",
-            tickers_ok      = len(bars_map),
-            tickers_failed  = len(errors),
-            common_bars     = result.common_bars,
-            diversification = result.diversification_score,
+            tickers_ok=len(bars_map),
+            tickers_failed=len(errors),
+            common_bars=result.common_bars,
+            diversification=result.diversification_score,
         )
 
         return result

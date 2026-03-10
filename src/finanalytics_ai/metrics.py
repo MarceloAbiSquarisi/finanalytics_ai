@@ -31,20 +31,29 @@ Design decisions:
     Price prod:   price_producer_polls_total, price_producer_errors_total
     Kafka:        kafka_messages_consumed_total
 """
+
 from __future__ import annotations
 
 import time
-from typing import Callable, Awaitable
+from typing import TYPE_CHECKING
 
 import structlog
 from prometheus_client import (
-    Counter, Gauge, Histogram, Info,
-    CollectorRegistry, CONTENT_TYPE_LATEST, generate_latest,
+    CONTENT_TYPE_LATEST,
     REGISTRY,
+    Counter,
+    Gauge,
+    Histogram,
+    Info,
+    generate_latest,
 )
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
 from starlette.responses import Response
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from starlette.requests import Request
 
 logger = structlog.get_logger(__name__)
 
@@ -199,6 +208,7 @@ correlation_runs_total = Counter(
 
 # ── Helpers para instrumentacao nos services ──────────────────────────────────
 
+
 def record_anomaly_scan(
     tickers_count: int,
     range_period: str,
@@ -257,14 +267,14 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         method = request.method
-        start  = time.perf_counter()
+        start = time.perf_counter()
 
         # Tenta obter path template (ex: /api/v1/quotes/{ticker})
         # Disponível após roteamento — fallback para path bruto
         http_requests_in_flight.labels(method=method, path=path).inc()
         try:
             response = await call_next(request)
-            status   = response.status_code
+            status = response.status_code
         except Exception:
             http_requests_in_flight.labels(method=method, path=path).dec()
             raise
@@ -274,18 +284,15 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
         norm_path = getattr(route, "path", path)
 
         elapsed = time.perf_counter() - start
-        http_requests_total.labels(
-            method=method, path=norm_path, status_code=str(status)
-        ).inc()
-        http_request_duration_seconds.labels(
-            method=method, path=norm_path
-        ).observe(elapsed)
+        http_requests_total.labels(method=method, path=norm_path, status_code=str(status)).inc()
+        http_request_duration_seconds.labels(method=method, path=norm_path).observe(elapsed)
         http_requests_in_flight.labels(method=method, path=path).dec()
 
         return response
 
 
 # ── Endpoint /metrics ─────────────────────────────────────────────────────────
+
 
 async def metrics_endpoint(request: Request) -> Response:
     """

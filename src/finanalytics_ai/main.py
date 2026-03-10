@@ -6,17 +6,19 @@ Inicializa: logging → observabilidade → fila → worker de eventos.
 Design decision: startup/shutdown explícitos com lifespan async.
 Evita globals mutáveis — passa dependências construídas para baixo.
 """
+
 from __future__ import annotations
 
 import asyncio
 import signal
+
 import structlog
 
 from finanalytics_ai.config import get_settings
-from finanalytics_ai.logging_config import configure_logging
-from finanalytics_ai.observability import setup_metrics, setup_tracing
 from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
 from finanalytics_ai.infrastructure.queue.event_queue import InMemoryEventQueue
+from finanalytics_ai.logging_config import configure_logging
+from finanalytics_ai.observability import setup_metrics, setup_tracing
 
 logger = structlog.get_logger(__name__)
 
@@ -51,7 +53,7 @@ async def main() -> None:
     )
 
     # Observabilidade
-    tracer = setup_tracing()
+    setup_tracing()
     if settings.metrics_enabled:
         setup_metrics()
 

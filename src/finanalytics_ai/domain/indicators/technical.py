@@ -18,36 +18,37 @@ Referências canônicas:
   MACD:   Appel, G. (1979)
   BB:     Bollinger, J. (1992)
 """
+
 from __future__ import annotations
 
 import math
 from typing import TypedDict
 
-
 # ── TYPE ALIASES ──────────────────────────────────────────────────────────────
 
+
 class RSIResult(TypedDict):
-    values: list[float | None]   # RSI 0-100, None durante warmup
-    overbought: float             # linha de referência (70)
-    oversold: float               # linha de referência (30)
+    values: list[float | None]  # RSI 0-100, None durante warmup
+    overbought: float  # linha de referência (70)
+    oversold: float  # linha de referência (30)
     period: int
 
 
 class MACDResult(TypedDict):
-    macd: list[float | None]      # MACD line (fast EMA - slow EMA)
-    signal: list[float | None]    # Signal line (EMA do MACD)
-    histogram: list[float | None] # MACD - Signal
+    macd: list[float | None]  # MACD line (fast EMA - slow EMA)
+    signal: list[float | None]  # Signal line (EMA do MACD)
+    histogram: list[float | None]  # MACD - Signal
     fast: int
     slow: int
     signal_period: int
 
 
 class BollingerResult(TypedDict):
-    upper: list[float | None]     # Banda superior (SMA + k*std)
-    middle: list[float | None]    # SMA central
-    lower: list[float | None]     # Banda inferior (SMA - k*std)
-    bandwidth: list[float | None] # (upper - lower) / middle — volatilidade relativa
-    pct_b: list[float | None]     # (close - lower) / (upper - lower) — posição na banda
+    upper: list[float | None]  # Banda superior (SMA + k*std)
+    middle: list[float | None]  # SMA central
+    lower: list[float | None]  # Banda inferior (SMA - k*std)
+    bandwidth: list[float | None]  # (upper - lower) / middle — volatilidade relativa
+    pct_b: list[float | None]  # (close - lower) / (upper - lower) — posição na banda
     period: int
     std_dev: float
 
@@ -56,13 +57,14 @@ class IndicatorsResult(TypedDict):
     rsi: RSIResult
     macd: MACDResult
     bollinger: BollingerResult
-    timestamps: list[int]         # timestamps Unix correspondentes
+    timestamps: list[int]  # timestamps Unix correspondentes
     ticker: str
     range: str
     count: int
 
 
 # ── PRIMITIVOS ────────────────────────────────────────────────────────────────
+
 
 def _ema(values: list[float], period: int) -> list[float | None]:
     """
@@ -94,7 +96,7 @@ def _sma(values: list[float], period: int) -> list[float | None]:
     """Simple Moving Average com sliding window."""
     result: list[float | None] = [None] * (period - 1)
     for i in range(period - 1, len(values)):
-        result.append(sum(values[i - period + 1: i + 1]) / period)
+        result.append(sum(values[i - period + 1 : i + 1]) / period)
     return result
 
 
@@ -105,7 +107,7 @@ def _std(values: list[float], period: int) -> list[float | None]:
     """
     result: list[float | None] = [None] * (period - 1)
     for i in range(period - 1, len(values)):
-        window = values[i - period + 1: i + 1]
+        window = values[i - period + 1 : i + 1]
         mean = sum(window) / period
         variance = sum((x - mean) ** 2 for x in window) / period
         result.append(math.sqrt(variance))
@@ -113,6 +115,7 @@ def _std(values: list[float], period: int) -> list[float | None]:
 
 
 # ── RSI ───────────────────────────────────────────────────────────────────────
+
 
 def compute_rsi(closes: list[float], period: int = 14) -> RSIResult:
     """
@@ -132,7 +135,7 @@ def compute_rsi(closes: list[float], period: int = 14) -> RSIResult:
 
     # Calcula deltas
     deltas = [closes[i] - closes[i - 1] for i in range(1, n)]
-    gains  = [max(d, 0.0) for d in deltas]
+    gains = [max(d, 0.0) for d in deltas]
     losses = [max(-d, 0.0) for d in deltas]
 
     # Seed: SMA dos primeiros `period` deltas (índice 0..period-1 de gains/losses)
@@ -159,6 +162,7 @@ def compute_rsi(closes: list[float], period: int = 14) -> RSIResult:
 
 # ── MACD ──────────────────────────────────────────────────────────────────────
 
+
 def compute_macd(
     closes: list[float],
     fast: int = 12,
@@ -181,7 +185,7 @@ def compute_macd(
 
     # MACD line — só onde ambas as EMAs existem
     macd_line: list[float | None] = []
-    for f, s in zip(ema_fast, ema_slow):
+    for f, s in zip(ema_fast, ema_slow, strict=False):
         if f is None or s is None:
             macd_line.append(None)
         else:
@@ -190,10 +194,16 @@ def compute_macd(
     # Extrai apenas os valores não-None para calcular o signal EMA
     valid_indices = [i for i, v in enumerate(macd_line) if v is not None]
     if len(valid_indices) < signal_period:
-        return MACDResult(macd=empty, signal=empty, histogram=empty,
-                          fast=fast, slow=slow, signal_period=signal_period)
+        return MACDResult(
+            macd=empty,
+            signal=empty,
+            histogram=empty,
+            fast=fast,
+            slow=slow,
+            signal_period=signal_period,
+        )
 
-    valid_macd = [macd_line[i] for i in valid_indices]  # type: ignore[misc]
+    valid_macd = [macd_line[i] for i in valid_indices]
     signal_ema = _ema(valid_macd, signal_period)  # type: ignore[arg-type]
 
     # Remapeia signal_ema de volta para o índice original
@@ -218,6 +228,7 @@ def compute_macd(
 
 # ── BOLLINGER BANDS ───────────────────────────────────────────────────────────
 
+
 def compute_bollinger(
     closes: list[float],
     period: int = 20,
@@ -238,14 +249,14 @@ def compute_bollinger(
       Valores baixos = squeeze (potencial breakout)
     """
     n = len(closes)
-    sma  = _sma(closes, period)
-    std  = _std(closes, period)
+    sma = _sma(closes, period)
+    std = _std(closes, period)
 
-    upper:     list[float | None] = [None] * n
-    middle:    list[float | None] = [None] * n
-    lower:     list[float | None] = [None] * n
+    upper: list[float | None] = [None] * n
+    middle: list[float | None] = [None] * n
+    lower: list[float | None] = [None] * n
     bandwidth: list[float | None] = [None] * n
-    pct_b:     list[float | None] = [None] * n
+    pct_b: list[float | None] = [None] * n
 
     for i in range(n):
         m = sma[i]
@@ -253,22 +264,27 @@ def compute_bollinger(
         if m is None or s is None:
             continue
         u = m + std_dev * s
-        l = m - std_dev * s
-        middle[i]    = m
-        upper[i]     = u
-        lower[i]     = l
-        bandwidth[i] = (u - l) / m if m != 0 else None
-        band_width   = u - l
-        pct_b[i]     = (closes[i] - l) / band_width if band_width != 0 else None
+        lo = m - std_dev * s
+        middle[i] = m
+        upper[i] = u
+        lower[i] = lo
+        bandwidth[i] = (u - lo) / m if m != 0 else None
+        band_width = u - lo
+        pct_b[i] = (closes[i] - lo) / band_width if band_width != 0 else None
 
     return BollingerResult(
-        upper=upper, middle=middle, lower=lower,
-        bandwidth=bandwidth, pct_b=pct_b,
-        period=period, std_dev=std_dev,
+        upper=upper,
+        middle=middle,
+        lower=lower,
+        bandwidth=bandwidth,
+        pct_b=pct_b,
+        period=period,
+        std_dev=std_dev,
     )
 
 
 # ── FACADE ────────────────────────────────────────────────────────────────────
+
 
 def compute_all(
     bars: list[dict],
@@ -289,20 +305,32 @@ def compute_all(
     com None nos índices de warmup, garantindo alinhamento 1:1 com timestamps.
     """
     if not bars:
-        empty: list[float | None] = []
         return IndicatorsResult(
             rsi=RSIResult(values=[], overbought=70.0, oversold=30.0, period=rsi_period),
-            macd=MACDResult(macd=[], signal=[], histogram=[],
-                            fast=macd_fast, slow=macd_slow, signal_period=macd_signal),
-            bollinger=BollingerResult(upper=[], middle=[], lower=[],
-                                      bandwidth=[], pct_b=[], period=bb_period, std_dev=bb_std),
+            macd=MACDResult(
+                macd=[],
+                signal=[],
+                histogram=[],
+                fast=macd_fast,
+                slow=macd_slow,
+                signal_period=macd_signal,
+            ),
+            bollinger=BollingerResult(
+                upper=[],
+                middle=[],
+                lower=[],
+                bandwidth=[],
+                pct_b=[],
+                period=bb_period,
+                std_dev=bb_std,
+            ),
             timestamps=[],
             ticker="",
             range="",
             count=0,
         )
 
-    closes     = [float(b["close"]) for b in bars]
+    closes = [float(b["close"]) for b in bars]
     timestamps = [int(b["time"]) for b in bars]
 
     return IndicatorsResult(

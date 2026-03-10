@@ -14,14 +14,13 @@ BRAPI OHLC endpoint:
   range:    1d | 5d | 1mo | 3mo | 6mo | 1y | 2y | 5y | 10y | ytd | max
   interval: 1m | 2m | 5m | 15m | 30m | 60m | 90m | 1h | 1d | 5d | 1wk | 1mo | 3mo
 """
+
 from __future__ import annotations
 
-import structlog
-from datetime import datetime, timezone
-from decimal import Decimal
 from typing import Any
 
 import httpx
+import structlog
 from tenacity import (
     AsyncRetrying,
     retry_if_exception_type,
@@ -30,7 +29,6 @@ from tenacity import (
 )
 
 from finanalytics_ai.config import get_settings
-from finanalytics_ai.domain.entities.event import OHLCBar
 from finanalytics_ai.domain.value_objects.money import Money, Ticker
 from finanalytics_ai.exceptions import MarketDataUnavailableError, TransientError
 from finanalytics_ai.observability import market_data_requests_total
@@ -45,14 +43,14 @@ logger = structlog.get_logger(__name__)
 #   - BRAPI (Yahoo Finance) suporta interval=1d para qualquer range
 # Para ranges > 2y usamos 1wk para limitar o payload (~500 barras max)
 RANGE_INTERVAL_MAP: dict[str, str] = {
-    "1d":  "5m",
-    "5d":  "15m",
+    "1d": "5m",
+    "5d": "15m",
     "1mo": "1d",
     "3mo": "1d",
-    "6mo": "1d",   # ~120 barras diarias
-    "1y":  "1d",   # ~250 barras diarias
-    "2y":  "1d",   # ~500 barras diarias
-    "5y":  "1wk",
+    "6mo": "1d",  # ~120 barras diarias
+    "1y": "1d",  # ~250 barras diarias
+    "2y": "1d",  # ~500 barras diarias
+    "5y": "1wk",
     "max": "1mo",
 }
 
@@ -113,7 +111,9 @@ class BrapiClient:
         Para persistência usar OHLCBar do domínio.
         """
         resolved_interval = interval or RANGE_INTERVAL_MAP.get(range_period, "1d")
-        path = f"/quote/{ticker}?range={range_period}&interval={resolved_interval}&fundamental=false"
+        path = (
+            f"/quote/{ticker}?range={range_period}&interval={resolved_interval}&fundamental=false"
+        )
 
         data = await self._request_with_retry(path)
 
@@ -128,24 +128,26 @@ class BrapiClient:
         for bar in historical:
             # BRAPI retorna timestamp Unix em segundos
             ts = bar.get("date")
-            o  = bar.get("open")
-            h  = bar.get("high")
-            l  = bar.get("low")
-            c  = bar.get("close")
-            v  = bar.get("volume", 0)
+            o = bar.get("open")
+            h = bar.get("high")
+            low_val = bar.get("low")
+            c = bar.get("close")
+            v = bar.get("volume", 0)
 
             # Filtra barras incompletas
-            if not all([ts, o, h, l, c]):
+            if not all([ts, o, h, low_val, c]):
                 continue
 
-            bars.append({
-                "time":   ts,          # Unix timestamp (segundos) — TradingView aceita diretamente
-                "open":   float(o),
-                "high":   float(h),
-                "low":    float(l),
-                "close":  float(c),
-                "volume": int(v or 0),
-            })
+            bars.append(
+                {
+                    "time": ts,  # Unix timestamp (segundos) — TradingView aceita diretamente
+                    "open": float(o),
+                    "high": float(h),
+                    "low": float(low_val),
+                    "close": float(c),
+                    "volume": int(v or 0),
+                }
+            )
 
         # Ordena por timestamp (BRAPI às vezes retorna desordenado)
         bars.sort(key=lambda x: x["time"])
@@ -168,20 +170,20 @@ class BrapiClient:
         try:
             r = data["results"][0]
             return {
-                "ticker":               r.get("symbol", str(ticker)),
-                "name":                 r.get("longName") or r.get("shortName", ""),
-                "price":                r.get("regularMarketPrice"),
-                "change":               r.get("regularMarketChange"),
-                "change_pct":           r.get("regularMarketChangePercent"),
-                "volume":               r.get("regularMarketVolume"),
-                "market_cap":           r.get("marketCap"),
-                "high_52w":             r.get("fiftyTwoWeekHigh"),
-                "low_52w":              r.get("fiftyTwoWeekLow"),
-                "avg_volume":           r.get("averageDailyVolume3Month"),
-                "previous_close":       r.get("regularMarketPreviousClose"),
-                "market_time":          r.get("regularMarketTime"),
-                "currency":             r.get("currency", "BRL"),
-                "exchange":             r.get("exchange", ""),
+                "ticker": r.get("symbol", str(ticker)),
+                "name": r.get("longName") or r.get("shortName", ""),
+                "price": r.get("regularMarketPrice"),
+                "change": r.get("regularMarketChange"),
+                "change_pct": r.get("regularMarketChangePercent"),
+                "volume": r.get("regularMarketVolume"),
+                "market_cap": r.get("marketCap"),
+                "high_52w": r.get("fiftyTwoWeekHigh"),
+                "low_52w": r.get("fiftyTwoWeekLow"),
+                "avg_volume": r.get("averageDailyVolume3Month"),
+                "previous_close": r.get("regularMarketPreviousClose"),
+                "market_time": r.get("regularMarketTime"),
+                "currency": r.get("currency", "BRL"),
+                "exchange": r.get("exchange", ""),
             }
         except (KeyError, IndexError, TypeError) as exc:
             raise MarketDataUnavailableError(
@@ -209,7 +211,7 @@ class BrapiClient:
             return []
 
         joined = ",".join(tickers)
-        path   = f"/quote/{joined}?fundamental=true"
+        path = f"/quote/{joined}?fundamental=true"
 
         try:
             data = await self._request_with_retry(path)
@@ -249,6 +251,7 @@ class BrapiClient:
 
     async def _request(self, path: str) -> dict[str, Any]:
         import time as _time
+
         client = await self._get_client()
         _start = _time.perf_counter()
         try:
@@ -257,6 +260,7 @@ class BrapiClient:
             market_data_requests_total.labels(provider="brapi", status="error").inc()
             try:
                 from finanalytics_ai.metrics import record_brapi_call
+
                 record_brapi_call(path.split("?")[0], False, _time.perf_counter() - _start)
             except Exception:
                 pass
@@ -271,6 +275,7 @@ class BrapiClient:
             market_data_requests_total.labels(provider="brapi", status="5xx").inc()
             try:
                 from finanalytics_ai.metrics import record_brapi_call
+
                 record_brapi_call(path.split("?")[0], False, _elapsed)
             except Exception:
                 pass
@@ -291,6 +296,7 @@ class BrapiClient:
         market_data_requests_total.labels(provider="brapi", status="ok").inc()
         try:
             from finanalytics_ai.metrics import record_brapi_call
+
             record_brapi_call(path.split("?")[0], True, _elapsed)
         except Exception:
             pass

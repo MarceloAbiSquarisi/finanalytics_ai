@@ -57,37 +57,38 @@ Design decisions:
     Imutavel apos criacao — detectar e relatar, nunca modificar.
     Compativel com serialzacao JSON direta via to_dict().
 """
+
 from __future__ import annotations
 
-import math
 import statistics
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
-
 # ── Tipos ─────────────────────────────────────────────────────────────────────
 
+
 class AnomalyType(StrEnum):
-    ZSCORE_SPIKE    = "zscore_spike"     # retorno anomalo (Z-Score)
+    ZSCORE_SPIKE = "zscore_spike"  # retorno anomalo (Z-Score)
     BOLLINGER_BREAK = "bollinger_break"  # preco fora das bandas de Bollinger
-    CUSUM_SHIFT     = "cusum_shift"      # mudanca estrutural (CUSUM)
-    VOLUME_SPIKE    = "volume_spike"     # volume anomalo
+    CUSUM_SHIFT = "cusum_shift"  # mudanca estrutural (CUSUM)
+    VOLUME_SPIKE = "volume_spike"  # volume anomalo
 
 
 class AnomalySeverity(StrEnum):
-    LOW    = "low"
+    LOW = "low"
     MEDIUM = "medium"
-    HIGH   = "high"
+    HIGH = "high"
 
 
 class AnomalyDirection(StrEnum):
-    UP   = "up"
+    UP = "up"
     DOWN = "down"
     BOTH = "both"
 
 
 # ── Evento de anomalia ────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class AnomalyEvent:
@@ -96,41 +97,44 @@ class AnomalyEvent:
 
     Imutavel — detectado, registrado, nao modificado.
     """
-    ticker:      str
+
+    ticker: str
     anomaly_type: AnomalyType
-    severity:    AnomalySeverity
-    direction:   AnomalyDirection
-    score:       float          # metrica bruta (z-score, ratio, cusum value)
-    threshold:   float          # threshold que foi cruzado
-    current_value: float        # valor atual (preco, retorno ou volume)
-    description: str            # mensagem legivel
-    timestamp:   int            # Unix timestamp da barra detectada
-    context:     dict[str, Any] = field(default_factory=dict)
+    severity: AnomalySeverity
+    direction: AnomalyDirection
+    score: float  # metrica bruta (z-score, ratio, cusum value)
+    threshold: float  # threshold que foi cruzado
+    current_value: float  # valor atual (preco, retorno ou volume)
+    description: str  # mensagem legivel
+    timestamp: int  # Unix timestamp da barra detectada
+    context: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "ticker":        self.ticker,
-            "anomaly_type":  str(self.anomaly_type),
-            "severity":      str(self.severity),
-            "direction":     str(self.direction),
-            "score":         round(self.score, 4),
-            "threshold":     round(self.threshold, 4),
+            "ticker": self.ticker,
+            "anomaly_type": str(self.anomaly_type),
+            "severity": str(self.severity),
+            "direction": str(self.direction),
+            "score": round(self.score, 4),
+            "threshold": round(self.threshold, 4),
             "current_value": round(self.current_value, 4),
-            "description":   self.description,
-            "timestamp":     self.timestamp,
-            "context":       self.context,
+            "description": self.description,
+            "timestamp": self.timestamp,
+            "context": self.context,
         }
 
 
 # ── Resultado da analise ──────────────────────────────────────────────────────
 
+
 @dataclass
 class AnomalyResult:
     """Resultado da analise de anomalias para um ativo."""
-    ticker:       str
+
+    ticker: str
     bars_analyzed: int
-    anomalies:    list[AnomalyEvent]
-    error:        str | None = None
+    anomalies: list[AnomalyEvent]
+    error: str | None = None
 
     @property
     def has_anomalies(self) -> bool:
@@ -145,43 +149,46 @@ class AnomalyResult:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "ticker":        self.ticker,
+            "ticker": self.ticker,
             "bars_analyzed": self.bars_analyzed,
             "anomaly_count": len(self.anomalies),
             "has_anomalies": self.has_anomalies,
-            "max_severity":  str(self.max_severity) if self.max_severity else None,
-            "anomalies":     [a.to_dict() for a in self.anomalies],
-            "error":         self.error,
+            "max_severity": str(self.max_severity) if self.max_severity else None,
+            "anomalies": [a.to_dict() for a in self.anomalies],
+            "error": self.error,
         }
 
 
 # ── Configuracao dos detectores ───────────────────────────────────────────────
 
+
 @dataclass
 class DetectorConfig:
     """Parametros configuráveis para todos os detectores."""
+
     # Z-Score
-    zscore_window:    int   = 30
+    zscore_window: int = 30
     zscore_threshold: float = 2.5
 
     # Bollinger
-    bollinger_window: int   = 20
-    bollinger_k:      float = 2.0     # numero de desvios padrao
+    bollinger_window: int = 20
+    bollinger_k: float = 2.0  # numero de desvios padrao
 
     # CUSUM
-    cusum_window:     int   = 30
-    cusum_k:          float = 0.5     # slack factor (fracao do std)
-    cusum_threshold:  float = 5.0     # limiar de deteccao (em unidades de std)
+    cusum_window: int = 30
+    cusum_k: float = 0.5  # slack factor (fracao do std)
+    cusum_threshold: float = 5.0  # limiar de deteccao (em unidades de std)
 
     # Volume
-    volume_window:    int   = 20
-    volume_multiplier: float = 3.0    # multiplo da media para spike
+    volume_window: int = 20
+    volume_multiplier: float = 3.0  # multiplo da media para spike
 
     # Geral
-    lookback_bars:    int   = 100     # barras historicas para analise
+    lookback_bars: int = 100  # barras historicas para analise
 
 
 # ── Helpers estatisticos ──────────────────────────────────────────────────────
+
 
 def _mean(series: list[float]) -> float:
     return sum(series) / len(series) if series else 0.0
@@ -217,16 +224,16 @@ def _returns(closes: list[float]) -> list[float]:
     """Retornos percentuais simples."""
     if len(closes) < 2:
         return []
-    return [(closes[i] - closes[i-1]) / closes[i-1] * 100.0
-            for i in range(1, len(closes))]
+    return [(closes[i] - closes[i - 1]) / closes[i - 1] * 100.0 for i in range(1, len(closes))]
 
 
 # ── Detector 1: Z-Score sobre retornos ───────────────────────────────────────
 
+
 def detect_zscore(
-    bars:      list[dict[str, Any]],
-    ticker:    str,
-    config:    DetectorConfig,
+    bars: list[dict[str, Any]],
+    ticker: str,
+    config: DetectorConfig,
 ) -> list[AnomalyEvent]:
     """
     Detecta spikes de retorno usando Z-Score com janela movel.
@@ -243,13 +250,13 @@ def detect_zscore(
     window = config.zscore_window
 
     # Ultimo retorno vs janela historica
-    history = rets[-(window + 1):-1]
+    history = rets[-(window + 1) : -1]
     current_ret = rets[-1]
 
     if len(history) < 5:
         return []
 
-    mu  = _mean(history)
+    mu = _mean(history)
     std = _std(history)
 
     if std < 1e-8:
@@ -261,38 +268,41 @@ def detect_zscore(
         return []
 
     direction = AnomalyDirection.UP if z > 0 else AnomalyDirection.DOWN
-    severity  = _severity_from_z(z)
-    ts        = bars[-1].get("time", 0)
-    price     = closes[-1]
+    severity = _severity_from_z(z)
+    ts = bars[-1].get("time", 0)
+    price = closes[-1]
 
-    return [AnomalyEvent(
-        ticker       = ticker,
-        anomaly_type = AnomalyType.ZSCORE_SPIKE,
-        severity     = severity,
-        direction    = direction,
-        score        = round(z, 3),
-        threshold    = config.zscore_threshold,
-        current_value = current_ret,
-        description  = (
-            f"{ticker}: retorno de {current_ret:+.2f}% e anomalo "
-            f"(Z={z:+.2f}, threshold=+/-{config.zscore_threshold}). "
-            f"Media historica: {mu:.2f}%, std: {std:.2f}%"
-        ),
-        timestamp    = ts,
-        context      = {
-            "return_pct":    round(current_ret, 3),
-            "hist_mean":     round(mu, 3),
-            "hist_std":      round(std, 3),
-            "window":        window,
-            "price":         round(price, 2),
-        },
-    )]
+    return [
+        AnomalyEvent(
+            ticker=ticker,
+            anomaly_type=AnomalyType.ZSCORE_SPIKE,
+            severity=severity,
+            direction=direction,
+            score=round(z, 3),
+            threshold=config.zscore_threshold,
+            current_value=current_ret,
+            description=(
+                f"{ticker}: retorno de {current_ret:+.2f}% e anomalo "
+                f"(Z={z:+.2f}, threshold=+/-{config.zscore_threshold}). "
+                f"Media historica: {mu:.2f}%, std: {std:.2f}%"
+            ),
+            timestamp=ts,
+            context={
+                "return_pct": round(current_ret, 3),
+                "hist_mean": round(mu, 3),
+                "hist_std": round(std, 3),
+                "window": window,
+                "price": round(price, 2),
+            },
+        )
+    ]
 
 
 # ── Detector 2: Bollinger Band ────────────────────────────────────────────────
 
+
 def detect_bollinger(
-    bars:   list[dict[str, Any]],
+    bars: list[dict[str, Any]],
     ticker: str,
     config: DetectorConfig,
 ) -> list[AnomalyEvent]:
@@ -308,10 +318,10 @@ def detect_bollinger(
     if len(closes) < window + 1:
         return []
 
-    history       = closes[-(window + 1):-1]
+    history = closes[-(window + 1) : -1]
     current_price = closes[-1]
-    mu            = _mean(history)
-    std           = _std(history)
+    mu = _mean(history)
+    std = _std(history)
 
     if std < 1e-8:
         return []
@@ -322,45 +332,46 @@ def detect_bollinger(
     if lower <= current_price <= upper:
         return []
 
-    is_breakout  = current_price > upper
-    direction    = AnomalyDirection.UP if is_breakout else AnomalyDirection.DOWN
+    is_breakout = current_price > upper
+    direction = AnomalyDirection.UP if is_breakout else AnomalyDirection.DOWN
     band_crossed = upper if is_breakout else lower
-    deviation    = abs(current_price - band_crossed) / std  # desvios acima/abaixo da banda
-    severity     = _severity_from_z(
-        config.bollinger_k + deviation
-    )
+    deviation = abs(current_price - band_crossed) / std  # desvios acima/abaixo da banda
+    severity = _severity_from_z(config.bollinger_k + deviation)
     ts = bars[-1].get("time", 0)
     band_label = "superior" if is_breakout else "inferior"
 
-    return [AnomalyEvent(
-        ticker       = ticker,
-        anomaly_type = AnomalyType.BOLLINGER_BREAK,
-        severity     = severity,
-        direction    = direction,
-        score        = round((current_price - mu) / std, 3),
-        threshold    = config.bollinger_k,
-        current_value = current_price,
-        description  = (
-            f"{ticker}: preco R${current_price:.2f} rompeu a banda {band_label} "
-            f"de Bollinger (R${band_crossed:.2f}). "
-            f"Banda: [{lower:.2f}, {upper:.2f}], k={config.bollinger_k}"
-        ),
-        timestamp    = ts,
-        context      = {
-            "price":       round(current_price, 2),
-            "upper_band":  round(upper, 2),
-            "lower_band":  round(lower, 2),
-            "middle_band": round(mu, 2),
-            "band_std":    round(std, 2),
-            "window":      window,
-        },
-    )]
+    return [
+        AnomalyEvent(
+            ticker=ticker,
+            anomaly_type=AnomalyType.BOLLINGER_BREAK,
+            severity=severity,
+            direction=direction,
+            score=round((current_price - mu) / std, 3),
+            threshold=config.bollinger_k,
+            current_value=current_price,
+            description=(
+                f"{ticker}: preco R${current_price:.2f} rompeu a banda {band_label} "
+                f"de Bollinger (R${band_crossed:.2f}). "
+                f"Banda: [{lower:.2f}, {upper:.2f}], k={config.bollinger_k}"
+            ),
+            timestamp=ts,
+            context={
+                "price": round(current_price, 2),
+                "upper_band": round(upper, 2),
+                "lower_band": round(lower, 2),
+                "middle_band": round(mu, 2),
+                "band_std": round(std, 2),
+                "window": window,
+            },
+        )
+    ]
 
 
 # ── Detector 3: CUSUM ─────────────────────────────────────────────────────────
 
+
 def detect_cusum(
-    bars:   list[dict[str, Any]],
+    bars: list[dict[str, Any]],
     ticker: str,
     config: DetectorConfig,
 ) -> list[AnomalyEvent]:
@@ -383,14 +394,14 @@ def detect_cusum(
     if len(closes) < window + 2:
         return []
 
-    rets    = _returns(closes)
-    history = rets[:window]   # janela de referencia
-    recent  = rets[window:]   # janela de observacao
+    rets = _returns(closes)
+    history = rets[:window]  # janela de referencia
+    recent = rets[window:]  # janela de observacao
 
     if len(recent) < 3:
         return []
 
-    mu  = _mean(history)
+    mu = _mean(history)
     std = _std(history)
 
     if std < 1e-8:
@@ -410,8 +421,8 @@ def detect_cusum(
         return []
 
     is_positive = s_pos >= s_neg
-    direction   = AnomalyDirection.UP if is_positive else AnomalyDirection.DOWN
-    cusum_val   = s_pos if is_positive else s_neg
+    direction = AnomalyDirection.UP if is_positive else AnomalyDirection.DOWN
+    cusum_val = s_pos if is_positive else s_neg
 
     # Severidade baseada em quantas vezes cruzou o threshold
     ratio = cusum_val / h
@@ -422,40 +433,43 @@ def detect_cusum(
     else:
         severity = AnomalySeverity.LOW
 
-    ts    = bars[-1].get("time", 0)
+    ts = bars[-1].get("time", 0)
     price = closes[-1]
     trend = "alta" if is_positive else "queda"
 
-    return [AnomalyEvent(
-        ticker       = ticker,
-        anomaly_type = AnomalyType.CUSUM_SHIFT,
-        severity     = severity,
-        direction    = direction,
-        score        = round(cusum_val, 4),
-        threshold    = round(h, 4),
-        current_value = price,
-        description  = (
-            f"{ticker}: CUSUM detectou mudanca de tendencia persistente de {trend} "
-            f"(S={cusum_val:.3f} > h={h:.3f}, {len(recent)} periodos recentes)"
-        ),
-        timestamp    = ts,
-        context      = {
-            "s_pos":         round(s_pos, 4),
-            "s_neg":         round(s_neg, 4),
-            "threshold_h":   round(h, 4),
-            "slack_k":       round(k, 4),
-            "ref_mean":      round(mu, 3),
-            "ref_std":       round(std, 3),
-            "recent_bars":   len(recent),
-            "price":         round(price, 2),
-        },
-    )]
+    return [
+        AnomalyEvent(
+            ticker=ticker,
+            anomaly_type=AnomalyType.CUSUM_SHIFT,
+            severity=severity,
+            direction=direction,
+            score=round(cusum_val, 4),
+            threshold=round(h, 4),
+            current_value=price,
+            description=(
+                f"{ticker}: CUSUM detectou mudanca de tendencia persistente de {trend} "
+                f"(S={cusum_val:.3f} > h={h:.3f}, {len(recent)} periodos recentes)"
+            ),
+            timestamp=ts,
+            context={
+                "s_pos": round(s_pos, 4),
+                "s_neg": round(s_neg, 4),
+                "threshold_h": round(h, 4),
+                "slack_k": round(k, 4),
+                "ref_mean": round(mu, 3),
+                "ref_std": round(std, 3),
+                "recent_bars": len(recent),
+                "price": round(price, 2),
+            },
+        )
+    ]
 
 
 # ── Detector 4: Volume Spike ──────────────────────────────────────────────────
 
+
 def detect_volume_spike(
-    bars:   list[dict[str, Any]],
+    bars: list[dict[str, Any]],
     ticker: str,
     config: DetectorConfig,
 ) -> list[AnomalyEvent]:
@@ -466,14 +480,17 @@ def detect_volume_spike(
     a base de comparacao natural e o volume absoluto medio.
     Ignora barras com volume zero (mercado fechado / feriado).
     """
-    volumes = [(b.get("volume") or 0, b.get("time", 0), b.get("close", 0))
-               for b in bars if (b.get("volume") or 0) > 0]
+    volumes = [
+        (b.get("volume") or 0, b.get("time", 0), b.get("close", 0))
+        for b in bars
+        if (b.get("volume") or 0) > 0
+    ]
 
     window = config.volume_window
     if len(volumes) < window + 1:
         return []
 
-    history_vols = [v for v, _, _ in volumes[-(window + 1):-1]]
+    history_vols = [v for v, _, _ in volumes[-(window + 1) : -1]]
     curr_vol, ts, curr_price = volumes[-1]
 
     if not history_vols:
@@ -491,36 +508,38 @@ def detect_volume_spike(
 
     # Direcao baseada no fechamento do dia
     prev_close = volumes[-2][2] if len(volumes) >= 2 else curr_price
-    direction  = (AnomalyDirection.UP   if curr_price >= prev_close
-                  else AnomalyDirection.DOWN)
+    direction = AnomalyDirection.UP if curr_price >= prev_close else AnomalyDirection.DOWN
 
-    return [AnomalyEvent(
-        ticker       = ticker,
-        anomaly_type = AnomalyType.VOLUME_SPIKE,
-        severity     = severity,
-        direction    = direction,
-        score        = round(ratio, 2),
-        threshold    = config.volume_multiplier,
-        current_value = float(curr_vol),
-        description  = (
-            f"{ticker}: volume {ratio:.1f}x acima da media "
-            f"({curr_vol:,.0f} vs media {avg_vol:,.0f})"
-        ),
-        timestamp    = ts,
-        context      = {
-            "current_volume": int(curr_vol),
-            "avg_volume":     round(avg_vol, 0),
-            "ratio":          round(ratio, 2),
-            "window":         window,
-            "price":          round(curr_price, 2),
-        },
-    )]
+    return [
+        AnomalyEvent(
+            ticker=ticker,
+            anomaly_type=AnomalyType.VOLUME_SPIKE,
+            severity=severity,
+            direction=direction,
+            score=round(ratio, 2),
+            threshold=config.volume_multiplier,
+            current_value=float(curr_vol),
+            description=(
+                f"{ticker}: volume {ratio:.1f}x acima da media "
+                f"({curr_vol:,.0f} vs media {avg_vol:,.0f})"
+            ),
+            timestamp=ts,
+            context={
+                "current_volume": int(curr_vol),
+                "avg_volume": round(avg_vol, 0),
+                "ratio": round(ratio, 2),
+                "window": window,
+                "price": round(curr_price, 2),
+            },
+        )
+    ]
 
 
 # ── Orquestrador principal ────────────────────────────────────────────────────
 
+
 def analyze_ticker(
-    bars:   list[dict[str, Any]],
+    bars: list[dict[str, Any]],
     ticker: str,
     config: DetectorConfig | None = None,
 ) -> AnomalyResult:
@@ -534,11 +553,12 @@ def analyze_ticker(
         config = DetectorConfig()
 
     if not bars:
-        return AnomalyResult(ticker=ticker, bars_analyzed=0, anomalies=[],
-                             error="Sem barras para analisar")
+        return AnomalyResult(
+            ticker=ticker, bars_analyzed=0, anomalies=[], error="Sem barras para analisar"
+        )
 
     # Limita ao lookback configurado
-    bars_used = bars[-config.lookback_bars:]
+    bars_used = bars[-config.lookback_bars :]
 
     try:
         anomalies: list[AnomalyEvent] = []
@@ -552,41 +572,44 @@ def analyze_ticker(
         anomalies.sort(key=lambda a: (order[a.severity], abs(a.score)), reverse=True)
 
     except Exception as exc:
-        return AnomalyResult(ticker=ticker, bars_analyzed=len(bars_used),
-                             anomalies=[], error=str(exc))
+        return AnomalyResult(
+            ticker=ticker, bars_analyzed=len(bars_used), anomalies=[], error=str(exc)
+        )
 
     return AnomalyResult(
-        ticker         = ticker,
-        bars_analyzed  = len(bars_used),
-        anomalies      = anomalies,
+        ticker=ticker,
+        bars_analyzed=len(bars_used),
+        anomalies=anomalies,
     )
 
 
 # ── Analise multi-ticker ──────────────────────────────────────────────────────
 
+
 @dataclass
 class MultiAnomalyResult:
     """Resultado da analise de anomalias para multiplos ativos."""
-    results:       list[AnomalyResult]
+
+    results: list[AnomalyResult]
     total_tickers: int
     tickers_with_anomalies: int
     high_severity_count: int
-    range_period:  str
+    range_period: str
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "total_tickers":            self.total_tickers,
-            "tickers_with_anomalies":   self.tickers_with_anomalies,
-            "high_severity_count":      self.high_severity_count,
-            "range_period":             self.range_period,
-            "results":                  [r.to_dict() for r in self.results],
+            "total_tickers": self.total_tickers,
+            "tickers_with_anomalies": self.tickers_with_anomalies,
+            "high_severity_count": self.high_severity_count,
+            "range_period": self.range_period,
+            "results": [r.to_dict() for r in self.results],
         }
 
 
 def build_multi_anomaly_result(
-    ticker_bars:  dict[str, list[dict[str, Any]]],
+    ticker_bars: dict[str, list[dict[str, Any]]],
     range_period: str,
-    config:       DetectorConfig | None = None,
+    config: DetectorConfig | None = None,
 ) -> MultiAnomalyResult:
     """
     Analisa anomalias para todos os tickers em ticker_bars.
@@ -597,30 +620,23 @@ def build_multi_anomaly_result(
     if config is None:
         config = DetectorConfig()
 
-    results = [
-        analyze_ticker(bars, ticker, config)
-        for ticker, bars in ticker_bars.items()
-    ]
+    results = [analyze_ticker(bars, ticker, config) for ticker, bars in ticker_bars.items()]
 
     sev_order = {
-        AnomalySeverity.HIGH:   3,
+        AnomalySeverity.HIGH: 3,
         AnomalySeverity.MEDIUM: 2,
-        AnomalySeverity.LOW:    1,
-        None:                   0,
+        AnomalySeverity.LOW: 1,
+        None: 0,
     }
     results.sort(key=lambda r: sev_order[r.max_severity], reverse=True)
 
     tickers_with = sum(1 for r in results if r.has_anomalies)
-    high_count   = sum(
-        1 for r in results
-        for a in r.anomalies
-        if a.severity == AnomalySeverity.HIGH
-    )
+    high_count = sum(1 for r in results for a in r.anomalies if a.severity == AnomalySeverity.HIGH)
 
     return MultiAnomalyResult(
-        results                 = results,
-        total_tickers           = len(results),
-        tickers_with_anomalies  = tickers_with,
-        high_severity_count     = high_count,
-        range_period            = range_period,
+        results=results,
+        total_tickers=len(results),
+        tickers_with_anomalies=tickers_with,
+        high_severity_count=high_count,
+        range_period=range_period,
     )

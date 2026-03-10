@@ -6,10 +6,12 @@ Rotas do BRAPI Producer — controle e observabilidade.
   POST /producer/trigger  — ciclo imediato (debug/teste)
   GET  /producer/status   — métricas
 """
+
 from __future__ import annotations
+
+import structlog
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-import structlog
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)
@@ -21,14 +23,16 @@ class TriggerRequest(BaseModel):
 
 def _get_producer():
     from finanalytics_ai.interfaces.api.app import get_price_producer
+
     return get_price_producer()
 
 
 @router.post("/start")
 async def start_producer() -> dict:
+    import asyncio
+
     from finanalytics_ai.config import get_settings
     from finanalytics_ai.interfaces.api.app import get_price_producer
-    import asyncio
 
     producer = get_price_producer()
     if producer and producer.state.running:
@@ -40,10 +44,10 @@ async def start_producer() -> dict:
         if not settings.brapi_token:
             raise HTTPException(400, detail="BRAPI_TOKEN não configurado no .env")
         try:
+            import finanalytics_ai.interfaces.api.app as _app
             from finanalytics_ai.application.services.price_producer import BrapiPriceProducer
             from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
             from finanalytics_ai.infrastructure.queue.kafka_adapter import KafkaMarketEventProducer
-            import finanalytics_ai.interfaces.api.app as _app
 
             tickers = [t.strip() for t in settings.producer_tickers.split(",") if t.strip()]
             p = BrapiPriceProducer(
@@ -54,7 +58,7 @@ async def start_producer() -> dict:
             )
             await p.start()
             _app._price_producer = p
-            _app._producer_task  = asyncio.create_task(p.run())
+            _app._producer_task = asyncio.create_task(p.run())
             return {"started": True, "tickers": tickers}
         except Exception as exc:
             raise HTTPException(500, detail=str(exc))
@@ -94,6 +98,7 @@ async def trigger_cycle(body: TriggerRequest = TriggerRequest()) -> dict:
 @router.get("/status")
 async def producer_status() -> dict:
     from finanalytics_ai.config import get_settings
+
     settings = get_settings()
     producer = _get_producer()
 
@@ -103,27 +108,27 @@ async def producer_status() -> dict:
             "message": "Producer não inicializado",
             "brapi_token_configured": bool(settings.brapi_token),
             "config": {
-                "tickers_raw":      settings.producer_tickers,
-                "interval_s":       settings.producer_poll_interval_seconds,
+                "tickers_raw": settings.producer_tickers,
+                "interval_s": settings.producer_poll_interval_seconds,
                 "producer_enabled": settings.producer_enabled,
             },
         }
 
     s = producer.state
     return {
-        "running":          s.running,
-        "started_at":       s.started_at,
-        "tickers":          s.tickers,
-        "poll_interval_s":  s.poll_interval,
+        "running": s.running,
+        "started_at": s.started_at,
+        "tickers": s.tickers,
+        "poll_interval_s": s.poll_interval,
         "cycles": {
-            "total":  s.cycles_total,
-            "ok":     s.cycles_ok,
-            "error":  s.cycles_error,
+            "total": s.cycles_total,
+            "ok": s.cycles_ok,
+            "error": s.cycles_error,
         },
         "events_published": s.events_published,
-        "last_cycle_at":    s.last_cycle_at,
-        "last_cycle_ms":    s.last_cycle_ms,
-        "last_prices":      s.last_prices,
-        "last_error":       s.last_error,
+        "last_cycle_at": s.last_cycle_at,
+        "last_cycle_ms": s.last_cycle_ms,
+        "last_prices": s.last_prices,
+        "last_error": s.last_error,
         "brapi_token_configured": bool(settings.brapi_token),
     }

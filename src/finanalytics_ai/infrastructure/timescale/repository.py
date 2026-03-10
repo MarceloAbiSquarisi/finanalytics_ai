@@ -33,22 +33,22 @@ Schema TimescaleDB esperado (migration abaixo):
   );
   SELECT create_hypertable('price_ticks', 'time');
 """
+
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime
-from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
 from finanalytics_ai.config import get_settings
-from finanalytics_ai.domain.entities.event import OHLCBar
+
+if TYPE_CHECKING:
+    from finanalytics_ai.domain.entities.event import OHLCBar
 
 logger = structlog.get_logger(__name__)
 
 # Pool singleton (criado no lifespan da app)
-_pool: Any = None   # asyncpg.Pool
+_pool: Any = None  # asyncpg.Pool
 
 
 async def get_timescale_pool() -> Any:
@@ -117,12 +117,10 @@ async def _ensure_schema(pool: Any) -> None:
             );
         """)
         # Tenta criar hypertable — ignora se já existir
-        try:
-            await conn.execute(
-                "SELECT create_hypertable('ohlc_bars','time',if_not_exists=>true);"
-            )
-        except Exception:
-            pass  # extensão timescaledb pode não estar disponível — continua com PG puro
+        import contextlib
+        with contextlib.suppress(Exception):
+            await conn.execute("SELECT create_hypertable('ohlc_bars','time',if_not_exists=>true);")
+            # extensão timescaledb pode não estar disponível — continua com PG puro
 
         # Índice único para idempotência
         await conn.execute("""
@@ -141,12 +139,10 @@ async def _ensure_schema(pool: Any) -> None:
                 source  TEXT        NOT NULL DEFAULT 'kafka'
             );
         """)
-        try:
+        with contextlib.suppress(Exception):
             await conn.execute(
                 "SELECT create_hypertable('price_ticks','time',if_not_exists=>true);"
             )
-        except Exception:
-            pass
 
         await conn.execute("""
             CREATE INDEX IF NOT EXISTS price_ticks_ticker_time
@@ -157,6 +153,7 @@ async def _ensure_schema(pool: Any) -> None:
 
 
 # ── REPOSITORIES ─────────────────────────────────────────────────────────────
+
 
 class TimescaleOHLCRepository:
     """
@@ -177,9 +174,15 @@ class TimescaleOHLCRepository:
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 ON CONFLICT (time, ticker, timeframe) DO NOTHING
                 """,
-                bar.timestamp, bar.ticker, bar.timeframe,
-                float(bar.open), float(bar.high), float(bar.low),
-                float(bar.close), float(bar.volume), bar.source,
+                bar.timestamp,
+                bar.ticker,
+                bar.timeframe,
+                float(bar.open),
+                float(bar.high),
+                float(bar.low),
+                float(bar.close),
+                float(bar.volume),
+                bar.source,
             )
         logger.debug("timescale.ohlc.saved", ticker=bar.ticker, time=bar.timestamp)
 
@@ -191,13 +194,21 @@ class TimescaleOHLCRepository:
         if not bars:
             return 0
         rows = [
-            (b.timestamp, b.ticker, b.timeframe,
-             float(b.open), float(b.high), float(b.low),
-             float(b.close), float(b.volume), b.source)
+            (
+                b.timestamp,
+                b.ticker,
+                b.timeframe,
+                float(b.open),
+                float(b.high),
+                float(b.low),
+                float(b.close),
+                float(b.volume),
+                b.source,
+            )
             for b in bars
         ]
         async with self._pool.acquire() as conn:
-            inserted = await conn.executemany(
+            await conn.executemany(
                 """
                 INSERT INTO ohlc_bars (time, ticker, timeframe, open, high, low, close, volume, source)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -229,16 +240,18 @@ class TimescaleOHLCRepository:
                 ORDER BY time DESC
                 LIMIT $3
                 """,
-                ticker.upper(), timeframe, limit,
+                ticker.upper(),
+                timeframe,
+                limit,
             )
         # Retorna em ordem cronológica (DESC invertido)
         return [
             {
-                "time":   int(r["time"]),
-                "open":   float(r["open"]),
-                "high":   float(r["high"]),
-                "low":    float(r["low"]),
-                "close":  float(r["close"]),
+                "time": int(r["time"]),
+                "open": float(r["open"]),
+                "high": float(r["high"]),
+                "low": float(r["low"]),
+                "close": float(r["close"]),
                 "volume": int(r["volume"]),
             }
             for r in reversed(rows)
@@ -270,15 +283,17 @@ class TimescaleOHLCRepository:
                 GROUP BY 1
                 ORDER BY 1
                 """,
-                bucket, ticker.upper(), str(days),
+                bucket,
+                ticker.upper(),
+                str(days),
             )
         return [
             {
-                "time":   int(r["time"]),
-                "open":   float(r["open"]),
-                "high":   float(r["high"]),
-                "low":    float(r["low"]),
-                "close":  float(r["close"]),
+                "time": int(r["time"]),
+                "open": float(r["open"]),
+                "high": float(r["high"]),
+                "low": float(r["low"]),
+                "close": float(r["close"]),
                 "volume": int(r["volume"]),
             }
             for r in rows
@@ -305,12 +320,14 @@ class TimescalePriceTickRepository:
                 INSERT INTO price_ticks (ticker, price, change_pct, volume, source)
                 VALUES ($1, $2, $3, $4, $5)
                 """,
-                ticker.upper(), price, change_pct, volume, source,
+                ticker.upper(),
+                price,
+                change_pct,
+                volume,
+                source,
             )
 
-    async def query_latest(
-        self, ticker: str, limit: int = 60
-    ) -> list[dict[str, Any]]:
+    async def query_latest(self, ticker: str, limit: int = 60) -> list[dict[str, Any]]:
         """Últimos N ticks de um ticker — para mini-chart de intraday."""
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
@@ -323,14 +340,15 @@ class TimescalePriceTickRepository:
                 ORDER BY time DESC
                 LIMIT $2
                 """,
-                ticker.upper(), limit,
+                ticker.upper(),
+                limit,
             )
         return [
             {
-                "time":       int(r["time"]),
-                "price":      float(r["price"]),
+                "time": int(r["time"]),
+                "price": float(r["price"]),
                 "change_pct": float(r["change_pct"]) if r["change_pct"] else None,
-                "volume":     int(r["volume"]) if r["volume"] else None,
+                "volume": int(r["volume"]) if r["volume"] else None,
             }
             for r in reversed(rows)
         ]
@@ -346,7 +364,8 @@ class TimescalePriceTickRepository:
                 WHERE ticker = $1
                   AND time > NOW() - ($2 || ' minutes')::interval
                 """,
-                ticker.upper(), str(minutes),
+                ticker.upper(),
+                str(minutes),
             )
         if row and row["vwap"] is not None:
             return float(row["vwap"])

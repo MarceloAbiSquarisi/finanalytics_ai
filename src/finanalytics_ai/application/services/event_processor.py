@@ -9,7 +9,10 @@ Idempotência: antes de processar, verifica se event_id já existe no store.
 Resiliência: tenacity com retry para erros transitórios.
 Logging: structlog com context binding por evento.
 """
+
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import structlog
 from tenacity import (
@@ -19,16 +22,17 @@ from tenacity import (
     wait_exponential,
 )
 
-from finanalytics_ai.application.commands.process_event import ProcessMarketEventCommand
 from finanalytics_ai.domain.entities.event import EventStatus, EventType, MarketEvent
-from finanalytics_ai.domain.ports.event_store import EventStore
-from finanalytics_ai.domain.ports.market_data import MarketDataProvider
 from finanalytics_ai.exceptions import (
-    DuplicateEventError,
     EventProcessingError,
     TransientError,
 )
-from finanalytics_ai.observability import events_processed_total, event_processing_duration_seconds
+from finanalytics_ai.observability import event_processing_duration_seconds, events_processed_total
+
+if TYPE_CHECKING:
+    from finanalytics_ai.application.commands.process_event import ProcessMarketEventCommand
+    from finanalytics_ai.domain.ports.event_store import EventStore
+    from finanalytics_ai.domain.ports.market_data import MarketDataProvider
 
 logger = structlog.get_logger(__name__)
 
@@ -55,7 +59,7 @@ class EventProcessorService:
     async def process(self, command: ProcessMarketEventCommand) -> MarketEvent:
         """
         Ponto de entrada principal. Garante idempotência e resiliência.
-        
+
         Returns: MarketEvent com status final (PROCESSED | SKIPPED | FAILED)
         Raises: EventProcessingError se esgotar as tentativas
         """
@@ -68,9 +72,7 @@ class EventProcessorService:
         # ── 1. Idempotência ──────────────────────────────────────────────────
         if await self._store.exists(command.event_id):
             log.info("event.skipped.duplicate")
-            events_processed_total.labels(
-                event_type=command.event_type, status="skipped"
-            ).inc()
+            events_processed_total.labels(event_type=command.event_type, status="skipped").inc()
             existing = await self._store.find_by_id(command.event_id)
             if existing is None:
                 raise EventProcessingError(
@@ -96,22 +98,16 @@ class EventProcessorService:
             try:
                 processed = await self._process_with_retry(event, log)
             except Exception as exc:
-                failed = event.mark_failed(str(exc))
-                await self._store.update_status(
-                    event.event_id, EventStatus.FAILED, str(exc)
-                )
-                events_processed_total.labels(
-                    event_type=command.event_type, status="failed"
-                ).inc()
+                event.mark_failed(str(exc))
+                await self._store.update_status(event.event_id, EventStatus.FAILED, str(exc))
+                events_processed_total.labels(event_type=command.event_type, status="failed").inc()
                 log.error("event.failed", error=str(exc))
                 raise EventProcessingError(
                     message=f"Falha ao processar evento {command.event_id}",
                     context={"event_id": command.event_id, "error": str(exc)},
                 ) from exc
 
-        events_processed_total.labels(
-            event_type=command.event_type, status="processed"
-        ).inc()
+        events_processed_total.labels(event_type=command.event_type, status="processed").inc()
         log.info("event.processed")
         return processed
 

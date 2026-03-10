@@ -37,6 +37,7 @@ Headers de resposta (RFC 6585 / IETF draft-polli):
   RateLimit-Reset:     <unix timestamp>
   Retry-After:         <segundos>  (apenas no 429)
 """
+
 from __future__ import annotations
 
 import time
@@ -50,6 +51,7 @@ logger = structlog.get_logger(__name__)
 
 # ── Result ────────────────────────────────────────────────────────────────────
 
+
 class RateLimitResult:
     __slots__ = ("allowed", "limit", "remaining", "reset_at", "retry_after")
 
@@ -61,17 +63,17 @@ class RateLimitResult:
         reset_at: int,
         retry_after: int = 0,
     ) -> None:
-        self.allowed     = allowed
-        self.limit       = limit
-        self.remaining   = remaining
-        self.reset_at    = reset_at
+        self.allowed = allowed
+        self.limit = limit
+        self.remaining = remaining
+        self.reset_at = reset_at
         self.retry_after = retry_after
 
     def headers(self) -> dict[str, str]:
         h = {
-            "RateLimit-Limit":     str(self.limit),
+            "RateLimit-Limit": str(self.limit),
             "RateLimit-Remaining": str(max(0, self.remaining)),
-            "RateLimit-Reset":     str(self.reset_at),
+            "RateLimit-Reset": str(self.reset_at),
         }
         if not self.allowed:
             h["Retry-After"] = str(self.retry_after)
@@ -80,6 +82,7 @@ class RateLimitResult:
 
 # ── Protocol ──────────────────────────────────────────────────────────────────
 
+
 @runtime_checkable
 class RateLimiterBackend(Protocol):
     async def check(self, key: str, limit: int, window: int) -> RateLimitResult: ...
@@ -87,6 +90,7 @@ class RateLimiterBackend(Protocol):
 
 
 # ── Redis Sliding Window ───────────────────────────────────────────────────────
+
 
 class RedisRateLimiter:
     """
@@ -106,6 +110,7 @@ class RedisRateLimiter:
     async def _get_client(self) -> object:
         if self._client is None:
             import redis.asyncio as aioredis
+
             self._client = aioredis.from_url(
                 self._url,
                 decode_responses=True,
@@ -117,10 +122,10 @@ class RedisRateLimiter:
     async def check(self, key: str, limit: int, window: int) -> RateLimitResult:
         try:
             client = await self._get_client()
-            now_ms   = int(time.time() * 1000)
+            now_ms = int(time.time() * 1000)
             window_ms = window * 1000
-            cutoff   = now_ms - window_ms
-            rl_key   = f"rl:{key}"
+            cutoff = now_ms - window_ms
+            rl_key = f"rl:{key}"
 
             pipe = client.pipeline()  # type: ignore[attr-defined]
             pipe.zadd(rl_key, {str(now_ms): now_ms})
@@ -129,42 +134,47 @@ class RedisRateLimiter:
             pipe.expire(rl_key, window)
             results = await pipe.execute()
 
-            count     = int(results[2])
+            count = int(results[2])
             remaining = max(0, limit - count)
-            reset_at  = int(time.time()) + window
-            allowed   = count <= limit
+            reset_at = int(time.time()) + window
+            allowed = count <= limit
 
             if not allowed:
                 logger.warning(
                     "rate_limit.exceeded",
-                    key=key, count=count, limit=limit, window=window,
+                    key=key,
+                    count=count,
+                    limit=limit,
+                    window=window,
                 )
 
             return RateLimitResult(
-                allowed     = allowed,
-                limit       = limit,
-                remaining   = remaining,
-                reset_at    = reset_at,
-                retry_after = window if not allowed else 0,
+                allowed=allowed,
+                limit=limit,
+                remaining=remaining,
+                reset_at=reset_at,
+                retry_after=window if not allowed else 0,
             )
 
         except Exception as exc:
             # Redis fora do ar → permitir request (fail open)
             logger.warning("rate_limiter.redis_error", error=str(exc))
             return RateLimitResult(
-                allowed=True, limit=limit, remaining=limit,
+                allowed=True,
+                limit=limit,
+                remaining=limit,
                 reset_at=int(time.time()) + window,
             )
 
     async def close(self) -> None:
         if self._client is not None:
-            try:
+            import contextlib
+            with contextlib.suppress(Exception):
                 await self._client.aclose()  # type: ignore[attr-defined]
-            except Exception:
-                pass
 
 
 # ── InMemory fallback ─────────────────────────────────────────────────────────
+
 
 class InMemoryRateLimiter:
     """
@@ -176,7 +186,7 @@ class InMemoryRateLimiter:
         self._windows: dict[str, deque[float]] = {}
 
     async def check(self, key: str, limit: int, window: int) -> RateLimitResult:
-        now    = time.time()
+        now = time.time()
         cutoff = now - window
 
         if key not in self._windows:
@@ -187,21 +197,21 @@ class InMemoryRateLimiter:
         while dq and dq[0] <= cutoff:
             dq.popleft()
 
-        count   = len(dq)
+        count = len(dq)
         allowed = count < limit
         if allowed:
             dq.append(now)
             count += 1
 
         remaining = max(0, limit - count)
-        reset_at  = int(now) + window
+        reset_at = int(now) + window
 
         return RateLimitResult(
-            allowed     = allowed,
-            limit       = limit,
-            remaining   = remaining,
-            reset_at    = reset_at,
-            retry_after = window if not allowed else 0,
+            allowed=allowed,
+            limit=limit,
+            remaining=remaining,
+            reset_at=reset_at,
+            retry_after=window if not allowed else 0,
         )
 
     async def close(self) -> None:
@@ -209,6 +219,7 @@ class InMemoryRateLimiter:
 
 
 # ── Factory ───────────────────────────────────────────────────────────────────
+
 
 def create_rate_limiter(redis_url: str | None) -> RateLimiterBackend:
     if redis_url:

@@ -1,25 +1,33 @@
 """finanalytics_ai.interfaces.api.routes.patrimony"""
-from __future__ import annotations
-from typing import Optional
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.requests import Request
-import structlog
 
-from finanalytics_ai.infrastructure.database.connection import get_db_session
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import structlog
+from fastapi import APIRouter, Depends, Query
+
+from finanalytics_ai.infrastructure.database.connection import get_session as get_db_session
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from starlette.requests import Request
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/patrimony", tags=["Patrimônio"])
 
-DEFAULT_CDI   = 10.65
+DEFAULT_CDI = 10.65
 DEFAULT_SELIC = 10.65
-DEFAULT_IPCA  = 4.83
+DEFAULT_IPCA = 4.83
 
 
 def _svc(request: Request, session: AsyncSession):
     from fastapi import HTTPException
+
     from finanalytics_ai.application.services.patrimony_service import PatrimonyService
-    from finanalytics_ai.infrastructure.database.repositories.portfolio_repo import PortfolioRepository
+    from finanalytics_ai.infrastructure.database.repositories.portfolio_repo import (
+        SQLPortfolioRepository as PortfolioRepository,
+    )
 
     market = getattr(request.app.state, "market_client", None)
     if market is None:
@@ -29,6 +37,7 @@ def _svc(request: Request, session: AsyncSession):
 
     # RF repo — acessa via service para reutilizar a lógica de list_portfolios
     from finanalytics_ai.infrastructure.database.repositories.rf_repo import RFPortfolioRepository
+
     rf_repo = _RFRepoAdapter(RFPortfolioRepository(session))
 
     return PatrimonyService(port_repo, rf_repo, market)
@@ -36,7 +45,8 @@ def _svc(request: Request, session: AsyncSession):
 
 class _RFRepoAdapter:
     """Adapta RFPortfolioRepository para interface esperada pelo PatrimonyService."""
-    def __init__(self, repo):
+
+    def __init__(self, repo) -> None:
         self._repo = repo
 
     async def list_portfolios(self, user_id: str) -> list[dict]:
@@ -49,14 +59,14 @@ class _RFRepoAdapter:
 
 @router.get("/consolidated/{user_id}")
 async def consolidated_snapshot(
-    user_id:   str,
+    user_id: str,
     target_eq: float = Query(default=40.0, description="Meta % Ações"),
-    target_etf:float = Query(default=20.0, description="Meta % ETFs"),
+    target_etf: float = Query(default=20.0, description="Meta % ETFs"),
     target_rf: float = Query(default=35.0, description="Meta % Renda Fixa"),
-    target_cash:float= Query(default=5.0,  description="Meta % Caixa"),
-    cdi:       float = Query(default=DEFAULT_CDI),
-    selic:     float = Query(default=DEFAULT_SELIC),
-    ipca:      float = Query(default=DEFAULT_IPCA),
+    target_cash: float = Query(default=5.0, description="Meta % Caixa"),
+    cdi: float = Query(default=DEFAULT_CDI),
+    selic: float = Query(default=DEFAULT_SELIC),
+    ipca: float = Query(default=DEFAULT_IPCA),
     session: AsyncSession = Depends(get_db_session),
     request: Request = None,
 ) -> dict:
@@ -65,12 +75,20 @@ async def consolidated_snapshot(
     Inclui breakdown por classe, P&L total e desvio vs metas de alocação.
     """
     from fastapi import HTTPException
+
     try:
-        targets = {"Ações": target_eq, "ETFs": target_etf,
-                   "Renda Fixa": target_rf, "Caixa": target_cash}
+        targets = {
+            "Ações": target_eq,
+            "ETFs": target_etf,
+            "Renda Fixa": target_rf,
+            "Caixa": target_cash,
+        }
         return await _svc(request, session).consolidated_snapshot(
-            user_id=user_id, targets=targets,
-            cdi=cdi/100, selic=selic/100, ipca=ipca/100,
+            user_id=user_id,
+            targets=targets,
+            cdi=cdi / 100,
+            selic=selic / 100,
+            ipca=ipca / 100,
         )
     except Exception as e:
         logger.error("patrimony.error", error=str(e))
@@ -80,9 +98,9 @@ async def consolidated_snapshot(
 @router.get("/ir-planning/{user_id}")
 async def ir_planning(
     user_id: str,
-    cdi:     float = Query(default=DEFAULT_CDI),
-    selic:   float = Query(default=DEFAULT_SELIC),
-    ipca:    float = Query(default=DEFAULT_IPCA),
+    cdi: float = Query(default=DEFAULT_CDI),
+    selic: float = Query(default=DEFAULT_SELIC),
+    ipca: float = Query(default=DEFAULT_IPCA),
     session: AsyncSession = Depends(get_db_session),
     request: Request = None,
 ) -> list[dict]:
@@ -92,9 +110,13 @@ async def ir_planning(
     Inclui recomendação de timing em linguagem natural.
     """
     from fastapi import HTTPException
+
     try:
         return await _svc(request, session).ir_planning(
-            user_id=user_id, cdi=cdi/100, selic=selic/100, ipca=ipca/100,
+            user_id=user_id,
+            cdi=cdi / 100,
+            selic=selic / 100,
+            ipca=ipca / 100,
         )
     except Exception as e:
         logger.error("ir_planning.error", error=str(e))

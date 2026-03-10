@@ -5,20 +5,23 @@ GET /api/v1/portfolios/{portfolio_id}/performance?period=1y
 
 Períodos válidos: 1mo, 3mo, 6mo, 1y, 2y, 3y, 5y, ytd, max
 """
+
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
-from starlette.requests import Request
 
 from finanalytics_ai.application.services.performance_service import (
-    PerformanceError, PerformanceService,
+    PerformanceError,
+    PerformanceService,
 )
-from finanalytics_ai.interfaces.api.dependencies import get_db_session, get_current_user
-from finanalytics_ai.domain.auth.entities import User
-from sqlalchemy.ext.asyncio import AsyncSession
+from finanalytics_ai.interfaces.api.dependencies import get_db_session
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from starlette.requests import Request
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
@@ -28,9 +31,12 @@ async def _get_performance_svc(
     request: Request,
     session: AsyncSession = Depends(get_db_session),
 ) -> PerformanceService:
-    from finanalytics_ai.application.services.performance_service import PerformanceService
-    from finanalytics_ai.infrastructure.database.repositories.portfolio_repo import SQLPortfolioRepository
     from fastapi import HTTPException
+
+    from finanalytics_ai.application.services.performance_service import PerformanceService
+    from finanalytics_ai.infrastructure.database.repositories.portfolio_repo import (
+        SQLPortfolioRepository,
+    )
 
     market = getattr(request.app.state, "market_client", None)
     if market is None:
@@ -48,44 +54,52 @@ async def get_portfolio_performance(
         result = await svc.get_performance(portfolio_id, period)
         m = result.metrics
         return {
-            "portfolio_id":   result.portfolio_id,
+            "portfolio_id": result.portfolio_id,
             "portfolio_name": result.portfolio_name,
-            "period":         result.period,
-            "benchmark":      "BOVA11 (Ibovespa ETF)",
+            "period": result.period,
+            "benchmark": "BOVA11 (Ibovespa ETF)",
             "metrics": {
-                "total_return_pct":          m.total_return_pct,
-                "annualized_return_pct":     m.annualized_return_pct,
-                "benchmark_total_pct":       m.benchmark_total_pct,
-                "benchmark_annualized_pct":  m.benchmark_annualized_pct,
-                "excess_return_pct":         m.excess_return_pct,
-                "volatility_annual_pct":     m.volatility_annual_pct,
-                "max_drawdown_pct":          m.max_drawdown_pct,
-                "max_drawdown_start":        m.max_drawdown_start,
-                "max_drawdown_end":          m.max_drawdown_end,
-                "var_95_pct":               m.var_95_pct,
-                "cvar_95_pct":              m.cvar_95_pct,
-                "sharpe_ratio":             m.sharpe_ratio,
-                "calmar_ratio":             m.calmar_ratio,
-                "beta":                     m.beta,
-                "alpha_pct":                m.alpha_pct,
-                "correlation":              m.correlation,
-                "period_days":              m.period_days,
-                "start_date":               m.start_date,
-                "end_date":                 m.end_date,
-                "best_day_pct":             m.best_day_pct,
-                "worst_day_pct":            m.worst_day_pct,
-                "positive_days":            m.positive_days,
-                "negative_days":            m.negative_days,
-                "win_rate_pct":             m.win_rate_pct,
+                "total_return_pct": m.total_return_pct,
+                "annualized_return_pct": m.annualized_return_pct,
+                "benchmark_total_pct": m.benchmark_total_pct,
+                "benchmark_annualized_pct": m.benchmark_annualized_pct,
+                "excess_return_pct": m.excess_return_pct,
+                "volatility_annual_pct": m.volatility_annual_pct,
+                "max_drawdown_pct": m.max_drawdown_pct,
+                "max_drawdown_start": m.max_drawdown_start,
+                "max_drawdown_end": m.max_drawdown_end,
+                "var_95_pct": m.var_95_pct,
+                "cvar_95_pct": m.cvar_95_pct,
+                "sharpe_ratio": m.sharpe_ratio,
+                "calmar_ratio": m.calmar_ratio,
+                "beta": m.beta,
+                "alpha_pct": m.alpha_pct,
+                "correlation": m.correlation,
+                "period_days": m.period_days,
+                "start_date": m.start_date,
+                "end_date": m.end_date,
+                "best_day_pct": m.best_day_pct,
+                "worst_day_pct": m.worst_day_pct,
+                "positive_days": m.positive_days,
+                "negative_days": m.negative_days,
+                "win_rate_pct": m.win_rate_pct,
             },
             "equity_curve": [
-                {"date": p.date, "portfolio": p.portfolio,
-                 "benchmark": p.benchmark, "drawdown": p.drawdown}
+                {
+                    "date": p.date,
+                    "portfolio": p.portfolio,
+                    "benchmark": p.benchmark,
+                    "drawdown": p.drawdown,
+                }
                 for p in result.equity_curve
             ],
             "monthly_returns": [
-                {"year": r.year, "month": r.month,
-                 "portfolio_pct": r.portfolio_pct, "benchmark_pct": r.benchmark_pct}
+                {
+                    "year": r.year,
+                    "month": r.month,
+                    "portfolio_pct": r.portfolio_pct,
+                    "benchmark_pct": r.benchmark_pct,
+                }
                 for r in result.monthly_returns
             ],
             "positions_contribution": result.positions_contribution,

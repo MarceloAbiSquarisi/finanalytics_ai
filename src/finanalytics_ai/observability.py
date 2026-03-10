@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import functools
 import time
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, TypeVar
+from typing import Any, TypeVar
 
 import structlog
 from opentelemetry import trace

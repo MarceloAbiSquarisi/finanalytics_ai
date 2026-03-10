@@ -42,62 +42,65 @@ Design decisions:
     Não herda de Portfolio — é independente. Um usuário pode monitorar
     ativos que não possui na carteira.
 """
+
 from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-
 # ── Enums ─────────────────────────────────────────────────────────────────────
 
+
 class SmartAlertType(StrEnum):
-    RSI_OVERSOLD    = "rsi_oversold"     # RSI(14) < threshold (default 30)
-    RSI_OVERBOUGHT  = "rsi_overbought"   # RSI(14) > threshold (default 70)
-    MA_CROSS_UP     = "ma_cross_up"      # preço cruza MM(20) para cima
-    MA_CROSS_DOWN   = "ma_cross_down"    # preço cruza MM(20) para baixo
-    VOLUME_SPIKE    = "volume_spike"     # volume > N * média
-    NEW_HIGH_52W    = "new_high_52w"     # novo máximo 52 semanas
-    NEW_LOW_52W     = "new_low_52w"      # novo mínimo 52 semanas
-    PRICE_ABOVE     = "price_above"      # preço acima de valor fixo
-    PRICE_BELOW     = "price_below"      # preço abaixo de valor fixo
+    RSI_OVERSOLD = "rsi_oversold"  # RSI(14) < threshold (default 30)
+    RSI_OVERBOUGHT = "rsi_overbought"  # RSI(14) > threshold (default 70)
+    MA_CROSS_UP = "ma_cross_up"  # preço cruza MM(20) para cima
+    MA_CROSS_DOWN = "ma_cross_down"  # preço cruza MM(20) para baixo
+    VOLUME_SPIKE = "volume_spike"  # volume > N * média
+    NEW_HIGH_52W = "new_high_52w"  # novo máximo 52 semanas
+    NEW_LOW_52W = "new_low_52w"  # novo mínimo 52 semanas
+    PRICE_ABOVE = "price_above"  # preço acima de valor fixo
+    PRICE_BELOW = "price_below"  # preço abaixo de valor fixo
 
 
 class SmartAlertStatus(StrEnum):
-    ACTIVE   = "active"
-    COOLDOWN = "cooldown"    # disparou recentemente, aguardando
-    PAUSED   = "paused"      # pausado pelo usuário
-    DELETED  = "deleted"
+    ACTIVE = "active"
+    COOLDOWN = "cooldown"  # disparou recentemente, aguardando
+    PAUSED = "paused"  # pausado pelo usuário
+    DELETED = "deleted"
 
 
 # ── Smart Alert ───────────────────────────────────────────────────────────────
 
+
 @dataclass
 class SmartAlertConfig:
     """Parâmetros de configuração do alerta inteligente."""
-    rsi_period:         int   = 14
-    rsi_oversold:       float = 30.0
-    rsi_overbought:     float = 70.0
-    ma_period:          int   = 20
-    volume_multiplier:  float = 2.5
-    price_threshold:    float = 0.0      # para PRICE_ABOVE / PRICE_BELOW
-    cooldown_hours:     int   = 4
+
+    rsi_period: int = 14
+    rsi_oversold: float = 30.0
+    rsi_overbought: float = 70.0
+    ma_period: int = 20
+    volume_multiplier: float = 2.5
+    price_threshold: float = 0.0  # para PRICE_ABOVE / PRICE_BELOW
+    cooldown_hours: int = 4
 
 
 @dataclass
 class SmartAlertResult:
     """Resultado da avaliação de um alerta inteligente."""
-    triggered:    bool
-    alert_id:     str
-    alert_type:   SmartAlertType
-    ticker:       str
-    message:      str
-    severity:     str          # "info" | "warning" | "critical"
-    indicator_value: float     # valor do indicador no momento
-    context:      dict[str, Any] = field(default_factory=dict)
+
+    triggered: bool
+    alert_id: str
+    alert_type: SmartAlertType
+    ticker: str
+    message: str
+    severity: str  # "info" | "warning" | "critical"
+    indicator_value: float  # valor do indicador no momento
+    context: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -108,15 +111,16 @@ class SmartAlert:
     Diferente do Alert de preço fixo, reavalia continuamente
     após o período de cooldown.
     """
-    ticker:       str
-    alert_type:   SmartAlertType
-    user_id:      str
-    alert_id:     str           = field(default_factory=lambda: str(uuid.uuid4()))
-    config:       SmartAlertConfig = field(default_factory=SmartAlertConfig)
-    status:       SmartAlertStatus = SmartAlertStatus.ACTIVE
+
+    ticker: str
+    alert_type: SmartAlertType
+    user_id: str
+    alert_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    config: SmartAlertConfig = field(default_factory=SmartAlertConfig)
+    status: SmartAlertStatus = SmartAlertStatus.ACTIVE
     last_triggered_at: datetime | None = None
-    created_at:   datetime      = field(default_factory=datetime.utcnow)
-    note:         str           = ""
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    note: str = ""
 
     def is_evaluatable(self) -> bool:
         """Retorna True se o alerta pode ser avaliado agora."""
@@ -136,51 +140,58 @@ class SmartAlert:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "alert_id":          self.alert_id,
-            "ticker":            self.ticker,
-            "alert_type":        self.alert_type.value,
-            "status":            self.status.value,
-            "note":              self.note,
-            "config":            {
-                "rsi_period":        self.config.rsi_period,
-                "rsi_oversold":      self.config.rsi_oversold,
-                "rsi_overbought":    self.config.rsi_overbought,
-                "ma_period":         self.config.ma_period,
+            "alert_id": self.alert_id,
+            "ticker": self.ticker,
+            "alert_type": self.alert_type.value,
+            "status": self.status.value,
+            "note": self.note,
+            "config": {
+                "rsi_period": self.config.rsi_period,
+                "rsi_oversold": self.config.rsi_oversold,
+                "rsi_overbought": self.config.rsi_overbought,
+                "ma_period": self.config.ma_period,
                 "volume_multiplier": self.config.volume_multiplier,
-                "price_threshold":   self.config.price_threshold,
-                "cooldown_hours":    self.config.cooldown_hours,
+                "price_threshold": self.config.price_threshold,
+                "cooldown_hours": self.config.cooldown_hours,
             },
-            "last_triggered_at": self.last_triggered_at.isoformat() if self.last_triggered_at else None,
-            "created_at":        self.created_at.isoformat(),
+            "last_triggered_at": self.last_triggered_at.isoformat()
+            if self.last_triggered_at
+            else None,
+            "created_at": self.created_at.isoformat(),
         }
 
 
 # ── WatchlistItem ─────────────────────────────────────────────────────────────
+
 
 @dataclass
 class WatchlistItem:
     """
     Item da watchlist: um ticker monitorado com metadados e alertas.
     """
-    ticker:       str
-    user_id:      str
-    item_id:      str           = field(default_factory=lambda: str(uuid.uuid4()))
-    note:         str           = ""
-    tags:         list[str]     = field(default_factory=list)
+
+    ticker: str
+    user_id: str
+    item_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    note: str = ""
+    tags: list[str] = field(default_factory=list)
     smart_alerts: list[SmartAlert] = field(default_factory=list)
-    added_at:     datetime      = field(default_factory=datetime.utcnow)
+    added_at: datetime = field(default_factory=datetime.utcnow)
     # Cache de dados de mercado (preenchido pelo service)
-    current_price:    float | None = None
-    change_pct:       float | None = None
-    volume:           int   | None = None
-    high_52w:         float | None = None
-    low_52w:          float | None = None
-    last_updated_at:  datetime | None = None
+    current_price: float | None = None
+    change_pct: float | None = None
+    volume: int | None = None
+    high_52w: float | None = None
+    low_52w: float | None = None
+    last_updated_at: datetime | None = None
 
     def add_smart_alert(self, alert: SmartAlert) -> None:
         # Evita duplicatas do mesmo tipo
         for existing in self.smart_alerts:
-            if existing.alert_type == alert.alert_type and existing.status != SmartAlertStatus.DELETED:
+            if (
+                existing.alert_type == alert.alert_type
+                and existing.status != SmartAlertStatus.DELETED
+            ):
                 raise ValueError(f"Alerta {alert.alert_type} já existe para {self.ticker}")
         self.smart_alerts.append(alert)
 
@@ -189,23 +200,24 @@ class WatchlistItem:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "item_id":        self.item_id,
-            "ticker":         self.ticker,
-            "user_id":        self.user_id,
-            "note":           self.note,
-            "tags":           self.tags,
-            "current_price":  self.current_price,
-            "change_pct":     self.change_pct,
-            "volume":         self.volume,
-            "high_52w":       self.high_52w,
-            "low_52w":        self.low_52w,
+            "item_id": self.item_id,
+            "ticker": self.ticker,
+            "user_id": self.user_id,
+            "note": self.note,
+            "tags": self.tags,
+            "current_price": self.current_price,
+            "change_pct": self.change_pct,
+            "volume": self.volume,
+            "high_52w": self.high_52w,
+            "low_52w": self.low_52w,
             "last_updated_at": self.last_updated_at.isoformat() if self.last_updated_at else None,
-            "added_at":       self.added_at.isoformat(),
-            "smart_alerts":   [a.to_dict() for a in self.active_alerts()],
+            "added_at": self.added_at.isoformat(),
+            "smart_alerts": [a.to_dict() for a in self.active_alerts()],
         }
 
 
 # ── Avaliação de indicadores técnicos ─────────────────────────────────────────
+
 
 def _calc_rsi(closes: list[float], period: int = 14) -> float | None:
     """RSI clássico de Wilder. Retorna None se dados insuficientes."""
@@ -213,12 +225,12 @@ def _calc_rsi(closes: list[float], period: int = 14) -> float | None:
         return None
     gains, losses = [], []
     for i in range(1, period + 1):
-        diff = closes[-period + i - 1] - closes[-period + i - 2] if i > 0 else 0
-        d = closes[-(period - i + 1)] - closes[-(period - i + 2)] if len(closes) > period - i + 2 else 0
+        closes[-period + i - 1] - closes[-period + i - 2] if i > 0 else 0
+        closes[-(period - i + 1)] - closes[-(period - i + 2)] if len(closes) > period - i + 2 else 0
 
     # Calcula corretamente
     diffs = [closes[i] - closes[i - 1] for i in range(len(closes) - period, len(closes))]
-    gains  = [max(d, 0) for d in diffs]
+    gains = [max(d, 0) for d in diffs]
     losses = [abs(min(d, 0)) for d in diffs]
     avg_gain = sum(gains) / period
     avg_loss = sum(losses) / period
@@ -249,10 +261,14 @@ def evaluate_smart_alert(
 
     Retorna SmartAlertResult com triggered=True/False e metadados.
     """
-    closes  = [b["close"]  for b in bars if b.get("close")]
+    closes = [b["close"] for b in bars if b.get("close")]
     volumes = [b["volume"] for b in bars if b.get("volume") is not None]
 
-    def _result(triggered: bool, msg: str, severity: str, indicator: float, ctx: dict = {}) -> SmartAlertResult:
+    def _result(
+        triggered: bool, msg: str, severity: str, indicator: float, ctx: dict | None = None
+    ) -> SmartAlertResult:
+        if ctx is None:
+            ctx = {}
         return SmartAlertResult(
             triggered=triggered,
             alert_id=alert.alert_id,
@@ -267,7 +283,6 @@ def evaluate_smart_alert(
     cfg = alert.config
 
     match alert.alert_type:
-
         case SmartAlertType.RSI_OVERSOLD:
             rsi = _calc_rsi(closes, cfg.rsi_period)
             if rsi is None:
@@ -295,7 +310,7 @@ def evaluate_smart_alert(
             )
 
         case SmartAlertType.MA_CROSS_UP:
-            ma  = _calc_sma(closes, cfg.ma_period)
+            ma = _calc_sma(closes, cfg.ma_period)
             prev_close = closes[-2] if len(closes) >= 2 else current_price
             if ma is None:
                 return _result(False, "Dados insuficientes para MM", "info", 0)
@@ -303,13 +318,13 @@ def evaluate_smart_alert(
             return _result(
                 triggered,
                 f"Preco cruzou MM({cfg.ma_period}) para cima: {current_price:.2f} > {ma:.2f}",
-                "info" if triggered else "info",
+                "info",
                 round(ma, 2),
                 {"ma": round(ma, 2), "price": current_price},
             )
 
         case SmartAlertType.MA_CROSS_DOWN:
-            ma  = _calc_sma(closes, cfg.ma_period)
+            ma = _calc_sma(closes, cfg.ma_period)
             prev_close = closes[-2] if len(closes) >= 2 else current_price
             if ma is None:
                 return _result(False, "Dados insuficientes para MM", "info", 0)
@@ -346,7 +361,7 @@ def evaluate_smart_alert(
             return _result(
                 triggered,
                 f"Novo maximo 52 semanas: R$ {current_price:.2f} (anterior: R$ {prev_high:.2f})",
-                "info" if triggered else "info",
+                "info",
                 round(prev_high, 2),
                 {"new_high": current_price, "prev_high": round(prev_high, 2)},
             )
@@ -355,7 +370,7 @@ def evaluate_smart_alert(
             if len(closes) < 2:
                 return _result(False, "Dados insuficientes", "info", 0)
             lows = [b.get("low", b.get("close", 0)) for b in bars[-252:]]
-            prev_low = min(l for l in lows[:-1] if l > 0) if len(lows) > 1 else float("inf")
+            prev_low = min(val for val in lows[:-1] if val > 0) if len(lows) > 1 else float("inf")
             triggered = current_price < prev_low and prev_low < float("inf")
             return _result(
                 triggered,
@@ -371,7 +386,7 @@ def evaluate_smart_alert(
             return _result(
                 triggered,
                 f"Preco R$ {current_price:.2f} acima de R$ {threshold:.2f}",
-                "info" if triggered else "info",
+                "info",
                 current_price,
                 {"price": current_price, "threshold": threshold},
             )

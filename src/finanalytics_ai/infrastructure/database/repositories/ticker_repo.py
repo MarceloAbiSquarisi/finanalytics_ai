@@ -1,9 +1,10 @@
-﻿from __future__ import annotations
-from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Boolean, Index
+from __future__ import annotations
+
+from sqlalchemy import Boolean, Column, DateTime, Index, String
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
+
 
 class TickerModel(Base):
     __tablename__ = "tickers"

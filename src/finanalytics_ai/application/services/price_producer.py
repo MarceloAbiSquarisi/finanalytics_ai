@@ -35,20 +35,22 @@ Design decisions:
     Contadores de sucesso/erro por ticker para observabilidade.
     Visíveis em /api/v1/producer/status.
 """
+
 from __future__ import annotations
 
 import asyncio
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
-from finanalytics_ai.config import get_settings
 from finanalytics_ai.domain.entities.event import EventStatus, EventType, MarketEvent
 from finanalytics_ai.exceptions import MarketDataUnavailableError, TransientError
-from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
-from finanalytics_ai.infrastructure.queue.kafka_adapter import KafkaMarketEventProducer
+
+if TYPE_CHECKING:
+    from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
+    from finanalytics_ai.infrastructure.queue.kafka_adapter import KafkaMarketEventProducer
 
 logger = structlog.get_logger(__name__)
 
@@ -57,37 +59,38 @@ MAX_CONCURRENT = 3  # semáforo: máx de requests BRAPI simultâneos
 
 class TickerStats:
     """Estatísticas por ticker para observabilidade."""
+
     def __init__(self, ticker: str) -> None:
-        self.ticker          = ticker
-        self.success_count   = 0
-        self.error_count     = 0
-        self.last_price:     float | None = None
+        self.ticker = ticker
+        self.success_count = 0
+        self.error_count = 0
+        self.last_price: float | None = None
         self.last_change_pct: float | None = None
-        self.last_updated:   datetime | None = None
-        self.last_error:     str | None = None
+        self.last_updated: datetime | None = None
+        self.last_error: str | None = None
 
     def record_success(self, price: float, change_pct: float | None) -> None:
-        self.success_count  += 1
-        self.last_price      = price
+        self.success_count += 1
+        self.last_price = price
         self.last_change_pct = change_pct
-        self.last_updated    = datetime.utcnow()
-        self.last_error      = None
+        self.last_updated = datetime.utcnow()
+        self.last_error = None
 
     def record_error(self, error: str) -> None:
         self.error_count += 1
-        self.last_error   = error
+        self.last_error = error
         self.last_updated = datetime.utcnow()
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "ticker":        self.ticker,
-            "last_price":    self.last_price,
-            "change_pct":    self.last_change_pct,
-            "last_updated":  self.last_updated.isoformat() if self.last_updated else None,
+            "ticker": self.ticker,
+            "last_price": self.last_price,
+            "change_pct": self.last_change_pct,
+            "last_updated": self.last_updated.isoformat() if self.last_updated else None,
             "success_count": self.success_count,
-            "error_count":   self.error_count,
-            "last_error":    self.last_error,
-            "healthy":       self.error_count == 0 or self.success_count > self.error_count,
+            "error_count": self.error_count,
+            "last_error": self.last_error,
+            "healthy": self.error_count == 0 or self.success_count > self.error_count,
         }
 
 
@@ -106,17 +109,15 @@ class BrapiPriceProducer:
         brapi_client: BrapiClient,
         kafka_producer: KafkaMarketEventProducer,
     ) -> None:
-        self._tickers       = [t.upper().strip() for t in tickers if t.strip()]
-        self._interval      = poll_interval
-        self._brapi         = brapi_client
-        self._kafka         = kafka_producer
-        self._stop_event    = asyncio.Event()
-        self._semaphore     = asyncio.Semaphore(MAX_CONCURRENT)
-        self._cycle_count   = 0
-        self._running       = False
-        self._stats: dict[str, TickerStats] = {
-            t: TickerStats(t) for t in self._tickers
-        }
+        self._tickers = [t.upper().strip() for t in tickers if t.strip()]
+        self._interval = poll_interval
+        self._brapi = brapi_client
+        self._kafka = kafka_producer
+        self._stop_event = asyncio.Event()
+        self._semaphore = asyncio.Semaphore(MAX_CONCURRENT)
+        self._cycle_count = 0
+        self._running = False
+        self._stats: dict[str, TickerStats] = {t: TickerStats(t) for t in self._tickers}
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -152,8 +153,8 @@ class BrapiPriceProducer:
                     timeout=self._interval,
                 )
                 break  # stop_event foi setado
-            except asyncio.TimeoutError:
-                pass   # timeout normal — faz a próxima coleta
+            except TimeoutError:
+                pass  # timeout normal — faz a próxima coleta
 
             await self._collect_all()
 
@@ -169,7 +170,7 @@ class BrapiPriceProducer:
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         success = sum(1 for r in results if r is True)
-        errors  = len(results) - success
+        errors = len(results) - success
         log.info(
             "price_producer.cycle.done",
             success=success,
@@ -186,10 +187,10 @@ class BrapiPriceProducer:
             try:
                 data = await self._brapi.get_quote_full(ticker)  # type: ignore[arg-type]
 
-                price      = data.get("price")
+                price = data.get("price")
                 change_pct = data.get("change_pct")
-                volume     = data.get("volume")
-                name       = data.get("name", "")
+                volume = data.get("volume")
+                name = data.get("name", "")
 
                 if price is None:
                     raise MarketDataUnavailableError(
@@ -198,23 +199,25 @@ class BrapiPriceProducer:
                     )
 
                 event = MarketEvent(
-                    event_id   = str(uuid.uuid4()),
-                    event_type = EventType.PRICE_UPDATE,
-                    ticker     = ticker,
-                    payload    = {
-                        "price":      float(price),
+                    event_id=str(uuid.uuid4()),
+                    event_type=EventType.PRICE_UPDATE,
+                    ticker=ticker,
+                    payload={
+                        "price": float(price),
                         "change_pct": float(change_pct) if change_pct is not None else None,
-                        "volume":     int(volume) if volume else None,
-                        "name":       name,
-                        "source":     "brapi",
+                        "volume": int(volume) if volume else None,
+                        "name": name,
+                        "source": "brapi",
                     },
-                    source     = "brapi-producer",
-                    occurred_at = datetime.utcnow(),
-                    status     = EventStatus.PENDING,
+                    source="brapi-producer",
+                    occurred_at=datetime.utcnow(),
+                    status=EventStatus.PENDING,
                 )
 
                 await self._kafka.publish(event)
-                self._stats[ticker].record_success(float(price), float(change_pct) if change_pct else None)
+                self._stats[ticker].record_success(
+                    float(price), float(change_pct) if change_pct else None
+                )
 
                 logger.debug(
                     "price_producer.published",
@@ -254,11 +257,11 @@ class BrapiPriceProducer:
 
     def get_status(self) -> dict[str, Any]:
         return {
-            "running":       self.is_running,
-            "cycle_count":   self._cycle_count,
-            "interval":      self._interval,
-            "tickers":       [s.to_dict() for s in self._stats.values()],
-            "ticker_count":  len(self._tickers),
+            "running": self.is_running,
+            "cycle_count": self._cycle_count,
+            "interval": self._interval,
+            "tickers": [s.to_dict() for s in self._stats.values()],
+            "ticker_count": len(self._tickers),
             "healthy_count": sum(1 for s in self._stats.values() if s.last_price is not None),
         }
 

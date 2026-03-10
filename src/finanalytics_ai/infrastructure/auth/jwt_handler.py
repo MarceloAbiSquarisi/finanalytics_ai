@@ -22,27 +22,34 @@ Design decision — não usar cookies httpOnly por padrão:
   facilitar uso da API via curl/Swagger, optamos por Bearer token.
   Cookies httpOnly podem ser adicionados como camada extra depois.
 """
+
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import structlog
 
 from finanalytics_ai.domain.auth.entities import (
-    TokenPayload, TokenExpiredError, TokenInvalidError, User, TokenPair
+    TokenExpiredError,
+    TokenInvalidError,
+    TokenPair,
+    TokenPayload,
+    User,
 )
 
 logger = structlog.get_logger(__name__)
 
 # ── Tentar importar python-jose (preferido) ou PyJWT (fallback) ───────────────
 try:
-    from jose import jwt as jose_jwt, JWTError, ExpiredSignatureError
+    from jose import jwt as jose_jwt
+
     _BACKEND = "jose"
 except ImportError:
     try:
         import jwt as pyjwt
+
         _BACKEND = "pyjwt"
     except ImportError:
         _BACKEND = "none"
@@ -54,28 +61,26 @@ class JWTHandler:
     def __init__(
         self,
         secret_key: str,
-        algorithm:  str = "HS256",
+        algorithm: str = "HS256",
         access_expire_minutes: int = 30,
-        refresh_expire_days:   int = 7,
+        refresh_expire_days: int = 7,
     ) -> None:
-        self.secret_key            = secret_key
-        self.algorithm             = algorithm
+        self.secret_key = secret_key
+        self.algorithm = algorithm
         self.access_expire_minutes = access_expire_minutes
-        self.refresh_expire_days   = refresh_expire_days
+        self.refresh_expire_days = refresh_expire_days
 
     def create_access_token(self, user: User) -> str:
-        return self._create_token(user, "access",
-                                  timedelta(minutes=self.access_expire_minutes))
+        return self._create_token(user, "access", timedelta(minutes=self.access_expire_minutes))
 
     def create_refresh_token(self, user: User) -> str:
-        return self._create_token(user, "refresh",
-                                  timedelta(days=self.refresh_expire_days))
+        return self._create_token(user, "refresh", timedelta(days=self.refresh_expire_days))
 
     def create_token_pair(self, user: User) -> TokenPair:
         return TokenPair(
-            access_token  = self.create_access_token(user),
-            refresh_token = self.create_refresh_token(user),
-            expires_in    = self.access_expire_minutes * 60,
+            access_token=self.create_access_token(user),
+            refresh_token=self.create_refresh_token(user),
+            expires_in=self.access_expire_minutes * 60,
         )
 
     def decode(self, token: str) -> TokenPayload:
@@ -87,19 +92,17 @@ class JWTHandler:
 
         try:
             if _BACKEND == "jose":
-                payload = jose_jwt.decode(token, self.secret_key,
-                                          algorithms=[self.algorithm])
+                payload = jose_jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
             else:  # pyjwt
-                payload = pyjwt.decode(token, self.secret_key,
-                                       algorithms=[self.algorithm])
+                payload = pyjwt.decode(token, self.secret_key, algorithms=[self.algorithm])
 
             return TokenPayload(
-                sub        = payload["sub"],
-                email      = payload["email"],
-                role       = payload.get("role", "user"),
-                exp        = payload["exp"],
-                token_type = payload.get("token_type", "access"),
-                jti        = payload.get("jti", ""),
+                sub=payload["sub"],
+                email=payload["email"],
+                role=payload.get("role", "user"),
+                exp=payload["exp"],
+                token_type=payload.get("token_type", "access"),
+                jti=payload.get("jti", ""),
             )
 
         except Exception as exc:
@@ -120,15 +123,15 @@ class JWTHandler:
     # ── Internals ─────────────────────────────────────────────────────────────
 
     def _create_token(self, user: User, token_type: str, delta: timedelta) -> str:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         claims: dict[str, Any] = {
-            "sub":        user.user_id,
-            "email":      user.email,
-            "role":       user.role.value,
+            "sub": user.user_id,
+            "email": user.email,
+            "role": user.role.value,
             "token_type": token_type,
-            "jti":        str(uuid.uuid4()),
-            "iat":        int(now.timestamp()),
-            "exp":        int((now + delta).timestamp()),
+            "jti": str(uuid.uuid4()),
+            "iat": int(now.timestamp()),
+            "exp": int((now + delta).timestamp()),
         }
         if _BACKEND == "jose":
             return jose_jwt.encode(claims, self.secret_key, algorithm=self.algorithm)
@@ -140,37 +143,51 @@ class JWTHandler:
 
     def _encode_fallback(self, claims: dict[str, Any]) -> str:
         """HMAC-SHA256 fallback — funcional para testes sem python-jose/PyJWT."""
-        import base64, json, hashlib, hmac as _hmac
-        header  = base64.urlsafe_b64encode(b'{"alg":"HS256"}').rstrip(b"=").decode()
-        payload = base64.urlsafe_b64encode(
-            json.dumps(claims, separators=(",", ":")).encode()).rstrip(b"=").decode()
+        import base64
+        import hashlib
+        import hmac as _hmac
+        import json
+
+        header = base64.urlsafe_b64encode(b'{"alg":"HS256"}').rstrip(b"=").decode()
+        payload = (
+            base64.urlsafe_b64encode(json.dumps(claims, separators=(",", ":")).encode())
+            .rstrip(b"=")
+            .decode()
+        )
         msg = f"{header}.{payload}".encode()
         sig = _hmac.new(self.secret_key.encode(), msg, hashlib.sha256).digest()
         sig_b64 = base64.urlsafe_b64encode(sig).rstrip(b"=").decode()
         return f"{header}.{payload}.{sig_b64}"
 
     def _decode_fallback(self, token: str) -> TokenPayload:
-        import base64, json, time, hashlib, hmac as _hmac
+        import base64
+        import hashlib
+        import hmac as _hmac
+        import json
+        import time
+
         try:
             parts = token.split(".")
             if len(parts) != 3:
                 raise TokenInvalidError("Formato inválido.")
             header_b64, payload_b64, sig_b64 = parts
             # Verifica assinatura HMAC-SHA256
-            msg      = f"{header_b64}.{payload_b64}".encode()
+            msg = f"{header_b64}.{payload_b64}".encode()
             expected = _hmac.new(self.secret_key.encode(), msg, hashlib.sha256).digest()
             expected_b64 = base64.urlsafe_b64encode(expected).rstrip(b"=").decode()
             if not _hmac.compare_digest(sig_b64, expected_b64):
                 raise TokenInvalidError("Assinatura inválida.")
-            pad     = payload_b64 + "=" * (-len(payload_b64) % 4)
+            pad = payload_b64 + "=" * (-len(payload_b64) % 4)
             payload = json.loads(base64.urlsafe_b64decode(pad))
             if payload.get("exp", 0) < time.time():
                 raise TokenExpiredError()
             return TokenPayload(
-                sub=payload["sub"], email=payload["email"],
-                role=payload.get("role","user"), exp=payload["exp"],
-                token_type=payload.get("token_type","access"),
-                jti=payload.get("jti",""),
+                sub=payload["sub"],
+                email=payload["email"],
+                role=payload.get("role", "user"),
+                exp=payload["exp"],
+                token_type=payload.get("token_type", "access"),
+                jti=payload.get("jti", ""),
             )
         except (TokenExpiredError, TokenInvalidError):
             raise
@@ -186,10 +203,11 @@ def get_jwt_handler() -> JWTHandler:
     global _handler
     if _handler is None:
         from finanalytics_ai.config import get_settings
+
         s = get_settings()
         _handler = JWTHandler(
-            secret_key            = s.app_secret_key,
-            access_expire_minutes = getattr(s, "jwt_access_expire_minutes", 30),
-            refresh_expire_days   = getattr(s, "jwt_refresh_expire_days", 7),
+            secret_key=s.app_secret_key,
+            access_expire_minutes=getattr(s, "jwt_access_expire_minutes", 30),
+            refresh_expire_days=getattr(s, "jwt_refresh_expire_days", 7),
         )
     return _handler

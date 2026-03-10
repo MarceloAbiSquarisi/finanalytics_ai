@@ -4,17 +4,23 @@ PortfolioService — Casos de uso de portfólio.
 Orquestra domínio + repository + dados de mercado.
 Enriquece posições com cotações em tempo real via BRAPI.
 """
+
 from __future__ import annotations
+
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING
+
 import structlog
-from finanalytics_ai.application.commands.process_event import BuyAssetCommand, SellAssetCommand
+
 from finanalytics_ai.domain.entities.portfolio import Portfolio
-from finanalytics_ai.domain.ports.market_data import MarketDataProvider
-from finanalytics_ai.domain.ports.portfolio_repo import PortfolioRepository
-from finanalytics_ai.domain.value_objects.money import Money, Ticker, Quantity
+from finanalytics_ai.domain.value_objects.money import Money, Quantity, Ticker
 from finanalytics_ai.exceptions import PortfolioNotFoundError
+
+if TYPE_CHECKING:
+    from finanalytics_ai.application.commands.process_event import BuyAssetCommand, SellAssetCommand
+    from finanalytics_ai.domain.ports.market_data import MarketDataProvider
+    from finanalytics_ai.domain.ports.portfolio_repo import PortfolioRepository
 
 logger = structlog.get_logger(__name__)
 
@@ -55,7 +61,9 @@ class PortfolioService:
         self._repo = repo
         self._market_data = market_data
 
-    async def create_portfolio(self, user_id: str, name: str, initial_cash: Decimal = Decimal("0")) -> Portfolio:
+    async def create_portfolio(
+        self, user_id: str, name: str, initial_cash: Decimal = Decimal("0")
+    ) -> Portfolio:
         portfolio = Portfolio(user_id=user_id, name=name)
         if initial_cash > Decimal("0"):
             portfolio.cash = Money.of(initial_cash)
@@ -80,7 +88,9 @@ class PortfolioService:
         price = Money.of(cmd.price)
         portfolio.remove_position(ticker, quantity, price)
         await self._repo.save(portfolio)
-        logger.info("portfolio.sell", ticker=cmd.ticker, qty=str(cmd.quantity), price=str(cmd.price))
+        logger.info(
+            "portfolio.sell", ticker=cmd.ticker, qty=str(cmd.quantity), price=str(cmd.price)
+        )
         return portfolio
 
     async def get_snapshot(self, portfolio_id: str) -> PortfolioSnapshot:
@@ -89,6 +99,7 @@ class PortfolioService:
         Cotações são buscadas em paralelo para performance.
         """
         import asyncio
+
         portfolio = await self._get_or_raise(portfolio_id)
 
         # Busca cotações em paralelo
@@ -97,7 +108,7 @@ class PortfolioService:
         if tickers:
             tasks = {t: self._market_data.get_quote(Ticker(t)) for t in tickers}
             results = await asyncio.gather(*tasks.values(), return_exceptions=True)
-            for ticker, result in zip(tasks.keys(), results):
+            for ticker, result in zip(tasks.keys(), results, strict=False):
                 if isinstance(result, Money):
                     prices[ticker] = result
                 else:
@@ -114,23 +125,26 @@ class PortfolioService:
             pl = pos.profit_loss(current_price)
             pl_pct = pos.profit_loss_pct(current_price)
             total_current_value = total_current_value + current_value
-            positions_snap.append(PositionSnapshot(
-                ticker=sym,
-                quantity=str(pos.quantity.value),
-                average_price=str(pos.average_price.amount),
-                current_price=str(current_price.amount),
-                total_cost=str(pos.total_cost.amount),
-                current_value=str(current_value.amount),
-                profit_loss=str(pl.amount),
-                profit_loss_pct=f"{pl_pct:.2f}",
-                asset_class=pos.asset_class,
-            ))
+            positions_snap.append(
+                PositionSnapshot(
+                    ticker=sym,
+                    quantity=str(pos.quantity.value),
+                    average_price=str(pos.average_price.amount),
+                    current_price=str(current_price.amount),
+                    total_cost=str(pos.total_cost.amount),
+                    current_value=str(current_value.amount),
+                    profit_loss=str(pl.amount),
+                    profit_loss_pct=f"{pl_pct:.2f}",
+                    asset_class=pos.asset_class,
+                )
+            )
 
         total_invested = portfolio.total_invested()
         total_pl = total_current_value - total_invested
         total_pl_pct = (
             (total_pl.amount / total_invested.amount * 100)
-            if not total_invested.is_zero() else Decimal("0")
+            if not total_invested.is_zero()
+            else Decimal("0")
         )
 
         return PortfolioSnapshot(

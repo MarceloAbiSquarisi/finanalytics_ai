@@ -42,9 +42,10 @@ Design decisions:
     backtest/walkforward — 600s
     correlation        — 180s  (correlação muda lentamente)
 """
+
 from __future__ import annotations
 
-import asyncio
+import contextlib
 import hashlib
 import json
 import time
@@ -54,11 +55,12 @@ import structlog
 
 logger = structlog.get_logger(__name__)
 
-MAX_VALUE_BYTES = 5 * 1024 * 1024   # 5 MB
+MAX_VALUE_BYTES = 5 * 1024 * 1024  # 5 MB
 MAX_MEMORY_ENTRIES = 512
 
 
 # ── Protocol ──────────────────────────────────────────────────────────────────
+
 
 @runtime_checkable
 class CacheBackend(Protocol):
@@ -70,6 +72,7 @@ class CacheBackend(Protocol):
 
 
 # ── Key builder ───────────────────────────────────────────────────────────────
+
 
 def make_cache_key(prefix: str, params: dict[str, Any]) -> str:
     """
@@ -84,6 +87,7 @@ def make_cache_key(prefix: str, params: dict[str, Any]) -> str:
 
 
 # ── InMemory backend (fallback) ───────────────────────────────────────────────
+
 
 class InMemoryCache:
     """
@@ -139,6 +143,7 @@ class InMemoryCache:
 
 # ── Redis backend ─────────────────────────────────────────────────────────────
 
+
 class RedisCache:
     """
     Cache Redis async usando redis-py.
@@ -149,12 +154,13 @@ class RedisCache:
 
     def __init__(self, url: str) -> None:
         self._url = url
-        self._client: Any = None   # redis.asyncio.Redis
+        self._client: Any = None  # redis.asyncio.Redis
 
     async def _get_client(self) -> Any:
         if self._client is None:
             try:
                 import redis.asyncio as aioredis
+
                 self._client = aioredis.from_url(
                     self._url,
                     decode_responses=True,
@@ -200,14 +206,13 @@ class RedisCache:
 
     async def close(self) -> None:
         if self._client is not None:
-            try:
+            with contextlib.suppress(Exception):
                 await self._client.aclose()
-            except Exception:
-                pass
             self._client = None
 
 
 # ── Factory ───────────────────────────────────────────────────────────────────
+
 
 def create_cache_backend(redis_url: str | None) -> CacheBackend:
     """

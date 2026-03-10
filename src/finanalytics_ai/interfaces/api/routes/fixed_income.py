@@ -8,17 +8,21 @@ POST /api/v1/fixed-income/compare        — comparação entre títulos
 POST /api/v1/fixed-income/cash-flow      — fluxo de caixa
 POST /api/v1/fixed-income/goal           — quanto investir para atingir X
 """
+
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 
 from finanalytics_ai.application.services.fixed_income_service import (
-    FixedIncomeService, DEFAULT_CDI, DEFAULT_SELIC, DEFAULT_IPCA, DEFAULT_IGPM,
+    DEFAULT_CDI,
+    DEFAULT_IGPM,
+    DEFAULT_IPCA,
+    DEFAULT_SELIC,
+    FixedIncomeService,
 )
 from finanalytics_ai.infrastructure.adapters.tesouro_client import get_tesouro_client
 
@@ -32,37 +36,39 @@ def _svc() -> FixedIncomeService:
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
+
 class RatesInput(BaseModel):
-    cdi_rate:   float = Field(DEFAULT_CDI * 100,   description="CDI % a.a.")
+    cdi_rate: float = Field(DEFAULT_CDI * 100, description="CDI % a.a.")
     selic_rate: float = Field(DEFAULT_SELIC * 100, description="SELIC % a.a.")
-    ipca_rate:  float = Field(DEFAULT_IPCA * 100,  description="IPCA % a.a.")
-    igpm_rate:  float = Field(DEFAULT_IGPM * 100,  description="IGPM % a.a.")
+    ipca_rate: float = Field(DEFAULT_IPCA * 100, description="IPCA % a.a.")
+    igpm_rate: float = Field(DEFAULT_IGPM * 100, description="IGPM % a.a.")
 
 
 class CalculateRequest(RatesInput):
-    bond_id:   str
+    bond_id: str
     principal: float = Field(..., gt=0)
-    days:      int | None = Field(None, gt=0)
+    days: int | None = Field(None, gt=0)
 
 
 class CompareRequest(RatesInput):
-    bond_ids:  list[str] = Field(..., min_length=2, max_length=20)
-    principal: float     = Field(..., gt=0)
-    days:      int       = Field(..., gt=0)
+    bond_ids: list[str] = Field(..., min_length=2, max_length=20)
+    principal: float = Field(..., gt=0)
+    days: int = Field(..., gt=0)
 
 
 class CashFlowRequest(RatesInput):
-    bond_id:   str
+    bond_id: str
     principal: float = Field(..., gt=0)
 
 
 class GoalRequest(RatesInput):
-    bond_id:       str
+    bond_id: str
     target_amount: float = Field(..., gt=0)
-    days:          int   = Field(..., gt=0)
+    days: int = Field(..., gt=0)
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+
 
 @router.get("/rates")
 async def get_rates() -> dict[str, Any]:
@@ -72,10 +78,10 @@ async def get_rates() -> dict[str, Any]:
 @router.get("/bonds")
 async def list_bonds(
     bond_type: list[str] | None = Query(None),
-    indexer:   list[str] | None = Query(None),
-    issuer:    str | None = Query(None),
-    min_days:  int | None = Query(None),
-    max_days:  int | None = Query(None),
+    indexer: list[str] | None = Query(None),
+    issuer: str | None = Query(None),
+    min_days: int | None = Query(None),
+    max_days: int | None = Query(None),
 ) -> list[dict[str, Any]]:
     try:
         return await _svc().list_bonds(bond_type, indexer, issuer, min_days, max_days)
@@ -88,8 +94,12 @@ async def list_bonds(
 async def calculate(body: CalculateRequest) -> dict[str, Any]:
     try:
         return await _svc().calculate(
-            body.bond_id, body.principal, body.days,
-            body.cdi_rate / 100, body.ipca_rate / 100, body.selic_rate / 100,
+            body.bond_id,
+            body.principal,
+            body.days,
+            body.cdi_rate / 100,
+            body.ipca_rate / 100,
+            body.selic_rate / 100,
         )
     except ValueError as e:
         raise HTTPException(422, detail=str(e))
@@ -102,9 +112,13 @@ async def calculate(body: CalculateRequest) -> dict[str, Any]:
 async def compare(body: CompareRequest) -> dict[str, Any]:
     try:
         return await _svc().compare(
-            body.bond_ids, body.principal, body.days,
-            body.cdi_rate / 100, body.ipca_rate / 100,
-            body.selic_rate / 100, body.igpm_rate / 100,
+            body.bond_ids,
+            body.principal,
+            body.days,
+            body.cdi_rate / 100,
+            body.ipca_rate / 100,
+            body.selic_rate / 100,
+            body.igpm_rate / 100,
         )
     except ValueError as e:
         raise HTTPException(422, detail=str(e))
@@ -117,8 +131,11 @@ async def compare(body: CompareRequest) -> dict[str, Any]:
 async def cash_flow(body: CashFlowRequest) -> dict[str, Any]:
     try:
         return await _svc().cash_flow(
-            body.bond_id, body.principal,
-            body.cdi_rate / 100, body.ipca_rate / 100, body.selic_rate / 100,
+            body.bond_id,
+            body.principal,
+            body.cdi_rate / 100,
+            body.ipca_rate / 100,
+            body.selic_rate / 100,
         )
     except ValueError as e:
         raise HTTPException(422, detail=str(e))
@@ -131,8 +148,12 @@ async def cash_flow(body: CashFlowRequest) -> dict[str, Any]:
 async def goal(body: GoalRequest) -> dict[str, Any]:
     try:
         return await _svc().goal_calc(
-            body.bond_id, body.target_amount, body.days,
-            body.cdi_rate / 100, body.ipca_rate / 100, body.selic_rate / 100,
+            body.bond_id,
+            body.target_amount,
+            body.days,
+            body.cdi_rate / 100,
+            body.ipca_rate / 100,
+            body.selic_rate / 100,
         )
     except ValueError as e:
         raise HTTPException(422, detail=str(e))
@@ -144,19 +165,20 @@ async def goal(body: GoalRequest) -> dict[str, Any]:
 # ── Sprint 28b: Curva de Juros + Stress Test ──────────────────────────────────
 
 from finanalytics_ai.application.services.fixed_income_service import (
-    get_yield_curve_with_stress, run_stress_test,
+    get_yield_curve_with_stress,
+    run_stress_test,
 )
 from finanalytics_ai.domain.fixed_income.yield_curve import STANDARD_SCENARIOS, StressScenario
 
 
 class StressTestRequest(BaseModel):
-    bond_ids:   list[str]  = Field(..., min_length=1, max_length=10)
-    principal:  float      = Field(default=10000.0, gt=0)
-    days:       int        = Field(default=365, gt=0, le=7300)
-    base_selic: float      = Field(default=10.65, gt=0, description="% a.a.")
-    base_cdi:   float      = Field(default=10.65, gt=0, description="% a.a.")
-    base_ipca:  float      = Field(default=4.83,  gt=0, description="% a.a.")
-    base_igpm:  float      = Field(default=6.20,  gt=0, description="% a.a.")
+    bond_ids: list[str] = Field(..., min_length=1, max_length=10)
+    principal: float = Field(default=10000.0, gt=0)
+    days: int = Field(default=365, gt=0, le=7300)
+    base_selic: float = Field(default=10.65, gt=0, description="% a.a.")
+    base_cdi: float = Field(default=10.65, gt=0, description="% a.a.")
+    base_ipca: float = Field(default=4.83, gt=0, description="% a.a.")
+    base_igpm: float = Field(default=6.20, gt=0, description="% a.a.")
     # Cenários customizados opcionais — se vazio usa STANDARD_SCENARIOS
     custom_scenarios: list[dict] = Field(default_factory=list)
 
@@ -164,17 +186,17 @@ class StressTestRequest(BaseModel):
 @router.get("/yield-curve")
 async def yield_curve(
     selic: float = Query(default=10.65, description="SELIC % a.a."),
-    cdi:   float = Query(default=10.65, description="CDI % a.a."),
-    ipca:  float = Query(default=4.83,  description="IPCA % a.a."),
+    cdi: float = Query(default=10.65, description="CDI % a.a."),
+    ipca: float = Query(default=4.83, description="IPCA % a.a."),
 ) -> dict:
     """
     Retorna curva de juros DI Futuro com análise contextual.
     Tenta ANBIMA real; fallback para curva sintética baseada na SELIC.
     """
     return await get_yield_curve_with_stress(
-        selic = selic / 100,
-        cdi   = cdi   / 100,
-        ipca  = ipca  / 100,
+        selic=selic / 100,
+        cdi=cdi / 100,
+        ipca=ipca / 100,
     )
 
 
@@ -192,12 +214,12 @@ async def stress_test(body: StressTestRequest) -> list[dict]:
         try:
             scenarios = [
                 StressScenario(
-                    name        = s["name"],
-                    delta_selic = float(s.get("delta_selic", 0)) / 100,
-                    delta_cdi   = float(s.get("delta_cdi",   0)) / 100,
-                    delta_ipca  = float(s.get("delta_ipca",  0)) / 100,
-                    delta_igpm  = float(s.get("delta_igpm",  0)) / 100,
-                    color       = s.get("color", "#8899aa"),
+                    name=s["name"],
+                    delta_selic=float(s.get("delta_selic", 0)) / 100,
+                    delta_cdi=float(s.get("delta_cdi", 0)) / 100,
+                    delta_ipca=float(s.get("delta_ipca", 0)) / 100,
+                    delta_igpm=float(s.get("delta_igpm", 0)) / 100,
+                    color=s.get("color", "#8899aa"),
                 )
                 for s in body.custom_scenarios
             ]
@@ -205,14 +227,14 @@ async def stress_test(body: StressTestRequest) -> list[dict]:
             scenarios = None  # fallback para cenários padrão
 
     return await run_stress_test(
-        bond_ids   = body.bond_ids,
-        principal  = body.principal,
-        days       = body.days,
-        scenarios  = scenarios,
-        base_selic = body.base_selic / 100,
-        base_cdi   = body.base_cdi   / 100,
-        base_ipca  = body.base_ipca  / 100,
-        base_igpm  = body.base_igpm  / 100,
+        bond_ids=body.bond_ids,
+        principal=body.principal,
+        days=body.days,
+        scenarios=scenarios,
+        base_selic=body.base_selic / 100,
+        base_cdi=body.base_cdi / 100,
+        base_ipca=body.base_ipca / 100,
+        base_igpm=body.base_igpm / 100,
     )
 
 
@@ -221,11 +243,11 @@ async def default_scenarios() -> list[dict]:
     """Retorna a lista de cenários de stress padrão."""
     return [
         {
-            "name":        s.name,
+            "name": s.name,
             "delta_selic": round(s.delta_selic * 100, 2),
-            "delta_cdi":   round(s.delta_cdi   * 100, 2),
-            "delta_ipca":  round(s.delta_ipca  * 100, 2),
-            "color":       s.color,
+            "delta_cdi": round(s.delta_cdi * 100, 2),
+            "delta_ipca": round(s.delta_ipca * 100, 2),
+            "color": s.color,
         }
         for s in STANDARD_SCENARIOS
     ]
@@ -234,29 +256,33 @@ async def default_scenarios() -> list[dict]:
 # ── Sprint 30: Carteira RF ────────────────────────────────────────────────────
 
 from datetime import date as _date
+
 from finanalytics_ai.application.services.rf_portfolio_service import RFPortfolioService
 from finanalytics_ai.interfaces.api.dependencies import get_db_session
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class CreatePortfolioRFRequest(BaseModel):
     user_id: str = Field(..., min_length=1)
-    name:    str = Field(..., min_length=1, max_length=200)
+    name: str = Field(..., min_length=1, max_length=200)
 
 
 class AddHoldingRequest(BaseModel):
-    bond_id:          str            = Field(..., min_length=1)
-    invested:         float          = Field(..., gt=0)
-    purchase_date:    str            = Field(..., description="YYYY-MM-DD")
+    bond_id: str = Field(..., min_length=1)
+    invested: float = Field(..., gt=0)
+    purchase_date: str = Field(..., description="YYYY-MM-DD")
     # Campos opcionais — preenchidos do catálogo se bond_id for conhecido
-    bond_name:        Optional[str]  = None
-    bond_type:        Optional[str]  = None
-    indexer:          Optional[str]  = None
-    issuer:           Optional[str]  = None
-    rate_annual:      Optional[float]= Field(None, description="% a.a. ex: 12.5")
-    rate_pct_indexer: bool           = False
-    maturity_date:    Optional[str]  = Field(None, description="YYYY-MM-DD")
-    ir_exempt:        Optional[bool] = None
-    note:             str            = ""
+    bond_name: str | None = None
+    bond_type: str | None = None
+    indexer: str | None = None
+    issuer: str | None = None
+    rate_annual: float | None = Field(None, description="% a.a. ex: 12.5")
+    rate_pct_indexer: bool = False
+    maturity_date: str | None = Field(None, description="YYYY-MM-DD")
+    ir_exempt: bool | None = None
+    note: str = ""
 
 
 def _rf_svc(session) -> RFPortfolioService:
@@ -285,8 +311,8 @@ async def list_rf_portfolios(
 async def get_rf_portfolio(
     portfolio_id: str,
     selic: float = Query(default=10.65),
-    cdi:   float = Query(default=10.65),
-    ipca:  float = Query(default=4.83),
+    cdi: float = Query(default=10.65),
+    ipca: float = Query(default=4.83),
     session: AsyncSession = Depends(get_db_session),
 ) -> dict:
     """
@@ -294,9 +320,12 @@ async def get_rf_portfolio(
     (rendimento acumulado calculado com as taxas fornecidas).
     """
     from fastapi import HTTPException
+
     result = await _rf_svc(session).get_portfolio(
         portfolio_id,
-        selic=selic/100, cdi=cdi/100, ipca=ipca/100,
+        selic=selic / 100,
+        cdi=cdi / 100,
+        ipca=ipca / 100,
     )
     if result is None:
         raise HTTPException(404, "Carteira não encontrada")
@@ -319,6 +348,7 @@ async def add_rf_holding(
 ) -> dict:
     """Adiciona uma posição à carteira RF."""
     from fastapi import HTTPException
+
     try:
         purchase = _date.fromisoformat(body.purchase_date)
         maturity = _date.fromisoformat(body.maturity_date) if body.maturity_date else None
@@ -326,19 +356,19 @@ async def add_rf_holding(
         raise HTTPException(422, f"Data inválida: {e}")
     try:
         return await _rf_svc(session).add_holding(
-            portfolio_id     = portfolio_id,
-            bond_id          = body.bond_id,
-            invested         = body.invested,
-            purchase_date    = purchase,
-            bond_name        = body.bond_name,
-            bond_type        = body.bond_type,
-            indexer          = body.indexer,
-            issuer           = body.issuer,
-            rate_annual      = body.rate_annual / 100 if body.rate_annual else None,
-            rate_pct_indexer = body.rate_pct_indexer,
-            maturity_date    = maturity,
-            ir_exempt        = body.ir_exempt,
-            note             = body.note,
+            portfolio_id=portfolio_id,
+            bond_id=body.bond_id,
+            invested=body.invested,
+            purchase_date=purchase,
+            bond_name=body.bond_name,
+            bond_type=body.bond_type,
+            indexer=body.indexer,
+            issuer=body.issuer,
+            rate_annual=body.rate_annual / 100 if body.rate_annual else None,
+            rate_pct_indexer=body.rate_pct_indexer,
+            maturity_date=maturity,
+            ir_exempt=body.ir_exempt,
+            note=body.note,
         )
     except ValueError as e:
         raise HTTPException(422, str(e))
@@ -347,7 +377,7 @@ async def add_rf_holding(
 @router.delete("/portfolio/{portfolio_id}/holdings/{holding_id}", status_code=204)
 async def delete_rf_holding(
     portfolio_id: str,
-    holding_id:   str,
+    holding_id: str,
     session: AsyncSession = Depends(get_db_session),
 ) -> None:
     await _rf_svc(session).delete_holding(holding_id, portfolio_id)
@@ -360,6 +390,7 @@ async def rf_diversification(
 ) -> dict:
     """Relatório de diversificação com score, alertas e recomendações."""
     from fastapi import HTTPException
+
     result = await _rf_svc(session).diversification_report(portfolio_id)
     if result is None:
         raise HTTPException(404, "Carteira não encontrada")
@@ -370,14 +401,18 @@ async def rf_diversification(
 async def rf_maturities(
     portfolio_id: str,
     selic: float = Query(default=10.65),
-    cdi:   float = Query(default=10.65),
-    ipca:  float = Query(default=4.83),
+    cdi: float = Query(default=10.65),
+    ipca: float = Query(default=4.83),
     session: AsyncSession = Depends(get_db_session),
 ) -> list[dict]:
     """Timeline de vencimentos com valor projetado na data de vencimento."""
     from fastapi import HTTPException
+
     result = await _rf_svc(session).maturities_timeline(
-        portfolio_id, selic=selic/100, cdi=cdi/100, ipca=ipca/100,
+        portfolio_id,
+        selic=selic / 100,
+        cdi=cdi / 100,
+        ipca=ipca / 100,
     )
     if result is None:
         raise HTTPException(404, "Carteira não encontrada")
@@ -399,6 +434,7 @@ async def rf_fgc_analysis(
     - Score de proteção 0–100
     """
     from fastapi import HTTPException
+
     result = await _rf_svc(session).fgc_analysis(portfolio_id)
     if result is None:
         raise HTTPException(404, "Carteira não encontrada")

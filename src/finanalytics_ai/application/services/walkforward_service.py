@@ -13,11 +13,12 @@ Requisito minimo de dados por periodo:
   Com n_splits=5 e 60 barras:
     fold_size = 12, oos_size = 4, is_size = 8 -> muito pequeno -> erro
 """
+
 from __future__ import annotations
 
 import asyncio
 import functools
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
@@ -27,33 +28,35 @@ from finanalytics_ai.domain.backtesting.optimizer import (
     WalkForwardResult,
     walk_forward,
 )
-from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
+
+if TYPE_CHECKING:
+    from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
 
 logger = structlog.get_logger(__name__)
 
 
 class WalkForwardService:
-
     def __init__(self, brapi_client: BrapiClient) -> None:
         self._brapi = brapi_client
 
     async def run(
         self,
-        ticker:          str,
-        strategy_name:   str,
-        range_period:    str   = "2y",
+        ticker: str,
+        strategy_name: str,
+        range_period: str = "2y",
         initial_capital: float = 10_000.0,
-        position_size:   float = 1.0,
-        commission_pct:  float = 0.001,
-        objective:       str   = "sharpe",
-        n_splits:        int   = 3,
-        oos_pct:         float = 0.3,
-        anchored:        bool  = False,
-        custom_space:    dict[str, list[Any]] | None = None,
+        position_size: float = 1.0,
+        commission_pct: float = 0.001,
+        objective: str = "sharpe",
+        n_splits: int = 3,
+        oos_pct: float = 0.3,
+        anchored: bool = False,
+        custom_space: dict[str, list[Any]] | None = None,
     ) -> WalkForwardResult:
 
-        log = logger.bind(ticker=ticker, strategy=strategy_name,
-                          n_splits=n_splits, objective=objective)
+        log = logger.bind(
+            ticker=ticker, strategy=strategy_name, n_splits=n_splits, objective=objective
+        )
 
         try:
             obj = OptimizationObjective(objective)
@@ -70,9 +73,7 @@ class WalkForwardService:
         bars = await self._brapi.get_ohlc_bars(ticker, range_period=range_period)  # type: ignore[arg-type]
 
         if not bars:
-            raise BacktestError(
-                f"Sem dados historicos para {ticker} no periodo {range_period}."
-            )
+            raise BacktestError(f"Sem dados historicos para {ticker} no periodo {range_period}.")
 
         min_bars = n_splits * 40  # ~40 barras por fold minimo
         if len(bars) < min_bars:
@@ -85,18 +86,18 @@ class WalkForwardService:
 
         fn = functools.partial(
             walk_forward,
-            bars            = bars,
-            strategy_name   = strategy_name,
-            ticker          = ticker,
-            range_period    = range_period,
-            initial_capital = initial_capital,
-            position_size   = position_size,
-            commission_pct  = commission_pct,
-            objective       = obj,
-            n_splits        = n_splits,
-            oos_pct         = oos_pct,
-            anchored        = anchored,
-            custom_space    = custom_space,
+            bars=bars,
+            strategy_name=strategy_name,
+            ticker=ticker,
+            range_period=range_period,
+            initial_capital=initial_capital,
+            position_size=position_size,
+            commission_pct=commission_pct,
+            objective=obj,
+            n_splits=n_splits,
+            oos_pct=oos_pct,
+            anchored=anchored,
+            custom_space=custom_space,
         )
 
         try:
@@ -106,11 +107,11 @@ class WalkForwardService:
 
         log.info(
             "walkforward.done",
-            folds           = len(result.folds),
-            avg_oos_score   = result.avg_oos_score,
-            efficiency      = result.efficiency_ratio,
-            consistency     = result.consistency,
-            combined_return = result.combined_return,
+            folds=len(result.folds),
+            avg_oos_score=result.avg_oos_score,
+            efficiency=result.efficiency_ratio,
+            consistency=result.consistency,
+            combined_return=result.combined_return,
         )
 
         return result

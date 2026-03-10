@@ -1,19 +1,9 @@
-"""
-Configuração global de testes.
-
-Design decision: fixtures com scope adequado.
-- function: padrão — isolamento total por teste
-- session: engines de DB e objetos caros (um por suite)
-
-Use pytest-asyncio em modo "auto" (configurado no pyproject.toml).
-"""
 from __future__ import annotations
 import os
 import pytest
-from decimal import Decimal
 from unittest.mock import AsyncMock
 
-# Força config de teste antes de qualquer import de settings
+# Force test config before any settings import
 os.environ.setdefault("APP_SECRET_KEY", "test-secret-key-32-chars-minimum!!")
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://test:test@localhost:5432/test_fa")
 os.environ.setdefault("APP_ENV", "development")
