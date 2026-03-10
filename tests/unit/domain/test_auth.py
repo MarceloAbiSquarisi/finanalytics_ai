@@ -217,14 +217,30 @@ class TestJWTHandler:
         assert pair.expires_in == 30 * 60
         assert pair.token_type == "bearer"
 
-    def test_expired_token_raises(self, user):
-        from finanalytics_ai.infrastructure.auth.jwt_handler import JWTHandler
-        handler = JWTHandler(
-            secret_key="test-secret-key-32-chars-minimum!",
-            access_expire_minutes=0,  # expira imediatamente
-        )
-        token = handler.create_access_token(user)
-        time.sleep(0.1)
+    def test_expired_token_raises(self, handler, user):
+        # Constrói token com exp 1 hora no passado — sem sleep, sem flakiness
+        import time
+        from finanalytics_ai.infrastructure.auth.jwt_handler import _BACKEND
+
+        past_exp = int(time.time()) - 3600  # 1h atrás, inequivocamente expirado
+
+        if _BACKEND == "jose":
+            from jose import jwt as _jose_jwt
+            payload = {
+                "sub": user.user_id, "email": user.email, "role": "user",
+                "exp": past_exp, "token_type": "access", "jti": "test-expired",
+            }
+            token = _jose_jwt.encode(payload, handler.secret_key, algorithm=handler.algorithm)
+        elif _BACKEND == "pyjwt":
+            import jwt as _pyjwt
+            payload = {
+                "sub": user.user_id, "email": user.email, "role": "user",
+                "exp": past_exp, "token_type": "access", "jti": "test-expired",
+            }
+            token = _pyjwt.encode(payload, handler.secret_key, algorithm=handler.algorithm)
+        else:
+            pytest.skip("Nenhum backend JWT disponível")
+
         with pytest.raises((TokenExpiredError, TokenInvalidError)):
             handler.decode(token)
 
