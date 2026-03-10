@@ -202,13 +202,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from finanalytics_ai.infrastructure.database.connection import get_session_factory
 
         market_client = create_cached_market_data_client(settings.brapi_token, get_session_factory())
-        app.state.backtest_service = BacktestService(market_client)
-        app.state.optimizer_service = OptimizerService(market_client)
-        app.state.walkforward_service = WalkForwardService(market_client)
-        app.state.multi_ticker_service = MultiTickerService(market_client)
-        app.state.correlation_service = CorrelationService(market_client)
-        app.state.screener_service = ScreenerService(market_client)
-        app.state.anomaly_service = AnomalyService(market_client)
+        app.state.backtest_service = BacktestService(market_client)  # type: ignore[arg-type]
+        app.state.optimizer_service = OptimizerService(market_client)  # type: ignore[arg-type]
+        app.state.walkforward_service = WalkForwardService(market_client)  # type: ignore[arg-type]
+        app.state.multi_ticker_service = MultiTickerService(market_client)  # type: ignore[arg-type]
+        app.state.correlation_service = CorrelationService(market_client)  # type: ignore[arg-type]
+        app.state.screener_service = ScreenerService(market_client)  # type: ignore[arg-type]
+        app.state.anomaly_service = AnomalyService(market_client)  # type: ignore[arg-type]
         app.state.market_client = market_client  # <-- acesso direto para outras dependências
         logger.info("market_data_client.composite.ready")
     else:

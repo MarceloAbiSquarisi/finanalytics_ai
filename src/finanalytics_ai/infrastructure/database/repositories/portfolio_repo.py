@@ -147,8 +147,8 @@ class SQLPortfolioRepository:
             is_default=bool(pm.is_default),
             currency=Currency(str(pm.currency)),
             cash=Money(Decimal(str(pm.cash)), Currency(str(pm.currency))),
-            created_at=pm.created_at,  # type: ignore[arg-type]
-            updated_at=pm.updated_at,  # type: ignore[arg-type]
+            created_at=pm.created_at,
+            updated_at=pm.updated_at,
         )
         p.positions = positions
         return p

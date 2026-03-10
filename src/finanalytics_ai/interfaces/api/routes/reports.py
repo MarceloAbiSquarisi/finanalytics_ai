@@ -42,7 +42,7 @@ def _snapshot_to_dict(snapshot: Any) -> dict[str, Any]:
         return snapshot.model_dump()
     if hasattr(snapshot, "dict"):
         return snapshot.dict()
-    return dict(snapshot)  # type: ignore[call-overload]
+    return dict(snapshot)
 
 
 @router.get(

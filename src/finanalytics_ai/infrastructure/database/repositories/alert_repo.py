@@ -104,7 +104,7 @@ class SQLAlertRepository:
             .values(status=AlertStatus.CANCELLED.value)
         )
         result = await self._session.execute(stmt)
-        return result.rowcount > 0
+        return result.rowcount  # type: ignore[attr-defined] > 0
 
     def _to_domain(self, m: AlertModel) -> Alert:
         return Alert(
@@ -116,7 +116,7 @@ class SQLAlertRepository:
             reference_price=Decimal(str(m.reference_price)),
             status=AlertStatus(m.status),
             note=str(m.note),
-            created_at=m.created_at,  # type: ignore[arg-type]
-            triggered_at=m.triggered_at,  # type: ignore[arg-type]
-            expires_at=m.expires_at,  # type: ignore[arg-type]
+            created_at=m.created_at,
+            triggered_at=m.triggered_at,
+            expires_at=m.expires_at,
         )

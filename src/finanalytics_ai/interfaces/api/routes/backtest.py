@@ -312,7 +312,7 @@ class WalkForwardRequest(BaseModel):
     anchored: bool = Field(False)
 
 
-def _get_walkforward(request: Request):  # type: ignore[return]
+def _get_walkforward(request: Request):
     svc = getattr(request.app.state, "walkforward_service", None)
     if svc is None:
         raise HTTPException(503, "WalkForwardService nao inicializado")

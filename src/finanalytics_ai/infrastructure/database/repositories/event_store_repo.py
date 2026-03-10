@@ -102,8 +102,8 @@ class SQLEventStore:
             payload=json.loads(str(model.payload)),
             source=str(model.source),
             status=EventStatus(model.status),
-            retry_count=int(model.retry_count),  # type: ignore[arg-type]
+            retry_count=int(model.retry_count),
             error_message=str(model.error_message),
-            occurred_at=model.occurred_at,  # type: ignore[arg-type]
-            processed_at=model.processed_at,  # type: ignore[arg-type]
+            occurred_at=model.occurred_at,
+            processed_at=model.processed_at,
         )
