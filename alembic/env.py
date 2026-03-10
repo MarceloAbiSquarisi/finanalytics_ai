@@ -1,37 +1,58 @@
-"""Alembic environment — async-compatible com SQLAlchemy 2.0."""
+"""Alembic env.py — async engine com asyncpg."""
 from __future__ import annotations
+
 import asyncio
 from logging.config import fileConfig
+
+from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-from alembic import context
 
-# Importa Base para que os modelos sejam registrados
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+# ── Importa Base e todos os models para autogenerate ────────────────────────
+from finanalytics_ai.infrastructure.database.connection import Base  # noqa: F401
+import finanalytics_ai.infrastructure.database.repositories.alert_repo        # noqa: F401
+import finanalytics_ai.infrastructure.database.repositories.event_store_repo  # noqa: F401
+import finanalytics_ai.infrastructure.database.repositories.portfolio_repo    # noqa: F401
+import finanalytics_ai.infrastructure.database.repositories.user_repo         # noqa: F401
+import finanalytics_ai.infrastructure.database.repositories.watchlist_repo    # noqa: F401
 
-from finanalytics_ai.infrastructure.database.connection import Base
-from finanalytics_ai.infrastructure.database.repositories.event_store_repo import EventModel
-from finanalytics_ai.infrastructure.database.repositories.portfolio_repo import PortfolioModel, PositionModel
+from finanalytics_ai.config import get_settings
+
+settings = get_settings()
 
 config = context.config
+
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+# Usa asyncpg diretamente — sem converter para psycopg2
+config.set_main_option("sqlalchemy.url", str(settings.database_url))
 
 target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
-    context.configure(url=url, target_metadata=target_metadata,
-                      literal_binds=True, dialect_opts={"paramstyle": "named"})
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+        compare_server_default=True,
+    )
     with context.begin_transaction():
         context.run_migrations()
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        compare_type=True,
+        compare_server_default=True,
+    )
     with context.begin_transaction():
         context.run_migrations()
 
