@@ -5,9 +5,6 @@ Testes unitários para múltiplas carteiras — novos campos e comportamentos.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from decimal import Decimal
-
 import pytest
 
 from finanalytics_ai.domain.entities.portfolio import Portfolio

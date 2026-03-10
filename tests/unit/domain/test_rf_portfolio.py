@@ -1,12 +1,13 @@
 """Testes unitários — Carteira RF + Diversificação (Sprint 30)"""
 
 from __future__ import annotations
+
 from datetime import date
+
 from finanalytics_ai.domain.fixed_income.portfolio import (
+    DiversificationReport,
     RFHolding,
     RFPortfolio,
-    DiversificationReport,
-    CONCENTRATION_ISSUER_LIMIT,
 )
 
 

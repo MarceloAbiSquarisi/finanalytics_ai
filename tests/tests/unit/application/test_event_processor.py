@@ -6,12 +6,14 @@ nenhum I/O real é feito nestes testes.
 """
 
 from __future__ import annotations
+
+from unittest.mock import AsyncMock
+
 import pytest
-from unittest.mock import AsyncMock, patch
+
 from finanalytics_ai.application.commands.process_event import ProcessMarketEventCommand
 from finanalytics_ai.application.services.event_processor import EventProcessorService
-from finanalytics_ai.domain.entities.event import EventStatus, MarketEvent, EventType
-from finanalytics_ai.exceptions import DuplicateEventError, EventProcessingError
+from finanalytics_ai.domain.entities.event import EventStatus, MarketEvent
 
 
 @pytest.fixture

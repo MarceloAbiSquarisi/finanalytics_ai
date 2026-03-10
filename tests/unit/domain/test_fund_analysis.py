@@ -1,9 +1,9 @@
 """Testes unitários — Análise de Lâminas (Sprint 34)"""
 
 from finanalytics_ai.domain.fund_analysis.entities import (
+    AnalysisDimension,
     FundAnalysis,
     FundMetrics,
-    AnalysisDimension,
 )
 
 

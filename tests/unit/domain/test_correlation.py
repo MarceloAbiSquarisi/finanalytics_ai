@@ -62,7 +62,6 @@ Cobertura:
 from __future__ import annotations
 
 import asyncio
-import math
 from unittest.mock import AsyncMock
 
 import pytest
@@ -81,7 +80,6 @@ from finanalytics_ai.domain.correlation.engine import (
     extract_returns,
     rolling_correlation,
 )
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

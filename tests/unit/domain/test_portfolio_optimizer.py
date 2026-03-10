@@ -1,16 +1,17 @@
 """Testes unitários — Otimizador de Portfólio (Sprint 32)"""
 
-import math, random
+import math
+import random
+
 from finanalytics_ai.domain.portfolio_optimizer.engine import (
-    markowitz_optimize,
-    risk_parity_optimize,
-    black_litterman_optimize,
-    equal_weight,
     _covariance_matrix,
-    _mat_vec,
     _dot,
     _gauss_jordan_inverse,
-    _returns,
+    _mat_vec,
+    black_litterman_optimize,
+    equal_weight,
+    markowitz_optimize,
+    risk_parity_optimize,
 )
 
 random.seed(42)

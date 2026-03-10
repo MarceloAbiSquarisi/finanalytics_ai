@@ -13,14 +13,13 @@ Cobertura:
 
 from __future__ import annotations
 
-import math
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
+from finanalytics_ai.application.services.backtest_service import BacktestError, BacktestService
 from finanalytics_ai.domain.backtesting.engine import (
-    BacktestResult,
     Signal,
     Trade,
     _calc_metrics,
@@ -32,8 +31,6 @@ from finanalytics_ai.domain.backtesting.strategies.technical import (
     RSIStrategy,
     get_strategy,
 )
-from finanalytics_ai.application.services.backtest_service import BacktestError, BacktestService
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

@@ -1,13 +1,15 @@
 """Testes unitários — Análise de ETFs (Sprint 31)"""
 
 from __future__ import annotations
+
 import math
+
 from finanalytics_ai.domain.etf.entities import (
     ETF_CATALOG,
-    get_etf,
-    etfs_by_category,
     ETFMetrics,
     TrackingErrorResult,
+    etfs_by_category,
+    get_etf,
 )
 
 

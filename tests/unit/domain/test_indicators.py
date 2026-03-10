@@ -12,14 +12,13 @@ Valida:
 from __future__ import annotations
 
 import math
-import pytest
-from finanalytics_ai.domain.indicators.technical import (
-    compute_rsi,
-    compute_macd,
-    compute_bollinger,
-    compute_all,
-)
 
+from finanalytics_ai.domain.indicators.technical import (
+    compute_all,
+    compute_bollinger,
+    compute_macd,
+    compute_rsi,
+)
 
 # ── FIXTURES ──────────────────────────────────────────────────────────────────
 

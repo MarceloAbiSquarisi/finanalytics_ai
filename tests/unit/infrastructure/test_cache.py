@@ -37,23 +37,21 @@ Cobertura:
 
 from __future__ import annotations
 
-import asyncio
 import time
 
 import pytest
 
 from finanalytics_ai.infrastructure.cache.backend import (
-    InMemoryCache,
-    make_cache_key,
-    create_cache_backend,
     MAX_VALUE_BYTES,
+    InMemoryCache,
+    create_cache_backend,
+    make_cache_key,
 )
 from finanalytics_ai.infrastructure.cache.rate_limiter import (
     InMemoryRateLimiter,
     RateLimitResult,
     create_rate_limiter,
 )
-
 
 # ── InMemoryCache ─────────────────────────────────────────────────────────────
 

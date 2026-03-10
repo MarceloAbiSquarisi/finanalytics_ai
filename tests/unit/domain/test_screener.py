@@ -70,18 +70,17 @@ Cobertura:
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import fields as dc_fields
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
 from finanalytics_ai.application.services.backtest_service import BacktestError
 from finanalytics_ai.application.services.screener_service import (
     ScreenerService,
+    _num,
     _parse_fundamental,
     _pct,
-    _num,
 )
 from finanalytics_ai.domain.screener.engine import (
     IBOV_UNIVERSE,
@@ -92,7 +91,6 @@ from finanalytics_ai.domain.screener.engine import (
     _passes_range,
     apply_filters,
 )
-
 
 # ── Factories ─────────────────────────────────────────────────────────────────
 

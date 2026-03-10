@@ -3,17 +3,19 @@ Testes unitários — Yield Curve + Stress Test (Sprint 28b)
 """
 
 from __future__ import annotations
-import pytest
+
 from datetime import date
+
+import pytest
+
 from finanalytics_ai.domain.fixed_income.yield_curve import (
-    YieldCurvePoint,
-    YieldCurve,
-    StressScenario,
+    STANDARD_SCENARIOS,
     ScenarioComparison,
     StressResult,
-    STANDARD_SCENARIOS,
+    StressScenario,
+    YieldCurve,
+    YieldCurvePoint,
 )
-
 
 # ── YieldCurvePoint ───────────────────────────────────────────────────────────
 

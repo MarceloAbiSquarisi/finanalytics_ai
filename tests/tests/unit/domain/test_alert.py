@@ -16,14 +16,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-import pytest
-
 from finanalytics_ai.domain.entities.alert import (
     Alert,
     AlertStatus,
     AlertType,
 )
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

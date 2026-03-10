@@ -48,29 +48,24 @@ Cobertura:
 from __future__ import annotations
 
 import math
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
 from finanalytics_ai.application.services.backtest_service import BacktestError
 from finanalytics_ai.application.services.optimizer_service import OptimizerService
 from finanalytics_ai.application.services.walkforward_service import WalkForwardService
+from finanalytics_ai.domain.backtesting.engine import BacktestMetrics
 from finanalytics_ai.domain.backtesting.optimizer import (
-    MAX_COMBINATIONS,
     MIN_TRADES,
-    PARAM_SPACES,
     OptimizationObjective,
     OptimizationResult,
-    OptimizedRun,
-    WalkForwardFold,
     WalkForwardResult,
     _filter_invalid,
     _score,
     grid_search,
     walk_forward,
 )
-from finanalytics_ai.domain.backtesting.engine import BacktestMetrics
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

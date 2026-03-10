@@ -32,8 +32,7 @@ Cobertura:
 from __future__ import annotations
 
 import asyncio
-import math
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -42,20 +41,17 @@ from finanalytics_ai.application.services.multi_ticker_service import (
     MAX_CONCURRENT,
     MultiTickerService,
 )
+from finanalytics_ai.domain.backtesting.engine import BacktestMetrics
 from finanalytics_ai.domain.backtesting.multi_ticker import (
     MAX_TICKERS,
     MultiTickerResult,
-    TickerRanking,
     _find_consensus_params,
     build_multi_ticker_result,
 )
 from finanalytics_ai.domain.backtesting.optimizer import (
-    OptimizationObjective,
     OptimizationResult,
     OptimizedRun,
 )
-from finanalytics_ai.domain.backtesting.engine import BacktestMetrics
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

@@ -66,8 +66,6 @@ Cobertura:
 
 from __future__ import annotations
 
-import asyncio
-import math
 from unittest.mock import AsyncMock
 
 import pytest
@@ -81,17 +79,16 @@ from finanalytics_ai.domain.anomaly.engine import (
     AnomalyType,
     DetectorConfig,
     MultiAnomalyResult,
+    _mean,
+    _returns,
+    _std,
     analyze_ticker,
     build_multi_anomaly_result,
     detect_bollinger,
     detect_cusum,
     detect_volume_spike,
     detect_zscore,
-    _mean,
-    _std,
-    _returns,
 )
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

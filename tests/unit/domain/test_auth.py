@@ -5,27 +5,28 @@ Testes unitários para o domínio de autenticação.
 Sem I/O: sem banco, sem rede, sem arquivos.
 """
 
+import os
+import sys
+import time
+
 import pytest
-import sys, os, time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
 
 from finanalytics_ai.domain.auth.entities import (
-    User,
-    UserRole,
-    UserRegistration,
-    TokenPair,
-    TokenPayload,
     AuthErrorCode,
-    InvalidCredentialsError,
-    TokenExpiredError,
-    TokenInvalidError,
-    UserNotFoundError,
     EmailAlreadyExistsError,
     InactiveUserError,
     InsufficientPermissionsError,
+    InvalidCredentialsError,
+    TokenExpiredError,
+    TokenInvalidError,
+    TokenPayload,
+    User,
+    UserNotFoundError,
+    UserRegistration,
+    UserRole,
 )
-
 
 # ── User entity ───────────────────────────────────────────────────────────────
 
@@ -240,7 +241,6 @@ class TestJWTHandler:
 
     def test_expired_token_raises(self, handler, user):
         # Constrói token com exp 1 hora no passado — sem sleep, sem flakiness
-        import time
         from finanalytics_ai.infrastructure.auth.jwt_handler import _BACKEND
 
         past_exp = int(time.time()) - 3600  # 1h atrás, inequivocamente expirado

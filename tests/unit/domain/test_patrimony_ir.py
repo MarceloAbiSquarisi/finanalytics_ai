@@ -1,15 +1,15 @@
 """Testes unitários — Patrimônio Consolidado + IR Calculator (Sprints 34/35)"""
 
 from datetime import date, timedelta
-from finanalytics_ai.domain.patrimony.consolidated import (
-    build_snapshot,
-    AssetClass,
-    DEFAULT_TARGETS,
-)
+
 from finanalytics_ai.domain.fixed_income.ir_calculator import (
     analyze_ir_timing,
-    ir_rate_for_days,
     iof_rate_for_days,
+    ir_rate_for_days,
+)
+from finanalytics_ai.domain.patrimony.consolidated import (
+    AssetClass,
+    build_snapshot,
 )
 
 T = date.today()

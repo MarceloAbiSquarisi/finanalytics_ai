@@ -12,10 +12,9 @@ Todos os testes são offline (sem rede). Yahoo e BRAPI são mockados.
 
 from __future__ import annotations
 
-import asyncio
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 
 # ── _to_yahoo_ticker ──────────────────────────────────────────────────────────
 
@@ -82,7 +81,6 @@ class TestNormalizeVolume:
         assert self._norm(None) == 0
 
     def test_nan(self) -> None:
-        import math
 
         assert self._norm(float("nan")) == 0
 

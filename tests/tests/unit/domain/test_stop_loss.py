@@ -1,7 +1,9 @@
 """Testes unitários para regras de Stop Loss."""
 
-import pytest
 from decimal import Decimal
+
+import pytest
+
 from finanalytics_ai.domain.rules.stop_loss import StopLossRule, TrailingStopRule
 
 
@@ -17,7 +19,7 @@ class TestStopLossRule:
         rule = StopLossRule(stop_percentage=Decimal("5.0"))
         result = await rule.evaluate({"ticker": "PETR4", "entry_price": "30.00", "current_price": "28.50"})
         assert result.is_violation
-        assert "stop_loss" == result.rule_name
+        assert result.rule_name == "stop_loss"
 
     @pytest.mark.asyncio
     async def test_violation_below_stop(self) -> None:

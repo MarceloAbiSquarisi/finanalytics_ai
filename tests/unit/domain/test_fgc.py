@@ -1,11 +1,10 @@
 """Testes unitários — Cobertura FGC (Sprint 33)"""
 
 from datetime import date, timedelta
+
 from finanalytics_ai.domain.fixed_income.fgc import (
     analyze_fgc,
     fgc_coverage,
-    FGC_LIMIT_PER_INSTITUTION,
-    FGC_GLOBAL_LIMIT,
 )
 from finanalytics_ai.domain.fixed_income.portfolio import RFHolding
 

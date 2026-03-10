@@ -9,10 +9,11 @@ Use pytest-asyncio em modo "auto" (configurado no pyproject.toml).
 """
 
 from __future__ import annotations
+
 import os
-import pytest
-from decimal import Decimal
 from unittest.mock import AsyncMock
+
+import pytest
 
 # Força config de teste antes de qualquer import de settings
 os.environ.setdefault("APP_SECRET_KEY", "test-secret-key-32-chars-minimum!!")
@@ -20,9 +21,9 @@ os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://test:test@localhost:
 os.environ.setdefault("APP_ENV", "development")
 os.environ.setdefault("APP_LOG_LEVEL", "WARNING")
 
-from finanalytics_ai.domain.value_objects.money import Money, Ticker, Quantity, Currency
+from finanalytics_ai.domain.entities.event import EventType, MarketEvent
 from finanalytics_ai.domain.entities.portfolio import Portfolio
-from finanalytics_ai.domain.entities.event import MarketEvent, EventType
+from finanalytics_ai.domain.value_objects.money import Money, Quantity, Ticker
 
 
 @pytest.fixture

@@ -1,9 +1,11 @@
 """Testes unitários para a entidade Portfolio."""
 
-import pytest
 from decimal import Decimal
+
+import pytest
+
 from finanalytics_ai.domain.entities.portfolio import Portfolio, Position
-from finanalytics_ai.domain.value_objects.money import Money, Ticker, Quantity
+from finanalytics_ai.domain.value_objects.money import Money, Quantity, Ticker
 from finanalytics_ai.exceptions import InsufficientFundsError, PortfolioNotFoundError
 
 

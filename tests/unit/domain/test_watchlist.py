@@ -10,7 +10,6 @@ Testes unitários para:
 
 from __future__ import annotations
 
-import math
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -22,11 +21,10 @@ from finanalytics_ai.domain.watchlist.entities import (
     SmartAlertStatus,
     SmartAlertType,
     WatchlistItem,
-    evaluate_smart_alert,
     _calc_rsi,
     _calc_sma,
+    evaluate_smart_alert,
 )
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 

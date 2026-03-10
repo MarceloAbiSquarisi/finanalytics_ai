@@ -1,9 +1,11 @@
 """Testes unitários para Value Objects do domínio."""
 
-import pytest
 from decimal import Decimal
-from finanalytics_ai.domain.value_objects.money import Money, Ticker, Quantity, Percentage, Currency
-from finanalytics_ai.exceptions import InvalidTickerError, InvalidQuantityError
+
+import pytest
+
+from finanalytics_ai.domain.value_objects.money import Currency, Money, Percentage, Quantity, Ticker
+from finanalytics_ai.exceptions import InvalidQuantityError, InvalidTickerError
 
 
 class TestMoney:

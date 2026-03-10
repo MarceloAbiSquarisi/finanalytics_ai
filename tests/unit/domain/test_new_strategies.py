@@ -21,13 +21,12 @@ import pytest
 
 from finanalytics_ai.domain.backtesting.engine import Signal, run_backtest
 from finanalytics_ai.domain.backtesting.strategies.technical import (
+    STRATEGIES,
     BollingerBandsStrategy,
     EMACrossStrategy,
     MomentumStrategy,
-    STRATEGIES,
     get_strategy,
 )
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
