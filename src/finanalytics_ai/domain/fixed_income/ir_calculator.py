@@ -162,7 +162,7 @@ def analyze_ir_timing(
         gross_yield = gross - invested
 
         iof_r = 0.0 if exempt else iof_rate_for_days(days)
-        iof_v = gross_yield * iof_r
+        iof_v = round(gross_yield * iof_r, 2)  # arredondado = consistente com iof_amount
 
         ir_base = max(0.0, gross_yield - iof_v)
         ir_r    = 0.0 if exempt else ir_rate_for_days(days)

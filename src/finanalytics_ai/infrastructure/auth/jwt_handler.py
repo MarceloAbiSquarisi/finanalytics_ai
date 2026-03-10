@@ -139,17 +139,29 @@ class JWTHandler:
     # ── Fallback sem biblioteca JWT (apenas dev/testes) ───────────────────────
 
     def _encode_fallback(self, claims: dict[str, Any]) -> str:
-        """Base64url simples — NÃO use em produção."""
-        import base64, json
-        header  = base64.urlsafe_b64encode(b'{"alg":"none"}').rstrip(b"=").decode()
+        """HMAC-SHA256 fallback — funcional para testes sem python-jose/PyJWT."""
+        import base64, json, hashlib, hmac as _hmac
+        header  = base64.urlsafe_b64encode(b'{"alg":"HS256"}').rstrip(b"=").decode()
         payload = base64.urlsafe_b64encode(
-            json.dumps(claims).encode()).rstrip(b"=").decode()
-        return f"{header}.{payload}.NOSIG"
+            json.dumps(claims, separators=(",", ":")).encode()).rstrip(b"=").decode()
+        msg = f"{header}.{payload}".encode()
+        sig = _hmac.new(self.secret_key.encode(), msg, hashlib.sha256).digest()
+        sig_b64 = base64.urlsafe_b64encode(sig).rstrip(b"=").decode()
+        return f"{header}.{payload}.{sig_b64}"
 
     def _decode_fallback(self, token: str) -> TokenPayload:
-        import base64, json, time
+        import base64, json, time, hashlib, hmac as _hmac
         try:
-            _, payload_b64, _ = token.split(".")
+            parts = token.split(".")
+            if len(parts) != 3:
+                raise TokenInvalidError("Formato inválido.")
+            header_b64, payload_b64, sig_b64 = parts
+            # Verifica assinatura HMAC-SHA256
+            msg      = f"{header_b64}.{payload_b64}".encode()
+            expected = _hmac.new(self.secret_key.encode(), msg, hashlib.sha256).digest()
+            expected_b64 = base64.urlsafe_b64encode(expected).rstrip(b"=").decode()
+            if not _hmac.compare_digest(sig_b64, expected_b64):
+                raise TokenInvalidError("Assinatura inválida.")
             pad     = payload_b64 + "=" * (-len(payload_b64) % 4)
             payload = json.loads(base64.urlsafe_b64decode(pad))
             if payload.get("exp", 0) < time.time():

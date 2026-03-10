@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import os
 
 try:
     from passlib.context import CryptContext
@@ -48,16 +49,21 @@ class PasswordHasher:
         prepared = _sha256_hex(plain_password)
         if self._use_passlib:
             return self._ctx.hash(prepared)
-        salt = "finanalytics_dev_salt_not_for_prod"
-        return "sha256$" + hashlib.sha256(f"{salt}{prepared}".encode()).hexdigest()
+        salt = os.urandom(16).hex()
+        digest = hmac.new(salt.encode(), prepared.encode(), hashlib.sha256).hexdigest()
+        return f"sha256${salt}${digest}"
 
     def verify(self, plain_password: str, hashed_password: str) -> bool:
         """Verifica senha em tempo constante."""
         prepared = _sha256_hex(plain_password)
         if self._use_passlib:
             return self._ctx.verify(prepared, hashed_password)
-        expected = self.hash(plain_password)
-        return hmac.compare_digest(expected.encode(), hashed_password.encode())
+        parts = hashed_password.split("$")
+        if len(parts) != 3:
+            return False
+        _, salt, stored_digest = parts
+        digest = hmac.new(salt.encode(), prepared.encode(), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(digest, stored_digest)
 
     def needs_rehash(self, hashed_password: str) -> bool:
         if self._use_passlib:

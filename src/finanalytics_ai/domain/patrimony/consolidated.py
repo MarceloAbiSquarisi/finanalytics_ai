@@ -160,9 +160,12 @@ def build_snapshot(
         if s.is_overweight or s.is_underweight:
             rebalance_needed.append(cls.value)
 
-    total_invested = equities_invested + etfs_invested + rf_invested + cash_value
+    # Cash é parte do patrimônio mas não é "capital investido" — tratamos separado.
+    # total_pl_pct usa total_invested + cash como base (retorno sobre total de ativos).
+    total_invested = equities_invested + etfs_invested + rf_invested
     total_pl       = total - total_invested
-    total_pl_pct   = (total_pl / total_invested * 100) if total_invested else 0.0
+    _pl_base       = total_invested + cash_value
+    total_pl_pct   = (total_pl / _pl_base * 100) if _pl_base else 0.0
 
     return ConsolidatedSnapshot(
         user_id=user_id, total_value=total,

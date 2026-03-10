@@ -348,7 +348,10 @@ class MomentumStrategy:
                 # Filtro RSI: nao comprar em sobrecompra
                 rsi_ok = True
                 if self.rsi_filter > 0 and rsi_values[i] is not None:
-                    rsi_ok = rsi_values[i] < self.rsi_filter  # type: ignore[operator]
+                    # Escala o limiar com o período do ROC: quando period > 14 o zero-crossing
+                    # do ROC ocorre em fases de preço mais extremas → RSI naturalmente mais alto.
+                    effective_filter = self.rsi_filter + max(0.0, (self.period - 14) * 3.0)
+                    rsi_ok = rsi_values[i] < effective_filter  # type: ignore[operator]
                 if rsi_ok:
                     signals[i] = Signal.BUY
 

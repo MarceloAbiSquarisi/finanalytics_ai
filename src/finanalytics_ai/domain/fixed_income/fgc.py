@@ -284,7 +284,7 @@ def analyze_fgc(portfolio_id: str, holdings: "list[RFHolding]") -> FGCAnalysis:
     # Score
     n_critical = sum(1 for a in alerts if a["level"] == "critical")
     n_warning  = sum(1 for a in alerts if a["level"] == "warning")
-    score = max(0, 100 - n_critical * 25 - n_warning * 10)
+    score = max(0, 100 - n_critical * 50 - n_warning * 10)
 
     summary = {
         "total_invested":      round(total_invested, 2),
@@ -311,3 +311,4 @@ def analyze_fgc(portfolio_id: str, holdings: "list[RFHolding]") -> FGCAnalysis:
         summary=summary,
         score=score,
     )
+
