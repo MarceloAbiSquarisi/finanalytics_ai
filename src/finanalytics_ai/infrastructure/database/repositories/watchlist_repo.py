@@ -106,9 +106,7 @@ class WatchlistRepository:
 
     async def delete_item(self, item_id: str) -> None:
         """Remove item e seus alertas (CASCADE no FK)."""
-        await self._session.execute(
-            delete(WatchlistItemModel).where(WatchlistItemModel.item_id == item_id)
-        )
+        await self._session.execute(delete(WatchlistItemModel).where(WatchlistItemModel.item_id == item_id))
 
     async def find_item(self, item_id: str) -> WatchlistItem | None:
         model = await self._session.get(WatchlistItemModel, item_id)

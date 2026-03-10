@@ -32,6 +32,7 @@ router = APIRouter()
 
 # ── Request / Response models ─────────────────────────────────────────────────
 
+
 class CreatePortfolioRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     description: str = Field(default="", max_length=500)
@@ -77,6 +78,7 @@ class PortfolioSummary(BaseModel):
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+
 
 @router.post("", status_code=201, response_model=PortfolioResponse)
 async def create_portfolio(
@@ -224,8 +226,12 @@ async def buy_asset(
     )
     p = await svc.buy(cmd)
     return PortfolioResponse(
-        portfolio_id=p.portfolio_id, name=p.name, description=p.description,
-        benchmark=p.benchmark, is_default=p.is_default, user_id=p.user_id,
+        portfolio_id=p.portfolio_id,
+        name=p.name,
+        description=p.description,
+        benchmark=p.benchmark,
+        is_default=p.is_default,
+        user_id=p.user_id,
         message="Compra registrada",
     )
 
@@ -247,8 +253,12 @@ async def sell_asset(
     )
     p = await svc.sell(cmd)
     return PortfolioResponse(
-        portfolio_id=p.portfolio_id, name=p.name, description=p.description,
-        benchmark=p.benchmark, is_default=p.is_default, user_id=p.user_id,
+        portfolio_id=p.portfolio_id,
+        name=p.name,
+        description=p.description,
+        benchmark=p.benchmark,
+        is_default=p.is_default,
+        user_id=p.user_id,
         message="Venda registrada",
     )
 
@@ -262,11 +272,16 @@ async def deposit(
 ) -> PortfolioResponse:
     await svc._get_and_assert_owner(portfolio_id, current_user.user_id)
     from finanalytics_ai.domain.value_objects.money import Money
+
     p = await svc._get_or_raise(portfolio_id)
     p.cash = p.cash + Money.of(body.amount)
     await svc._repo.save(p)
     return PortfolioResponse(
-        portfolio_id=p.portfolio_id, name=p.name, description=p.description,
-        benchmark=p.benchmark, is_default=p.is_default, user_id=p.user_id,
+        portfolio_id=p.portfolio_id,
+        name=p.name,
+        description=p.description,
+        benchmark=p.benchmark,
+        is_default=p.is_default,
+        user_id=p.user_id,
         message=f"Depósito de R$ {body.amount} realizado",
     )

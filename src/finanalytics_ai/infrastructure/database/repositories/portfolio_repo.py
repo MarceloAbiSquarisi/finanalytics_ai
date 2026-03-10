@@ -118,16 +118,12 @@ class SQLPortfolioRepository:
         return portfolios
 
     async def delete(self, portfolio_id: str) -> None:
-        await self._session.execute(
-            delete(PortfolioModel).where(PortfolioModel.id == portfolio_id)
-        )
+        await self._session.execute(delete(PortfolioModel).where(PortfolioModel.id == portfolio_id))
 
     async def clear_default(self, user_id: str) -> None:
         """Remove is_default de todas as carteiras do usuário."""
         await self._session.execute(
-            update(PortfolioModel)
-            .where(PortfolioModel.user_id == user_id)
-            .values(is_default=False)
+            update(PortfolioModel).where(PortfolioModel.user_id == user_id).values(is_default=False)
         )
 
     async def _hydrate(self, pm: PortfolioModel) -> Portfolio:

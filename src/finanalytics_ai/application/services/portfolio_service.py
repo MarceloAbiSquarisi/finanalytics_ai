@@ -61,6 +61,7 @@ class PortfolioSnapshot:
 @dataclass
 class PortfolioComparison:
     """Resultado da comparação entre múltiplas carteiras."""
+
     portfolios: list[dict[str, str]]
     # Cada dict: portfolio_id, name, benchmark, total_invested,
     #            current_value, total_profit_loss_pct
@@ -127,8 +128,7 @@ class PortfolioService:
         portfolio = await self._get_and_assert_owner(portfolio_id, user_id)
         if portfolio.is_default:
             # Ao deletar a default, promove a mais antiga das restantes
-            others = [p for p in await self._repo.find_by_user(user_id)
-                      if p.portfolio_id != portfolio_id]
+            others = [p for p in await self._repo.find_by_user(user_id) if p.portfolio_id != portfolio_id]
             if others:
                 oldest = min(others, key=lambda p: p.created_at)
                 oldest.is_default = True
@@ -148,9 +148,7 @@ class PortfolioService:
         logger.info("portfolio.set_default", portfolio_id=portfolio_id, user_id=user_id)
         return portfolio
 
-    async def compare_portfolios(
-        self, portfolio_ids: list[str], user_id: str
-    ) -> PortfolioComparison:
+    async def compare_portfolios(self, portfolio_ids: list[str], user_id: str) -> PortfolioComparison:
         """
         Compara performance entre carteiras do usuário.
         Busca cotações em paralelo e retorna resumo comparativo.
@@ -190,18 +188,20 @@ class PortfolioService:
                 if not total_invested.is_zero()
                 else Decimal("0")
             )
-            comparison.append({
-                "portfolio_id": p.portfolio_id,
-                "name": p.name,
-                "benchmark": p.benchmark,
-                "is_default": str(p.is_default),
-                "total_invested": str(total_invested.amount),
-                "current_value": str(current_value.amount),
-                "total_profit_loss": str(total_pl.amount),
-                "total_profit_loss_pct": f"{pl_pct:.2f}",
-                "position_count": str(p.position_count()),
-                "cash": str(p.cash.amount),
-            })
+            comparison.append(
+                {
+                    "portfolio_id": p.portfolio_id,
+                    "name": p.name,
+                    "benchmark": p.benchmark,
+                    "is_default": str(p.is_default),
+                    "total_invested": str(total_invested.amount),
+                    "current_value": str(current_value.amount),
+                    "total_profit_loss": str(total_pl.amount),
+                    "total_profit_loss_pct": f"{pl_pct:.2f}",
+                    "position_count": str(p.position_count()),
+                    "cash": str(p.cash.amount),
+                }
+            )
 
         return PortfolioComparison(portfolios=comparison)
 
@@ -267,9 +267,7 @@ class PortfolioService:
         total_invested = portfolio.total_invested()
         total_pl = total_current_value - total_invested
         total_pl_pct = (
-            (total_pl.amount / total_invested.amount * 100)
-            if not total_invested.is_zero()
-            else Decimal("0")
+            (total_pl.amount / total_invested.amount * 100) if not total_invested.is_zero() else Decimal("0")
         )
 
         return PortfolioSnapshot(
@@ -303,6 +301,7 @@ class PortfolioService:
     async def _get_and_assert_owner(self, portfolio_id: str, user_id: str) -> Portfolio:
         """Busca portfólio e verifica ownership em uma operação."""
         from fastapi import HTTPException, status
+
         p = await self._get_or_raise(portfolio_id)
         if p.user_id != user_id:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Portfólio não pertence a este usuário.")

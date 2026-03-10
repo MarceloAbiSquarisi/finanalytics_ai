@@ -263,13 +263,9 @@ class FixedIncomeService:
         if issuer:
             all_bonds = [b for b in all_bonds if issuer.lower() in b.issuer.lower()]
         if min_days is not None:
-            all_bonds = [
-                b for b in all_bonds if b.days_to_maturity is None or b.days_to_maturity >= min_days
-            ]
+            all_bonds = [b for b in all_bonds if b.days_to_maturity is None or b.days_to_maturity >= min_days]
         if max_days is not None:
-            all_bonds = [
-                b for b in all_bonds if b.days_to_maturity is None or b.days_to_maturity <= max_days
-            ]
+            all_bonds = [b for b in all_bonds if b.days_to_maturity is None or b.days_to_maturity <= max_days]
 
         return [_bond_to_dict(b) for b in all_bonds]
 
@@ -310,9 +306,7 @@ class FixedIncomeService:
         if not selected:
             raise ValueError("Nenhum título válido para comparar.")
 
-        result = compare_bonds(
-            selected, principal, days, cdi_rate, selic_rate, ipca_rate, igpm_rate
-        )
+        result = compare_bonds(selected, principal, days, cdi_rate, selic_rate, ipca_rate, igpm_rate)
         return {
             "principal": result.principal,
             "period_days": result.period_days,
@@ -498,9 +492,7 @@ async def get_yield_curve_with_stress(
         "long_rate_pct": round(curve.long_rate * 100, 4),
         "slope_pp": curve.slope,
         "is_inverted": curve.is_inverted,
-        "shape": "invertida"
-        if curve.is_inverted
-        else ("plana" if abs(curve.slope) < 0.5 else "normal"),
+        "shape": "invertida" if curve.is_inverted else ("plana" if abs(curve.slope) < 0.5 else "normal"),
         "points": points_out,
         "context": {
             "interpretation": _curve_interpretation(curve),
@@ -540,9 +532,7 @@ async def run_stress_test(
 
         for scenario in scenarios:
             stressed = scenario.apply_to_rates(base_selic, base_cdi, base_ipca, base_igpm)
-            idx_rate = _indexer_rate(
-                bond.indexer, stressed["cdi"], stressed["selic"], stressed["ipca"]
-            )
+            idx_rate = _indexer_rate(bond.indexer, stressed["cdi"], stressed["selic"], stressed["ipca"])
             yr = calculate_yield(
                 bond=bond,
                 principal=principal,
@@ -621,9 +611,7 @@ def _curve_positioning(curve: YieldCurve) -> list[dict[str, str]]:
                 "msg": "Prefixados longos estão atrativos — trave a taxa antes da queda da SELIC.",
             }
         )
-        tips.append(
-            {"type": "risk", "msg": "CDBs pós-fixados perdem com a queda do CDI. Avalie duration."}
-        )
+        tips.append({"type": "risk", "msg": "CDBs pós-fixados perdem com a queda do CDI. Avalie duration."})
     else:
         tips.append(
             {

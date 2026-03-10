@@ -7,6 +7,7 @@ Design decision: fixtures com scope adequado.
 
 Use pytest-asyncio em modo "auto" (configurado no pyproject.toml).
 """
+
 from __future__ import annotations
 import os
 import pytest
@@ -79,12 +80,19 @@ def mock_market_data() -> AsyncMock:
 
 # ── Backtest fixtures ─────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def ohlc_bars_flat():
     """50 barras com preco constante - sem sinais de trading."""
     return [
-        {"time": 1700000000 + i * 86400, "open": 100.0, "high": 101.0,
-         "low": 99.0, "close": 100.0, "volume": 1000}
+        {
+            "time": 1700000000 + i * 86400,
+            "open": 100.0,
+            "high": 101.0,
+            "low": 99.0,
+            "close": 100.0,
+            "volume": 1000,
+        }
         for i in range(50)
     ]
 
@@ -93,9 +101,14 @@ def ohlc_bars_flat():
 def ohlc_bars_uptrend():
     """80 barras em tendencia de alta - MACD deve gerar BUY."""
     return [
-        {"time": 1700000000 + i * 86400, "open": 50 + i * 0.8,
-         "high": 50 + i * 0.8 + 1, "low": 50 + i * 0.8 - 1,
-         "close": 50 + i * 0.8, "volume": 1000}
+        {
+            "time": 1700000000 + i * 86400,
+            "open": 50 + i * 0.8,
+            "high": 50 + i * 0.8 + 1,
+            "low": 50 + i * 0.8 - 1,
+            "close": 50 + i * 0.8,
+            "volume": 1000,
+        }
         for i in range(80)
     ]
 
@@ -104,9 +117,16 @@ def ohlc_bars_uptrend():
 def ohlc_bars_volatile():
     """60 barras volateis com RSI atingindo extremos."""
     import math
+
     prices = [100 + 30 * math.sin(i * 0.3) for i in range(60)]
     return [
-        {"time": 1700000000 + i * 86400, "open": p, "high": p * 1.02,
-         "low": p * 0.98, "close": p, "volume": 1000}
+        {
+            "time": 1700000000 + i * 86400,
+            "open": p,
+            "high": p * 1.02,
+            "low": p * 0.98,
+            "close": p,
+            "volume": 1000,
+        }
         for i, p in enumerate(prices)
     ]

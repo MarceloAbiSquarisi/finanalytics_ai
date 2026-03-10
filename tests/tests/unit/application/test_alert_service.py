@@ -4,6 +4,7 @@ Testes unitarios para AlertService.
 Estrategia: AlertService instancia SQLAlertRepository internamente via session.
 Usamos unittest.mock.patch para interceptar a instanciacao do repo.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -34,13 +35,15 @@ def _make_alert(
 
 def _make_session_factory() -> MagicMock:
     session = AsyncMock()
-    session.begin = MagicMock(return_value=AsyncMock(
-        __aenter__=AsyncMock(return_value=None),
-        __aexit__=AsyncMock(return_value=False),
-    ))
+    session.begin = MagicMock(
+        return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=None),
+            __aexit__=AsyncMock(return_value=False),
+        )
+    )
     cm = AsyncMock()
     cm.__aenter__ = AsyncMock(return_value=session)
-    cm.__aexit__  = AsyncMock(return_value=False)
+    cm.__aexit__ = AsyncMock(return_value=False)
     factory = MagicMock(return_value=cm)
     return factory
 
@@ -117,8 +120,14 @@ class TestEvaluatePrice:
     @pytest.mark.asyncio
     async def test_multiple_alerts_counts_triggered_only(self, service, mock_repo, mock_bus):
         stop = _make_alert("a1", AlertType.STOP_LOSS, threshold="30.00")
-        tp   = Alert(alert_id="a2", ticker="PETR4", alert_type=AlertType.TAKE_PROFIT,
-                     threshold=Decimal("60.00"), user_id="user-001", status=AlertStatus.ACTIVE)
+        tp = Alert(
+            alert_id="a2",
+            ticker="PETR4",
+            alert_type=AlertType.TAKE_PROFIT,
+            threshold=Decimal("60.00"),
+            user_id="user-001",
+            status=AlertStatus.ACTIVE,
+        )
         mock_repo.find_active_by_ticker.return_value = [stop, tp]
         with patch(REPO_PATH, return_value=mock_repo):
             count = await service.evaluate_price("PETR4", 25.0)
@@ -137,8 +146,7 @@ class TestEvaluatePrice:
 
     @pytest.mark.asyncio
     async def test_pct_drop_triggers(self, service, mock_repo, mock_bus):
-        alert = _make_alert(alert_type=AlertType.PCT_DROP, threshold="10.0",
-                            reference_price="100.00")
+        alert = _make_alert(alert_type=AlertType.PCT_DROP, threshold="10.0", reference_price="100.00")
         mock_repo.find_active_by_ticker.return_value = [alert]
         with patch(REPO_PATH, return_value=mock_repo):
             count = await service.evaluate_price("PETR4", 88.0)
@@ -146,8 +154,7 @@ class TestEvaluatePrice:
 
     @pytest.mark.asyncio
     async def test_pct_rise_triggers(self, service, mock_repo, mock_bus):
-        alert = _make_alert(alert_type=AlertType.PCT_RISE, threshold="10.0",
-                            reference_price="100.00")
+        alert = _make_alert(alert_type=AlertType.PCT_RISE, threshold="10.0", reference_price="100.00")
         mock_repo.find_active_by_ticker.return_value = [alert]
         with patch(REPO_PATH, return_value=mock_repo):
             count = await service.evaluate_price("PETR4", 115.0)
@@ -159,8 +166,11 @@ class TestCreateAlert:
     async def test_returns_active_alert(self, service, mock_repo):
         with patch(REPO_PATH, return_value=mock_repo):
             alert = await service.create_alert(
-                user_id="user-001", ticker="PETR4",
-                alert_type="stop_loss", threshold=30.0, reference_price=40.0,
+                user_id="user-001",
+                ticker="PETR4",
+                alert_type="stop_loss",
+                threshold=30.0,
+                reference_price=40.0,
             )
         assert alert.status == AlertStatus.ACTIVE
 
@@ -168,8 +178,10 @@ class TestCreateAlert:
     async def test_ticker_uppercased(self, service, mock_repo):
         with patch(REPO_PATH, return_value=mock_repo):
             alert = await service.create_alert(
-                user_id="user-001", ticker="petr4",
-                alert_type="stop_loss", threshold=30.0,
+                user_id="user-001",
+                ticker="petr4",
+                alert_type="stop_loss",
+                threshold=30.0,
             )
         assert alert.ticker == "PETR4"
 
@@ -177,8 +189,10 @@ class TestCreateAlert:
     async def test_persists_to_repo(self, service, mock_repo):
         with patch(REPO_PATH, return_value=mock_repo):
             await service.create_alert(
-                user_id="user-001", ticker="PETR4",
-                alert_type="take_profit", threshold=60.0,
+                user_id="user-001",
+                ticker="PETR4",
+                alert_type="take_profit",
+                threshold=60.0,
             )
         mock_repo.save.assert_called_once()
 

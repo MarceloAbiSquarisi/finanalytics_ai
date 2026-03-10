@@ -97,9 +97,7 @@ class Portfolio:
         if existing:
             self.positions[ticker.symbol] = existing.update_with_purchase(quantity, price)
         else:
-            self.positions[ticker.symbol] = Position(
-                ticker=ticker, quantity=quantity, average_price=price
-            )
+            self.positions[ticker.symbol] = Position(ticker=ticker, quantity=quantity, average_price=price)
         self.cash = self.cash - cost
         self.updated_at = datetime.now(UTC)
 

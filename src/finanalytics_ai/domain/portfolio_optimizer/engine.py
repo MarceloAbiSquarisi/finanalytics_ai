@@ -94,9 +94,7 @@ def _scalar_mat(n: int, s: float) -> list[list[float]]:
 def _gauss_jordan_inverse(M: list[list[float]]) -> list[list[float]]:
     """Inversão de matriz via eliminação de Gauss-Jordan. O(n³)."""
     n = len(M)
-    aug = [
-        [M[i][j] for j in range(n)] + [1.0 if i == j else 0.0 for j in range(n)] for i in range(n)
-    ]
+    aug = [[M[i][j] for j in range(n)] + [1.0 if i == j else 0.0 for j in range(n)] for i in range(n)]
     for col in range(n):
         # Pivot
         max_row = max(range(col, n), key=lambda r: abs(aug[r][col]))
@@ -127,8 +125,7 @@ def _covariance_matrix(returns_matrix: list[list[float]]) -> list[list[float]]:
     for i in range(n):
         for j in range(i, n):
             c = sum(
-                (returns_matrix[i][t] - means[i]) * (returns_matrix[j][t] - means[j])
-                for t in range(T)
+                (returns_matrix[i][t] - means[i]) * (returns_matrix[j][t] - means[j]) for t in range(T)
             ) / (T - 1)
             cov[i][j] = cov[j][i] = c * TRADING_DAYS
     return cov
@@ -281,9 +278,7 @@ def markowitz_optimize(
         raw = [rng.expovariate(1.0) for _ in range(n)]
         w = _normalize(raw)
         ret, vol, sh = _portfolio_stats(w, mean_returns, cov, risk_free)
-        frontier.append(
-            {"vol": round(vol * 100, 4), "ret": round(ret * 100, 4), "sharpe": round(sh, 4)}
-        )
+        frontier.append({"vol": round(vol * 100, 4), "ret": round(ret * 100, 4), "sharpe": round(sh, 4)})
         if sh > best_sharpe:
             best_sharpe, best_w = sh, w[:]
         if vol < min_vol:
@@ -388,7 +383,7 @@ def risk_parity_optimize(
         risk_free=risk_free,
         notes=[
             "Contribuições de risco: "
-            + ', '.join(f'{t}={r}%' for t, r in zip(tickers, rc_pcts, strict=False)),
+            + ", ".join(f"{t}={r}%" for t, r in zip(tickers, rc_pcts, strict=False)),
             f"Desvio máximo do alvo ({100 / n:.1f}%): {max_dev:.2f} p.p.",
             "Objetivo: diversificação de risco, não de retorno",
         ],

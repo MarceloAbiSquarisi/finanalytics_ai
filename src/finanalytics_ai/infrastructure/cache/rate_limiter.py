@@ -169,6 +169,7 @@ class RedisRateLimiter:
     async def close(self) -> None:
         if self._client is not None:
             import contextlib
+
             with contextlib.suppress(Exception):
                 await self._client.aclose()  # type: ignore[attr-defined]
 

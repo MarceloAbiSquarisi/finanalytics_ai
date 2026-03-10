@@ -35,9 +35,7 @@ def _ttl() -> int:
 
 
 class OHLC1mService:
-    def __init__(
-        self, session_factory: async_sessionmaker[AsyncSession], brapi_client: BrapiClient
-    ) -> None:
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession], brapi_client: BrapiClient) -> None:
         self._sf = session_factory
         self._brapi = brapi_client
 
@@ -49,9 +47,7 @@ class OHLC1mService:
             return await self._daily(ticker, interval, range_period)
         async with self._sf() as s:
             meta = await self._meta(s, ticker)
-            stale = (
-                not meta or not meta.last_fetch_at or (time.time() - meta.last_fetch_at) > _ttl()
-            )
+            stale = not meta or not meta.last_fetch_at or (time.time() - meta.last_fetch_at) > _ttl()
             if stale:
                 await self._refresh(s, ticker)
             bars = await self._load(s, ticker, range_period)

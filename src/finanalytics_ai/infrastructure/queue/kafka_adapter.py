@@ -272,9 +272,7 @@ class KafkaMarketEventConsumer:
                     try:
                         await handler(event)
                     except Exception as exc:
-                        log.error(
-                            "kafka.event.handler_error", error=str(exc), event_id=event.event_id
-                        )
+                        log.error("kafka.event.handler_error", error=str(exc), event_id=event.event_id)
                     finally:
                         self._buffer.task_done()
                 except TimeoutError:

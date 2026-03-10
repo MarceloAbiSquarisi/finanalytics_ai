@@ -7,6 +7,7 @@ Testes unitários para:
   - evaluate_smart_alert(): todos os 9 tipos
   - _calc_rsi(), _calc_sma(): funções auxiliares
 """
+
 from __future__ import annotations
 
 import math
@@ -16,12 +17,19 @@ from typing import Any
 import pytest
 
 from finanalytics_ai.domain.watchlist.entities import (
-    SmartAlert, SmartAlertConfig, SmartAlertStatus, SmartAlertType,
-    WatchlistItem, evaluate_smart_alert, _calc_rsi, _calc_sma,
+    SmartAlert,
+    SmartAlertConfig,
+    SmartAlertStatus,
+    SmartAlertType,
+    WatchlistItem,
+    evaluate_smart_alert,
+    _calc_rsi,
+    _calc_sma,
 )
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
+
 
 def make_bars(
     n: int = 60,
@@ -34,14 +42,16 @@ def make_bars(
     price = base_price
     for i in range(n):
         price = max(0.01, price + trend + (((i * 7) % 3) - 1) * 0.5)
-        bars.append({
-            "time":   1700000000 + i * 86400,
-            "open":   price - 0.2,
-            "high":   price + 0.5,
-            "low":    price - 0.5,
-            "close":  price,
-            "volume": int(1_000_000 * volume_mult),
-        })
+        bars.append(
+            {
+                "time": 1700000000 + i * 86400,
+                "open": price - 0.2,
+                "high": price + 0.5,
+                "low": price - 0.5,
+                "close": price,
+                "volume": int(1_000_000 * volume_mult),
+            }
+        )
     return bars
 
 
@@ -56,13 +66,13 @@ def make_alert(alert_type: SmartAlertType, cfg: SmartAlertConfig | None = None) 
 
 # ── _calc_rsi ─────────────────────────────────────────────────────────────────
 
-class TestCalcRsi:
 
+class TestCalcRsi:
     def test_insufficient_data_returns_none(self) -> None:
         assert _calc_rsi([40.0] * 5, period=14) is None
 
     def test_all_gains_returns_100(self) -> None:
-        closes = [float(i) for i in range(1, 30)]   # sempre subindo
+        closes = [float(i) for i in range(1, 30)]  # sempre subindo
         rsi = _calc_rsi(closes, period=14)
         assert rsi is not None
         assert rsi == 100.0
@@ -75,6 +85,7 @@ class TestCalcRsi:
 
     def test_neutral_market_mid_range(self) -> None:
         import random
+
         random.seed(42)
         closes = [40.0 + random.uniform(-0.5, 0.5) for _ in range(50)]
         rsi = _calc_rsi(closes, period=14)
@@ -89,8 +100,8 @@ class TestCalcRsi:
 
 # ── _calc_sma ─────────────────────────────────────────────────────────────────
 
-class TestCalcSma:
 
+class TestCalcSma:
     def test_insufficient_returns_none(self) -> None:
         assert _calc_sma([1.0, 2.0], period=5) is None
 
@@ -109,8 +120,8 @@ class TestCalcSma:
 
 # ── WatchlistItem ─────────────────────────────────────────────────────────────
 
-class TestWatchlistItem:
 
+class TestWatchlistItem:
     def test_create_item(self) -> None:
         item = WatchlistItem(ticker="PETR4", user_id="user1")
         assert item.ticker == "PETR4"
@@ -142,15 +153,15 @@ class TestWatchlistItem:
         item = WatchlistItem(ticker="BBDC4", user_id="u1", note="Banco", tags=["financeiro"])
         d = item.to_dict()
         assert d["ticker"] == "BBDC4"
-        assert d["note"]   == "Banco"
+        assert d["note"] == "Banco"
         assert "financeiro" in d["tags"]
         assert "smart_alerts" in d
 
 
 # ── SmartAlert: is_evaluatable / cooldown ────────────────────────────────────
 
-class TestSmartAlertCooldown:
 
+class TestSmartAlertCooldown:
     def test_active_alert_is_evaluatable(self) -> None:
         alert = make_alert(SmartAlertType.RSI_OVERSOLD)
         assert alert.is_evaluatable()
@@ -188,11 +199,11 @@ class TestSmartAlertCooldown:
 
 # ── evaluate_smart_alert ──────────────────────────────────────────────────────
 
-class TestEvaluateSmartAlert:
 
+class TestEvaluateSmartAlert:
     # RSI_OVERSOLD
     def test_rsi_oversold_triggers_on_downtrend(self) -> None:
-        bars  = make_bars(60, base_price=50.0, trend=-0.8)
+        bars = make_bars(60, base_price=50.0, trend=-0.8)
         alert = make_alert(SmartAlertType.RSI_OVERSOLD, SmartAlertConfig(rsi_oversold=30.0))
         price = bars[-1]["close"]
         result = evaluate_smart_alert(alert, bars, price)
@@ -201,14 +212,14 @@ class TestEvaluateSmartAlert:
         assert "RSI" in result.message
 
     def test_rsi_oversold_not_triggered_on_uptrend(self) -> None:
-        bars  = make_bars(60, base_price=20.0, trend=+0.8)
+        bars = make_bars(60, base_price=20.0, trend=+0.8)
         alert = make_alert(SmartAlertType.RSI_OVERSOLD, SmartAlertConfig(rsi_oversold=30.0))
         price = bars[-1]["close"]
         result = evaluate_smart_alert(alert, bars, price)
         assert not result.triggered
 
     def test_rsi_oversold_insufficient_data(self) -> None:
-        bars  = make_bars(5)
+        bars = make_bars(5)
         alert = make_alert(SmartAlertType.RSI_OVERSOLD)
         result = evaluate_smart_alert(alert, bars, 40.0)
         assert not result.triggered
@@ -216,7 +227,7 @@ class TestEvaluateSmartAlert:
 
     # RSI_OVERBOUGHT
     def test_rsi_overbought_triggers_on_uptrend(self) -> None:
-        bars  = make_bars(60, base_price=20.0, trend=+0.8)
+        bars = make_bars(60, base_price=20.0, trend=+0.8)
         alert = make_alert(SmartAlertType.RSI_OVERBOUGHT, SmartAlertConfig(rsi_overbought=70.0))
         price = bars[-1]["close"]
         result = evaluate_smart_alert(alert, bars, price)
@@ -224,7 +235,7 @@ class TestEvaluateSmartAlert:
         assert "RSI" in result.message
 
     def test_rsi_overbought_not_triggered_on_downtrend(self) -> None:
-        bars  = make_bars(60, base_price=80.0, trend=-0.8)
+        bars = make_bars(60, base_price=80.0, trend=-0.8)
         alert = make_alert(SmartAlertType.RSI_OVERBOUGHT, SmartAlertConfig(rsi_overbought=70.0))
         result = evaluate_smart_alert(alert, bars, bars[-1]["close"])
         assert not result.triggered
@@ -255,7 +266,7 @@ class TestEvaluateSmartAlert:
 
     # VOLUME_SPIKE
     def test_volume_spike_triggers_on_high_volume(self) -> None:
-        bars  = make_bars(30, volume_mult=1.0)
+        bars = make_bars(30, volume_mult=1.0)
         bars[-1]["volume"] = 10_000_000  # spike
         alert = make_alert(SmartAlertType.VOLUME_SPIKE, SmartAlertConfig(volume_multiplier=2.5))
         result = evaluate_smart_alert(alert, bars, 40.0)
@@ -263,13 +274,13 @@ class TestEvaluateSmartAlert:
         assert result.indicator_value >= 2.5
 
     def test_volume_spike_not_triggered_on_normal_volume(self) -> None:
-        bars  = make_bars(30, volume_mult=1.0)
+        bars = make_bars(30, volume_mult=1.0)
         alert = make_alert(SmartAlertType.VOLUME_SPIKE, SmartAlertConfig(volume_multiplier=2.5))
         result = evaluate_smart_alert(alert, bars, 40.0)
         assert not result.triggered
 
     def test_volume_spike_insufficient_data(self) -> None:
-        bars  = make_bars(5)
+        bars = make_bars(5)
         alert = make_alert(SmartAlertType.VOLUME_SPIKE)
         result = evaluate_smart_alert(alert, bars, 40.0)
         assert not result.triggered
@@ -336,15 +347,15 @@ class TestEvaluateSmartAlert:
 
     # Metadados do resultado
     def test_result_has_all_fields(self) -> None:
-        alert  = make_alert(SmartAlertType.PRICE_ABOVE, SmartAlertConfig(price_threshold=30.0))
+        alert = make_alert(SmartAlertType.PRICE_ABOVE, SmartAlertConfig(price_threshold=30.0))
         result = evaluate_smart_alert(alert, make_bars(5), 35.0)
         assert result.alert_id == alert.alert_id
-        assert result.ticker   == "PETR4"
+        assert result.ticker == "PETR4"
         assert isinstance(result.message, str)
         assert result.severity in ("info", "warning", "critical")
         assert isinstance(result.indicator_value, float)
 
     def test_not_triggered_result_has_triggered_false(self) -> None:
-        alert  = make_alert(SmartAlertType.PRICE_BELOW, SmartAlertConfig(price_threshold=20.0))
+        alert = make_alert(SmartAlertType.PRICE_BELOW, SmartAlertConfig(price_threshold=20.0))
         result = evaluate_smart_alert(alert, make_bars(5), 40.0)
         assert result.triggered is False

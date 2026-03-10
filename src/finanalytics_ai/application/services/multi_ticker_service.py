@@ -94,8 +94,7 @@ class MultiTickerService:
             OptimizationObjective(objective)
         except ValueError:
             raise BacktestError(
-                f"Objetivo '{objective}' invalido. "
-                f"Opcoes: {[o.value for o in OptimizationObjective]}"
+                f"Objetivo '{objective}' invalido. Opcoes: {[o.value for o in OptimizationObjective]}"
             ) from None
 
         log = logger.bind(

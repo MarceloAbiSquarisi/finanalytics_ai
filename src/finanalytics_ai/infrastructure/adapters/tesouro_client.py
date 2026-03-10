@@ -40,9 +40,7 @@ from finanalytics_ai.domain.fixed_income.entities import Bond, BondType, Indexer
 
 logger = structlog.get_logger(__name__)
 
-TD_API_URL = (
-    "https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybond.json"
-)
+TD_API_URL = "https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybond.json"
 CACHE_TTL = 900  # 15 minutos
 
 

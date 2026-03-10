@@ -35,15 +35,12 @@ class TickerService:
             )
             rows = (await session.execute(stmt)).scalars().all()
             return [
-                {"ticker": r.ticker, "name": r.name or "", "type": r.ticker_type or "stock"}
-                for r in rows
+                {"ticker": r.ticker, "name": r.name or "", "type": r.ticker_type or "stock"} for r in rows
             ]
 
     async def count(self) -> int:
         async with self._sf() as session:
-            return (
-                await session.execute(select(func.count()).select_from(TickerModel))
-            ).scalar() or 0
+            return (await session.execute(select(func.count()).select_from(TickerModel))).scalar() or 0
 
 
 def _guess_type(ticker: str) -> str:

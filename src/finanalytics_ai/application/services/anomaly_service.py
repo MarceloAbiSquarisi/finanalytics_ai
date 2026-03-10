@@ -77,9 +77,7 @@ class AnomalyService:
         async def _fetch(ticker: str) -> tuple[str, list[dict] | Exception]:
             async with sem:
                 try:
-                    bars = await self._brapi.get_ohlc_bars(
-                        Ticker(ticker), range_period=range_period
-                    )
+                    bars = await self._brapi.get_ohlc_bars(Ticker(ticker), range_period=range_period)
                     return ticker, bars
                 except Exception as exc:
                     log.warning("anomaly.fetch_failed", ticker=ticker, error=str(exc))

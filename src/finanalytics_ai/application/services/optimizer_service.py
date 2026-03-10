@@ -72,17 +72,14 @@ class OptimizerService:
           top_n:        Numero de melhores resultados a retornar (max 20)
           custom_space: Espaco de parametros customizado (opcional)
         """
-        log = logger.bind(
-            ticker=ticker, strategy=strategy_name, range=range_period, objective=objective
-        )
+        log = logger.bind(ticker=ticker, strategy=strategy_name, range=range_period, objective=objective)
 
         # Valida objetivo
         try:
             obj = OptimizationObjective(objective)
         except ValueError:
             raise BacktestError(
-                f"Objetivo '{objective}' invalido. "
-                f"Opcoes: {[o.value for o in OptimizationObjective]}"
+                f"Objetivo '{objective}' invalido. Opcoes: {[o.value for o in OptimizationObjective]}"
             ) from None
 
         top_n = min(top_n, 20)  # limite de seguranca

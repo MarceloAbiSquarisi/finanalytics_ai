@@ -54,16 +54,13 @@ class WalkForwardService:
         custom_space: dict[str, list[Any]] | None = None,
     ) -> WalkForwardResult:
 
-        log = logger.bind(
-            ticker=ticker, strategy=strategy_name, n_splits=n_splits, objective=objective
-        )
+        log = logger.bind(ticker=ticker, strategy=strategy_name, n_splits=n_splits, objective=objective)
 
         try:
             obj = OptimizationObjective(objective)
         except ValueError:
             raise BacktestError(
-                f"Objetivo '{objective}' invalido. "
-                f"Opcoes: {[o.value for o in OptimizationObjective]}"
+                f"Objetivo '{objective}' invalido. Opcoes: {[o.value for o in OptimizationObjective]}"
             ) from None
 
         n_splits = max(2, min(6, n_splits))

@@ -9,6 +9,7 @@ Testes para:
 
 Todos os testes são offline (sem rede). Yahoo e BRAPI são mockados.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -18,11 +19,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 # ── _to_yahoo_ticker ──────────────────────────────────────────────────────────
 
+
 class TestToYahooTicker:
     """Normalização de ticker da B3 para formato Yahoo Finance."""
 
     def _norm(self, ticker: str) -> str:
         from finanalytics_ai.infrastructure.adapters.yahoo_client import _to_yahoo_ticker
+
         return _to_yahoo_ticker(ticker)
 
     def test_b3_stock_gets_sa_suffix(self) -> None:
@@ -62,22 +65,36 @@ class TestToYahooTicker:
 
 # ── _normalize_volume ─────────────────────────────────────────────────────────
 
+
 class TestNormalizeVolume:
     def _norm(self, v):
         from finanalytics_ai.infrastructure.adapters.yahoo_client import _normalize_volume
+
         return _normalize_volume(v)
 
-    def test_int(self)   -> None: assert self._norm(1_000_000) == 1_000_000
-    def test_float(self) -> None: assert self._norm(500.0) == 500
-    def test_none(self)  -> None: assert self._norm(None) == 0
-    def test_nan(self)   -> None:
+    def test_int(self) -> None:
+        assert self._norm(1_000_000) == 1_000_000
+
+    def test_float(self) -> None:
+        assert self._norm(500.0) == 500
+
+    def test_none(self) -> None:
+        assert self._norm(None) == 0
+
+    def test_nan(self) -> None:
         import math
+
         assert self._norm(float("nan")) == 0
-    def test_zero(self)  -> None: assert self._norm(0) == 0
-    def test_string_int(self) -> None: assert self._norm("12000") == 12000
+
+    def test_zero(self) -> None:
+        assert self._norm(0) == 0
+
+    def test_string_int(self) -> None:
+        assert self._norm("12000") == 12000
 
 
 # ── CompositeMarketDataClient ─────────────────────────────────────────────────
+
 
 def _make_composite(brapi_bars=None, yahoo_bars=None, brapi_raises=False, yahoo_raises=False):
     """Helper: cria composite com mocks configurados."""
@@ -105,12 +122,12 @@ def _make_composite(brapi_bars=None, yahoo_bars=None, brapi_raises=False, yahoo_
 
 
 def _make_bars(n: int) -> list[dict]:
-    return [{"time": i, "open": 10.0, "high": 11.0, "low": 9.0, "close": 10.5, "volume": 1000}
-            for i in range(n)]
+    return [
+        {"time": i, "open": 10.0, "high": 11.0, "low": 9.0, "close": 10.5, "volume": 1000} for i in range(n)
+    ]
 
 
 class TestCompositeMarketDataClient:
-
     @pytest.mark.asyncio
     async def test_brapi_sufficient_no_yahoo_call(self) -> None:
         """BRAPI com dados suficientes → Yahoo não é chamado."""
@@ -193,6 +210,7 @@ class TestCompositeMarketDataClient:
     async def test_brapi_exactly_threshold_no_fallback(self) -> None:
         """BRAPI com exatamente MIN_BARS (30) → sem fallback."""
         from finanalytics_ai.infrastructure.adapters.market_data_client import MIN_BARS_THRESHOLD
+
         bars = _make_bars(MIN_BARS_THRESHOLD)
         c = _make_composite(brapi_bars=bars)
         result = await c.get_ohlc_bars("RENT3", "1y")
@@ -203,6 +221,7 @@ class TestCompositeMarketDataClient:
     async def test_brapi_below_threshold_triggers_fallback(self) -> None:
         """BRAPI com MIN_BARS - 1 barras → fallback acionado."""
         from finanalytics_ai.infrastructure.adapters.market_data_client import MIN_BARS_THRESHOLD
+
         brapi_bars = _make_bars(MIN_BARS_THRESHOLD - 1)
         yahoo_bars = _make_bars(250)
         c = _make_composite(brapi_bars=brapi_bars, yahoo_bars=yahoo_bars)
@@ -214,6 +233,7 @@ class TestCompositeMarketDataClient:
         """get_quote sempre usa BRAPI (cotação em tempo real)."""
         from finanalytics_ai.domain.value_objects.money import Money, Ticker
         from finanalytics_ai.infrastructure.adapters.market_data_client import CompositeMarketDataClient
+
         brapi = MagicMock()
         brapi.get_quote = AsyncMock(return_value=Money.of("38.50"))
         brapi.close = AsyncMock()
@@ -229,6 +249,7 @@ class TestCompositeMarketDataClient:
     async def test_is_healthy_true_if_either_available(self) -> None:
         """is_healthy retorna True se pelo menos um provider está up."""
         from finanalytics_ai.infrastructure.adapters.market_data_client import CompositeMarketDataClient
+
         brapi = MagicMock()
         brapi.is_healthy = AsyncMock(return_value=False)
         brapi.close = AsyncMock()
@@ -241,6 +262,7 @@ class TestCompositeMarketDataClient:
     @pytest.mark.asyncio
     async def test_is_healthy_false_if_both_down(self) -> None:
         from finanalytics_ai.infrastructure.adapters.market_data_client import CompositeMarketDataClient
+
         brapi = MagicMock()
         brapi.is_healthy = AsyncMock(return_value=False)
         brapi.close = AsyncMock()
@@ -260,23 +282,29 @@ class TestCompositeMarketDataClient:
 
 # ── YAHOO_PREFERRED_RANGES ────────────────────────────────────────────────────
 
+
 class TestYahooPreferredRanges:
     def test_5y_in_preferred(self) -> None:
         from finanalytics_ai.infrastructure.adapters.market_data_client import YAHOO_PREFERRED_RANGES
+
         assert "5y" in YAHOO_PREFERRED_RANGES
 
     def test_10y_in_preferred(self) -> None:
         from finanalytics_ai.infrastructure.adapters.market_data_client import YAHOO_PREFERRED_RANGES
+
         assert "10y" in YAHOO_PREFERRED_RANGES
 
     def test_max_in_preferred(self) -> None:
         from finanalytics_ai.infrastructure.adapters.market_data_client import YAHOO_PREFERRED_RANGES
+
         assert "max" in YAHOO_PREFERRED_RANGES
 
     def test_1y_not_in_preferred(self) -> None:
         from finanalytics_ai.infrastructure.adapters.market_data_client import YAHOO_PREFERRED_RANGES
+
         assert "1y" not in YAHOO_PREFERRED_RANGES
 
     def test_2y_not_in_preferred(self) -> None:
         from finanalytics_ai.infrastructure.adapters.market_data_client import YAHOO_PREFERRED_RANGES
+
         assert "2y" not in YAHOO_PREFERRED_RANGES

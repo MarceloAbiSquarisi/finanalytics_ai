@@ -10,6 +10,7 @@ Cobertura:
   - BacktestService: testa mock do BrapiClient
   - get_strategy: factory válida e inválida
 """
+
 from __future__ import annotations
 
 import math
@@ -36,10 +37,18 @@ from finanalytics_ai.application.services.backtest_service import BacktestError,
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _make_bars(prices: list[float], base_ts: int = 1_700_000_000) -> list[dict]:
     """Cria lista de barras OHLC mínimas a partir de uma lista de preços de fechamento."""
     return [
-        {"time": base_ts + i * 86400, "open": p, "high": p * 1.01, "low": p * 0.99, "close": p, "volume": 1000}
+        {
+            "time": base_ts + i * 86400,
+            "open": p,
+            "high": p * 1.01,
+            "low": p * 0.99,
+            "close": p,
+            "volume": 1000,
+        }
         for i, p in enumerate(prices)
     ]
 
@@ -57,6 +66,7 @@ def _make_trade(entry: float, exit_: float, qty: float = 1.0) -> Trade:
 
 # ── Trade ─────────────────────────────────────────────────────────────────────
 
+
 class TestTrade:
     def test_pnl_winner(self):
         t = _make_trade(100.0, 110.0, 10.0)
@@ -72,13 +82,16 @@ class TestTrade:
 
     def test_is_winner(self):
         assert _make_trade(10.0, 12.0).is_winner is True
-        assert _make_trade(10.0, 8.0).is_winner  is False
+        assert _make_trade(10.0, 8.0).is_winner is False
 
     def test_duration_days(self):
         t = Trade(
-            ticker="X", entry_date=datetime(2024, 1, 1),
+            ticker="X",
+            entry_date=datetime(2024, 1, 1),
             exit_date=datetime(2024, 1, 11),
-            entry_price=10.0, exit_price=11.0, quantity=1.0,
+            entry_price=10.0,
+            exit_price=11.0,
+            quantity=1.0,
         )
         assert t.duration_days == pytest.approx(10.0)
 
@@ -89,13 +102,16 @@ class TestTrade:
 
 # ── Engine ────────────────────────────────────────────────────────────────────
 
+
 class TestEngine:
     def test_no_signals_no_trades(self):
         bars = _make_bars([100.0] * 50)
 
         class HoldStrategy:
             name = "hold"
-            def generate_signals(self, bars): return [Signal.HOLD] * len(bars)
+
+            def generate_signals(self, bars):
+                return [Signal.HOLD] * len(bars)
 
         result = run_backtest(bars, HoldStrategy(), "TEST", initial_capital=10_000.0)
         assert result.trades == []
@@ -104,18 +120,18 @@ class TestEngine:
     def test_buy_sell_produces_trade(self):
         # BUY na barra 5, SELL na barra 15
         prices = [100.0] * 20
-        bars   = _make_bars(prices)
+        bars = _make_bars(prices)
 
         class SimpleStrategy:
             name = "simple"
+
             def generate_signals(self, bars):
                 sigs = [Signal.HOLD] * len(bars)
-                sigs[5]  = Signal.BUY
+                sigs[5] = Signal.BUY
                 sigs[15] = Signal.SELL
                 return sigs
 
-        result = run_backtest(bars, SimpleStrategy(), "TEST",
-                              initial_capital=10_000.0, commission_pct=0.0)
+        result = run_backtest(bars, SimpleStrategy(), "TEST", initial_capital=10_000.0, commission_pct=0.0)
         assert len(result.trades) == 1
 
     def test_commission_reduces_pnl(self):
@@ -125,6 +141,7 @@ class TestEngine:
 
         class UpStrategy:
             name = "up"
+
             def generate_signals(self, b):
                 s = [Signal.HOLD] * len(b)
                 s[0] = Signal.BUY
@@ -141,6 +158,7 @@ class TestEngine:
 
         class BuyOnlyStrategy:
             name = "buy_only"
+
             def generate_signals(self, b):
                 s = [Signal.HOLD] * len(b)
                 s[2] = Signal.BUY
@@ -155,7 +173,9 @@ class TestEngine:
 
         class H:
             name = "h"
-            def generate_signals(self, b): return [Signal.HOLD] * len(b)
+
+            def generate_signals(self, b):
+                return [Signal.HOLD] * len(b)
 
         result = run_backtest(bars, H(), "T")
         assert len(result.equity_curve) == 30
@@ -165,7 +185,9 @@ class TestEngine:
 
         class H:
             name = "h"
-            def generate_signals(self, b): return [Signal.HOLD] * len(b)
+
+            def generate_signals(self, b):
+                return [Signal.HOLD] * len(b)
 
         result = run_backtest(bars, H(), "T")
         d = result.to_dict()
@@ -175,6 +197,7 @@ class TestEngine:
 
 
 # ── Métricas ──────────────────────────────────────────────────────────────────
+
 
 class TestMetrics:
     def test_total_return(self):
@@ -197,7 +220,7 @@ class TestMetrics:
         eq = [
             {"time": 0, "equity": 1000, "drawdown": 0},
             {"time": 1, "equity": 1200, "drawdown": 0},
-            {"time": 2, "equity": 900,  "drawdown": 25},  # drawdown de 25%
+            {"time": 2, "equity": 900, "drawdown": 25},  # drawdown de 25%
             {"time": 3, "equity": 1100, "drawdown": 8.33},
         ]
         m = _calc_metrics([], eq, 1000.0, 1100.0)
@@ -218,6 +241,7 @@ class TestMetrics:
 
 # ── RSI Strategy ──────────────────────────────────────────────────────────────
 
+
 class TestRSIStrategy:
     def test_generates_correct_length(self):
         bars = _make_bars([100.0] * 50)
@@ -231,7 +255,7 @@ class TestRSIStrategy:
         s = RSIStrategy()
         signals = s.generate_signals(bars)
         # Pode ter poucos sinais mas não deve ter compra/venda espúria
-        buys  = signals.count(Signal.BUY)
+        buys = signals.count(Signal.BUY)
         sells = signals.count(Signal.SELL)
         assert buys <= 1 and sells <= 1
 
@@ -249,6 +273,7 @@ class TestRSIStrategy:
 
 
 # ── MACD Strategy ─────────────────────────────────────────────────────────────
+
 
 class TestMACDStrategy:
     def test_generates_correct_length(self):
@@ -282,6 +307,7 @@ class TestMACDStrategy:
 
 # ── Combined Strategy ─────────────────────────────────────────────────────────
 
+
 class TestCombinedStrategy:
     def test_buy_requires_both(self):
         """BUY só quando RSI E MACD dão BUY simultaneamente."""
@@ -302,10 +328,11 @@ class TestCombinedStrategy:
 
 # ── Factory ───────────────────────────────────────────────────────────────────
 
+
 class TestGetStrategy:
     def test_valid_names(self):
-        assert get_strategy("rsi").name   == "RSI Reversal"
-        assert get_strategy("macd").name  == "MACD Crossover"
+        assert get_strategy("rsi").name == "RSI Reversal"
+        assert get_strategy("macd").name == "MACD Crossover"
         assert get_strategy("combined").name == "RSI + MACD Combined"
 
     def test_case_insensitive(self):
@@ -323,6 +350,7 @@ class TestGetStrategy:
 
 
 # ── BacktestService ───────────────────────────────────────────────────────────
+
 
 class TestBacktestService:
     @pytest.mark.asyncio

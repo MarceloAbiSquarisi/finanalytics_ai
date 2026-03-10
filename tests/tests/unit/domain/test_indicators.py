@@ -8,6 +8,7 @@ Valida:
   - Casos de borda (lista vazia, muito curta)
   - Propriedades matemáticas (RSI ∈ [0,100], BB upper > lower)
 """
+
 from __future__ import annotations
 
 import math
@@ -21,6 +22,7 @@ from finanalytics_ai.domain.indicators.technical import (
 
 
 # ── FIXTURES ──────────────────────────────────────────────────────────────────
+
 
 def _rising(n: int = 50, start: float = 10.0, step: float = 0.5) -> list[float]:
     """Série monotonicamente crescente."""
@@ -41,6 +43,7 @@ def _sine(n: int = 100, amplitude: float = 5.0, base: float = 30.0) -> list[floa
 
 
 # ── RSI ───────────────────────────────────────────────────────────────────────
+
 
 class TestRSI:
     def test_output_length_matches_input(self):
@@ -112,13 +115,14 @@ class TestRSI:
 
 # ── MACD ──────────────────────────────────────────────────────────────────────
 
+
 class TestMACD:
     def test_output_length_matches_input(self):
         closes = _sine(100)
         result = compute_macd(closes)
         n = len(closes)
-        assert len(result["macd"])      == n
-        assert len(result["signal"])    == n
+        assert len(result["macd"]) == n
+        assert len(result["signal"]) == n
         assert len(result["histogram"]) == n
 
     def test_warmup_indices_are_none(self):
@@ -156,24 +160,25 @@ class TestMACD:
 
 # ── BOLLINGER BANDS ───────────────────────────────────────────────────────────
 
+
 class TestBollinger:
     def test_output_length_matches_input(self):
         closes = _sine(80)
         result = compute_bollinger(closes, period=20)
         n = len(closes)
-        assert len(result["upper"])     == n
-        assert len(result["middle"])    == n
-        assert len(result["lower"])     == n
+        assert len(result["upper"]) == n
+        assert len(result["middle"]) == n
+        assert len(result["lower"]) == n
         assert len(result["bandwidth"]) == n
-        assert len(result["pct_b"])     == n
+        assert len(result["pct_b"]) == n
 
     def test_warmup_is_none(self):
         closes = _sine(80)
         result = compute_bollinger(closes, period=20)
         for i in range(19):
-            assert result["upper"][i]  is None
+            assert result["upper"][i] is None
             assert result["middle"][i] is None
-            assert result["lower"][i]  is None
+            assert result["lower"][i] is None
 
     def test_upper_always_above_lower(self):
         closes = _sine(100)
@@ -205,9 +210,7 @@ class TestBollinger:
         closes = _sine(80)
         bb = compute_bollinger(closes, period=20)
         # Encontra índice onde close ≈ middle
-        for i, (m, u, l, pb) in enumerate(
-            zip(bb["middle"], bb["upper"], bb["lower"], bb["pct_b"])
-        ):
+        for i, (m, u, l, pb) in enumerate(zip(bb["middle"], bb["upper"], bb["lower"], bb["pct_b"])):
             if m is None or u is None or l is None or pb is None:
                 continue
             if abs(closes[i] - m) < 0.01:
@@ -229,12 +232,19 @@ class TestBollinger:
 
 # ── FACADE ────────────────────────────────────────────────────────────────────
 
+
 class TestComputeAll:
     def _make_bars(self, n: int = 100) -> list[dict]:
         closes = _sine(n, amplitude=5.0, base=30.0)
         return [
-            {"time": 1700000000 + i * 86400, "open": c - 0.1, "high": c + 0.3,
-             "low": c - 0.3, "close": c, "volume": 1_000_000}
+            {
+                "time": 1700000000 + i * 86400,
+                "open": c - 0.1,
+                "high": c + 0.3,
+                "low": c - 0.3,
+                "close": c,
+                "volume": 1_000_000,
+            }
             for i, c in enumerate(closes)
         ]
 
@@ -242,10 +252,10 @@ class TestComputeAll:
         bars = self._make_bars(100)
         result = compute_all(bars)
         n = len(bars)
-        assert len(result["rsi"]["values"])         == n
-        assert len(result["macd"]["macd"])          == n
-        assert len(result["bollinger"]["upper"])    == n
-        assert len(result["timestamps"])            == n
+        assert len(result["rsi"]["values"]) == n
+        assert len(result["macd"]["macd"]) == n
+        assert len(result["bollinger"]["upper"]) == n
+        assert len(result["timestamps"]) == n
 
     def test_timestamps_match_bars(self):
         bars = self._make_bars(50)

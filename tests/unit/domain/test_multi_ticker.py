@@ -28,6 +28,7 @@ Cobertura:
     - objetivo invalido raises BacktestError
     - tickers duplicados sao normalizados (uppercase)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -58,24 +59,34 @@ from finanalytics_ai.domain.backtesting.engine import BacktestMetrics
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _dummy_metrics(**kw) -> BacktestMetrics:
     defaults = dict(
-        total_return_pct=10.0, sharpe_ratio=1.2, max_drawdown_pct=8.0,
-        win_rate_pct=60.0, profit_factor=1.8, calmar_ratio=1.5,
-        total_trades=12, winning_trades=7, losing_trades=5,
-        avg_win_pct=4.0, avg_loss_pct=-2.5, avg_duration_days=6.0,
-        initial_capital=10_000.0, final_equity=11_000.0,
+        total_return_pct=10.0,
+        sharpe_ratio=1.2,
+        max_drawdown_pct=8.0,
+        win_rate_pct=60.0,
+        profit_factor=1.8,
+        calmar_ratio=1.5,
+        total_trades=12,
+        winning_trades=7,
+        losing_trades=5,
+        avg_win_pct=4.0,
+        avg_loss_pct=-2.5,
+        avg_duration_days=6.0,
+        initial_capital=10_000.0,
+        final_equity=11_000.0,
     )
     defaults.update(kw)
     return BacktestMetrics(**defaults)
 
 
 def _dummy_opt_result(
-    ticker:      str   = "PETR4",
-    best_score:  float = 1.0,
-    valid_runs:  int   = 5,
-    total_runs:  int   = 36,
-    best_params: dict  | None = None,
+    ticker: str = "PETR4",
+    best_score: float = 1.0,
+    valid_runs: int = 5,
+    total_runs: int = 36,
+    best_params: dict | None = None,
 ) -> OptimizationResult:
     """
     Cria OptimizationResult minimo sem executar grid search.
@@ -85,33 +96,40 @@ def _dummy_opt_result(
     """
     params = best_params or {"period": 14, "oversold": 30.0, "overbought": 70.0}
     top_run = OptimizedRun(
-        rank    = 1,
-        params  = params,
-        score   = best_score,
-        metrics = _dummy_metrics(sharpe_ratio=best_score),
-        is_valid= valid_runs > 0,
+        rank=1,
+        params=params,
+        score=best_score,
+        metrics=_dummy_metrics(sharpe_ratio=best_score),
+        is_valid=valid_runs > 0,
     )
     return OptimizationResult(
-        ticker       = ticker,
-        strategy     = "rsi",
-        range_period = "1y",
-        objective    = "sharpe",
-        total_runs   = total_runs,
-        valid_runs   = valid_runs,
-        top          = [top_run],
-        heatmap      = {},
+        ticker=ticker,
+        strategy="rsi",
+        range_period="1y",
+        objective="sharpe",
+        total_runs=total_runs,
+        valid_runs=valid_runs,
+        top=[top_run],
+        heatmap={},
     )
 
 
 def _bars(n: int = 150) -> list[dict]:
     return [
-        {"time": 1700000000 + i * 86400, "open": 100.0,
-         "high": 101.0, "low": 99.0, "close": 100.0 + i * 0.05, "volume": 1000}
+        {
+            "time": 1700000000 + i * 86400,
+            "open": 100.0,
+            "high": 101.0,
+            "low": 99.0,
+            "close": 100.0 + i * 0.05,
+            "volume": 1000,
+        }
         for i in range(n)
     ]
 
 
 # ── build_multi_ticker_result ─────────────────────────────────────────────────
+
 
 class TestBuildMultiTickerResult:
     def test_all_success_produces_rankings(self):
@@ -122,7 +140,7 @@ class TestBuildMultiTickerResult:
         ]
         r = build_multi_ticker_result(results, "rsi", "1y", "sharpe")
         assert len(r.rankings) == 3
-        assert len(r.errors)   == 0
+        assert len(r.errors) == 0
 
     def test_rankings_ordered_by_score_desc(self):
         results = [
@@ -146,16 +164,16 @@ class TestBuildMultiTickerResult:
 
     def test_best_ticker_is_highest_score(self):
         results = [
-            ("LOW",  _dummy_opt_result("LOW",  0.3)),
+            ("LOW", _dummy_opt_result("LOW", 0.3)),
             ("HIGH", _dummy_opt_result("HIGH", 3.0)),
-            ("MID",  _dummy_opt_result("MID",  1.5)),
+            ("MID", _dummy_opt_result("MID", 1.5)),
         ]
         r = build_multi_ticker_result(results, "rsi", "1y", "sharpe")
         assert r.best_ticker == "HIGH"
 
     def test_worst_ticker_is_lowest_score(self):
         results = [
-            ("LOW",  _dummy_opt_result("LOW",  0.3)),
+            ("LOW", _dummy_opt_result("LOW", 0.3)),
             ("HIGH", _dummy_opt_result("HIGH", 3.0)),
         ]
         r = build_multi_ticker_result(results, "rsi", "1y", "sharpe")
@@ -239,19 +257,19 @@ class TestBuildMultiTickerResult:
         ]
         r = build_multi_ticker_result(results, "rsi", "1y", "sharpe")
         assert len(r.rankings) == 0
-        assert len(r.errors)   == 2
-        assert r.avg_score     == 0.0
-        assert r.best_ticker   == ""
+        assert len(r.errors) == 2
+        assert r.avg_score == 0.0
+        assert r.best_ticker == ""
 
     def test_partial_failure_errors_captured(self):
         results = [
             ("PETR4", _dummy_opt_result("PETR4", best_score=1.5)),
-            ("XXXX",  ValueError("Ticker invalido")),
+            ("XXXX", ValueError("Ticker invalido")),
             ("VALE3", _dummy_opt_result("VALE3", best_score=0.9)),
         ]
         r = build_multi_ticker_result(results, "rsi", "1y", "sharpe")
         assert len(r.rankings) == 2
-        assert len(r.errors)   == 1
+        assert len(r.errors) == 1
         assert r.errors[0]["ticker"] == "XXXX"
         assert "Ticker invalido" in r.errors[0]["error"]
 
@@ -267,19 +285,42 @@ class TestBuildMultiTickerResult:
     def test_to_dict_required_keys(self):
         results = [("PETR4", _dummy_opt_result("PETR4"))]
         d = build_multi_ticker_result(results, "rsi", "1y", "sharpe").to_dict()
-        required = {"strategy", "range_period", "objective", "tickers",
-                    "rankings", "avg_score", "score_std", "hit_rate",
-                    "best_ticker", "worst_ticker", "consensus_params",
-                    "errors", "total_tickers", "failed_tickers"}
+        required = {
+            "strategy",
+            "range_period",
+            "objective",
+            "tickers",
+            "rankings",
+            "avg_score",
+            "score_std",
+            "hit_rate",
+            "best_ticker",
+            "worst_ticker",
+            "consensus_params",
+            "errors",
+            "total_tickers",
+            "failed_tickers",
+        }
         assert required <= set(d.keys())
 
     def test_ticker_ranking_to_dict_keys(self):
         results = [("PETR4", _dummy_opt_result("PETR4"))]
         r = build_multi_ticker_result(results, "rsi", "1y", "sharpe")
         d = r.rankings[0].to_dict()
-        assert all(k in d for k in ["rank", "ticker", "best_score", "score_pct",
-                                     "best_params", "total_runs", "valid_runs",
-                                     "top_metrics", "has_valid"])
+        assert all(
+            k in d
+            for k in [
+                "rank",
+                "ticker",
+                "best_score",
+                "score_pct",
+                "best_params",
+                "total_runs",
+                "valid_runs",
+                "top_metrics",
+                "has_valid",
+            ]
+        )
 
     def test_has_valid_true_for_valid_runs(self):
         results = [("A", _dummy_opt_result("A", valid_runs=3))]
@@ -295,7 +336,7 @@ class TestBuildMultiTickerResult:
         results = [
             ("A", _dummy_opt_result("A", best_params={"period": 14, "oversold": 30.0})),
             ("B", _dummy_opt_result("B", best_params={"period": 14, "oversold": 25.0})),
-            ("C", _dummy_opt_result("C", best_params={"period":  7, "oversold": 30.0})),
+            ("C", _dummy_opt_result("C", best_params={"period": 7, "oversold": 30.0})),
         ]
         r = build_multi_ticker_result(results, "rsi", "1y", "sharpe")
         # period=14 aparece 2x, period=7 aparece 1x -> consenso=14
@@ -306,12 +347,13 @@ class TestBuildMultiTickerResult:
     def test_metadata_fields_preserved(self):
         results = [("PETR4", _dummy_opt_result("PETR4"))]
         r = build_multi_ticker_result(results, "macd", "6mo", "return")
-        assert r.strategy     == "macd"
+        assert r.strategy == "macd"
         assert r.range_period == "6mo"
-        assert r.objective    == "return"
+        assert r.objective == "return"
 
 
 # ── _find_consensus_params ────────────────────────────────────────────────────
+
 
 class TestFindConsensusParams:
     def test_empty_list_returns_empty(self):
@@ -325,7 +367,7 @@ class TestFindConsensusParams:
         params = [
             {"period": 14},
             {"period": 14},
-            {"period":  7},
+            {"period": 7},
         ]
         assert _find_consensus_params(params)["period"] == 14
 
@@ -352,8 +394,8 @@ class TestFindConsensusParams:
             {"a": 3, "b": 2},
         ]
         result = _find_consensus_params(params)
-        assert result["a"] == 1   # 1 aparece 2x
-        assert result["b"] == 2   # 2 aparece 2x (unico valor)
+        assert result["a"] == 1  # 1 aparece 2x
+        assert result["b"] == 2  # 2 aparece 2x (unico valor)
 
     def test_all_keys_from_all_dicts(self):
         params = [
@@ -366,6 +408,7 @@ class TestFindConsensusParams:
 
 
 # ── MultiTickerService ────────────────────────────────────────────────────────
+
 
 class TestMultiTickerService:
     """
@@ -383,6 +426,7 @@ class TestMultiTickerService:
         """
         side_effects: {ticker: OptimizationResult | Exception}
         """
+
         async def _fake_optimize(ticker, **kwargs):
             effect = side_effects.get(ticker.upper())
             if isinstance(effect, Exception):
@@ -394,10 +438,13 @@ class TestMultiTickerService:
     @pytest.mark.asyncio
     async def test_returns_multi_ticker_result(self):
         svc = self._make_svc()
-        self._patch_optimizer(svc, {
-            "PETR4": _dummy_opt_result("PETR4", best_score=1.5),
-            "VALE3": _dummy_opt_result("VALE3", best_score=0.8),
-        })
+        self._patch_optimizer(
+            svc,
+            {
+                "PETR4": _dummy_opt_result("PETR4", best_score=1.5),
+                "VALE3": _dummy_opt_result("VALE3", best_score=0.8),
+            },
+        )
         result = await svc.compare(["PETR4", "VALE3"], "rsi")
         assert isinstance(result, MultiTickerResult)
         assert len(result.rankings) == 2
@@ -405,35 +452,44 @@ class TestMultiTickerService:
     @pytest.mark.asyncio
     async def test_best_ticker_correct(self):
         svc = self._make_svc()
-        self._patch_optimizer(svc, {
-            "PETR4": _dummy_opt_result("PETR4", best_score=2.5),
-            "VALE3": _dummy_opt_result("VALE3", best_score=0.5),
-        })
+        self._patch_optimizer(
+            svc,
+            {
+                "PETR4": _dummy_opt_result("PETR4", best_score=2.5),
+                "VALE3": _dummy_opt_result("VALE3", best_score=0.5),
+            },
+        )
         result = await svc.compare(["PETR4", "VALE3"], "rsi")
         assert result.best_ticker == "PETR4"
 
     @pytest.mark.asyncio
     async def test_failed_ticker_in_errors(self):
         svc = self._make_svc()
-        self._patch_optimizer(svc, {
-            "PETR4": _dummy_opt_result("PETR4", best_score=1.0),
-            "XXXX":  ValueError("Ticker nao encontrado"),
-        })
+        self._patch_optimizer(
+            svc,
+            {
+                "PETR4": _dummy_opt_result("PETR4", best_score=1.0),
+                "XXXX": ValueError("Ticker nao encontrado"),
+            },
+        )
         result = await svc.compare(["PETR4", "XXXX"], "rsi")
         assert len(result.rankings) == 1
-        assert len(result.errors)   == 1
+        assert len(result.errors) == 1
         assert result.errors[0]["ticker"] == "XXXX"
 
     @pytest.mark.asyncio
     async def test_all_tickers_fail_empty_rankings(self):
         svc = self._make_svc()
-        self._patch_optimizer(svc, {
-            "PETR4": RuntimeError("timeout"),
-            "VALE3": RuntimeError("timeout"),
-        })
+        self._patch_optimizer(
+            svc,
+            {
+                "PETR4": RuntimeError("timeout"),
+                "VALE3": RuntimeError("timeout"),
+            },
+        )
         result = await svc.compare(["PETR4", "VALE3"], "rsi")
         assert len(result.rankings) == 0
-        assert len(result.errors)   == 2
+        assert len(result.errors) == 2
 
     @pytest.mark.asyncio
     async def test_empty_tickers_raises_backtest_error(self):
@@ -491,9 +547,9 @@ class TestMultiTickerService:
         """
         Verifica que nunca mais de MAX_CONCURRENT otimizacoes correm simultaneamente.
         """
-        active   = [0]
+        active = [0]
         max_seen = [0]
-        lock     = asyncio.Lock()
+        lock = asyncio.Lock()
 
         async def _slow_optimize(ticker, **kw):
             async with lock:
@@ -511,20 +567,21 @@ class TestMultiTickerService:
         tickers = [f"T{i}" for i in range(8)]
         await svc.compare(tickers, "rsi")
 
-        assert max_seen[0] <= MAX_CONCURRENT, (
-            f"Max simultaneous: {max_seen[0]}, expected <= {MAX_CONCURRENT}"
-        )
+        assert max_seen[0] <= MAX_CONCURRENT, f"Max simultaneous: {max_seen[0]}, expected <= {MAX_CONCURRENT}"
 
     @pytest.mark.asyncio
     async def test_result_metadata_correct(self):
         svc = self._make_svc()
-        self._patch_optimizer(svc, {
-            "PETR4": _dummy_opt_result("PETR4", best_score=1.0),
-        })
+        self._patch_optimizer(
+            svc,
+            {
+                "PETR4": _dummy_opt_result("PETR4", best_score=1.0),
+            },
+        )
         result = await svc.compare(["PETR4"], "bollinger", range_period="6mo", objective="return")
-        assert result.strategy     == "bollinger"
+        assert result.strategy == "bollinger"
         assert result.range_period == "6mo"
-        assert result.objective    == "return"
+        assert result.objective == "return"
 
     @pytest.mark.asyncio
     async def test_passes_params_to_optimizer(self):
@@ -537,38 +594,47 @@ class TestMultiTickerService:
 
         svc._optimizer.optimize = _capture
         await svc.compare(
-            ["PETR4"], "rsi",
-            range_period="2y", initial_capital=5_000.0,
-            commission_pct=0.002, objective="calmar",
+            ["PETR4"],
+            "rsi",
+            range_period="2y",
+            initial_capital=5_000.0,
+            commission_pct=0.002,
+            objective="calmar",
         )
-        assert received["range_period"]    == "2y"
+        assert received["range_period"] == "2y"
         assert received["initial_capital"] == pytest.approx(5_000.0)
-        assert received["commission_pct"]  == pytest.approx(0.002)
-        assert received["objective"]       == "calmar"
+        assert received["commission_pct"] == pytest.approx(0.002)
+        assert received["objective"] == "calmar"
 
     @pytest.mark.asyncio
     async def test_single_ticker_returns_valid_result(self):
         svc = self._make_svc()
-        self._patch_optimizer(svc, {
-            "WEGE3": _dummy_opt_result("WEGE3", best_score=2.0),
-        })
+        self._patch_optimizer(
+            svc,
+            {
+                "WEGE3": _dummy_opt_result("WEGE3", best_score=2.0),
+            },
+        )
         result = await svc.compare(["WEGE3"], "rsi")
-        assert len(result.rankings)     == 1
-        assert result.rankings[0].rank  == 1
-        assert result.hit_rate          == pytest.approx(100.0)
-        assert result.best_ticker       == "WEGE3"
-        assert result.worst_ticker      == "WEGE3"
+        assert len(result.rankings) == 1
+        assert result.rankings[0].rank == 1
+        assert result.hit_rate == pytest.approx(100.0)
+        assert result.best_ticker == "WEGE3"
+        assert result.worst_ticker == "WEGE3"
 
     @pytest.mark.asyncio
     async def test_result_serializable(self):
         svc = self._make_svc()
-        self._patch_optimizer(svc, {
-            "PETR4": _dummy_opt_result("PETR4", best_score=1.5),
-            "VALE3": _dummy_opt_result("VALE3", best_score=0.8),
-        })
+        self._patch_optimizer(
+            svc,
+            {
+                "PETR4": _dummy_opt_result("PETR4", best_score=1.5),
+                "VALE3": _dummy_opt_result("VALE3", best_score=0.8),
+            },
+        )
         result = await svc.compare(["PETR4", "VALE3"], "rsi")
         d = result.to_dict()
-        assert "rankings"  in d
+        assert "rankings" in d
         assert "avg_score" in d
-        assert "hit_rate"  in d
-        assert "errors"    in d
+        assert "hit_rate" in d
+        assert "errors" in d

@@ -74,11 +74,7 @@ class AssetClassSummary:
             "deviation_ppt": round(self.deviation_ppt, 2),
             "n_positions": self.n_positions,
             "color": self.color,
-            "status": "overweight"
-            if self.is_overweight
-            else "underweight"
-            if self.is_underweight
-            else "ok",
+            "status": "overweight" if self.is_overweight else "underweight" if self.is_underweight else "ok",
         }
 
 

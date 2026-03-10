@@ -111,9 +111,7 @@ class EventProcessorService:
         log.info("event.processed")
         return processed
 
-    async def _process_with_retry(
-        self, event: MarketEvent, log: structlog.BoundLogger
-    ) -> MarketEvent:
+    async def _process_with_retry(self, event: MarketEvent, log: structlog.BoundLogger) -> MarketEvent:
         """Retry com backoff exponencial apenas para TransientError."""
         async for attempt in AsyncRetrying(
             stop=stop_after_attempt(self._max_retries),

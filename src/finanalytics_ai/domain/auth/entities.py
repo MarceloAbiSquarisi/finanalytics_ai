@@ -113,9 +113,7 @@ class User:
     last_login_at: datetime | None = None
 
     @staticmethod
-    def new(
-        email: str, hashed_password: str, full_name: str, role: UserRole = UserRole.USER
-    ) -> User:
+    def new(email: str, hashed_password: str, full_name: str, role: UserRole = UserRole.USER) -> User:
         """Factory: cria novo usuário com UUID gerado no domínio."""
         return User(
             user_id=str(uuid.uuid4()),

@@ -258,6 +258,7 @@ async def events_status() -> dict:
     }
     if consumer:
         import contextlib
+
         with contextlib.suppress(Exception):
             kafka_status["buffer_size"] = consumer._buffer.qsize()
 

@@ -193,9 +193,7 @@ def analyze_fgc(portfolio_id: str, holdings: list[RFHolding]) -> FGCAnalysis:
 
         if excess == 0.0:
             level = "ok"
-            msg = (
-                f"{issuer}: R$ {total:,.0f} cobertos (limite: R$ {FGC_LIMIT_PER_INSTITUTION:,.0f})"
-            )
+            msg = f"{issuer}: R$ {total:,.0f} cobertos (limite: R$ {FGC_LIMIT_PER_INSTITUTION:,.0f})"
         elif total <= FGC_LIMIT_PER_INSTITUTION * 1.2:
             level = "warning"
             msg = (
@@ -337,8 +335,7 @@ def analyze_fgc(portfolio_id: str, holdings: list[RFHolding]) -> FGCAnalysis:
                 "type": "sovereign_info",
                 "level": "info",
                 "message": (
-                    f"R$ {total_sovereign:,.0f} em Tesouro Direto. "
-                    "Garantia soberana — não depende do FGC."
+                    f"R$ {total_sovereign:,.0f} em Tesouro Direto. Garantia soberana — não depende do FGC."
                 ),
             }
         )

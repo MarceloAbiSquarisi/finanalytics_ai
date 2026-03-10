@@ -69,9 +69,7 @@ class CorrelationService:
         if len(tickers) < 2:
             raise BacktestError("Correlacao requer pelo menos 2 tickers.")
         if len(tickers) > MAX_TICKERS:
-            raise BacktestError(
-                f"Maximo de {MAX_TICKERS} tickers por analise. Recebidos: {len(tickers)}."
-            )
+            raise BacktestError(f"Maximo de {MAX_TICKERS} tickers por analise. Recebidos: {len(tickers)}.")
 
         log = logger.bind(tickers=tickers, range=range_period, window=rolling_window)
         log.info("correlation.starting")
@@ -81,13 +79,9 @@ class CorrelationService:
         async def _fetch(ticker: str) -> tuple[str, list[dict] | Exception]:
             async with sem:
                 try:
-                    bars = await self._brapi.get_ohlc_bars(
-                        Ticker(ticker), range_period=range_period
-                    )
+                    bars = await self._brapi.get_ohlc_bars(Ticker(ticker), range_period=range_period)
                     if len(bars) < MIN_BARS:
-                        raise BacktestError(
-                            f"Dados insuficientes: {len(bars)} barras (minimo {MIN_BARS})."
-                        )
+                        raise BacktestError(f"Dados insuficientes: {len(bars)} barras (minimo {MIN_BARS}).")
                     return ticker, bars
                 except Exception as exc:
                     log.warning("correlation.ticker_failed", ticker=ticker, error=str(exc))
@@ -105,8 +99,7 @@ class CorrelationService:
 
         if len(bars_map) < 2:
             raise BacktestError(
-                f"Dados validos para apenas {len(bars_map)} ticker(s). "
-                "Correlacao requer pelo menos 2."
+                f"Dados validos para apenas {len(bars_map)} ticker(s). Correlacao requer pelo menos 2."
             )
 
         # Adapta rolling window se dados sao curtos

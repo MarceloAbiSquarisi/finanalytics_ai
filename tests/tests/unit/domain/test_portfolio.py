@@ -1,4 +1,5 @@
 """Testes unitários para a entidade Portfolio."""
+
 import pytest
 from decimal import Decimal
 from finanalytics_ai.domain.entities.portfolio import Portfolio, Position
@@ -12,31 +13,23 @@ class TestPortfolio:
         assert portfolio_with_cash.position_count() == 0
 
     def test_add_position(self, portfolio_with_cash: Portfolio) -> None:
-        portfolio_with_cash.add_position(
-            Ticker("PETR4"), Quantity.of("100"), Money.of("30.00")
-        )
+        portfolio_with_cash.add_position(Ticker("PETR4"), Quantity.of("100"), Money.of("30.00"))
         assert "PETR4" in portfolio_with_cash.positions
         assert portfolio_with_cash.cash == Money.of("7000.00")
 
     def test_add_position_insufficient_funds(self, portfolio_with_cash: Portfolio) -> None:
         with pytest.raises(InsufficientFundsError):
-            portfolio_with_cash.add_position(
-                Ticker("VALE3"), Quantity.of("1000"), Money.of("100.00")
-            )
+            portfolio_with_cash.add_position(Ticker("VALE3"), Quantity.of("1000"), Money.of("100.00"))
 
     def test_remove_position(self, portfolio_with_cash: Portfolio) -> None:
         portfolio_with_cash.add_position(Ticker("PETR4"), Quantity.of("10"), Money.of("30.00"))
-        proceeds = portfolio_with_cash.remove_position(
-            Ticker("PETR4"), Quantity.of("10"), Money.of("35.00")
-        )
+        proceeds = portfolio_with_cash.remove_position(Ticker("PETR4"), Quantity.of("10"), Money.of("35.00"))
         assert proceeds == Money.of("350.00")
         assert "PETR4" not in portfolio_with_cash.positions
 
     def test_remove_nonexistent_raises(self, portfolio_with_cash: Portfolio) -> None:
         with pytest.raises(PortfolioNotFoundError):
-            portfolio_with_cash.remove_position(
-                Ticker("UNKN"), Quantity.of("1"), Money.of("10")
-            )
+            portfolio_with_cash.remove_position(Ticker("UNKN"), Quantity.of("1"), Money.of("10"))
 
     def test_average_price_calculation(self, portfolio_with_cash: Portfolio) -> None:
         # Compra 10 @ R$30 + 10 @ R$40 = PM R$35

@@ -332,9 +332,7 @@ class RFPortfolioService:
         summary["holdings"] = holdings_out
         summary["total_current"] = round(total_current, 2)
         summary["total_gain"] = round(total_gain, 2)
-        summary["total_return_pct"] = (
-            round(total_gain / p.total_invested * 100, 4) if p.total_invested else 0
-        )
+        summary["total_return_pct"] = round(total_gain / p.total_invested * 100, 4) if p.total_invested else 0
         summary["by_indexer"] = p.allocation_by_indexer()
         summary["by_type"] = p.allocation_by_type()
         summary["avg_duration_days"] = p.avg_duration_days()

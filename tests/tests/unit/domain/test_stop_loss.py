@@ -1,4 +1,5 @@
 """Testes unitários para regras de Stop Loss."""
+
 import pytest
 from decimal import Decimal
 from finanalytics_ai.domain.rules.stop_loss import StopLossRule, TrailingStopRule

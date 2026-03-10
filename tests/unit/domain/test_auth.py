@@ -4,21 +4,31 @@ tests/unit/domain/test_auth.py
 Testes unitários para o domínio de autenticação.
 Sem I/O: sem banco, sem rede, sem arquivos.
 """
+
 import pytest
 import sys, os, time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../src"))
 
 from finanalytics_ai.domain.auth.entities import (
-    User, UserRole, UserRegistration, TokenPair, TokenPayload,
+    User,
+    UserRole,
+    UserRegistration,
+    TokenPair,
+    TokenPayload,
     AuthErrorCode,
-    InvalidCredentialsError, TokenExpiredError, TokenInvalidError,
-    UserNotFoundError, EmailAlreadyExistsError, InactiveUserError,
+    InvalidCredentialsError,
+    TokenExpiredError,
+    TokenInvalidError,
+    UserNotFoundError,
+    EmailAlreadyExistsError,
+    InactiveUserError,
     InsufficientPermissionsError,
 )
 
 
 # ── User entity ───────────────────────────────────────────────────────────────
+
 
 class TestUser:
     def test_new_user_generates_uuid(self):
@@ -65,6 +75,7 @@ class TestUser:
 
 # ── UserRegistration ──────────────────────────────────────────────────────────
 
+
 class TestUserRegistration:
     def test_valid_registration(self):
         r = UserRegistration("test@example.com", "password123", "Test User")
@@ -93,6 +104,7 @@ class TestUserRegistration:
 
 # ── Auth Exceptions ───────────────────────────────────────────────────────────
 
+
 class TestAuthExceptions:
     def test_invalid_credentials_code(self):
         e = InvalidCredentialsError()
@@ -119,33 +131,41 @@ class TestAuthExceptions:
 
     def test_all_errors_are_auth_error_subclasses(self):
         from finanalytics_ai.domain.auth.entities import AuthError
-        for cls in [InvalidCredentialsError, TokenExpiredError, TokenInvalidError,
-                    UserNotFoundError, EmailAlreadyExistsError, InactiveUserError,
-                    InsufficientPermissionsError]:
+
+        for cls in [
+            InvalidCredentialsError,
+            TokenExpiredError,
+            TokenInvalidError,
+            UserNotFoundError,
+            EmailAlreadyExistsError,
+            InactiveUserError,
+            InsufficientPermissionsError,
+        ]:
             assert issubclass(cls, AuthError)
 
 
 # ── TokenPayload ──────────────────────────────────────────────────────────────
 
+
 class TestTokenPayload:
     def test_frozen_immutable(self):
-        p = TokenPayload(sub="u1", email="a@b.com", role="user",
-                         exp=9999999999, token_type="access")
+        p = TokenPayload(sub="u1", email="a@b.com", role="user", exp=9999999999, token_type="access")
         with pytest.raises(Exception):  # FrozenInstanceError
             p.sub = "other"  # type: ignore
 
     def test_access_type(self):
-        p = TokenPayload(sub="u1", email="a@b.com", role="user",
-                         exp=9999999999, token_type="access")
+        p = TokenPayload(sub="u1", email="a@b.com", role="user", exp=9999999999, token_type="access")
         assert p.token_type == "access"
 
 
 # ── JWT Handler ───────────────────────────────────────────────────────────────
 
+
 class TestJWTHandler:
     @pytest.fixture
     def handler(self):
         from finanalytics_ai.infrastructure.auth.jwt_handler import JWTHandler
+
         return JWTHandler(
             secret_key="test-secret-key-32-chars-minimum!",
             access_expire_minutes=30,
@@ -171,19 +191,19 @@ class TestJWTHandler:
         assert at != rt
 
     def test_decode_access_token(self, handler, user):
-        token   = handler.create_access_token(user)
+        token = handler.create_access_token(user)
         payload = handler.decode(token)
-        assert payload.sub   == user.user_id
+        assert payload.sub == user.user_id
         assert payload.email == user.email
         assert payload.token_type == "access"
 
     def test_decode_refresh_token(self, handler, user):
-        token   = handler.create_refresh_token(user)
+        token = handler.create_refresh_token(user)
         payload = handler.decode(token)
         assert payload.token_type == "refresh"
 
     def test_decode_refresh_via_method(self, handler, user):
-        token   = handler.create_refresh_token(user)
+        token = handler.create_refresh_token(user)
         payload = handler.decode_refresh(token)
         assert payload.sub == user.user_id
 
@@ -197,13 +217,14 @@ class TestJWTHandler:
             handler.decode("not.a.valid.token")
 
     def test_tampered_token_raises(self, handler, user):
-        token   = handler.create_access_token(user)
+        token = handler.create_access_token(user)
         tampered = token[:-5] + "XXXXX"
         with pytest.raises((TokenInvalidError, TokenExpiredError)):
             handler.decode(tampered)
 
     def test_wrong_secret_raises(self, handler, user):
         from finanalytics_ai.infrastructure.auth.jwt_handler import JWTHandler
+
         other = JWTHandler(secret_key="completely-different-secret-key!")
         token = handler.create_access_token(user)
         with pytest.raises((TokenInvalidError, TokenExpiredError)):
@@ -226,16 +247,26 @@ class TestJWTHandler:
 
         if _BACKEND == "jose":
             from jose import jwt as _jose_jwt
+
             payload = {
-                "sub": user.user_id, "email": user.email, "role": "user",
-                "exp": past_exp, "token_type": "access", "jti": "test-expired",
+                "sub": user.user_id,
+                "email": user.email,
+                "role": "user",
+                "exp": past_exp,
+                "token_type": "access",
+                "jti": "test-expired",
             }
             token = _jose_jwt.encode(payload, handler.secret_key, algorithm=handler.algorithm)
         elif _BACKEND == "pyjwt":
             import jwt as _pyjwt
+
             payload = {
-                "sub": user.user_id, "email": user.email, "role": "user",
-                "exp": past_exp, "token_type": "access", "jti": "test-expired",
+                "sub": user.user_id,
+                "email": user.email,
+                "role": "user",
+                "exp": past_exp,
+                "token_type": "access",
+                "jti": "test-expired",
             }
             token = _pyjwt.encode(payload, handler.secret_key, algorithm=handler.algorithm)
         else:
@@ -245,24 +276,26 @@ class TestJWTHandler:
             handler.decode(token)
 
     def test_payload_has_jti(self, handler, user):
-        token   = handler.create_access_token(user)
+        token = handler.create_access_token(user)
         payload = handler.decode(token)
         # JTI pode ser vazio no fallback, mas não deve ser None
         assert payload.jti is not None
 
     def test_role_preserved_in_token(self, handler):
         admin = User.new("admin@test.com", "h", "Admin", role=UserRole.ADMIN)
-        token   = handler.create_access_token(admin)
+        token = handler.create_access_token(admin)
         payload = handler.decode(token)
         assert payload.role == "admin"
 
 
 # ── Password Hasher ───────────────────────────────────────────────────────────
 
+
 class TestPasswordHasher:
     @pytest.fixture
     def hasher(self):
         from finanalytics_ai.infrastructure.auth.password_hasher import PasswordHasher
+
         return PasswordHasher(rounds=4)  # rounds baixo para testes rápidos
 
     def test_hash_is_string(self, hasher):

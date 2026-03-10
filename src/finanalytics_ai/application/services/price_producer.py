@@ -215,9 +215,7 @@ class BrapiPriceProducer:
                 )
 
                 await self._kafka.publish(event)
-                self._stats[ticker].record_success(
-                    float(price), float(change_pct) if change_pct else None
-                )
+                self._stats[ticker].record_success(float(price), float(change_pct) if change_pct else None)
 
                 logger.debug(
                     "price_producer.published",

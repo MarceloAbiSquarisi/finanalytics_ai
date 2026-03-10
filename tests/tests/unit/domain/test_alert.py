@@ -10,6 +10,7 @@ Cobertura:
   - mark_triggered: imutabilidade (cria nova instância)
   - AlertTriggerResult: campos corretos no contexto
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -25,6 +26,7 @@ from finanalytics_ai.domain.entities.alert import (
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _alert(
     alert_type: AlertType,
@@ -50,6 +52,7 @@ def p(value: str) -> Decimal:
 
 
 # ── STOP LOSS ─────────────────────────────────────────────────────────────────
+
 
 class TestStopLoss:
     def test_triggers_when_price_below_threshold(self):
@@ -87,6 +90,7 @@ class TestStopLoss:
 
 # ── TAKE PROFIT ───────────────────────────────────────────────────────────────
 
+
 class TestTakeProfit:
     def test_triggers_when_price_above_threshold(self):
         alert = _alert(AlertType.TAKE_PROFIT, threshold="50.00")
@@ -111,6 +115,7 @@ class TestTakeProfit:
 
 
 # ── PRICE TARGET ──────────────────────────────────────────────────────────────
+
 
 class TestPriceTarget:
     def test_triggers_when_within_tolerance(self):
@@ -137,12 +142,13 @@ class TestPriceTarget:
     def test_triggers_regardless_of_direction(self):
         """PRICE_TARGET dispara tanto em alta quanto em queda."""
         alert_high = _alert(AlertType.PRICE_TARGET, threshold="100.00")
-        alert_low  = _alert(AlertType.PRICE_TARGET, threshold="100.00")
+        alert_low = _alert(AlertType.PRICE_TARGET, threshold="100.00")
         assert alert_high.evaluate(p("100.05")).triggered is True
         assert alert_low.evaluate(p("99.95")).triggered is True
 
 
 # ── PCT DROP ──────────────────────────────────────────────────────────────────
+
 
 class TestPctDrop:
     def test_triggers_when_drop_exceeds_threshold(self):
@@ -182,6 +188,7 @@ class TestPctDrop:
 
 # ── PCT RISE ──────────────────────────────────────────────────────────────────
 
+
 class TestPctRise:
     def test_triggers_when_rise_exceeds_threshold(self):
         alert = _alert(AlertType.PCT_RISE, threshold="10.0", reference_price="100.00")
@@ -211,38 +218,36 @@ class TestPctRise:
 
 # ── Status Guard ──────────────────────────────────────────────────────────────
 
+
 class TestAlertStatusGuard:
     def test_triggered_alert_does_not_reevaluate(self):
         """Alerta já disparado nunca dispara de novo."""
-        alert = _alert(AlertType.STOP_LOSS, threshold="30.00",
-                       status=AlertStatus.TRIGGERED)
+        alert = _alert(AlertType.STOP_LOSS, threshold="30.00", status=AlertStatus.TRIGGERED)
         result = alert.evaluate(p("20.00"))  # preço bem abaixo — mas já foi triggado
         assert result.triggered is False
         assert result.message == "Alerta inativo"
 
     def test_cancelled_alert_does_not_trigger(self):
-        alert = _alert(AlertType.TAKE_PROFIT, threshold="50.00",
-                       status=AlertStatus.CANCELLED)
+        alert = _alert(AlertType.TAKE_PROFIT, threshold="50.00", status=AlertStatus.CANCELLED)
         result = alert.evaluate(p("100.00"))
         assert result.triggered is False
 
     def test_expired_alert_does_not_trigger(self):
         past = datetime.utcnow() - timedelta(hours=1)
-        alert = _alert(AlertType.STOP_LOSS, threshold="30.00",
-                       expires_at=past)
+        alert = _alert(AlertType.STOP_LOSS, threshold="30.00", expires_at=past)
         result = alert.evaluate(p("20.00"))
         assert result.triggered is False
         assert "expirado" in result.message
 
     def test_future_expiry_still_active(self):
         future = datetime.utcnow() + timedelta(hours=24)
-        alert = _alert(AlertType.STOP_LOSS, threshold="30.00",
-                       expires_at=future)
+        alert = _alert(AlertType.STOP_LOSS, threshold="30.00", expires_at=future)
         result = alert.evaluate(p("20.00"))
         assert result.triggered is True
 
 
 # ── mark_triggered ────────────────────────────────────────────────────────────
+
 
 class TestMarkTriggered:
     def test_returns_new_instance(self):

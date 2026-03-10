@@ -110,12 +110,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("postgres.connected")
 
     # ── 0. Cache + Rate Limiter ───────────────────────────────────────────────
-    app.state.cache_backend = create_cache_backend(
-        str(settings.redis_url) if settings.redis_url else None
-    )
-    app.state.rate_limiter = create_rate_limiter(
-        str(settings.redis_url) if settings.redis_url else None
-    )
+    app.state.cache_backend = create_cache_backend(str(settings.redis_url) if settings.redis_url else None)
+    app.state.rate_limiter = create_rate_limiter(str(settings.redis_url) if settings.redis_url else None)
     logger.info("cache.ready", backend=type(app.state.cache_backend).__name__)
     logger.info("rate_limiter.ready", backend=type(app.state.rate_limiter).__name__)
 
@@ -205,9 +201,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         )
         from finanalytics_ai.infrastructure.database.connection import get_session_factory
 
-        market_client = create_cached_market_data_client(
-            settings.brapi_token, get_session_factory()
-        )
+        market_client = create_cached_market_data_client(settings.brapi_token, get_session_factory())
         app.state.backtest_service = BacktestService(market_client)
         app.state.optimizer_service = OptimizerService(market_client)
         app.state.walkforward_service = WalkForwardService(market_client)

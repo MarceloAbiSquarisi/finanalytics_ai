@@ -249,8 +249,10 @@ def analyze_ir_timing(
             scenarios.append(_make_scenario(label, dt))
 
     # Na data de vencimento (se diferente dos breakpoints)
-    if maturity_date and maturity_date > today and not any(
-        s.redemption_date == maturity_date for s in scenarios
+    if (
+        maturity_date
+        and maturity_date > today
+        and not any(s.redemption_date == maturity_date for s in scenarios)
     ):
         scenarios.append(_make_scenario("No vencimento", maturity_date))
 

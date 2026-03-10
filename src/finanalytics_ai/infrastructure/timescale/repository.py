@@ -118,6 +118,7 @@ async def _ensure_schema(pool: Any) -> None:
         """)
         # Tenta criar hypertable — ignora se já existir
         import contextlib
+
         with contextlib.suppress(Exception):
             await conn.execute("SELECT create_hypertable('ohlc_bars','time',if_not_exists=>true);")
             # extensão timescaledb pode não estar disponível — continua com PG puro
@@ -140,9 +141,7 @@ async def _ensure_schema(pool: Any) -> None:
             );
         """)
         with contextlib.suppress(Exception):
-            await conn.execute(
-                "SELECT create_hypertable('price_ticks','time',if_not_exists=>true);"
-            )
+            await conn.execute("SELECT create_hypertable('price_ticks','time',if_not_exists=>true);")
 
         await conn.execute("""
             CREATE INDEX IF NOT EXISTS price_ticks_ticker_time

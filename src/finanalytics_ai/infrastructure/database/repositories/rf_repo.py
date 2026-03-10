@@ -150,9 +150,7 @@ class RFPortfolioRepository:
         return portfolios
 
     async def delete_portfolio(self, portfolio_id: str) -> None:
-        await self._session.execute(
-            delete(RFHoldingModel).where(RFHoldingModel.portfolio_id == portfolio_id)
-        )
+        await self._session.execute(delete(RFHoldingModel).where(RFHoldingModel.portfolio_id == portfolio_id))
         await self._session.execute(
             delete(RFPortfolioModel).where(RFPortfolioModel.portfolio_id == portfolio_id)
         )

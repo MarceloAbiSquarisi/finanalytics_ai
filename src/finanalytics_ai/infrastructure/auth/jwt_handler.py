@@ -150,9 +150,7 @@ class JWTHandler:
 
         header = base64.urlsafe_b64encode(b'{"alg":"HS256"}').rstrip(b"=").decode()
         payload = (
-            base64.urlsafe_b64encode(json.dumps(claims, separators=(",", ":")).encode())
-            .rstrip(b"=")
-            .decode()
+            base64.urlsafe_b64encode(json.dumps(claims, separators=(",", ":")).encode()).rstrip(b"=").decode()
         )
         msg = f"{header}.{payload}".encode()
         sig = _hmac.new(self.secret_key.encode(), msg, hashlib.sha256).digest()

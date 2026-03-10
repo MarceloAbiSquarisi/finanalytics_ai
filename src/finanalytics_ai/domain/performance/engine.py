@@ -365,8 +365,7 @@ def compute_performance(
         used_dates
         if len(used_dates) == len(port_equity)
         else (
-            [used_dates[0]]
-            + [used_dates[i] for i in range(1, min(len(used_dates), len(port_equity)))]
+            [used_dates[0]] + [used_dates[i] for i in range(1, min(len(used_dates), len(port_equity)))]
             if used_dates
             else [str(i) for i in range(len(port_equity))]
         )

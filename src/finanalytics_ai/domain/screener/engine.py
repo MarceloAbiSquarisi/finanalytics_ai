@@ -283,9 +283,7 @@ def apply_filters(
             _passes_range(stock.dy, criteria.dy_min, criteria.dy_max),
             _passes_range(stock.roe, criteria.roe_min, criteria.roe_max),
             _passes_range(stock.roic, criteria.roic_min, criteria.roic_max),
-            _passes_range(
-                stock.ebitda_margin, criteria.ebitda_margin_min, criteria.ebitda_margin_max
-            ),
+            _passes_range(stock.ebitda_margin, criteria.ebitda_margin_min, criteria.ebitda_margin_max),
             _passes_range(stock.net_margin, criteria.net_margin_min, criteria.net_margin_max),
             _passes_range(stock.debt_equity, None, criteria.debt_equity_max),
             _passes_range(stock.revenue_growth, criteria.revenue_growth_min, None),

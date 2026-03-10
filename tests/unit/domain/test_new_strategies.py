@@ -12,6 +12,7 @@ Cobertura por classe:
   - Integracao com run_backtest (smoke test)
   - factory get_strategy com cada nova chave
 """
+
 from __future__ import annotations
 
 import math
@@ -30,14 +31,15 @@ from finanalytics_ai.domain.backtesting.strategies.technical import (
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _bars(closes: list[float], base_ts: int = 1_700_000_000) -> list[dict]:
     return [
         {
-            "time":   base_ts + i * 86400,
-            "open":   c,
-            "high":   c * 1.01,
-            "low":    c * 0.99,
-            "close":  c,
+            "time": base_ts + i * 86400,
+            "open": c,
+            "high": c * 1.01,
+            "low": c * 0.99,
+            "close": c,
             "volume": 1000,
         }
         for i, c in enumerate(closes)
@@ -77,6 +79,7 @@ def _sine(n: int = 80, amp: float = 20.0, freq: float = 0.3) -> list[dict]:
 
 # ── BollingerBandsStrategy ────────────────────────────────────────────────────
 
+
 class TestBollingerBandsStrategy:
     def test_signal_length_matches_bars(self):
         bars = _flat_then_up()
@@ -86,7 +89,7 @@ class TestBollingerBandsStrategy:
     def test_flat_series_no_signals(self):
         """Precos identicos -> bandas de largura zero -> nenhum cruzamento."""
         sigs = BollingerBandsStrategy().generate_signals(_flat(60))
-        assert sigs.count(Signal.BUY)  == 0
+        assert sigs.count(Signal.BUY) == 0
         assert sigs.count(Signal.SELL) == 0
 
     def test_dip_below_lower_band_generates_buy(self):
@@ -111,7 +114,7 @@ class TestBollingerBandsStrategy:
         assert s.std_dev == 2.0
 
     def test_integration_with_run_backtest(self):
-        bars  = _dip_recovery(100.0, 20, 83.0, 10)
+        bars = _dip_recovery(100.0, 20, 83.0, 10)
         strat = BollingerBandsStrategy()
         result = run_backtest(bars, strat, "TEST", initial_capital=10_000.0)
         assert result.bars_count == len(bars)
@@ -119,8 +122,8 @@ class TestBollingerBandsStrategy:
 
     def test_shorter_period_produces_different_signals(self):
         bars = _sine(80)
-        s20  = BollingerBandsStrategy(period=20).generate_signals(bars)
-        s10  = BollingerBandsStrategy(period=10).generate_signals(bars)
+        s20 = BollingerBandsStrategy(period=20).generate_signals(bars)
+        s10 = BollingerBandsStrategy(period=10).generate_signals(bars)
         # Diferentes parametros devem gerar contagens diferentes
         assert s20 != s10 or True  # nao crash e suficiente se iguais por acaso
 
@@ -133,6 +136,7 @@ class TestBollingerBandsStrategy:
 
 
 # ── EMACrossStrategy ──────────────────────────────────────────────────────────
+
 
 class TestEMACrossStrategy:
     def test_signal_length_matches_bars(self):
@@ -159,7 +163,7 @@ class TestEMACrossStrategy:
     def test_flat_series_minimal_signals(self):
         """Serie completamente plana -> EMAs identicas -> nenhum cruzamento."""
         sigs = EMACrossStrategy().generate_signals(_flat(60))
-        assert sigs.count(Signal.BUY)  == 0
+        assert sigs.count(Signal.BUY) == 0
         assert sigs.count(Signal.SELL) == 0
 
     def test_params_dict(self):
@@ -181,12 +185,12 @@ class TestEMACrossStrategy:
     def test_multiple_crossovers_in_zigzag(self):
         """Zigzag com periodo inicial plano deve gerar multiplos cruzamentos."""
         zigzag = [100.0] * 25 + [100.0 + 15.0 * math.sin(i * 0.3) for i in range(80)]
-        sigs   = EMACrossStrategy(fast=9, slow=21).generate_signals(_bars(zigzag))
-        assert sigs.count(Signal.BUY)  >= 1
+        sigs = EMACrossStrategy(fast=9, slow=21).generate_signals(_bars(zigzag))
+        assert sigs.count(Signal.BUY) >= 1
         assert sigs.count(Signal.SELL) >= 1
 
     def test_integration_with_run_backtest(self):
-        bars   = _flat_then_up()
+        bars = _flat_then_up()
         result = run_backtest(bars, EMACrossStrategy(9, 21), "TEST", initial_capital=10_000.0)
         assert result.metrics.total_trades >= 0
         assert len(result.equity_curve) == len(bars)
@@ -200,6 +204,7 @@ class TestEMACrossStrategy:
 
 
 # ── MomentumStrategy ─────────────────────────────────────────────────────────
+
 
 class TestMomentumStrategy:
     def test_signal_length_matches_bars(self):
@@ -219,13 +224,13 @@ class TestMomentumStrategy:
     def test_constant_prices_no_signals(self):
         """ROC de serie constante e sempre zero -> nenhum cruzamento."""
         sigs = MomentumStrategy(period=10).generate_signals(_flat(60))
-        assert sigs.count(Signal.BUY)  == 0
+        assert sigs.count(Signal.BUY) == 0
         assert sigs.count(Signal.SELL) == 0
 
     def test_rsi_filter_blocks_overbought_buys(self):
         """Com rsi_filter=100, nenhum BUY e bloqueado (RSI sempre < 100)."""
         bars = _sine(80)
-        no_filter  = MomentumStrategy(period=10, rsi_filter=0).generate_signals(bars)
+        no_filter = MomentumStrategy(period=10, rsi_filter=0).generate_signals(bars)
         all_filter = MomentumStrategy(period=10, rsi_filter=100).generate_signals(bars)
         # Com filtro permissivo (100), deve gerar pelo menos tantos buys quanto sem filtro
         assert all_filter.count(Signal.BUY) >= no_filter.count(Signal.BUY)
@@ -247,17 +252,17 @@ class TestMomentumStrategy:
 
     def test_shorter_period_more_crossings(self):
         """Periodo menor de ROC -> mais sensiveis -> possivelmente mais sinais."""
-        bars  = _sine(80)
-        s5    = MomentumStrategy(period=5).generate_signals(bars)
-        s20   = MomentumStrategy(period=20).generate_signals(bars)
-        assert len(s5)  == len(bars)
+        bars = _sine(80)
+        s5 = MomentumStrategy(period=5).generate_signals(bars)
+        s20 = MomentumStrategy(period=20).generate_signals(bars)
+        assert len(s5) == len(bars)
         assert len(s20) == len(bars)
         # Ambos devem ter pelo menos 1 sinal
-        assert s5.count(Signal.BUY)  >= 1
+        assert s5.count(Signal.BUY) >= 1
         assert s20.count(Signal.BUY) >= 1
 
     def test_integration_with_run_backtest(self):
-        bars   = _sine(80)
+        bars = _sine(80)
         result = run_backtest(bars, MomentumStrategy(10), "TEST", initial_capital=10_000.0)
         assert result.bars_count == len(bars)
         d = result.to_dict()
@@ -271,6 +276,7 @@ class TestMomentumStrategy:
 
 
 # ── get_strategy factory (novas chaves) ──────────────────────────────────────
+
 
 class TestGetStrategyNewStrategies:
     def test_all_six_keys_in_registry(self):
@@ -310,7 +316,7 @@ class TestGetStrategyNewStrategies:
     def test_all_strategies_have_generate_signals(self):
         bars = _flat(50)
         for name in STRATEGIES:
-            s    = get_strategy(name)
+            s = get_strategy(name)
             sigs = s.generate_signals(bars)
             assert len(sigs) == len(bars), f"{name}: wrong signal length"
 

@@ -149,9 +149,7 @@ class RFPortfolio:
         buckets: dict[str, float] = {}
         for h in self.active_holdings:
             buckets[h.indexer] = buckets.get(h.indexer, 0.0) + h.invested
-        return {
-            k: round(v / total * 100, 2) for k, v in sorted(buckets.items(), key=lambda x: -x[1])
-        }
+        return {k: round(v / total * 100, 2) for k, v in sorted(buckets.items(), key=lambda x: -x[1])}
 
     def allocation_by_type(self) -> dict[str, float]:
         """Alocação percentual por tipo de título."""
@@ -159,9 +157,7 @@ class RFPortfolio:
         buckets: dict[str, float] = {}
         for h in self.active_holdings:
             buckets[h.bond_type] = buckets.get(h.bond_type, 0.0) + h.invested
-        return {
-            k: round(v / total * 100, 2) for k, v in sorted(buckets.items(), key=lambda x: -x[1])
-        }
+        return {k: round(v / total * 100, 2) for k, v in sorted(buckets.items(), key=lambda x: -x[1])}
 
     def allocation_by_issuer(self) -> dict[str, float]:
         """Alocação percentual por emissor."""
@@ -170,9 +166,7 @@ class RFPortfolio:
         for h in self.active_holdings:
             issuer = h.issuer or "Desconhecido"
             buckets[issuer] = buckets.get(issuer, 0.0) + h.invested
-        return {
-            k: round(v / total * 100, 2) for k, v in sorted(buckets.items(), key=lambda x: -x[1])
-        }
+        return {k: round(v / total * 100, 2) for k, v in sorted(buckets.items(), key=lambda x: -x[1])}
 
     def ir_exempt_pct(self) -> float:
         """% da carteira isento de IR."""
@@ -314,9 +308,7 @@ class DiversificationReport:
                 f" (atual: {n_idx}). Meta: ≥ {MIN_INDEXERS_DIVERSIFIED}."
             )
         if n_iss < MIN_ISSUERS_DIVERSIFIED:
-            recs.append(
-                f"Diversifique emissores (atual: {n_iss}). Meta: ≥ {MIN_ISSUERS_DIVERSIFIED}."
-            )
+            recs.append(f"Diversifique emissores (atual: {n_iss}). Meta: ≥ {MIN_ISSUERS_DIVERSIFIED}.")
         if ir_pct < 20 and portfolio.total_invested > 5000:
             recs.append("Considere LCI/LCA ou CRI/CRA para aumentar a parcela isenta de IR.")
         if "CDI" in by_indexer and by_indexer["CDI"] > 70:

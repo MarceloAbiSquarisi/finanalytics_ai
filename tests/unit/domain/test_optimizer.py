@@ -44,6 +44,7 @@ Cobertura:
     - valida dados insuficientes -> BacktestError
     - retorna WalkForwardResult correto
 """
+
 from __future__ import annotations
 
 import math
@@ -73,6 +74,7 @@ from finanalytics_ai.domain.backtesting.engine import BacktestMetrics
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _bars(n: int = 150, pattern: str = "sine") -> list[dict]:
     """Gera barras sinteticas com volume suficiente para grid search."""
     if pattern == "sine":
@@ -86,8 +88,14 @@ def _bars(n: int = 150, pattern: str = "sine") -> list[dict]:
     else:
         prices = [100.0] * n
     return [
-        {"time": 1_700_000_000 + i * 86400, "open": p, "high": p * 1.01,
-         "low": p * 0.99, "close": p, "volume": 1000}
+        {
+            "time": 1_700_000_000 + i * 86400,
+            "open": p,
+            "high": p * 1.01,
+            "low": p * 0.99,
+            "close": p,
+            "volume": 1000,
+        }
         for i, p in enumerate(prices)
     ]
 
@@ -95,17 +103,27 @@ def _bars(n: int = 150, pattern: str = "sine") -> list[dict]:
 def _dummy_metrics(**kwargs) -> BacktestMetrics:
     """Cria BacktestMetrics com valores padrao sobrescritos por kwargs."""
     defaults = dict(
-        total_return_pct=5.0, sharpe_ratio=1.0, max_drawdown_pct=5.0,
-        win_rate_pct=60.0, profit_factor=1.5, calmar_ratio=1.0,
-        total_trades=10, winning_trades=6, losing_trades=4,
-        avg_win_pct=3.0, avg_loss_pct=-2.0, avg_duration_days=5.0,
-        initial_capital=10_000.0, final_equity=10_500.0,
+        total_return_pct=5.0,
+        sharpe_ratio=1.0,
+        max_drawdown_pct=5.0,
+        win_rate_pct=60.0,
+        profit_factor=1.5,
+        calmar_ratio=1.0,
+        total_trades=10,
+        winning_trades=6,
+        losing_trades=4,
+        avg_win_pct=3.0,
+        avg_loss_pct=-2.0,
+        avg_duration_days=5.0,
+        initial_capital=10_000.0,
+        final_equity=10_500.0,
     )
     defaults.update(kwargs)
     return BacktestMetrics(**defaults)
 
 
 # ── OptimizationObjective & _score ────────────────────────────────────────────
+
 
 class TestOptimizationObjective:
     def test_all_values_exist(self):
@@ -135,36 +153,38 @@ class TestOptimizationObjective:
 
 # ── _filter_invalid ───────────────────────────────────────────────────────────
 
+
 class TestFilterInvalid:
     def test_ema_cross_removes_fast_gte_slow(self):
-        names  = ["fast", "slow"]
+        names = ["fast", "slow"]
         combos = [(5, 13), (9, 9), (21, 13), (9, 21), (13, 34)]
-        valid  = _filter_invalid("ema_cross", names, combos)
+        valid = _filter_invalid("ema_cross", names, combos)
         for combo in valid:
             p = dict(zip(names, combo))
             assert p["fast"] < p["slow"], f"Invalid combo passed: {combo}"
 
     def test_macd_removes_fast_gte_slow(self):
-        names  = ["fast", "slow"]
+        names = ["fast", "slow"]
         combos = [(8, 26), (12, 12), (26, 8), (10, 24)]
-        valid  = _filter_invalid("macd", names, combos)
+        valid = _filter_invalid("macd", names, combos)
         for combo in valid:
             p = dict(zip(names, combo))
             assert p["fast"] < p["slow"]
 
     def test_rsi_passes_all_combos(self):
-        names  = ["period", "oversold", "overbought"]
+        names = ["period", "oversold", "overbought"]
         combos = [(7, 30.0, 70.0), (14, 25.0, 75.0)]
-        valid  = _filter_invalid("rsi", names, combos)
+        valid = _filter_invalid("rsi", names, combos)
         assert len(valid) == len(combos)
 
     def test_unknown_strategy_passes_all(self):
-        names  = ["a", "b"]
+        names = ["a", "b"]
         combos = [(1, 2), (3, 4)]
         assert _filter_invalid("unknown", names, combos) == combos
 
 
 # ── grid_search ───────────────────────────────────────────────────────────────
+
 
 class TestGridSearch:
     @pytest.fixture
@@ -217,8 +237,8 @@ class TestGridSearch:
 
     def test_grid_too_large_raises_value_error(self, bars_sine):
         huge_space = {
-            "period":     list(range(5, 55)),   # 50
-            "oversold":   list(range(10, 50)),  # 40
+            "period": list(range(5, 55)),  # 50
+            "oversold": list(range(10, 50)),  # 40
             "overbought": list(range(55, 90)),  # 35
         }  # 50*40*35 = 70,000
         with pytest.raises(ValueError, match="limite"):
@@ -226,14 +246,23 @@ class TestGridSearch:
 
     def test_custom_space_overrides_default(self, bars_sine):
         custom = {"period": [7, 14], "oversold": [30.0], "overbought": [70.0]}
-        result  = grid_search(bars_sine, "rsi", custom_space=custom)
+        result = grid_search(bars_sine, "rsi", custom_space=custom)
         assert result.total_runs == 2 * 1 * 1
 
     def test_to_dict_keys(self, bars_sine):
         d = grid_search(bars_sine, "rsi").to_dict()
-        required = {"ticker", "strategy", "range_period", "objective",
-                    "total_runs", "valid_runs", "top", "heatmap",
-                    "best_params", "best_score"}
+        required = {
+            "ticker",
+            "strategy",
+            "range_period",
+            "objective",
+            "total_runs",
+            "valid_runs",
+            "top",
+            "heatmap",
+            "best_params",
+            "best_score",
+        }
         assert required <= set(d.keys())
 
     def test_best_params_is_dict(self, bars_sine):
@@ -275,14 +304,16 @@ class TestGridSearch:
     def test_penalized_invalid_runs_have_negative_score(self, bars_sine):
         """Runs com poucos trades devem aparecer no final do ranking."""
         result = grid_search(bars_sine, "rsi")
-        valid_positions   = [i for i, r in enumerate(result.top) if r.is_valid]
+        valid_positions = [i for i, r in enumerate(result.top) if r.is_valid]
         invalid_positions = [i for i, r in enumerate(result.top) if not r.is_valid]
         if valid_positions and invalid_positions:
-            assert max(valid_positions) < max(invalid_positions) or \
-                   min(valid_positions) < min(invalid_positions)
+            assert max(valid_positions) < max(invalid_positions) or min(valid_positions) < min(
+                invalid_positions
+            )
 
 
 # ── walk_forward ──────────────────────────────────────────────────────────────
+
 
 class TestWalkForward:
     @pytest.fixture
@@ -298,7 +329,7 @@ class TestWalkForward:
         """Todos os folds devem ter is_bars + oos_bars > 0."""
         result = walk_forward(bars_long, "rsi", n_splits=3, oos_pct=0.3)
         for f in result.folds:
-            assert f.is_bars  > 0
+            assert f.is_bars > 0
             assert f.oos_bars > 0
 
     def test_rolling_is_size_constant(self, bars_long):
@@ -352,10 +383,21 @@ class TestWalkForward:
     def test_to_dict_required_keys(self, bars_long):
         d = walk_forward(bars_long, "rsi", n_splits=3).to_dict()
         required = {
-            "ticker", "strategy", "range_period", "objective",
-            "n_splits", "anchored", "total_bars", "folds",
-            "avg_oos_score", "avg_is_score", "efficiency_ratio",
-            "consistency", "degradation", "combined_equity", "combined_return",
+            "ticker",
+            "strategy",
+            "range_period",
+            "objective",
+            "n_splits",
+            "anchored",
+            "total_bars",
+            "folds",
+            "avg_oos_score",
+            "avg_is_score",
+            "efficiency_ratio",
+            "consistency",
+            "degradation",
+            "combined_equity",
+            "combined_return",
         }
         assert required <= set(d.keys())
 
@@ -363,8 +405,14 @@ class TestWalkForward:
         result = walk_forward(bars_long, "rsi", n_splits=3)
         d = result.folds[0].to_dict()
         required = {
-            "fold", "is_bars", "oos_bars", "best_params",
-            "best_is_score", "best_is_trades", "oos_score", "oos_valid",
+            "fold",
+            "is_bars",
+            "oos_bars",
+            "best_params",
+            "best_is_score",
+            "best_is_trades",
+            "oos_score",
+            "oos_valid",
         }
         assert required <= set(d.keys())
 
@@ -380,9 +428,9 @@ class TestWalkForward:
     def test_n_splits_clamped_to_range(self):
         """n_splits fora de [2, 6] e silenciosamente clampado."""
         bars = _bars(300, "sine")
-        r_low  = walk_forward(bars, "rsi", n_splits=0)   # clampa para 2
+        r_low = walk_forward(bars, "rsi", n_splits=0)  # clampa para 2
         r_high = walk_forward(bars, "rsi", n_splits=99)  # clampa para 6
-        assert len(r_low.folds)  >= 2
+        assert len(r_low.folds) >= 2
         assert len(r_high.folds) <= 6
 
     @pytest.mark.parametrize("strategy", ["rsi", "macd", "bollinger", "ema_cross", "momentum"])
@@ -393,14 +441,15 @@ class TestWalkForward:
 
     def test_oos_pct_affects_fold_sizes(self):
         bars = _bars(300, "sine")
-        r20  = walk_forward(bars, "rsi", n_splits=3, oos_pct=0.2)
-        r40  = walk_forward(bars, "rsi", n_splits=3, oos_pct=0.4)
+        r20 = walk_forward(bars, "rsi", n_splits=3, oos_pct=0.2)
+        r40 = walk_forward(bars, "rsi", n_splits=3, oos_pct=0.4)
         oos_avg_20 = sum(f.oos_bars for f in r20.folds) / len(r20.folds)
         oos_avg_40 = sum(f.oos_bars for f in r40.folds) / len(r40.folds)
         assert oos_avg_40 > oos_avg_20, "Maior oos_pct deve gerar janelas OOS maiores"
 
 
 # ── OptimizerService ──────────────────────────────────────────────────────────
+
 
 class TestOptimizerService:
     def _make_service(self, bars: list[dict]) -> tuple[OptimizerService, AsyncMock]:
@@ -463,6 +512,7 @@ class TestOptimizerService:
 
 # ── WalkForwardService ────────────────────────────────────────────────────────
 
+
 class TestWalkForwardService:
     def _make_service(self, bars: list[dict]) -> tuple[WalkForwardService, AsyncMock]:
         mock_brapi = AsyncMock()
@@ -511,9 +561,9 @@ class TestWalkForwardService:
     @pytest.mark.asyncio
     async def test_anchored_flag_reflected_in_result(self):
         svc, _ = self._make_service(_bars(300))
-        r_rolling  = await svc.run("PETR4", "rsi", n_splits=3, anchored=False)
+        r_rolling = await svc.run("PETR4", "rsi", n_splits=3, anchored=False)
         r_anchored = await svc.run("PETR4", "rsi", n_splits=3, anchored=True)
-        assert r_rolling.anchored  is False
+        assert r_rolling.anchored is False
         assert r_anchored.anchored is True
 
     @pytest.mark.asyncio

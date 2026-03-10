@@ -333,9 +333,7 @@ class ETFService:
         etf_dates, etf_prices = _extract_prices(etf_bars)
         bench_dates, bench_prices = _extract_prices(bench_bars)
 
-        aligned_etf, aligned_bench = _align_series(
-            (etf_dates, etf_prices), (bench_dates, bench_prices)
-        )
+        aligned_etf, aligned_bench = _align_series((etf_dates, etf_prices), (bench_dates, bench_prices))
 
         if len(aligned_etf) < 10:
             raise ValueError("Datas comuns insuficientes para calcular tracking error.")
@@ -644,19 +642,16 @@ def _te_interpretation(r: TrackingErrorResult) -> dict[str, str]:
     elif te < 3.0:
         te_msg = f"Tracking error de {te:.2f}% — desvio moderado. Verifique erros de replicação."
     else:
-        te_msg = (
-            f"Tracking error de {te:.2f}% — desvio elevado. ETF pode ter problemas de liquidez."
-        )
+        te_msg = f"Tracking error de {te:.2f}% — desvio elevado. ETF pode ter problemas de liquidez."
 
     if td > 0:
         td_msg = (
-            f"Custo implícito de {td:.2f}% no período"
-            " (benchmark superou o ETF). Normal para ETFs com TER."
+            f"Custo implícito de {td:.2f}% no período (benchmark superou o ETF). Normal para ETFs com TER."
         )
     else:
         td_msg = f"ETF superou o benchmark em {abs(td):.2f}% (tracking difference positiva — raro)."
 
-    corr_fidelity = 'alta fidelidade' if corr > 0.98 else 'fidelidade moderada'
+    corr_fidelity = "alta fidelidade" if corr > 0.98 else "fidelidade moderada"
     corr_msg = f"Correlação de {corr:.2f} com benchmark — {corr_fidelity}."
 
     return {"tracking_error": te_msg, "tracking_diff": td_msg, "correlation": corr_msg}

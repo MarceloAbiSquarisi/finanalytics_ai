@@ -67,6 +67,7 @@ Cobertura:
     - path correto: /quote/A,B,C?fundamental=true
     - erro HTTP retorna [] (sem raise)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -95,6 +96,7 @@ from finanalytics_ai.domain.screener.engine import (
 
 # ── Factories ─────────────────────────────────────────────────────────────────
 
+
 def _stock(
     ticker: str = "TEST3",
     pe: float | None = 10.0,
@@ -111,12 +113,24 @@ def _stock(
     price: float | None = 30.0,
 ) -> FundamentalData:
     return FundamentalData(
-        ticker=ticker, name="Test Corp", sector=sector,
-        price=price, market_cap=market_cap,
-        pe=pe, pvp=pvp, dy=dy, roe=roe, roic=roic,
-        net_margin=net_margin, ebitda_margin=ebitda_margin,
-        debt_equity=debt_equity, revenue_growth=revenue_growth,
-        eps=2.0, high_52w=40.0, low_52w=20.0, volume=1e6,
+        ticker=ticker,
+        name="Test Corp",
+        sector=sector,
+        price=price,
+        market_cap=market_cap,
+        pe=pe,
+        pvp=pvp,
+        dy=dy,
+        roe=roe,
+        roic=roic,
+        net_margin=net_margin,
+        ebitda_margin=ebitda_margin,
+        debt_equity=debt_equity,
+        revenue_growth=revenue_growth,
+        eps=2.0,
+        high_52w=40.0,
+        low_52w=20.0,
+        volume=1e6,
     )
 
 
@@ -124,34 +138,35 @@ def _brapi_raw(
     symbol: str = "TEST3",
     price_earnings: float | None = 10.0,
     price_to_book: float | None = 1.5,
-    dividend_yield: float | None = 0.05,   # decimal
-    roe: float | None = 0.15,              # decimal
+    dividend_yield: float | None = 0.05,  # decimal
+    roe: float | None = 0.15,  # decimal
     sector: str = "Technology",
     market_cap: float = 50e9,
 ) -> dict:
     return {
-        "symbol":                 symbol,
-        "longName":               "Test Corp",
-        "sector":                 sector,
-        "regularMarketPrice":     30.0,
-        "marketCap":              market_cap,
-        "priceEarnings":          price_earnings,
-        "priceToBook":            price_to_book,
-        "dividendYield":          dividend_yield,
-        "returnOnEquity":         roe,
+        "symbol": symbol,
+        "longName": "Test Corp",
+        "sector": sector,
+        "regularMarketPrice": 30.0,
+        "marketCap": market_cap,
+        "priceEarnings": price_earnings,
+        "priceToBook": price_to_book,
+        "dividendYield": dividend_yield,
+        "returnOnEquity": roe,
         "returnOnInvestedCapital": 0.12,
-        "ebitdaMargins":          0.20,
-        "profitMargins":          0.10,
-        "debtToEquity":           1.0,
-        "revenueGrowth":          0.08,
-        "earningsPerShare":       2.0,
-        "fiftyTwoWeekHigh":       40.0,
-        "fiftyTwoWeekLow":        20.0,
-        "regularMarketVolume":    1e6,
+        "ebitdaMargins": 0.20,
+        "profitMargins": 0.10,
+        "debtToEquity": 1.0,
+        "revenueGrowth": 0.08,
+        "earningsPerShare": 2.0,
+        "fiftyTwoWeekHigh": 40.0,
+        "fiftyTwoWeekLow": 20.0,
+        "regularMarketVolume": 1e6,
     }
 
 
 # ── FundamentalData ───────────────────────────────────────────────────────────
+
 
 class TestFundamentalData:
     def test_to_dict_has_all_fields(self):
@@ -162,7 +177,7 @@ class TestFundamentalData:
 
     def test_to_dict_has_derived_fields(self):
         d = _stock().to_dict()
-        assert "pct_from_low"  in d
+        assert "pct_from_low" in d
         assert "pct_from_high" in d
 
     def test_pct_from_low_correct(self):
@@ -189,6 +204,7 @@ class TestFundamentalData:
 
 
 # ── FilterCriteria ────────────────────────────────────────────────────────────
+
 
 class TestFilterCriteria:
     def test_is_empty_all_none(self):
@@ -217,6 +233,7 @@ class TestFilterCriteria:
 
 
 # ── _passes_range ─────────────────────────────────────────────────────────────
+
 
 class TestPassesRange:
     def test_none_value_always_passes(self):
@@ -248,6 +265,7 @@ class TestPassesRange:
 
 
 # ── apply_filters ─────────────────────────────────────────────────────────────
+
 
 class TestApplyFilters:
     def test_empty_criteria_passes_all(self):
@@ -296,7 +314,7 @@ class TestApplyFilters:
     def test_market_cap_min_in_billions(self):
         stocks = [
             _stock("A", market_cap=100e9),  # 100B
-            _stock("B", market_cap=5e9),    #   5B
+            _stock("B", market_cap=5e9),  #   5B
         ]
         result = apply_filters(stocks, FilterCriteria(market_cap_min=20.0))  # 20B
         assert len(result) == 1
@@ -304,7 +322,7 @@ class TestApplyFilters:
 
     def test_market_cap_max_in_billions(self):
         stocks = [
-            _stock("A", market_cap=10e9),   # 10B
+            _stock("A", market_cap=10e9),  # 10B
             _stock("B", market_cap=200e9),  # 200B
         ]
         result = apply_filters(stocks, FilterCriteria(market_cap_max=50.0))  # 50B
@@ -313,9 +331,9 @@ class TestApplyFilters:
 
     def test_multiple_filters_and_logic(self):
         stocks = [
-            _stock("A", pe=8.0,  dy=7.0, roe=18.0),
-            _stock("B", pe=8.0,  dy=2.0, roe=18.0),   # dy falha
-            _stock("C", pe=25.0, dy=7.0, roe=18.0),   # pe falha
+            _stock("A", pe=8.0, dy=7.0, roe=18.0),
+            _stock("B", pe=8.0, dy=2.0, roe=18.0),  # dy falha
+            _stock("C", pe=25.0, dy=7.0, roe=18.0),  # pe falha
         ]
         c = FilterCriteria(pe_max=15.0, dy_min=5.0)
         result = apply_filters(stocks, c)
@@ -331,7 +349,7 @@ class TestApplyFilters:
     def test_sorted_by_score_desc(self):
         # A tem ROE alto e DY alto (score maior), B tem score menor
         a = _stock("A", roe=30.0, dy=10.0, pe=8.0)
-        b = _stock("B", roe=5.0,  dy=1.0,  pe=40.0)
+        b = _stock("B", roe=5.0, dy=1.0, pe=40.0)
         result = apply_filters([b, a], FilterCriteria())
         assert result[0].ticker == "A"
 
@@ -347,14 +365,15 @@ class TestApplyFilters:
 
 # ── _composite_score ──────────────────────────────────────────────────────────
 
+
 class TestCompositeScore:
     def test_high_roe_dy_increases_score(self):
         high = _stock("A", roe=30.0, dy=10.0, pe=10.0, pvp=1.0)
-        low  = _stock("B", roe=5.0,  dy=1.0,  pe=10.0, pvp=1.0)
+        low = _stock("B", roe=5.0, dy=1.0, pe=10.0, pvp=1.0)
         assert _composite_score(high) > _composite_score(low)
 
     def test_high_pe_penalizes(self):
-        a = _stock("A", pe=8.0,  roe=15.0)
+        a = _stock("A", pe=8.0, roe=15.0)
         b = _stock("B", pe=50.0, roe=15.0)
         assert _composite_score(a) > _composite_score(b)
 
@@ -370,12 +389,13 @@ class TestCompositeScore:
         assert score == pytest.approx(0.0)
 
     def test_score_differentiates_profiles(self):
-        quality  = _stock("A", roe=25.0, roic=18.0, dy=6.0, pe=12.0, debt_equity=0.5)
-        mediocre = _stock("B", roe=8.0,  roic=6.0,  dy=1.0, pe=35.0, debt_equity=3.0)
+        quality = _stock("A", roe=25.0, roic=18.0, dy=6.0, pe=12.0, debt_equity=0.5)
+        mediocre = _stock("B", roe=8.0, roic=6.0, dy=1.0, pe=35.0, debt_equity=3.0)
         assert _composite_score(quality) > _composite_score(mediocre)
 
 
 # ── _parse_fundamental / helpers ──────────────────────────────────────────────
+
 
 class TestParseFundamental:
     def test_decimal_dy_converted_to_pct(self):
@@ -406,8 +426,8 @@ class TestParseFundamental:
 
     def test_pct_helper_decimal_to_percent(self):
         assert _pct(0.15) == pytest.approx(15.0)
-        assert _pct(0.0)  == pytest.approx(0.0)
-        assert _pct(None)  is None
+        assert _pct(0.0) == pytest.approx(0.0)
+        assert _pct(None) is None
         assert _pct("bad") is None
 
     def test_num_helper(self):
@@ -418,6 +438,7 @@ class TestParseFundamental:
 
 # ── ScreenerService ───────────────────────────────────────────────────────────
 
+
 class TestScreenerService:
     def _make_svc(self) -> ScreenerService:
         return ScreenerService(AsyncMock())
@@ -425,6 +446,7 @@ class TestScreenerService:
     def _patch_brapi(self, svc: ScreenerService, raw_data: list[dict]) -> None:
         async def _fake(tickers):
             return [r for r in raw_data if r.get("symbol") in tickers]
+
         svc._brapi.get_fundamentals_batch = _fake
 
     @pytest.mark.asyncio
@@ -452,7 +474,8 @@ class TestScreenerService:
         self._patch_brapi(svc, raw)
         r = await svc.screen(
             FilterCriteria(pe_max=15.0),
-            extra_tickers=["A", "B"], use_universe=False,
+            extra_tickers=["A", "B"],
+            use_universe=False,
         )
         assert r.total_passed == 1
         assert r.stocks[0].ticker == "A"
@@ -466,7 +489,7 @@ class TestScreenerService:
             _brapi_raw("C", sector="Energy"),
         ]
         self._patch_brapi(svc, raw)
-        r = await svc.screen(FilterCriteria(), extra_tickers=["A","B","C"], use_universe=False)
+        r = await svc.screen(FilterCriteria(), extra_tickers=["A", "B", "C"], use_universe=False)
         assert set(r.sectors) == {"Energy", "Financial Services"}
 
     @pytest.mark.asyncio
@@ -474,16 +497,18 @@ class TestScreenerService:
         svc = self._make_svc()
         raw = [_brapi_raw("A", sector=""), _brapi_raw("B", sector="Energy")]
         self._patch_brapi(svc, raw)
-        r = await svc.screen(FilterCriteria(), extra_tickers=["A","B"], use_universe=False)
+        r = await svc.screen(FilterCriteria(), extra_tickers=["A", "B"], use_universe=False)
         assert "" not in r.sectors
 
     @pytest.mark.asyncio
     async def test_use_universe_true_includes_ibov(self):
         svc = self._make_svc()
         batches_seen: list[list[str]] = []
+
         async def _capture(tickers):
             batches_seen.extend(tickers)
             return [_brapi_raw(t) for t in tickers]
+
         svc._brapi.get_fundamentals_batch = _capture
         await svc.screen(FilterCriteria(), use_universe=True)
         all_fetched = set(batches_seen)
@@ -494,9 +519,11 @@ class TestScreenerService:
     async def test_use_universe_false_only_extra(self):
         svc = self._make_svc()
         batches_seen: list[str] = []
+
         async def _capture(tickers):
             batches_seen.extend(tickers)
             return [_brapi_raw(t) for t in tickers]
+
         svc._brapi.get_fundamentals_batch = _capture
         await svc.screen(FilterCriteria(), extra_tickers=["XXXX"], use_universe=False)
         assert batches_seen == ["XXXX"]
@@ -511,11 +538,13 @@ class TestScreenerService:
     async def test_batch_failure_does_not_cancel_others(self):
         svc = self._make_svc()
         call_count = [0]
+
         async def _partial(tickers):
             call_count[0] += 1
             if call_count[0] == 1:
                 raise RuntimeError("timeout")
             return [_brapi_raw(t) for t in tickers]
+
         svc._brapi.get_fundamentals_batch = _partial
         # Com 2 batches, um falha — resultado parcial
         r = await svc.screen(
@@ -529,9 +558,11 @@ class TestScreenerService:
     async def test_extra_tickers_capped_at_max(self):
         svc = self._make_svc()
         batches_seen: list[str] = []
+
         async def _capture(tickers):
             batches_seen.extend(tickers)
             return []
+
         svc._brapi.get_fundamentals_batch = _capture
         # 25 extras -> capped a MAX_CUSTOM=20
         extras = [f"X{i}" for i in range(25)]
@@ -545,6 +576,7 @@ class TestScreenerService:
         r = await svc.screen(FilterCriteria(), extra_tickers=["PETR4"], use_universe=False)
         d = r.to_dict()
         import json
+
         # Deve serializar sem erros
         json_str = json.dumps(d)
         assert "total_universe" in json_str
@@ -553,10 +585,10 @@ class TestScreenerService:
     async def test_result_sorted_by_score(self):
         svc = self._make_svc()
         raw = [
-            _brapi_raw("LOW",  roe=0.03, dividend_yield=0.01),
+            _brapi_raw("LOW", roe=0.03, dividend_yield=0.01),
             _brapi_raw("HIGH", roe=0.30, dividend_yield=0.10),
         ]
         self._patch_brapi(svc, raw)
-        r = await svc.screen(FilterCriteria(), extra_tickers=["LOW","HIGH"], use_universe=False)
+        r = await svc.screen(FilterCriteria(), extra_tickers=["LOW", "HIGH"], use_universe=False)
         if len(r.stocks) == 2:
             assert r.stocks[0].ticker == "HIGH"

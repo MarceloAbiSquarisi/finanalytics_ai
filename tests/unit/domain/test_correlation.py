@@ -58,6 +58,7 @@ Cobertura:
     - tickers normalizados para uppercase
     - to_dict com todas as chaves
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -84,10 +85,17 @@ from finanalytics_ai.domain.correlation.engine import (
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _bars(closes: list[float], base_ts: int = 1_700_000_000) -> list[dict]:
     return [
-        {"time": base_ts + i * 86400, "open": c, "high": c * 1.01,
-         "low": c * 0.99, "close": c, "volume": 1000}
+        {
+            "time": base_ts + i * 86400,
+            "open": c,
+            "high": c * 1.01,
+            "low": c * 0.99,
+            "close": c,
+            "volume": 1000,
+        }
         for i, c in enumerate(closes)
     ]
 
@@ -101,6 +109,7 @@ def _ramp(n: int = 30, start: float = 100.0, step: float = 1.0) -> list[dict]:
 
 
 # ── extract_returns ───────────────────────────────────────────────────────────
+
 
 class TestExtractReturns:
     def test_empty_returns_empty(self):
@@ -130,11 +139,11 @@ class TestExtractReturns:
 
     def test_key_is_current_bar_timestamp(self):
         bars = _bars([100.0, 110.0])
-        ts_first  = bars[0]["time"]
+        ts_first = bars[0]["time"]
         ts_second = bars[1]["time"]
         r = extract_returns(bars)
         assert ts_second in r
-        assert ts_first  not in r
+        assert ts_first not in r
 
     def test_multiple_returns_correct(self):
         bars = _bars([100.0, 110.0, 99.0])
@@ -145,6 +154,7 @@ class TestExtractReturns:
 
 
 # ── align_returns ─────────────────────────────────────────────────────────────
+
 
 class TestAlignReturns:
     def test_empty_map(self):
@@ -179,7 +189,7 @@ class TestAlignReturns:
 
     def test_values_correspond_to_timestamps(self):
         a = {1: 10.0, 2: 20.0, 3: 30.0}
-        b = {1: 1.0,  2: 2.0,  3: 3.0}
+        b = {1: 1.0, 2: 2.0, 3: 3.0}
         ts, aligned = align_returns({"A": a, "B": b})
         for i, t in enumerate(ts):
             assert aligned["A"][i] == a[t]
@@ -187,6 +197,7 @@ class TestAlignReturns:
 
 
 # ── _pearson ──────────────────────────────────────────────────────────────────
+
 
 class TestPearson:
     def test_perfect_positive_correlation(self):
@@ -220,6 +231,7 @@ class TestPearson:
 
     def test_result_in_minus1_to_1(self):
         import random
+
         random.seed(42)
         x = [random.gauss(0, 1) for _ in range(50)]
         y = [random.gauss(0, 1) for _ in range(50)]
@@ -238,6 +250,7 @@ class TestPearson:
 
 
 # ── correlation_matrix ────────────────────────────────────────────────────────
+
 
 class TestCorrelationMatrix:
     def test_diagonal_is_one(self):
@@ -287,6 +300,7 @@ class TestCorrelationMatrix:
 
 # ── rolling_correlation ───────────────────────────────────────────────────────
 
+
 class TestRollingCorrelation:
     def test_correct_length(self):
         n = 50
@@ -303,17 +317,18 @@ class TestRollingCorrelation:
 
     def test_result_in_minus1_to_1(self):
         import random
+
         random.seed(7)
         n = 60
-        x  = [random.gauss(0, 1) for _ in range(n)]
-        y  = [random.gauss(0, 1) for _ in range(n)]
+        x = [random.gauss(0, 1) for _ in range(n)]
+        y = [random.gauss(0, 1) for _ in range(n)]
         ts = list(range(n))
         for pt in rolling_correlation(x, y, ts, window=20):
             assert -1.0 <= pt["correlation"] <= 1.0
 
     def test_timestamps_correct(self):
         n = 20
-        x  = list(range(n))
+        x = list(range(n))
         ts = [1000 + i * 86400 for i in range(n)]
         result = rolling_correlation(x, x, ts, window=5)
         # Primeiro ponto: indice 4 (window-1)
@@ -321,20 +336,21 @@ class TestRollingCorrelation:
         assert result[-1]["time"] == ts[-1]
 
     def test_result_has_required_keys(self):
-        x  = list(range(30))
+        x = list(range(30))
         ts = list(range(30))
         for pt in rolling_correlation(x, x, ts, window=10):
-            assert "time"        in pt
+            assert "time" in pt
             assert "correlation" in pt
 
     def test_identical_series_always_one(self):
-        x  = [1.0, 2.0, 1.5, 3.0, 2.5, 4.0, 3.5, 5.0, 4.5, 6.0, 5.5]
+        x = [1.0, 2.0, 1.5, 3.0, 2.5, 4.0, 3.5, 5.0, 4.5, 6.0, 5.5]
         ts = list(range(len(x)))
         for pt in rolling_correlation(x, x, ts, window=5):
             assert pt["correlation"] == pytest.approx(1.0)
 
 
 # ── build_correlation_result ──────────────────────────────────────────────────
+
 
 class TestBuildCorrelationResult:
     @pytest.fixture
@@ -410,9 +426,19 @@ class TestBuildCorrelationResult:
 
     def test_to_dict_required_keys(self, two_ticker_map):
         d = build_correlation_result(two_ticker_map, "1y").to_dict()
-        required = {"tickers", "range_period", "common_bars", "matrix",
-                    "most_correlated", "least_correlated", "diversification_score",
-                    "rolling_pairs", "errors", "total_tickers", "failed_tickers"}
+        required = {
+            "tickers",
+            "range_period",
+            "common_bars",
+            "matrix",
+            "most_correlated",
+            "least_correlated",
+            "diversification_score",
+            "rolling_pairs",
+            "errors",
+            "total_tickers",
+            "failed_tickers",
+        }
         assert required <= set(d.keys())
 
     def test_metadata_preserved(self, two_ticker_map):
@@ -432,27 +458,33 @@ class TestBuildCorrelationResult:
 
 # ── CorrelationService ────────────────────────────────────────────────────────
 
+
 class TestCorrelationService:
     def _make_svc(self) -> CorrelationService:
         return CorrelationService(AsyncMock())
 
     def _patch_brapi(self, svc: CorrelationService, bars_by_ticker: dict):
         """bars_by_ticker: {ticker: list[bars] | Exception}"""
+
         async def _fake(ticker, **kw):
             key = str(ticker).upper()
             result = bars_by_ticker.get(key)
             if isinstance(result, Exception):
                 raise result
             return result or _ramp(50)
+
         svc._brapi.get_ohlc_bars = _fake
 
     @pytest.mark.asyncio
     async def test_returns_correlation_result(self):
         svc = self._make_svc()
-        self._patch_brapi(svc, {
-            "PETR4": _ramp(50),
-            "VALE3": _ramp(50, 80.0, 0.9),
-        })
+        self._patch_brapi(
+            svc,
+            {
+                "PETR4": _ramp(50),
+                "VALE3": _ramp(50, 80.0, 0.9),
+            },
+        )
         r = await svc.compute(["PETR4", "VALE3"])
         assert isinstance(r, CorrelationResult)
         assert r.common_bars > 0
@@ -460,10 +492,13 @@ class TestCorrelationService:
     @pytest.mark.asyncio
     async def test_matrix_has_both_tickers(self):
         svc = self._make_svc()
-        self._patch_brapi(svc, {
-            "PETR4": _ramp(50),
-            "VALE3": _ramp(50),
-        })
+        self._patch_brapi(
+            svc,
+            {
+                "PETR4": _ramp(50),
+                "VALE3": _ramp(50),
+            },
+        )
         r = await svc.compute(["PETR4", "VALE3"])
         assert "PETR4" in r.matrix
         assert "VALE3" in r.matrix
@@ -489,11 +524,14 @@ class TestCorrelationService:
     @pytest.mark.asyncio
     async def test_one_ticker_fails_partial_success(self):
         svc = self._make_svc()
-        self._patch_brapi(svc, {
-            "PETR4": _ramp(50),
-            "VALE3": _ramp(50),
-            "XXXX":  RuntimeError("Ticker invalido"),
-        })
+        self._patch_brapi(
+            svc,
+            {
+                "PETR4": _ramp(50),
+                "VALE3": _ramp(50),
+                "XXXX": RuntimeError("Ticker invalido"),
+            },
+        )
         r = await svc.compute(["PETR4", "VALE3", "XXXX"])
         assert len(r.errors) == 1
         assert r.errors[0]["ticker"] == "XXXX"
@@ -502,20 +540,26 @@ class TestCorrelationService:
     @pytest.mark.asyncio
     async def test_all_tickers_fail_raises(self):
         svc = self._make_svc()
-        self._patch_brapi(svc, {
-            "A": RuntimeError("err"),
-            "B": RuntimeError("err"),
-        })
+        self._patch_brapi(
+            svc,
+            {
+                "A": RuntimeError("err"),
+                "B": RuntimeError("err"),
+            },
+        )
         with pytest.raises(BacktestError, match="validos para apenas"):
             await svc.compute(["A", "B"])
 
     @pytest.mark.asyncio
     async def test_one_valid_ticker_raises(self):
         svc = self._make_svc()
-        self._patch_brapi(svc, {
-            "A": _ramp(50),
-            "B": RuntimeError("err"),
-        })
+        self._patch_brapi(
+            svc,
+            {
+                "A": _ramp(50),
+                "B": RuntimeError("err"),
+            },
+        )
         with pytest.raises(BacktestError, match="validos para apenas"):
             await svc.compute(["A", "B"])
 
@@ -523,9 +567,11 @@ class TestCorrelationService:
     async def test_tickers_normalized_uppercase(self):
         svc = self._make_svc()
         seen: list[str] = []
+
         async def _capture(ticker, **kw):
             seen.append(str(ticker))
             return _ramp(50)
+
         svc._brapi.get_ohlc_bars = _capture
         await svc.compute(["petr4", "vale3"])
         assert all(t.isupper() for t in seen)
@@ -553,17 +599,22 @@ class TestCorrelationService:
         self._patch_brapi(svc, {"PETR4": _ramp(50), "VALE3": _ramp(50, 80.0)})
         r = await svc.compute(["PETR4", "VALE3"])
         d = r.to_dict()
-        assert all(k in d for k in ["matrix", "rolling_pairs", "diversification_score",
-                                     "common_bars", "most_correlated"])
+        assert all(
+            k in d
+            for k in ["matrix", "rolling_pairs", "diversification_score", "common_bars", "most_correlated"]
+        )
 
     @pytest.mark.asyncio
     async def test_three_tickers_all_pairs(self):
         svc = self._make_svc()
-        self._patch_brapi(svc, {
-            "PETR4": _ramp(50),
-            "VALE3": _ramp(50, 80.0),
-            "ITUB4": _ramp(50, 30.0, 0.3),
-        })
+        self._patch_brapi(
+            svc,
+            {
+                "PETR4": _ramp(50),
+                "VALE3": _ramp(50, 80.0),
+                "ITUB4": _ramp(50, 30.0, 0.3),
+            },
+        )
         r = await svc.compute(["PETR4", "VALE3", "ITUB4"])
         expected = {"PETR4/VALE3", "PETR4/ITUB4", "VALE3/ITUB4"}
         assert expected == set(r.rolling_pairs.keys())
@@ -571,6 +622,7 @@ class TestCorrelationService:
     @pytest.mark.asyncio
     async def test_semaphore_limits_concurrency(self):
         from finanalytics_ai.application.services.correlation_service import MAX_CONCURRENT
+
         active = [0]
         max_seen = [0]
         lock = asyncio.Lock()

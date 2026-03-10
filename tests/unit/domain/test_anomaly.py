@@ -63,6 +63,7 @@ Cobertura:
     - config repassado ao engine
     - scan_single retorna AnomalyResult
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -94,12 +95,20 @@ from finanalytics_ai.domain.anomaly.engine import (
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _bars(closes: list[float], volumes: list[float] | None = None,
-          base_ts: int = 1_700_000_000) -> list[dict]:
+
+def _bars(
+    closes: list[float], volumes: list[float] | None = None, base_ts: int = 1_700_000_000
+) -> list[dict]:
     vols = volumes or [1_000_000.0] * len(closes)
     return [
-        {"time": base_ts + i * 86400, "open": c, "high": c * 1.01,
-         "low": c * 0.99, "close": c, "volume": int(vols[i])}
+        {
+            "time": base_ts + i * 86400,
+            "open": c,
+            "high": c * 1.01,
+            "low": c * 0.99,
+            "close": c,
+            "volume": int(vols[i]),
+        }
         for i, c in enumerate(closes)
     ]
 
@@ -112,10 +121,12 @@ def _ramp_bars(n: int = 50, start: float = 100.0, step: float = 0.1) -> list[dic
     return _bars([start + i * step for i in range(n)])
 
 
-def _noisy_bars(n: int = 40, seed: int = 42, spike_pct: float | None = None,
-                crash_pct: float | None = None) -> list[dict]:
+def _noisy_bars(
+    n: int = 40, seed: int = 42, spike_pct: float | None = None, crash_pct: float | None = None
+) -> list[dict]:
     """Barras com variancia realista (~0.5% daily) e spike/crash opcional na ultima barra."""
     import random
+
     random.seed(seed)
     closes = [100.0 * (1 + random.gauss(0, 0.005)) for _ in range(n)]
     if spike_pct is not None:
@@ -125,10 +136,10 @@ def _noisy_bars(n: int = 40, seed: int = 42, spike_pct: float | None = None,
     return _bars(closes)
 
 
-def _trend_bars(n_ref: int = 35, n_trend: int = 15, seed: int = 7,
-                trend_pct: float = 2.0) -> list[dict]:
+def _trend_bars(n_ref: int = 35, n_trend: int = 15, seed: int = 7, trend_pct: float = 2.0) -> list[dict]:
     """Barras com variancia na referencia e tendencia clara nos ultimos n_trend periodos."""
     import random
+
     random.seed(seed)
     ref = [100.0 * (1 + random.gauss(0, 0.003)) for _ in range(n_ref)]
     last = ref[-1]
@@ -136,9 +147,9 @@ def _trend_bars(n_ref: int = 35, n_trend: int = 15, seed: int = 7,
     return _bars(ref + trend)
 
 
-def _downtrend_bars(n_ref: int = 35, n_trend: int = 15, seed: int = 7,
-                    trend_pct: float = 2.0) -> list[dict]:
+def _downtrend_bars(n_ref: int = 35, n_trend: int = 15, seed: int = 7, trend_pct: float = 2.0) -> list[dict]:
     import random
+
     random.seed(seed)
     ref = [100.0 * (1 + random.gauss(0, 0.003)) for _ in range(n_ref)]
     last = ref[-1]
@@ -152,6 +163,7 @@ def _cfg(**kwargs) -> DetectorConfig:
 
 # ── Helpers estatisticos ──────────────────────────────────────────────────────
 
+
 class TestStatHelpers:
     def test_mean_correct(self):
         assert _mean([1.0, 2.0, 3.0]) == pytest.approx(2.0)
@@ -161,6 +173,7 @@ class TestStatHelpers:
 
     def test_std_correct(self):
         import statistics
+
         x = [1.0, 2.0, 3.0, 4.0, 5.0]
         assert _std(x) == pytest.approx(statistics.stdev(x))
 
@@ -179,6 +192,7 @@ class TestStatHelpers:
 
 # ── detect_zscore ─────────────────────────────────────────────────────────────
 
+
 class TestDetectZscore:
     def test_normal_return_no_alert(self):
         # Serie com retornos pequenos e estavel
@@ -187,14 +201,16 @@ class TestDetectZscore:
         assert result == []
 
     def test_spike_up_triggers(self):
-        result = detect_zscore(_noisy_bars(40, seed=42, spike_pct=20), "T",
-                               _cfg(zscore_window=20, zscore_threshold=2.5))
+        result = detect_zscore(
+            _noisy_bars(40, seed=42, spike_pct=20), "T", _cfg(zscore_window=20, zscore_threshold=2.5)
+        )
         assert len(result) == 1
         assert result[0].direction == AnomalyDirection.UP
 
     def test_spike_down_triggers(self):
-        result = detect_zscore(_noisy_bars(40, seed=42, crash_pct=25), "T",
-                               _cfg(zscore_window=20, zscore_threshold=2.5))
+        result = detect_zscore(
+            _noisy_bars(40, seed=42, crash_pct=25), "T", _cfg(zscore_window=20, zscore_threshold=2.5)
+        )
         assert len(result) == 1
         assert result[0].direction == AnomalyDirection.DOWN
 
@@ -209,14 +225,16 @@ class TestDetectZscore:
         assert result == []
 
     def test_severity_high_for_large_z(self):
-        result = detect_zscore(_noisy_bars(40, seed=1, spike_pct=50), "T",
-                               _cfg(zscore_window=20, zscore_threshold=2.5))
+        result = detect_zscore(
+            _noisy_bars(40, seed=1, spike_pct=50), "T", _cfg(zscore_window=20, zscore_threshold=2.5)
+        )
         if result:
             assert result[0].severity in (AnomalySeverity.HIGH, AnomalySeverity.MEDIUM)
 
     def test_anomaly_type_correct(self):
-        result = detect_zscore(_noisy_bars(40, seed=42, spike_pct=20), "T",
-                               _cfg(zscore_window=20, zscore_threshold=2.5))
+        result = detect_zscore(
+            _noisy_bars(40, seed=42, spike_pct=20), "T", _cfg(zscore_window=20, zscore_threshold=2.5)
+        )
         if result:
             assert result[0].anomaly_type == AnomalyType.ZSCORE_SPIKE
 
@@ -227,13 +245,15 @@ class TestDetectZscore:
             assert result[0].timestamp == bars[-1]["time"]
 
     def test_ticker_in_event(self):
-        result = detect_zscore(_noisy_bars(40, seed=42, spike_pct=20), "PETR4",
-                               _cfg(zscore_window=20, zscore_threshold=2.5))
+        result = detect_zscore(
+            _noisy_bars(40, seed=42, spike_pct=20), "PETR4", _cfg(zscore_window=20, zscore_threshold=2.5)
+        )
         if result:
             assert result[0].ticker == "PETR4"
 
 
 # ── detect_bollinger ──────────────────────────────────────────────────────────
+
 
 class TestDetectBollinger:
     def test_inside_bands_no_alert(self):
@@ -244,7 +264,9 @@ class TestDetectBollinger:
 
     def test_breakout_up_triggers(self):
         # Historia com std=1, preco atual muito acima
-        import random; random.seed(42)
+        import random
+
+        random.seed(42)
         history = [100.0 + random.gauss(0, 0.5) for _ in range(22)]
         history[-1] = 130.0  # breakout
         result = detect_bollinger(_bars(history), "T", _cfg(bollinger_window=20, bollinger_k=2.0))
@@ -252,7 +274,9 @@ class TestDetectBollinger:
         assert result[0].direction == AnomalyDirection.UP
 
     def test_breakdown_down_triggers(self):
-        import random; random.seed(7)
+        import random
+
+        random.seed(7)
         history = [100.0 + random.gauss(0, 0.5) for _ in range(22)]
         history[-1] = 70.0  # breakdown
         result = detect_bollinger(_bars(history), "T", _cfg(bollinger_window=20, bollinger_k=2.0))
@@ -268,7 +292,9 @@ class TestDetectBollinger:
         assert result == []
 
     def test_context_has_bands(self):
-        import random; random.seed(1)
+        import random
+
+        random.seed(1)
         history = [100.0 + random.gauss(0, 1) for _ in range(22)]
         history[-1] = 130.0
         result = detect_bollinger(_bars(history), "T", _cfg(bollinger_window=20, bollinger_k=2.0))
@@ -279,7 +305,9 @@ class TestDetectBollinger:
             assert "middle_band" in ctx
 
     def test_anomaly_type_correct(self):
-        import random; random.seed(2)
+        import random
+
+        random.seed(2)
         history = [100.0 + random.gauss(0, 1) for _ in range(22)]
         history[-1] = 130.0
         result = detect_bollinger(_bars(history), "T", _cfg(bollinger_window=20, bollinger_k=2.0))
@@ -289,28 +317,35 @@ class TestDetectBollinger:
 
 # ── detect_cusum ──────────────────────────────────────────────────────────────
 
+
 class TestDetectCusum:
     def test_no_trend_no_alert(self):
         # Retornos aleatorios em torno de 0
-        import random; random.seed(99)
+        import random
+
+        random.seed(99)
         closes = [100.0]
         for _ in range(49):
             closes.append(closes[-1] * (1 + random.gauss(0, 0.002)))
-        result = detect_cusum(_bars(closes), "T", _cfg(
-            cusum_window=25, cusum_k=0.5, cusum_threshold=5.0
-        ))
+        result = detect_cusum(_bars(closes), "T", _cfg(cusum_window=25, cusum_k=0.5, cusum_threshold=5.0))
         # Pode ou nao disparar com dados aleatorios — apenas verifica sem crash
         assert isinstance(result, list)
 
     def test_strong_uptrend_triggers_up(self):
-        result = detect_cusum(_trend_bars(n_ref=35, n_trend=15, seed=7, trend_pct=2.0), "T",
-                              _cfg(cusum_window=30, cusum_k=0.3, cusum_threshold=3.0))
+        result = detect_cusum(
+            _trend_bars(n_ref=35, n_trend=15, seed=7, trend_pct=2.0),
+            "T",
+            _cfg(cusum_window=30, cusum_k=0.3, cusum_threshold=3.0),
+        )
         assert len(result) >= 1
         assert result[0].direction == AnomalyDirection.UP
 
     def test_strong_downtrend_triggers_down(self):
-        result = detect_cusum(_downtrend_bars(n_ref=35, n_trend=15, seed=7, trend_pct=2.0), "T",
-                              _cfg(cusum_window=30, cusum_k=0.3, cusum_threshold=3.0))
+        result = detect_cusum(
+            _downtrend_bars(n_ref=35, n_trend=15, seed=7, trend_pct=2.0),
+            "T",
+            _cfg(cusum_window=30, cusum_k=0.3, cusum_threshold=3.0),
+        )
         assert len(result) >= 1
         assert result[0].direction == AnomalyDirection.DOWN
 
@@ -319,14 +354,16 @@ class TestDetectCusum:
         assert result == []
 
     def test_anomaly_type_correct(self):
-        result = detect_cusum(_trend_bars(seed=7), "T",
-                              _cfg(cusum_window=30, cusum_k=0.3, cusum_threshold=3.0))
+        result = detect_cusum(
+            _trend_bars(seed=7), "T", _cfg(cusum_window=30, cusum_k=0.3, cusum_threshold=3.0)
+        )
         if result:
             assert result[0].anomaly_type == AnomalyType.CUSUM_SHIFT
 
     def test_context_has_s_values(self):
-        result = detect_cusum(_trend_bars(seed=7), "T",
-                              _cfg(cusum_window=30, cusum_k=0.3, cusum_threshold=3.0))
+        result = detect_cusum(
+            _trend_bars(seed=7), "T", _cfg(cusum_window=30, cusum_k=0.3, cusum_threshold=3.0)
+        )
         if result:
             assert "s_pos" in result[0].context
             assert "s_neg" in result[0].context
@@ -334,23 +371,27 @@ class TestDetectCusum:
 
 # ── detect_volume_spike ───────────────────────────────────────────────────────
 
+
 class TestDetectVolumeSpike:
     def test_normal_volume_no_alert(self):
         vols = [1_000_000.0] * 25
-        result = detect_volume_spike(_bars([100.0] * 25, vols), "T",
-                                     _cfg(volume_window=20, volume_multiplier=3.0))
+        result = detect_volume_spike(
+            _bars([100.0] * 25, vols), "T", _cfg(volume_window=20, volume_multiplier=3.0)
+        )
         assert result == []
 
     def test_spike_3x_triggers(self):
         vols = [1_000_000.0] * 24 + [4_000_000.0]  # 4x
-        result = detect_volume_spike(_bars([100.0] * 25, vols), "T",
-                                     _cfg(volume_window=20, volume_multiplier=3.0))
+        result = detect_volume_spike(
+            _bars([100.0] * 25, vols), "T", _cfg(volume_window=20, volume_multiplier=3.0)
+        )
         assert len(result) == 1
 
     def test_spike_5x_is_high(self):
         vols = [1_000_000.0] * 24 + [6_000_000.0]  # 6x
-        result = detect_volume_spike(_bars([100.0] * 25, vols), "T",
-                                     _cfg(volume_window=20, volume_multiplier=3.0))
+        result = detect_volume_spike(
+            _bars([100.0] * 25, vols), "T", _cfg(volume_window=20, volume_multiplier=3.0)
+        )
         assert len(result) == 1
         assert result[0].severity == AnomalySeverity.HIGH
 
@@ -361,26 +402,30 @@ class TestDetectVolumeSpike:
     def test_zero_volume_ignored(self):
         # Barras com volume 0 nao devem ser contadas na media
         vols = [0.0] * 10 + [1_000_000.0] * 14 + [4_000_000.0]
-        result = detect_volume_spike(_bars([100.0] * 25, vols), "T",
-                                     _cfg(volume_window=20, volume_multiplier=3.0))
+        result = detect_volume_spike(
+            _bars([100.0] * 25, vols), "T", _cfg(volume_window=20, volume_multiplier=3.0)
+        )
         assert isinstance(result, list)
 
     def test_ratio_in_score(self):
         vols = [1_000_000.0] * 24 + [5_000_000.0]  # 5x
-        result = detect_volume_spike(_bars([100.0] * 25, vols), "T",
-                                     _cfg(volume_window=20, volume_multiplier=3.0))
+        result = detect_volume_spike(
+            _bars([100.0] * 25, vols), "T", _cfg(volume_window=20, volume_multiplier=3.0)
+        )
         if result:
             assert result[0].score == pytest.approx(5.0, abs=0.1)
 
     def test_anomaly_type_correct(self):
         vols = [1_000_000.0] * 24 + [5_000_000.0]
-        result = detect_volume_spike(_bars([100.0] * 25, vols), "T",
-                                     _cfg(volume_window=20, volume_multiplier=3.0))
+        result = detect_volume_spike(
+            _bars([100.0] * 25, vols), "T", _cfg(volume_window=20, volume_multiplier=3.0)
+        )
         if result:
             assert result[0].anomaly_type == AnomalyType.VOLUME_SPIKE
 
 
 # ── analyze_ticker ────────────────────────────────────────────────────────────
+
 
 class TestAnalyzeTicker:
     def test_empty_bars_returns_error(self):
@@ -419,13 +464,19 @@ class TestAnalyzeTicker:
 
 # ── AnomalyResult ─────────────────────────────────────────────────────────────
 
+
 class TestAnomalyResult:
     def _event(self, sev: AnomalySeverity) -> AnomalyEvent:
         return AnomalyEvent(
-            ticker="T", anomaly_type=AnomalyType.ZSCORE_SPIKE,
-            severity=sev, direction=AnomalyDirection.UP,
-            score=3.0, threshold=2.5, current_value=5.0,
-            description="test", timestamp=1700000000,
+            ticker="T",
+            anomaly_type=AnomalyType.ZSCORE_SPIKE,
+            severity=sev,
+            direction=AnomalyDirection.UP,
+            score=3.0,
+            threshold=2.5,
+            current_value=5.0,
+            description="test",
+            timestamp=1700000000,
         )
 
     def test_has_anomalies_false(self):
@@ -433,8 +484,7 @@ class TestAnomalyResult:
         assert r.has_anomalies is False
 
     def test_has_anomalies_true(self):
-        r = AnomalyResult(ticker="T", bars_analyzed=50,
-                          anomalies=[self._event(AnomalySeverity.LOW)])
+        r = AnomalyResult(ticker="T", bars_analyzed=50, anomalies=[self._event(AnomalySeverity.LOW)])
         assert r.has_anomalies is True
 
     def test_max_severity_none_when_empty(self):
@@ -442,26 +492,38 @@ class TestAnomalyResult:
         assert r.max_severity is None
 
     def test_max_severity_high(self):
-        r = AnomalyResult(ticker="T", bars_analyzed=50, anomalies=[
-            self._event(AnomalySeverity.LOW),
-            self._event(AnomalySeverity.HIGH),
-            self._event(AnomalySeverity.MEDIUM),
-        ])
+        r = AnomalyResult(
+            ticker="T",
+            bars_analyzed=50,
+            anomalies=[
+                self._event(AnomalySeverity.LOW),
+                self._event(AnomalySeverity.HIGH),
+                self._event(AnomalySeverity.MEDIUM),
+            ],
+        )
         assert r.max_severity == AnomalySeverity.HIGH
 
     def test_to_dict_required_keys(self):
         r = AnomalyResult(ticker="T", bars_analyzed=50, anomalies=[])
         d = r.to_dict()
-        for k in ["ticker", "bars_analyzed", "anomaly_count", "has_anomalies",
-                  "max_severity", "anomalies", "error"]:
+        for k in [
+            "ticker",
+            "bars_analyzed",
+            "anomaly_count",
+            "has_anomalies",
+            "max_severity",
+            "anomalies",
+            "error",
+        ]:
             assert k in d
 
 
 # ── build_multi_anomaly_result ────────────────────────────────────────────────
 
+
 class TestBuildMultiAnomalyResult:
     def test_results_sorted_high_first(self):
-        anom_bars  = _noisy_bars(40, seed=42, spike_pct=20)
+        anom_bars = _noisy_bars(40, seed=42, spike_pct=20)
         normal_bars = _noisy_bars(40, seed=99)
         ticker_bars = {
             "NORM": normal_bars,
@@ -488,8 +550,13 @@ class TestBuildMultiAnomalyResult:
     def test_to_dict_required_keys(self):
         r = build_multi_anomaly_result({"T": _flat_bars(50)}, "3mo")
         d = r.to_dict()
-        for k in ["total_tickers", "tickers_with_anomalies", "high_severity_count",
-                  "range_period", "results"]:
+        for k in [
+            "total_tickers",
+            "tickers_with_anomalies",
+            "high_severity_count",
+            "range_period",
+            "results",
+        ]:
             assert k in d
 
     def test_range_period_preserved(self):
@@ -498,6 +565,7 @@ class TestBuildMultiAnomalyResult:
 
 
 # ── AnomalyService ────────────────────────────────────────────────────────────
+
 
 class TestAnomalyService:
     def _make_svc(self) -> AnomalyService:
@@ -510,6 +578,7 @@ class TestAnomalyService:
             if isinstance(result, Exception):
                 raise result
             return result or _flat_bars(50)
+
         svc._brapi.get_ohlc_bars = _fake
 
     @pytest.mark.asyncio
@@ -535,9 +604,11 @@ class TestAnomalyService:
     @pytest.mark.asyncio
     async def test_tickers_normalized_uppercase(self):
         seen = []
+
         async def _cap(ticker, **kw):
             seen.append(str(ticker))
             return _flat_bars(50)
+
         svc = self._make_svc()
         svc._brapi.get_ohlc_bars = _cap
         await svc.scan(["petr4", "vale3"])
@@ -546,10 +617,13 @@ class TestAnomalyService:
     @pytest.mark.asyncio
     async def test_fetch_failure_creates_error_result(self):
         svc = self._make_svc()
-        self._patch_brapi(svc, {
-            "OK": _flat_bars(50),
-            "FAIL": RuntimeError("timeout"),
-        })
+        self._patch_brapi(
+            svc,
+            {
+                "OK": _flat_bars(50),
+                "FAIL": RuntimeError("timeout"),
+            },
+        )
         r = await svc.scan(["OK", "FAIL"])
         assert r.total_tickers == 2
         # FAIL vai ter error no result
@@ -576,10 +650,13 @@ class TestAnomalyService:
     @pytest.mark.asyncio
     async def test_max_tickers_cap(self):
         from finanalytics_ai.application.services.anomaly_service import MAX_TICKERS
+
         seen = []
+
         async def _cap(ticker, **kw):
             seen.append(str(ticker))
             return _flat_bars(50)
+
         svc = self._make_svc()
         svc._brapi.get_ohlc_bars = _cap
         tickers = [f"T{i}" for i in range(MAX_TICKERS + 5)]
@@ -589,6 +666,7 @@ class TestAnomalyService:
     @pytest.mark.asyncio
     async def test_result_serializable(self):
         import json
+
         svc = self._make_svc()
         self._patch_brapi(svc, {"T": _flat_bars(50)})
         r = await svc.scan(["T"])

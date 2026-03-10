@@ -34,6 +34,7 @@ Cobertura:
     - None → InMemory
     - url set → Redis (sem conectar neste teste)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -56,8 +57,8 @@ from finanalytics_ai.infrastructure.cache.rate_limiter import (
 
 # ── InMemoryCache ─────────────────────────────────────────────────────────────
 
-class TestInMemoryCache:
 
+class TestInMemoryCache:
     @pytest.fixture
     def cache(self) -> InMemoryCache:
         return InMemoryCache()
@@ -149,8 +150,8 @@ class TestInMemoryCache:
 
 # ── make_cache_key ────────────────────────────────────────────────────────────
 
-class TestMakeCacheKey:
 
+class TestMakeCacheKey:
     def test_deterministic(self) -> None:
         k1 = make_cache_key("screener", {"dy_min": 5.0, "roe_min": 12.0})
         k2 = make_cache_key("screener", {"dy_min": 5.0, "roe_min": 12.0})
@@ -194,8 +195,8 @@ class TestMakeCacheKey:
 
 # ── InMemoryRateLimiter ───────────────────────────────────────────────────────
 
-class TestInMemoryRateLimiter:
 
+class TestInMemoryRateLimiter:
     @pytest.fixture
     def limiter(self) -> InMemoryRateLimiter:
         return InMemoryRateLimiter()
@@ -255,7 +256,7 @@ class TestInMemoryRateLimiter:
         for _ in range(3):
             await limiter.check("user:A", limit=3, window=60)
         blocked = await limiter.check("user:A", limit=3, window=60)
-        free    = await limiter.check("user:B", limit=3, window=60)
+        free = await limiter.check("user:B", limit=3, window=60)
         assert blocked.allowed is False
         assert free.allowed is True
 
@@ -263,6 +264,7 @@ class TestInMemoryRateLimiter:
     async def test_sliding_window_evicts_old(self, limiter: InMemoryRateLimiter) -> None:
         # Simula requests antigos inserindo timestamps passados diretamente
         from collections import deque
+
         key = "user:9:route"
         old_ts = time.time() - 120  # 2 minutos atrás
         limiter._windows[key] = deque([old_ts, old_ts, old_ts])
@@ -279,8 +281,8 @@ class TestInMemoryRateLimiter:
 
 # ── RateLimitResult.headers ───────────────────────────────────────────────────
 
-class TestRateLimitResultHeaders:
 
+class TestRateLimitResultHeaders:
     def test_allowed_headers(self) -> None:
         r = RateLimitResult(allowed=True, limit=10, remaining=9, reset_at=9999)
         h = r.headers()
@@ -302,14 +304,15 @@ class TestRateLimitResultHeaders:
 
 # ── Factory functions ─────────────────────────────────────────────────────────
 
-class TestFactories:
 
+class TestFactories:
     def test_create_cache_backend_no_url_returns_inmemory(self) -> None:
         backend = create_cache_backend(None)
         assert isinstance(backend, InMemoryCache)
 
     def test_create_cache_backend_with_url_returns_redis(self) -> None:
         from finanalytics_ai.infrastructure.cache.backend import RedisCache
+
         backend = create_cache_backend("redis://localhost:6379/0")
         assert isinstance(backend, RedisCache)
 
@@ -319,5 +322,6 @@ class TestFactories:
 
     def test_create_rate_limiter_with_url_returns_redis(self) -> None:
         from finanalytics_ai.infrastructure.cache.rate_limiter import RedisRateLimiter
+
         limiter = create_rate_limiter("redis://localhost:6379/0")
         assert isinstance(limiter, RedisRateLimiter)

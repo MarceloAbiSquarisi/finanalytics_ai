@@ -36,9 +36,7 @@ class OptimizeRequest(BaseModel):
     period: str = Field(default="1y", pattern="^(3mo|6mo|1y|2y|5y)$")
     risk_free: float = Field(default=10.65, gt=0, description="CDI % a.a.")
     views: list[BLView] = Field(default_factory=list, description="Visões Black-Litterman")
-    rf_tickers: list[str] = Field(
-        default_factory=list, description="Tickers tratados como Renda Fixa"
-    )
+    rf_tickers: list[str] = Field(default_factory=list, description="Tickers tratados como Renda Fixa")
     bl_tau: float = Field(default=0.05, gt=0, le=0.5)
     bl_risk_aversion: float = Field(default=3.0, gt=0, le=10.0)
 

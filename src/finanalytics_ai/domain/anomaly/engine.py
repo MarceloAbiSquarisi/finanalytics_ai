@@ -520,8 +520,7 @@ def detect_volume_spike(
             threshold=config.volume_multiplier,
             current_value=float(curr_vol),
             description=(
-                f"{ticker}: volume {ratio:.1f}x acima da media "
-                f"({curr_vol:,.0f} vs media {avg_vol:,.0f})"
+                f"{ticker}: volume {ratio:.1f}x acima da media ({curr_vol:,.0f} vs media {avg_vol:,.0f})"
             ),
             timestamp=ts,
             context={
@@ -553,9 +552,7 @@ def analyze_ticker(
         config = DetectorConfig()
 
     if not bars:
-        return AnomalyResult(
-            ticker=ticker, bars_analyzed=0, anomalies=[], error="Sem barras para analisar"
-        )
+        return AnomalyResult(ticker=ticker, bars_analyzed=0, anomalies=[], error="Sem barras para analisar")
 
     # Limita ao lookback configurado
     bars_used = bars[-config.lookback_bars :]
@@ -572,9 +569,7 @@ def analyze_ticker(
         anomalies.sort(key=lambda a: (order[a.severity], abs(a.score)), reverse=True)
 
     except Exception as exc:
-        return AnomalyResult(
-            ticker=ticker, bars_analyzed=len(bars_used), anomalies=[], error=str(exc)
-        )
+        return AnomalyResult(ticker=ticker, bars_analyzed=len(bars_used), anomalies=[], error=str(exc))
 
     return AnomalyResult(
         ticker=ticker,

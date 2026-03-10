@@ -2,6 +2,7 @@
 tests/unit/domain/test_portfolio_multi.py
 Testes unitários para múltiplas carteiras — novos campos e comportamentos.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -82,7 +83,7 @@ class TestUpdateMetadata:
         p.update_metadata(name="Novo Nome")
         assert p.name == "Novo Nome"
         assert p.description == "Desc original"  # não alterado
-        assert p.benchmark == "CDI"              # não alterado
+        assert p.benchmark == "CDI"  # não alterado
 
 
 class TestPortfolioIsDefault:
