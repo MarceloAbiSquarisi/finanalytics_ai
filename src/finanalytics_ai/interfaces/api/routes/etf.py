@@ -81,7 +81,7 @@ async def compare_etfs(body: CompareRequest, request: Request) -> dict:
             risk_free=body.risk_free / 100,
         )
     except Exception as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(400, str(e)) from e
 
 
 # ── Tracking Error ────────────────────────────────────────────────────────────
@@ -100,9 +100,9 @@ async def tracking_error(
     try:
         return await _svc(request).tracking_error(ticker, period)
     except ValueError as e:
-        raise HTTPException(404, str(e))
+        raise HTTPException(404, str(e)) from e
     except Exception as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(400, str(e)) from e
 
 
 # ── Correlação ────────────────────────────────────────────────────────────────
@@ -122,7 +122,7 @@ async def etf_correlation(body: CorrelationRequest, request: Request) -> dict:
     try:
         return await _svc(request).correlation_heatmap(body.tickers, body.period)
     except Exception as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(400, str(e)) from e
 
 
 # ── Rebalanceamento ───────────────────────────────────────────────────────────
@@ -152,4 +152,4 @@ async def rebalance(body: RebalanceRequest, request: Request) -> dict:
             new_contribution=body.new_contribution,
         )
     except Exception as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(400, str(e)) from e

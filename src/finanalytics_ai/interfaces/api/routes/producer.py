@@ -61,7 +61,7 @@ async def start_producer() -> dict:
             _app._producer_task = asyncio.create_task(p.run())
             return {"started": True, "tickers": tickers}
         except Exception as exc:
-            raise HTTPException(500, detail=str(exc))
+            raise HTTPException(500, detail=str(exc)) from exc
 
     await producer.start()
     return {"started": True, "tickers": producer.state.tickers}
@@ -92,7 +92,7 @@ async def trigger_cycle(body: TriggerRequest = TriggerRequest()) -> dict:
             "last_prices": producer.state.last_prices,
         }
     except Exception as exc:
-        raise HTTPException(502, detail=f"Erro ao buscar cotações BRAPI: {exc}")
+        raise HTTPException(502, detail=f"Erro ao buscar cotações BRAPI: {exc}") from exc
 
 
 @router.get("/status")

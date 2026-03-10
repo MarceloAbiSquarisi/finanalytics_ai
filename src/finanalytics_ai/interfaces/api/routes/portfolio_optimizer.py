@@ -60,10 +60,10 @@ async def optimize_portfolio(body: OptimizeRequest, request: Request) -> dict:
             bl_risk_aversion=body.bl_risk_aversion,
         )
     except ValueError as e:
-        raise HTTPException(422, str(e))
+        raise HTTPException(422, str(e)) from e
     except Exception as e:
         logger.error("optimizer.error", error=str(e))
-        raise HTTPException(500, f"Erro na otimização: {e}")
+        raise HTTPException(500, f"Erro na otimização: {e}") from e
 
 
 @router.get("/presets")

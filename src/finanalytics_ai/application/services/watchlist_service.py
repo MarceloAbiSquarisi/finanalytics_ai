@@ -181,7 +181,7 @@ class WatchlistService:
             at = SmartAlertType(alert_type)
         except ValueError:
             valid = [t.value for t in SmartAlertType]
-            raise WatchlistError(f"Tipo inválido: {alert_type}. Válidos: {valid}")
+            raise WatchlistError(f"Tipo inválido: {alert_type}. Válidos: {valid}") from None
 
         cfg = SmartAlertConfig(**(config or {})) if config else SmartAlertConfig()
         alert = SmartAlert(

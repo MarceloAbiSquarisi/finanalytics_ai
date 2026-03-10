@@ -105,7 +105,7 @@ async def get_portfolio_performance(
             "positions_contribution": result.positions_contribution,
         }
     except PerformanceError as e:
-        raise HTTPException(422, detail=str(e))
+        raise HTTPException(422, detail=str(e)) from e
     except Exception as e:
         logger.error("performance.route_error", error=str(e))
-        raise HTTPException(500, detail=f"Erro interno: {e}")
+        raise HTTPException(500, detail=f"Erro interno: {e}") from e

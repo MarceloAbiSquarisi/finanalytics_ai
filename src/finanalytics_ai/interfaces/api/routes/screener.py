@@ -111,10 +111,10 @@ async def run_screener(
         )
         return result.to_dict()
     except BacktestError as exc:
-        raise HTTPException(422, str(exc))
+        raise HTTPException(422, str(exc)) from exc
     except Exception as exc:
         logger.error("screener.unexpected_error", error=str(exc))
-        raise HTTPException(500, "Erro interno no screener")
+        raise HTTPException(500, "Erro interno no screener") from exc
 
 
 @router.get("/run")
@@ -146,10 +146,10 @@ async def run_screener_get(
         result = await svc.screen(criteria=criteria, extra_tickers=extras)
         return result.to_dict()
     except BacktestError as exc:
-        raise HTTPException(422, str(exc))
+        raise HTTPException(422, str(exc)) from exc
     except Exception as exc:
         logger.error("screener.unexpected_error", error=str(exc))
-        raise HTTPException(500, "Erro interno no screener")
+        raise HTTPException(500, "Erro interno no screener") from exc
 
 
 @router.get("/fields")

@@ -74,7 +74,7 @@ async def export_portfolio_pdf(
         raise HTTPException(
             status_code=404,
             detail={"error": "PORTFOLIO_NOT_FOUND", "message": str(exc)},
-        )
+        ) from exc
 
     snap_dict = _snapshot_to_dict(snapshot)
 
@@ -93,7 +93,7 @@ async def export_portfolio_pdf(
         raise HTTPException(
             status_code=500,
             detail={"error": "REPORT_GENERATION_FAILED", "message": "Erro ao gerar PDF."},
-        )
+        ) from exc
 
     filename = f"carteira_{portfolio_id[:8]}.pdf"
     logger.info("report.pdf.ready", portfolio_id=portfolio_id, size_kb=len(pdf_bytes) // 1024)

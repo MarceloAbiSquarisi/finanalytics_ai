@@ -57,9 +57,9 @@ async def analyze_fund(file: UploadFile = File(...)) -> JSONResponse:
         result = await svc.analyze_pdf(content, filename=file.filename)
         return JSONResponse(content=result)
     except ConfigurationError as e:
-        raise HTTPException(503, str(e))
+        raise HTTPException(503, str(e)) from e
     except FundAnalysisError as e:
-        raise HTTPException(422, str(e))
+        raise HTTPException(422, str(e)) from e
     except Exception as e:
         logger.error("fund_analysis.unexpected", error=str(e))
-        raise HTTPException(500, f"Erro inesperado: {e}")
+        raise HTTPException(500, f"Erro inesperado: {e}") from e

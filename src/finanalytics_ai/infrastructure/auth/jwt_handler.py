@@ -109,9 +109,9 @@ class JWTHandler:
             exc_name = type(exc).__name__
             if "Expired" in exc_name or "expired" in str(exc).lower():
                 logger.warning("jwt.token_expired")
-                raise TokenExpiredError()
+                raise TokenExpiredError() from exc
             logger.warning("jwt.token_invalid", error=str(exc))
-            raise TokenInvalidError(str(exc))
+            raise TokenInvalidError(str(exc)) from exc
 
     def decode_refresh(self, token: str) -> TokenPayload:
         """Decodifica refresh token e valida que é do tipo correto."""
@@ -192,7 +192,7 @@ class JWTHandler:
         except (TokenExpiredError, TokenInvalidError):
             raise
         except Exception as exc:
-            raise TokenInvalidError(str(exc))
+            raise TokenInvalidError(str(exc)) from exc
 
 
 # ── Singleton ─────────────────────────────────────────────────────────────────

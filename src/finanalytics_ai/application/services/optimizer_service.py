@@ -83,7 +83,7 @@ class OptimizerService:
             raise BacktestError(
                 f"Objetivo '{objective}' invalido. "
                 f"Opcoes: {[o.value for o in OptimizationObjective]}"
-            )
+            ) from None
 
         top_n = min(top_n, 20)  # limite de seguranca
 

@@ -92,7 +92,7 @@ async def consolidated_snapshot(
         )
     except Exception as e:
         logger.error("patrimony.error", error=str(e))
-        raise HTTPException(500, str(e))
+        raise HTTPException(500, str(e)) from e
 
 
 @router.get("/ir-planning/{user_id}")
@@ -120,4 +120,4 @@ async def ir_planning(
         )
     except Exception as e:
         logger.error("ir_planning.error", error=str(e))
-        raise HTTPException(500, str(e))
+        raise HTTPException(500, str(e)) from e

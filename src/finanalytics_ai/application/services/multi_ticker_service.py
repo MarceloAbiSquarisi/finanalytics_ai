@@ -96,7 +96,7 @@ class MultiTickerService:
             raise BacktestError(
                 f"Objetivo '{objective}' invalido. "
                 f"Opcoes: {[o.value for o in OptimizationObjective]}"
-            )
+            ) from None
 
         log = logger.bind(
             tickers=tickers,

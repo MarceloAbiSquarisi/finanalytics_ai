@@ -176,7 +176,7 @@ async def get_price_ticks(
         return {"ticker": ticker.upper(), "ticks": ticks, "count": len(ticks), "vwap": vwap}
     except Exception as exc:
         logger.warning("timescale.ticks.query_failed", ticker=ticker, error=str(exc))
-        raise HTTPException(503, detail=f"TimescaleDB indisponível: {exc}")
+        raise HTTPException(503, detail=f"TimescaleDB indisponível: {exc}") from exc
 
 
 @router.get("/ohlc/{ticker}")
@@ -204,7 +204,7 @@ async def get_timescale_ohlc(
         }
     except Exception as exc:
         logger.warning("timescale.ohlc.query_failed", ticker=ticker, error=str(exc))
-        raise HTTPException(503, detail=f"TimescaleDB indisponível: {exc}")
+        raise HTTPException(503, detail=f"TimescaleDB indisponível: {exc}") from exc
 
 
 # ── KAFKA PUBLISH (debug / ingestão manual) ───────────────────────────────────
@@ -237,7 +237,7 @@ async def publish_event(body: dict) -> dict:
             await producer.publish(event)
         return {"published": True, "event_id": event.event_id, "ticker": event.ticker}
     except Exception as exc:
-        raise HTTPException(500, detail=str(exc))
+        raise HTTPException(500, detail=str(exc)) from exc
 
 
 # ── STATUS ────────────────────────────────────────────────────────────────────

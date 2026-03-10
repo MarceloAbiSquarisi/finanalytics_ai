@@ -116,7 +116,7 @@ class KafkaMarketEventProducer:
             await self._producer.start()
             logger.info("kafka.producer.started", topic=self._topic)
         except ImportError:
-            raise RuntimeError("aiokafka não instalado. Execute: pip install aiokafka")
+            raise RuntimeError("aiokafka não instalado. Execute: pip install aiokafka") from None
         except Exception as exc:
             logger.error("kafka.producer.start_failed", error=str(exc))
             raise
@@ -204,7 +204,7 @@ class KafkaMarketEventConsumer:
                 group=self._group_id,
             )
         except ImportError:
-            raise RuntimeError("aiokafka não instalado. Execute: pip install aiokafka")
+            raise RuntimeError("aiokafka não instalado. Execute: pip install aiokafka") from None
         except Exception as exc:
             logger.error("kafka.consumer.start_failed", error=str(exc))
             raise

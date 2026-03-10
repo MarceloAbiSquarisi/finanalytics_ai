@@ -63,10 +63,10 @@ async def compute_correlation(
         )
         return result.to_dict()
     except BacktestError as exc:
-        raise HTTPException(422, str(exc))
+        raise HTTPException(422, str(exc)) from exc
     except Exception as exc:
         logger.error("correlation.unexpected_error", error=str(exc))
-        raise HTTPException(500, "Erro interno na analise de correlacao")
+        raise HTTPException(500, "Erro interno na analise de correlacao") from exc
 
 
 @router.get("")
@@ -90,7 +90,7 @@ async def compute_correlation_get(
         )
         return result.to_dict()
     except BacktestError as exc:
-        raise HTTPException(422, str(exc))
+        raise HTTPException(422, str(exc)) from exc
     except Exception as exc:
         logger.error("correlation.unexpected_error", error=str(exc))
-        raise HTTPException(500, "Erro interno na analise de correlacao")
+        raise HTTPException(500, "Erro interno na analise de correlacao") from exc

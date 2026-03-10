@@ -64,7 +64,7 @@ class WalkForwardService:
             raise BacktestError(
                 f"Objetivo '{objective}' invalido. "
                 f"Opcoes: {[o.value for o in OptimizationObjective]}"
-            )
+            ) from None
 
         n_splits = max(2, min(6, n_splits))
 

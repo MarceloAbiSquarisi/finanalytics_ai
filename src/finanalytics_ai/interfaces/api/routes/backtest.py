@@ -191,10 +191,10 @@ async def _execute(request: Request, body: BacktestRequest) -> dict[str, Any]:
         )
         return result.to_dict()
     except BacktestError as exc:
-        raise HTTPException(422, str(exc))
+        raise HTTPException(422, str(exc)) from exc
     except Exception as exc:
         logger.error("backtest.unexpected_error", error=str(exc))
-        raise HTTPException(500, "Erro interno ao executar backtest")
+        raise HTTPException(500, "Erro interno ao executar backtest") from exc
 
 
 # ── Optimize ──────────────────────────────────────────────────────────────────
@@ -247,10 +247,10 @@ async def optimize_strategy(
         )
         return result.to_dict()
     except BacktestError as exc:
-        raise HTTPException(422, str(exc))
+        raise HTTPException(422, str(exc)) from exc
     except Exception as exc:
         logger.error("optimize.unexpected_error", error=str(exc))
-        raise HTTPException(500, "Erro interno na otimizacao")
+        raise HTTPException(500, "Erro interno na otimizacao") from exc
 
 
 @router.get("/optimize")
@@ -290,10 +290,10 @@ async def optimize_strategy_get(
         )
         return result.to_dict()
     except BacktestError as exc:
-        raise HTTPException(422, str(exc))
+        raise HTTPException(422, str(exc)) from exc
     except Exception as exc:
         logger.error("optimize.unexpected_error", error=str(exc))
-        raise HTTPException(500, "Erro interno na otimizacao")
+        raise HTTPException(500, "Erro interno na otimizacao") from exc
 
 
 # ── Walk-Forward ──────────────────────────────────────────────────────────────
@@ -351,10 +351,10 @@ async def run_walkforward(
         )
         return result.to_dict()
     except BacktestError as exc:
-        raise HTTPException(422, str(exc))
+        raise HTTPException(422, str(exc)) from exc
     except Exception as exc:
         logger.error("walkforward.unexpected_error", error=str(exc))
-        raise HTTPException(500, "Erro interno no walk-forward")
+        raise HTTPException(500, "Erro interno no walk-forward") from exc
 
 
 @router.get("/walkforward")
@@ -400,10 +400,10 @@ async def run_walkforward_get(
         )
         return result.to_dict()
     except BacktestError as exc:
-        raise HTTPException(422, str(exc))
+        raise HTTPException(422, str(exc)) from exc
     except Exception as exc:
         logger.error("walkforward.unexpected_error", error=str(exc))
-        raise HTTPException(500, "Erro interno no walk-forward")
+        raise HTTPException(500, "Erro interno no walk-forward") from exc
 
 
 # ── Multi-Ticker Compare ───────────────────────────────────────────────────────
@@ -461,10 +461,10 @@ async def compare_multi_ticker(
         )
         return result.to_dict()
     except BacktestError as exc:
-        raise HTTPException(422, str(exc))
+        raise HTTPException(422, str(exc)) from exc
     except Exception as exc:
         logger.error("multi_ticker.unexpected_error", error=str(exc))
-        raise HTTPException(500, "Erro interno no comparativo multi-ticker")
+        raise HTTPException(500, "Erro interno no comparativo multi-ticker") from exc
 
 
 @router.get("/multi")
@@ -505,7 +505,7 @@ async def compare_multi_ticker_get(
         )
         return result.to_dict()
     except BacktestError as exc:
-        raise HTTPException(422, str(exc))
+        raise HTTPException(422, str(exc)) from exc
     except Exception as exc:
         logger.error("multi_ticker.unexpected_error", error=str(exc))
-        raise HTTPException(500, "Erro interno no comparativo multi-ticker")
+        raise HTTPException(500, "Erro interno no comparativo multi-ticker") from exc

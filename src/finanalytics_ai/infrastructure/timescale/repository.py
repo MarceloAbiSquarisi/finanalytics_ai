@@ -64,7 +64,7 @@ async def _create_pool() -> Any:
     try:
         import asyncpg  # type: ignore[import]
     except ImportError:
-        raise RuntimeError("asyncpg não instalado")
+        raise RuntimeError("asyncpg não instalado") from None
 
     settings = get_settings()
     # Converte URL para formato asyncpg (remove +asyncpg se presente)

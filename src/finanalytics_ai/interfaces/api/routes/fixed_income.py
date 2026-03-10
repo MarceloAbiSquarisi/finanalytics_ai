@@ -87,7 +87,7 @@ async def list_bonds(
         return await _svc().list_bonds(bond_type, indexer, issuer, min_days, max_days)
     except Exception as e:
         logger.error("fixed_income.list_error", error=str(e))
-        raise HTTPException(500, detail=str(e))
+        raise HTTPException(500, detail=str(e)) from e
 
 
 @router.post("/calculate")
@@ -102,10 +102,10 @@ async def calculate(body: CalculateRequest) -> dict[str, Any]:
             body.selic_rate / 100,
         )
     except ValueError as e:
-        raise HTTPException(422, detail=str(e))
+        raise HTTPException(422, detail=str(e)) from e
     except Exception as e:
         logger.error("fixed_income.calculate_error", error=str(e))
-        raise HTTPException(500, detail=str(e))
+        raise HTTPException(500, detail=str(e)) from e
 
 
 @router.post("/compare")
@@ -121,10 +121,10 @@ async def compare(body: CompareRequest) -> dict[str, Any]:
             body.igpm_rate / 100,
         )
     except ValueError as e:
-        raise HTTPException(422, detail=str(e))
+        raise HTTPException(422, detail=str(e)) from e
     except Exception as e:
         logger.error("fixed_income.compare_error", error=str(e))
-        raise HTTPException(500, detail=str(e))
+        raise HTTPException(500, detail=str(e)) from e
 
 
 @router.post("/cash-flow")
@@ -138,10 +138,10 @@ async def cash_flow(body: CashFlowRequest) -> dict[str, Any]:
             body.selic_rate / 100,
         )
     except ValueError as e:
-        raise HTTPException(422, detail=str(e))
+        raise HTTPException(422, detail=str(e)) from e
     except Exception as e:
         logger.error("fixed_income.cashflow_error", error=str(e))
-        raise HTTPException(500, detail=str(e))
+        raise HTTPException(500, detail=str(e)) from e
 
 
 @router.post("/goal")
@@ -156,10 +156,10 @@ async def goal(body: GoalRequest) -> dict[str, Any]:
             body.selic_rate / 100,
         )
     except ValueError as e:
-        raise HTTPException(422, detail=str(e))
+        raise HTTPException(422, detail=str(e)) from e
     except Exception as e:
         logger.error("fixed_income.goal_error", error=str(e))
-        raise HTTPException(500, detail=str(e))
+        raise HTTPException(500, detail=str(e)) from e
 
 
 # ── Sprint 28b: Curva de Juros + Stress Test ──────────────────────────────────
@@ -353,7 +353,7 @@ async def add_rf_holding(
         purchase = _date.fromisoformat(body.purchase_date)
         maturity = _date.fromisoformat(body.maturity_date) if body.maturity_date else None
     except ValueError as e:
-        raise HTTPException(422, f"Data inválida: {e}")
+        raise HTTPException(422, f"Data inválida: {e}") from e
     try:
         return await _rf_svc(session).add_holding(
             portfolio_id=portfolio_id,
@@ -371,7 +371,7 @@ async def add_rf_holding(
             note=body.note,
         )
     except ValueError as e:
-        raise HTTPException(422, str(e))
+        raise HTTPException(422, str(e)) from e
 
 
 @router.delete("/portfolio/{portfolio_id}/holdings/{holding_id}", status_code=204)

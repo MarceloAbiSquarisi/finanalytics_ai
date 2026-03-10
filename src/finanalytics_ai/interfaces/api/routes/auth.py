@@ -113,9 +113,9 @@ async def register(
             expires_in=pair.expires_in,
         )
     except ValueError as e:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
     except AuthError as e:
-        raise _auth_error_to_http(e)
+        raise _auth_error_to_http(e) from e
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -132,7 +132,7 @@ async def login(
             expires_in=pair.expires_in,
         )
     except AuthError as e:
-        raise _auth_error_to_http(e)
+        raise _auth_error_to_http(e) from e
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -149,7 +149,7 @@ async def refresh(
             expires_in=pair.expires_in,
         )
     except AuthError as e:
-        raise _auth_error_to_http(e)
+        raise _auth_error_to_http(e) from e
 
 
 @router.get("/me", response_model=UserResponse)

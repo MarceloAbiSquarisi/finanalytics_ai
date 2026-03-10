@@ -257,9 +257,9 @@ class FundAnalysisService:
                     json=payload,
                 )
         except httpx.TimeoutException:
-            raise FundAnalysisError("Timeout na API Anthropic. Tente novamente.")
+            raise FundAnalysisError("Timeout na API Anthropic. Tente novamente.") from None
         except httpx.RequestError as e:
-            raise FundAnalysisError(f"Erro de rede: {e}")
+            raise FundAnalysisError(f"Erro de rede: {e}") from e
 
         if resp.status_code == 401:
             raise ConfigurationError("ANTHROPIC_API_KEY inválida.")
@@ -299,7 +299,7 @@ def _parse_response(raw: str, filename: str) -> FundAnalysis:
         data = json.loads(text)
     except json.JSONDecodeError as e:
         logger.error("fund_analysis.parse_error", error=str(e), raw=raw[:300])
-        raise FundAnalysisError(f"Resposta da IA não é JSON válido: {e}")
+        raise FundAnalysisError(f"Resposta da IA não é JSON válido: {e}") from e
 
     m = data.get("metrics", {})
     metrics = FundMetrics(

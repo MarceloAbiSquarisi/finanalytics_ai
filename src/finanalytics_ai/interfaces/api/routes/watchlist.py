@@ -136,7 +136,7 @@ async def add_item(
         item = await svc.add_item(current_user.user_id, body.ticker, body.note, body.tags)
         return item.to_dict()
     except WatchlistError as e:
-        raise HTTPException(422, detail=str(e))
+        raise HTTPException(422, detail=str(e)) from e
 
 
 @router.delete("/{item_id}", status_code=204)
@@ -148,7 +148,7 @@ async def remove_item(
     try:
         await svc.remove_item(current_user.user_id, item_id)
     except WatchlistError as e:
-        raise HTTPException(404, detail=str(e))
+        raise HTTPException(404, detail=str(e)) from e
 
 
 @router.patch("/{item_id}")
@@ -162,7 +162,7 @@ async def update_item(
         item = await svc.update_item(current_user.user_id, item_id, body.note, body.tags)
         return item.to_dict()
     except WatchlistError as e:
-        raise HTTPException(404, detail=str(e))
+        raise HTTPException(404, detail=str(e)) from e
 
 
 @router.post("/{item_id}/alerts", status_code=201)
@@ -178,4 +178,4 @@ async def add_alert(
         )
         return alert.to_dict()
     except WatchlistError as e:
-        raise HTTPException(422, detail=str(e))
+        raise HTTPException(422, detail=str(e)) from e

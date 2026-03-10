@@ -99,7 +99,7 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token expirado ou inválido. Faça login novamente.",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from None
 
     user = await UserRepository(session).find_by_id(payload.sub)
     if user is None or not user.is_active:

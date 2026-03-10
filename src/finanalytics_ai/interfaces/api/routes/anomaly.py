@@ -79,10 +79,10 @@ async def scan_anomalies(
         )
         return result.to_dict()
     except ValueError as exc:
-        raise HTTPException(422, str(exc))
+        raise HTTPException(422, str(exc)) from exc
     except Exception as exc:
         logger.error("anomaly.unexpected_error", error=str(exc))
-        raise HTTPException(500, "Erro interno na deteccao de anomalias")
+        raise HTTPException(500, "Erro interno na deteccao de anomalias") from exc
 
 
 @router.get("/scan")
@@ -107,10 +107,10 @@ async def scan_anomalies_get(
         result = await svc.scan(ticker_list, range_period, config)
         return result.to_dict()
     except ValueError as exc:
-        raise HTTPException(422, str(exc))
+        raise HTTPException(422, str(exc)) from exc
     except Exception as exc:
         logger.error("anomaly.unexpected_error", error=str(exc))
-        raise HTTPException(500, "Erro interno na deteccao de anomalias")
+        raise HTTPException(500, "Erro interno na deteccao de anomalias") from exc
 
 
 @router.get("/scan/{ticker}")
@@ -126,4 +126,4 @@ async def scan_single(
         return result.to_dict()
     except Exception as exc:
         logger.error("anomaly.unexpected_error", ticker=ticker, error=str(exc))
-        raise HTTPException(500, "Erro interno na deteccao de anomalias")
+        raise HTTPException(500, "Erro interno na deteccao de anomalias") from exc
