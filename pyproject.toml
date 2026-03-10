@@ -6,61 +6,42 @@ build-backend = "setuptools.build_meta"
 name = "finanalytics_ai"
 version = "0.1.0"
 requires-python = ">=3.12"
-
-[project.dependencies]
-# Web / API
-fastapi = ">=0.111.0"
-uvicorn = ">=0.30.0"
-starlette = ">=0.37.0"
-python-multipart = ">=0.0.9"
-
-# Validation / Settings
-pydantic = ">=2.12.0"
-pydantic-settings = ">=2.13.0"
-python-dotenv = ">=1.2.0"
-annotated-types = ">=0.7.0"
-
-# Database / ORM
-sqlalchemy = ">=2.0.48"
-asyncpg = ">=0.31.0"
-alembic = ">=1.18.0"
-greenlet = ">=3.3.0"
-
-# Cache
-redis = ">=7.3.0"
-
-# Auth / Security
-bcrypt = "==4.0.1"
-passlib = ">=1.7.4"
-python-jose = ">=3.5.0"
-cryptography = ">=46.0.0"
-pyasn1 = ">=0.6.0"
-rsa = ">=4.9.0"
-ecdsa = ">=0.19.0"
-
-# HTTP client
-aiohttp = ">=3.13.0"
-httpx = ">=0.28.0"
-
-# Data / Analytics
-numpy = ">=2.4.0"
-pandas = ">=3.0.0"
-scipy = ">=1.17.0"
-
-# Resiliência
-tenacity = ">=9.1.0"
-
-# Logging / Observability
-structlog = ">=25.5.0"
-opentelemetry-api = ">=1.40.0"
-opentelemetry-sdk = ">=1.40.0"
-prometheus-client = ">=0.24.0"
-
-# Reports / Utils
-reportlab = ">=4.4.0"
-pillow = ">=12.1.0"
-python-dateutil = ">=2.9.0"
-click = ">=8.3.0"
+dependencies = [
+    "fastapi>=0.111.0",
+    "uvicorn>=0.30.0",
+    "starlette>=0.37.0",
+    "python-multipart>=0.0.9",
+    "pydantic>=2.12.0",
+    "pydantic-settings>=2.13.0",
+    "python-dotenv>=1.2.0",
+    "annotated-types>=0.7.0",
+    "sqlalchemy>=2.0.48",
+    "asyncpg>=0.31.0",
+    "alembic>=1.18.0",
+    "greenlet>=3.3.0",
+    "redis>=7.3.0",
+    "bcrypt==4.0.1",
+    "passlib>=1.7.4",
+    "python-jose>=3.5.0",
+    "cryptography>=46.0.0",
+    "pyasn1>=0.6.0",
+    "rsa>=4.9.0",
+    "ecdsa>=0.19.0",
+    "aiohttp>=3.13.0",
+    "httpx>=0.28.0",
+    "numpy>=2.4.0",
+    "pandas>=3.0.0",
+    "scipy>=1.17.0",
+    "tenacity>=9.1.0",
+    "structlog>=25.5.0",
+    "opentelemetry-api>=1.40.0",
+    "opentelemetry-sdk>=1.40.0",
+    "prometheus-client>=0.24.0",
+    "reportlab>=4.4.0",
+    "pillow>=12.1.0",
+    "python-dateutil>=2.9.0",
+    "click>=8.3.0",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -76,9 +57,6 @@ dev = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
-# ─────────────────────────────────────────────
-# RUFF
-# ─────────────────────────────────────────────
 [tool.ruff]
 src = ["src"]
 line-length = 110
@@ -86,12 +64,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "UP", "B", "C4", "SIM", "TCH", "ANN", "PT", "RUF"]
-ignore = [
-    "ANN401",
-    "RUF001",
-    "RUF002",
-    "RUF003",
-]
+ignore = ["ANN401", "RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/finanalytics_ai/interfaces/api/**"                                      = ["B008", "ANN001", "ANN201", "ANN202"]
@@ -112,75 +85,35 @@ ignore = [
     "SIM222", "SIM300", "PT006", "C408", "RUF015", "F401", "I001",
 ]
 
-# ─────────────────────────────────────────────
-# MYPY
-# ─────────────────────────────────────────────
 [tool.mypy]
 python_version = "3.12"
 ignore_missing_imports = true
 warn_unused_ignores = false
 
-# NOTA: disable_error_codes NÃO funciona em overrides (só globalmente).
-# Usamos ignore_errors = true por módulo onde os erros são falsos-positivos
-# ou demandam refactor de maior porte.
-
-# Camada de interface: FastAPI decorators sem stubs completos (untyped-decorator
-# são todos falso-positivos), Pydantic Field overloads, return-value em rotas.
 [[tool.mypy.overrides]]
-module = [
-    "finanalytics_ai.interfaces.api.routes.*",
-    "finanalytics_ai.interfaces.api.app",
-    "finanalytics_ai.interfaces.api.dependencies",
-]
+module = ["finanalytics_ai.interfaces.api.routes.*", "finanalytics_ai.interfaces.api.app", "finanalytics_ai.interfaces.api.dependencies"]
 ignore_errors = true
 
-# Workers e serviços com helpers internos não anotados (código legado)
 [[tool.mypy.overrides]]
-module = [
-    "finanalytics_ai.workers.*",
-    "finanalytics_ai.application.services.ohlc_1m_service",
-    "finanalytics_ai.application.services.rf_portfolio_service",
-    "finanalytics_ai.infrastructure.database.repositories.ticker_service",
-    "finanalytics_ai.application.services.patrimony_service",
-]
+module = ["finanalytics_ai.workers.*", "finanalytics_ai.application.services.ohlc_1m_service", "finanalytics_ai.application.services.rf_portfolio_service", "finanalytics_ai.infrastructure.database.repositories.ticker_service", "finanalytics_ai.application.services.patrimony_service"]
 ignore_errors = true
 
-# Domínio: bare dict/list sem params (type-arg) — ruído alto, valor baixo
-# Refactor gradual para dict[str, Any] programado para sprint de tipagem
 [[tool.mypy.overrides]]
-module = [
-    "finanalytics_ai.domain.*",
-    "finanalytics_ai.metrics",
-]
+module = ["finanalytics_ai.domain.*", "finanalytics_ai.metrics"]
 ignore_errors = true
 
-# Serviços com union types problemáticos (asyncio.gather retorna list[Any | Exception])
-# Requer refactor de gather + TypeVar para resolver adequadamente
 [[tool.mypy.overrides]]
-module = [
-    "finanalytics_ai.application.services.anomaly_service",
-    "finanalytics_ai.application.services.correlation_service",
-    "finanalytics_ai.application.services.portfolio_optimizer_service",
-]
+module = ["finanalytics_ai.application.services.anomaly_service", "finanalytics_ai.application.services.correlation_service", "finanalytics_ai.application.services.portfolio_optimizer_service"]
 ignore_errors = true
 
-# Infra: SQLAlchemy ORM — Column[T] vs T em atribuições (known mypy+sqlalchemy issue)
-# Solução correta: sqlalchemy[mypy] plugin ou sqlalchemy2-stubs — adicionado como issue
 [[tool.mypy.overrides]]
-module = [
-    "finanalytics_ai.infrastructure.database.repositories.*",
-    "finanalytics_ai.infrastructure.database.*",
-]
+module = ["finanalytics_ai.infrastructure.database.repositories.*", "finanalytics_ai.infrastructure.database.*"]
 ignore_errors = true
 
-# config.py Settings instanciado sem args (valores vêm de env)
 [[tool.mypy.overrides]]
 module = ["finanalytics_ai.config"]
 ignore_errors = true
 
-# ─────────────────────────────────────────────
-# PYTEST
-# ─────────────────────────────────────────────
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
