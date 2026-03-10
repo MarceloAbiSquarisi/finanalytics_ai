@@ -10,7 +10,7 @@ Testes unitários para:
 from __future__ import annotations
 
 import math
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -175,7 +175,7 @@ class TestSmartAlertCooldown:
         alert = make_alert(SmartAlertType.RSI_OVERSOLD)
         alert.config.cooldown_hours = 1
         alert.status = SmartAlertStatus.COOLDOWN
-        alert.last_triggered_at = datetime.utcnow() - timedelta(hours=2)
+        alert.last_triggered_at = datetime.now(UTC) - timedelta(hours=2)
         assert alert.is_evaluatable()
         assert alert.status == SmartAlertStatus.ACTIVE
 

@@ -47,7 +47,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -119,7 +119,7 @@ class SmartAlert:
     config: SmartAlertConfig = field(default_factory=SmartAlertConfig)
     status: SmartAlertStatus = SmartAlertStatus.ACTIVE
     last_triggered_at: datetime | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     note: str = ""
 
     def is_evaluatable(self) -> bool:
@@ -128,14 +128,14 @@ class SmartAlert:
             return False
         if self.status == SmartAlertStatus.COOLDOWN and self.last_triggered_at:
             cooldown_end = self.last_triggered_at + timedelta(hours=self.config.cooldown_hours)
-            if datetime.utcnow() < cooldown_end:
+            if datetime.now(UTC) < cooldown_end:
                 return False
             # Cooldown expirou → volta para ACTIVE
             self.status = SmartAlertStatus.ACTIVE
         return True
 
     def mark_triggered(self) -> None:
-        self.last_triggered_at = datetime.utcnow()
+        self.last_triggered_at = datetime.now(UTC)
         self.status = SmartAlertStatus.COOLDOWN
 
     def to_dict(self) -> dict[str, Any]:
@@ -176,7 +176,7 @@ class WatchlistItem:
     note: str = ""
     tags: list[str] = field(default_factory=list)
     smart_alerts: list[SmartAlert] = field(default_factory=list)
-    added_at: datetime = field(default_factory=datetime.utcnow)
+    added_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     # Cache de dados de mercado (preenchido pelo service)
     current_price: float | None = None
     change_pct: float | None = None

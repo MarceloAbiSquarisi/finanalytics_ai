@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
@@ -49,7 +49,7 @@ class MarketEvent:
     ticker: str
     payload: dict[str, Any]
     event_id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    occurred_at: datetime = field(default_factory=datetime.utcnow)
+    occurred_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     source: str = "unknown"
     status: EventStatus = EventStatus.PENDING
     retry_count: int = 0
@@ -79,7 +79,7 @@ class MarketEvent:
             source=self.source,
             status=EventStatus.PROCESSED,
             retry_count=self.retry_count,
-            processed_at=datetime.utcnow(),
+            processed_at=datetime.now(UTC),
         )
 
     def mark_failed(self, error: str) -> MarketEvent:

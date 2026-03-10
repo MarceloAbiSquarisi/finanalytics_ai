@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from finanalytics_ai.domain.value_objects.money import Currency, Money, Quantity, Ticker
@@ -70,8 +70,8 @@ class Portfolio:
     currency: Currency = Currency.BRL
     positions: dict[str, Position] = field(default_factory=dict)
     cash: Money = field(default_factory=lambda: Money.of("0"))
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def add_position(self, ticker: Ticker, quantity: Quantity, price: Money) -> None:
         """Registra compra. Deduz do caixa e atualiza/cria posição."""
@@ -89,7 +89,7 @@ class Portfolio:
                 ticker=ticker, quantity=quantity, average_price=price
             )
         self.cash = self.cash - cost
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(UTC)
 
     def remove_position(self, ticker: Ticker, quantity: Quantity, price: Money) -> Money:
         """Registra venda. Retorna o valor líquido creditado."""
@@ -115,7 +115,7 @@ class Portfolio:
                 asset_class=position.asset_class,
             )
         self.cash = self.cash + proceeds
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(UTC)
         return proceeds
 
     def total_invested(self) -> Money:
