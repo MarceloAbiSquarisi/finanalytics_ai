@@ -113,3 +113,27 @@ addopts = "--strict-markers --tb=short"
 unit = "Unit tests"
 integration = "Integration tests (require external services)"
 slow = "Slow tests (skipped by default in CI)"
+[tool.coverage.run]
+source = ["src/finanalytics_ai"]
+omit = [
+    "src/finanalytics_ai/infrastructure/database/repositories/*",
+    "src/finanalytics_ai/infrastructure/timescale/*",
+    "src/finanalytics_ai/infrastructure/adapters/anbima_client.py",
+    "src/finanalytics_ai/infrastructure/adapters/tesouro_client.py",
+    "src/finanalytics_ai/interfaces/api/routes/*",
+    "src/finanalytics_ai/interfaces/api/app.py",
+    "src/finanalytics_ai/interfaces/api/run.py",
+    "src/finanalytics_ai/workers/*",
+    "src/finanalytics_ai/infrastructure/cache/dependencies.py",
+    "src/finanalytics_ai/infrastructure/queue/kafka_adapter.py",
+    "src/finanalytics_ai/infrastructure/notifications/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@abstractmethod",
+]
