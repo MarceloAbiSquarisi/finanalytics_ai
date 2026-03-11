@@ -36,3 +36,13 @@ reports/
 
 # Docker
 *.log
+
+# Outputs e scripts de sessão de desenvolvimento
+*.zip
+Outputs/
+ResultadoAnalises/
+fixes/
+diagnose_project.py
+export_*.py
+dev.ps1
+
