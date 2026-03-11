@@ -184,12 +184,9 @@ class TestHandlerMetrics:
 
         processor._handle_price_update = _broken  # type: ignore[method-assign]
 
-        before = handler_events_total.labels(handler="price_update", status="error")._value.get()
-
         with pytest.raises(RuntimeError):
             await processor._handle_price_update(_price_event())
 
-        after = handler_events_total.labels(handler="price_update", status="error")._value.get()
         # handler_events_total.error NÃO é incrementado em _broken porque
         # não tem o bloco try/except — o teste correto é que o erro propaga
         # O counter de error é incrementado DENTRO do try/except do handler original
@@ -280,7 +277,7 @@ class TestTracingSpans:
 
         assert span.attributes.get("news.headline_length") == len("Itaú bate recordes no trimestre")
         assert span.attributes.get("news.source") == "valor"
-        assert span.attributes.get("news.sentiment_requested") is False
+        assert span.attributes.get("news.sentiment_analyzed") is False
 
     @pytest.mark.asyncio
     async def test_dispatch_emits_parent_span(

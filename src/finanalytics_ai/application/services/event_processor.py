@@ -49,6 +49,9 @@ if TYPE_CHECKING:
     from finanalytics_ai.application.commands.process_event import ProcessMarketEventCommand
     from finanalytics_ai.domain.ports.event_store import EventStore
     from finanalytics_ai.domain.ports.market_data import MarketDataProvider
+    from finanalytics_ai.domain.ports.news_sentiment_repository import NewsSentimentRepository
+    from finanalytics_ai.domain.ports.ohlc_repository import OHLCBarRepository
+    from finanalytics_ai.domain.ports.sentiment_analyzer import SentimentAnalyzer
 
 logger = structlog.get_logger(__name__)
 
@@ -72,12 +75,20 @@ class EventProcessorService:
         market_data: MarketDataProvider,
         max_retry_attempts: int = 3,
         tracer: trace.Tracer | None = None,
+        ohlc_repo: OHLCBarRepository | None = None,
+        sentiment_analyzer: SentimentAnalyzer | None = None,
+        news_repo: NewsSentimentRepository | None = None,
     ) -> None:
         self._store = event_store
         self._market_data = market_data
         self._max_retries = max_retry_attempts
         # Tracer opcional — usa no-op se não fornecido
         self._tracer: trace.Tracer = tracer or _noop_tracer
+        # OHLCBarRepository opcional — backward compat e testes sem DB
+        self._ohlc_repo = ohlc_repo
+        # Sentimento — opcional; sem analisador, handler loga e segue
+        self._sentiment_analyzer = sentiment_analyzer
+        self._news_repo = news_repo
 
     async def process(self, command: ProcessMarketEventCommand) -> MarketEvent:
         """
@@ -239,19 +250,27 @@ class EventProcessorService:
 
     async def _handle_ohlc_bar(self, event: MarketEvent) -> None:
         """
-        Processa barra OHLC fechada.
+        Processa barra OHLC fechada e persiste via OHLCBarRepository.
 
         Responsabilidades:
-        - Valida os campos obrigatórios do payload (open, high, low, close)
+        - Valida e extrai campos OHLC do payload
+        - Persiste barra com idempotência (ON CONFLICT DO NOTHING)
         - Registra métricas e emite span com atributos OHLC
-        - Hook point para persistência via OHLCRepository
 
-        Design decision: persistência via repository NÃO está conectada aqui.
-        O OHLCBarRepository requer AsyncSession, que exige lifespan da app.
-        A conexão final será feita quando OHLCRepository for injetado
-        via WorkerDeps (próxima sprint). O span já está estruturado para
-        receber o atributo "ohlc.persisted" quando isso acontecer.
+        Payload esperado:
+          open, high, low, close: float/str (obrigatório)
+          volume: float/str (opcional)
+          timestamp: ISO8601 str ou epoch int (opcional, default=occurred_at)
+          timeframe: str (opcional, default="1m")
+
+        Design decision: ohlc_repo é opcional — quando None o handler loga
+        mas não falha. Isso permite rodar o worker sem DB de OHLC configurado
+        (ex: modo leve sem storage de séries temporais). O span registra
+        ohlc.persisted=False para rastreabilidade de qual path foi usado.
         """
+        from datetime import UTC, datetime
+        from decimal import Decimal, InvalidOperation
+
         _start = time.perf_counter()
         handler_name = "ohlc_bar"
 
@@ -261,21 +280,84 @@ class EventProcessorService:
         ) as span:
             try:
                 payload = event.payload
-                close = payload.get("close")
-                volume = payload.get("volume")
 
+                # ── Extrai campos obrigatórios ────────────────────────────────
+                def _to_decimal(key: str) -> Decimal | None:
+                    val = payload.get(key)
+                    if val is None:
+                        return None
+                    try:
+                        return Decimal(str(val))
+                    except InvalidOperation:
+                        logger.warning("ohlc.invalid_field", field=key, value=str(val))
+                        return None
+
+                close = _to_decimal("close")
+                open_ = _to_decimal("open")
+                high = _to_decimal("high")
+                low = _to_decimal("low")
+                volume = _to_decimal("volume") or Decimal("0")
+                timeframe = str(payload.get("timeframe", "1m"))
+
+                # ── Extrai timestamp ──────────────────────────────────────────
+                ts_raw = payload.get("timestamp")
+                if isinstance(ts_raw, str):
+                    try:
+                        bar_ts = datetime.fromisoformat(ts_raw)
+                        if bar_ts.tzinfo is None:
+                            bar_ts = bar_ts.replace(tzinfo=UTC)
+                    except ValueError:
+                        bar_ts = event.occurred_at
+                elif isinstance(ts_raw, (int, float)):
+                    bar_ts = datetime.fromtimestamp(ts_raw, tz=UTC)
+                else:
+                    bar_ts = event.occurred_at
+
+                # ── Span attributes ───────────────────────────────────────────
                 if close is not None:
                     span.set_attribute("ohlc.close", float(close))
-                if volume is not None:
-                    span.set_attribute("ohlc.volume", int(volume))
+                if volume:
+                    span.set_attribute("ohlc.volume", float(volume))
+                span.set_attribute("ohlc.timeframe", timeframe)
 
-                span.set_attribute("ohlc.persisted", False)  # updated when repo is wired
+                # ── Persiste via repository ───────────────────────────────────
+                persisted = False
+                if self._ohlc_repo is not None and all(v is not None for v in (open_, high, low, close)):
+                    from finanalytics_ai.domain.entities.event import OHLCBar
+
+                    bar = OHLCBar(
+                        ticker=event.ticker,
+                        timestamp=bar_ts,
+                        timeframe=timeframe,
+                        open=open_,  # type: ignore[arg-type]
+                        high=high,  # type: ignore[arg-type]
+                        low=low,  # type: ignore[arg-type]
+                        close=close,  # type: ignore[arg-type]
+                        volume=volume,
+                        source=event.source,
+                    )
+                    persisted = await self._ohlc_repo.upsert_bar(bar)
+                    span.set_attribute("ohlc.persisted", persisted)
+                else:
+                    span.set_attribute("ohlc.persisted", False)
+                    if self._ohlc_repo is None:
+                        logger.debug("ohlc.bar.repo_not_configured", ticker=event.ticker)
+                    else:
+                        logger.warning(
+                            "ohlc.bar.missing_fields",
+                            ticker=event.ticker,
+                            has_open=open_ is not None,
+                            has_high=high is not None,
+                            has_low=low is not None,
+                            has_close=close is not None,
+                        )
 
                 logger.debug(
-                    "ohlc.bar.received",
+                    "ohlc.bar.processed",
                     ticker=event.ticker,
-                    close=close,
-                    volume=volume,
+                    timeframe=timeframe,
+                    close=str(close) if close is not None else None,
+                    persisted=persisted,
                 )
                 handler_events_total.labels(handler=handler_name, status="ok").inc()
 
@@ -289,17 +371,21 @@ class EventProcessorService:
 
     async def _handle_news(self, event: MarketEvent) -> None:
         """
-        Processa evento de notícia publicada.
+        Processa evento de notícia publicada com análise de sentimento.
 
-        Responsabilidades:
-        - Extrai headline e source do payload
-        - Emite span com atributos de conteúdo
-        - Hook point para análise de sentimento / impacto via LLM
+        Fluxo:
+        1. Extrai headline e source do payload.
+        2. Se sentiment_analyzer injetado E headline presente: analisa sentimento.
+        3. Se news_repo injetado: persiste resultado (idempotência por event_id).
+        4. Emite span com score e label para observabilidade.
 
-        Design decision: análise LLM é síncrona e cara — será processada
-        em background task separada quando implementada (S15+).
-        O span inclui "news.sentiment_requested" = False para facilitar
-        rastreamento de quais eventos ainda não foram analisados.
+        Design decisions:
+        - Análise de sentimento é opcional: sem analyzer, handler completa normalmente.
+          Isso preserva backward compat e permite deploy incremental.
+        - Falha no analyzer nunca propaga: retorna NewsSentiment.neutral() internamente.
+          O span registra se sentimento foi analisado ou não via "news.sentiment_analyzed".
+        - Persistência também é opcional: sem news_repo, sentimento é apenas logado.
+          Útil para dev local sem DB.
         """
         _start = time.perf_counter()
         handler_name = "news"
@@ -310,13 +396,12 @@ class EventProcessorService:
         ) as span:
             try:
                 payload = event.payload
-                headline = payload.get("headline", "")
-                source = payload.get("source", event.source)
+                headline = str(payload.get("headline", ""))
+                source = str(payload.get("source", event.source))
 
                 if headline:
                     span.set_attribute("news.headline_length", len(headline))
                 span.set_attribute("news.source", source)
-                span.set_attribute("news.sentiment_requested", False)
 
                 logger.debug(
                     "news.received",
@@ -324,6 +409,49 @@ class EventProcessorService:
                     headline=headline[:80] if headline else None,
                     source=source,
                 )
+
+                # ── Análise de sentimento ──────────────────────────────────
+                sentiment_analyzed = False
+                if self._sentiment_analyzer is not None and headline:
+                    sentiment = await self._sentiment_analyzer.analyze(
+                        event_id=event.event_id,
+                        ticker=event.ticker,
+                        headline=headline,
+                        source=source,
+                    )
+                    sentiment_analyzed = True
+
+                    span.set_attribute("news.sentiment.score", sentiment.score)
+                    span.set_attribute("news.sentiment.label", str(sentiment.label))
+                    span.set_attribute("news.sentiment.model", sentiment.model)
+
+                    logger.info(
+                        "news.sentiment.analyzed",
+                        ticker=event.ticker,
+                        score=sentiment.score,
+                        label=str(sentiment.label),
+                        model=sentiment.model,
+                        is_actionable=sentiment.is_actionable,
+                    )
+
+                    # ── Persistência ──────────────────────────────────────
+                    if self._news_repo is not None:
+                        inserted = await self._news_repo.save(sentiment)
+                        span.set_attribute("news.sentiment.persisted", inserted)
+                        if not inserted:
+                            logger.debug(
+                                "news.sentiment.duplicate",
+                                event_id=event.event_id,
+                            )
+                else:
+                    if not headline:
+                        logger.warning(
+                            "news.no_headline",
+                            ticker=event.ticker,
+                            event_id=event.event_id,
+                        )
+
+                span.set_attribute("news.sentiment_analyzed", sentiment_analyzed)
                 handler_events_total.labels(handler=handler_name, status="ok").inc()
 
             except Exception as exc:

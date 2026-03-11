@@ -26,6 +26,7 @@ Design decisions:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import signal
 from dataclasses import dataclass
 
@@ -45,8 +46,13 @@ from finanalytics_ai.infrastructure.database.connection import (
     get_session,
 )
 from finanalytics_ai.infrastructure.database.repositories.event_store_repo import SQLEventStore
+from finanalytics_ai.infrastructure.database.repositories.news_sentiment_repo import (
+    SQLNewsSentimentRepository,
+)
+from finanalytics_ai.infrastructure.database.repositories.ohlc_bar_repo import SQLOHLCBarRepository
 from finanalytics_ai.infrastructure.notifications import get_notification_bus
 from finanalytics_ai.infrastructure.queue.event_queue import InMemoryEventQueue
+from finanalytics_ai.infrastructure.sentiment.mock_analyzer import MockSentimentAnalyzer
 from finanalytics_ai.logging_config import configure_logging
 from finanalytics_ai.observability import setup_metrics, setup_tracing
 
@@ -67,6 +73,9 @@ class WorkerDeps:
     brapi: BrapiClient
     alert_service: AlertService
     tracer: trace.Tracer | None = None
+    ohlc_repo_factory: type[SQLOHLCBarRepository] = SQLOHLCBarRepository
+    news_repo_factory: type[SQLNewsSentimentRepository] = SQLNewsSentimentRepository
+    sentiment_analyzer_factory: type[MockSentimentAnalyzer] = MockSentimentAnalyzer
 
 
 async def _process_event(deps: WorkerDeps, event: object) -> None:
@@ -103,10 +112,16 @@ async def _process_event(deps: WorkerDeps, event: object) -> None:
 
     async with get_session() as session:
         store = SQLEventStore(session)
+        ohlc_repo = deps.ohlc_repo_factory(session)
+        news_repo = deps.news_repo_factory(session)
+        sentiment_analyzer = deps.sentiment_analyzer_factory()
         processor = EventProcessorService(
             event_store=store,
             market_data=deps.brapi,
             tracer=deps.tracer,
+            ohlc_repo=ohlc_repo,
+            sentiment_analyzer=sentiment_analyzer,
+            news_repo=news_repo,
         )
         try:
             result = await processor.process(command)
@@ -207,10 +222,8 @@ async def main() -> None:
 
     # ── Shutdown ordenado ─────────────────────────────────────────────────────
     worker_task.cancel()
-    try:
+    with contextlib.suppress(TimeoutError, asyncio.CancelledError):
         await asyncio.wait_for(worker_task, timeout=10.0)
-    except (TimeoutError, asyncio.CancelledError):
-        pass
 
     await brapi.close()
     await close_engine()
