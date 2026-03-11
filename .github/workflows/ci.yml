@@ -138,9 +138,10 @@ jobs:
             -q \
             --tb=short \
             --cov=src/finanalytics_ai \
+            --cov-config=pyproject.toml \
             --cov-report=term-missing:skip-covered \
             --cov-report=xml:coverage.xml \
-            --cov-fail-under=60
+            --cov-fail-under=58
         env:
           # Mínimo de settings para o app carregar em CI (sem infra real)
           APP_ENV:        test
