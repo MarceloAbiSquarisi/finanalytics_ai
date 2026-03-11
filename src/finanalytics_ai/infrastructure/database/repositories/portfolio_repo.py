@@ -1,4 +1,4 @@
-"""Portfolio Repository — SQLAlchemy async. v2: description, benchmark, is_default."""
+"""Portfolio Repository — SQLAlchemy async."""
 
 from __future__ import annotations
 
@@ -8,19 +8,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import structlog
-from sqlalchemy import (
-    Boolean,
-    Column,
-    DateTime,
-    ForeignKey,
-    Integer,
-    Numeric,
-    String,
-    UniqueConstraint,
-    delete,
-    select,
-    update,
-)
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint, delete, select, update
 
 from finanalytics_ai.domain.entities.portfolio import Portfolio, Position
 from finanalytics_ai.domain.value_objects.money import Currency, Money, Quantity, Ticker
@@ -34,12 +22,13 @@ logger = structlog.get_logger(__name__)
 
 class PortfolioModel(Base):
     __tablename__ = "portfolios"
+
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(String(100), nullable=False, index=True)
     name = Column(String(200), nullable=False)
-    description = Column(String(500), nullable=False, default="")
-    benchmark = Column(String(20), nullable=False, default="")
-    is_default = Column(Boolean, nullable=False, default=False)
+    description = Column(String(500), nullable=True)       # 0002_portfolio_multi
+    benchmark = Column(String(20), nullable=True)          # 0002_portfolio_multi
+    is_default = Column(Boolean, nullable=False, default=False)  # 0002_portfolio_multi
     currency = Column(String(3), nullable=False, default="BRL")
     cash = Column(Numeric(18, 2), nullable=False, default=0)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
@@ -48,6 +37,7 @@ class PortfolioModel(Base):
 
 class PositionModel(Base):
     __tablename__ = "positions"
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     portfolio_id = Column(
         String(36), ForeignKey("portfolios.id", ondelete="CASCADE"), nullable=False, index=True
@@ -67,11 +57,11 @@ class SQLPortfolioRepository:
         existing = await self._session.get(PortfolioModel, portfolio.portfolio_id)
         if existing:
             existing.name = portfolio.name
-            existing.description = portfolio.description
-            existing.benchmark = portfolio.benchmark
-            existing.is_default = portfolio.is_default
-            existing.cash = portfolio.cash.amount
-            existing.updated_at = datetime.now(UTC)
+            existing.description = portfolio.description  # type: ignore[assignment]
+            existing.benchmark = portfolio.benchmark      # type: ignore[assignment]
+            existing.is_default = portfolio.is_default    # type: ignore[assignment]
+            existing.cash = portfolio.cash.amount          # type: ignore[assignment]
+            existing.updated_at = datetime.now(UTC)        # type: ignore[assignment]
         else:
             model = PortfolioModel(
                 id=portfolio.portfolio_id,
@@ -86,6 +76,7 @@ class SQLPortfolioRepository:
                 updated_at=portfolio.updated_at,
             )
             self._session.add(model)
+
         # Sync positions: delete all and re-insert
         await self._session.execute(
             delete(PositionModel).where(PositionModel.portfolio_id == portfolio.portfolio_id)
@@ -118,12 +109,16 @@ class SQLPortfolioRepository:
         return portfolios
 
     async def delete(self, portfolio_id: str) -> None:
-        await self._session.execute(delete(PortfolioModel).where(PortfolioModel.id == portfolio_id))
+        await self._session.execute(
+            delete(PortfolioModel).where(PortfolioModel.id == portfolio_id)
+        )
 
     async def clear_default(self, user_id: str) -> None:
         """Remove is_default de todas as carteiras do usuário."""
         await self._session.execute(
-            update(PortfolioModel).where(PortfolioModel.user_id == user_id).values(is_default=False)
+            update(PortfolioModel)
+            .where(PortfolioModel.user_id == user_id)
+            .values(is_default=False)
         )
 
     async def _hydrate(self, pm: PortfolioModel) -> Portfolio:
@@ -142,13 +137,13 @@ class SQLPortfolioRepository:
             portfolio_id=str(pm.id),
             user_id=str(pm.user_id),
             name=str(pm.name),
-            description=str(pm.description or ""),
-            benchmark=str(pm.benchmark or ""),
+            description=str(pm.description) if pm.description else None,
+            benchmark=str(pm.benchmark) if pm.benchmark else None,
             is_default=bool(pm.is_default),
             currency=Currency(str(pm.currency)),
             cash=Money(Decimal(str(pm.cash)), Currency(str(pm.currency))),
-            created_at=pm.created_at,
-            updated_at=pm.updated_at,
+            created_at=pm.created_at,  # type: ignore[arg-type]
+            updated_at=pm.updated_at,  # type: ignore[arg-type]
         )
         p.positions = positions
         return p
