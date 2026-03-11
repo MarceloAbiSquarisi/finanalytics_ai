@@ -27,11 +27,9 @@ from finanalytics_ai.domain.backtesting.optimizer import (
     OptimizationResult,
     grid_search,
 )
-
 from finanalytics_ai.domain.value_objects.money import Ticker
 
 if TYPE_CHECKING:
-
     from finanalytics_ai.domain.ports.market_data import MarketDataProvider
 
 logger = structlog.get_logger(__name__)

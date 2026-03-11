@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -72,6 +72,7 @@ def worker_deps(
     mock_alert_service: AsyncMock,
 ) -> WorkerDeps:
     from finanalytics_ai.infrastructure.queue.event_queue import InMemoryEventQueue
+
     return WorkerDeps(
         queue=InMemoryEventQueue(),
         brapi=mock_brapi,  # type: ignore[arg-type]
@@ -120,9 +121,7 @@ class TestProcessEvent:
         ):
             await _process_event(worker_deps, price_event)
 
-        mock_alert_service.evaluate_price.assert_awaited_once_with(
-            "PETR4", 32.50
-        )
+        mock_alert_service.evaluate_price.assert_awaited_once_with("PETR4", 32.50)
 
     @pytest.mark.asyncio
     async def test_ohlc_event_does_not_trigger_alerts(

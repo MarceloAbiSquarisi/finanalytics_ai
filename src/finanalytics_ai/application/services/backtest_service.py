@@ -24,11 +24,9 @@ import structlog
 
 from finanalytics_ai.domain.backtesting.engine import BacktestResult, run_backtest
 from finanalytics_ai.domain.backtesting.strategies.technical import get_strategy
-
 from finanalytics_ai.domain.value_objects.money import Ticker
 
 if TYPE_CHECKING:
-
     from finanalytics_ai.domain.ports.market_data import MarketDataProvider
 
 logger = structlog.get_logger(__name__)

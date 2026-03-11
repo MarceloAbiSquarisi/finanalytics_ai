@@ -235,9 +235,7 @@ class EventProcessorService:
                 handler_events_total.labels(handler=handler_name, status="error").inc()
                 raise
             finally:
-                handler_duration_seconds.labels(handler=handler_name).observe(
-                    time.perf_counter() - _start
-                )
+                handler_duration_seconds.labels(handler=handler_name).observe(time.perf_counter() - _start)
 
     async def _handle_ohlc_bar(self, event: MarketEvent) -> None:
         """
@@ -287,9 +285,7 @@ class EventProcessorService:
                 handler_events_total.labels(handler=handler_name, status="error").inc()
                 raise
             finally:
-                handler_duration_seconds.labels(handler=handler_name).observe(
-                    time.perf_counter() - _start
-                )
+                handler_duration_seconds.labels(handler=handler_name).observe(time.perf_counter() - _start)
 
     async def _handle_news(self, event: MarketEvent) -> None:
         """
@@ -336,6 +332,4 @@ class EventProcessorService:
                 handler_events_total.labels(handler=handler_name, status="error").inc()
                 raise
             finally:
-                handler_duration_seconds.labels(handler=handler_name).observe(
-                    time.perf_counter() - _start
-                )
+                handler_duration_seconds.labels(handler=handler_name).observe(time.perf_counter() - _start)

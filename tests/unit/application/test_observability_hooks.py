@@ -345,6 +345,7 @@ class TestExistingBehaviorPreserved:
     ) -> None:
         """Logging de debug ainda acontece após a refatoração."""
         import logging
+
         with caplog.at_level(logging.DEBUG):
             await processor_with_tracer._handle_price_update(_price_event("55.00"))
         # structlog não usa caplog diretamente, mas o handler não deve levantar

@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import asyncio
 import signal
-import uuid
 from dataclasses import dataclass
 
 import structlog
@@ -44,7 +43,6 @@ from finanalytics_ai.infrastructure.database.connection import (
     close_engine,
     get_engine,
     get_session,
-    get_session_factory,
 )
 from finanalytics_ai.infrastructure.database.repositories.event_store_repo import SQLEventStore
 from finanalytics_ai.infrastructure.notifications import get_notification_bus
@@ -69,7 +67,6 @@ class WorkerDeps:
     brapi: BrapiClient
     alert_service: AlertService
     tracer: trace.Tracer | None = None
-
 
 
 async def _process_event(deps: WorkerDeps, event: object) -> None:
@@ -127,9 +124,7 @@ async def _process_event(deps: WorkerDeps, event: object) -> None:
         price = event.payload.get("price")
         if price is not None:
             try:
-                triggered = await deps.alert_service.evaluate_price(
-                    event.ticker, float(price)
-                )
+                triggered = await deps.alert_service.evaluate_price(event.ticker, float(price))
                 if triggered:
                     log.info("alerts.triggered", count=triggered, price=price)
             except Exception as exc:
@@ -214,7 +209,7 @@ async def main() -> None:
     worker_task.cancel()
     try:
         await asyncio.wait_for(worker_task, timeout=10.0)
-    except (asyncio.CancelledError, asyncio.TimeoutError):
+    except (TimeoutError, asyncio.CancelledError):
         pass
 
     await brapi.close()
