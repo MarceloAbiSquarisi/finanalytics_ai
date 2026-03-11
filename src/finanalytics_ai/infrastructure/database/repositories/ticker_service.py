@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -73,14 +73,14 @@ async def refresh_tickers(dsn: str, brapi_token: str | None = None) -> dict[str,
                 if isinstance(item, str):
                     tickers.append({"ticker": item, "name": None, "type": _guess_type(item)})
                 elif isinstance(item, dict):
-                    t = item.get("stock", item.get("ticker", ""))
+                    t = item.get("stock", item.get("ticker", "")) or ""
                     tickers.append({"ticker": t, "name": item.get("name"), "type": _guess_type(t)})
         except Exception as exc:
             logger.error(f"brapi.available.error: {exc}")
     if not tickers:
         await engine.dispose()
         return {"upserted": 0, "total": 0}
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     upserted = 0
     async with sf() as session, session.begin():
         for chunk in _chunks(tickers, 500):

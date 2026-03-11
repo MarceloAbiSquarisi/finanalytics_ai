@@ -87,33 +87,30 @@ ignore = ["ANN401", "RUF001", "RUF002", "RUF003"]
 
 [tool.mypy]
 python_version = "3.12"
+mypy_path = "src"
+explicit_package_bases = true
 ignore_missing_imports = true
 warn_unused_ignores = false
+warn_return_any = false
+# Nenhum override com ignore_errors — todos os módulos são verificados.
+# Overrides apenas para stubs incompletos de bibliotecas terceiras:
 
 [[tool.mypy.overrides]]
-module = ["finanalytics_ai.interfaces.api.routes.*", "finanalytics_ai.interfaces.api.app", "finanalytics_ai.interfaces.api.dependencies"]
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = ["finanalytics_ai.workers.*", "finanalytics_ai.application.services.ohlc_1m_service", "finanalytics_ai.application.services.rf_portfolio_service", "finanalytics_ai.infrastructure.database.repositories.ticker_service", "finanalytics_ai.application.services.patrimony_service"]
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = ["finanalytics_ai.domain.*", "finanalytics_ai.metrics"]
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = ["finanalytics_ai.application.services.anomaly_service", "finanalytics_ai.application.services.correlation_service", "finanalytics_ai.application.services.portfolio_optimizer_service"]
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = ["finanalytics_ai.infrastructure.database.repositories.*", "finanalytics_ai.infrastructure.database.*"]
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = ["finanalytics_ai.config"]
-ignore_errors = true
+module = [
+    "confluent_kafka.*",
+    "opentelemetry.*",
+    "prometheus_client.*",
+    "reportlab.*",
+]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "--strict-markers --tb=short"
+
+[tool.pytest.ini_options.markers]
+unit = "Unit tests"
+integration = "Integration tests (require external services)"
+slow = "Slow tests (skipped by default in CI)"

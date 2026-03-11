@@ -13,7 +13,7 @@ Cobertura:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from finanalytics_ai.domain.entities.alert import (
@@ -230,14 +230,14 @@ class TestAlertStatusGuard:
         assert result.triggered is False
 
     def test_expired_alert_does_not_trigger(self):
-        past = datetime.utcnow() - timedelta(hours=1)
+        past = datetime.now(UTC) - timedelta(hours=1)
         alert = _alert(AlertType.STOP_LOSS, threshold="30.00", expires_at=past)
         result = alert.evaluate(p("20.00"))
         assert result.triggered is False
         assert "expirado" in result.message
 
     def test_future_expiry_still_active(self):
-        future = datetime.utcnow() + timedelta(hours=24)
+        future = datetime.now(UTC) + timedelta(hours=24)
         alert = _alert(AlertType.STOP_LOSS, threshold="30.00", expires_at=future)
         result = alert.evaluate(p("20.00"))
         assert result.triggered is True

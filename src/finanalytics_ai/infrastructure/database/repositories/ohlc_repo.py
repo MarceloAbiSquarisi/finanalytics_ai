@@ -1,25 +1,29 @@
-from sqlalchemy import Column, DateTime, Float, Integer, String, UniqueConstraint
-from sqlalchemy.orm import declarative_base
+from datetime import datetime
 
-Base = declarative_base()
+from sqlalchemy import DateTime, Float, Integer, String, UniqueConstraint
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+class Base(DeclarativeBase):
+    pass
 
 
 class OHLCBarModel(Base):
     __tablename__ = "ohlc_bars"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    ticker = Column(String(20), nullable=False, index=True)
-    timestamp = Column(DateTime, nullable=False, index=True)
-    open = Column(Float, nullable=False)
-    high = Column(Float, nullable=False)
-    low = Column(Float, nullable=False)
-    close = Column(Float, nullable=False)
-    volume = Column(Float, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticker: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    open: Mapped[float] = mapped_column(Float, nullable=False)
+    high: Mapped[float] = mapped_column(Float, nullable=False)
+    low: Mapped[float] = mapped_column(Float, nullable=False)
+    close: Mapped[float] = mapped_column(Float, nullable=False)
+    volume: Mapped[float | None] = mapped_column(Float, nullable=True)
     __table_args__ = (UniqueConstraint("ticker", "timestamp", name="uq_ohlc_ticker_ts"),)
 
 
 class OHLCCacheMetaModel(Base):
     __tablename__ = "ohlc_cache_meta"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    ticker = Column(String(20), nullable=False, unique=True, index=True)
-    last_updated = Column(DateTime, nullable=True)
-    period = Column(String(20), nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticker: Mapped[str] = mapped_column(String(20), nullable=False, unique=True, index=True)
+    last_updated: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    period: Mapped[str | None] = mapped_column(String(20), nullable=True)

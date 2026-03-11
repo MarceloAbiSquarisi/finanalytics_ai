@@ -20,7 +20,7 @@ Design decisions:
 from __future__ import annotations
 
 from collections.abc import Callable, Coroutine
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -86,7 +86,7 @@ class AlertService:
                         current_price=float(current),
                         threshold=float(alert.threshold),
                         user_id=alert.user_id,
-                        triggered_at=datetime.utcnow().isoformat(),
+                        triggered_at=datetime.now(UTC).isoformat(),
                         context=result.context,
                     )
                     await self._bus.broadcast(notif)

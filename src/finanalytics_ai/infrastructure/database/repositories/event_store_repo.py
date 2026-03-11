@@ -8,11 +8,12 @@ Design decision: Repository Pattern — o domínio nunca importa SQLAlchemy.
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import structlog
-from sqlalchemy import Column, DateTime, Integer, String, Text, select, update
+from sqlalchemy import DateTime, Integer, String, Text, select, update
+from sqlalchemy.orm import Mapped, mapped_column
 
 from finanalytics_ai.domain.entities.event import EventStatus, EventType, MarketEvent
 from finanalytics_ai.infrastructure.database.connection import Base
@@ -28,18 +29,18 @@ class EventModel(Base):
 
     __tablename__ = "market_events"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    event_id = Column(String(36), unique=True, nullable=False, index=True)
-    event_type = Column(String(50), nullable=False)
-    ticker = Column(String(10), nullable=False, index=True)
-    payload = Column(Text, nullable=False)
-    source = Column(String(100), default="unknown")
-    status = Column(String(20), default=EventStatus.PENDING, index=True)
-    retry_count = Column(Integer, default=0)
-    error_message = Column(Text, default="")
-    occurred_at = Column(DateTime, nullable=False)
-    processed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event_id: Mapped[str] = mapped_column(String(36), unique=True, nullable=False, index=True)
+    event_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    ticker: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
+    payload: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str] = mapped_column(String(100), default="unknown")
+    status: Mapped[str] = mapped_column(String(20), default=EventStatus.PENDING, index=True)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0)
+    error_message: Mapped[str] = mapped_column(Text, default="")
+    occurred_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
 
 class SQLEventStore:
@@ -80,7 +81,7 @@ class SQLEventStore:
         if error:
             values["error_message"] = error
         if status == EventStatus.PROCESSED:
-            values["processed_at"] = datetime.utcnow()
+            values["processed_at"] = datetime.now(UTC)
         stmt = update(EventModel).where(EventModel.event_id == event_id).values(**values)
         await self._session.execute(stmt)
 

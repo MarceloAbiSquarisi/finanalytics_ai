@@ -99,7 +99,7 @@ class PortfolioOptimizerService:
         price_series: dict[str, tuple[list[str], list[float]]] = {}
         errors: list[dict] = []
 
-        for t, result in raw:
+        for t, fetch_result in raw:
             if t in rf_set:
                 # RF: série sintética constante (CDI diário)
                 daily_rf = (1 + risk_free) ** (1 / TRADING_DAYS) - 1
@@ -109,10 +109,10 @@ class PortfolioOptimizerService:
                     [100.0 * (1 + daily_rf) ** i for i in range(253)],
                 )
                 continue
-            if isinstance(result, Exception):
-                errors.append({"ticker": t, "error": str(result)})
+            if isinstance(fetch_result, Exception):
+                errors.append({"ticker": t, "error": str(fetch_result)})
                 continue
-            dates, prices = _extract_prices(result)
+            dates, prices = _extract_prices(fetch_result)
             if len(prices) < MIN_BARS:
                 errors.append({"ticker": t, "error": f"Apenas {len(prices)} barras (mín. {MIN_BARS})"})
                 continue
@@ -139,7 +139,7 @@ class PortfolioOptimizerService:
         # ── Executa algoritmos em thread ──────────────────────────────────────
         bl_views = [(v["ticker"], v["return"]) for v in (views or []) if v.get("ticker") in final_tickers]
 
-        def _run_all() -> None:
+        def _run_all() -> OptimizationComparison:
             mz, frontier = markowitz_optimize(final_tickers, mean_rets, cov, risk_free)
             rp = risk_parity_optimize(final_tickers, mean_rets, cov, risk_free)
             bl = black_litterman_optimize(
@@ -169,8 +169,8 @@ class PortfolioOptimizerService:
                 frontier=frontier,
             )
 
-        comparison = await asyncio.to_thread(_run_all)
-        result = comparison.to_dict()
+        comparison: OptimizationComparison = await asyncio.to_thread(_run_all)
+        result: dict[str, Any] = comparison.to_dict()
         result["errors"] = errors
         result["n_days"] = len(returns_matrix[0]) if returns_matrix else 0
 

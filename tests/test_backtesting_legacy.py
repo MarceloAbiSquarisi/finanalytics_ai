@@ -279,16 +279,26 @@ class TestMACDStrategy:
         assert len(s.generate_signals(bars)) == 60
 
     def test_bullish_crossover_generates_buy(self):
-        """Tendência de alta forte deve gerar BUY de MACD crossover."""
-        prices = [50.0 + i * 0.5 for i in range(80)]
+        """Reversão em V (queda seguida de subida) deve gerar BUY de MACD crossover.
+
+        Uma série LINEAR (y = a + b·i) não gera crossover porque EMA rápida e
+        lenta convergem para a mesma taxa de crescimento constante — MACD e Signal
+        ficam colados em zero. O MACD detecta MUDANÇA de momentum, não tendência
+        constante. Uma série em V cria o delta entre as EMAs que produz o crossover.
+        """
+        prices = [100.0 - i * 1.5 for i in range(40)] + [40.0 + i * 1.5 for i in range(40)]
         bars = _make_bars(prices)
         s = MACDCrossStrategy()
         signals = s.generate_signals(bars)
         assert Signal.BUY in signals
 
     def test_bearish_crossover_generates_sell(self):
-        """Tendência de queda forte deve gerar SELL."""
-        prices = [100.0 - i * 0.5 for i in range(80)]
+        """Reversão em Λ (subida seguida de queda) deve gerar SELL de MACD crossover.
+
+        Mesmo princípio do teste de BUY: série linear não gera crossover.
+        Uma série em Λ cria o momentum negativo que faz MACD cruzar Signal para baixo.
+        """
+        prices = [50.0 + i * 1.5 for i in range(40)] + [110.0 - i * 1.5 for i in range(40)]
         bars = _make_bars(prices)
         s = MACDCrossStrategy()
         signals = s.generate_signals(bars)

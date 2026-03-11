@@ -162,4 +162,4 @@ def get_settings() -> Settings:
     lru_cache(1) garante singleton sem acoplamento a variável global.
     Em testes, use: get_settings.cache_clear() para forçar recarga.
     """
-    return Settings()
+    return Settings()  # type: ignore[call-arg]  # campos obrigatórios lidos do .env em runtime

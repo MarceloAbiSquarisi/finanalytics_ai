@@ -31,9 +31,9 @@ router = APIRouter(prefix="/api/v1/backtest", tags=["backtest"])
 
 
 class BacktestRequest(BaseModel):
-    ticker: str = Field(..., example="PETR4")
-    strategy: str = Field("combined", example="rsi|macd|combined")
-    range_period: str = Field("3mo", example="1mo|3mo|6mo|1y|2y")
+    ticker: str = Field(..., description="PETR4")
+    strategy: str = Field("combined", description="rsi|macd|combined")
+    range_period: str = Field("3mo", description="1mo|3mo|6mo|1y|2y")
     initial_capital: float = Field(10_000.0, ge=100.0)
     position_size: float = Field(1.0, ge=0.1, le=1.0)
     commission_pct: float = Field(0.001, ge=0.0, le=0.05)
@@ -201,13 +201,13 @@ async def _execute(request: Request, body: BacktestRequest) -> dict[str, Any]:
 
 
 class OptimizeRequest(BaseModel):
-    ticker: str = Field(..., example="PETR4")
-    strategy: str = Field("rsi", example="rsi|macd|combined|bollinger|ema_cross|momentum")
-    range_period: str = Field("1y", example="6mo|1y|2y")
+    ticker: str = Field(..., description="PETR4")
+    strategy: str = Field("rsi", description="rsi|macd|combined|bollinger|ema_cross|momentum")
+    range_period: str = Field("1y", description="6mo|1y|2y")
     initial_capital: float = Field(10_000.0, ge=100.0)
     position_size: float = Field(1.0, ge=0.1, le=1.0)
     commission_pct: float = Field(0.001, ge=0.0, le=0.05)
-    objective: str = Field("sharpe", example="sharpe|return|calmar|win_rate|profit_factor")
+    objective: str = Field("sharpe", description="sharpe|return|calmar|win_rate|profit_factor")
     top_n: int = Field(10, ge=1, le=20)
 
 
@@ -300,13 +300,13 @@ async def optimize_strategy_get(
 
 
 class WalkForwardRequest(BaseModel):
-    ticker: str = Field(..., example="PETR4")
-    strategy: str = Field("rsi", example="rsi|macd|combined|bollinger|ema_cross|momentum")
-    range_period: str = Field("2y", example="1y|2y")
+    ticker: str = Field(..., description="PETR4")
+    strategy: str = Field("rsi", description="rsi|macd|combined|bollinger|ema_cross|momentum")
+    range_period: str = Field("2y", description="1y|2y")
     initial_capital: float = Field(10_000.0, ge=100.0)
     position_size: float = Field(1.0, ge=0.1, le=1.0)
     commission_pct: float = Field(0.001, ge=0.0, le=0.05)
-    objective: str = Field("sharpe", example="sharpe|return|calmar|win_rate|profit_factor")
+    objective: str = Field("sharpe", description="sharpe|return|calmar|win_rate|profit_factor")
     n_splits: int = Field(3, ge=2, le=6)
     oos_pct: float = Field(0.3, ge=0.1, le=0.5)
     anchored: bool = Field(False)

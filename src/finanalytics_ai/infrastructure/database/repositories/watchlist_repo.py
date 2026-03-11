@@ -25,7 +25,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 import structlog
-from sqlalchemy import Column, DateTime, ForeignKey, String, Text, delete, select
+from sqlalchemy import DateTime, ForeignKey, String, Text, delete, select
+from sqlalchemy.orm import Mapped, mapped_column
 
 from finanalytics_ai.domain.watchlist.entities import (
     SmartAlert,
@@ -48,32 +49,32 @@ logger = structlog.get_logger(__name__)
 class WatchlistItemModel(Base):
     __tablename__ = "watchlist_items"
 
-    item_id = Column(String(36), primary_key=True)
-    user_id = Column(String(100), nullable=False, index=True)
-    ticker = Column(String(10), nullable=False)
-    note = Column(Text, nullable=False, default="")
-    tags = Column(Text, nullable=False, default="[]")  # JSON list
-    added_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    item_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    ticker: Mapped[str] = mapped_column(String(10), nullable=False)
+    note: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    tags: Mapped[str] = mapped_column(Text, nullable=False, default="[]")  # JSON list
+    added_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
 
 class WatchlistAlertModel(Base):
     __tablename__ = "watchlist_alerts"
 
-    alert_id = Column(String(36), primary_key=True)
-    item_id = Column(
+    alert_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    item_id: Mapped[str] = mapped_column(
         String(36),
         ForeignKey("watchlist_items.item_id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    user_id = Column(String(100), nullable=False, index=True)
-    ticker = Column(String(10), nullable=False)
-    alert_type = Column(String(30), nullable=False)
-    status = Column(String(20), nullable=False, default=SmartAlertStatus.ACTIVE)
-    config_json = Column(Text, nullable=False, default="{}")
-    note = Column(Text, nullable=False, default="")
-    last_triggered_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    ticker: Mapped[str] = mapped_column(String(10), nullable=False)
+    alert_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default=SmartAlertStatus.ACTIVE)
+    config_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    note: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    last_triggered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
 
 
 # ── Repository ────────────────────────────────────────────────────────────────

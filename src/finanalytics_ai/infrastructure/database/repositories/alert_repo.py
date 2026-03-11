@@ -9,12 +9,13 @@ Segue o mesmo padrão do PortfolioRepository:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import structlog
-from sqlalchemy import Column, DateTime, Numeric, String, Text, select, update
+from sqlalchemy import DateTime, Numeric, String, Text, select, update
+from sqlalchemy.orm import Mapped, mapped_column
 
 from finanalytics_ai.domain.entities.alert import Alert, AlertStatus, AlertType
 from finanalytics_ai.infrastructure.database.connection import Base
@@ -28,17 +29,17 @@ logger = structlog.get_logger(__name__)
 class AlertModel(Base):
     __tablename__ = "alerts"
 
-    alert_id = Column(String(36), primary_key=True)
-    user_id = Column(String(100), nullable=False, index=True)
-    ticker = Column(String(10), nullable=False, index=True)
-    alert_type = Column(String(30), nullable=False)
-    threshold = Column(Numeric(18, 4), nullable=False)
-    reference_price = Column(Numeric(18, 4), nullable=False, default=0)
-    status = Column(String(20), nullable=False, default=AlertStatus.ACTIVE, index=True)
-    note = Column(Text, nullable=False, default="")
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    triggered_at = Column(DateTime, nullable=True)
-    expires_at = Column(DateTime, nullable=True)
+    alert_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    ticker: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
+    alert_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    threshold: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
+    reference_price: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False, default=0)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default=AlertStatus.ACTIVE, index=True)
+    note: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=lambda: datetime.now(UTC))
+    triggered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class SQLAlertRepository:
@@ -91,7 +92,7 @@ class SQLAlertRepository:
         stmt = (
             update(AlertModel)
             .where(AlertModel.alert_id == alert_id)
-            .values(status=AlertStatus.TRIGGERED.value, triggered_at=datetime.utcnow())
+            .values(status=AlertStatus.TRIGGERED.value, triggered_at=datetime.now(UTC))
         )
         await self._session.execute(stmt)
 
@@ -104,7 +105,7 @@ class SQLAlertRepository:
             .values(status=AlertStatus.CANCELLED.value)
         )
         result = await self._session.execute(stmt)
-        return result.rowcount  # type: ignore[attr-defined] > 0
+        return result.rowcount > 0  # type: ignore[attr-defined]
 
     def _to_domain(self, m: AlertModel) -> Alert:
         return Alert(

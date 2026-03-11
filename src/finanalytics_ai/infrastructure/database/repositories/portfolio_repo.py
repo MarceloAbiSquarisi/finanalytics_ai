@@ -8,7 +8,8 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import structlog
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint, delete, select, update
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint, delete, select, update
+from sqlalchemy.orm import Mapped, mapped_column
 
 from finanalytics_ai.domain.entities.portfolio import Portfolio, Position
 from finanalytics_ai.domain.value_objects.money import Currency, Money, Quantity, Ticker
@@ -23,29 +24,29 @@ logger = structlog.get_logger(__name__)
 class PortfolioModel(Base):
     __tablename__ = "portfolios"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String(100), nullable=False, index=True)
-    name = Column(String(200), nullable=False)
-    description = Column(String(500), nullable=True)       # 0002_portfolio_multi
-    benchmark = Column(String(20), nullable=True)          # 0002_portfolio_multi
-    is_default = Column(Boolean, nullable=False, default=False)  # 0002_portfolio_multi
-    currency = Column(String(3), nullable=False, default="BRL")
-    cash = Column(Numeric(18, 2), nullable=False, default=0)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    benchmark: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="BRL")
+    cash: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
 
 class PositionModel(Base):
     __tablename__ = "positions"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    portfolio_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    portfolio_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("portfolios.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    ticker = Column(String(10), nullable=False)
-    quantity = Column(Numeric(18, 8), nullable=False)
-    average_price = Column(Numeric(18, 2), nullable=False)
-    asset_class = Column(String(30), nullable=False, default="stock")
+    ticker: Mapped[str] = mapped_column(String(10), nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
+    average_price: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    asset_class: Mapped[str] = mapped_column(String(30), nullable=False, default="stock")
     __table_args__ = (UniqueConstraint("portfolio_id", "ticker", name="uq_portfolio_ticker"),)
 
 
@@ -137,8 +138,8 @@ class SQLPortfolioRepository:
             portfolio_id=str(pm.id),
             user_id=str(pm.user_id),
             name=str(pm.name),
-            description=str(pm.description) if pm.description else None,
-            benchmark=str(pm.benchmark) if pm.benchmark else None,
+            description=str(pm.description) if pm.description else "",
+            benchmark=str(pm.benchmark) if pm.benchmark else "",
             is_default=bool(pm.is_default),
             currency=Currency(str(pm.currency)),
             cash=Money(Decimal(str(pm.cash)), Currency(str(pm.currency))),

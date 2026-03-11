@@ -28,8 +28,11 @@ from finanalytics_ai.domain.backtesting.optimizer import (
     grid_search,
 )
 
+from finanalytics_ai.domain.value_objects.money import Ticker
+
 if TYPE_CHECKING:
-    from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
+
+    from finanalytics_ai.domain.ports.market_data import MarketDataProvider
 
 logger = structlog.get_logger(__name__)
 
@@ -42,8 +45,8 @@ class OptimizerService:
     (mesmo padrao do BacktestService).
     """
 
-    def __init__(self, brapi_client: BrapiClient) -> None:
-        self._brapi = brapi_client
+    def __init__(self, market_data: MarketDataProvider) -> None:
+        self._market = market_data
 
     async def optimize(
         self,
@@ -87,8 +90,7 @@ class OptimizerService:
         log.info("optimizer.starting")
 
         # Busca dados OHLC uma unica vez
-        bars = await self._brapi.get_ohlc_bars(ticker, range_period=range_period)  # type: ignore[arg-type]
-
+        bars = await self._market.get_ohlc_bars(Ticker(ticker), range_period=range_period)
         if not bars:
             raise BacktestError(f"Sem dados historicos para {ticker} no periodo {range_period}.")
 

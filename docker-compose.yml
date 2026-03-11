@@ -23,7 +23,6 @@ services:
       retries:  10
     networks:
       - finanalytics_net
-      - platform_net
 
   timescale:
     image: timescale/timescaledb:latest-pg16
@@ -45,8 +44,6 @@ services:
     networks:
       finanalytics_net:
         aliases: [timescale, timescaledb]
-      platform_net:
-        aliases: [timescale, timescaledb]
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
@@ -65,7 +62,6 @@ services:
       retries:  5
     networks:
       - finanalytics_net
-      - platform_net
 
   kafka:
     image: confluentinc/cp-kafka:7.6.1
@@ -97,23 +93,35 @@ services:
     networks:
       finanalytics_net:
         aliases: [kafka]
-      platform_net:
-        aliases: [kafka]
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: finanalytics_redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --save ""
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test:     ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout:  3s
+      retries:  5
+    networks:
+      finanalytics_net:
+        aliases: [redis]
 
   api:
     build:
       context: .
       dockerfile: Dockerfile
-      target: final
+      target: api
     image: finanalytics-ai:latest
     container_name: finanalytics_api
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
-      timescale:
-        condition: service_healthy
-      kafka:
+      redis:
         condition: service_healthy
     env_file: .env
     environment:
@@ -132,7 +140,6 @@ services:
       start_period: 40s
     networks:
       - finanalytics_net
-      - platform_net
 
   ohlc_ingestor:
     image: finanalytics-ai:latest
@@ -159,12 +166,31 @@ services:
     networks:
       - finanalytics_net
 
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    image: finanalytics-worker:latest
+    container_name: finanalytics_worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL:  postgresql+asyncpg://finanalytics:${POSTGRES_PASSWORD:-secret}@postgres:5432/finanalytics
+      REDIS_URL:     redis://redis:6379/0
+      EVENT_QUEUE_BACKEND: memory
+    networks:
+      - finanalytics_net
+
+
 networks:
   finanalytics_net:
     name: finanalytics_net
-    driver: bridge
-  platform_net:
-    name: finanalytics-platform_default
     driver: bridge
 
 volumes:
@@ -173,3 +199,4 @@ volumes:
   kafkadata:
   zkdata:
   zklogs:
+  redisdata:
