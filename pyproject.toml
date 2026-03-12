@@ -44,6 +44,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+forecast = [
+    "prophet>=1.1.5",
+    "torch>=2.3.0",
+    "pytorch-forecasting>=1.0.0",
+    "pytorch-lightning>=2.2.0",
+    "cmdstanpy>=1.2.0",
+]
 dev = [
     "ruff>=0.15.0",
     "mypy>=1.19.0",
@@ -64,7 +71,8 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "UP", "B", "C4", "SIM", "TCH", "ANN", "PT", "RUF"]
-ignore = ["ANN401", "RUF001", "RUF002", "RUF003", "TC001", "TC002", "TC003", "SIM105", "F841"]
+ignore = ["ANN401", "RUF001", "RUF002", "RUF003", "TC001", "TC002", "TC003"]
+
 [tool.ruff.lint.per-file-ignores]
 "src/finanalytics_ai/interfaces/api/**"                                      = ["B008", "ANN001", "ANN201", "ANN202"]
 "src/finanalytics_ai/application/services/fixed_income_service.py"           = ["E402"]
@@ -113,20 +121,28 @@ addopts = "--strict-markers --tb=short"
 unit = "Unit tests"
 integration = "Integration tests (require external services)"
 slow = "Slow tests (skipped by default in CI)"
+
 [tool.coverage.run]
 source = ["src/finanalytics_ai"]
 omit = [
+    # Infraestrutura de DB — testada via integration tests (não unit)
     "src/finanalytics_ai/infrastructure/database/repositories/*",
     "src/finanalytics_ai/infrastructure/timescale/*",
+    # Adapters externos — requerem rede real
     "src/finanalytics_ai/infrastructure/adapters/anbima_client.py",
     "src/finanalytics_ai/infrastructure/adapters/tesouro_client.py",
+    # FastAPI routes — testadas via integration/e2e
     "src/finanalytics_ai/interfaces/api/routes/*",
     "src/finanalytics_ai/interfaces/api/app.py",
     "src/finanalytics_ai/interfaces/api/run.py",
+    # Workers — testados via integration
     "src/finanalytics_ai/workers/*",
+    # Infraestrutura de cache/queue com backends reais
     "src/finanalytics_ai/infrastructure/cache/dependencies.py",
     "src/finanalytics_ai/infrastructure/queue/kafka_adapter.py",
     "src/finanalytics_ai/infrastructure/notifications/*",
+    # Reports — dependem de ReportLab (visual)
+    "src/finanalytics_ai/infrastructure/reports/*",
 ]
 
 [tool.coverage.report]

@@ -81,26 +81,55 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .tb-chg.flat{background:rgba(106,158,191,.12);color:var(--muted)}
 
 /* RANGE + INDICATOR TOGGLES */
-.ctrl-bar{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap}
-.ranges{display:flex;gap:3px}
+.ctrl-bar{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap;position:relative}
+.ranges{display:flex;gap:3px;align-items:center}
 .ranges .rb{font-size:9px;padding:3px 6px}
-#ranges-intraday .rb{color:#94a3b8}
-#ranges-intraday .rb.active{color:#0D2144}
-#ranges-swing .rb{color:#e2e8f0}
-#ranges-swing .rb.active{color:#0D2144}
+.rb-intra{color:#94a3b8}
+.rb-intra.active{color:#0D2144}
+.rb-swing{color:#e2e8f0}
+.rb-swing.active{color:#0D2144}
 .rb{padding:3px 8px;font-size:10px;font-family:DM Mono,monospace;border-radius:4px;
   border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s}
 .rb:hover{border-color:rgba(58,191,248,.3);color:var(--white)}
 .rb.active{background:rgba(58,191,248,.15);border-color:rgba(58,191,248,.35);color:var(--blue)}
 .sep{width:1px;height:18px;background:var(--border)}
-.ind-toggles{display:flex;gap:4px}
+.ind-toggles{display:flex;gap:4px;position:relative}
 .itgl{padding:3px 9px;font-size:9px;font-family:DM Mono,monospace;font-weight:500;
   border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;
   letter-spacing:.5px;transition:all .15s;text-transform:uppercase}
 .itgl:hover{color:var(--white)}
-.itgl.on.rsi   {background:rgba(240,180,41,.15);border-color:rgba(240,180,41,.4);color:var(--gold)}
-.itgl.on.macd  {background:rgba(58,191,248,.15);border-color:rgba(58,191,248,.4);color:var(--blue)}
-.itgl.on.bb    {background:rgba(46,212,122,.12);border-color:rgba(46,212,122,.35);color:var(--green)}
+.itgl-open{padding:4px 10px;font-size:10px;font-family:DM Mono,monospace;font-weight:600;
+  border-radius:5px;border:1px solid var(--border);background:rgba(58,191,248,.06);
+  color:#94a3b8;cursor:pointer;transition:.15s;white-space:nowrap}
+.itgl-open:hover{border-color:rgba(58,191,248,.3);color:var(--white)}
+.ip-section{font-size:9px;font-weight:700;letter-spacing:1.2px;color:#4a6080;text-transform:uppercase;margin-bottom:6px}
+.ip-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.ip-label{font-size:11px;color:#c8d8e8;flex:1}
+.ip-sub{font-size:9px;color:#4a6080}
+.ip-num{width:46px;background:#0a1628;border:1px solid #1e3a5f;border-radius:4px;
+  color:#c8d8e8;font-family:DM Mono,monospace;font-size:11px;padding:3px 5px;text-align:center;outline:none}
+.ip-num:focus{border-color:rgba(58,191,248,.4)}
+.ip-sel{background:#0a1628;border:1px solid #1e3a5f;border-radius:4px;color:#c8d8e8;
+  font-family:DM Mono,monospace;font-size:11px;padding:3px 5px;outline:none}
+.ip-add-btn{background:rgba(58,191,248,.12);border:1px solid rgba(58,191,248,.3);border-radius:4px;
+  color:#3abff8;font-family:DM Mono,monospace;font-size:10px;font-weight:600;padding:3px 9px;cursor:pointer;transition:.15s}
+.ip-add-btn:hover{background:rgba(58,191,248,.22)}
+.ip-toggle{position:relative;display:inline-block;width:30px;height:16px;flex-shrink:0}
+.ip-toggle input{opacity:0;width:0;height:0}
+.ip-slider{position:absolute;cursor:pointer;inset:0;background:#1e3a5f;border-radius:8px;transition:.2s}
+.ip-slider:before{content:'';position:absolute;width:12px;height:12px;left:2px;bottom:2px;background:#4a6080;border-radius:50%;transition:.2s}
+.ip-toggle input:checked+.ip-slider{background:rgba(58,191,248,.3)}
+.ip-toggle input:checked+.ip-slider:before{transform:translateX(14px);background:#3abff8}
+.ma-item{display:flex;align-items:center;gap:6px;background:#0a1628;border:1px solid #1e3a5f;border-radius:5px;padding:4px 8px;font-size:10px;color:#c8d8e8}
+.ma-item-swatch{width:12px;height:12px;border-radius:2px;flex-shrink:0}
+.ma-item-label{flex:1}
+.ma-item-del{background:none;border:none;color:#4a6080;cursor:pointer;font-size:12px;padding:0 2px;line-height:1;transition:.15s}
+.ma-item-del:hover{color:#ef4444}
+.pat-tag{font-size:9px;font-family:DM Mono,monospace;color:#8899aa;background:#0a1628;
+  border:1px solid #1e3a5f;border-radius:4px;padding:3px 7px;cursor:pointer;
+  display:flex;align-items:center;gap:4px;transition:.15s;user-select:none}
+.pat-tag:hover{border-color:rgba(58,191,248,.3);color:#c8d8e8}
+.pat-tag input{width:11px;height:11px;accent-color:#3abff8;cursor:pointer}
 
 /* CHART AREA */
 .chart-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;width:100%;min-width:0}
@@ -344,6 +373,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <a href="/screener">Screener</a>
     <a href="/correlation">Correlação</a>
     <a href="/anomaly">Anomalias</a>
+    <a href="/forecast">Forecast</a>
     <a href="/watchlist">Watchlist</a>
     <a href="/performance">Performance</a>
     <a href="/fixed-income">Renda Fixa</a>
@@ -387,38 +417,127 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
             onfocus="tkSearchInput(this.value)" />
           <div id="tk-dropdown" style="display:none;position:absolute;top:34px;left:0;min-width:220px;background:#1a2035;border:1px solid var(--border);border-radius:8px;z-index:9999;max-height:240px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.6)"></div>
         </div>
-      </div>
+        <!-- Timeframes: única linha ao lado do campo de busca -->
+        <div class="ranges" id="ranges-all">
+          <button class="rb rb-intra" onclick="changeInterval('1m')">1m</button>
+          <button class="rb rb-intra" onclick="changeInterval('2m')">2m</button>
+          <button class="rb rb-intra" onclick="changeInterval('5m')">5m</button>
+          <button class="rb rb-intra" onclick="changeInterval('15m')">15m</button>
+          <button class="rb rb-intra" onclick="changeInterval('30m')">30m</button>
+          <button class="rb rb-intra" onclick="changeInterval('60m')">60m</button>
+          <button class="rb rb-intra" onclick="changeInterval('90m')">90m</button>
+          <span style="width:1px;background:var(--border);align-self:stretch;margin:0 4px;display:inline-block"></span>
+          <button class="rb rb-swing" onclick="changeInterval('1d')">1D</button>
+          <button class="rb rb-swing" onclick="changeInterval('5d')">5D</button>
+          <button class="rb rb-swing active" onclick="changeInterval('1wk')">1S</button>
+          <button class="rb rb-swing" onclick="changeInterval('1mo')">1M</button>
+          <button class="rb rb-swing" onclick="changeInterval('3mo')">3M</button>
+        </div>
       </div>
       <div style="display:flex;align-items:baseline;gap:7px">
         <div class="tb-px"  id="tk-px">—</div>
         <div class="tb-chg flat" id="tk-chg">—</div>
       </div>
       <div class="ctrl-bar">
-        <div style="display:flex;flex-direction:column;gap:4px">
-          <!-- Linha 1: Intraday -->
-          <div class="ranges" id="ranges-intraday">
-            <button class="rb" onclick="changeInterval('1m')">1m</button>
-            <button class="rb" onclick="changeInterval('2m')">2m</button>
-            <button class="rb" onclick="changeInterval('5m')">5m</button>
-            <button class="rb" onclick="changeInterval('15m')">15m</button>
-            <button class="rb" onclick="changeInterval('30m')">30m</button>
-            <button class="rb" onclick="changeInterval('60m')">60m</button>
-            <button class="rb" onclick="changeInterval('90m')">90m</button>
-          </div>
-          <!-- Linha 2: Swing/Position -->
-          <div class="ranges" id="ranges-swing">
-            <button class="rb" onclick="changeInterval('1d')">1D</button>
-            <button class="rb" onclick="changeInterval('5d')">5D</button>
-            <button class="rb active" onclick="changeInterval('1wk')">1S</button>
-            <button class="rb" onclick="changeInterval('1mo')">1M</button>
-            <button class="rb" onclick="changeInterval('3mo')">3M</button>
-          </div>
-        </div>
         <div class="sep"></div>
         <div class="ind-toggles">
-          <button class="itgl bb  on" id="tgl-bb"   onclick="toggleInd('bb')">BB</button>
-          <button class="itgl rsi on" id="tgl-rsi"  onclick="toggleInd('rsi')">RSI</button>
-          <button class="itgl macd on" id="tgl-macd" onclick="toggleInd('macd')">MACD</button>
+          <button class="itgl-open" id="btn-ind-popup" onclick="toggleIndPopup(event)">
+            ⚙ Indicadores <span id="ind-count-badge" style="background:rgba(58,191,248,.25);color:var(--blue);border-radius:8px;padding:1px 6px;font-size:9px;margin-left:4px">3</span>
+          </button>
+        </div>
+
+        <!-- Popup de indicadores -->
+        <div id="ind-popup" style="display:none;position:absolute;top:52px;right:0;width:320px;background:#0f1b2d;border:1px solid var(--border);border-radius:10px;z-index:9999;box-shadow:0 12px 40px rgba(0,0,0,.7);padding:14px;font-family:DM Mono,monospace">
+
+          <!-- Osciladores -->
+          <div class="ip-section">OSCILADORES</div>
+
+          <div class="ip-row">
+            <label class="ip-toggle">
+              <input type="checkbox" id="ipc-rsi" checked onchange="applyIndPopup()">
+              <span class="ip-slider"></span>
+            </label>
+            <span class="ip-label">RSI</span>
+            <span class="ip-sub">Período</span>
+            <input class="ip-num" type="number" id="ipc-rsi-p" value="14" min="2" max="50" onchange="applyIndPopup()">
+          </div>
+
+          <div class="ip-row">
+            <label class="ip-toggle">
+              <input type="checkbox" id="ipc-macd" checked onchange="applyIndPopup()">
+              <span class="ip-slider"></span>
+            </label>
+            <span class="ip-label">MACD</span>
+            <span class="ip-sub" style="font-size:9px">12/26/9</span>
+          </div>
+
+          <!-- Bandas -->
+          <div class="ip-section" style="margin-top:10px">BANDAS</div>
+
+          <div class="ip-row">
+            <label class="ip-toggle">
+              <input type="checkbox" id="ipc-bb" checked onchange="applyIndPopup()">
+              <span class="ip-slider"></span>
+            </label>
+            <span class="ip-label">Bollinger Bands</span>
+            <span class="ip-sub">Per.</span>
+            <input class="ip-num" type="number" id="ipc-bb-p" value="20" min="5" max="100" onchange="applyIndPopup()">
+          </div>
+
+          <!-- Médias -->
+          <div class="ip-section" style="margin-top:10px">MÉDIAS ARITMÉTICAS (SMA)</div>
+
+          <!-- SMA -->
+          <div id="sma-list" style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px"></div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span class="ip-sub">Per.</span>
+            <input class="ip-num" type="number" id="sma-period" value="20" min="2" max="500" style="width:54px">
+            <input type="color" id="sma-color" value="#f0b429" style="width:26px;height:22px;border:none;border-radius:4px;cursor:pointer;padding:0;background:none">
+            <button class="ip-add-btn" onclick="addOverlay('sma')">+ Adicionar</button>
+          </div>
+
+          <!-- EMA -->
+          <div class="ip-section" style="margin-top:12px">MÉDIAS EXPONENCIAIS (EMA)</div>
+          <div id="ema-list" style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px"></div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span class="ip-sub">Per.</span>
+            <input class="ip-num" type="number" id="ema-period" value="9" min="2" max="500" style="width:54px">
+            <input type="color" id="ema-color" value="#3abff8" style="width:26px;height:22px;border:none;border-radius:4px;cursor:pointer;padding:0;background:none">
+            <button class="ip-add-btn" onclick="addOverlay('ema')">+ Adicionar</button>
+          </div>
+
+          <!-- Padrões Candlestick -->
+          <div class="ip-section" style="margin-top:12px">PADRÕES CANDLESTICK</div>
+          <div class="ip-row" style="margin-bottom:4px">
+            <label class="ip-toggle">
+              <input type="checkbox" id="ipc-patterns" onchange="applyIndPopup()">
+              <span class="ip-slider"></span>
+            </label>
+            <span class="ip-label">Detectar e marcar padrões</span>
+          </div>
+          <div id="pattern-filter" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
+            <label class="pat-tag"><input type="checkbox" value="doji" checked onchange="applyIndPopup()"> Doji</label>
+            <label class="pat-tag"><input type="checkbox" value="hammer" checked onchange="applyIndPopup()"> Hammer</label>
+            <label class="pat-tag"><input type="checkbox" value="inverted_hammer" checked onchange="applyIndPopup()"> Inv. Hammer</label>
+            <label class="pat-tag"><input type="checkbox" value="shooting_star" checked onchange="applyIndPopup()"> Shooting Star</label>
+            <label class="pat-tag"><input type="checkbox" value="hanging_man" checked onchange="applyIndPopup()"> Hanging Man</label>
+            <label class="pat-tag"><input type="checkbox" value="engulfing" checked onchange="applyIndPopup()"> Engulfing</label>
+            <label class="pat-tag"><input type="checkbox" value="morning_star" checked onchange="applyIndPopup()"> Morning Star</label>
+            <label class="pat-tag"><input type="checkbox" value="evening_star" checked onchange="applyIndPopup()"> Evening Star</label>
+            <label class="pat-tag"><input type="checkbox" value="piercing" checked onchange="applyIndPopup()"> Piercing</label>
+            <label class="pat-tag"><input type="checkbox" value="dark_cloud" checked onchange="applyIndPopup()"> Dark Cloud</label>
+            <label class="pat-tag"><input type="checkbox" value="three_soldiers" checked onchange="applyIndPopup()"> 3 Soldiers</label>
+            <label class="pat-tag"><input type="checkbox" value="three_crows" checked onchange="applyIndPopup()"> 3 Crows</label>
+            <label class="pat-tag"><input type="checkbox" value="marubozu" checked onchange="applyIndPopup()"> Marubozu</label>
+            <label class="pat-tag"><input type="checkbox" value="spinning_top" checked onchange="applyIndPopup()"> Spinning Top</label>
+            <label class="pat-tag"><input type="checkbox" value="harami" checked onchange="applyIndPopup()"> Harami</label>
+            <label class="pat-tag"><input type="checkbox" value="tweezer" checked onchange="applyIndPopup()"> Tweezer</label>
+            <label class="pat-tag"><input type="checkbox" value="dragonfly" checked onchange="applyIndPopup()"> Dragonfly</label>
+            <label class="pat-tag"><input type="checkbox" value="gravestone" checked onchange="applyIndPopup()"> Gravestone</label>
+            <label class="pat-tag"><input type="checkbox" value="three_inside" checked onchange="applyIndPopup()"> 3 Inside</label>
+            <label class="pat-tag"><input type="checkbox" value="kicker" checked onchange="applyIndPopup()"> Kicker</label>
+          </div>
+
         </div>
       </div>
     </div>
@@ -565,50 +684,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div id="pos-list"><div style="font-size:10px;color:var(--muted);font-family:DM Mono,monospace">Selecione uma carteira</div></div>
     </div>
 
-<!-- Painel Backtesting -->
-<div id="bt-panel" style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:10px;">
-  <div class="lbl" style="margin-bottom:8px">📈 Backtesting</div>
-
-  <!-- Formulário -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
-    <input id="bt-ticker" class="alert-input" placeholder="Ticker (ex: PETR4)" maxlength="10"
-           oninput="this.value=this.value.toUpperCase()" style="grid-column:1/-1">
-    <select id="bt-strategy" class="alert-select">
-      <option value="combined">RSI + MACD (combinado)</option>
-      <option value="rsi">RSI Reversal</option>
-      <option value="macd">MACD Crossover</option>
-    </select>
-    <select id="bt-range" class="alert-select">
-      <option value="3mo">3 meses</option>
-      <option value="6mo">6 meses</option>
-      <option value="1y">1 ano</option>
-      <option value="2y">2 anos</option>
-    </select>
-    <input id="bt-capital" class="alert-input" type="number" placeholder="Capital R$" value="10000" min="100">
-    <input id="bt-pos" class="alert-input" type="number" placeholder="Pos. size (0-1)" value="1" step="0.1" min="0.1" max="1">
-  </div>
-  <button class="alert-btn" style="width:100%;padding:7px" onclick="runBacktest()">▶ Executar Backtest</button>
-
-  <!-- Resultado: métricas -->
-  <div id="bt-metrics" style="display:none;margin-top:10px">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px" id="bt-metrics-grid"></div>
-    <!-- Equity curve placeholder -->
-    <div style="margin-top:8px;background:var(--bg);border-radius:6px;padding:6px">
-      <div style="font-size:9px;color:var(--muted);font-family:DM Mono,monospace;margin-bottom:4px">EQUITY CURVE</div>
-      <canvas id="bt-equity-chart" height="100"></canvas>
-    </div>
-    <!-- Trades -->
-    <div style="margin-top:8px">
-      <div style="font-size:9px;color:var(--muted);font-family:DM Mono,monospace;margin-bottom:4px">TRADES</div>
-      <div id="bt-trades-list" style="max-height:120px;overflow-y:auto"></div>
-    </div>
-  </div>
-  <div id="bt-loading" style="display:none;text-align:center;padding:10px;font-size:10px;color:var(--muted);font-family:DM Mono,monospace">
-    ⏳ Executando backtest...
-  </div>
-  <div id="bt-error" style="display:none;color:#ef4444;font-size:9px;font-family:DM Mono,monospace;margin-top:6px;padding:4px;background:#1a0000;border-radius:4px"></div>
-</div>
-
   </div>
 </div>
 
@@ -636,8 +711,14 @@ let currentTicker = null;
 let currentRange  = '1mo';
 var currentInterval = '1wk';
 let tradeMode     = 'buy';
-let indVisible    = {bb: true, rsi: true, macd: true};
+let indVisible    = {bb: true, rsi: true, macd: true, patterns: false};
+let patternMarkers = [];  // markers ativos no gráfico
+let indConfig     = {rsiPeriod: 14, bbPeriod: 20};
 let indCache      = null;   // ultimo resultado de /indicators -- reutilizado no toggle
+
+// MA overlays: [{id, type:'sma'|'ema', period:20, color:'#3abff8', series:null}]
+let maOverlays    = [];
+let maNextId      = 1;
 
 // Charts
 let priceChart = null, priceSeries = null, volSeries = null;
@@ -868,7 +949,11 @@ function drawDaySeparators(chart, bars, container) {
 
 function renderPriceChart(bars, bb) {
   const container = document.getElementById('chart-price');
-  if (priceChart) { priceChart.remove(); priceChart=null; priceSeries=null; volSeries=null; bbUpper=null; bbMiddle=null; bbLower=null; }
+  if (priceChart) {
+    priceChart.remove(); priceChart=null; priceSeries=null; volSeries=null;
+    bbUpper=null; bbMiddle=null; bbLower=null;
+    maOverlays.forEach(m => { m.series = null; });
+  }
   if (!bars.length) return;
 
   priceChart = LightweightCharts.createChart(container, {
@@ -922,6 +1007,13 @@ function renderPriceChart(bars, bb) {
     bbMiddle.setData(bbData('middle'));
     bbLower.setData(bbData('lower'));
   }
+
+  // MA overlays
+  drawAllMAOverlays(bars);
+
+  // Candlestick patterns
+  if (indVisible.patterns) drawPatterns(bars);
+  else { patternMarkers = []; if(priceSeries) priceSeries.setMarkers([]); }
 
   priceChart.timeScale().fitContent();
 
@@ -1112,10 +1204,362 @@ function updateSignals(data) {
   }
 }
 
-// -- TOGGLE INDICATORS ---------------------------------------------------------
+// -- INDICATOR POPUP -----------------------------------------------------------
+
+function toggleIndPopup(e) {
+  e && e.stopPropagation();
+  const p = document.getElementById('ind-popup');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+
+document.addEventListener('click', function(e) {
+  const popup = document.getElementById('ind-popup');
+  const btn   = document.getElementById('btn-ind-popup');
+  if (popup && btn && !popup.contains(e.target) && !btn.contains(e.target)) {
+    popup.style.display = 'none';
+  }
+});
+
+function applyIndPopup() {
+  indVisible.rsi      = document.getElementById('ipc-rsi').checked;
+  indVisible.macd     = document.getElementById('ipc-macd').checked;
+  indVisible.bb       = document.getElementById('ipc-bb').checked;
+  indVisible.patterns = document.getElementById('ipc-patterns').checked;
+  indConfig.rsiPeriod = parseInt(document.getElementById('ipc-rsi-p').value) || 14;
+  indConfig.bbPeriod  = parseInt(document.getElementById('ipc-bb-p').value)  || 20;
+
+  updateIndBadge();
+
+  if (!indCache) return;
+
+  // RSI pane
+  const rsiPane = document.getElementById('pane-rsi');
+  rsiPane.classList.toggle('hidden', !indVisible.rsi);
+  if (indVisible.rsi) { if(rsiChart){rsiChart.remove();rsiChart=null;} renderRSI(indCache.rsi, indCache.timestamps); }
+  else if (rsiChart)  { rsiChart.remove(); rsiChart = null; }
+
+  // MACD pane
+  const macdPane = document.getElementById('pane-macd');
+  macdPane.classList.toggle('hidden', !indVisible.macd);
+  if (indVisible.macd) { if(macdChart){macdChart.remove();macdChart=null;} renderMACD(indCache.macd, indCache.timestamps); }
+  else if (macdChart)  { macdChart.remove(); macdChart = null; }
+
+  // BB + MAs: re-render price chart
+  if (indCache._bars) renderPriceChart(indCache._bars, indCache.bollinger);
+  else if (priceSeries) {
+    if (indVisible.patterns) drawPatterns(indCache._bars || []);
+    else { patternMarkers=[]; priceSeries.setMarkers([]); }
+  }
+}
+
+function updateIndBadge() {
+  const active = [indVisible.rsi, indVisible.macd, indVisible.bb].filter(Boolean).length + maOverlays.length;
+  const b = document.getElementById('ind-count-badge');
+  if (b) b.textContent = active;
+}
+
+// -- MA OVERLAYS ---------------------------------------------------------------
+
+function addOverlay(type) {
+  const period = parseInt(document.getElementById(`${type}-period`).value) || (type === 'sma' ? 20 : 9);
+  const color  = document.getElementById(`${type}-color`).value;
+  if (period < 2 || period > 500) return;
+
+  const id = maNextId++;
+  maOverlays.push({ id, type, period, color, series: null });
+  renderMAList();
+  updateIndBadge();
+
+  if (priceChart && indCache && indCache._bars) {
+    drawMAOverlay(maOverlays[maOverlays.length - 1], indCache._bars);
+  }
+}
+
+// Alias legado caso ainda seja chamado
+function addMAOverlay() { addOverlay(document.getElementById('ma-type')?.value || 'sma'); }
+
+function removeMAOverlay(id) {
+  const idx = maOverlays.findIndex(m => m.id === id);
+  if (idx === -1) return;
+  const ma = maOverlays[idx];
+  if (ma.series && priceChart) { try { priceChart.removeSeries(ma.series); } catch(_) {} }
+  maOverlays.splice(idx, 1);
+  renderMAList();
+  updateIndBadge();
+}
+
+function renderMAList() {
+  ['sma', 'ema'].forEach(type => {
+    const el = document.getElementById(`${type}-list`);
+    if (!el) return;
+    const items = maOverlays.filter(m => m.type === type);
+    if (!items.length) { el.innerHTML = ''; return; }
+    el.innerHTML = items.map(m => `
+      <div class="ma-item">
+        <div class="ma-item-swatch" style="background:${m.color}"></div>
+        <span class="ma-item-label">${m.type.toUpperCase()} ${m.period}</span>
+        <input type="color" value="${m.color}"
+          style="width:22px;height:18px;border:none;border-radius:3px;cursor:pointer;background:none;padding:0"
+          onchange="changeMAColor(${m.id}, this.value)">
+        <button class="ma-item-del" onclick="removeMAOverlay(${m.id})">✕</button>
+      </div>`).join('');
+  });
+}
+
+function changeMAColor(id, color) {
+  const ma = maOverlays.find(m => m.id === id);
+  if (!ma) return;
+  ma.color = color;
+  if (ma.series) ma.series.applyOptions({ color });
+  renderMAList();
+}
+
+// -- CANDLESTICK PATTERN DETECTION --------------------------------------------
+
+const PATTERN_DEFS = {
+  doji:            { label:'Doji',          icon:'⊙', bull:null },
+  hammer:          { label:'Hammer',        icon:'🔨', bull:true  },
+  inverted_hammer: { label:'Inv. Hammer',   icon:'🔨', bull:true  },
+  shooting_star:   { label:'Shooting Star', icon:'★',  bull:false },
+  hanging_man:     { label:'Hanging Man',   icon:'☠',  bull:false },
+  engulfing:       { label:'Engulfing',     icon:'⊞',  bull:null  },
+  morning_star:    { label:'Morning Star',  icon:'🌅', bull:true  },
+  evening_star:    { label:'Evening Star',  icon:'🌇', bull:false },
+  piercing:        { label:'Piercing',      icon:'↑',  bull:true  },
+  dark_cloud:      { label:'Dark Cloud',    icon:'☁',  bull:false },
+  three_soldiers:  { label:'3 Soldiers',    icon:'⬆',  bull:true  },
+  three_crows:     { label:'3 Crows',       icon:'⬇',  bull:false },
+  marubozu:        { label:'Marubozu',      icon:'▮',  bull:null  },
+  spinning_top:    { label:'Spinning Top',  icon:'⊕',  bull:null  },
+  harami:          { label:'Harami',        icon:'⊟',  bull:null  },
+  tweezer:         { label:'Tweezer',       icon:'⇅',  bull:null  },
+  dragonfly:       { label:'Dragonfly',     icon:'T',  bull:true  },
+  gravestone:      { label:'Gravestone',    icon:'⊤',  bull:false },
+  three_inside:    { label:'3 Inside',      icon:'↕',  bull:null  },
+  kicker:          { label:'Kicker',        icon:'⚡', bull:null  },
+};
+
+function enabledPatterns() {
+  const checks = document.querySelectorAll('#pattern-filter input[type=checkbox]');
+  const set = new Set();
+  checks.forEach(ch => { if(ch.checked) set.add(ch.value); });
+  return set;
+}
+
+function detectPatterns(bars) {
+  const results = [];
+  const enabled = enabledPatterns();
+  const n = bars.length;
+
+  for (let i = 2; i < n; i++) {
+    const c = bars[i], p = bars[i-1], pp = bars[i-2];
+    const body  = c => Math.abs(c.close - c.open);
+    const range = c => c.high - c.low;
+    const isBull = c => c.close >= c.open;
+    const isBear = c => c.close < c.open;
+
+    const b0 = body(c), r0 = range(c) || 0.0001;
+    const b1 = body(p), r1 = range(p) || 0.0001;
+
+    const upWick0   = c.high  - Math.max(c.open, c.close);
+    const downWick0 = Math.min(c.open, c.close) - c.low;
+    const upWick1   = p.high  - Math.max(p.open, p.close);
+    const downWick1 = Math.min(p.open, p.close) - p.low;
+
+    const avgBody = (body(bars[Math.max(0,i-5)]) + b1 + b0) / 3 || 0.0001;
+
+    const add = (type, bullish) => {
+      if (!enabled.has(type)) return;
+      results.push({ time: c.time, type, bullish });
+    };
+
+    // Doji: corpo muito pequeno vs range
+    if (enabled.has('doji') && b0 / r0 < 0.08 && r0 > 0) {
+      if (enabled.has('dragonfly') && upWick0 < b0*2 && downWick0 > r0*0.6)
+        add('dragonfly', true);
+      else if (enabled.has('gravestone') && downWick0 < b0*2 && upWick0 > r0*0.6)
+        add('gravestone', false);
+      else
+        add('doji', null);
+      continue;
+    }
+
+    // Spinning Top
+    if (enabled.has('spinning_top') && b0/r0 < 0.35 && upWick0 > b0*0.8 && downWick0 > b0*0.8)
+      add('spinning_top', null);
+
+    // Marubozu: corpo preenche quase todo range
+    if (enabled.has('marubozu') && b0/r0 > 0.92)
+      add('marubozu', isBull(c));
+
+    // Hammer: pequena sombra superior, longa inferior, corpo no topo
+    if (enabled.has('hammer') && !isBull(p) &&
+        downWick0 >= b0*2.0 && upWick0 <= b0*0.3 && b0 > avgBody*0.4)
+      add('hammer', true);
+
+    // Hanging Man: igual ao hammer mas em uptrend
+    if (enabled.has('hanging_man') && isBull(p) &&
+        downWick0 >= b0*2.0 && upWick0 <= b0*0.3 && b0 > avgBody*0.4)
+      add('hanging_man', false);
+
+    // Inverted Hammer
+    if (enabled.has('inverted_hammer') && !isBull(p) &&
+        upWick0 >= b0*2.0 && downWick0 <= b0*0.3 && b0 > avgBody*0.4)
+      add('inverted_hammer', true);
+
+    // Shooting Star
+    if (enabled.has('shooting_star') && isBull(p) &&
+        upWick0 >= b0*2.0 && downWick0 <= b0*0.3 && b0 > avgBody*0.4)
+      add('shooting_star', false);
+
+    // Bullish Engulfing
+    if (enabled.has('engulfing') && isBear(p) && isBull(c) &&
+        c.open <= p.close && c.close >= p.open && b0 > b1*1.1)
+      add('engulfing', true);
+
+    // Bearish Engulfing
+    if (enabled.has('engulfing') && isBull(p) && isBear(c) &&
+        c.open >= p.close && c.close <= p.open && b0 > b1*1.1)
+      add('engulfing', false);
+
+    // Harami
+    if (enabled.has('harami') && b1 > avgBody*1.2 &&
+        c.open > Math.min(p.open,p.close) && c.close < Math.max(p.open,p.close) && b0 < b1*0.5)
+      add('harami', isBull(c));
+
+    // Piercing Line
+    if (enabled.has('piercing') && isBear(p) && isBull(c) &&
+        c.open < p.low && c.close > (p.open+p.close)/2 && c.close < p.open)
+      add('piercing', true);
+
+    // Dark Cloud Cover
+    if (enabled.has('dark_cloud') && isBull(p) && isBear(c) &&
+        c.open > p.high && c.close < (p.open+p.close)/2 && c.close > p.open)
+      add('dark_cloud', false);
+
+    // Tweezer Bottom (i>=1)
+    if (enabled.has('tweezer') && isBear(p) && isBull(c) &&
+        Math.abs(c.low - p.low) / (r0+r1) < 0.03)
+      add('tweezer', true);
+
+    // Tweezer Top
+    if (enabled.has('tweezer') && isBull(p) && isBear(c) &&
+        Math.abs(c.high - p.high) / (r0+r1) < 0.03)
+      add('tweezer', false);
+
+    // Morning Star (3 candles)
+    if (enabled.has('morning_star') && isBear(pp) && b1/range(p)<0.35 &&
+        isBull(c) && body(pp)>avgBody*1.2 && c.close>(pp.open+pp.close)/2)
+      add('morning_star', true);
+
+    // Evening Star (3 candles)
+    if (enabled.has('evening_star') && isBull(pp) && b1/range(p)<0.35 &&
+        isBear(c) && body(pp)>avgBody*1.2 && c.close<(pp.open+pp.close)/2)
+      add('evening_star', false);
+
+    // Three White Soldiers
+    if (enabled.has('three_soldiers') && isBull(c) && isBull(p) && isBull(pp) &&
+        c.open>p.open && p.open>pp.open && c.close>p.close && p.close>pp.close &&
+        b0>avgBody*0.8 && b1>avgBody*0.8 && body(pp)>avgBody*0.8)
+      add('three_soldiers', true);
+
+    // Three Black Crows
+    if (enabled.has('three_crows') && isBear(c) && isBear(p) && isBear(pp) &&
+        c.open<p.open && p.open<pp.open && c.close<p.close && p.close<pp.close &&
+        b0>avgBody*0.8 && b1>avgBody*0.8 && body(pp)>avgBody*0.8)
+      add('three_crows', false);
+
+    // Three Inside Up
+    if (enabled.has('three_inside') && isBear(pp) && isBull(p) &&
+        p.open>pp.close && p.close<pp.open && isBull(c) && c.close>pp.open)
+      add('three_inside', true);
+
+    // Three Inside Down
+    if (enabled.has('three_inside') && isBull(pp) && isBear(p) &&
+        p.open<pp.close && p.close>pp.open && isBear(c) && c.close<pp.open)
+      add('three_inside', false);
+
+    // Kicker Bullish
+    if (enabled.has('kicker') && isBear(p) && isBull(c) &&
+        c.open >= p.open && b0>avgBody*1.5 && b1>avgBody*1.5)
+      add('kicker', true);
+
+    // Kicker Bearish
+    if (enabled.has('kicker') && isBull(p) && isBear(c) &&
+        c.open <= p.open && b0>avgBody*1.5 && b1>avgBody*1.5)
+      add('kicker', false);
+  }
+  return results;
+}
+
+function drawPatterns(bars) {
+  if (!priceSeries || !bars || !bars.length) return;
+  if (!indVisible.patterns) { priceSeries.setMarkers([]); return; }
+
+  const detected = detectPatterns(bars);
+  // Deduplica por time (mantém o primeiro de cada candle)
+  const seen = new Set();
+  const markers = [];
+  detected.forEach(p => {
+    if (seen.has(p.time)) return;
+    seen.add(p.time);
+    const def = PATTERN_DEFS[p.type] || { label: p.type, icon:'?', bull: null };
+    const bullish = p.bullish !== null ? p.bullish :
+      (p.type === 'engulfing' || p.type === 'harami' || p.type === 'marubozu' ?
+        bars.find(b=>b.time===p.time)?.close >= bars.find(b=>b.time===p.time)?.open : true);
+    markers.push({
+      time:     p.time,
+      position: bullish ? 'belowBar' : 'aboveBar',
+      color:    bullish ? '#2ED47A' : (p.bullish === null ? '#F0B429' : '#E05555'),
+      shape:    'circle',
+      text:     `${def.icon} ${def.label}`,
+      size:     1,
+    });
+  });
+  markers.sort((a,b) => a.time - b.time);
+  patternMarkers = markers;
+  priceSeries.setMarkers(markers);
+}
+
+function calcSMA(closes, period) {
+  return closes.map((_, i) =>
+    i < period - 1 ? null : closes.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0) / period
+  );
+}
+
+function calcEMA(closes, period) {
+  const k = 2 / (period + 1);
+  const res = Array(period - 1).fill(null);
+  let prev = closes.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  res.push(prev);
+  for (let i = period; i < closes.length; i++) { prev = closes[i] * k + prev * (1 - k); res.push(prev); }
+  return res;
+}
+
+function drawMAOverlay(ma, bars) {
+  if (!priceChart || !bars.length) return;
+  const closes = bars.map(b => b.close);
+  const values = ma.type === 'sma' ? calcSMA(closes, ma.period) : calcEMA(closes, ma.period);
+  const data = values.map((v, i) => v != null ? { time: bars[i].time, value: +v.toFixed(4) } : null).filter(Boolean);
+  if (!data.length) return;
+  if (ma.series) { try { priceChart.removeSeries(ma.series); } catch(_) {} }
+  ma.series = priceChart.addLineSeries({
+    color: ma.color, lineWidth: 1.5, lineStyle: 0,
+    priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+    title: `${ma.type.toUpperCase()}(${ma.period})`,
+  });
+  ma.series.setData(data);
+}
+
+function drawAllMAOverlays(bars) {
+  maOverlays.forEach(ma => drawMAOverlay(ma, bars));
+}
+
+// -- TOGGLE INDICATORS (legado) ------------------------------------------------
 function toggleInd(ind) {
   indVisible[ind] = !indVisible[ind];
-  document.getElementById(`tgl-${ind}`).classList.toggle('on', indVisible[ind]);
+  const tgl = document.getElementById(`tgl-${ind}`);
+  if (tgl) tgl.classList.toggle('on', indVisible[ind]);
 
   if (!indCache) return;   // sem dados carregados ainda -- nada a fazer
 

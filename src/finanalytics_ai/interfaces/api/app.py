@@ -254,8 +254,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     try:
         async with get_engine().begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-            await conn.run_sync(RFBase.metadata.create_all)
+            await conn.run_sync(lambda c: Base.metadata.create_all(c, checkfirst=True))
+            await conn.run_sync(lambda c: RFBase.metadata.create_all(c, checkfirst=True))
         logger.info("watchlist_tables.ok")
     except Exception as exc:
         logger.error("watchlist_tables.FAILED", error=str(exc))
@@ -324,7 +324,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         )
 
         async with _get_eng().begin() as conn:
-            await conn.run_sync(TickerBase.metadata.create_all)
+            await conn.run_sync(lambda c: TickerBase.metadata.create_all(c, checkfirst=True))
         app.state.ticker_service = TickerService(get_session_factory())
         logger.info("ticker_service.ready")
     except Exception as exc:
@@ -472,6 +472,12 @@ def create_app() -> FastAPI:
     app.include_router(fixed_income.router, tags=["Renda Fixa"])
 
     try:
+        from finanalytics_ai.interfaces.api.routes import forecast as forecast_routes
+        app.include_router(forecast_routes.router, tags=["Forecast"])
+    except ImportError:
+        pass
+
+    try:
         from finanalytics_ai.interfaces.api.routes.ohlc import router as ohlc_router
 
         app.include_router(ohlc_router, tags=["OHLC"])
@@ -549,5 +555,9 @@ def create_app() -> FastAPI:
     @app.get("/patrimony", response_class=HTMLResponse, include_in_schema=False)
     async def serve_patrimony() -> HTMLResponse:
         return _html("patrimony.html")
+
+    @app.get("/forecast", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_forecast() -> HTMLResponse:
+        return _html("forecast.html")
 
     return app

@@ -116,6 +116,11 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     anthropic_api_key: str = ""
 
+    # ── Forecast ─────────────────────────────────────────────────────────────
+    ollama_url: str = "http://localhost:11434"
+    ollama_model: str = "llama3.1:70b"
+    forecast_cache_ttl_seconds: int = 3600  # 1h cache por ticker/horizon
+
     # ── Observabilidade ──────────────────────────────────────────────────────
     otel_service_name: str = "finanalytics-ai"
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"

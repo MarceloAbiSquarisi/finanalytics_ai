@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Forecast — FinAnalytics AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b1118;--surface:#111923;--card:#151f2e;--border:#1e3a5f;
+  --accent:#00c48c;--blue:#3abff8;--gold:#f0b429;--red:#E05555;--green:#2ED47A;
+  --text:#e8eaf6;--muted:#8899aa;--white:#fff;
+}
+body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+/* ── Topbar ── */
+.fa-topbar{position:sticky;top:0;z-index:200;display:flex;align-items:center;gap:16px;padding:0 20px;height:52px;background:#070f1a;border-bottom:1px solid #1e3a5f;box-shadow:0 2px 12px rgba(0,0,0,.4)}
+.fa-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
+.fa-logo svg{display:block}
+.fa-logo-text{font-family:'Georgia','Times New Roman',serif;font-size:17px;font-weight:700;color:#e8f4fd;white-space:nowrap;letter-spacing:-.3px}
+.fa-logo-text em{color:#F0B429;font-style:normal}
+.fa-ai-badge{display:inline-block;background:#1B3A6B;color:#fff;font-family:Arial,sans-serif;font-size:9px;font-weight:800;letter-spacing:1.5px;padding:2px 5px;border-radius:3px;vertical-align:middle;margin-left:2px}
+.fa-nav{display:flex;align-items:center;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1}
+.fa-nav::-webkit-scrollbar{display:none}
+.fa-nav a{white-space:nowrap;font-family:'Rajdhani',Arial,sans-serif;font-size:12px;font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;padding:5px 10px;border-radius:5px;transition:.15s}
+.fa-nav a:hover{color:#00c48c;background:rgba(0,196,140,.08)}
+.fa-nav a.active{color:#00c48c;background:rgba(0,196,140,.1)}
+/* ── Layout ── */
+.page{max-width:1400px;margin:0 auto;padding:20px;flex:1;width:100%}
+.page-title{font-size:22px;font-weight:700;color:var(--white);margin-bottom:4px}
+.page-sub{font-size:12px;color:var(--muted);margin-bottom:18px}
+/* ── Controls ── */
+.ctrl-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:18px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px}
+.ctrl-group{display:flex;flex-direction:column;gap:4px}
+.ctrl-label{font-size:9px;font-weight:700;letter-spacing:.8px;color:var(--muted);text-transform:uppercase}
+.ctrl-input{background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;padding:6px 10px;outline:none;transition:.15s}
+.ctrl-input:focus{border-color:var(--blue)}
+.ctrl-select{background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:12px;padding:6px 10px;outline:none}
+.btn-run{background:linear-gradient(135deg,#00c48c,#00a876);border:none;border-radius:6px;color:#000;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;letter-spacing:.5px;padding:8px 22px;cursor:pointer;transition:.15s;white-space:nowrap;margin-top:18px}
+.btn-run:hover{opacity:.88}
+.btn-run:disabled{opacity:.4;cursor:not-allowed}
+/* ── Signal card ── */
+.signal-row{display:grid;grid-template-columns:200px 1fr 1fr 1fr 1fr;gap:12px;margin-bottom:18px}
+@media(max-width:900px){.signal-row{grid-template-columns:1fr 1fr}}
+.sig-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.sig-card.buy {border-color:rgba(46,212,122,.4);background:rgba(46,212,122,.05)}
+.sig-card.sell{border-color:rgba(224,85,85,.4);background:rgba(224,85,85,.05)}
+.sig-card.neutral{border-color:rgba(240,180,41,.3)}
+.sig-label{font-size:9px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+.sig-value{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--white)}
+.sig-value.buy {color:var(--green)}
+.sig-value.sell{color:var(--red)}
+.sig-value.neutral{color:var(--gold)}
+.sig-sub{font-size:10px;color:var(--muted);margin-top:3px}
+/* ── Chart ── */
+.chart-row{display:grid;grid-template-columns:1fr 340px;gap:14px;margin-bottom:18px}
+@media(max-width:1100px){.chart-row{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.panel-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border)}
+.panel-title{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+.panel-body{padding:14px}
+#forecast-chart{height:420px;width:100%}
+/* ── Model cards ── */
+.model-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:700px){.model-grid{grid-template-columns:1fr}}
+.model-card{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:12px}
+.model-name{font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.model-stat{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:3px}
+.model-stat b{color:var(--text);font-family:'JetBrains Mono',monospace}
+.model-unavail{font-size:10px;color:var(--red);margin-top:4px}
+/* ── Weight bar ── */
+.weight-bar-bg{background:#1e3a5f;border-radius:3px;height:4px;margin-top:6px}
+.weight-bar{height:4px;border-radius:3px;background:linear-gradient(90deg,#3abff8,#00c48c);transition:width .5s}
+/* ── Analysis panel ── */
+.analysis-body{padding:16px;font-size:13px;line-height:1.7;color:#c8d8e8}
+.analysis-body p{margin-bottom:10px}
+.analysis-body strong{color:var(--white)}
+.provider-badge{font-size:9px;background:rgba(58,191,248,.12);color:var(--blue);border:1px solid rgba(58,191,248,.25);border-radius:10px;padding:2px 8px;font-family:'JetBrains Mono',monospace}
+/* ── Table ── */
+.fc-table{width:100%;border-collapse:collapse;font-size:11px;font-family:'JetBrains Mono',monospace}
+.fc-table th{font-size:9px;letter-spacing:.8px;color:var(--muted);text-transform:uppercase;padding:6px 8px;border-bottom:1px solid var(--border);text-align:left}
+.fc-table td{padding:5px 8px;border-bottom:1px solid rgba(30,58,95,.5)}
+.fc-table tr:hover td{background:rgba(58,191,248,.04)}
+.fc-table .up{color:var(--green)}
+.fc-table .dn{color:var(--red)}
+/* ── Loading / empty ── */
+.loading{text-align:center;padding:40px;color:var(--muted);font-size:12px}
+.dot{display:inline-block;width:6px;height:6px;background:var(--accent);border-radius:50%;margin:0 2px;animation:bounce .9s infinite}
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
+.empty{text-align:center;padding:40px;color:var(--muted);font-size:12px}
+.empty-icon{font-size:36px;margin-bottom:8px;opacity:.3}
+.toast-container{position:fixed;top:60px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:6px}
+.toast{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:12px;max-width:340px;animation:slideIn .25s ease;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.toast.error{border-color:var(--red)}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+/* ── Disclaimer ── */
+.disclaimer{font-size:10px;color:var(--muted);background:rgba(240,180,41,.05);border:1px solid rgba(240,180,41,.15);border-radius:6px;padding:10px 14px;margin-top:14px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<div class="fa-topbar">
+  <a href="/" class="fa-logo" title="FinAnalytics AI">
+    <svg width="34" height="34" viewBox="0 0 170 170" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="lg_gold" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#F0B429"/><stop offset="100%" stop-color="#E08C00"/></linearGradient>
+        <linearGradient id="lg_neural" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#3ABFF8" stop-opacity="0"/><stop offset="40%" stop-color="#3ABFF8"/><stop offset="100%" stop-color="#F0B429"/></linearGradient>
+      </defs>
+      <circle cx="85" cy="85" r="82" fill="#0D2144"/><circle cx="85" cy="85" r="80" fill="#0D2144" stroke="#1e3a5f" stroke-width="1"/>
+      <rect x="38" y="98" width="14" height="36" rx="2.5" fill="#E05555" opacity=".9"/>
+      <rect x="60" y="72" width="14" height="44" rx="2.5" fill="#2ED47A" opacity=".9"/>
+      <rect x="82" y="50" width="14" height="58" rx="2.5" fill="#2ED47A"/>
+      <rect x="104" y="66" width="14" height="32" rx="2.5" fill="#E05555" opacity=".8"/>
+      <rect x="126" y="44" width="14" height="68" rx="2.5" fill="url(#lg_gold)"/>
+      <circle cx="89" cy="38" r="5.5" fill="#3ABFF8"/>
+      <circle cx="133" cy="30" r="4.5" fill="#F0B429"/>
+      <polyline points="45,82 89,38 133,30 150,54" fill="none" stroke="url(#lg_neural)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".8"/>
+    </svg>
+    <span class="fa-logo-text">Fin<em>Analytics</em> <span class="fa-ai-badge">AI</span></span>
+  </a>
+  <nav class="fa-nav">
+    <a href="/">Dashboard</a>
+    <a href="/backtest">Backtest</a>
+    <a href="/screener">Screener</a>
+    <a href="/correlation">Correlação</a>
+    <a href="/anomaly">Anomalias</a>
+    <a href="/forecast" class="active">Forecast</a>
+    <a href="/watchlist">Watchlist</a>
+    <a href="/performance">Performance</a>
+    <a href="/fixed-income">Renda Fixa</a>
+    <a href="/etf">ETFs</a>
+    <a href="/optimizer">Otimizador</a>
+    <a href="/hub">Hub</a>
+  </nav>
+</div>
+
+<div class="page">
+  <div class="page-title">Forecast de Preço</div>
+  <p class="page-sub">Ensemble Prophet + LSTM + TFT com análise narrativa por LLM local (Ollama)</p>
+
+  <!-- Controls -->
+  <div class="ctrl-row">
+    <div class="ctrl-group">
+      <span class="ctrl-label">Ticker</span>
+      <input id="fc-ticker" class="ctrl-input" placeholder="Ex: PETR4" maxlength="10"
+             style="width:130px;text-transform:uppercase"
+             oninput="this.value=this.value.toUpperCase()"
+             onkeydown="if(event.key==='Enter')runForecast()">
+    </div>
+    <div class="ctrl-group">
+      <span class="ctrl-label">Horizonte</span>
+      <select id="fc-horizon" class="ctrl-select">
+        <option value="7">7 dias</option>
+        <option value="15">15 dias</option>
+        <option value="30" selected>30 dias</option>
+        <option value="60">60 dias</option>
+        <option value="90">90 dias</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <span class="ctrl-label">Histórico</span>
+      <select id="fc-range" class="ctrl-select">
+        <option value="1y">1 Ano</option>
+        <option value="2y" selected>2 Anos</option>
+        <option value="5y">5 Anos</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <span class="ctrl-label">Modelos</span>
+      <select id="fc-models" class="ctrl-select">
+        <option value="all" selected>Ensemble (todos)</option>
+        <option value="prophet">Apenas Prophet</option>
+        <option value="lstm">Apenas LSTM</option>
+        <option value="tft">Apenas TFT</option>
+      </select>
+    </div>
+    <button class="btn-run" id="btn-run" onclick="runForecast()">▶ Executar Forecast</button>
+  </div>
+
+  <!-- Signal row (initially hidden) -->
+  <div id="signal-row" class="signal-row" style="display:none"></div>
+
+  <!-- Main content -->
+  <div id="main-content">
+    <div class="empty">
+      <div class="empty-icon">📈</div>
+      Insira um ticker e clique em <strong>Executar Forecast</strong> para ver a previsão de preço<br>
+      com ensemble de modelos e análise de IA.
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script>
+let chart = null, historySeries = null, forecastSeries = null, ciBandUpper = null, ciBandLower = null;
+
+async function runForecast() {
+  const ticker  = document.getElementById('fc-ticker').value.trim().toUpperCase();
+  const horizon = document.getElementById('fc-horizon').value;
+  const range   = document.getElementById('fc-range').value;
+  const models  = document.getElementById('fc-models').value;
+
+  if (!ticker) { toast('Informe um ticker', 'error'); return; }
+
+  const btn = document.getElementById('btn-run');
+  btn.disabled = true;
+  btn.textContent = '⏳ Processando...';
+
+  document.getElementById('signal-row').style.display = 'none';
+  document.getElementById('main-content').innerHTML = `
+    <div class="loading">
+      <div style="font-size:14px;margin-bottom:12px;color:#3abff8">Rodando ensemble de modelos</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:16px">Prophet + LSTM + TFT • isso pode levar 30-60s na primeira execução</div>
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    </div>`;
+
+  try {
+    const url = `/api/v1/forecast/${ticker}?horizon=${horizon}&range_period=${range}&models=${models}`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({detail: resp.statusText}));
+      throw new Error(err.detail || resp.statusText);
+    }
+    const data = await resp.json();
+    renderResult(data);
+  } catch(e) {
+    toast(e.message, 'error');
+    document.getElementById('main-content').innerHTML = `
+      <div class="empty"><div class="empty-icon">⚠️</div>${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '▶ Executar Forecast';
+  }
+}
+
+function renderResult(d) {
+  renderSignalRow(d);
+  document.getElementById('main-content').innerHTML = `
+    <div class="chart-row">
+      <div class="panel">
+        <div class="panel-hdr">
+          <span class="panel-title">Histórico + Forecast — ${d.ticker}</span>
+          <span style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace">${d.horizon_days}d horizonte</span>
+        </div>
+        <div id="forecast-chart"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="panel">
+          <div class="panel-hdr"><span class="panel-title">Modelos do Ensemble</span></div>
+          <div class="panel-body"><div class="model-grid" id="model-cards"></div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-hdr">
+            <span class="panel-title">Análise de IA</span>
+            <span class="provider-badge" id="provider-badge">${d.narrative_provider || 'N/A'}</span>
+          </div>
+          <div class="analysis-body" id="analysis-text"></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel" style="margin-bottom:14px">
+      <div class="panel-hdr"><span class="panel-title">Valores Projetados por Data</span></div>
+      <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
+        <table class="fc-table" id="fc-table"></table>
+      </div>
+    </div>
+    <div class="disclaimer">
+      ⚠️ <strong>Aviso:</strong> Este forecast é gerado por modelos estatísticos e não constitui recomendação de investimento.
+      Modelos de séries temporais não incorporam eventos macroeconômicos, notícias ou mudanças fundamentais nas empresas.
+      Use como ferramenta auxiliar de análise, nunca como única base para decisões financeiras.
+    </div>`;
+
+  renderChart(d);
+  renderModelCards(d.models);
+  renderAnalysis(d.analysis);
+  renderTable(d.forecast, d.last_price);
+}
+
+function renderSignalRow(d) {
+  const sr = document.getElementById('signal-row');
+  sr.style.display = 'grid';
+  const sigClass = d.signal === 'COMPRA' ? 'buy' : d.signal === 'VENDA' ? 'sell' : 'neutral';
+  const confColor = d.confidence === 'ALTA' ? 'var(--green)' : d.confidence === 'MÉDIA' ? 'var(--gold)' : 'var(--muted)';
+  const chgColor = d.change_pct >= 0 ? 'var(--green)' : 'var(--red)';
+
+  sr.innerHTML = `
+    <div class="sig-card ${sigClass}">
+      <div class="sig-label">Sinal</div>
+      <div class="sig-value ${sigClass}">${d.signal}</div>
+      <div class="sig-sub" style="color:${confColor}">Confiança ${d.confidence}</div>
+    </div>
+    <div class="sig-card">
+      <div class="sig-label">Preço Atual</div>
+      <div class="sig-value">R$ ${f2(d.last_price)}</div>
+      <div class="sig-sub">${d.ticker}</div>
+    </div>
+    <div class="sig-card">
+      <div class="sig-label">Preço Alvo (${d.horizon_days}d)</div>
+      <div class="sig-value" style="color:${chgColor}">R$ ${f2(d.target_price)}</div>
+      <div class="sig-sub" style="color:${chgColor}">${d.change_pct >= 0 ? '+' : ''}${d.change_pct.toFixed(2)}%</div>
+    </div>
+    <div class="sig-card">
+      <div class="sig-label">IC 80% — Mínimo</div>
+      <div class="sig-value" style="font-size:18px">R$ ${f2(d.ci_lower)}</div>
+      <div class="sig-sub">Limite inferior do intervalo</div>
+    </div>
+    <div class="sig-card">
+      <div class="sig-label">IC 80% — Máximo</div>
+      <div class="sig-value" style="font-size:18px">R$ ${f2(d.ci_upper)}</div>
+      <div class="sig-sub">Limite superior do intervalo</div>
+    </div>`;
+}
+
+function renderChart(d) {
+  const container = document.getElementById('forecast-chart');
+  if (!container) return;
+  if (chart) { chart.remove(); chart = null; }
+
+  chart = LightweightCharts.createChart(container, {
+    autoSize: true,
+    layout: { background:{color:'transparent'}, textColor:'#6A9EBF', fontFamily:'JetBrains Mono,monospace', fontSize:10 },
+    grid: { vertLines:{color:'rgba(58,191,248,.05)'}, horzLines:{color:'rgba(58,191,248,.05)'} },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    rightPriceScale: { borderColor:'rgba(58,191,248,.1)' },
+    timeScale: { borderColor:'rgba(58,191,248,.1)', timeVisible:true },
+  });
+
+  // History line
+  historySeries = chart.addLineSeries({
+    color:'#3abff8', lineWidth:2,
+    priceLineVisible:false, lastValueVisible:true,
+    title:'Histórico',
+  });
+  const histData = (d.history || [])
+    .map(h => ({ time: toTimestamp(h.ds), value: parseFloat(h.y) }))
+    .filter(h => h.time && h.value > 0)
+    .sort((a, b) => a.time - b.time);
+  historySeries.setData(histData);
+
+  if (!d.forecast || !d.forecast.length) return;
+
+  // CI band (upper)
+  ciBandUpper = chart.addLineSeries({
+    color:'rgba(240,180,41,.15)', lineWidth:1, lineStyle:2,
+    priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false,
+    title:'IC Superior',
+  });
+  // CI band (lower)
+  ciBandLower = chart.addLineSeries({
+    color:'rgba(240,180,41,.15)', lineWidth:1, lineStyle:2,
+    priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false,
+    title:'IC Inferior',
+  });
+
+  // Forecast line
+  forecastSeries = chart.addLineSeries({
+    color:'#f0b429', lineWidth:2, lineStyle:1,
+    priceLineVisible:false, lastValueVisible:true,
+    title:'Forecast',
+  });
+
+  // Connect last history point to first forecast point
+  const lastHist = histData[histData.length - 1];
+  const fcData = d.forecast.map(p => ({ time: toTimestamp(p.ds), value: p.yhat })).filter(p => p.time);
+  const ciUpper = d.forecast.map(p => ({ time: toTimestamp(p.ds), value: p.yhat_upper })).filter(p => p.time);
+  const ciLower = d.forecast.map(p => ({ time: toTimestamp(p.ds), value: p.yhat_lower })).filter(p => p.time);
+
+  if (lastHist && fcData.length) {
+    forecastSeries.setData([{time: lastHist.time, value: lastHist.value}, ...fcData]);
+    ciBandUpper.setData([{time: lastHist.time, value: lastHist.value}, ...ciUpper]);
+    ciBandLower.setData([{time: lastHist.time, value: lastHist.value}, ...ciLower]);
+  } else {
+    forecastSeries.setData(fcData);
+    ciBandUpper.setData(ciUpper);
+    ciBandLower.setData(ciLower);
+  }
+
+  chart.timeScale().fitContent();
+}
+
+function renderModelCards(models) {
+  const el = document.getElementById('model-cards');
+  if (!el) return;
+  const labels = { prophet:'Prophet', lstm:'LSTM', tft:'TFT' };
+  const colors = { prophet:'#00c48c', lstm:'#3abff8', tft:'#f0b429' };
+  el.innerHTML = Object.entries(models).map(([k, v]) => {
+    if (!v.available) return `
+      <div class="model-card">
+        <div class="model-name" style="color:${colors[k]||'#fff'}">${labels[k]||k}</div>
+        <div class="model-unavail">Não disponível</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:4px">${v.error || 'Instale a dependência'}</div>
+      </div>`;
+    const weightPct = Math.round((v.weight || 0) * 100);
+    return `
+      <div class="model-card">
+        <div class="model-name" style="color:${colors[k]||'#3abff8'}">${labels[k]||k}</div>
+        <div class="model-stat"><span>MAPE holdout</span><b>${(v.mape||0).toFixed(2)}%</b></div>
+        <div class="model-stat"><span>Peso ensemble</span><b>${weightPct}%</b></div>
+        <div class="weight-bar-bg"><div class="weight-bar" style="width:${weightPct}%;background:${colors[k]}"></div></div>
+      </div>`;
+  }).join('');
+}
+
+function renderAnalysis(text) {
+  const el = document.getElementById('analysis-text');
+  if (!el) return;
+  if (!text) { el.innerHTML = '<p style="color:var(--muted)">Análise não disponível.</p>'; return; }
+  el.innerHTML = text.split('\n\n').filter(Boolean).map(p => `<p>${p.replace(/\n/g,'<br>')}</p>`).join('');
+}
+
+function renderTable(forecast, lastPrice) {
+  const el = document.getElementById('fc-table');
+  if (!el || !forecast) return;
+  el.innerHTML = `
+    <thead><tr>
+      <th>Data</th><th>Projetado</th><th>Variação</th><th>IC Mín.</th><th>IC Máx.</th><th>Amplitude IC</th>
+    </tr></thead>
+    <tbody>${forecast.map(p => {
+      const chg = ((p.yhat - lastPrice) / lastPrice * 100);
+      const cls = chg >= 0 ? 'up' : 'dn';
+      const amp = p.yhat_upper - p.yhat_lower;
+      return `<tr>
+        <td>${p.ds}</td>
+        <td><b>R$ ${f2(p.yhat)}</b></td>
+        <td class="${cls}">${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%</td>
+        <td>R$ ${f2(p.yhat_lower)}</td>
+        <td>R$ ${f2(p.yhat_upper)}</td>
+        <td style="color:var(--muted)">R$ ${f2(amp)}</td>
+      </tr>`;
+    }).join('')}</tbody>`;
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function toTimestamp(ds) {
+  if (!ds) return null;
+  if (typeof ds === 'number') return ds;
+  const d = new Date(ds);
+  if (isNaN(d.getTime())) return null;
+  return Math.floor(d.getTime() / 1000);
+}
+
+function f2(v) { return (v == null ? '—' : (+v).toFixed(2)); }
+
+function toast(msg, type = 'success') {
+  const c = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 5000);
+}
+</script>
+</body>
+</html>
