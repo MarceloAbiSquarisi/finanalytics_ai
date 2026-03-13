@@ -1,2 +1,0 @@
-src\finanalytics_ai\application\services\rf_portfolio_service.py:75: error: Invalid syntax  [syntax]
-Found 1 error in 1 file (errors prevented further checking)

@@ -60,6 +60,19 @@ portfolio_operations_total = Counter(
     labelnames=["operation", "asset_class"],
 )
 
+handler_events_total = Counter(
+    name="finanalytics_handler_events_total",
+    documentation="Total de eventos por handler específico",
+    labelnames=["handler", "status"],
+)
+
+handler_duration_seconds = Histogram(
+    name="finanalytics_handler_duration_seconds",
+    documentation="Latência de cada handler de evento em segundos",
+    labelnames=["handler"],
+    buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0),
+)
+
 
 # ── Tracing (OpenTelemetry) ───────────────────────────────────────────────────
 

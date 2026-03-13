@@ -7,7 +7,7 @@ import asyncio
 import logging
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,7 +37,7 @@ async def schedule_loop() -> None:
     logger.info(f"ticker_refresh.scheduler.started refresh_hour={REFRESH_HOUR}")
     await run_refresh()
     while True:
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         next_run = now.replace(hour=REFRESH_HOUR, minute=0, second=0, microsecond=0)
         if next_run <= now:
             next_run += timedelta(days=1)

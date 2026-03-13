@@ -37,7 +37,7 @@ Design decisions:
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -151,7 +151,7 @@ class WatchlistService:
                     item.volume = int(quote.get("regularMarketVolume", 0) or 0)
                     item.high_52w = float(quote.get("fiftyTwoWeekHigh", 0) or 0) or None
                     item.low_52w = float(quote.get("fiftyTwoWeekLow", 0) or 0) or None
-                    item.last_updated_at = datetime.utcnow()
+                    item.last_updated_at = datetime.now(UTC)
                 except Exception as exc:
                     logger.warning("watchlist.enrich.failed", ticker=item.ticker, error=str(exc))
             return item

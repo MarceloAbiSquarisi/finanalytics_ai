@@ -4,18 +4,19 @@
 # Aplicado automaticamente quando você roda `docker compose up`.
 # NÃO usar em staging/produção.
 #
-# Diferenças do modo dev:
-#   - Volume mount do código fonte (hot reload sem rebuild)
-#   - --reload no uvicorn
-#   - APP_LOG_FORMAT=console (legível no terminal)
-#   - APP_LOG_LEVEL=DEBUG
+# O que este arquivo faz:
+#   - Hot reload: volume mount de src/ sem rebuild
+#   - Stage correto: target: api (com volume sobrepondo src copiado)
+#   - Fila em memória: sem Kafka para startup rápido (~10s vs ~60s)
+#   - Logs coloridos no terminal
+#   - Deps relaxadas: api sobe sem kafka/timescale (dev usa memory queue)
 # ──────────────────────────────────────────────────────────────────────────────
 services:
   api:
     build:
-      target: builder     # usa o stage builder (tem uv + código montado)
+      target: api           # stage final com deps instaladas
     volumes:
-      - ./src:/app/src:ro  # hot reload: mudanças no src refletem sem rebuild
+      - ./src:/app/src:ro   # hot reload: mudanças refletem sem rebuild
     command:
       - uvicorn
       - finanalytics_ai.interfaces.api.run:app
@@ -23,9 +24,24 @@ services:
       - "0.0.0.0"
       - --port
       - "8000"
-      - --reload              # recarrega ao detectar mudança em /app/src
+      - --reload
       - --reload-dir
       - /app/src
     environment:
-      APP_LOG_FORMAT: console  # logs coloridos no terminal
+      APP_LOG_FORMAT:      console     # logs coloridos no terminal
+      APP_LOG_LEVEL:       DEBUG
+      EVENT_QUEUE_BACKEND: memory      # sem Kafka em dev
+    # Dev: só precisa de postgres + redis para subir
+    # kafka e timescale são opcionais e iniciados separadamente
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    volumes:
+      - ./src:/app/src:ro   # hot reload no worker também
+    environment:
+      APP_LOG_FORMAT: console
       APP_LOG_LEVEL:  DEBUG

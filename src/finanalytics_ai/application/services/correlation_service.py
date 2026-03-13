@@ -33,7 +33,7 @@ from finanalytics_ai.domain.correlation.engine import (
 from finanalytics_ai.domain.value_objects.money import Ticker
 
 if TYPE_CHECKING:
-    from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
+    from finanalytics_ai.domain.ports.market_data import MarketDataProvider
 
 logger = structlog.get_logger(__name__)
 
@@ -43,8 +43,8 @@ MIN_BARS = 10
 
 
 class CorrelationService:
-    def __init__(self, brapi_client: BrapiClient) -> None:
-        self._brapi = brapi_client
+    def __init__(self, market_data: MarketDataProvider) -> None:
+        self._market = market_data
 
     async def compute(
         self,
@@ -79,7 +79,7 @@ class CorrelationService:
         async def _fetch(ticker: str) -> tuple[str, list[dict] | Exception]:
             async with sem:
                 try:
-                    bars = await self._brapi.get_ohlc_bars(Ticker(ticker), range_period=range_period)
+                    bars = await self._market.get_ohlc_bars(Ticker(ticker), range_period=range_period)
                     if len(bars) < MIN_BARS:
                         raise BacktestError(f"Dados insuficientes: {len(bars)} barras (minimo {MIN_BARS}).")
                     return ticker, bars
@@ -91,11 +91,11 @@ class CorrelationService:
 
         bars_map: dict[str, list[dict]] = {}
         errors: list[dict[str, str]] = []
-        for ticker, result in raw:
-            if isinstance(result, Exception):
-                errors.append({"ticker": ticker, "error": str(result)})
+        for ticker, fetch_result in raw:
+            if isinstance(fetch_result, Exception):
+                errors.append({"ticker": ticker, "error": str(fetch_result)})
             else:
-                bars_map[ticker] = result
+                bars_map[ticker] = fetch_result
 
         if len(bars_map) < 2:
             raise BacktestError(

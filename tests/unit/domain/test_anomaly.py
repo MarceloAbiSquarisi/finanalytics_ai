@@ -576,7 +576,7 @@ class TestAnomalyService:
                 raise result
             return result or _flat_bars(50)
 
-        svc._brapi.get_ohlc_bars = _fake
+        svc._market.get_ohlc_bars = _fake
 
     @pytest.mark.asyncio
     async def test_returns_multi_result(self):
@@ -607,7 +607,7 @@ class TestAnomalyService:
             return _flat_bars(50)
 
         svc = self._make_svc()
-        svc._brapi.get_ohlc_bars = _cap
+        svc._market.get_ohlc_bars = _cap
         await svc.scan(["petr4", "vale3"])
         assert all(t.isupper() for t in seen)
 
@@ -655,7 +655,7 @@ class TestAnomalyService:
             return _flat_bars(50)
 
         svc = self._make_svc()
-        svc._brapi.get_ohlc_bars = _cap
+        svc._market.get_ohlc_bars = _cap
         tickers = [f"T{i}" for i in range(MAX_TICKERS + 5)]
         await svc.scan(tickers)
         assert len(seen) <= MAX_TICKERS

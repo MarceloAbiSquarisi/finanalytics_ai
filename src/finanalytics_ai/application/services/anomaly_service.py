@@ -36,7 +36,7 @@ from finanalytics_ai.domain.anomaly.engine import (
 from finanalytics_ai.domain.value_objects.money import Ticker
 
 if TYPE_CHECKING:
-    from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
+    from finanalytics_ai.domain.ports.market_data import MarketDataProvider
 
 logger = structlog.get_logger(__name__)
 
@@ -45,8 +45,8 @@ MAX_CONCURRENT = 3
 
 
 class AnomalyService:
-    def __init__(self, brapi_client: BrapiClient) -> None:
-        self._brapi = brapi_client
+    def __init__(self, market_data: MarketDataProvider) -> None:
+        self._market = market_data
 
     async def scan(
         self,
@@ -77,7 +77,7 @@ class AnomalyService:
         async def _fetch(ticker: str) -> tuple[str, list[dict] | Exception]:
             async with sem:
                 try:
-                    bars = await self._brapi.get_ohlc_bars(Ticker(ticker), range_period=range_period)
+                    bars = await self._market.get_ohlc_bars(Ticker(ticker), range_period=range_period)
                     return ticker, bars
                 except Exception as exc:
                     log.warning("anomaly.fetch_failed", ticker=ticker, error=str(exc))
@@ -86,15 +86,15 @@ class AnomalyService:
         raw = await asyncio.gather(*[_fetch(t) for t in tickers])
 
         ticker_bars: dict[str, list[dict]] = {}
-        for ticker, result in raw:
-            if isinstance(result, Exception):
-                ticker_bars[ticker] = []  # analise retornara error
+        for t_name, fetch_result in raw:
+            if isinstance(fetch_result, Exception):
+                ticker_bars[t_name] = []  # analise retornara error
             else:
-                ticker_bars[ticker] = result
+                ticker_bars[t_name] = fetch_result
 
         # CPU-bound: roda em thread para nao bloquear event loop
-        result = await asyncio.to_thread(
-            build_multi_anomaly_result,  # type: ignore[arg-type]
+        result: MultiAnomalyResult = await asyncio.to_thread(
+            build_multi_anomaly_result,
             ticker_bars,
             range_period,
             cfg,

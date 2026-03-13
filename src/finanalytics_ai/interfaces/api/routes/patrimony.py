@@ -68,7 +68,7 @@ async def consolidated_snapshot(
     selic: float = Query(default=DEFAULT_SELIC),
     ipca: float = Query(default=DEFAULT_IPCA),
     session: AsyncSession = Depends(get_db_session),
-    request: Request = None,
+    request: Request | None = None,
 ) -> dict:
     """
     Patrimônio consolidado: Ações + ETFs + Renda Fixa + Caixa.
@@ -77,6 +77,8 @@ async def consolidated_snapshot(
     from fastapi import HTTPException
 
     try:
+        if request is None:
+            raise HTTPException(503, "Request context unavailable")
         targets = {
             "Ações": target_eq,
             "ETFs": target_etf,
@@ -102,7 +104,7 @@ async def ir_planning(
     selic: float = Query(default=DEFAULT_SELIC),
     ipca: float = Query(default=DEFAULT_IPCA),
     session: AsyncSession = Depends(get_db_session),
-    request: Request = None,
+    request: Request | None = None,
 ) -> list[dict]:
     """
     Planejamento tributário: para cada título RF, mostra quanto de IR
@@ -112,6 +114,8 @@ async def ir_planning(
     from fastapi import HTTPException
 
     try:
+        if request is None:
+            raise HTTPException(503, "Request context unavailable")
         return await _svc(request, session).ir_planning(
             user_id=user_id,
             cdi=cdi / 100,

@@ -1,64 +1,116 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # FinAnalytics AI — Makefile
 #
-# Comandos:
-#   make up          → sobe a stack completa (modo dev com hot reload)
-#   make up-prod     → sobe em modo produção (sem override dev)
-#   make up-platform → sobe usando infra do finanalytics-platform
+# Stacks disponíveis:
+#   make up          → API + Postgres + Redis (dev, hot reload, ~10s)
+#   make up-full     → stack completa: + Kafka + TimescaleDB
+#   make up-obs      → + Prometheus + Grafana (sobre a stack atual)
+#   make up-prod     → produção (sem override dev)
 #   make down        → para e remove containers (mantém volumes)
-#   make clean       → para, remove containers E volumes
-#   make logs        → tail dos logs da API
-#   make shell       → bash dentro do container da API
+#   make clean       → para E remove volumes (limpa dados)
+#
+# Build:
+#   make build       → reconstrói imagem da API
+#   make build-worker → reconstrói imagem do worker
+#   make build-all   → reconstrói API + worker
+#
+# Dev:
+#   make logs        → tail logs da API
+#   make logs-worker → tail logs do worker
+#   make shell       → bash na API
 #   make psql        → psql no PostgreSQL
-#   make kafka-topics → lista tópicos Kafka
-#   make build       → reconstrói a imagem
-#   make test        → roda pytest dentro do container
+#   make test        → pytest dentro do container
 #   make lint        → ruff + mypy
+#   make health      → health check manual
 # ──────────────────────────────────────────────────────────────────────────────
 
-.PHONY: up up-prod up-platform down clean logs shell psql kafka-topics build test lint help
+.PHONY: up up-full up-obs up-prod down clean \
+        build build-worker build-all \
+        logs logs-worker logs-all shell psql kafka-topics \
+        test lint health status help
 
-# Copia .env.docker se .env não existir
+# ── Setup automático de .env ───────────────────────────────────────────────────
 .env:
-	@echo "⚠️  .env não encontrado — copiando .env.docker"
+	@echo "⚠️  .env não encontrado — copiando .env.docker como base"
 	cp .env.docker .env
 	@echo "✅ .env criado. Edite BRAPI_TOKEN e APP_SECRET_KEY antes de subir."
+	@echo ""
 
-## Sobe a stack completa (dev: hot reload ativo via override)
+# ── Stacks ────────────────────────────────────────────────────────────────────
+
+## [Stack] API + Postgres + Redis (dev rápido, hot reload)
 up: .env
+	docker compose up -d postgres redis api worker
+	@echo ""
+	@echo "✅ Stack dev subindo... aguarde ~15s para os healthchecks."
+	@echo "   API:  http://localhost:${API_PORT:-8000}"
+	@echo "   Docs: http://localhost:${API_PORT:-8000}/docs"
+	@echo "   Logs: make logs"
+
+## [Stack] Stack completa: + Kafka + TimescaleDB
+up-full: .env
 	docker compose up -d
 	@echo ""
-	@echo "✅ Stack subindo... aguarde ~30s para os healthchecks passarem."
-	@echo "   Dashboard: http://localhost:8000"
-	@echo "   Docs:      http://localhost:8000/docs"
-	@echo "   Logs:      make logs"
+	@echo "✅ Stack completa subindo... aguarde ~60s (Kafka demora)."
+	@echo "   API:  http://localhost:${API_PORT:-8000}"
+	@echo "   Kafka: localhost:${KAFKA_PORT:-9092}"
 
-## Sobe em modo produção (sem docker-compose.override.yml)
+## [Stack] + Prometheus (9090) + Grafana (3000)
+up-obs: .env
+	docker compose -f docker-compose.yml \
+	               -f docker-compose.override.yml \
+	               -f docker-compose.observability.yml up -d
+	@echo ""
+	@echo "✅ Stack com observabilidade:"
+	@echo "   Prometheus: http://localhost:9090"
+	@echo "   Grafana:    http://localhost:3000  (admin/admin)"
+
+## [Stack] Modo produção (sem overrides de dev)
 up-prod: .env
 	docker compose -f docker-compose.yml up -d
+	@echo "✅ Produção subindo (sem hot reload)."
 
-## Sobe usando a infra existente do finanalytics-platform
-up-platform: .env
-	docker compose -f docker-compose.platform.yml up -d
-
-## Para os containers (mantém volumes de dados)
+## Para containers (mantém volumes de dados)
 down:
 	docker compose down
 
-## Para e remove TODOS os volumes (limpa dados)
+## Para e remove TODOS os volumes (⚠️ dados apagados)
 clean:
 	docker compose down -v
 	@echo "⚠️  Volumes removidos — dados apagados."
+
+# ── Build ──────────────────────────────────────────────────────────────────────
+
+## Reconstrói imagem da API sem cache
+build:
+	docker compose build --no-cache api
+
+## Reconstrói imagem do worker sem cache
+build-worker:
+	docker build --target worker -t finanalytics-worker:latest --no-cache .
+
+## Reconstrói API + worker
+build-all:
+	docker compose build --no-cache api
+	docker build --target worker -t finanalytics-worker:latest --no-cache .
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
 
 ## Logs da API em tempo real
 logs:
 	docker compose logs -f api
 
+## Logs do worker em tempo real
+logs-worker:
+	docker compose logs -f worker
+
 ## Logs de todos os serviços
 logs-all:
 	docker compose logs -f
 
-## Shell bash dentro da API
+# ── Dev ───────────────────────────────────────────────────────────────────────
+
+## Shell bash na API
 shell:
 	docker compose exec api bash
 
@@ -66,29 +118,32 @@ shell:
 psql:
 	docker compose exec postgres psql -U finanalytics -d finanalytics
 
-## Lista tópicos Kafka
+## Lista tópicos Kafka (requer up-full)
 kafka-topics:
-	docker compose exec kafka kafka-topics --bootstrap-server localhost:9092 --list
+	docker compose exec kafka kafka-topics \
+	    --bootstrap-server localhost:9092 --list
 
-## Reconstrói a imagem sem cache
-build:
-	docker compose build --no-cache api
-
-## Roda testes dentro do container
+## Roda pytest dentro do container da API
 test:
-	docker compose run --rm api python -m pytest tests/ -v
+	docker compose run --rm api \
+	    python -m pytest tests/ -v --tb=short
 
 ## Lint: ruff + mypy
 lint:
-	docker compose run --rm api sh -c "ruff check src/ && mypy src/"
+	docker compose run --rm api \
+	    sh -c "ruff check src/ && mypy src/ --no-error-summary"
 
 ## Status de todos os containers
 status:
 	docker compose ps
 
-## Healthcheck manual
+## Health check manual da API
 health:
-	curl -s http://localhost:8000/health | python -m json.tool
+	@curl -sf http://localhost:${API_PORT:-8000}/health | python -m json.tool \
+	    || echo "❌ API não respondeu em http://localhost:${API_PORT:-8000}/health"
 
+## Mostra este help
 help:
-	@grep -E '^##' Makefile | sed 's/## //'
+	@echo "FinAnalytics AI — comandos disponíveis:"
+	@echo ""
+	@grep -E '^## ' Makefile | sed 's/## /  /'

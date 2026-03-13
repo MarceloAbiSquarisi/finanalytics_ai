@@ -22,7 +22,8 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import structlog
-from sqlalchemy import Boolean, Column, DateTime, String, func, select
+from sqlalchemy import Boolean, DateTime, String, func, select
+from sqlalchemy.orm import Mapped, mapped_column
 
 from finanalytics_ai.domain.auth.entities import User, UserRole
 from finanalytics_ai.infrastructure.database.connection import Base
@@ -39,14 +40,14 @@ logger = structlog.get_logger(__name__)
 class UserModel(Base):
     __tablename__ = "users"
 
-    user_id = Column(String(36), primary_key=True)
-    email = Column(String(255), nullable=False, unique=True, index=True)
-    hashed_password = Column(String(255), nullable=False)
-    full_name = Column(String(255), nullable=False, default="")
-    role = Column(String(20), nullable=False, default=UserRole.USER.value)
-    is_active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    last_login_at = Column(DateTime(timezone=True), nullable=True)
+    user_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    full_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    role: Mapped[str] = mapped_column(String(20), nullable=False, default=UserRole.USER.value)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 # ── Repository ────────────────────────────────────────────────────────────────

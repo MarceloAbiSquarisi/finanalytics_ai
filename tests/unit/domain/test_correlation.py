@@ -471,7 +471,7 @@ class TestCorrelationService:
                 raise result
             return result or _ramp(50)
 
-        svc._brapi.get_ohlc_bars = _fake
+        svc._market.get_ohlc_bars = _fake
 
     @pytest.mark.asyncio
     async def test_returns_correlation_result(self):
@@ -570,7 +570,7 @@ class TestCorrelationService:
             seen.append(str(ticker))
             return _ramp(50)
 
-        svc._brapi.get_ohlc_bars = _capture
+        svc._market.get_ohlc_bars = _capture
         await svc.compute(["petr4", "vale3"])
         assert all(t.isupper() for t in seen)
 
@@ -636,7 +636,7 @@ class TestCorrelationService:
             return _ramp(50)
 
         svc = self._make_svc()
-        svc._brapi.get_ohlc_bars = _slow
+        svc._market.get_ohlc_bars = _slow
         tickers = [f"T{i}" for i in range(7)]
         await svc.compute(tickers)
         assert max_seen[0] <= MAX_CONCURRENT

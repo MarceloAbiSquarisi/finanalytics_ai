@@ -40,7 +40,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -73,13 +73,13 @@ class TickerStats:
         self.success_count += 1
         self.last_price = price
         self.last_change_pct = change_pct
-        self.last_updated = datetime.utcnow()
+        self.last_updated = datetime.now(UTC)
         self.last_error = None
 
     def record_error(self, error: str) -> None:
         self.error_count += 1
         self.last_error = error
-        self.last_updated = datetime.utcnow()
+        self.last_updated = datetime.now(UTC)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -210,7 +210,7 @@ class BrapiPriceProducer:
                         "source": "brapi",
                     },
                     source="brapi-producer",
-                    occurred_at=datetime.utcnow(),
+                    occurred_at=datetime.now(UTC),
                     status=EventStatus.PENDING,
                 )
 

@@ -186,6 +186,7 @@ h1{font-size:22px;font-weight:700;color:var(--white);letter-spacing:.5px;margin-
     <a href="/screener">Screener</a>
     <a href="/correlation">Correlação</a>
     <a href="/anomaly">Anomalias</a>
+    <a href="/forecast">Forecast</a>
     <a href="/watchlist" class="active">Watchlist</a>
     <a href="/performance">Performance</a>
     <a href="/fixed-income">Renda Fixa</a>
@@ -229,10 +230,15 @@ h1{font-size:22px;font-weight:700;color:var(--white);letter-spacing:.5px;margin-
         </div>
         <div class="panel-body">
           <div class="add-row">
-            <input id="add-ticker" placeholder="Ticker ex: PETR4" maxlength="10"
-                   oninput="this.value=this.value.toUpperCase()"
-                   onkeydown="if(event.key==='Enter')addItem()">
-            <button class="btn" onclick="addItem()">+ Adicionar</button>
+            <div id="add-search-wrap" style="position:relative;flex:1">
+              <input id="add-ticker" autocomplete="off" placeholder="Buscar ticker para adicionar..."
+                     style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:13px;padding:7px 10px;outline:none;transition:border .15s"
+                     oninput="this.value=this.value.toUpperCase();wlSearchInput(this.value)"
+                     onkeydown="wlSearchKey(event)"
+                     onfocus="wlSearchInput(this.value)" />
+              <div id="wl-dropdown" style="display:none;position:absolute;top:36px;left:0;min-width:100%;background:#1a2035;border:1px solid var(--border);border-radius:8px;z-index:9999;max-height:240px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.6)"></div>
+            </div>
+            <button class="btn" onclick="addItemFromInput()">+ Adicionar</button>
           </div>
           <div id="wl-list" class="wl-list">
             <div class="loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
@@ -462,10 +468,78 @@ function buildAlertConfig(type) {
   return cfg;
 }
 
+// ── Autocomplete para adicionar ticker ───────────────────────────────────────
+
+let _wlDeb = null, _wlHl = -1;
+
+function wlSearchInput(val) {
+  clearTimeout(_wlDeb);
+  const dd = document.getElementById('wl-dropdown');
+  if (!val || val.length < 1) { dd.style.display = 'none'; return; }
+  _wlDeb = setTimeout(() => {
+    fetch('/api/v1/tickers/search?q=' + encodeURIComponent(val) + '&limit=10')
+      .then(r => r.json())
+      .then(d => {
+        _wlHl = -1;
+        dd.innerHTML = '';
+        if (!d.results || !d.results.length) { dd.style.display = 'none'; return; }
+        d.results.forEach(item => {
+          const el = document.createElement('div');
+          el.setAttribute('data-ticker', item.ticker);
+          el.style.cssText = 'padding:8px 14px;font-size:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.05);color:#e2e8f0';
+          el.innerHTML = `<b>${item.ticker}</b><span style="font-size:10px;background:rgba(255,255,255,0.07);padding:2px 6px;border-radius:4px;color:#94a3b8">${item.type || ''}</span>`;
+          el.onmouseenter = function() { this.style.background = 'rgba(0,196,140,0.15)'; };
+          el.onmouseleave = function() { this.style.background = ''; };
+          el.onclick = function() {
+            const t = this.getAttribute('data-ticker');
+            document.getElementById('add-ticker').value = t;
+            dd.style.display = 'none';
+            addItem(t);
+          };
+          dd.appendChild(el);
+        });
+        dd.style.display = 'block';
+      })
+      .catch(() => dd.style.display = 'none');
+  }, 180);
+}
+
+function wlSearchKey(e) {
+  const dd  = document.getElementById('wl-dropdown');
+  const its = dd.querySelectorAll('div[data-ticker]');
+  if (e.key === 'Enter') {
+    if (_wlHl >= 0 && its[_wlHl]) {
+      const t = its[_wlHl].getAttribute('data-ticker');
+      document.getElementById('add-ticker').value = t;
+      dd.style.display = 'none';
+      addItem(t);
+    } else {
+      addItemFromInput();
+    }
+    return;
+  }
+  if (!its.length) return;
+  if (e.key === 'ArrowDown') { _wlHl = Math.min(_wlHl + 1, its.length - 1); e.preventDefault(); }
+  else if (e.key === 'ArrowUp')  { _wlHl = Math.max(_wlHl - 1, 0); e.preventDefault(); }
+  else if (e.key === 'Escape')   { dd.style.display = 'none'; return; }
+  Array.from(its).forEach((el, i) => { el.style.background = i === _wlHl ? 'rgba(0,196,140,0.15)' : ''; });
+}
+
+document.addEventListener('click', e => {
+  const w = document.getElementById('add-search-wrap');
+  if (w && !w.contains(e.target)) document.getElementById('wl-dropdown').style.display = 'none';
+});
+
+function addItemFromInput() {
+  const ticker = document.getElementById('add-ticker').value.trim().toUpperCase();
+  if (ticker) addItem(ticker);
+}
+
 // ── Actions ──────────────────────────────────────────────────────────────────
 
-async function addItem() {
-  const ticker = document.getElementById('add-ticker').value.trim().toUpperCase();
+async function addItem(ticker) {
+  if (!ticker) return;
+  ticker = ticker.trim().toUpperCase();
   if (!ticker) return;
   try {
     await apiFetch('/api/v1/watchlist', {
@@ -473,6 +547,7 @@ async function addItem() {
       body: JSON.stringify({ user_id: USER_ID, ticker }),
     });
     document.getElementById('add-ticker').value = '';
+    document.getElementById('wl-dropdown').style.display = 'none';
     toast(`${ticker} adicionado`, 'success');
     await loadWatchlist();
   } catch (e) { toast(e.message, 'error'); }

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
@@ -73,7 +73,7 @@ class Alert:
     reference_price: Decimal = Decimal("0")
     status: AlertStatus = AlertStatus.ACTIVE
     note: str = ""
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     triggered_at: datetime | None = None
     expires_at: datetime | None = None
 
@@ -93,7 +93,7 @@ class Alert:
                 threshold=self.threshold,
             )
 
-        if self.expires_at and datetime.utcnow() > self.expires_at:
+        if self.expires_at and datetime.now(UTC) > self.expires_at:
             return AlertTriggerResult(
                 triggered=False,
                 alert_id=self.alert_id,
@@ -181,5 +181,5 @@ class Alert:
         return dataclasses.replace(
             self,
             status=AlertStatus.TRIGGERED,
-            triggered_at=datetime.utcnow(),
+            triggered_at=datetime.now(UTC),
         )

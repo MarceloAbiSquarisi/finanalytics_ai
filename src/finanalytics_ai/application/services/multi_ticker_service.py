@@ -46,7 +46,7 @@ from finanalytics_ai.domain.backtesting.multi_ticker import (
 from finanalytics_ai.domain.backtesting.optimizer import OptimizationObjective, OptimizationResult
 
 if TYPE_CHECKING:
-    from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
+    from finanalytics_ai.domain.ports.market_data import MarketDataProvider
 
 logger = structlog.get_logger(__name__)
 
@@ -54,9 +54,9 @@ MAX_CONCURRENT = 3  # requests simultaneas a BRAPI
 
 
 class MultiTickerService:
-    def __init__(self, brapi_client: BrapiClient) -> None:
-        self._brapi = brapi_client
-        self._optimizer = OptimizerService(brapi_client)
+    def __init__(self, market_data: MarketDataProvider) -> None:
+        self._market = market_data
+        self._optimizer = OptimizerService(market_data)
 
     async def compare(
         self,

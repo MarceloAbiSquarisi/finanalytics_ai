@@ -28,7 +28,7 @@ import asyncio
 import contextlib
 import json
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -69,7 +69,7 @@ def _bytes_to_event(raw: bytes) -> MarketEvent:
         source=data.get("source", "kafka"),
         occurred_at=datetime.fromisoformat(data["occurred_at"])
         if "occurred_at" in data
-        else datetime.utcnow(),
+        else datetime.now(UTC),
         status=EventStatus.PENDING,
     )
 

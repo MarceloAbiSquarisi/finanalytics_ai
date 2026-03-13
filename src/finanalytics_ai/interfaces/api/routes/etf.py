@@ -91,13 +91,15 @@ async def compare_etfs(body: CompareRequest, request: Request) -> dict:
 async def tracking_error(
     ticker: str,
     period: str = Query(default="1y", pattern="^(3mo|6mo|1y|2y|5y)$"),
-    request: Request = None,
+    request: Request | None = None,
 ) -> dict:
     """
     Tracking error do ETF vs benchmark definido no catálogo.
     Calcula: TE anualizado, tracking difference, correlação, beta, R², information ratio.
     """
     try:
+        if request is None:
+            raise HTTPException(503, "Request context unavailable")
         return await _svc(request).tracking_error(ticker, period)
     except ValueError as e:
         raise HTTPException(404, str(e)) from e

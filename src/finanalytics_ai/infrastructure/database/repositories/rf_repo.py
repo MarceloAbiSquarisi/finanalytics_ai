@@ -32,7 +32,6 @@ from typing import TYPE_CHECKING
 import structlog
 from sqlalchemy import (
     Boolean,
-    Column,
     Date,
     Float,
     Index,
@@ -41,7 +40,7 @@ from sqlalchemy import (
     delete,
     select,
 )
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from finanalytics_ai.domain.fixed_income.portfolio import RFHolding, RFPortfolio
 
@@ -61,10 +60,10 @@ class Base(DeclarativeBase):
 class RFPortfolioModel(Base):
     __tablename__ = "rf_portfolios"
 
-    portfolio_id = Column(String(36), primary_key=True)
-    user_id = Column(String(100), nullable=False, index=True)
-    name = Column(String(200), nullable=False)
-    created_at = Column(Date, nullable=False, default=date.today)
+    portfolio_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[date | None] = mapped_column(Date, nullable=False, default=date.today)
 
     __table_args__ = (Index("ix_rf_portfolios_user_id", "user_id"),)
 
@@ -72,20 +71,20 @@ class RFPortfolioModel(Base):
 class RFHoldingModel(Base):
     __tablename__ = "rf_holdings"
 
-    holding_id = Column(String(36), primary_key=True)
-    portfolio_id = Column(String(36), nullable=False, index=True)
-    bond_id = Column(String(100), nullable=False)
-    bond_name = Column(String(200), nullable=False)
-    bond_type = Column(String(50), nullable=False)
-    indexer = Column(String(30), nullable=False)
-    issuer = Column(String(200), nullable=False, default="")
-    invested = Column(Float, nullable=False)
-    rate_annual = Column(Float, nullable=False)
-    rate_pct_indexer = Column(Boolean, nullable=False, default=False)
-    purchase_date = Column(Date, nullable=False)
-    maturity_date = Column(Date, nullable=True)
-    ir_exempt = Column(Boolean, nullable=False, default=False)
-    note = Column(Text, nullable=False, default="")
+    holding_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    portfolio_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    bond_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    bond_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    bond_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    indexer: Mapped[str] = mapped_column(String(30), nullable=False)
+    issuer: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    invested: Mapped[float] = mapped_column(Float, nullable=False)
+    rate_annual: Mapped[float] = mapped_column(Float, nullable=False)
+    rate_pct_indexer: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    purchase_date: Mapped[date] = mapped_column(Date, nullable=False)
+    maturity_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    ir_exempt: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    note: Mapped[str] = mapped_column(Text, nullable=False, default="")
 
     __table_args__ = (Index("ix_rf_holdings_portfolio_id", "portfolio_id"),)
 

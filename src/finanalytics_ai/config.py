@@ -97,6 +97,10 @@ class Settings(BaseSettings):
     timescale_url: str = "postgresql://finanalytics:secret@localhost:5433/finanalytics"
     timescale_pool_size: Annotated[int, Field(ge=1, le=50)] = 5
 
+    # ── Storage local (E: drive) ──────────────────────────────────────────────
+    data_dir: str = "/data"                   # montado de E:\finanalytics_data
+    intraday_keep_days: int = 90              # janela rolante intraday
+
     # ── BRAPI ────────────────────────────────────────────────────────────────
     brapi_token: str = ""
     brapi_base_url: HttpUrl = HttpUrl("https://brapi.dev/api")
@@ -115,6 +119,11 @@ class Settings(BaseSettings):
     llm_provider: LLMProvider = LLMProvider.OPENAI
     openai_api_key: str = ""
     anthropic_api_key: str = ""
+
+    # ── Forecast ─────────────────────────────────────────────────────────────
+    ollama_url: str = "http://localhost:11434"
+    ollama_model: str = "llama3.1:70b"
+    forecast_cache_ttl_seconds: int = 3600  # 1h cache por ticker/horizon
 
     # ── Observabilidade ──────────────────────────────────────────────────────
     otel_service_name: str = "finanalytics-ai"
@@ -162,4 +171,4 @@ def get_settings() -> Settings:
     lru_cache(1) garante singleton sem acoplamento a variável global.
     Em testes, use: get_settings.cache_clear() para forçar recarga.
     """
-    return Settings()
+    return Settings()  # type: ignore[call-arg]  # campos obrigatórios lidos do .env em runtime

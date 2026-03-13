@@ -202,13 +202,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from finanalytics_ai.infrastructure.database.connection import get_session_factory
 
         market_client = create_cached_market_data_client(settings.brapi_token, get_session_factory())
-        app.state.backtest_service = BacktestService(market_client)  # type: ignore[arg-type]
-        app.state.optimizer_service = OptimizerService(market_client)  # type: ignore[arg-type]
-        app.state.walkforward_service = WalkForwardService(market_client)  # type: ignore[arg-type]
-        app.state.multi_ticker_service = MultiTickerService(market_client)  # type: ignore[arg-type]
-        app.state.correlation_service = CorrelationService(market_client)  # type: ignore[arg-type]
+        app.state.backtest_service = BacktestService(market_client)
+        app.state.optimizer_service = OptimizerService(market_client)
+        app.state.walkforward_service = WalkForwardService(market_client)
+        app.state.multi_ticker_service = MultiTickerService(market_client)
+        app.state.correlation_service = CorrelationService(market_client)
         app.state.screener_service = ScreenerService(market_client)  # type: ignore[arg-type]
-        app.state.anomaly_service = AnomalyService(market_client)  # type: ignore[arg-type]
+        app.state.anomaly_service = AnomalyService(market_client)
         app.state.market_client = market_client  # <-- acesso direto para outras dependências
         logger.info("market_data_client.composite.ready")
     else:
@@ -254,8 +254,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     try:
         async with get_engine().begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-            await conn.run_sync(RFBase.metadata.create_all)
+            await conn.run_sync(lambda c: Base.metadata.create_all(c, checkfirst=True))
+            await conn.run_sync(lambda c: RFBase.metadata.create_all(c, checkfirst=True))
         logger.info("watchlist_tables.ok")
     except Exception as exc:
         logger.error("watchlist_tables.FAILED", error=str(exc))
@@ -324,7 +324,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         )
 
         async with _get_eng().begin() as conn:
-            await conn.run_sync(TickerBase.metadata.create_all)
+            await conn.run_sync(lambda c: TickerBase.metadata.create_all(c, checkfirst=True))
         app.state.ticker_service = TickerService(get_session_factory())
         logger.info("ticker_service.ready")
     except Exception as exc:
@@ -472,6 +472,24 @@ def create_app() -> FastAPI:
     app.include_router(fixed_income.router, tags=["Renda Fixa"])
 
     try:
+        from finanalytics_ai.interfaces.api.routes import forecast as forecast_routes
+        app.include_router(forecast_routes.router, tags=["Forecast"])
+    except Exception as _e:
+        import structlog as _sl
+        _sl.get_logger(__name__).warning("forecast.router.FAILED", error=str(_e))
+    try:
+        from finanalytics_ai.interfaces.api.routes import macro as macro_routes
+        app.include_router(macro_routes.router, tags=["Macro"])
+    except ImportError:
+        pass
+
+    try:
+        from finanalytics_ai.interfaces.api.routes import storage_admin
+        app.include_router(storage_admin.router, tags=["Storage Admin"])
+    except ImportError:
+        pass
+
+    try:
         from finanalytics_ai.interfaces.api.routes.ohlc import router as ohlc_router
 
         app.include_router(ohlc_router, tags=["OHLC"])
@@ -549,5 +567,13 @@ def create_app() -> FastAPI:
     @app.get("/patrimony", response_class=HTMLResponse, include_in_schema=False)
     async def serve_patrimony() -> HTMLResponse:
         return _html("patrimony.html")
+
+    @app.get("/forecast", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_forecast() -> HTMLResponse:
+        return _html("forecast.html")
+
+    @app.get("/macro", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_macro() -> HTMLResponse:
+        return _html("macro.html")
 
     return app

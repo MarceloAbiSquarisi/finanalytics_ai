@@ -24,20 +24,28 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
+# ── Arquivos de dados / legado ────────────────────────────────────────────────
+sprint1_legacy/
+*.db
+*.sqlite
+
 # ── Desenvolvimento ───────────────────────────────────────────────────────────
 .git/
 .gitignore
 .env
 .env.*
-!.env.docker        # mantém o exemplo
-*.md
+!.env.docker
 Makefile
+
+# ── Docs (não necessários na imagem) ─────────────────────────────────────────
+*.md
+docs/
 
 # ── IDE ───────────────────────────────────────────────────────────────────────
 .idea/
 .vscode/
 *.iml
 
-# ── Docker (evita recursão) ───────────────────────────────────────────────────
+# ── Docker (evita recursão de contexto) ──────────────────────────────────────
 docker-compose*.yml
 Dockerfile*

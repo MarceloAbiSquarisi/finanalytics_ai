@@ -1,20 +1,12 @@
 # ──────────────────────────────────────────────────────────────────────────────
-# docker-compose.observability.yml — Redis + Prometheus + Grafana
+# docker-compose.observability.yml — Prometheus + Grafana
+#
+# Redis está definido no docker-compose.yml principal.
+# Use junto com o compose principal:
+#   docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
 # ──────────────────────────────────────────────────────────────────────────────
 services:
 
-  redis:
-    image: redis:7.2-alpine
-    container_name: finanalytics_redis
-    restart: unless-stopped
-    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru --save ""
-    ports:
-      - "6379:6379"
-    networks:
-      finanalytics_net:
-        aliases: [redis, finanalytics_redis]
-      platform_net:
-        aliases: [redis, finanalytics_redis]
 
   prometheus:
     image: prom/prometheus:v2.51.2
