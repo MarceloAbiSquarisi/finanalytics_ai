@@ -328,11 +328,43 @@ class EnsembleAggregator:
 class ForecastService:
     HOLDOUT_RATIO = 0.15
 
-    def __init__(self) -> None:
+    def __init__(self, data_dir: str | None = None) -> None:
         self._prophet = ProphetForecaster()
         self._lstm = LSTMForecaster()
         self._tft = TFTForecaster()
         self._ensemble = EnsembleAggregator()
+        self._storage_dir = data_dir
+        self._storage = None
+
+    def _get_storage(self):  # type: ignore[return]
+        if self._storage is None and self._storage_dir:
+            try:
+                from finanalytics_ai.infrastructure.storage.data_storage_service import DataStorageService
+                self._storage = DataStorageService(self._storage_dir)
+            except Exception:
+                pass
+        return self._storage
+
+    def _enrich_bars_from_parquet(
+        self,
+        ticker: str,
+        api_bars: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Mescla barras da API com histórico Parquet local para maximizar série histórica."""
+        storage = self._get_storage()
+        if storage is None:
+            return api_bars
+        local_bars = storage.read_ohlcv(ticker)
+        if not local_bars:
+            return api_bars
+        # API tem precedência em datas recentes (sobrescreve)
+        seen: dict[int, dict[str, Any]] = {b.get("time", 0): b for b in local_bars}
+        for b in api_bars:
+            seen[b.get("time", 0)] = b
+        merged = sorted(seen.values(), key=lambda x: x.get("time", 0))
+        logger.info("forecast.enriched", ticker=ticker,
+                    api_bars=len(api_bars), local_bars=len(local_bars), merged=len(merged))
+        return merged
 
     async def forecast(
         self,
@@ -341,6 +373,7 @@ class ForecastService:
         horizon: int = 30,
         indicators: dict[str, Any] | None = None,
     ) -> ForecastResult:
+        bars = self._enrich_bars_from_parquet(ticker, bars)
         if len(bars) < 60:
             raise ValueError(f"Dados insuficientes: {len(bars)} barras (mínimo 60)")
 

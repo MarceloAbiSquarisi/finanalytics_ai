@@ -34,7 +34,8 @@ def _get_forecast_service(request: Request) -> Any:
     svc = getattr(request.app.state, "forecast_service", None)
     if svc is None:
         from finanalytics_ai.application.services.forecast_service import ForecastService
-        svc = ForecastService()
+        settings = get_settings()
+        svc = ForecastService(data_dir=settings.data_dir)
         request.app.state.forecast_service = svc
     return svc
 

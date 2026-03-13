@@ -97,6 +97,10 @@ class Settings(BaseSettings):
     timescale_url: str = "postgresql://finanalytics:secret@localhost:5433/finanalytics"
     timescale_pool_size: Annotated[int, Field(ge=1, le=50)] = 5
 
+    # ── Storage local (E: drive) ──────────────────────────────────────────────
+    data_dir: str = "/data"                   # montado de E:\finanalytics_data
+    intraday_keep_days: int = 90              # janela rolante intraday
+
     # ── BRAPI ────────────────────────────────────────────────────────────────
     brapi_token: str = ""
     brapi_base_url: HttpUrl = HttpUrl("https://brapi.dev/api")

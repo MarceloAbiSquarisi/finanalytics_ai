@@ -130,10 +130,13 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       EVENT_QUEUE_BACKEND:     kafka
       REDIS_URL:               redis://redis:6379/0
+      DATA_DIR:                /data
+    volumes:
+      - ${DATA_DIR_HOST:-E:/finanalytics_data}:/data
     ports:
       - "${API_PORT:-8000}:8000"
     healthcheck:
-      test:     ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      test:     ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen(\'http://localhost:8000/health\')\""]
       interval: 15s
       timeout:  5s
       retries:  5
@@ -181,9 +184,12 @@ services:
         condition: service_healthy
     env_file: .env
     environment:
-      DATABASE_URL:  postgresql+asyncpg://finanalytics:${POSTGRES_PASSWORD:-secret}@postgres:5432/finanalytics
-      REDIS_URL:     redis://redis:6379/0
+      DATABASE_URL:        postgresql+asyncpg://finanalytics:${POSTGRES_PASSWORD:-secret}@postgres:5432/finanalytics
+      REDIS_URL:           redis://redis:6379/0
       EVENT_QUEUE_BACKEND: memory
+      DATA_DIR:            /data
+    volumes:
+      - ${DATA_DIR_HOST:-E:/finanalytics_data}:/data
     networks:
       - finanalytics_net
 

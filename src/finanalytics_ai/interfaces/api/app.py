@@ -478,6 +478,12 @@ def create_app() -> FastAPI:
         pass
 
     try:
+        from finanalytics_ai.interfaces.api.routes import storage_admin
+        app.include_router(storage_admin.router, tags=["Storage Admin"])
+    except ImportError:
+        pass
+
+    try:
         from finanalytics_ai.interfaces.api.routes.ohlc import router as ohlc_router
 
         app.include_router(ohlc_router, tags=["OHLC"])
