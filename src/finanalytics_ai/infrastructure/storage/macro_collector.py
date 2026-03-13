@@ -94,10 +94,11 @@ class MacroCollector:
         """Fetch from BCB SGS API and persist."""
         url = (
             f"https://api.bcb.gov.br/dados/serie/bcdata.sgs.{code}/dados"
-            f"?formato=json&dataInicial=01/01/2000"
+            f"?formato=json&dataInicial=01/01/2020"
         )
+        _headers = {"User-Agent": "Mozilla/5.0 FinAnalytics/1.0"}
         async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.get(url)
+            resp = await client.get(url, headers=_headers)
             resp.raise_for_status()
             raw = resp.json()
 
