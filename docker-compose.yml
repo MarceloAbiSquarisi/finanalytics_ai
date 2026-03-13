@@ -194,6 +194,38 @@ services:
       - finanalytics_net
 
 
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    image: finanalytics-worker:latest
+    container_name: finanalytics_scheduler
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATA_DIR:                  /data
+      BRAPI_TOKEN:               ${BRAPI_TOKEN}
+      BRAPI_BASE_URL:            ${BRAPI_BASE_URL:-https://brapi.dev/api}
+      SCHEDULER_MACRO_HOUR:      ${SCHEDULER_MACRO_HOUR:-6}
+      SCHEDULER_OHLCV_HOUR:      ${SCHEDULER_OHLCV_HOUR:-7}
+      SCHEDULER_TZ_OFFSET:       ${SCHEDULER_TZ_OFFSET:--3}
+      SCHEDULER_MACRO_ENABLED:   ${SCHEDULER_MACRO_ENABLED:-true}
+      SCHEDULER_OHLCV_ENABLED:   ${SCHEDULER_OHLCV_ENABLED:-true}
+      RUN_ONCE:                  ${SCHEDULER_RUN_ONCE:-false}
+      PYTHONPATH:                /app/src
+    volumes:
+      - ${DATA_DIR_HOST:-E:/finanalytics_data}:/data
+    entrypoint: ["python"]
+    command: ["/app/src/finanalytics_ai/workers/scheduler_worker.py"]
+    networks:
+      - finanalytics_net
+
 networks:
   finanalytics_net:
     name: finanalytics_net
