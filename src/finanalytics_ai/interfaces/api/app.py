@@ -474,6 +474,12 @@ def create_app() -> FastAPI:
     try:
         from finanalytics_ai.interfaces.api.routes import forecast as forecast_routes
         app.include_router(forecast_routes.router, tags=["Forecast"])
+    except Exception as _e:
+        import structlog as _sl
+        _sl.get_logger(__name__).warning("forecast.router.FAILED", error=str(_e))
+    try:
+        from finanalytics_ai.interfaces.api.routes import macro as macro_routes
+        app.include_router(macro_routes.router, tags=["Macro"])
     except ImportError:
         pass
 
@@ -565,5 +571,9 @@ def create_app() -> FastAPI:
     @app.get("/forecast", response_class=HTMLResponse, include_in_schema=False)
     async def serve_forecast() -> HTMLResponse:
         return _html("forecast.html")
+
+    @app.get("/macro", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_macro() -> HTMLResponse:
+        return _html("macro.html")
 
     return app

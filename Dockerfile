@@ -48,7 +48,8 @@ RUN uv pip install --system -e . \
     && uv pip install --system \
         "uvicorn[standard]>=0.30.0" \
         "uvloop>=0.19.0" \
-        "httptools>=0.6.0"
+        "httptools>=0.6.0" \
+        "pyarrow>=16.0.0"
 
 # Copiar código-fonte depois das deps (preserva cache de deps no rebuild)
 COPY src/ ./src/
