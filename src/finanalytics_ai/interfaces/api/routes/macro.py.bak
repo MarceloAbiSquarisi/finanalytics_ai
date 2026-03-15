@@ -29,19 +29,14 @@ _CACHE_TTL = 3600  # 1 hora
 
 # Metadados das séries
 _SERIES_META: dict[str, dict[str, str]] = {
-    "selic":        {"label": "SELIC",    "unit": "% a.a.", "source": "BCB",       "freq": "diária"},
-    "ipca":         {"label": "IPCA",     "unit": "% a.m.", "source": "BCB",       "freq": "mensal"},
-    "usd_brl":      {"label": "USD/BRL",  "unit": "R$",     "source": "BCB",       "freq": "diária"},
-    "eur_brl":      {"label": "EUR/BRL",  "unit": "R$",     "source": "BCB",       "freq": "diária"},
-    "igpm":         {"label": "IGP-M",    "unit": "% a.m.", "source": "BCB",       "freq": "mensal"},
-    "ibov":         {"label": "IBOV",     "unit": "pts",    "source": "Yahoo",     "freq": "diária"},
-    "vix":          {"label": "VIX",      "unit": "pts",    "source": "Yahoo",     "freq": "diária"},
-    "sp500":        {"label": "S&P 500",  "unit": "pts",    "source": "Yahoo",     "freq": "diária"},
-    "focus_ipca":   {"label": "Focus IPCA",     "unit": "% a.a.", "source": "BCB/Focus", "freq": "semanal"},
-    "focus_selic":  {"label": "Focus Selic",    "unit": "% a.a.", "source": "BCB/Focus", "freq": "semanal"},
-    "focus_pib":    {"label": "Focus PIB",      "unit": "%",      "source": "BCB/Focus", "freq": "semanal"},
-    "focus_cambio": {"label": "Focus Câmbio",   "unit": "R$",     "source": "BCB/Focus", "freq": "semanal"},
-    "focus_igpm":   {"label": "Focus IGP-M",    "unit": "% a.a.", "source": "BCB/Focus", "freq": "semanal"},
+    "selic":   {"label": "SELIC", "unit": "% a.a.", "source": "BCB", "freq": "diária"},
+    "ipca":    {"label": "IPCA",  "unit": "% a.m.", "source": "BCB", "freq": "mensal"},
+    "usd_brl": {"label": "USD/BRL","unit": "R$",   "source": "BCB", "freq": "diária"},
+    "eur_brl": {"label": "EUR/BRL","unit": "R$",   "source": "BCB", "freq": "diária"},
+    "igpm":    {"label": "IGP-M", "unit": "% a.m.", "source": "BCB", "freq": "mensal"},
+    "ibov":    {"label": "IBOV",  "unit": "pts",   "source": "Yahoo","freq": "diária"},
+    "vix":     {"label": "VIX",   "unit": "pts",   "source": "Yahoo","freq": "diária"},
+    "sp500":   {"label": "S&P 500","unit": "pts",  "source": "Yahoo","freq": "diária"},
 }
 
 
@@ -144,65 +139,3 @@ async def get_series(
         "count": len(data),
         "data": data,
     }
-
-
-@router.get("/focus/snapshot")
-async def focus_snapshot() -> dict[str, Any]:
-    """
-    Snapshot das expectativas do Boletim Focus para o dashboard macro.
-
-    Retorna projeções para o ano atual e próximo de:
-    IPCA, Selic, PIB, Câmbio e IGP-M com mediana e média do mercado.
-
-    Dados fornecidos pelo BCB via API Olinda (gratuito, sem autenticação).
-    Cache de 4 horas — Focus é divulgado semanalmente às sextas.
-    """
-    from finanalytics_ai.infrastructure.adapters.focus_client import get_focus_client
-
-    cache_key = "focus_snapshot_api"
-    cached = _cached(cache_key, lambda: None)
-    if cached is not None:
-        return {"focus": cached, "cached": True}
-
-    focus = get_focus_client()
-    snapshot = await focus.get_focus_snapshot()
-
-    _cache[cache_key] = (time.time(), snapshot)
-    return {"focus": snapshot, "cached": False}
-
-
-@router.get("/focus/expectations")
-async def focus_expectations(
-    indicador: str | None = None,
-    semanas: int = 8,
-) -> dict[str, Any]:
-    """
-    Expectativas detalhadas do Boletim Focus.
-
-    Args:
-        indicador: filtrar por indicador (ex: IPCA, Selic, PIB Total, Câmbio).
-                   Se omitido, retorna todos os principais indicadores.
-        semanas: janela histórica em semanas (padrão: 8).
-
-    Returns:
-        Lista com: indicador, data, data_referencia, media, mediana,
-        desvio_padrao, minimo, maximo, n_respondentes.
-    """
-    from finanalytics_ai.infrastructure.adapters.focus_client import get_focus_client
-
-    focus = get_focus_client()
-    ind = [indicador] if indicador else None
-
-    if ind and semanas > 4:
-        # Histórico de um indicador específico
-        data = await focus.get_indicator_history(ind[0], semanas=semanas)
-    else:
-        data = await focus.get_latest_expectations(indicadores=ind, semanas=semanas)
-
-    return {
-        "indicador": indicador or "todos",
-        "semanas": semanas,
-        "count": len(data),
-        "data": data,
-    }
-

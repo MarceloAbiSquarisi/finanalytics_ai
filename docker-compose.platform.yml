@@ -13,7 +13,7 @@ services:
   worker:
     image: finanalytics-worker:latest
     container_name: finanalytics_worker
-    restart: unless-stopped
+    restart: always
     environment:
       DATABASE_DSN:         postgresql://finanalytics:${POSTGRES_PASSWORD:-secret}@postgres:5432/finanalytics
       REDIS_URL:            redis://redis:6379/0
@@ -35,7 +35,7 @@ services:
   ingestion:
     image: finanalytics-platform-market-ingestion:latest
     container_name: finanalytics_ingestion
-    restart: unless-stopped
+    restart: always
     environment:
       # INTERNAL listener — obrigatório para comunicação inter-container
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -50,7 +50,7 @@ services:
   processing:
     image: finanalytics-platform-market-processing:latest
     container_name: finanalytics_processing
-    restart: unless-stopped
+    restart: always
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       TIMESCALEDB_URL:         postgresql://finanalytics:${TIMESCALE_PASSWORD:-timescale_secret}@timescale:5432/market_data
@@ -68,7 +68,7 @@ services:
   rv:
     image: finanalytics-platform-rv-service:latest
     container_name: finanalytics_rv
-    restart: unless-stopped
+    restart: always
     environment:
       REDIS_URL:            redis://redis:6379
       DATABASE_URL:         postgresql://finanalytics:${POSTGRES_PASSWORD:-secret}@postgres:5432/finanalytics
@@ -86,7 +86,7 @@ services:
   optimization:
     image: finanalytics-platform-optimization-service:latest
     container_name: finanalytics_optimization
-    restart: unless-stopped
+    restart: always
     environment:
       DATABASE_URL:         postgresql://finanalytics:${POSTGRES_PASSWORD:-secret}@postgres:5432/finanalytics
       TIMESCALEDB_URL:      postgresql://finanalytics:${TIMESCALE_PASSWORD:-timescale_secret}@timescale:5432/market_data
@@ -102,7 +102,7 @@ services:
   rf:
     image: finanalytics-platform-rf-service:latest
     container_name: finanalytics_rf
-    restart: unless-stopped
+    restart: always
     environment:
       DATABASE_URL:         postgresql://finanalytics:${POSTGRES_PASSWORD:-secret}@postgres:5432/finanalytics
       TIMESCALEDB_URL:      postgresql://finanalytics:${TIMESCALE_PASSWORD:-timescale_secret}@timescale:5432/market_data

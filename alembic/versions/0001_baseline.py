@@ -5,13 +5,14 @@ Revises:
 Create Date: 2025-01-01 00:00:00.000000
 
 Representa o estado do banco ANTES da feature múltiplas carteiras.
-Se o banco já existe, rode: alembic stamp 0001_baseline
+Esta migration usa CREATE TABLE IF NOT EXISTS para ser idempotente —
+pode ser aplicada mesmo que as tabelas já existam (ex: banco migrado
+de uma versão anterior sem alembic_version).
 """
 from __future__ import annotations
 
 from typing import Sequence, Union
 
-import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0001_baseline"
@@ -21,113 +22,113 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # ── users ──────────────────────────────────────────────────────────────
-    op.create_table(
-        "users",
-        sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("email", sa.String(200), nullable=False, unique=True),
-        sa.Column("hashed_password", sa.String(200), nullable=False),
-        sa.Column("full_name", sa.String(200), nullable=True),
-        sa.Column("role", sa.String(50), nullable=False, server_default="user"),
-        sa.Column("is_active", sa.Boolean, nullable=False, server_default="true"),
-        sa.Column("created_at", sa.DateTime, nullable=True),
-        sa.Column("last_login_at", sa.DateTime, nullable=True),
-    )
-    op.create_index("ix_users_email", "users", ["email"])
+    # Usa SQL direto com IF NOT EXISTS para ser completamente idempotente.
+    # op.create_table() falha se a tabela existir; execute() com
+    # IF NOT EXISTS nunca falha — ideal para baseline migrations.
+    conn = op.get_bind()
 
-    # ── portfolios ─────────────────────────────────────────────────────────
-    op.create_table(
-        "portfolios",
-        sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("user_id", sa.String(100), nullable=False, index=True),
-        sa.Column("name", sa.String(200), nullable=False),
-        sa.Column("currency", sa.String(3), nullable=False, server_default="BRL"),
-        sa.Column("cash", sa.Numeric(18, 2), nullable=False, server_default="0"),
-        sa.Column("created_at", sa.DateTime, nullable=True),
-        sa.Column("updated_at", sa.DateTime, nullable=True),
-    )
-    op.create_index("ix_portfolios_user_id", "portfolios", ["user_id"])
+    conn.execute(op.get_context().config.attributes.get(  # type: ignore[arg-type]
+        "__noop__",  # placeholder para satisfazer linter
+        None,
+    ) or __import__("sqlalchemy").text("SELECT 1"))  # noqa
 
-    # ── positions ──────────────────────────────────────────────────────────
-    op.create_table(
-        "positions",
-        sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
-        sa.Column(
-            "portfolio_id",
-            sa.String(36),
-            sa.ForeignKey("portfolios.id", ondelete="CASCADE"),
-            nullable=False,
-            index=True,
-        ),
-        sa.Column("ticker", sa.String(10), nullable=False),
-        sa.Column("quantity", sa.Numeric(18, 8), nullable=False),
-        sa.Column("average_price", sa.Numeric(18, 2), nullable=False),
-        sa.Column("asset_class", sa.String(30), nullable=False, server_default="stock"),
-        sa.UniqueConstraint("portfolio_id", "ticker", name="uq_portfolio_ticker"),
-    )
+    # Executamos o DDL completo de uma vez como SQL puro
+    conn.execute(__import__("sqlalchemy").text("""
+        CREATE TABLE IF NOT EXISTS users (
+            id VARCHAR(36) NOT NULL PRIMARY KEY,
+            email VARCHAR(200) NOT NULL UNIQUE,
+            hashed_password VARCHAR(200) NOT NULL,
+            full_name VARCHAR(200),
+            role VARCHAR(50) NOT NULL DEFAULT 'user',
+            is_active BOOLEAN NOT NULL DEFAULT true,
+            created_at TIMESTAMP WITHOUT TIME ZONE,
+            last_login_at TIMESTAMP WITHOUT TIME ZONE
+        );
+        CREATE INDEX IF NOT EXISTS ix_users_email ON users (email);
 
-    # ── market_events ──────────────────────────────────────────────────────
-    op.create_table(
-        "market_events",
-        sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("event_type", sa.String(50), nullable=False),
-        sa.Column("ticker", sa.String(10), nullable=False),
-        sa.Column("payload", sa.Text, nullable=False),
-        sa.Column("status", sa.String(20), nullable=False, server_default="pending"),
-        sa.Column("idempotency_key", sa.String(100), nullable=False, unique=True),
-        sa.Column("occurred_at", sa.DateTime, nullable=False),
-        sa.Column("processed_at", sa.DateTime, nullable=True),
-        sa.Column("error_message", sa.Text, nullable=True),
-        sa.Column("retry_count", sa.Integer, nullable=False, server_default="0"),
-    )
-    op.create_index("ix_market_events_ticker", "market_events", ["ticker"])
-    op.create_index("ix_market_events_status", "market_events", ["status"])
+        CREATE TABLE IF NOT EXISTS portfolios (
+            id VARCHAR(36) NOT NULL PRIMARY KEY,
+            user_id VARCHAR(100) NOT NULL,
+            name VARCHAR(200) NOT NULL,
+            currency VARCHAR(3) NOT NULL DEFAULT 'BRL',
+            cash NUMERIC(18, 2) NOT NULL DEFAULT 0,
+            created_at TIMESTAMP WITHOUT TIME ZONE,
+            updated_at TIMESTAMP WITHOUT TIME ZONE
+        );
+        CREATE INDEX IF NOT EXISTS ix_portfolios_user_id ON portfolios (user_id);
 
-    # ── alerts ─────────────────────────────────────────────────────────────
-    op.create_table(
-        "alerts",
-        sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("user_id", sa.String(100), nullable=False, index=True),
-        sa.Column("ticker", sa.String(10), nullable=False),
-        sa.Column("alert_type", sa.String(50), nullable=False),
-        sa.Column("threshold", sa.Numeric(18, 2), nullable=False),
-        sa.Column("status", sa.String(20), nullable=False, server_default="active"),
-        sa.Column("created_at", sa.DateTime, nullable=True),
-        sa.Column("triggered_at", sa.DateTime, nullable=True),
-        sa.Column("expires_at", sa.DateTime, nullable=True),
-    )
+        CREATE TABLE IF NOT EXISTS positions (
+            id SERIAL PRIMARY KEY,
+            portfolio_id VARCHAR(36) NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+            ticker VARCHAR(10) NOT NULL,
+            quantity NUMERIC(18, 8) NOT NULL,
+            average_price NUMERIC(18, 2) NOT NULL,
+            asset_class VARCHAR(30) NOT NULL DEFAULT 'stock',
+            CONSTRAINT uq_portfolio_ticker UNIQUE (portfolio_id, ticker)
+        );
+        CREATE INDEX IF NOT EXISTS ix_positions_portfolio_id ON positions (portfolio_id);
 
-    # ── watchlist_items ────────────────────────────────────────────────────
-    op.create_table(
-        "watchlist_items",
-        sa.Column("item_id", sa.String(36), primary_key=True),
-        sa.Column("user_id", sa.String(100), nullable=False, index=True),
-        sa.Column("ticker", sa.String(10), nullable=False),
-        sa.Column("note", sa.String(500), nullable=True),
-        sa.Column("added_at", sa.DateTime, nullable=True),
-        sa.UniqueConstraint("user_id", "ticker", name="uq_watchlist_user_ticker"),
-    )
+        CREATE TABLE IF NOT EXISTS market_events (
+            id VARCHAR(36) NOT NULL PRIMARY KEY,
+            event_type VARCHAR(50) NOT NULL,
+            ticker VARCHAR(10) NOT NULL,
+            payload TEXT NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            idempotency_key VARCHAR(100) NOT NULL UNIQUE,
+            occurred_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+            processed_at TIMESTAMP WITHOUT TIME ZONE,
+            error_message TEXT,
+            retry_count INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS ix_market_events_ticker ON market_events (ticker);
+        CREATE INDEX IF NOT EXISTS ix_market_events_status ON market_events (status);
 
-    # ── smart_alerts ───────────────────────────────────────────────────────
-    op.create_table(
-        "smart_alerts",
-        sa.Column("alert_id", sa.String(36), primary_key=True),
-        sa.Column("ticker", sa.String(10), nullable=False),
-        sa.Column("user_id", sa.String(100), nullable=False, index=True),
-        sa.Column("alert_type", sa.String(50), nullable=False),
-        sa.Column("conditions", sa.Text, nullable=False),
-        sa.Column("status", sa.String(20), nullable=False, server_default="active"),
-        sa.Column("note", sa.String(500), nullable=True),
-        sa.Column("last_triggered_at", sa.DateTime, nullable=True),
-        sa.Column("created_at", sa.DateTime, nullable=True),
-    )
+        CREATE TABLE IF NOT EXISTS alerts (
+            id VARCHAR(36) NOT NULL PRIMARY KEY,
+            user_id VARCHAR(100) NOT NULL,
+            ticker VARCHAR(10) NOT NULL,
+            alert_type VARCHAR(50) NOT NULL,
+            threshold NUMERIC(18, 2) NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'active',
+            created_at TIMESTAMP WITHOUT TIME ZONE,
+            triggered_at TIMESTAMP WITHOUT TIME ZONE,
+            expires_at TIMESTAMP WITHOUT TIME ZONE
+        );
+        CREATE INDEX IF NOT EXISTS ix_alerts_user_id ON alerts (user_id);
+
+        CREATE TABLE IF NOT EXISTS watchlist_items (
+            item_id VARCHAR(36) NOT NULL PRIMARY KEY,
+            user_id VARCHAR(100) NOT NULL,
+            ticker VARCHAR(10) NOT NULL,
+            note VARCHAR(500),
+            added_at TIMESTAMP WITHOUT TIME ZONE,
+            CONSTRAINT uq_watchlist_user_ticker UNIQUE (user_id, ticker)
+        );
+        CREATE INDEX IF NOT EXISTS ix_watchlist_items_user_id ON watchlist_items (user_id);
+
+        CREATE TABLE IF NOT EXISTS smart_alerts (
+            alert_id VARCHAR(36) NOT NULL PRIMARY KEY,
+            ticker VARCHAR(10) NOT NULL,
+            user_id VARCHAR(100) NOT NULL,
+            alert_type VARCHAR(50) NOT NULL,
+            conditions TEXT NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'active',
+            note VARCHAR(500),
+            last_triggered_at TIMESTAMP WITHOUT TIME ZONE,
+            created_at TIMESTAMP WITHOUT TIME ZONE
+        );
+        CREATE INDEX IF NOT EXISTS ix_smart_alerts_user_id ON smart_alerts (user_id);
+    """))
 
 
 def downgrade() -> None:
-    op.drop_table("smart_alerts")
-    op.drop_table("watchlist_items")
-    op.drop_table("alerts")
-    op.drop_table("market_events")
-    op.drop_table("positions")
-    op.drop_table("portfolios")
-    op.drop_table("users")
+    conn = op.get_bind()
+    conn.execute(__import__("sqlalchemy").text("""
+        DROP TABLE IF EXISTS smart_alerts;
+        DROP TABLE IF EXISTS watchlist_items;
+        DROP TABLE IF EXISTS alerts;
+        DROP TABLE IF EXISTS market_events;
+        DROP TABLE IF EXISTS positions;
+        DROP TABLE IF EXISTS portfolios;
+        DROP TABLE IF EXISTS users;
+    """))

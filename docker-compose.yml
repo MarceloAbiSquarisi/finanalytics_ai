@@ -6,7 +6,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: finanalytics_postgres
-    restart: unless-stopped
+    restart: always
     environment:
       POSTGRES_DB:       finanalytics
       POSTGRES_USER:     finanalytics
@@ -27,7 +27,7 @@ services:
   timescale:
     image: timescale/timescaledb:latest-pg16
     container_name: finanalytics_timescale
-    restart: unless-stopped
+    restart: always
     environment:
       POSTGRES_DB:       market_data
       POSTGRES_USER:     finanalytics
@@ -48,7 +48,7 @@ services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
     container_name: finanalytics_zookeeper
-    restart: unless-stopped
+    restart: always
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME:   2000
@@ -66,7 +66,7 @@ services:
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     container_name: finanalytics_kafka
-    restart: unless-stopped
+    restart: always
     depends_on:
       zookeeper:
         condition: service_healthy
@@ -97,7 +97,7 @@ services:
   redis:
     image: redis:7.2-alpine
     container_name: finanalytics_redis
-    restart: unless-stopped
+    restart: always
     command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --save ""
     ports:
       - "${REDIS_PORT:-6379}:6379"
@@ -117,7 +117,7 @@ services:
       target: api
     image: finanalytics-ai:latest
     container_name: finanalytics_api
-    restart: unless-stopped
+    restart: always
     depends_on:
       postgres:
         condition: service_healthy
@@ -147,7 +147,7 @@ services:
   ohlc_ingestor:
     image: finanalytics-ai:latest
     container_name: finanalytics_ohlc_ingestor
-    restart: unless-stopped
+    restart: always
     depends_on:
       postgres:
         condition: service_healthy
@@ -176,7 +176,7 @@ services:
       target: worker
     image: finanalytics-worker:latest
     container_name: finanalytics_worker
-    restart: unless-stopped
+    restart: always
     depends_on:
       postgres:
         condition: service_healthy
@@ -201,7 +201,7 @@ services:
       target: worker
     image: finanalytics-worker:latest
     container_name: finanalytics_scheduler
-    restart: unless-stopped
+    restart: always
     depends_on:
       postgres:
         condition: service_healthy

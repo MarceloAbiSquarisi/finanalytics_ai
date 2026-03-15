@@ -783,6 +783,7 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
 </main>
 
 <script>
+(function authGuard(){var t=localStorage.getItem("access_token"),e=parseInt(localStorage.getItem("token_expires_at")||"0");if(!t||e<Date.now()+60000)window.location.replace("/login");})();
 
 // OPTIMIZER ----
 var selectedObj = 'sharpe';

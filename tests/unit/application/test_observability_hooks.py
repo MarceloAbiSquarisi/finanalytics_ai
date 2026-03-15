@@ -106,14 +106,6 @@ def _ohlc_event() -> MarketEvent:
     )
 
 
-def _news_event() -> MarketEvent:
-    return MarketEvent(
-        event_id="obs-003",
-        event_type=EventType.NEWS_PUBLISHED,
-        ticker="ITUB4",
-        payload={"headline": "Itaú bate recordes no trimestre", "source": "valor"},
-        source="valor",
-    )
 
 
 # ── Métricas Prometheus ────────────────────────────────────────────────────────
@@ -147,18 +139,6 @@ class TestHandlerMetrics:
 
         assert after == before + 1
 
-    @pytest.mark.asyncio
-    async def test_news_increments_handler_counter(
-        self,
-        processor_with_tracer: EventProcessorService,
-    ) -> None:
-        from finanalytics_ai.observability import handler_events_total
-
-        before = handler_events_total.labels(handler="news", status="ok")._value.get()
-        await processor_with_tracer._handle_news(_news_event())
-        after = handler_events_total.labels(handler="news", status="ok")._value.get()
-
-        assert after == before + 1
 
     @pytest.mark.asyncio
     async def test_error_status_incremented_on_handler_exception(
@@ -266,18 +246,6 @@ class TestTracingSpans:
         assert span.attributes.get("ohlc.volume") == 150000
         assert span.attributes.get("ohlc.persisted") is False
 
-    @pytest.mark.asyncio
-    async def test_news_span_has_headline_length_and_source(
-        self,
-        processor_with_tracer: EventProcessorService,
-        span_exporter: InMemorySpanExporter,
-    ) -> None:
-        await processor_with_tracer._handle_news(_news_event())
-        span = next(s for s in span_exporter.get_finished_spans() if s.name == "handler.news")
-
-        assert span.attributes.get("news.headline_length") == len("Itaú bate recordes no trimestre")
-        assert span.attributes.get("news.source") == "valor"
-        assert span.attributes.get("news.sentiment_analyzed") is False
 
     @pytest.mark.asyncio
     async def test_dispatch_emits_parent_span(
@@ -303,7 +271,6 @@ class TestTracingSpans:
         # Não deve levantar exceção mesmo sem OTel configurado
         await processor_no_tracer._handle_price_update(_price_event())
         await processor_no_tracer._handle_ohlc_bar(_ohlc_event())
-        await processor_no_tracer._handle_news(_news_event())
 
     @pytest.mark.asyncio
     async def test_dispatch_span_records_error_on_handler_exception(

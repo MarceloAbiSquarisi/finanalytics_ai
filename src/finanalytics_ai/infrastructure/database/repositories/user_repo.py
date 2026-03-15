@@ -48,6 +48,8 @@ class UserModel(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reset_token: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
+    reset_token_exp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 # ── Repository ────────────────────────────────────────────────────────────────
@@ -114,3 +116,40 @@ class UserRepository:
             created_at=m.created_at,
             last_login_at=m.last_login_at,
         )
+
+    async def set_reset_token(self, user_id: str, token: str, expires_at: datetime) -> None:
+        """Salva token de reset de senha e sua validade."""
+        stmt = select(UserModel).where(UserModel.user_id == user_id)
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        if model:
+            model.reset_token = token
+            model.reset_token_exp = expires_at
+            await self._session.flush()
+
+    async def find_by_reset_token(self, token: str) -> User | None:
+        """Busca usuário por token de reset. Retorna None se não encontrado."""
+        stmt = select(UserModel).where(UserModel.reset_token == token)
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return self._to_domain(model) if model else None
+
+    async def clear_reset_token(self, user_id: str) -> None:
+        """Limpa o token de reset após uso."""
+        stmt = select(UserModel).where(UserModel.user_id == user_id)
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        if model:
+            model.reset_token = None
+            model.reset_token_exp = None
+            await self._session.flush()
+
+    async def update_password(self, user_id: str, hashed_password: str) -> None:
+        """Atualiza senha do usuário."""
+        stmt = select(UserModel).where(UserModel.user_id == user_id)
+        result = await self._session.execute(stmt)
+        model = result.scalar_one_or_none()
+        if model:
+            model.hashed_password = hashed_password
+            await self._session.flush()
+            logger.info("user.password_updated", user_id=user_id)

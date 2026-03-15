@@ -47,26 +47,26 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .btn:hover{transform:translateY(-1px);box-shadow:0 0 18px rgba(58,191,248,.2)}
 
 /* LAYOUT */
-.layout{position:relative;z-index:1;display:grid;grid-template-columns:190px 1fr 250px;height:calc(100vh - 52px)}
+.layout{position:relative;z-index:1;display:grid;grid-template-columns:230px 1fr 290px;height:calc(100vh - 52px)}
 
 /* SIDEBAR LEFT */
-.sl{border-right:1px solid var(--border);display:flex;flex-direction:column;background:rgba(10,22,40,.45);overflow:hidden}
-.sl-sec{padding:12px;border-bottom:1px solid var(--border)}
+.sl{border-right:1px solid var(--border);display:flex;flex-direction:column;background:rgba(10,22,40,.45);overflow-y:auto;overflow-x:hidden}
+.sl-sec{padding:14px 16px;border-bottom:1px solid var(--border)}
 .lbl{font-size:8px;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
 .pf-list{display:flex;flex-direction:column;gap:3px}
 .pf-item{padding:6px 8px;border-radius:6px;cursor:pointer;font-size:11px;transition:all .15s;border:1px solid transparent}
 .pf-item:hover{background:rgba(58,191,248,.06)}
 .pf-item.active{background:rgba(58,191,248,.12);border-color:rgba(58,191,248,.2);color:var(--blue)}
 .pf-item .pn{font-weight:700;font-size:11px}.pf-item .pv{font-size:9px;color:var(--muted);font-family:DM Mono,monospace}
-.watchlist{display:flex;flex-direction:column;gap:1px;flex:1;overflow-y:auto}
-.wi{display:flex;justify-content:space-between;align-items:center;padding:6px 9px;border-radius:5px;cursor:pointer;transition:background .12s}
+.watchlist{display:flex;flex-direction:column;gap:1px;flex:1;overflow-y:auto;padding-bottom:24px}
+.wi{display:flex;justify-content:space-between;align-items:center;padding:6px 14px;border-radius:5px;cursor:pointer;transition:background .12s}
 .wi:hover{background:rgba(58,191,248,.06)}.wi.active{background:rgba(58,191,248,.1)}
 .wt{font-size:11px;font-weight:700;color:var(--blue)}.wp{font-size:10px;font-family:DM Mono,monospace}
 .wc{font-size:9px;font-family:DM Mono,monospace}
 .up{color:var(--green)}.dn{color:var(--red)}
 
 /* MAIN */
-.main{display:flex;flex-direction:column;overflow:hidden;min-height:0;width:100%;min-width:0}
+.main{display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;min-height:0;width:100%;min-width:0;padding-bottom:32px}
 
 /* TICKER BAR */
 .tb{padding:10px 18px;border-bottom:1px solid var(--border);
@@ -132,7 +132,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .pat-tag input{width:11px;height:11px;accent-color:#3abff8;cursor:pointer}
 
 /* CHART AREA */
-.chart-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;width:100%;min-width:0}
+.chart-area{flex:1;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;min-height:0;width:100%;min-width:0}
 #chart-price{flex:1;min-height:0;position:relative;width:100%}
 
 /* INDICATOR PANES */
@@ -140,6 +140,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .ind-pane.hidden{display:none}
 #pane-rsi {height:72px}
 #pane-macd{height:72px}
+#pane-adx {height:72px}
 .pane-label{
   position:absolute;top:4px;left:8px;z-index:10;
   font-size:9px;letter-spacing:1.5px;text-transform:uppercase;
@@ -169,10 +170,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .empty p{font-size:11px;font-family:DM Mono,monospace}
 
 /* SIDEBAR RIGHT */
-.sr{border-left:1px solid var(--border);display:flex;flex-direction:column;background:rgba(10,22,40,.45);overflow-y:auto}
+.sr{border-left:1px solid var(--border);display:flex;flex-direction:column;background:rgba(10,22,40,.45);overflow-y:auto;padding-bottom:32px}
 
 /* LIVE FEED */
-.feed-box{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;flex-direction:column}
+
 .feed-list{display:flex;flex-direction:column;gap:2px;max-height:140px;overflow-y:auto;margin-top:6px}
 .feed-item{display:flex;justify-content:space-between;align-items:center;
   padding:4px 6px;border-radius:4px;font-size:9px;font-family:DM Mono,monospace;
@@ -189,10 +190,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .feed-dot.off{background:var(--muted)}
 
 /* ALERTS PANEL */
-.alert-box{padding:10px 12px;border-bottom:1px solid var(--border)}
+.alert-box{padding:14px 16px;border-bottom:1px solid var(--border)}
 .alert-form{display:flex;flex-direction:column;gap:5px;margin-top:7px}
-.alert-row{display:flex;gap:5px}
-.alert-input{flex:1;background:rgba(255,255,255,.05);border:1px solid var(--border);
+.alert-row{display:flex;gap:6px;flex-wrap:wrap}
+.alert-input{flex:1;min-width:80px;background:rgba(255,255,255,.05);border:1px solid var(--border);
   border-radius:4px;padding:5px 8px;color:var(--white);font-size:10px;
   font-family:DM Mono,monospace;outline:none}
 .alert-input:focus{border-color:var(--blue)}
@@ -219,7 +220,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .n-toast.profit{border-left:3px solid var(--green)}
 .n-toast .n-msg{font-size:10px;margin-top:3px;color:var(--muted)}
 @keyframes slidein{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
-.trade-box{padding:12px;border-bottom:1px solid var(--border)}
+.trade-box{padding:14px 16px;border-bottom:1px solid var(--border)}
 .ttabs{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:9px}
 .ttab{flex:1;padding:6px;font-family:'Syne',sans-serif;font-weight:700;font-size:10px;
   letter-spacing:.8px;text-transform:uppercase;border:none;background:transparent;color:var(--muted);cursor:pointer;transition:all .2s}
@@ -241,7 +242,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .btn-tr:hover{transform:translateY(-1px);opacity:.9}
 
 /* POSITIONS */
-.pos-box{padding:12px}
+.pos-box{padding:14px 16px;padding-bottom:32px}
 .pos-item{display:flex;justify-content:space-between;align-items:center;
   padding:6px 0;border-bottom:1px solid rgba(58,191,248,.05);cursor:pointer}
 .pos-item:last-child{border-bottom:none}
@@ -250,9 +251,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .pos-pl{font-size:9px;font-family:DM Mono,monospace;text-align:right}
 
 /* SIGNAL BOX */
-.signal-box{padding:10px 12px;border-bottom:1px solid var(--border)}
+.signal-box{padding:14px 16px;border-bottom:1px solid var(--border)}
 /* PRODUCER PANEL */
-.prod-box{padding:10px 12px;border-bottom:1px solid var(--border)}
+.prod-box{padding:14px 16px;border-bottom:1px solid var(--border)}
 .prod-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:6px;max-height:130px;overflow-y:auto}
 .prod-tick{padding:4px 6px;border-radius:4px;background:rgba(255,255,255,.03);
   border:1px solid var(--border);font-size:9px;font-family:DM Mono,monospace}
@@ -326,6 +327,49 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .tbl-wrap table{min-width:600px;border-collapse:collapse;width:100%}
 .tbl-wrap th,.tbl-wrap td{white-space:normal!important;word-break:break-word}
 
+
+/* ── WATCHLIST MULTI ────────────────────────────────── */
+/* Watchlist selector row */
+.wl-sel-row{display:flex;align-items:center;gap:5px;padding:10px 12px 6px}
+.wl-select{flex:1;background:rgba(10,22,40,.8);border:1px solid var(--border);
+  border-radius:6px;color:var(--white);font-family:DM Mono,monospace;font-size:11px;
+  padding:5px 8px;outline:none;cursor:pointer;min-width:0}
+.wl-select:focus{border-color:var(--blue)}
+.wl-sel-btn{background:transparent;border:1px solid var(--border);border-radius:5px;
+  color:var(--muted);font-size:13px;font-weight:700;padding:3px 8px;cursor:pointer;
+  flex-shrink:0;transition:all .15s;line-height:1}
+.wl-sel-btn:hover{color:var(--white);border-color:rgba(58,191,248,.4)}
+.wl-sel-btn.new{color:var(--blue)}
+.wl-sel-btn.del{color:var(--red)}
+
+/* Modal */
+.wl-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);
+  z-index:9990;align-items:center;justify-content:center}
+.wl-modal-bg.open{display:flex}
+.wl-modal{background:#0D2144;border:1px solid var(--border);border-radius:10px;
+  padding:24px;width:300px;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+.wl-modal h3{font-size:13px;font-weight:700;color:var(--white);margin-bottom:16px;
+  letter-spacing:.5px}
+.wl-modal input{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);
+  border-radius:6px;color:var(--white);font-family:DM Mono,monospace;font-size:12px;
+  padding:8px 10px;outline:none;margin-bottom:12px}
+.wl-modal input:focus{border-color:var(--blue)}
+.wl-modal-btns{display:flex;gap:8px}
+.wl-modal-btns button{flex:1;padding:8px;border:none;border-radius:6px;font-family:'Syne',sans-serif;
+  font-size:12px;font-weight:700;cursor:pointer;transition:opacity .15s}
+.wl-modal-btns .btn-ok{background:var(--blue);color:var(--navy)}
+.wl-modal-btns .btn-cancel{background:rgba(255,255,255,.08);color:var(--muted)}
+.wl-modal-btns button:hover{opacity:.85}
+
+/* ticker add inline */
+.wl-add-row{display:flex;gap:4px;padding:6px 12px}
+.wl-add-input{flex:1;background:rgba(255,255,255,.06);border:1px solid var(--border);
+  border-radius:5px;color:var(--white);font-family:DM Mono,monospace;font-size:11px;
+  padding:5px 8px;outline:none}
+.wl-add-input:focus{border-color:var(--blue)}
+.wl-add-btn{background:var(--blue);border:none;border-radius:5px;color:var(--navy);
+  font-weight:700;font-size:13px;padding:4px 10px;cursor:pointer;flex-shrink:0}
+.wl-add-btn:hover{opacity:.85}
 </style>
 </head>
 <body>
@@ -374,7 +418,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <a href="/correlation">Correlação</a>
     <a href="/anomaly">Anomalias</a>
     <a href="/forecast">Forecast</a>
-    <a href="/watchlist">Watchlist</a>
     <a href="/performance">Performance</a>
     <a href="/fixed-income">Renda Fixa</a>
     <a href="/etf">ETFs</a>
@@ -393,9 +436,40 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="lbl">Portfólios</div>
       <div class="pf-list" id="pf-list"><div style="font-size:10px;color:var(--muted);font-family:DM Mono,monospace">Nenhum</div></div>
     </div>
-    <div class="sl-sec" style="flex:1;display:flex;flex-direction:column;min-height:0;border-bottom:none">
-      <div class="lbl">Watchlist</div>
-      <div class="watchlist" id="wl"></div>
+    <div style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden">
+      <!-- seletor de watchlist -->
+      <div class="wl-sel-row">
+        <select class="wl-select" id="wl-select" onchange="switchWL(parseInt(this.value))"></select>
+        <button class="wl-sel-btn" onclick="openRenameWL(wlActiveId)" title="Renomear">✎</button>
+        <button class="wl-sel-btn del" onclick="deleteActiveWL()" title="Excluir">×</button>
+      </div>
+      <div style="padding:0 12px 6px">
+        <button onclick="openCreateWL()"
+          style="width:100%;background:rgba(58,191,248,.1);border:1px dashed rgba(58,191,248,.35);
+                 border-radius:6px;color:var(--blue);font-family:'Syne',sans-serif;font-size:11px;
+                 font-weight:700;padding:6px;cursor:pointer;letter-spacing:.4px;transition:all .15s"
+          onmouseover="this.style.background='rgba(58,191,248,.18)'"
+          onmouseout="this.style.background='rgba(58,191,248,.1)'">
+          + Nova Watchlist
+        </button>
+      </div>
+      <!-- lista de ativos da watchlist ativa -->
+      <div style="flex:1;overflow-y:auto;overflow-x:hidden;padding-bottom:24px">
+        <div id="wl" class="watchlist" style="padding-bottom:0"></div>
+      </div>
+    </div>
+
+    <!-- Modal: criar/renomear watchlist -->
+    <div class="wl-modal-bg" id="wl-modal-bg" onclick="if(event.target===this)closeWLModal()">
+      <div class="wl-modal">
+        <h3 id="wl-modal-title">Nova Watchlist</h3>
+        <input type="text" id="wl-modal-input" placeholder="Nome da watchlist (ex: Ações, FIIs...)"
+          maxlength="24" onkeydown="if(event.key==='Enter')confirmWLModal()">
+        <div class="wl-modal-btns">
+          <button class="btn-cancel" onclick="closeWLModal()">Cancelar</button>
+          <button class="btn-ok"     onclick="confirmWLModal()">Confirmar</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -454,7 +528,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
           <div class="ip-row">
             <label class="ip-toggle">
-              <input type="checkbox" id="ipc-rsi" checked onchange="applyIndPopup()">
+              <input type="checkbox" id="ipc-rsi" onchange="applyIndPopup()">
               <span class="ip-slider"></span>
             </label>
             <span class="ip-label">RSI</span>
@@ -464,11 +538,20 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
           <div class="ip-row">
             <label class="ip-toggle">
-              <input type="checkbox" id="ipc-macd" checked onchange="applyIndPopup()">
+              <input type="checkbox" id="ipc-macd" onchange="applyIndPopup()">
               <span class="ip-slider"></span>
             </label>
             <span class="ip-label">MACD</span>
             <span class="ip-sub" style="font-size:9px">12/26/9</span>
+          </div>
+
+          <div class="ip-row">
+            <label class="ip-toggle">
+              <input type="checkbox" id="ipc-adx" onchange="applyIndPopup()">
+              <span class="ip-slider"></span>
+            </label>
+            <span class="ip-label">ADX / +DI / -DI</span>
+            <input class="ip-num" type="number" id="ipc-adx-p" value="14" min="2" max="50" onchange="applyIndPopup()" style="margin-left:auto">
           </div>
 
           <!-- Bandas -->
@@ -476,7 +559,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
           <div class="ip-row">
             <label class="ip-toggle">
-              <input type="checkbox" id="ipc-bb" checked onchange="applyIndPopup()">
+              <input type="checkbox" id="ipc-bb" onchange="applyIndPopup()">
               <span class="ip-slider"></span>
             </label>
             <span class="ip-label">Bollinger Bands</span>
@@ -560,16 +643,23 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       </div>
 
       <!-- RSI Pane -->
-      <div class="ind-pane" id="pane-rsi">
+      <div class="ind-pane hidden" id="pane-rsi">
         <div class="pane-label">RSI<span id="rsi-val">—</span></div>
         <div class="pane-ref" id="rsi-ref"></div>
         <div class="ov hide" id="ov-rsi"></div>
       </div>
 
       <!-- MACD Pane -->
-      <div class="ind-pane" id="pane-macd">
+      <div class="ind-pane hidden" id="pane-macd">
         <div class="pane-label">MACD<span id="macd-val">—</span></div>
         <div class="ov hide" id="ov-macd"></div>
+      </div>
+
+      <!-- ADX Pane -->
+      <div class="ind-pane hidden" id="pane-adx">
+        <div class="pane-label">ADX<span id="adx-val">—</span></div>
+        <div class="pane-ref" id="adx-ref"></div>
+        <div class="ov hide" id="ov-adx"></div>
       </div>
 
       <!-- Stats row -->
@@ -586,18 +676,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <div class="sr">
 
     <!-- Live Feed (Kafka / Demo) -->
-    <div class="feed-box">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div class="lbl" style="margin-bottom:0">Feed ao Vivo</div>
-        <div style="display:flex;align-items:center;gap:5px">
-          <div class="feed-dot off" id="feed-dot"></div>
-          <span style="font-size:8px;color:var(--muted);font-family:DM Mono,monospace" id="feed-st">desconectado</span>
-        </div>
-      </div>
-      <div class="feed-list" id="feed-list">
-        <div style="font-size:9px;color:var(--muted);font-family:DM Mono,monospace;padding:4px 0">Aguardando eventos…</div>
-      </div>
-    </div>
 
     <!-- Painel de Alertas -->
     <div class="alert-box">
@@ -615,8 +693,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         </div>
         <div class="alert-row">
           <input class="alert-input" id="al-threshold" placeholder="Valor / %" type="number" step="0.01">
-          <input class="alert-input" id="al-ref" placeholder="Preço ref. (opcional)" type="number" step="0.01">
-          <button class="alert-btn" onclick="createAlert()">+ Add</button>
+          <input class="alert-input" id="al-ref" placeholder="Preço ref." type="number" step="0.01">
+        </div>
+        <div class="alert-row">
+          <button class="alert-btn" style="width:100%;padding:7px" onclick="createAlert()">+ Adicionar Alerta</button>
         </div>
       </div>
       <div class="alert-list" id="alert-list">
@@ -656,6 +736,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="sig-row" style="margin-bottom:0">
         <span class="sig-label">Bollinger</span>
         <span class="sig-badge neutral" id="sig-bb">—</span>
+      </div>
+      <div class="sig-row" style="margin-bottom:0">
+        <span class="sig-label">ADX</span>
+        <span class="sig-badge neutral" id="sig-adx">—</span>
       </div>
     </div>
 
@@ -702,8 +786,43 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <div class="toast" id="toast"></div>
 
 <script>
+// ── Auth Guard — redireciona para /login se não autenticado ──────────────────
+(function authGuard() {
+  const token   = localStorage.getItem('access_token');
+  const expires = parseInt(localStorage.getItem('token_expires_at') || '0');
+  if (!token || expires < Date.now() + 60000) {
+    window.location.replace('/login');
+  }
+})();
+
 const API   = window.location.origin;
-const WATCH = ['PETR4','VALE3','ITUB4','BBDC4','WEGE3','BBAS3','MGLU3','ABEV3','MXRF11','HGLG11'];
+// Watchlist persistida no localStorage
+// ── WATCHLIST MULTI ──────────────────────────────────────────────────────────
+// Estrutura: [{id, name, tickers:[]}]
+let wlData    = JSON.parse(localStorage.getItem('fa_wl_data') || 'null')
+             || [{id:1, name:'Favoritos', tickers:['PETR4','VALE3','ITUB4','WEGE3','ABEV3']}];
+let wlActiveId = parseInt(localStorage.getItem('fa_wl_active') || wlData[0].id);
+let wlNextId   = Math.max(...wlData.map(w=>w.id)) + 1;
+let wlModalMode = 'create'; // 'create' | 'rename'
+
+function saveWL() {
+  localStorage.setItem('fa_wl_data',   JSON.stringify(wlData));
+  localStorage.setItem('fa_wl_active', String(wlActiveId));
+}
+function activeWL() { return wlData.find(w => w.id === wlActiveId) || wlData[0]; }
+
+function buildWLSelect() {
+  const sel = document.getElementById('wl-select');
+  if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = wlData.map(w =>
+    `<option value="${w.id}" ${w.id === wlActiveId ? 'selected' : ''}>${w.name}</option>`
+  ).join('');
+  // Garante que o valor ativo está selecionado
+  sel.value = String(wlActiveId);
+}
+// Compat legado (refreshWLPrices usa WATCH)
+function getWATCH() { return activeWL()?.tickers || []; }
 const RLBL  = {'1d':'1D','5d':'5D','1mo':'1M','3mo':'3M','6mo':'6M','1y':'1A','2y':'2A','max':'MAX'};
 
 let currentPf     = null;
@@ -711,9 +830,10 @@ let currentTicker = null;
 let currentRange  = '1mo';
 var currentInterval = '1wk';
 let tradeMode     = 'buy';
-let indVisible    = {bb: true, rsi: true, macd: true, patterns: false};
+let indVisible    = {bb: false, rsi: false, macd: false, adx: false, patterns: false};
 let patternMarkers = [];  // markers ativos no gráfico
-let indConfig     = {rsiPeriod: 14, bbPeriod: 20};
+let indConfig     = {rsiPeriod: 14, bbPeriod: 20, adxPeriod: 14};
+let adxChart = null, adxLine = null, diPlusLine = null, diMinusLine = null;
 let indCache      = null;   // ultimo resultado de /indicators -- reutilizado no toggle
 
 // MA overlays: [{id, type:'sma'|'ema', period:20, color:'#3abff8', series:null}]
@@ -737,24 +857,136 @@ let macdChart = null, macdLine  = null, sigLine = null, histSeries = null;
 async function checkHealth() {
   try {
     const h = await api('/health');
-    document.getElementById('api-st').textContent = `v${h.version} . ${h.env}`;
+    const st = document.getElementById('api-st');
+    if (st) st.textContent = `v${h.version} . ${h.env}`;
   } catch {
-    document.getElementById('api-st').textContent = 'offline';
-    document.getElementById('api-dot').style.cssText = 'background:var(--red);box-shadow:0 0 6px var(--red)';
+    const st  = document.getElementById('api-st');
+    const dot = document.getElementById('api-dot');
+    if (st)  st.textContent = 'offline';
+    if (dot) dot.style.cssText = 'background:var(--red);box-shadow:0 0 6px var(--red)';
   }
 }
 
 // -- WATCHLIST -----------------------------------------------------------------
+
+function switchWL(id) {
+  wlActiveId = id;
+  saveWL();
+  buildWL();
+  refreshWLPrices();
+}
+
+function openCreateWL() {
+  wlModalMode = 'create';
+  document.getElementById('wl-modal-title').textContent = 'Nova Watchlist';
+  document.getElementById('wl-modal-input').value = '';
+  document.getElementById('wl-modal-bg').classList.add('open');
+  setTimeout(() => document.getElementById('wl-modal-input').focus(), 50);
+}
+
+function openRenameWL(id) {
+  wlModalMode = 'rename';
+  wlActiveId  = id;
+  const wl = wlData.find(w => w.id === id);
+  document.getElementById('wl-modal-title').textContent = 'Renomear Watchlist';
+  document.getElementById('wl-modal-input').value = wl?.name || '';
+  document.getElementById('wl-modal-bg').classList.add('open');
+  setTimeout(() => document.getElementById('wl-modal-input').focus(), 50);
+}
+
+function closeWLModal() {
+  document.getElementById('wl-modal-bg').classList.remove('open');
+}
+
+function confirmWLModal() {
+  const name = document.getElementById('wl-modal-input').value.trim();
+  if (!name) return;
+  if (wlModalMode === 'create') {
+    const id = wlNextId++;
+    wlData.push({id, name, tickers:[]});
+    wlActiveId = id;
+  } else {
+    const wl = wlData.find(w => w.id === wlActiveId);
+    if (wl) wl.name = name;
+  }
+  saveWL();
+  closeWLModal();
+  buildWL();
+}
+
+function deleteActiveWL() {
+  if (wlData.length <= 1) { alert('Você precisa ter ao menos uma watchlist.'); return; }
+  if (!confirm('Excluir a watchlist "' + activeWL().name + '"?')) return;
+  wlData = wlData.filter(w => w.id !== wlActiveId);
+  wlActiveId = wlData[0].id;
+  saveWL();
+  buildWL();
+}
+
+
+
+
 function buildWL() {
-  document.getElementById('wl').innerHTML = WATCH.map(t => `
+  buildWLSelect();
+  const wl = activeWL();
+  const container = document.getElementById('wl');
+  if (!container) return;
+  const tickers = wl ? wl.tickers : [];
+
+  container.innerHTML =
+    `<div style="display:flex;gap:4px;padding:6px 12px">
+      <input id="wl-input" autocomplete="off" placeholder="Ticker (ex: PETR4)..."
+        style="flex:1;background:rgba(255,255,255,.06);border:1px solid var(--border);
+               border-radius:5px;color:var(--white);font-family:DM Mono,monospace;
+               font-size:11px;padding:5px 8px;outline:none"
+        onkeydown="if(event.key==='Enter')addToWL()"
+        onfocus="this.style.borderColor='var(--blue)'"
+        onblur="this.style.borderColor='var(--border)'">
+      <button onclick="addToWL()"
+        style="background:var(--blue);border:none;border-radius:5px;color:var(--navy);
+               font-weight:700;font-size:13px;padding:4px 10px;cursor:pointer;flex-shrink:0"
+        title="Adicionar ativo">+</button>
+    </div>` +
+    (tickers.length === 0
+      ? `<div style="font-size:9px;color:var(--muted);font-family:DM Mono,monospace;padding:4px 14px">
+           Nenhum ativo — digite um ticker acima</div>`
+      : tickers.map(t => `
     <div class="wi" id="wi-${t}" onclick="selectTicker('${t}')">
       <div><div class="wt">${t}</div><div class="wp" id="wp-${t}">--</div></div>
-      <div class="wc" id="wc-${t}">--</div>
-    </div>`).join('');
+      <div style="display:flex;align-items:center;gap:5px">
+        <div class="wc" id="wc-${t}">--</div>
+        <span onclick="event.stopPropagation();removeFromWL('${t}')"
+          style="color:var(--muted);font-size:13px;cursor:pointer;padding:0 3px;
+                 line-height:1;opacity:.55" title="Remover">×</span>
+      </div>
+    </div>`).join(''));
+}
+
+function addToWL() {
+  const input = document.getElementById('wl-input');
+  if (!input) return;
+  const ticker = input.value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+  const wl = activeWL();
+  if (!ticker || !wl || wl.tickers.includes(ticker)) { input.value=''; return; }
+  wl.tickers.push(ticker);
+  saveWL();
+  buildWL();
+  refreshWLPrices();
+  // Restaura foco no campo para adicionar mais tickers rapidamente
+  setTimeout(() => { const el = document.getElementById('wl-input'); if(el) el.focus(); }, 50);
+}
+
+function removeFromWL(ticker) {
+  const wl = activeWL();
+  if (!wl) return;
+  wl.tickers = wl.tickers.filter(t => t !== ticker);
+  saveWL();
+  buildWL();
 }
 
 async function refreshWLPrices() {
-  await Promise.allSettled(WATCH.map(async t => {
+  const tickers = activeWL()?.tickers || [];
+  await Promise.allSettled(tickers.map(async t => {
     try {
       const d = await api(`/api/v1/quotes/${t}/detail`);
       if (d.price) document.getElementById(`wp-${t}`).textContent = `R$ ${f2(d.price)}`;
@@ -866,9 +1098,11 @@ async function loadChartAndIndicators(ticker, range, interval) {
     ]);
     indCache = indData;   // salva para reuso no toggle
     indCache._bars = histData.bars;
+    if (!indData.adx) indData.adx = computeADXFromBars(histData.bars, indConfig.adxPeriod);
     renderPriceChart(histData.bars, indData.bollinger);
     renderRSI(indData.rsi, indData.timestamps);
     renderMACD(indData.macd, indData.timestamps);
+    renderADX(indData.adx, indData.timestamps);
     updateSignals(indData);
   } catch {
     // fallback demo
@@ -879,6 +1113,7 @@ async function loadChartAndIndicators(ticker, range, interval) {
     renderPriceChart(bars, indData.bollinger);
     renderRSI(indData.rsi, indData.timestamps);
     renderMACD(indData.macd, indData.timestamps);
+    renderADX(indData.adx, indData.timestamps);
     updateSignals(indData);
     toast('BRAPI indisponivel -- modo demo', 'err');
   } finally {
@@ -1166,6 +1401,89 @@ function renderMACD(macd, timestamps) {
   }).observe(container);
 }
 
+
+// -- ADX / +DI / -DI CHART ----------------------------------------------------
+function renderADX(adx, timestamps) {
+  const container = document.getElementById('pane-adx');
+  if (adxChart) { adxChart.remove(); adxChart=null; adxLine=null; diPlusLine=null; diMinusLine=null; }
+  if (!indVisible.adx || !adx || !adx.adx.length) return;
+
+  adxChart = LightweightCharts.createChart(container, {
+    width: container.clientWidth, height: container.clientHeight,
+    layout: {background:{color:'transparent'}, textColor:'#6A9EBF', fontFamily:"'DM Mono',monospace", fontSize:9},
+    grid: {vertLines:{color:'rgba(58,191,248,.04)'}, horzLines:{color:'rgba(58,191,248,.04)'}},
+    crosshair: {mode: LightweightCharts.CrosshairMode.Normal,
+      vertLine:{color:'rgba(58,191,248,.3)',labelBackgroundColor:'#0D2144'},
+      horzLine:{color:'rgba(58,191,248,.3)',labelBackgroundColor:'#0D2144'}},
+    rightPriceScale: {borderColor:'rgba(58,191,248,.1)', scaleMargins:{top:.05, bottom:.05}},
+    timeScale: {visible:false},
+    handleScale:false, handleScroll:false,
+  });
+
+  // Linha de referencia 25 (ADX forte acima disso)
+  const ref25 = timestamps.map(t => ({time:t, value:25}));
+  const refLine = adxChart.addLineSeries({
+    color:'rgba(240,180,41,.25)', lineWidth:1, lineStyle:2,
+    priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false,
+  });
+  refLine.setData(ref25);
+
+  // ADX (branco/azul — força da tendência)
+  adxLine = adxChart.addLineSeries({
+    color:'#E8F4FD', lineWidth:1.5,
+    priceLineVisible:false, lastValueVisible:true, crosshairMarkerRadius:3,
+  });
+  adxLine.setData(adx.adx.map((v,i) => v!=null ? {time:timestamps[i], value:parseFloat(v.toFixed(2))} : null).filter(Boolean));
+
+  // +DI (verde — pressão compradora)
+  diPlusLine = adxChart.addLineSeries({
+    color:'#2ED47A', lineWidth:1.2,
+    priceLineVisible:false, lastValueVisible:true, crosshairMarkerRadius:2,
+  });
+  diPlusLine.setData(adx.di_plus.map((v,i) => v!=null ? {time:timestamps[i], value:parseFloat(v.toFixed(2))} : null).filter(Boolean));
+
+  // -DI (vermelho — pressão vendedora)
+  diMinusLine = adxChart.addLineSeries({
+    color:'#E05555', lineWidth:1.2,
+    priceLineVisible:false, lastValueVisible:true, crosshairMarkerRadius:2,
+  });
+  diMinusLine.setData(adx.di_minus.map((v,i) => v!=null ? {time:timestamps[i], value:parseFloat(v.toFixed(2))} : null).filter(Boolean));
+
+  // Sync com chart principal
+  priceChart && adxChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+    if (range) priceChart.timeScale().setVisibleLogicalRange(range);
+  });
+
+  // Crosshair label
+  adxChart.subscribeCrosshairMove(p => {
+    if (!p.time || !p.seriesData) return;
+    const a = p.seriesData.get(adxLine);
+    const dp = p.seriesData.get(diPlusLine);
+    const dm = p.seriesData.get(diMinusLine);
+    if (a && dp && dm) {
+      document.getElementById('adx-val').textContent =
+        ` ADX ${a.value.toFixed(1)}  +DI ${dp.value.toFixed(1)}  -DI ${dm.value.toFixed(1)}`;
+    }
+  });
+
+  // Valor atual
+  const lastADX  = adx.adx.filter(v=>v!=null).at(-1);
+  const lastDIp  = adx.di_plus.filter(v=>v!=null).at(-1);
+  const lastDIm  = adx.di_minus.filter(v=>v!=null).at(-1);
+  if (lastADX != null) {
+    document.getElementById('adx-val').textContent =
+      ` ADX ${lastADX.toFixed(1)}  +DI ${lastDIp.toFixed(1)}  -DI ${lastDIm.toFixed(1)}`;
+    const trend = lastADX > 25
+      ? (lastDIp > lastDIm ? 'ALTA' : 'BAIXA')
+      : 'LATERAL';
+    document.getElementById('adx-ref').textContent = trend;
+  }
+
+  new ResizeObserver(() => {
+    if (adxChart) adxChart.applyOptions({autoSize: true});
+  }).observe(container);
+}
+
 // -- SIGNALS -------------------------------------------------------------------
 function updateSignals(data) {
   // RSI Signal
@@ -1223,10 +1541,12 @@ document.addEventListener('click', function(e) {
 function applyIndPopup() {
   indVisible.rsi      = document.getElementById('ipc-rsi').checked;
   indVisible.macd     = document.getElementById('ipc-macd').checked;
+  indVisible.adx      = document.getElementById('ipc-adx').checked;
   indVisible.bb       = document.getElementById('ipc-bb').checked;
   indVisible.patterns = document.getElementById('ipc-patterns').checked;
-  indConfig.rsiPeriod = parseInt(document.getElementById('ipc-rsi-p').value) || 14;
-  indConfig.bbPeriod  = parseInt(document.getElementById('ipc-bb-p').value)  || 20;
+  indConfig.rsiPeriod = parseInt(document.getElementById('ipc-rsi-p').value)   || 14;
+  indConfig.bbPeriod  = parseInt(document.getElementById('ipc-bb-p').value)    || 20;
+  indConfig.adxPeriod = parseInt(document.getElementById('ipc-adx-p').value)   || 14;
 
   updateIndBadge();
 
@@ -1243,6 +1563,15 @@ function applyIndPopup() {
   macdPane.classList.toggle('hidden', !indVisible.macd);
   if (indVisible.macd) { if(macdChart){macdChart.remove();macdChart=null;} renderMACD(indCache.macd, indCache.timestamps); }
   else if (macdChart)  { macdChart.remove(); macdChart = null; }
+
+  // ADX pane
+  const adxPane = document.getElementById('pane-adx');
+  adxPane.classList.toggle('hidden', !indVisible.adx);
+  if (indVisible.adx) {
+    if(adxChart){adxChart.remove();adxChart=null;}
+    if (!indCache.adx) indCache.adx = computeADXFromBars(indCache._bars || [], indConfig.adxPeriod);
+    renderADX(indCache.adx, indCache.timestamps);
+  } else if (adxChart) { adxChart.remove(); adxChart = null; }
 
   // BB + MAs: re-render price chart
   if (indCache._bars) renderPriceChart(indCache._bars, indCache.bollinger);
@@ -1606,6 +1935,59 @@ function mockBars(range) {
 }
 
 // Indicadores computados no frontend como fallback (replicamos a logica Python)
+
+// -- ADX helper: computa a partir de barras OHLCV --------------------------
+function computeADXFromBars(bars, period) {
+  period = period || 14;
+  const n = bars.length;
+  const adxVals = Array(n).fill(null);
+  const diPlus  = Array(n).fill(null);
+  const diMinus = Array(n).fill(null);
+  if (n < period * 2 + 1) return {adx:adxVals, di_plus:diPlus, di_minus:diMinus, period};
+
+  const hi = bars.map(b => b.high  || b.close);
+  const lo = bars.map(b => b.low   || b.close);
+  const cl = bars.map(b => b.close);
+
+  const tr = Array(n).fill(0), dmp = Array(n).fill(0), dmm = Array(n).fill(0);
+  for (let i = 1; i < n; i++) {
+    tr[i]  = Math.max(hi[i]-lo[i], Math.abs(hi[i]-cl[i-1]), Math.abs(lo[i]-cl[i-1]));
+    const up   = hi[i] - hi[i-1];
+    const down = lo[i-1] - lo[i];
+    dmp[i] = (up > down && up > 0)   ? up   : 0;
+    dmm[i] = (down > up && down > 0) ? down : 0;
+  }
+
+  let sTR = tr.slice(1, period+1).reduce((a,b)=>a+b,0);
+  let sDMp = dmp.slice(1,period+1).reduce((a,b)=>a+b,0);
+  let sDMm = dmm.slice(1,period+1).reduce((a,b)=>a+b,0);
+  const dxArr = [];
+
+  for (let i = period; i < n-1; i++) {
+    if (i > period) {
+      sTR  = sTR  - sTR/period  + tr[i+1];
+      sDMp = sDMp - sDMp/period + dmp[i+1];
+      sDMm = sDMm - sDMm/period + dmm[i+1];
+    }
+    const dp = sTR > 0 ? (sDMp/sTR)*100 : 0;
+    const dm = sTR > 0 ? (sDMm/sTR)*100 : 0;
+    diPlus[i+1]  = dp;
+    diMinus[i+1] = dm;
+    dxArr.push((dp+dm) > 0 ? Math.abs(dp-dm)/(dp+dm)*100 : 0);
+  }
+
+  if (dxArr.length >= period) {
+    let adx = dxArr.slice(0,period).reduce((a,b)=>a+b,0)/period;
+    const start = period * 2;
+    adxVals[start] = adx;
+    for (let i = period; i < dxArr.length; i++) {
+      adx = (adx*(period-1) + dxArr[i]) / period;
+      adxVals[start + i - period + 1] = adx;
+    }
+  }
+  return {adx:adxVals, di_plus:diPlus, di_minus:diMinus, period};
+}
+
 function computeMockIndicators(bars) {
   const closes = bars.map(b => b.close);
   const ts     = bars.map(b => b.time);
@@ -1653,11 +2035,62 @@ function computeMockIndicators(bars) {
     bw[i]=(u-l)/m; pct_b[i]=(u-l)!==0?(closes[i]-l)/(u-l):null;
   });
 
+  // ADX / +DI / -DI (Wilder, período 14)
+  const p14 = 14;
+  const adxVals   = Array(n).fill(null);
+  const diPlusVals  = Array(n).fill(null);
+  const diMinusVals = Array(n).fill(null);
+  if (n > p14 * 2) {
+    const highs  = bars.map(b => b.high  || b.close);
+    const lows   = bars.map(b => b.low   || b.close);
+    // True Range e DM
+    const tr = Array(n).fill(0), dmPlus = Array(n).fill(0), dmMinus = Array(n).fill(0);
+    for (let i = 1; i < n; i++) {
+      const hl  = highs[i]  - lows[i];
+      const hpc = Math.abs(highs[i]  - closes[i-1]);
+      const lpc = Math.abs(lows[i]   - closes[i-1]);
+      tr[i] = Math.max(hl, hpc, lpc);
+      const upMove   = highs[i]  - highs[i-1];
+      const downMove = lows[i-1] - lows[i];
+      dmPlus[i]  = (upMove   > downMove && upMove   > 0) ? upMove   : 0;
+      dmMinus[i] = (downMove > upMove   && downMove > 0) ? downMove : 0;
+    }
+    // Suavização Wilder
+    let smTR = tr.slice(1, p14+1).reduce((a,b)=>a+b, 0);
+    let smDMp = dmPlus.slice(1, p14+1).reduce((a,b)=>a+b, 0);
+    let smDMm = dmMinus.slice(1, p14+1).reduce((a,b)=>a+b, 0);
+    const dxArr = [];
+    for (let i = p14; i < n-1; i++) {
+      if (i > p14) {
+        smTR  = smTR  - smTR/p14  + tr[i+1];
+        smDMp = smDMp - smDMp/p14 + dmPlus[i+1];
+        smDMm = smDMm - smDMm/p14 + dmMinus[i+1];
+      }
+      const dip = smTR > 0 ? (smDMp / smTR) * 100 : 0;
+      const dim = smTR > 0 ? (smDMm / smTR) * 100 : 0;
+      diPlusVals[i+1]  = dip;
+      diMinusVals[i+1] = dim;
+      const dx = (dip + dim) > 0 ? Math.abs(dip - dim) / (dip + dim) * 100 : 0;
+      dxArr.push(dx);
+    }
+    // ADX = EMA do DX com Wilder
+    if (dxArr.length >= p14) {
+      let adxVal = dxArr.slice(0, p14).reduce((a,b)=>a+b, 0) / p14;
+      const adxStart = p14 * 2;
+      adxVals[adxStart] = adxVal;
+      for (let i = p14; i < dxArr.length; i++) {
+        adxVal = (adxVal * (p14-1) + dxArr[i]) / p14;
+        adxVals[adxStart + i - p14 + 1] = adxVal;
+      }
+    }
+  }
+
   return {
     timestamps: ts,
     rsi:   {values:rsiVals, overbought:70, oversold:30, period:14},
     macd:  {macd:macdLine, signal, histogram, fast:12, slow:26, signal_period:9},
     bollinger:{upper,middle,lower,bandwidth:bw,pct_b,period:20,std_dev:2},
+    adx: {adx:adxVals, di_plus:diPlusVals, di_minus:diMinusVals, period:p14},
   };
 }
 
@@ -1884,16 +2317,22 @@ async function deleteAlert(alertId) {
 
 function startAlertStream() {
   if (alertSse) { alertSse.close(); alertSse = null; }
-  alertSse = new EventSource(`${API}/api/v1/alerts/stream`);
-  alertSse.onmessage = (e) => {
-    try {
-      const d = JSON.parse(e.data);
-      if (d.type === 'connected') return;
-      showAlertToast(d);
-      // Atualiza lista de alertas
-      loadAlerts();
-    } catch {}
-  };
+  try {
+    alertSse = new EventSource(`${API}/api/v1/alerts/stream`);
+    alertSse.onmessage = (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        if (d.type === 'connected') return;
+        showAlertToast(d);
+        // Atualiza lista de alertas
+        loadAlerts();
+      } catch {}
+    };
+    alertSse.onerror = () => {
+      // Reconexão automática — silencia o erro no console
+      if (alertSse) { alertSse.close(); alertSse = null; }
+    };
+  } catch {}
 }
 
 function showAlertToast(data) {
@@ -1922,77 +2361,14 @@ startAlertStream();
 let sseSource = null;
 const FEED_MAX = 30;
 
+// Feed ao vivo desabilitado — atualização de preços via polling a cada 60s
 function startFeed() {
-  if (sseSource) { sseSource.close(); sseSource = null; }
-
-  const url = `${API}/api/v1/events/stream`;
-  sseSource = new EventSource(url);
-
-  sseSource.onopen = () => {
-    document.getElementById('feed-dot').className = 'feed-dot live';
-    document.getElementById('feed-st').textContent = 'conectado';
-  };
-
-  sseSource.onmessage = (e) => {
-    try {
-      const data = JSON.parse(e.data);
-      if (data.type === 'connected') return;
-      if (data.type === 'error')     return;
-      if (data.type === 'price_update' || data.type === 'trade_executed') {
-        appendFeedItem(data);
-        // Atualiza preco na watchlist se o ticker estiver la
-        if (data.ticker && data.price) {
-          const wp = document.getElementById(`wp-${data.ticker}`);
-          if (wp) wp.textContent = `R$ ${f2(data.price)}`;
-          const wc = document.getElementById(`wc-${data.ticker}`);
-          if (wc && data.change_pct != null) {
-            const pct = parseFloat(data.change_pct).toFixed(2);
-            wc.textContent = `${parseFloat(pct)>=0?'+':''}${pct}%`;
-            wc.className = `wc ${parseFloat(pct)>=0?'up':'dn'}`;
-          }
-          // Atualiza ticker bar se for o ativo atual
-          if (currentTicker === data.ticker) {
-            document.getElementById('tk-px').textContent = `R$ ${f2(data.price)}`;
-            if (data.change_pct != null) {
-              const pct = parseFloat(data.change_pct).toFixed(2);
-              const el  = document.getElementById('tk-chg');
-              el.textContent = `${parseFloat(pct)>=0?'+':''}${pct}%`;
-              el.className   = `tb-chg ${parseFloat(pct)>=0?'up':'dn'}`;
-            }
-          }
-        }
-      }
-    } catch {}
-  };
-
-  sseSource.onerror = () => {
-    document.getElementById('feed-dot').className = 'feed-dot off';
-    document.getElementById('feed-st').textContent = 'reconectando...';
-    // EventSource reconecta automaticamente -- nao precisamos fazer nada
-  };
+  // SSE desativado — sem elementos de feed na UI
+  // Polling de preços da watchlist
+  setInterval(() => { refreshWLPrices(); }, 60000);
 }
 
-function appendFeedItem(data) {
-  const list = document.getElementById('feed-list');
-
-  // Remove placeholder
-  const ph = list.querySelector('[data-placeholder]');
-  if (ph) ph.remove();
-
-  const isUp = data.change_pct >= 0;
-  const item = document.createElement('div');
-  item.className = `feed-item ${isUp ? 'up' : 'dn'}`;
-  item.innerHTML = `
-    <span class="feed-tk">${data.ticker}</span>
-    <span class="feed-px">R$ ${data.price ? f2(data.price) : '--'}</span>
-    <span class="feed-chg ${isUp?'up':'dn'}">${data.change_pct!=null?(isUp?'+':'')+parseFloat(data.change_pct).toFixed(2)+'%':'--'}</span>`;
-  list.insertBefore(item, list.firstChild);
-
-  // Limita numero de itens
-  while (list.children.length > FEED_MAX) {
-    list.removeChild(list.lastChild);
-  }
-}
+function appendFeedItem(data) { /* feed removido */ }
 
 // ---- BACKTESTING ----
 var btChart = null;

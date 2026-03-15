@@ -268,6 +268,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
 </div>
 
 <script>
+(function authGuard(){var t=localStorage.getItem("access_token"),e=parseInt(localStorage.getItem("token_expires_at")||"0");if(!t||e<Date.now()+60000)window.location.replace("/login");})();
 // ── Estado ────────────────────────────────────────────────────────────────────
 let _tickers = ["BOVA11","IVVB11","SMAL11","NTNB11","GOLD11"];
 let _blViews = [];

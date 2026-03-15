@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from finanalytics_ai.application.services.auth_service import AuthService
@@ -171,3 +171,118 @@ async def logout(current_user: User = Depends(get_current_user)) -> None:
     Sem blacklist de tokens nesta sprint (adicionaremos com Redis na próxima).
     """
     logger.info("auth.logout", user_id=current_user.user_id)
+
+
+# ── Reset de Senha ────────────────────────────────────────────────────────────
+
+class ForgotPasswordRequest(BaseModel):
+    email: str = Field(..., min_length=5)
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(..., min_length=8)
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+
+@router.post("/forgot-password", status_code=200)
+async def forgot_password(
+    body: ForgotPasswordRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """
+    Solicita redefinição de senha.
+
+    - Gera um token seguro válido por 30 minutos
+    - Se SMTP configurado: envia e-mail com o link de reset
+    - Se não configurado (dev): retorna o token diretamente na resposta
+
+    Sempre retorna 200 mesmo se o e-mail não existir (segurança contra enumeration).
+    """
+    import secrets
+    from datetime import UTC, datetime, timedelta
+    from finanalytics_ai.config import get_settings
+    from finanalytics_ai.infrastructure.email.email_sender import get_email_sender
+    from finanalytics_ai.infrastructure.database.repositories.user_repo import UserRepository
+
+    repo = UserRepository(session)
+    settings = get_settings()
+    user = await repo.find_by_email(body.email)
+
+    # Resposta genérica — não revela se o e-mail existe
+    generic = {"message": "Se o e-mail estiver cadastrado, você receberá as instruções em breve."}
+
+    if not user:
+        return generic
+
+    # Gera token seguro
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(UTC) + timedelta(minutes=settings.reset_token_expire_minutes)
+    await repo.set_reset_token(user.user_id, token, expires_at)
+    await session.commit()
+
+    # Monta URL de reset
+    base_url = str(request.base_url).rstrip("/")
+    reset_url = f"{base_url}/reset-password?token={token}"
+
+    # Tenta enviar e-mail
+    sender = get_email_sender()
+    email_sent = sender.send_reset_password(user.email, user.full_name, reset_url)
+
+    logger.info("auth.forgot_password", user_id=user.user_id,
+                email_sent=email_sent, smtp_configured=sender.is_configured)
+
+    if email_sent:
+        return generic
+
+    # Modo dev: retorna token e URL diretamente (sem SMTP configurado)
+    return {
+        "message": "SMTP não configurado — use o link abaixo para redefinir a senha.",
+        "dev_reset_url": reset_url,
+        "dev_token": token,
+        "expires_in_minutes": settings.reset_token_expire_minutes,
+    }
+
+
+@router.post("/reset-password", status_code=200)
+async def reset_password(
+    body: ResetPasswordRequest,
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """
+    Redefine a senha usando o token recebido por e-mail.
+    O token é invalidado após o uso.
+    """
+    from datetime import UTC, datetime
+    from finanalytics_ai.infrastructure.database.repositories.user_repo import UserModel, UserRepository
+    from finanalytics_ai.infrastructure.auth.password_hasher import get_password_hasher
+    from sqlalchemy import select as sa_select
+
+    repo = UserRepository(session)
+
+    # Busca direto pelo token no model para acessar reset_token_exp
+    result = await session.execute(
+        sa_select(UserModel).where(UserModel.reset_token == body.token)
+    )
+    model = result.scalar_one_or_none()
+
+    if not model:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            detail="Token inválido ou já utilizado.")
+
+    if not model.reset_token_exp or model.reset_token_exp < datetime.now(UTC):
+        model.reset_token = None
+        model.reset_token_exp = None
+        await session.commit()
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            detail="Token expirado. Solicite um novo link.")
+
+    # Atualiza senha e invalida token
+    hasher = get_password_hasher()
+    model.hashed_password = hasher.hash(body.new_password)
+    model.reset_token = None
+    model.reset_token_exp = None
+    await session.commit()
+
+    logger.info("auth.password_reset", user_id=model.user_id)
+    return {"message": "Senha redefinida com sucesso. Você já pode fazer login."}

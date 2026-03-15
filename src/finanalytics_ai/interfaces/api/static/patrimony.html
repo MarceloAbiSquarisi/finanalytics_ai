@@ -277,6 +277,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
 </div>
 
 <script>
+(function authGuard(){var t=localStorage.getItem("access_token"),e=parseInt(localStorage.getItem("token_expires_at")||"0");if(!t||e<Date.now()+60000)window.location.replace("/login");})();
 const fmtBRL  = v => 'R$ ' + Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtPct  = (v,dig=2) => (v>=0?'+':'')+v.toFixed(dig)+'%';
 const clrPL   = v => v >= 0 ? '#00c48c' : '#ff4757';

@@ -508,6 +508,7 @@ canvas{max-height:280px}
 </div>
 
 <script>
+(function authGuard(){var t=localStorage.getItem("access_token"),e=parseInt(localStorage.getItem("token_expires_at")||"0");if(!t||e<Date.now()+60000)window.location.replace("/login");})();
 const API = '/api/v1/fixed-income';
 let allBonds = [];
 let charts = {};
@@ -991,6 +992,7 @@ loadBonds();
   </div>
 
 <script>
+(function authGuard(){var t=localStorage.getItem("access_token"),e=parseInt(localStorage.getItem("token_expires_at")||"0");if(!t||e<Date.now()+60000)window.location.replace("/login");})();
 // ── Cenários & Stress Test ────────────────────────────────────────────────────
 
 async function loadStressBonds() {
@@ -1336,6 +1338,7 @@ window.switchTab = function(tab) {
   </div>
 
 <script>
+(function authGuard(){var t=localStorage.getItem("access_token"),e=parseInt(localStorage.getItem("token_expires_at")||"0");if(!t||e<Date.now()+60000)window.location.replace("/login");})();
 // ── Carteira RF ───────────────────────────────────────────────────────────────
 
 let _currentPortfolioId = null;

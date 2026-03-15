@@ -553,6 +553,7 @@ body::before{
 </div><!-- /layout -->
 
 <script>
+(function authGuard(){var t=localStorage.getItem("access_token"),e=parseInt(localStorage.getItem("token_expires_at")||"0");if(!t||e<Date.now()+60000)window.location.replace("/login");})();
 'use strict';
 
 var PULSE_TICKERS = ['PETR4','VALE3','ITUB4','BBDC4','WEGE3','ABEV3','MGLU3','BBAS3'];

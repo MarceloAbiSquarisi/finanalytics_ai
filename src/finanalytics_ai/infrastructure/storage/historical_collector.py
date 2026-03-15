@@ -99,6 +99,9 @@ class HistoricalCollector:
                 _, newest = self._storage.ohlcv_date_range(ticker)
                 if newest is not None:
                     from datetime import date
+                    # newest pode ser string "YYYY-MM-DD" ou objeto date
+                    if isinstance(newest, str):
+                        newest = date.fromisoformat(newest[:10])
                     days_old = (datetime.now(tz=timezone.utc).date() - newest).days
                     if days_old < 3:  # dados com menos de 3 dias = fresh
                         report[ticker] = {"status": "skip", "rows": 0}

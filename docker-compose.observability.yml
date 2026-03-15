@@ -10,8 +10,9 @@ services:
 
   prometheus:
     image: prom/prometheus:v2.51.2
+    restart: always
     container_name: finanalytics_prometheus
-    restart: unless-stopped
+    restart: always
     volumes:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -30,7 +31,7 @@ services:
   grafana:
     image: grafana/grafana:10.4.2
     container_name: finanalytics_grafana
-    restart: unless-stopped
+    restart: always
     environment:
       GF_SECURITY_ADMIN_USER:          admin
       GF_SECURITY_ADMIN_PASSWORD:      admin

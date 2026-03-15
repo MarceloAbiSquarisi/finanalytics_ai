@@ -51,6 +51,14 @@ RUN uv pip install --system -e . \
         "httptools>=0.6.0" \
         "pyarrow>=16.0.0"
 
+# ── Dependências de Forecast (Prophet + PyTorch + PyTorch-Forecasting) ────────
+# Instaladas em camada separada para melhor cache — só rebuildam se esta linha mudar
+RUN uv pip install --system \
+        "prophet>=1.1.5" \
+        "torch>=2.2.0" \
+        "pytorch-forecasting>=1.0.0" \
+    || echo "[WARN] forecast deps parcialmente instaladas — modelos degradarão graciosamente"
+
 # Copiar código-fonte depois das deps (preserva cache de deps no rebuild)
 COPY src/ ./src/
 

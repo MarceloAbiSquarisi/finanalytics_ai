@@ -34,7 +34,6 @@ from sqlalchemy import (
     Boolean,
     Date,
     Float,
-    Index,
     String,
     Text,
     delete,
@@ -65,8 +64,6 @@ class RFPortfolioModel(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     created_at: Mapped[date | None] = mapped_column(Date, nullable=False, default=date.today)
 
-    __table_args__ = (Index("ix_rf_portfolios_user_id", "user_id"),)
-
 
 class RFHoldingModel(Base):
     __tablename__ = "rf_holdings"
@@ -85,8 +82,6 @@ class RFHoldingModel(Base):
     maturity_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     ir_exempt: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     note: Mapped[str] = mapped_column(Text, nullable=False, default="")
-
-    __table_args__ = (Index("ix_rf_holdings_portfolio_id", "portfolio_id"),)
 
 
 # ── Repository ────────────────────────────────────────────────────────────────

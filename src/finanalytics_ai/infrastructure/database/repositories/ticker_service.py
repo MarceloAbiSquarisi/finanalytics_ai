@@ -80,7 +80,7 @@ async def refresh_tickers(dsn: str, brapi_token: str | None = None) -> dict[str,
     if not tickers:
         await engine.dispose()
         return {"upserted": 0, "total": 0}
-    now = datetime.now(UTC)
+    now = datetime.now()  # naive — compatível com TIMESTAMP WITHOUT TIME ZONE
     upserted = 0
     async with sf() as session, session.begin():
         for chunk in _chunks(tickers, 500):

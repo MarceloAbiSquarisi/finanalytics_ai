@@ -105,19 +105,6 @@ class Settings(BaseSettings):
     brapi_token: str = ""
     brapi_base_url: HttpUrl = HttpUrl("https://brapi.dev/api")
 
-    # ── Dados de Mercado ──────────────────────────────────────────────────────
-    # Token gratuito: https://www.dadosdemercado.com.br/conta
-    dados_mercado_token: str = ""
-
-    # ── Email / Reset de senha ────────────────────────────────────────────────
-    # Se smtp_host estiver em branco, o token de reset é retornado na API (dev)
-    smtp_host: str = ""
-    smtp_port: int = 587
-    smtp_user: str = ""
-    smtp_password: str = ""
-    smtp_from: str = "FinAnalytics AI <noreply@finanalytics.ai>"
-    reset_token_expire_minutes: int = 30
-
     # ── XP ───────────────────────────────────────────────────────────────────
     xp_api_key: str = ""
     xp_api_secret: str = ""
@@ -185,14 +172,3 @@ def get_settings() -> Settings:
     Em testes, use: get_settings.cache_clear() para forçar recarga.
     """
     return Settings()  # type: ignore[call-arg]  # campos obrigatórios lidos do .env em runtime
-
-
-# ── Adicionado em 0003: Email para reset de senha ────────────────────────────
-# Inclua no .env se quiser enviar emails reais:
-#   SMTP_HOST=smtp.gmail.com
-#   SMTP_PORT=587
-#   SMTP_USER=seu@email.com
-#   SMTP_PASSWORD=sua_senha_app
-#   SMTP_FROM=FinAnalytics AI <seu@email.com>
-#
-# Se não configurado, o token é retornado na resposta da API (modo dev).

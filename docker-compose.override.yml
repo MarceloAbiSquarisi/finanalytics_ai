@@ -13,6 +13,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 services:
   api:
+    restart: always
     build:
       target: api           # stage final com deps instaladas
     volumes:
@@ -40,6 +41,7 @@ services:
         condition: service_healthy
 
   worker:
+    restart: always
     volumes:
       - ./src:/app/src:ro   # hot reload no worker também
     environment:

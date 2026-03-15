@@ -195,6 +195,7 @@ body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);mi
 <div class="toast-container" id="toasts"></div>
 
 <script>
+(function authGuard(){var t=localStorage.getItem("access_token"),e=parseInt(localStorage.getItem("token_expires_at")||"0");if(!t||e<Date.now()+60000)window.location.replace("/login");})();
 let chart = null, historySeries = null, forecastSeries = null, ciBandUpper = null, ciBandLower = null;
 
 async function runForecast() {

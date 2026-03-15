@@ -49,9 +49,7 @@ if TYPE_CHECKING:
     from finanalytics_ai.application.commands.process_event import ProcessMarketEventCommand
     from finanalytics_ai.domain.ports.event_store import EventStore
     from finanalytics_ai.domain.ports.market_data import MarketDataProvider
-    from finanalytics_ai.domain.ports.news_sentiment_repository import NewsSentimentRepository
     from finanalytics_ai.domain.ports.ohlc_repository import OHLCBarRepository
-    from finanalytics_ai.domain.ports.sentiment_analyzer import SentimentAnalyzer
 
 logger = structlog.get_logger(__name__)
 
@@ -76,8 +74,6 @@ class EventProcessorService:
         max_retry_attempts: int = 3,
         tracer: trace.Tracer | None = None,
         ohlc_repo: OHLCBarRepository | None = None,
-        sentiment_analyzer: SentimentAnalyzer | None = None,
-        news_repo: NewsSentimentRepository | None = None,
     ) -> None:
         self._store = event_store
         self._market_data = market_data
@@ -86,9 +82,6 @@ class EventProcessorService:
         self._tracer: trace.Tracer = tracer or _noop_tracer
         # OHLCBarRepository opcional — backward compat e testes sem DB
         self._ohlc_repo = ohlc_repo
-        # Sentimento — opcional; sem analisador, handler loga e segue
-        self._sentiment_analyzer = sentiment_analyzer
-        self._news_repo = news_repo
 
     async def process(self, command: ProcessMarketEventCommand) -> MarketEvent:
         """
@@ -184,8 +177,6 @@ class EventProcessorService:
                         await self._handle_price_update(event)
                     case EventType.OHLC_BAR_CLOSED:
                         await self._handle_ohlc_bar(event)
-                    case EventType.NEWS_PUBLISHED:
-                        await self._handle_news(event)
                     case _:
                         logger.warning("event.unhandled", event_type=event.event_type)
                         span.set_attribute("event.unhandled", True)
@@ -359,99 +350,6 @@ class EventProcessorService:
                     close=str(close) if close is not None else None,
                     persisted=persisted,
                 )
-                handler_events_total.labels(handler=handler_name, status="ok").inc()
-
-            except Exception as exc:
-                span.record_exception(exc)
-                span.set_status(trace.StatusCode.ERROR, str(exc))
-                handler_events_total.labels(handler=handler_name, status="error").inc()
-                raise
-            finally:
-                handler_duration_seconds.labels(handler=handler_name).observe(time.perf_counter() - _start)
-
-    async def _handle_news(self, event: MarketEvent) -> None:
-        """
-        Processa evento de notícia publicada com análise de sentimento.
-
-        Fluxo:
-        1. Extrai headline e source do payload.
-        2. Se sentiment_analyzer injetado E headline presente: analisa sentimento.
-        3. Se news_repo injetado: persiste resultado (idempotência por event_id).
-        4. Emite span com score e label para observabilidade.
-
-        Design decisions:
-        - Análise de sentimento é opcional: sem analyzer, handler completa normalmente.
-          Isso preserva backward compat e permite deploy incremental.
-        - Falha no analyzer nunca propaga: retorna NewsSentiment.neutral() internamente.
-          O span registra se sentimento foi analisado ou não via "news.sentiment_analyzed".
-        - Persistência também é opcional: sem news_repo, sentimento é apenas logado.
-          Útil para dev local sem DB.
-        """
-        _start = time.perf_counter()
-        handler_name = "news"
-
-        with self._tracer.start_as_current_span(
-            "handler.news",
-            attributes={"event.ticker": event.ticker},
-        ) as span:
-            try:
-                payload = event.payload
-                headline = str(payload.get("headline", ""))
-                source = str(payload.get("source", event.source))
-
-                if headline:
-                    span.set_attribute("news.headline_length", len(headline))
-                span.set_attribute("news.source", source)
-
-                logger.debug(
-                    "news.received",
-                    ticker=event.ticker,
-                    headline=headline[:80] if headline else None,
-                    source=source,
-                )
-
-                # ── Análise de sentimento ──────────────────────────────────
-                sentiment_analyzed = False
-                if self._sentiment_analyzer is not None and headline:
-                    sentiment = await self._sentiment_analyzer.analyze(
-                        event_id=event.event_id,
-                        ticker=event.ticker,
-                        headline=headline,
-                        source=source,
-                    )
-                    sentiment_analyzed = True
-
-                    span.set_attribute("news.sentiment.score", sentiment.score)
-                    span.set_attribute("news.sentiment.label", str(sentiment.label))
-                    span.set_attribute("news.sentiment.model", sentiment.model)
-
-                    logger.info(
-                        "news.sentiment.analyzed",
-                        ticker=event.ticker,
-                        score=sentiment.score,
-                        label=str(sentiment.label),
-                        model=sentiment.model,
-                        is_actionable=sentiment.is_actionable,
-                    )
-
-                    # ── Persistência ──────────────────────────────────────
-                    if self._news_repo is not None:
-                        inserted = await self._news_repo.save(sentiment)
-                        span.set_attribute("news.sentiment.persisted", inserted)
-                        if not inserted:
-                            logger.debug(
-                                "news.sentiment.duplicate",
-                                event_id=event.event_id,
-                            )
-                else:
-                    if not headline:
-                        logger.warning(
-                            "news.no_headline",
-                            ticker=event.ticker,
-                            event_id=event.event_id,
-                        )
-
-                span.set_attribute("news.sentiment_analyzed", sentiment_analyzed)
                 handler_events_total.labels(handler=handler_name, status="ok").inc()
 
             except Exception as exc:

@@ -457,6 +457,9 @@ def create_app() -> FastAPI:
         app.include_router(patrimony_routes.router, tags=["Patrimônio"])
     app.include_router(dashboard.router, tags=["Dashboard"])
     app.include_router(health.router, tags=["Health"])
+
+    from finanalytics_ai.interfaces.api.routes import auth as auth_routes
+    app.include_router(auth_routes.router, tags=["Autenticação"])
     app.include_router(portfolio.router, prefix="/api/v1/portfolios", tags=["Portfolio"])
     app.include_router(quotes.router, prefix="/api/v1/quotes", tags=["Cotações"])
     app.include_router(events.router, prefix="/api/v1/events", tags=["Eventos"])
@@ -520,9 +523,22 @@ def create_app() -> FastAPI:
     async def serve_hub() -> HTMLResponse:
         return _html("hub.html")
 
-    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
-    async def serve_dashboard() -> HTMLResponse:
+    @app.get("/login", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_login() -> HTMLResponse:
+        return _html("login.html")
+
+    @app.get("/reset-password", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_reset_password() -> HTMLResponse:
+        return _html("reset_password.html")
+
+    @app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_dashboard_page() -> HTMLResponse:
         return _html("dashboard.html")
+
+    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_root() -> HTMLResponse:
+        # Tela inicial é o login — o JS redireciona para /dashboard se já autenticado
+        return _html("login.html")
 
     @app.get("/backtest", response_class=HTMLResponse, include_in_schema=False)
     async def serve_backtest() -> HTMLResponse:

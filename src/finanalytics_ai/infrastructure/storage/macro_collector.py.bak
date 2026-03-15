@@ -1,5 +1,5 @@
 """
-MacroCollector — Coleta dados macroeconômicos do BCB, Yahoo Finance e Focus.
+MacroCollector — Coleta dados macroeconômicos do BCB e Yahoo Finance.
 
 Séries coletadas:
   BCB SGS (gratuito, sem autenticação):
@@ -13,10 +13,6 @@ Séries coletadas:
     - IBOV (^BVSP) — índice referência
     - VIX  (^VIX)  — volatilidade global
     - S&P 500 (^GSPC) — mercado americano
-
-  Boletim Focus (BCB Olinda API — gratuito, sem autenticação):
-    - Expectativas: IPCA, Selic, PIB Total, Câmbio, IGP-M
-    - Snapshot resumido para o dashboard macro
 
 Todos salvos como /data/macro/{series}.parquet com colunas [date, value].
 """
@@ -92,62 +88,7 @@ class MacroCollector:
                 report[name] = {"source": "Yahoo", "status": "error", "error": str(e)[:80]}
                 logger.warning("macro.yahoo.error", series=name, error=str(e)[:80])
 
-        # ── Boletim Focus ────────────────────────────────────────────────────
-        try:
-            rows = await self._collect_focus()
-            report["focus"] = {"source": "BCB/Focus", "rows": rows, "status": "ok"}
-            logger.info("macro.focus.ok", rows=rows)
-        except Exception as e:
-            report["focus"] = {"source": "BCB/Focus", "status": "error", "error": str(e)[:80]}
-            logger.warning("macro.focus.error", error=str(e)[:80])
-
         return report
-
-    async def _collect_focus(self) -> int:
-        """Coleta snapshot do Boletim Focus e persiste como parquet."""
-        from finanalytics_ai.infrastructure.adapters.focus_client import get_focus_client
-
-        focus = get_focus_client()
-        expectations = await focus.get_latest_expectations(semanas=12)
-
-        if not expectations:
-            return 0
-
-        rows = []
-        for exp in expectations:
-            mediana = exp.get("mediana")
-            if mediana is None:
-                continue
-            rows.append({
-                "date":  pd.to_datetime(exp.get("data", datetime.now(timezone.utc).date().isoformat())),
-                "value": float(mediana),
-                "indicador": exp.get("indicador", ""),
-                "data_referencia": str(exp.get("data_referencia", "")),
-            })
-
-        if not rows:
-            return 0
-
-        df = pd.DataFrame(rows)
-        # Salva série geral de Focus
-        df_simple = df[["date", "value"]].copy()
-        self._storage.write_macro("focus", df_simple)
-
-        # Salva séries individuais por indicador (ex: focus_ipca, focus_selic)
-        _indicator_keys = {
-            "IPCA":      "focus_ipca",
-            "Selic":     "focus_selic",
-            "PIB Total": "focus_pib",
-            "Câmbio":    "focus_cambio",
-            "IGP-M":     "focus_igpm",
-        }
-        for indicador, col_key in _indicator_keys.items():
-            df_ind = df[df["indicador"] == indicador][["date", "value"]].copy()
-            if not df_ind.empty:
-                self._storage.write_macro(col_key, df_ind)
-
-        logger.info("macro.focus.persisted", rows=len(df), series=len(_indicator_keys))
-        return len(df)
 
     async def _collect_bcb(self, name: str, code: int) -> int:
         """Fetch from BCB SGS API and persist."""
