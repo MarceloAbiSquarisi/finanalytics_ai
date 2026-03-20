@@ -169,6 +169,14 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         return self.app_env == AppEnv.DEVELOPMENT
 
+    # ── Fintz ──────────────────────────────────────────────────────────────────
+    fintz_api_key: str = "6630cb24d8d82e0b2069f1a7df229733"
+    fintz_base_url: str = "https://api.fintz.com.br"
+    fintz_download_timeout_s: float = 180.0
+    fintz_sync_hour: int = 22        # hora local (BRT) do job diário
+    fintz_sync_minute: int = 5       # margem após a atualização das 22h da Fintz
+    fintz_sync_max_concurrent: int = 5   # downloads simultâneos
+
     @field_validator("redis_url", mode="before")
     @classmethod
     def require_redis_if_needed(cls, v: str | None) -> str | None:

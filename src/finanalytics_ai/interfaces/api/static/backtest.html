@@ -36,18 +36,18 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 /* MAIN LAYOUT */
 main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
 .page-title{font-size:22px;font-weight:800;color:var(--white);margin-bottom:4px}
-.page-sub{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:24px}
+.page-sub{font-size:11px;color:var(--muted);font-family:monospace;margin-bottom:24px}
 
 /* FORM CARD */
 .form-card{background:var(--card);border:1px solid var(--border);border-radius:12px;
   padding:20px;margin-bottom:20px;backdrop-filter:blur(8px)}
-.form-title{font-size:11px;font-weight:700;color:var(--blue);font-family:'DM Mono',monospace;
+.form-title{font-size:11px;font-weight:700;color:var(--blue);font-family:monospace;
   text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px}
 .form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;align-items:end}
-.fld label{display:block;font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;
+.fld label{display:block;font-size:9px;color:var(--muted);font-family:monospace;
   text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px}
 .fld input,.fld select{width:100%;background:rgba(10,22,40,.7);border:1px solid var(--border);
-  color:var(--white);font-family:'DM Mono',monospace;font-size:11px;padding:7px 10px;
+  color:var(--white);font-family:monospace;font-size:11px;padding:7px 10px;
   border-radius:6px;outline:none;transition:border-color .15s}
 .fld input:focus,.fld select:focus{border-color:rgba(58,191,248,.4)}
 .fld select option{background:#0D2144}
@@ -65,7 +65,7 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
 /* TABS */
 .tabs{display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border)}
 .tab{padding:8px 18px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;
-  border-bottom:2px solid transparent;transition:all .15s;font-family:'DM Mono',monospace}
+  border-bottom:2px solid transparent;transition:all .15s;font-family:monospace}
 .tab.active{color:var(--blue);border-bottom-color:var(--blue)}
 .tab-content{display:none}
 .tab-content.active{display:block}
@@ -73,34 +73,34 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
 /* METRICS GRID */
 .metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
 .metric-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
-.metric-label{font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;
+.metric-label{font-size:9px;color:var(--muted);font-family:monospace;
   text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px}
-.metric-value{font-size:20px;font-weight:800;font-family:'DM Mono',monospace}
-.metric-sub{font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:2px}
+.metric-value{font-size:20px;font-weight:800;font-family:monospace}
+.metric-sub{font-size:9px;color:var(--muted);font-family:monospace;margin-top:2px}
 .green{color:var(--green)} .red{color:var(--red)} .gold{color:var(--gold)} .blue{color:var(--blue)}
 
 /* CHART SECTION */
 .chart-card{background:var(--card);border:1px solid var(--border);border-radius:12px;
   padding:16px;margin-bottom:16px}
-.chart-title{font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;
+.chart-title{font-size:9px;color:var(--muted);font-family:monospace;
   text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px}
 .chart-wrap{position:relative;height:220px}
 
 /* TRADES TABLE */
 .trades-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
 .trades-
-.trades-header span{font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;
+.trades-header span{font-size:9px;color:var(--muted);font-family:monospace;
   text-transform:uppercase;letter-spacing:.6px}
 .trade-row{display:grid;grid-template-columns:40px 1fr 1fr 90px 90px 80px;
   gap:8px;padding:6px 0;border-bottom:1px solid rgba(58,191,248,.05);align-items:center}
 .trade-row:last-child{border-bottom:none}
-.trade-num{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace}
-.trade-date{font-size:10px;font-family:'DM Mono',monospace;color:var(--white)}
-.trade-dur{font-size:9px;color:var(--muted);font-family:'DM Mono',monospace}
-.trade-price{font-size:10px;font-family:'DM Mono',monospace}
-.trade-pnl{font-size:11px;font-weight:700;font-family:'DM Mono',monospace}
+.trade-num{font-size:10px;color:var(--muted);font-family:monospace}
+.trade-date{font-size:10px;font-family:monospace;color:var(--white)}
+.trade-dur{font-size:9px;color:var(--muted);font-family:monospace}
+.trade-price{font-size:10px;font-family:monospace}
+.trade-pnl{font-size:11px;font-weight:700;font-family:monospace}
 .trade-badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:9px;
-  font-family:'DM Mono',monospace;font-weight:500}
+  font-family:monospace;font-weight:500}
 .badge-win{background:rgba(46,212,122,.12);color:var(--green);border:1px solid rgba(46,212,122,.2)}
 .badge-loss{background:rgba(224,85,85,.12);color:var(--red);border:1px solid rgba(224,85,85,.2)}
 
@@ -112,24 +112,24 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
 .compare-name{font-size:12px;font-weight:800;color:var(--white);margin-bottom:12px;
   display:flex;align-items:center;gap:8px}
 .best-badge{font-size:8px;background:rgba(46,212,122,.15);color:var(--green);
-  border:1px solid rgba(46,212,122,.3);border-radius:4px;padding:2px 6px;font-family:'DM Mono',monospace}
+  border:1px solid rgba(46,212,122,.3);border-radius:4px;padding:2px 6px;font-family:monospace}
 .compare-metrics{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
 .cm-item{background:rgba(10,22,40,.5);border-radius:6px;padding:7px 9px}
-.cm-label{font-size:8px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:2px}
-.cm-value{font-size:13px;font-weight:700;font-family:'DM Mono',monospace}
+.cm-label{font-size:8px;color:var(--muted);font-family:monospace;margin-bottom:2px}
+.cm-value{font-size:13px;font-weight:700;font-family:monospace}
 .compare-chart-wrap{height:100px}
 
 /* LOADING / ERROR */
-.loading{text-align:center;padding:40px;color:var(--muted);font-family:'DM Mono',monospace;
+.loading{text-align:center;padding:40px;color:var(--muted);font-family:monospace;
   font-size:12px;display:none}
 .error-box{background:rgba(224,85,85,.08);border:1px solid rgba(224,85,85,.2);
-  border-radius:8px;padding:12px 16px;color:var(--red);font-family:'DM Mono',monospace;
+  border-radius:8px;padding:12px 16px;color:var(--red);font-family:monospace;
   font-size:11px;margin-bottom:16px;display:none}
-.empty{text-align:center;padding:32px;color:var(--muted);font-family:'DM Mono',monospace;font-size:11px}
+.empty{text-align:center;padding:32px;color:var(--muted);font-family:monospace;font-size:11px}
 
 /* SIGNALS TIMELINE */
 .signals-wrap{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0}
-.sig-pill{padding:3px 8px;border-radius:4px;font-size:9px;font-family:'DM Mono',monospace}
+.sig-pill{padding:3px 8px;border-radius:4px;font-size:9px;font-family:monospace}
 .sig-buy{background:rgba(46,212,122,.1);color:var(--green);border:1px solid rgba(46,212,122,.2)}
 .sig-sell{background:rgba(224,85,85,.1);color:var(--red);border:1px solid rgba(224,85,85,.2)}
 
@@ -150,22 +150,22 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
 /* OPTIMIZER */
 .opt-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px}
 .obj-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:4px}
-.obj-btn{padding:6px 4px;border-radius:6px;font-size:9px;font-family:'DM Mono',monospace;font-weight:600;
+.obj-btn{padding:6px 4px;border-radius:6px;font-size:9px;font-family:monospace;font-weight:600;
   text-align:center;cursor:pointer;border:1px solid var(--border);background:transparent;
   color:var(--muted);transition:all .15s;text-transform:uppercase;letter-spacing:.4px}
 .obj-btn.active{background:rgba(58,191,248,.12);border-color:rgba(58,191,248,.35);color:var(--blue)}
 .rank-table{width:100%;border-collapse:collapse}
-.rank-table th{font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;
+.rank-table th{font-size:9px;color:var(--muted);font-family:monospace;text-transform:uppercase;
   letter-spacing:.5px;padding:5px 8px;text-align:left;border-bottom:1px solid var(--border)}
-.rank-table td{font-size:10px;font-family:'DM Mono',monospace;padding:6px 8px;
+.rank-table td{font-size:10px;font-family:monospace;padding:6px 8px;
   border-bottom:1px solid rgba(58,191,248,.04)}
 .rank-table tr:last-child td{border-bottom:none}
 .rank-table tr.best-row td{background:rgba(46,212,122,.04)}
 .heatmap-wrap{overflow-x:auto;margin-top:8px}
 .heatmap-grid{display:inline-grid;gap:3px}
 .hm-cell{width:38px;height:28px;border-radius:3px;display:flex;align-items:center;
-  justify-content:center;font-size:8px;font-family:'DM Mono',monospace;cursor:default}
-.hm-axis-label{font-size:8px;color:var(--muted);font-family:'DM Mono',monospace;
+  justify-content:center;font-size:8px;font-family:monospace;cursor:default}
+.hm-axis-label{font-size:8px;color:var(--muted);font-family:monospace;
   display:flex;align-items:center;justify-content:center}
 .run-btn-opt{background:linear-gradient(135deg,rgba(240,180,41,.15),rgba(240,180,41,.05));
   color:var(--gold);border:1px solid rgba(240,180,41,.3);border-radius:8px;
@@ -182,16 +182,16 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
 /* WALK-FORWARD */
 .wf-fold-row{display:grid;grid-template-columns:32px 60px 60px 1fr 1fr 1fr 1fr;
   gap:6px;align-items:center;padding:8px 10px;border-radius:6px;
-  border:1px solid var(--border);margin-bottom:6px;font-family:'DM Mono',monospace}
+  border:1px solid var(--border);margin-bottom:6px;font-family:monospace}
 .wf-fold-row:first-child{background:rgba(46,212,122,.04)}
 .wf-badge{display:inline-flex;align-items:center;justify-content:center;
   padding:2px 7px;border-radius:4px;font-size:8px;font-weight:700;
-  font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.4px}
+  font-family:monospace;text-transform:uppercase;letter-spacing:.4px}
 .wf-badge.valid{background:rgba(46,212,122,.12);color:var(--green)}
 .wf-badge.invalid{background:rgba(224,85,85,.1);color:var(--red)}
 .wf-stat{text-align:center}
 .wf-stat .val{font-size:18px;font-weight:700;font-family:'Syne',sans-serif;line-height:1.1}
-.wf-stat .lbl{font-size:8px;color:var(--muted);font-family:'DM Mono',monospace;
+.wf-stat .lbl{font-size:8px;color:var(--muted);font-family:monospace;
   text-transform:uppercase;letter-spacing:.5px;margin-top:3px}
 .wf-gauge-wrap{position:relative;display:flex;align-items:center;justify-content:center;flex-direction:column}
 .efficiency-ring{transform:rotate(-90deg)}
@@ -369,7 +369,7 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
         <div>
           <div class="form-title" style="margin:0">Otimizacao de Parametros</div>
-          <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:3px">
+          <div style="font-size:9px;color:var(--muted);font-family:monospace;margin-top:3px">
             Grid search sobre o espaco de parametros da estrategia selecionada acima
           </div>
         </div>
@@ -399,7 +399,7 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
         <div class="opt-card" style="margin:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
             <div class="form-title" style="margin:0">Rankings</div>
-            <div id="opt-summary" style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace"></div>
+            <div id="opt-summary" style="font-size:9px;color:var(--muted);font-family:monospace"></div>
           </div>
           <div style="overflow-x:auto" class="tbl-wrap">
             <table class="rank-table" id="rank-table">
@@ -409,7 +409,7 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
               <tbody id="rank-body"></tbody>
             </table>
           </div>
-          <div style="margin-top:12px;font-size:9px;color:var(--muted);font-family:'DM Mono',monospace">
+          <div style="margin-top:12px;font-size:9px;color:var(--muted);font-family:monospace">
             * Clique em qualquer linha para rodar backtest com esses parametros
           </div>
         </div>
@@ -419,9 +419,9 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
           <div class="form-title" style="margin-bottom:10px">Heatmap de Score</div>
           <div id="heatmap-container"></div>
           <div id="heatmap-legend" style="display:flex;gap:8px;margin-top:10px;align-items:center">
-            <div style="font-size:8px;color:var(--muted);font-family:'DM Mono',monospace">Baixo</div>
+            <div style="font-size:8px;color:var(--muted);font-family:monospace">Baixo</div>
             <div style="flex:1;height:6px;border-radius:3px;background:linear-gradient(90deg,#E05555,#F0B429,#2ED47A)"></div>
-            <div style="font-size:8px;color:var(--muted);font-family:'DM Mono',monospace">Alto</div>
+            <div style="font-size:8px;color:var(--muted);font-family:monospace">Alto</div>
           </div>
         </div>
 
@@ -436,7 +436,7 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
         <div>
           <div class="form-title" style="margin:0">Walk-Forward Validation</div>
-          <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:3px">
+          <div style="font-size:9px;color:var(--muted);font-family:monospace;margin-top:3px">
             Detecta overfitting dividindo os dados em janelas IS (otimizacao) e OOS (validacao)
           </div>
         </div>
@@ -475,7 +475,7 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
         <div style="display:flex;flex-direction:column;justify-content:flex-end">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding-bottom:6px">
             <input type="checkbox" id="wf-anchored" style="accent-color:var(--blue)">
-            <span style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace">
+            <span style="font-size:9px;color:var(--muted);font-family:monospace">
               Anchored (expanding)
             </span>
           </label>
@@ -506,7 +506,7 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
                 fill="#E8F4FD" font-size="14" font-family="Syne,sans-serif" font-weight="700">0%</text>
             </svg>
           </div>
-          <div style="font-size:8px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.5px">Efficiency</div>
+          <div style="font-size:8px;color:var(--muted);font-family:monospace;text-transform:uppercase;letter-spacing:.5px">Efficiency</div>
           <div style="font-size:8px;color:var(--muted);margin-top:2px">OOS / IS score</div>
         </div>
 
@@ -564,12 +564,12 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
       <div class="opt-card" style="margin:0;background:rgba(167,139,250,.03)">
         <div class="form-title" style="margin-bottom:8px;color:#A78BFA">Como Interpretar</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;line-height:1.7">
+          <div style="font-size:9px;color:var(--muted);font-family:monospace;line-height:1.7">
             <b style="color:#A78BFA">Efficiency &gt; 50%:</b> Bom — parametros generalizam bem<br>
             <b style="color:#A78BFA">Consistency &gt; 66%:</b> Maioria dos folds OOS lucrativos<br>
             <b style="color:#A78BFA">Degradation baixo:</b> Pouco overfitting<br>
           </div>
-          <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;line-height:1.7">
+          <div style="font-size:9px;color:var(--muted);font-family:monospace;line-height:1.7">
             <b style="color:var(--red)">Efficiency &lt; 20%:</b> Overfitting provavel<br>
             <b style="color:var(--red)">Consistency &lt; 33%:</b> Estrategia nao e robusta<br>
             <b style="color:var(--gold)">IS score alto + OOS baixo:</b> Parametros nao generalizam<br>
@@ -586,7 +586,7 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
         <div>
           <div class="form-title" style="margin:0">Comparativo Multi-Ticker</div>
-          <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:3px">
+          <div style="font-size:9px;color:var(--muted);font-family:monospace;margin-top:3px">
             Otimiza a mesma estrategia em varios ativos e ranqueia por performance
           </div>
         </div>
@@ -599,7 +599,7 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
         <input id="multi-tickers" class="form-input" type="text"
           value="PETR4,VALE3,ITUB4,BBDC4,WEGE3"
           placeholder="PETR4,VALE3,ITUB4,BBDC4,WEGE3"
-          style="width:100%;box-sizing:border-box;font-family:'DM Mono',monospace;letter-spacing:0.04em">
+          style="width:100%;box-sizing:border-box;font-family:monospace;letter-spacing:0.04em">
         <!-- Tag pills -->
         <div id="multi-ticker-pills" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px"></div>
       </div>
@@ -645,7 +645,7 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
 
       <!-- Result: loading -->
       <div id="multi-loading" style="display:none;text-align:center;padding:24px 0">
-        <div style="color:var(--muted);font-size:11px;font-family:'DM Mono',monospace">
+        <div style="color:var(--muted);font-size:11px;font-family:monospace">
           Otimizando <span id="multi-loading-count">0</span> tickers em paralelo...
         </div>
         <div style="margin-top:10px;display:flex;gap:4px;justify-content:center" id="multi-dots"></div>
@@ -664,7 +664,7 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
         <div id="multi-errors-banner" style="display:none;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:6px;padding:8px 12px;font-size:10px;color:#fbbf24;margin-bottom:12px"></div>
 
         <!-- Ranking table -->
-        <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Ranking por Score</div>
+        <div style="font-size:9px;color:var(--muted);font-family:monospace;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Ranking por Score</div>
         <div style="overflow-x:auto;margin-bottom:16px" class="tbl-wrap">
           <table id="multi-table" style="width:100%;border-collapse:collapse;font-size:11px">
             <thead>
@@ -685,12 +685,12 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
         </div>
 
         <!-- Score bar chart -->
-        <div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Score Relativo (%)</div>
+        <div style="font-size:9px;color:var(--muted);font-family:monospace;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Score Relativo (%)</div>
         <div id="multi-bars" style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px"></div>
 
         <!-- Consensus params -->
         <div id="multi-consensus" style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:8px;padding:12px 14px">
-          <div style="font-size:9px;color:#a78bfa;font-family:'DM Mono',monospace;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Parametros Consenso</div>
+          <div style="font-size:9px;color:#a78bfa;font-family:monospace;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Parametros Consenso</div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:6px">
             Combinacao de parametros mais frequente entre os melhores runs de cada ativo:
           </div>
@@ -735,7 +735,7 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
       <div class="trades-card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <div class="form-title" style="margin:0">Lista de Trades</div>
-          <div id="trades-summary" style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace"></div>
+          <div id="trades-summary" style="font-size:10px;color:var(--muted);font-family:monospace"></div>
         </div>
         <div class="trades-header">
           <span>#</span><span>Entrada</span><span>Saida</span>
@@ -763,7 +763,7 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
       </div>
       <button onclick="hideCompare()" style="background:transparent;border:1px solid var(--border);
         color:var(--muted);border-radius:6px;padding:5px 12px;font-size:10px;
-        font-family:'DM Mono',monospace;cursor:pointer">Fechar</button>
+        font-family:monospace;cursor:pointer">Fechar</button>
     </div>
 
     <!-- Loading individual -->
@@ -872,7 +872,7 @@ function renderOptResults(d) {
       var paramStr = Object.entries(r.params).map(function(kv) {
         return kv[0].replace('_period','p').replace('rsi_','r').replace('macd_','m') + ':' + kv[1];
       }).join(' ');
-      return '<tr' + cls + ' style="cursor:pointer" onclick="applyParams(' + JSON.stringify(r.params) + ','' + d.strategy + '')">' +
+      return '<tr' + cls + ' style="cursor:pointer" onclick="applyParams(' + JSON.stringify(r.params) + ',"' + d.strategy + '")">' +
         '<td style="color:' + (i===0?'var(--gold)':'var(--muted)') + '">' + (i===0?'*':'') + r.rank + '</td>' +
         '<td style="color:var(--blue);font-weight:700">' + r.score.toFixed(3) + '</td>' +
         '<td>' + m.total_trades + '</td>' +
@@ -892,7 +892,7 @@ function renderOptResults(d) {
 function renderHeatmap(hm, objective) {
   var container = document.getElementById('heatmap-container');
   if (!hm || !hm.matrix || !hm.matrix.length) {
-    container.innerHTML = '<div style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;padding:16px">Heatmap nao disponivel para esta estrategia</div>';
+    container.innerHTML = '<div style="font-size:9px;color:var(--muted);font-family:monospace;padding:16px">Heatmap nao disponivel para esta estrategia</div>';
     return;
   }
 
@@ -930,7 +930,7 @@ function renderHeatmap(hm, objective) {
   }
 
   var cols = xVals.length + 1;
-  var html = '<div style="font-size:8px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:6px">' +
+  var html = '<div style="font-size:8px;color:var(--muted);font-family:monospace;margin-bottom:6px">' +
     hm.y_label + ' \ ' + hm.x_label + '</div>' +
     '<div style="display:grid;grid-template-columns:50px repeat(' + xVals.length + ',38px);gap:3px">';
 

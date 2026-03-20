@@ -193,7 +193,6 @@ services:
     networks:
       - finanalytics_net
 
-
   scheduler:
     build:
       context: .
@@ -223,6 +222,30 @@ services:
       - ${DATA_DIR_HOST:-E:/finanalytics_data}:/data
     entrypoint: ["python"]
     command: ["/app/src/finanalytics_ai/workers/scheduler_worker.py"]
+    networks:
+      - finanalytics_net
+
+  fintz_sync_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    image: finanalytics-worker:latest
+    container_name: finanalytics_fintz_worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL:          postgresql+asyncpg://finanalytics:${POSTGRES_PASSWORD:-secret}@postgres:5432/finanalytics
+      RUN_ONCE:              "false"
+      FINTZ_SYNC_HOUR:       "22"
+      FINTZ_SYNC_MINUTE:     "5"
+      SCHEDULER_TZ_OFFSET:   "-3"
+      FINTZ_MAX_CONCURRENT:  "5"
+    profiles:
+      - workers
     networks:
       - finanalytics_net
 

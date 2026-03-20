@@ -307,3 +307,37 @@ async def metrics_endpoint(request: Request) -> Response:
         content=data,
         media_type=CONTENT_TYPE_LATEST,
     )
+
+
+# ── Fintz sync ────────────────────────────────────────────────────────────────
+
+fintz_sync_attempts_total = Counter(
+    name="finanalytics_fintz_sync_attempts_total",
+    documentation="Total de tentativas de sync de datasets Fintz",
+    labelnames=["dataset_type"],
+)
+
+fintz_sync_success_total = Counter(
+    name="finanalytics_fintz_sync_success_total",
+    documentation="Total de datasets Fintz sincronizados com sucesso",
+    labelnames=["dataset_type"],
+)
+
+fintz_sync_skips_total = Counter(
+    name="finanalytics_fintz_sync_skips_total",
+    documentation="Total de datasets Fintz pulados (hash idêntico)",
+    labelnames=["dataset_type"],
+)
+
+fintz_sync_errors_total = Counter(
+    name="finanalytics_fintz_sync_errors_total",
+    documentation="Total de erros em sync de datasets Fintz",
+    labelnames=["dataset_type"],
+)
+
+fintz_rows_upserted_total = Counter(
+    name="finanalytics_fintz_rows_upserted_total",
+    documentation="Total de linhas inseridas/atualizadas pelo pipeline Fintz",
+    labelnames=["dataset_type"],
+)
+

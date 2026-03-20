@@ -158,3 +158,44 @@ class TransientError(InfrastructureError):
 
     code: str = "TRANSIENT_ERROR"
     attempt: int = 0
+
+
+# ── Fintz ─────────────────────────────────────────────────────────────────────
+
+
+@dataclass
+class FintzAPIError(InfrastructureError):
+    """
+    Erro na API Fintz — resposta HTTP inesperada ou timeout.
+
+    Capture para retry ou skip do dataset com log de erro.
+    """
+
+    code: str = "FINTZ_API_ERROR"
+    status_code: int = 0
+    dataset_key: str = ""
+
+
+@dataclass
+class FintzParseError(InfrastructureError):
+    """
+    Erro ao parsear o arquivo parquet retornado pela Fintz.
+
+    Indica schema inesperado — investigar se a Fintz mudou o formato.
+    """
+
+    code: str = "FINTZ_PARSE_ERROR"
+    dataset_key: str = ""
+
+
+@dataclass
+class FintzSyncError(ApplicationError):
+    """
+    Falha na orquestração do sync Fintz.
+
+    Agrupa erros de múltiplos datasets numa única exceção de sumário.
+    """
+
+    code: str = "FINTZ_SYNC_ERROR"
+    failed_datasets: list[str] = field(default_factory=list)
+
