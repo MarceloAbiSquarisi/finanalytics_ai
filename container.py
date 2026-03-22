@@ -88,22 +88,3 @@ def build_event_processor(session: AsyncSession, settings: Settings) -> EventPro
 
 def bootstrap(settings: Settings) -> None:
     configure_logging(settings)
-
-
-# ── TimescaleWriter factory ───────────────────────────────────────────────────
-
-def build_timescale_writer(
-    settings: Settings,
-) -> "NoOpTimescaleWriter | PgTimescaleWriter":
-    """
-    Retorna PgTimescaleWriter se TIMESCALE_URL configurado,
-    NoOpTimescaleWriter caso contrário.
-
-    Permite rodar o sistema sem TimescaleDB em dev/CI.
-    """
-    from finanalytics_ai.infrastructure.database.repositories.timescale_writer import (
-        NoOpTimescaleWriter, PgTimescaleWriter,
-    )
-    if settings.timescale_enabled:
-        return PgTimescaleWriter(str(settings.timescale_url))
-    return NoOpTimescaleWriter()
