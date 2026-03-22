@@ -277,3 +277,7 @@ class EventProcessor:
         await self._repository.save_event(event)
         await self._repository.upsert_processing_record(record)
         return record
+
+
+# Alias de compatibilidade com código pré-existente
+EventProcessorService = EventProcessor

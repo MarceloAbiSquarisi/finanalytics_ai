@@ -472,6 +472,13 @@ def create_app() -> FastAPI:
     app.include_router(reports.router, tags=["Reports"])
     app.include_router(watchlist.router, tags=["Watchlist"])
     app.include_router(performance.router, tags=["Performance"])
+
+    try:
+        from finanalytics_ai.interfaces.api.routes import fintz_data as fintz_data_routes
+        app.include_router(fintz_data_routes.router, prefix="/api/v1/fintz", tags=["Fintz Histórico"])
+    except Exception as _fe2:
+        import structlog as _sl2
+        _sl2.get_logger(__name__).warning("fintz_data.router.FAILED", error=str(_fe2))
     app.include_router(fixed_income.router, tags=["Renda Fixa"])
 
     try:

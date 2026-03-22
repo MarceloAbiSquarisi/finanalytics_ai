@@ -20,7 +20,9 @@ from typing import TYPE_CHECKING
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
-from finanalytics_ai.application.services.event_processor import EventProcessorService
+from finanalytics_ai.application.services.event_processor import EventProcessor
+# Alias de compatibilidade com testes pré-existentes
+EventProcessorService = EventProcessor
 from finanalytics_ai.application.services.portfolio_service import PortfolioService
 from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
 from finanalytics_ai.infrastructure.adapters.cvm_client import CvmClient, get_cvm_client
