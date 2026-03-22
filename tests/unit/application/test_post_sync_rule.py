@@ -13,9 +13,17 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 import pytest
+import random
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+
+def make_serie(n: int = 25, latest: float = 8.5) -> list[dict]:
+    random.seed(42)
+    history = [{"data": f"2024-{i:02d}-01", "valor": 8.0 + random.uniform(-0.3, 0.3)}
+               for i in range(1, n + 1)]
+    return [{"data": "2025-01-02", "valor": latest}] + history
 
 def make_event(dataset: str = "indicadores", rows: int = 1000) -> MagicMock:
     event = MagicMock()
