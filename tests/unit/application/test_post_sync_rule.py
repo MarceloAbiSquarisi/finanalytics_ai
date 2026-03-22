@@ -94,13 +94,12 @@ class TestFintzAnomalyDetector:
     @pytest.mark.asyncio
     async def test_valor_extremo_detecta_anomalia(self):
         from finanalytics_ai.application.rules.fintz_post_sync_rule import FintzAnomalyDetector
-        # Latest = 500, history = todos 8.0 → z_score >> 3σ
+        from unittest.mock import AsyncMock as _AM
         serie = make_serie(25, latest=500.0)
-        from unittest.mock import AsyncMock as _AsyncMock
         repo = make_ts_repo(indicadores_serie=serie)
-        repo.get_indicadores_serie = _AsyncMock(return_value=serie)
+        repo.get_indicadores_serie = _AM(return_value=serie)
         detector = FintzAnomalyDetector(repo)
-        result = await detector.detect("indicador", ["PETR4"])
+        result = await detector._check_ticker("PETR4", list(detector.THRESHOLDS.keys()))
         assert result > 0
 
     @pytest.mark.asyncio
