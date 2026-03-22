@@ -42,13 +42,17 @@ class DatasetSyncResult:
 
     @property
     def succeeded(self) -> bool:
-        return self.status in ("ok", "skip")
+        return self.status in ("ok", "skip") and self.error_type is None
 
 
 @dataclass
 class SyncSession:
     started_at: float = field(default_factory=time.perf_counter)
     results: list[DatasetSyncResult] = field(default_factory=list)
+
+    @property
+    def total_errors(self) -> int:
+        return sum(r.errors for r in self.results)
 
     @property
     def total_rows(self) -> int:
@@ -68,7 +72,7 @@ class SyncSession:
 
     @property
     def failed_datasets(self) -> list[str]:
-        return [r.dataset for r in self.results if r.status == "error"]
+        return [r.dataset for r in self.results if not r.succeeded]
 
     @property
     def duration_s(self) -> float:
