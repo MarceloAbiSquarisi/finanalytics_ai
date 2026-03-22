@@ -107,3 +107,21 @@ def build_timescale_writer(
     if settings.timescale_enabled:
         return PgTimescaleWriter(str(settings.timescale_url))
     return NoOpTimescaleWriter()
+
+
+# -- PostSyncOrchestrator factory (Sprint H) ----------------------------------
+
+def build_post_sync_orchestrator(settings, ts_pool=None, cache=None, alert_service=None):
+    if not getattr(settings, 'timescale_enabled', False) or ts_pool is None:
+        return None
+    try:
+        from finanalytics_ai.application.rules.fintz_post_sync_rule import PostSyncOrchestrator
+        from finanalytics_ai.infrastructure.timescale.fintz_repo import TimescaleFintzRepository
+        from finanalytics_ai.infrastructure.cache.backend import InMemoryCache
+        return PostSyncOrchestrator(
+            ts_repo=TimescaleFintzRepository(ts_pool),
+            cache=cache or InMemoryCache(),
+            alert_service=alert_service,
+        )
+    except Exception:
+        return None
