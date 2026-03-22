@@ -75,6 +75,17 @@ class SyncSession:
         return time.perf_counter() - self.started_at
 
 
+
+
+async def _publish_result(result, publisher) -> None:
+    try:
+        if result.succeeded:
+            await publisher.publish_fintz_sync_completed(dataset=result.dataset, rows_synced=result.rows_synced, errors=result.errors, duration_s=result.duration_s)
+        else:
+            await publisher.publish_fintz_sync_failed(dataset=result.dataset, error_type=result.error_type or 'UnknownError', error_message=result.error_message or '')
+    except Exception:
+        pass
+
 async def run_sync(
     session_factory: async_sessionmaker[AsyncSession],
     settings: Settings,

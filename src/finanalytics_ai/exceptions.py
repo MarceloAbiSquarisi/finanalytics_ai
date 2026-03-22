@@ -104,6 +104,10 @@ class FintzAPIError(InfrastructureError):
     pass
 
 class FintzParseError(InfrastructureError):
+    def __init__(self, message: str, *, dataset_key: str = "", context: dict | None = None) -> None:
+        super().__init__(message, context=context)
+        self.dataset_key = dataset_key
+
     pass
 
 class FintzSyncError(InfrastructureError):
