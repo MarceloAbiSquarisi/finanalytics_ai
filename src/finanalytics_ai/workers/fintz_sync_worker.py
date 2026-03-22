@@ -109,22 +109,24 @@ async def run_sync(
 
     ts_writer = build_timescale_writer(settings)
 
-    async with session_factory() as db_session:
-        async with db_session.begin():
-            publisher = EventPublisher(db_session)
-            service = FintzSyncService(
-                client=FintzClient(
-                    api_key=settings.fintz_api_key,
-                    base_url=settings.fintz_base_url,
-                    timeout=settings.fintz_request_timeout,
-                    max_retries=settings.fintz_max_retries,
-                ),
-                repo=FintzRepo(),
-                event_publisher=publisher,
-                timescale_writer=ts_writer,
-                datasets=specs,
-            )
-            summary = await service.sync_all()
+    async with FintzClient(
+        api_key=settings.fintz_api_key,
+        base_url=settings.fintz_base_url,
+        api_timeout_s=30.0,
+        link_timeout_s=300.0,
+        max_retries=3,
+    ) as client:
+        async with session_factory() as db_session:
+            async with db_session.begin():
+                publisher = EventPublisher(db_session)
+                service = FintzSyncService(
+                    client=client,
+                    repo=FintzRepo(),
+                    event_publisher=publisher,
+                    timescale_writer=ts_writer,
+                    datasets=specs,
+                )
+                summary = await service.sync_all()
 
     # Converte summary -> SyncSession
     for key, result in summary.get("datasets", {}).items():
@@ -223,3 +225,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

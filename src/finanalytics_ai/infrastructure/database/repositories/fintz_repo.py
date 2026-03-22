@@ -189,6 +189,9 @@ class FintzRepo:
         for col in float_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
+        # Arredonda volume para 2 casas (evita overflow NUMERIC(24,2))
+        if "volume_negociado" in df.columns:
+            df["volume_negociado"] = df["volume_negociado"].round(2)
 
         # Inteiros — NaN vira None (Int64 nullable)
         for col in ("quantidade_negociada", "quantidade_negocios"):
@@ -225,6 +228,7 @@ class FintzRepo:
         df = df.rename(columns={"data": "data_publicacao"})
         df["data_publicacao"] = pd.to_datetime(df["data_publicacao"]).dt.date
         df["valor"]           = pd.to_numeric(df["valor"], errors="coerce")
+        df["valor"] = df["valor"].replace([float("inf"), float("-inf")], None)
         df["tipo_periodo"]    = spec.params.get("tipoPeriodo", "")
 
         return df[["ticker", "item", "tipo_periodo", "data_publicacao", "valor"]]
@@ -240,6 +244,7 @@ class FintzRepo:
         df = df.rename(columns={"data": "data_publicacao"})
         df["data_publicacao"] = pd.to_datetime(df["data_publicacao"]).dt.date
         df["valor"]           = pd.to_numeric(df["valor"], errors="coerce")
+        df["valor"] = df["valor"].replace([float("inf"), float("-inf")], None)
 
         return df[["ticker", "indicador", "data_publicacao", "valor"]]
 

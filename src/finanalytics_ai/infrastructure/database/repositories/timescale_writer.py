@@ -36,13 +36,22 @@ def _to_utc_datetime(v: Any) -> datetime | None:
         return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
     if isinstance(v, date_type):
         return datetime(v.year, v.month, v.day, tzinfo=timezone.utc)
-    # Fallback: tenta parsear string
+    # Fallback: string ISO ou pandas Timestamp
+    if isinstance(v, str):
+        try:
+            from datetime import datetime as _dt
+            d = _dt.fromisoformat(v.replace("Z", "+00:00"))
+            return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+        except Exception:
+            pass
     try:
         from pandas import Timestamp
         ts = Timestamp(v)
-        return ts.to_pydatetime().replace(tzinfo=timezone.utc)
+        if ts is not None and not ts is ts.NaT:
+            return ts.to_pydatetime().replace(tzinfo=timezone.utc)
     except Exception:
-        return None
+        pass
+    return None
 
 
 def _nan_to_none(v: Any) -> Any:
