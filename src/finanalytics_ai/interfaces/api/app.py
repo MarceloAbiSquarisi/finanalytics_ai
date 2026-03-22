@@ -473,7 +473,13 @@ def create_app() -> FastAPI:
     app.include_router(watchlist.router, tags=["Watchlist"])
     app.include_router(performance.router, tags=["Performance"])
 
+
     try:
+        from finanalytics_ai.interfaces.api.routes import fintz_sync_status
+        app.include_router(fintz_sync_status.router, prefix="/api/v1/fintz", tags=["Fintz Sync"])
+    except Exception as _fss:
+        import structlog as _sl3
+        _sl3.get_logger(__name__).warning("fintz_sync_status.router.FAILED", error=str(_fss))    try:
         from finanalytics_ai.interfaces.api.routes import fintz_data as fintz_data_routes
         app.include_router(fintz_data_routes.router, prefix="/api/v1/fintz", tags=["Fintz Histórico"])
     except Exception as _fe2:
