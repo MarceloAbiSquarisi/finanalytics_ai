@@ -88,10 +88,9 @@ class TestFintzAnomalyDetector:
         from finanalytics_ai.application.rules.fintz_post_sync_rule import FintzAnomalyDetector
         # Latest = 500, history = todos 8.0 → z_score >> 3σ
         serie = make_serie(25, latest=500.0)
-        repo = make_ts_repo(indicadores_serie=serie)
-        # Garante que qualquer chamada com qualquer indicador retorna a serie com outlier
-        from unittest.mock import AsyncMock as _AM
-        repo.get_indicadores_serie = _AM(return_value=serie)
+        from unittest.mock import AsyncMock as _AsyncMock
+        repo = make_ts_repo()
+        repo.get_indicadores_serie = _AsyncMock(return_value=serie)
         detector = FintzAnomalyDetector(repo)
         result = await detector.detect("indicador", ["PETR4"])
         assert result > 0
