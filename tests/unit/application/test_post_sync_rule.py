@@ -97,7 +97,7 @@ class TestFintzAnomalyDetector:
         # Latest = 500, history = todos 8.0 → z_score >> 3σ
         serie = make_serie(25, latest=500.0)
         from unittest.mock import AsyncMock as _AsyncMock
-        repo = make_ts_repo()
+        repo = make_ts_repo(indicadores_serie=serie)
         repo.get_indicadores_serie = _AsyncMock(return_value=serie)
         detector = FintzAnomalyDetector(repo)
         result = await detector.detect("indicador", ["PETR4"])
