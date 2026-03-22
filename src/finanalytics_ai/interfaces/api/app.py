@@ -598,5 +598,9 @@ def create_app() -> FastAPI:
     @app.get("/macro", response_class=HTMLResponse, include_in_schema=False)
     async def serve_macro() -> HTMLResponse:
         return _html("macro.html")
+    @app.get("/fintz", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_fintz() -> HTMLResponse:
+        return _html("fintz.html")
+
 
     return app

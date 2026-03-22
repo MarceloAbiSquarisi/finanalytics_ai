@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fintz Histórico | FinAnalytics AI</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap');
+:root {
+  --navy:#0A1628; --navy-mid:#0D2144; --navy-lgt:#112D5A;
+  --blue:#3ABFF8; --blue-dk:#2E86C1;
+  --gold:#F0B429; --gold-dk:#D4920A;
+  --green:#2ED47A; --red:#E05555;
+  --white:#E8F4FD; --muted:#6A9EBF;
+  --border:rgba(58,191,248,.12); --card:rgba(13,33,68,.75);
+  --purple:#a855f7;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--navy);color:var(--white);font-family:'Syne',sans-serif;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    radial-gradient(ellipse 70% 50% at 15% -5%,rgba(58,191,248,.07) 0%,transparent 60%),
+    radial-gradient(ellipse 50% 40% at 90% 110%,rgba(240,180,41,.05) 0%,transparent 55%),
+    linear-gradient(rgba(58,191,248,.022) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(58,191,248,.022) 1px,transparent 1px);
+  background-size:100% 100%,100% 100%,44px 44px,44px 44px}
+
+/* ── TOPBAR ── */
+.fa-topbar{position:sticky;top:0;z-index:200;display:flex;align-items:center;
+  gap:16px;padding:0 20px;height:52px;
+  background:#070f1a;border-bottom:1px solid #1e3a5f;
+  box-shadow:0 2px 12px rgba(0,0,0,.4)}
+.fa-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
+.fa-logo-text{font-family:'Georgia',serif;font-size:17px;font-weight:700;color:#e8f4fd;letter-spacing:-.3px}
+.fa-logo-text em{color:#F0B429;font-style:normal}
+.fa-ai-badge{display:inline-block;background:#1B3A6B;color:#fff;
+  font-size:7px;font-weight:800;letter-spacing:1.5px;padding:2px 5px;border-radius:3px;margin-left:4px;vertical-align:middle}
+.fa-nav{display:flex;align-items:center;gap:2px;flex:1;overflow-x:auto;scrollbar-width:none}
+.fa-nav::-webkit-scrollbar{display:none}
+.fa-nav a{flex-shrink:0;padding:5px 11px;border-radius:6px;font-size:11px;font-weight:600;
+  color:var(--muted);text-decoration:none;border:1px solid transparent;transition:all .15s;white-space:nowrap}
+.fa-nav a:hover{color:var(--white);background:var(--card);border-color:var(--border)}
+.fa-nav a.active{color:var(--blue);background:rgba(58,191,248,.08);border-color:rgba(58,191,248,.2)}
+.fa-topbar-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.user-chip{display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--card);
+  border:1px solid var(--border);border-radius:20px;font-size:10px;color:var(--muted);cursor:pointer}
+
+/* ── LAYOUT ── */
+main{position:relative;z-index:1;padding:20px 24px;max-width:1600px;margin:0 auto}
+.page-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.page-title{font-size:20px;font-weight:800;color:var(--white)}
+.page-sub{font-size:10px;color:var(--muted);font-family:monospace;margin-top:2px}
+
+/* ── SEARCH BAR ── */
+.search-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.ticker-input{background:rgba(10,22,40,.8);border:1px solid var(--border);color:var(--white);
+  font-family:monospace;font-size:14px;font-weight:700;padding:9px 14px;border-radius:8px;
+  outline:none;width:140px;text-transform:uppercase;letter-spacing:.08em;transition:border-color .15s}
+.ticker-input:focus{border-color:rgba(58,191,248,.5)}
+.period-sel{background:rgba(10,22,40,.8);border:1px solid var(--border);color:var(--white);
+  font-family:monospace;font-size:11px;padding:9px 10px;border-radius:8px;outline:none;cursor:pointer}
+.period-sel option{background:#0D2144}
+.btn-load{background:var(--blue);color:#0A1628;border:none;border-radius:8px;
+  font-family:'Syne',sans-serif;font-weight:800;font-size:12px;padding:9px 20px;
+  cursor:pointer;transition:all .2s}
+.btn-load:hover{background:#5CCFFF;transform:translateY(-1px)}
+.btn-load:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid rgba(100,150,200,.2);
+  border-radius:8px;font-family:monospace;font-size:10px;padding:9px 14px;cursor:pointer;transition:all .15s}
+.btn-ghost:hover{color:var(--white);border-color:var(--border)}
+.btn-ghost.active{color:var(--blue);border-color:rgba(58,191,248,.3);background:rgba(58,191,248,.06)}
+
+/* ── CARDS ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  backdrop-filter:blur(8px);overflow:hidden}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-bottom:1px solid var(--border)}
+.card-title{font-size:10px;font-weight:700;color:var(--blue);font-family:monospace;
+  text-transform:uppercase;letter-spacing:.8px}
+.card-sub{font-size:9px;color:var(--muted);font-family:monospace}
+.card-body{padding:16px}
+
+/* ── COVERAGE STRIP ── */
+.coverage-strip{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.cov-item{background:var(--card);border:1px solid var(--border);border-radius:8px;
+  padding:8px 14px;display:flex;flex-direction:column;gap:2px}
+.cov-label{font-size:8px;color:var(--muted);font-family:monospace;text-transform:uppercase;letter-spacing:.1em}
+.cov-val{font-size:11px;font-weight:700;font-family:monospace;color:var(--white)}
+.cov-range{font-size:9px;color:var(--muted);font-family:monospace}
+
+/* ── GRID ── */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:1100px){.grid-2{grid-template-columns:1fr}.grid-3{grid-template-columns:1fr 1fr}}
+@media(max-width:700px){.grid-3,.grid-4{grid-template-columns:1fr 1fr}}
+
+/* ── KPI CARDS ── */
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.kpi-lbl{font-size:8px;color:var(--muted);font-family:monospace;text-transform:uppercase;
+  letter-spacing:.1em;margin-bottom:6px}
+.kpi-val{font-size:22px;font-weight:800;font-family:monospace;letter-spacing:-.02em}
+.kpi-sub{font-size:9px;color:var(--muted);font-family:monospace;margin-top:3px}
+.kpi-delta{font-size:10px;font-family:monospace;margin-top:3px}
+.green{color:var(--green)} .red{color:var(--red)} .gold{color:var(--gold)} .blue{color:var(--blue)} .purple{color:var(--purple)}
+
+/* ── CHART CONTAINERS ── */
+.chart-wrap{position:relative;height:320px}
+.chart-wrap-sm{position:relative;height:200px}
+.lw-chart{width:100%;height:100%}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:16px}
+.tab{padding:8px 16px;font-size:10px;font-weight:700;color:var(--muted);cursor:pointer;
+  border-bottom:2px solid transparent;transition:all .15s;font-family:monospace;text-transform:uppercase;letter-spacing:.05em}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+
+/* ── INDICADORES TABLE ── */
+.ind-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
+.ind-cell{background:rgba(10,22,40,.6);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+.ind-name{font-size:8px;color:var(--muted);font-family:monospace;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ind-val{font-size:16px;font-weight:800;font-family:monospace}
+.ind-date{font-size:7px;color:var(--muted);font-family:monospace;margin-top:2px}
+
+/* ── ITENS TABLE ── */
+.itens-table{width:100%;border-collapse:collapse;font-family:monospace;font-size:11px}
+.itens-table th{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;
+  padding:6px 10px;border-bottom:1px solid var(--border);text-align:left;font-weight:600}
+.itens-table td{padding:7px 10px;border-bottom:1px solid rgba(58,191,248,.04);color:var(--white)}
+.itens-table tr:hover td{background:rgba(58,191,248,.03)}
+.itens-table .num{text-align:right;color:var(--blue)}
+.itens-table .dt{color:var(--muted);font-size:9px}
+
+/* ── GRUPO BUTTONS ── */
+.grupo-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.btn-grupo{background:transparent;color:var(--muted);border:1px solid rgba(100,150,200,.2);
+  border-radius:6px;font-family:monospace;font-size:9px;padding:5px 10px;cursor:pointer;transition:all .15s}
+.btn-grupo:hover{color:var(--white);border-color:var(--border)}
+.btn-grupo.active{color:var(--blue);border-color:rgba(58,191,248,.35);background:rgba(58,191,248,.07)}
+
+/* ── SKELETON / EMPTY ── */
+.skel{background:linear-gradient(90deg,rgba(58,191,248,.06) 25%,rgba(58,191,248,.12) 50%,rgba(58,191,248,.06) 75%);
+  background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:4px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.empty-msg{text-align:center;padding:40px 20px;color:var(--muted);font-family:monospace;font-size:11px}
+.loading-spinner{display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:30px;color:var(--muted);font-family:monospace;font-size:11px}
+.spinner{width:16px;height:16px;border:2px solid rgba(58,191,248,.2);border-top-color:var(--blue);
+  border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:20px;right:20px;background:#112D5A;border:1px solid var(--border);
+  border-radius:8px;padding:10px 16px;font-family:monospace;font-size:11px;color:var(--white);
+  z-index:9999;opacity:0;transform:translateY(10px);transition:all .25s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.err{border-color:rgba(224,85,85,.4);background:rgba(224,85,85,.15)}
+
+/* ── SECTION SPACER ── */
+.sec{margin-bottom:20px}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<nav class="fa-topbar">
+  <a class="fa-logo" href="/hub">
+    <span class="fa-logo-text">Fin<em>Analytics</em> <span class="fa-ai-badge">AI</span></span>
+  </a>
+  <div class="fa-nav">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/backtest">Backtest</a>
+    <a href="/screener">Screener</a>
+    <a href="/correlation">Correlação</a>
+    <a href="/anomaly">Anomalia</a>
+    <a href="/watchlist">Watchlist</a>
+    <a href="/performance">Performance</a>
+    <a href="/fixed-income">Renda Fixa</a>
+    <a href="/fintz" class="active">Fintz</a>
+  </div>
+  <div class="fa-topbar-right">
+    <div class="status-dot" id="statusDot" title="TimescaleDB"></div>
+    <div class="user-chip" id="userChip">
+      <span id="userEmail">—</span>
+    </div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main>
+  <!-- Header -->
+  <div class="page-hdr">
+    <div>
+      <div class="page-title">Fintz Histórico</div>
+      <div class="page-sub">Cotações · Indicadores Fundamentalistas · Itens Contábeis — dados point-in-time via TimescaleDB</div>
+    </div>
+  </div>
+
+  <!-- Search -->
+  <div class="sec">
+    <div class="search-row">
+      <input class="ticker-input" id="tickerInput" type="text" placeholder="PETR4" maxlength="10" autocomplete="off">
+      <select class="period-sel" id="periodSel">
+        <option value="252">1 ano</option>
+        <option value="504">2 anos</option>
+        <option value="1260">5 anos</option>
+        <option value="2520">10 anos</option>
+      </select>
+      <button class="btn-load" id="btnLoad" onclick="loadAll()">▶ Carregar</button>
+      <button class="btn-ghost" id="btnAgregado" onclick="toggleAgregado()">Agregado</button>
+      <span id="coveragePill" style="font-family:monospace;font-size:9px;color:var(--muted);padding:4px 10px;background:var(--card);border:1px solid var(--border);border-radius:20px;display:none"></span>
+    </div>
+  </div>
+
+  <!-- Coverage strip -->
+  <div class="coverage-strip" id="coverageStrip" style="display:none">
+    <div class="cov-item">
+      <div class="cov-label">Cotações</div>
+      <div class="cov-val" id="covCotQty">—</div>
+      <div class="cov-range" id="covCotRange">—</div>
+    </div>
+    <div class="cov-item">
+      <div class="cov-label">Indicadores</div>
+      <div class="cov-val" id="covIndQty">—</div>
+      <div class="cov-range" id="covIndRange">—</div>
+    </div>
+    <div class="cov-item">
+      <div class="cov-label">Itens Contábeis</div>
+      <div class="cov-val" id="covItQty">—</div>
+      <div class="cov-range" id="covItRange">—</div>
+    </div>
+  </div>
+
+  <!-- KPIs de cotação -->
+  <div class="sec grid-4" id="kpiRow" style="display:none">
+    <div class="kpi-card">
+      <div class="kpi-lbl">Fechamento Ajust.</div>
+      <div class="kpi-val blue" id="kpiFech">—</div>
+      <div class="kpi-delta" id="kpiVar">—</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-lbl">Máximo 52s</div>
+      <div class="kpi-val green" id="kpiMax52">—</div>
+      <div class="kpi-sub" id="kpiMax52dt">—</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-lbl">Mínimo 52s</div>
+      <div class="kpi-val red" id="kpiMin52">—</div>
+      <div class="kpi-sub" id="kpiMin52dt">—</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-lbl">Volume Médio Diário</div>
+      <div class="kpi-val gold" id="kpiVol">—</div>
+      <div class="kpi-sub">últimos 30 dias</div>
+    </div>
+  </div>
+
+  <!-- Gráfico de cotações -->
+  <div class="sec card" id="cardCotacoes" style="display:none">
+    <div class="card-hdr">
+      <div>
+        <div class="card-title" id="chartTitle">Cotações</div>
+        <div class="card-sub" id="chartSub">—</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn-ghost active" id="btnClose" onclick="setChartMode('close')">Fechamento</button>
+        <button class="btn-ghost" id="btnCandle" onclick="setChartMode('candle')">OHLC</button>
+        <button class="btn-ghost" id="btnVolume" onclick="setChartMode('volume')">Volume</button>
+      </div>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div id="lwChart" style="height:340px"></div>
+    </div>
+  </div>
+
+  <!-- Indicadores + Itens grid -->
+  <div class="grid-2 sec">
+    <!-- Indicadores -->
+    <div class="card" id="cardIndicadores" style="display:none">
+      <div class="card-hdr">
+        <div>
+          <div class="card-title">Indicadores Fundamentalistas</div>
+          <div class="card-sub" id="indDate">snapshot mais recente</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="grupo-row">
+          <button class="btn-grupo active" onclick="setGrupo('valuation')">Valuation</button>
+          <button class="btn-grupo" onclick="setGrupo('rentabilidade')">Rentabilidade</button>
+          <button class="btn-grupo" onclick="setGrupo('dividendos')">Dividendos</button>
+          <button class="btn-grupo" onclick="setGrupo('endividamento')">Endividamento</button>
+          <button class="btn-grupo" onclick="setGrupo(null)">Todos</button>
+        </div>
+        <div class="ind-grid" id="indGrid">
+          <div class="loading-spinner"><div class="spinner"></div>carregando...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Itens Contábeis -->
+    <div class="card" id="cardItens" style="display:none">
+      <div class="card-hdr">
+        <div>
+          <div class="card-title">Itens Contábeis</div>
+          <div class="card-sub" id="itensDate">snapshot mais recente · 12M</div>
+        </div>
+        <select class="period-sel" id="tipoperiodoSel" onchange="loadItens()" style="font-size:9px;padding:4px 8px">
+          <option value="12M">12M</option>
+          <option value="TRIMESTRAL">Trimestral</option>
+        </select>
+      </div>
+      <div class="card-body" style="padding:0;max-height:380px;overflow-y:auto">
+        <div id="itensContent">
+          <div class="loading-spinner"><div class="spinner"></div>carregando...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Série temporal de indicador -->
+  <div class="card sec" id="cardIndSerie" style="display:none">
+    <div class="card-hdr">
+      <div>
+        <div class="card-title" id="indSerieTitle">Série Temporal</div>
+        <div class="card-sub">evolução histórica point-in-time</div>
+      </div>
+      <select class="period-sel" id="indSerieSel" onchange="loadIndSerie()">
+        <option value="P/L">P/L</option>
+        <option value="P/VP">P/VP</option>
+        <option value="ROE">ROE</option>
+        <option value="ROIC">ROIC</option>
+        <option value="DY">DY</option>
+        <option value="EV/EBITDA">EV/EBITDA</option>
+        <option value="Margem Líquida">Margem Líquida</option>
+        <option value="Dívida Líquida/EBITDA">DL/EBITDA</option>
+      </select>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrap-sm">
+        <canvas id="indSerieChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ── State ───────────────────────────────────────────────────────── */
+const S = {
+  ticker: '',
+  token: '',
+  cotacoes: [],
+  chartMode: 'close',
+  grupoAtivo: 'valuation',
+  lwSeries: null,
+  lwChart: null,
+  indSerieChart: null,
+  agregado: false,
+};
+
+/* ── Auth ────────────────────────────────────────────────────────── */
+function getToken() {
+  return localStorage.getItem('access_token') || sessionStorage.getItem('access_token') || '';
+}
+function authHeaders() {
+  const t = getToken();
+  return t ? { 'Authorization': `Bearer ${t}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+}
+function checkAuth() {
+  const t = getToken();
+  if (!t) { window.location.href = '/login'; return false; }
+  try {
+    const p = JSON.parse(atob(t.split('.')[1]));
+    document.getElementById('userEmail').textContent = p.email || p.sub || 'usuário';
+  } catch {}
+  return true;
+}
+
+/* ── Toast ───────────────────────────────────────────────────────── */
+let toastTimer;
+function toast(msg, err = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (err ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = 'toast', 3000);
+}
+
+/* ── Formatters ──────────────────────────────────────────────────── */
+function fmtNum(v, dec = 2) {
+  if (v == null) return '—';
+  const n = parseFloat(v);
+  if (isNaN(n)) return '—';
+  if (Math.abs(n) >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+  if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+  if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+function fmtPct(v) {
+  if (v == null) return '—';
+  return (parseFloat(v) * 100).toFixed(2) + '%';
+}
+function colorClass(v) {
+  if (v == null) return '';
+  return parseFloat(v) >= 0 ? 'green' : 'red';
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return String(d).slice(0, 10);
+}
+function fmtVol(v) {
+  if (!v) return '—';
+  const n = parseFloat(v);
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(0) + 'K';
+  return String(n);
+}
+
+/* ── API ─────────────────────────────────────────────────────────── */
+async function api(path) {
+  const r = await fetch('/api/v1/fintz' + path, { headers: authHeaders() });
+  if (r.status === 401) { window.location.href = '/login'; throw new Error('auth'); }
+  if (r.status === 503) throw new Error('TimescaleDB indisponível');
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+/* ── Main load ───────────────────────────────────────────────────── */
+async function loadAll() {
+  const ticker = document.getElementById('tickerInput').value.trim().toUpperCase();
+  if (!ticker) { toast('Digite um ticker', true); return; }
+  S.ticker = ticker;
+
+  document.getElementById('btnLoad').disabled = true;
+  document.getElementById('btnLoad').textContent = '⟳ Carregando';
+
+  try {
+    await Promise.all([
+      loadCoverage(),
+      loadCotacoes(),
+      loadIndicadores(),
+      loadItens(),
+    ]);
+    loadIndSerie();
+
+    ['cardCotacoes','cardIndicadores','cardItens','cardIndSerie','kpiRow'].forEach(id => {
+      document.getElementById(id).style.display = '';
+    });
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    document.getElementById('btnLoad').disabled = false;
+    document.getElementById('btnLoad').textContent = '▶ Carregar';
+  }
+}
+
+/* ── Coverage ────────────────────────────────────────────────────── */
+async function loadCoverage() {
+  const d = await api(`/coverage/${S.ticker}`);
+  document.getElementById('coverageStrip').style.display = 'flex';
+  document.getElementById('coveragePill').style.display = '';
+
+  const set = (qId, rId, obj) => {
+    document.getElementById(qId).textContent = obj.registros ? fmtNum(obj.registros, 0) : '—';
+    document.getElementById(rId).textContent = obj.inicio ? `${fmtDate(obj.inicio)} → ${fmtDate(obj.fim)}` : '—';
+  };
+  set('covCotQty','covCotRange', d.cotacoes);
+  set('covIndQty','covIndRange', d.indicadores);
+  set('covItQty','covItRange',   d.itens_contabeis);
+  document.getElementById('coveragePill').textContent = `${S.ticker} · ${fmtDate(d.cotacoes?.fim) || '?'}`;
+}
+
+/* ── Cotações ─────────────────────────────────────────────────────── */
+async function loadCotacoes() {
+  const limit = document.getElementById('periodSel').value;
+  let data;
+  if (S.agregado) {
+    const bucket = limit <= 252 ? '1 week' : limit <= 1260 ? '1 month' : '3 months';
+    data = await api(`/cotacoes/${S.ticker}/agregado?bucket=${encodeURIComponent(bucket)}&limit=120`);
+    S.cotacoes = data.periodos || [];
+    renderAggChart(S.cotacoes, bucket);
+  } else {
+    data = await api(`/cotacoes/${S.ticker}?limit=${limit}`);
+    S.cotacoes = (data.cotacoes || []).reverse();
+    renderLWChart(S.cotacoes);
+  }
+
+  document.getElementById('chartTitle').textContent = `${S.ticker} — Cotações`;
+  document.getElementById('chartSub').textContent = `${S.cotacoes.length} pregões`;
+  updateKPIs(S.cotacoes);
+}
+
+function updateKPIs(rows) {
+  if (!rows.length) return;
+  const last = rows[rows.length - 1];
+  const prev = rows[rows.length - 2];
+  const fech = parseFloat(last.fechamento_ajustado || last.fechamento_ajustado || last.fechamento || 0);
+  const prevFech = prev ? parseFloat(prev.fechamento_ajustado || prev.fechamento || 0) : fech;
+  const delta = prevFech ? ((fech - prevFech) / prevFech) : 0;
+
+  document.getElementById('kpiFech').textContent = fmtNum(fech);
+  const vEl = document.getElementById('kpiVar');
+  vEl.textContent = `${delta >= 0 ? '▲' : '▼'} ${Math.abs(delta * 100).toFixed(2)}% vs dia anterior`;
+  vEl.className = 'kpi-delta ' + (delta >= 0 ? 'green' : 'red');
+
+  const maxR = rows.reduce((a,b) => parseFloat(b.maximo||b.high||0) > parseFloat(a.maximo||a.high||0) ? b : a);
+  const minR = rows.reduce((a,b) => parseFloat(b.minimo||b.low||Infinity) < parseFloat(a.minimo||a.low||Infinity) ? b : a);
+  document.getElementById('kpiMax52').textContent = fmtNum(maxR.maximo || maxR.high);
+  document.getElementById('kpiMax52dt').textContent = fmtDate(maxR.data || maxR.periodo);
+  document.getElementById('kpiMin52').textContent = fmtNum(minR.minimo || minR.low);
+  document.getElementById('kpiMin52dt').textContent = fmtDate(minR.data || minR.periodo);
+
+  const recent = rows.slice(-30);
+  const avgVol = recent.reduce((s,r) => s + parseFloat(r.volume || r.volume_total || 0), 0) / recent.length;
+  document.getElementById('kpiVol').textContent = fmtVol(avgVol);
+}
+
+/* ── Lightweight Charts ──────────────────────────────────────────── */
+function renderLWChart(rows) {
+  const container = document.getElementById('lwChart');
+  if (S.lwChart) { S.lwChart.remove(); S.lwChart = null; S.lwSeries = null; }
+
+  const isDark = true;
+  const chart = LightweightCharts.createChart(container, {
+    width: container.clientWidth,
+    height: 340,
+    layout: { background: { color: 'transparent' }, textColor: '#6A9EBF' },
+    grid: { vertLines: { color: 'rgba(58,191,248,.06)' }, horzLines: { color: 'rgba(58,191,248,.06)' } },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    rightPriceScale: { borderColor: 'rgba(58,191,248,.15)' },
+    timeScale: { borderColor: 'rgba(58,191,248,.15)', timeVisible: true },
+  });
+  S.lwChart = chart;
+
+  if (S.chartMode === 'candle') {
+    const cs = chart.addCandlestickSeries({
+      upColor: '#2ED47A', downColor: '#E05555',
+      borderUpColor: '#2ED47A', borderDownColor: '#E05555',
+      wickUpColor: '#2ED47A', wickDownColor: '#E05555',
+    });
+    cs.setData(rows.map(r => ({
+      time: String(r.data).slice(0,10),
+      open:  parseFloat(r.abertura || r.fechamento_ajustado || 0),
+      high:  parseFloat(r.maximo   || r.fechamento_ajustado || 0),
+      low:   parseFloat(r.minimo   || r.fechamento_ajustado || 0),
+      close: parseFloat(r.fechamento_ajustado || r.fechamento || 0),
+    })));
+    S.lwSeries = cs;
+  } else if (S.chartMode === 'volume') {
+    const hs = chart.addHistogramSeries({ color: 'rgba(58,191,248,.5)', priceFormat: { type: 'volume' } });
+    hs.setData(rows.map(r => ({
+      time: String(r.data).slice(0,10),
+      value: parseFloat(r.volume || 0),
+      color: parseFloat(r.fechamento_ajustado||r.fechamento||0) >= parseFloat(r.abertura||0)
+        ? 'rgba(46,212,122,.5)' : 'rgba(224,85,85,.5)',
+    })));
+    S.lwSeries = hs;
+  } else {
+    const ls = chart.addAreaSeries({
+      lineColor: '#3ABFF8', topColor: 'rgba(58,191,248,.2)', bottomColor: 'rgba(58,191,248,.01)',
+      lineWidth: 2,
+    });
+    ls.setData(rows.map(r => ({
+      time: String(r.data).slice(0,10),
+      value: parseFloat(r.fechamento_ajustado || r.fechamento || 0),
+    })));
+    S.lwSeries = ls;
+  }
+
+  chart.timeScale().fitContent();
+  window.addEventListener('resize', () => { if (S.lwChart) S.lwChart.applyOptions({ width: container.clientWidth }); });
+}
+
+function renderAggChart(rows, bucket) {
+  const container = document.getElementById('lwChart');
+  if (S.lwChart) { S.lwChart.remove(); S.lwChart = null; }
+
+  const chart = LightweightCharts.createChart(container, {
+    width: container.clientWidth, height: 340,
+    layout: { background: { color: 'transparent' }, textColor: '#6A9EBF' },
+    grid: { vertLines: { color: 'rgba(58,191,248,.06)' }, horzLines: { color: 'rgba(58,191,248,.06)' } },
+    rightPriceScale: { borderColor: 'rgba(58,191,248,.15)' },
+    timeScale: { borderColor: 'rgba(58,191,248,.15)' },
+  });
+  S.lwChart = chart;
+  const ls = chart.addAreaSeries({ lineColor: '#F0B429', topColor: 'rgba(240,180,41,.25)', bottomColor: 'rgba(240,180,41,.01)', lineWidth: 2 });
+  ls.setData(rows.map(r => ({
+    time: String(r.periodo || r.data || '').slice(0,10),
+    value: parseFloat(r.fechamento_ajustado || r.close || 0),
+  })).filter(r => r.time && r.value));
+  chart.timeScale().fitContent();
+}
+
+function setChartMode(mode) {
+  S.chartMode = mode;
+  ['btnClose','btnCandle','btnVolume'].forEach(id => document.getElementById(id).classList.remove('active'));
+  document.getElementById(mode === 'close' ? 'btnClose' : mode === 'candle' ? 'btnCandle' : 'btnVolume').classList.add('active');
+  if (S.cotacoes.length) renderLWChart(S.cotacoes);
+}
+
+function toggleAgregado() {
+  S.agregado = !S.agregado;
+  document.getElementById('btnAgregado').classList.toggle('active', S.agregado);
+  if (S.ticker) loadCotacoes();
+}
+
+/* ── Indicadores ─────────────────────────────────────────────────── */
+const GRUPO_MAP = {
+  valuation:    ['P/L','P/VP','EV/EBITDA','P/EBITDA','P/Receita Líquida'],
+  rentabilidade:['ROE','ROIC','ROA','Margem Líquida','Margem EBITDA'],
+  dividendos:   ['DY','Payout'],
+  endividamento:['Dívida Líquida/EBITDA','Dívida Líquida/Patrimônio Líquido'],
+};
+const IND_COLORS = {
+  'P/L':'blue','P/VP':'blue','EV/EBITDA':'blue','P/EBITDA':'blue',
+  'ROE':'green','ROIC':'green','ROA':'green','Margem Líquida':'green','Margem EBITDA':'green',
+  'DY':'gold','Payout':'gold',
+  'Dívida Líquida/EBITDA':'red','Dívida Líquida/Patrimônio Líquido':'red',
+};
+
+async function loadIndicadores() {
+  const grupo = S.grupoAtivo;
+  const qs = grupo ? `?grupo=${grupo}` : '';
+  const d = await api(`/indicadores/${S.ticker}/latest${qs}`);
+  renderIndicadores(d.indicadores || {});
+}
+
+function renderIndicadores(ind) {
+  const grid = document.getElementById('indGrid');
+  const entries = Object.entries(ind);
+  if (!entries.length) { grid.innerHTML = '<div class="empty-msg">Sem dados para este grupo</div>'; return; }
+
+  const needsPct = ['ROE','ROIC','ROA','Margem Líquida','Margem EBITDA','DY','Payout'];
+
+  grid.innerHTML = entries.map(([k, v]) => {
+    const val = v?.valor;
+    const date = v?.data_ref;
+    const color = IND_COLORS[k] || 'blue';
+    let display = '—';
+    if (val != null) {
+      display = needsPct.includes(k) ? fmtPct(val) : fmtNum(val);
+    }
+    return `<div class="ind-cell">
+      <div class="ind-name" title="${k}">${k}</div>
+      <div class="ind-val ${color}">${display}</div>
+      <div class="ind-date">${fmtDate(date)}</div>
+    </div>`;
+  }).join('');
+
+  const dates = entries.map(([,v]) => v?.data_ref).filter(Boolean);
+  if (dates.length) document.getElementById('indDate').textContent = `ref: ${fmtDate(dates[0])}`;
+}
+
+async function setGrupo(grupo) {
+  S.grupoAtivo = grupo;
+  document.querySelectorAll('.btn-grupo').forEach(b => {
+    b.classList.toggle('active',
+      (grupo === null && b.textContent === 'Todos') ||
+      (grupo && b.textContent.toLowerCase().startsWith(grupo.toLowerCase()))
+    );
+  });
+  if (S.ticker) await loadIndicadores();
+}
+
+/* ── Itens Contábeis ─────────────────────────────────────────────── */
+const ITENS_FMT = {
+  'Receita Líquida': 'R$', 'Lucro Líquido': 'R$', 'EBITDA': 'R$',
+  'Dívida Líquida': 'R$', 'Patrimônio Líquido': 'R$', 'Ativo Total': 'R$',
+};
+
+async function loadItens() {
+  if (!S.ticker) return;
+  const tipo = document.getElementById('tipoperiodoSel').value;
+  const d = await api(`/itens/${S.ticker}/latest?tipo_periodo=${tipo}`);
+  renderItens(d.itens || {});
+  document.getElementById('itensDate').textContent = `snapshot · ${tipo}`;
+}
+
+function renderItens(itens) {
+  const container = document.getElementById('itensContent');
+  const entries = Object.entries(itens);
+  if (!entries.length) {
+    container.innerHTML = '<div class="empty-msg">Sem dados contábeis disponíveis</div>';
+    return;
+  }
+  const rows = entries
+    .sort((a,b) => (Math.abs(b[1]?.valor||0)) - (Math.abs(a[1]?.valor||0)))
+    .slice(0, 30)
+    .map(([k, v]) => {
+      const val = v?.valor;
+      const date = v?.data_ref;
+      return `<tr>
+        <td>${k}</td>
+        <td class="num">${val != null ? fmtNum(val) : '—'}</td>
+        <td class="dt">${fmtDate(date)}</td>
+      </tr>`;
+    }).join('');
+
+  container.innerHTML = `<table class="itens-table">
+    <thead><tr><th>Item</th><th style="text-align:right">Valor</th><th>Ref</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+/* ── Série de indicador ───────────────────────────────────────────── */
+async function loadIndSerie() {
+  if (!S.ticker) return;
+  const ind = document.getElementById('indSerieSel').value;
+  const d = await api(`/indicadores/${S.ticker}/serie/${encodeURIComponent(ind)}?limit=200`);
+  const serie = (d.serie || []).reverse();
+  renderIndSerie(serie, ind);
+  document.getElementById('indSerieTitle').textContent = `${S.ticker} — ${ind} (série histórica)`;
+}
+
+function renderIndSerie(serie, ind) {
+  if (S.indSerieChart) { S.indSerieChart.destroy(); S.indSerieChart = null; }
+  const ctx = document.getElementById('indSerieChart').getContext('2d');
+  const needsPct = ['ROE','ROIC','ROA','Margem Líquida','Margem EBITDA','DY','Payout'];
+  const multiplier = needsPct.includes(ind) ? 100 : 1;
+
+  S.indSerieChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: serie.map(r => r.data),
+      datasets: [{
+        label: ind,
+        data: serie.map(r => r.valor != null ? parseFloat(r.valor) * multiplier : null),
+        borderColor: '#3ABFF8', backgroundColor: 'rgba(58,191,248,.08)',
+        borderWidth: 2, pointRadius: 0, tension: .3, fill: true, spanGaps: true,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0D2144', borderColor: 'rgba(58,191,248,.3)', borderWidth: 1,
+          titleFont: { family: 'monospace', size: 10 },
+          bodyFont: { family: 'monospace', size: 11 },
+          callbacks: {
+            label: ctx => `${ind}: ${ctx.raw != null ? ctx.raw.toFixed(2) + (needsPct.includes(ind) ? '%' : '') : '—'}`,
+          },
+        },
+      },
+      scales: {
+        x: { ticks: { color: '#6A9EBF', font: { size: 9, family: 'monospace' }, maxTicksLimit: 8 }, grid: { color: 'rgba(58,191,248,.05)' } },
+        y: { ticks: { color: '#6A9EBF', font: { size: 9, family: 'monospace' } }, grid: { color: 'rgba(58,191,248,.05)' } },
+      },
+    },
+  });
+}
+
+/* ── Init ────────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  checkAuth();
+
+  // Enter key on ticker input
+  document.getElementById('tickerInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') loadAll();
+    else document.getElementById('tickerInput').value = e.target.value.toUpperCase();
+  });
+
+  // Check TimescaleDB status via health
+  fetch('/api/v1/fintz/tickers?dataset=cotacoes', { headers: authHeaders() })
+    .then(r => { document.getElementById('statusDot').style.background = r.ok ? 'var(--green)' : 'var(--red)'; })
+    .catch(() => { document.getElementById('statusDot').style.background = 'var(--red)'; });
+});
+</script>
+</body>
+</html>
