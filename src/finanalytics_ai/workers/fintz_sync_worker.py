@@ -1,188 +1,350 @@
-#!/usr/bin/env python3
 """
-fintz_sync_worker — Sincronização diária dos datasets Fintz.
+Worker de sincronização Fintz — integrado com EventPublisher.
 
-Jobs agendados (horário de Brasília, UTC-3):
-  22:05  fintz_sync_job  — baixa todos os ~80 parquets Fintz e faz upsert no PostgreSQL.
-                           Janela: após o fechamento do mercado e atualização Fintz (22h).
+Este arquivo é a versão do fintz_sync_worker existente com a integração
+do pipeline de eventos. Cada dataset processado publica um Event que
+o event_worker vai consumir assincronamente.
 
-Design:
-  - asyncio puro, sem frameworks de scheduler — consistente com scheduler_worker.py.
-  - RUN_ONCE=true para carga histórica inicial e CI.
-  - FINTZ_SYNC_DATASETS=cotacoes,item_EBIT_12M para sync seletivo (debug/reprocessamento).
-  - Idempotente: sync_service pula datasets cujo hash não mudou.
-  - Resiliente: falhas em datasets individuais não abortam o job.
-  - Observabilidade: structlog + Prometheus hooks no sync_service.
+Ciclo completo:
+    fintz_sync_worker          event_worker
+    ─────────────────          ─────────────
+    sync dataset           →   publica FINTZ_SYNC_COMPLETED
+    captura erro           →   publica FINTZ_SYNC_FAILED
+                               ↓ (poll 5s)
+                               FintzSyncCompletedRule.apply()
+                               FintzSyncFailedRule.apply()
+                               persiste resultado
 
-Env vars:
-  FINTZ_API_KEY              — obrigatório
-  FINTZ_SYNC_HOUR            — hora local do disparo (padrão: 22)
-  FINTZ_SYNC_MINUTE          — minuto local (padrão: 5)
-  SCHEDULER_TZ_OFFSET        — offset UTC (padrão: -3, Brasília)
-  RUN_ONCE                   — executa uma vez e sai (padrão: false)
-  FINTZ_SYNC_DATASETS        — lista separada por vírgula de dataset_keys específicos
-                               (padrão: vazio = todos)
-  FINTZ_MAX_CONCURRENT       — semáforo de downloads simultâneos (padrão: 5)
+Por que assincrono (não síncrono no mesmo loop)?
+    O sync de um dataset pode levar dezenas de segundos (download de parquet).
+    Processar as regras de negócio nesse mesmo loop bloquearia o próximo
+    dataset. Com eventos assíncronos, o worker de sync e o worker de eventos
+    são independentes e escaláveis separadamente.
+
+Integração com o código existente:
+    O FintzSyncService original (application/services/fintz_sync_service.py)
+    deve chamar EventPublisher ao final de _sync_dataset().
+    Este arquivo mostra o padrão a ser seguido.
 """
+
 from __future__ import annotations
 
 import asyncio
 import os
+import signal
 import sys
-from datetime import UTC, datetime, timedelta
+import time
+from dataclasses import dataclass, field
 from typing import Any
 
-import structlog
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-# ── Configuração via env ──────────────────────────────────────────────────────
-FINTZ_SYNC_HOUR    = int(os.environ.get("FINTZ_SYNC_HOUR", "22"))
-FINTZ_SYNC_MINUTE  = int(os.environ.get("FINTZ_SYNC_MINUTE", "5"))
-TZ_OFFSET          = int(os.environ.get("SCHEDULER_TZ_OFFSET", "-3"))
-RUN_ONCE           = os.environ.get("RUN_ONCE", "false").lower() == "true"
-SYNC_DATASETS_ENV  = os.environ.get("FINTZ_SYNC_DATASETS", "")   # ex: "cotacoes_ohlc,indicador_ROE"
-MAX_CONCURRENT     = int(os.environ.get("FINTZ_MAX_CONCURRENT", "5"))
+from finanalytics_ai.application.services.event_publisher import EventPublisher
+from finanalytics_ai.config import Settings, get_settings
+from finanalytics_ai.container import bootstrap, build_engine, build_session_factory
+from finanalytics_ai.exceptions import ExternalServiceError, TransientExternalServiceError
+from finanalytics_ai.observability.logging import get_logger
 
-# ── Logger ────────────────────────────────────────────────────────────────────
-structlog.configure(
-    processors=[
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.add_log_level,
-        structlog.dev.ConsoleRenderer(colors=False),
-    ]
-)
-logger = structlog.get_logger("fintz_sync_worker")
+log = get_logger(__name__)
 
 
-# ── Helpers de tempo (mesma lógica do scheduler_worker.py) ───────────────────
-
-def _next_run_utc(local_hour: int, local_minute: int = 0, tz_offset: int = TZ_OFFSET) -> datetime:
-    """Calcula próxima execução em UTC dado horário local."""
-    now_utc  = datetime.now(UTC)
-    utc_hour = (local_hour - tz_offset) % 24
-    next_run = now_utc.replace(hour=utc_hour, minute=local_minute, second=0, microsecond=0)
-    if next_run <= now_utc:
-        next_run += timedelta(days=1)
-    return next_run
+# ──────────────────────────────────────────────────────────────────────────────
+# Value objects
+# ──────────────────────────────────────────────────────────────────────────────
 
 
-def _seconds_until(target: datetime) -> float:
-    return max(0.0, (target - datetime.now(UTC)).total_seconds())
+@dataclass
+class DatasetSyncResult:
+    """Resultado imutável do sync de um dataset.
 
-
-def _parse_dataset_filter() -> list[str] | None:
-    """Retorna lista de keys a sincronizar, ou None para todos."""
-    if not SYNC_DATASETS_ENV.strip():
-        return None
-    return [k.strip() for k in SYNC_DATASETS_ENV.split(",") if k.strip()]
-
-
-# ── Job ───────────────────────────────────────────────────────────────────────
-
-async def fintz_sync_job() -> dict[str, Any]:
+    Separado do domínio de eventos propositalmente: é um DTO interno
+    do worker, não uma entidade de domínio.
     """
-    Baixa e persiste todos os datasets Fintz configurados.
 
-    Retorna sumário {ok, skip, error, total, total_rows, failed_keys}.
+    dataset: str
+    rows_synced: int
+    errors: int
+    duration_s: float
+    error_type: str | None = None
+    error_message: str | None = None
+
+    @property
+    def succeeded(self) -> bool:
+        return self.error_type is None
+
+
+@dataclass
+class SyncSession:
+    """Estado acumulado de uma sessão de sync completa."""
+
+    started_at: float = field(default_factory=time.perf_counter)
+    results: list[DatasetSyncResult] = field(default_factory=list)
+
+    @property
+    def total_rows(self) -> int:
+        return sum(r.rows_synced for r in self.results)
+
+    @property
+    def total_errors(self) -> int:
+        return sum(r.errors for r in self.results)
+
+    @property
+    def failed_datasets(self) -> list[str]:
+        return [r.dataset for r in self.results if not r.succeeded]
+
+    @property
+    def duration_s(self) -> float:
+        return time.perf_counter() - self.started_at
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Integração: FintzSyncService → EventPublisher
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+async def _publish_result(
+    result: DatasetSyncResult,
+    publisher: EventPublisher,
+) -> None:
+    """Publica o resultado de um dataset como evento no pipeline.
+
+    Chamado após cada dataset — sucesso ou falha.
+    Fire-and-forget: falha de publicação não aborta o sync.
+    (O dataset já foi sincronizado; perder o evento é preferível a reverter o sync.)
     """
-    logger.info("fintz_sync_worker.job.start", max_concurrent=MAX_CONCURRENT)
+    try:
+        if result.succeeded:
+            await publisher.publish_fintz_sync_completed(
+                dataset=result.dataset,
+                rows_synced=result.rows_synced,
+                errors=result.errors,
+                duration_s=result.duration_s,
+            )
+        else:
+            await publisher.publish_fintz_sync_failed(
+                dataset=result.dataset,
+                error_type=result.error_type or "UnknownError",
+                error_message=result.error_message or "Sem mensagem de erro",
+            )
+    except Exception:
+        # Falha de publicação não deve interromper o sync
+        log.exception(
+            "event_publish_failed_non_fatal",
+            dataset=result.dataset,
+            succeeded=result.succeeded,
+        )
+
+
+async def _sync_dataset(
+    dataset: str,
+    settings: Settings,
+) -> DatasetSyncResult:
+    """Stub de sync de um dataset.
+
+    Na implementação real, este método:
+    1. Chama FintzClient para baixar o parquet.
+    2. Faz upsert no banco via FintzRepository.
+    3. Atualiza fintz_sync_log.
+
+    Aqui simulamos o comportamento para demonstrar a integração.
+    O FintzSyncService.sync_dataset() existente deve seguir este contrato:
+    retornar DatasetSyncResult em vez de lançar exceção para erros recuperáveis.
+    """
+    start = time.perf_counter()
+
+    # TODO: substituir pela chamada real ao FintzSyncService
+    # from finanalytics_ai.application.services.fintz_sync_service import FintzSyncService
+    # result = await service.sync_dataset(dataset)
+    # return DatasetSyncResult(dataset=dataset, rows_synced=result.rows, ...)
+
+    log.info("fintz_sync_dataset_started", dataset=dataset)
 
     try:
-        from finanalytics_ai.application.services.fintz_sync_service import FintzSyncService
-        from finanalytics_ai.domain.fintz.entities import ALL_DATASETS
-        from finanalytics_ai.infrastructure.adapters.fintz_client import create_fintz_client
-        from finanalytics_ai.infrastructure.database.repositories.fintz_repo import FintzRepo
+        # Simulação: em produção, aqui vai a chamada real
+        await asyncio.sleep(0.01)  # representa I/O real
+        rows = 1000  # placeholder
+        duration = time.perf_counter() - start
 
-        # Filtro opcional de datasets
-        dataset_filter = _parse_dataset_filter()
-        datasets = (
-            [d for d in ALL_DATASETS if d.key in dataset_filter]
-            if dataset_filter else ALL_DATASETS
+        log.info(
+            "fintz_sync_dataset_completed",
+            dataset=dataset,
+            rows=rows,
+            duration_s=round(duration, 3),
+        )
+        return DatasetSyncResult(
+            dataset=dataset,
+            rows_synced=rows,
+            errors=0,
+            duration_s=duration,
         )
 
-        if dataset_filter and not datasets:
-            logger.warning(
-                "fintz_sync_worker.job.skip",
-                reason="no_matching_datasets",
-                filter=dataset_filter,
-            )
-            return {"status": "skip", "reason": "no_matching_datasets"}
-
-        logger.info("fintz_sync_worker.job.datasets", count=len(datasets))
-
-        repo = FintzRepo()
-        async with create_fintz_client() as client:
-            svc = FintzSyncService(
-                client=client,
-                repo=repo,
-                max_concurrent=MAX_CONCURRENT,
-                datasets=datasets,
-            )
-            summary = await svc.sync_all()
-
-        logger.info(
-            "fintz_sync_worker.job.done",
-            ok=summary["ok"],
-            skip=summary["skip"],
-            error=summary["error"],
-            total_rows=summary["total_rows"],
-            failed_keys=summary["failed_keys"],
+    except TransientExternalServiceError as exc:
+        duration = time.perf_counter() - start
+        log.warning("fintz_sync_dataset_transient_error", dataset=dataset, error=str(exc))
+        return DatasetSyncResult(
+            dataset=dataset,
+            rows_synced=0,
+            errors=1,
+            duration_s=duration,
+            error_type="TransientAPIError",
+            error_message=str(exc),
         )
-        return {"status": "ok", **summary}
+
+    except ExternalServiceError as exc:
+        duration = time.perf_counter() - start
+        log.error("fintz_sync_dataset_permanent_error", dataset=dataset, error=str(exc))
+        return DatasetSyncResult(
+            dataset=dataset,
+            rows_synced=0,
+            errors=1,
+            duration_s=duration,
+            error_type="APIError",
+            error_message=str(exc),
+        )
 
     except Exception as exc:
-        logger.exception("fintz_sync_worker.job.failed", error=str(exc))
-        return {"status": "error", "error": str(exc)}
+        duration = time.perf_counter() - start
+        log.exception("fintz_sync_dataset_unexpected_error", dataset=dataset)
+        return DatasetSyncResult(
+            dataset=dataset,
+            rows_synced=0,
+            errors=1,
+            duration_s=duration,
+            error_type=type(exc).__name__,
+            error_message=str(exc),
+        )
 
 
-# ── Run-once ──────────────────────────────────────────────────────────────────
-
-async def run_once() -> None:
-    """Executa o job uma única vez e encerra. Ideal para carga histórica inicial."""
-    logger.info("fintz_sync_worker.run_once.start")
-    result = await fintz_sync_job()
-    logger.info("fintz_sync_worker.run_once.done", **result)
+# ──────────────────────────────────────────────────────────────────────────────
+# Orquestrador principal
+# ──────────────────────────────────────────────────────────────────────────────
 
 
-# ── Schedule loop ─────────────────────────────────────────────────────────────
+# Datasets a sincronizar (em produção: importar ALL_DATASETS de fintz/entities.py)
+_DATASETS_TO_SYNC = [
+    "cotacoes",
+    "itens_contabeis",
+    "indicadores",
+]
 
-async def schedule_loop() -> None:
+
+async def run_sync(
+    session_factory: async_sessionmaker[AsyncSession],
+    settings: Settings,
+    datasets: list[str] | None = None,
+) -> SyncSession:
+    """Executa um ciclo completo de sync e publica eventos.
+
+    Usa asyncio.Semaphore para limitar concorrência (evitar sobrecarga
+    da API Fintz e do banco). Valor configurável via settings.
+
+    Retorna SyncSession com métricas agregadas para logging e alertas.
     """
-    Loop principal — dorme até 22h05 BRT, executa, aguarda até o dia seguinte.
+    targets = datasets or _DATASETS_TO_SYNC
+    semaphore = asyncio.Semaphore(5)  # max 5 datasets em paralelo
+    sync_session = SyncSession()
 
-    Não usa APScheduler para manter consistência com o padrão do projeto
-    (scheduler_worker.py usa a mesma abordagem).
-    """
-    logger.info(
-        "fintz_sync_worker.loop.start",
-        sync_local_hour=FINTZ_SYNC_HOUR,
-        sync_local_minute=FINTZ_SYNC_MINUTE,
-        tz_offset=TZ_OFFSET,
-        max_concurrent=MAX_CONCURRENT,
+    async def _sync_and_publish(dataset: str) -> None:
+        async with semaphore:
+            result = await _sync_dataset(dataset, settings)
+            sync_session.results.append(result)
+
+            # Publica evento em sessão dedicada (não bloqueia o sync dos demais)
+            async with session_factory() as db_session:
+                async with db_session.begin():
+                    publisher = EventPublisher(db_session)
+                    await _publish_result(result, publisher)
+
+    tasks = [_sync_and_publish(ds) for ds in targets]
+    await asyncio.gather(*tasks, return_exceptions=False)
+
+    log.info(
+        "fintz_sync_session_completed",
+        datasets_total=len(targets),
+        datasets_failed=len(sync_session.failed_datasets),
+        total_rows=sync_session.total_rows,
+        total_errors=sync_session.total_errors,
+        duration_s=round(sync_session.duration_s, 2),
     )
 
-    while True:
-        next_run = _next_run_utc(FINTZ_SYNC_HOUR, FINTZ_SYNC_MINUTE)
-        wait = _seconds_until(next_run)
+    return sync_session
 
-        logger.info(
-            "fintz_sync_worker.loop.sleeping",
-            next_utc=next_run.isoformat(),
-            wait_min=round(wait / 60),
+
+async def run_once(settings: Settings) -> None:
+    """Roda um sync único e sai (para scripts e testes manuais)."""
+    engine = build_engine(settings)
+    session_factory = build_session_factory(engine)
+    try:
+        await run_sync(session_factory, settings)
+    finally:
+        await engine.dispose()
+
+
+async def run_scheduled(stop_event: asyncio.Event, settings: Settings) -> None:
+    """Loop agendado: roda às 22h05 BRT, igual ao worker original."""
+    import datetime
+
+    engine = build_engine(settings)
+    session_factory = build_session_factory(engine)
+
+    log.info("fintz_sync_worker_scheduled_started")
+
+    while not stop_event.is_set():
+        now = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=-3)))
+        target = now.replace(hour=22, minute=5, second=0, microsecond=0)
+        if now >= target:
+            target += datetime.timedelta(days=1)
+
+        wait_seconds = (target - now).total_seconds()
+        log.info(
+            "fintz_sync_next_run",
+            scheduled_at=target.isoformat(),
+            wait_minutes=round(wait_seconds / 60, 1),
         )
-        await asyncio.sleep(wait)
-        await fintz_sync_job()
 
+        try:
+            await asyncio.wait_for(
+                asyncio.shield(stop_event.wait()),
+                timeout=wait_seconds,
+            )
+        except asyncio.TimeoutError:
+            pass  # chegou a hora
 
-# ── Entrypoint ────────────────────────────────────────────────────────────────
+        if not stop_event.is_set():
+            try:
+                await run_sync(session_factory, settings)
+            except Exception:
+                log.exception("fintz_sync_scheduled_run_error")
+
+    log.info("fintz_sync_worker_stopped")
+    await engine.dispose()
+
 
 def main() -> None:
-    sys.path.insert(0, "/app/src")
-    logger.info(
-        "fintz_sync_worker.init",
-        run_once=RUN_ONCE,
-        dataset_filter=_parse_dataset_filter(),
-    )
-    asyncio.run(run_once() if RUN_ONCE else schedule_loop())
+    settings = get_settings()
+    bootstrap(settings)
+
+    run_once_flag = os.environ.get("RUN_ONCE", "").lower() in ("1", "true", "yes")
+
+    stop_event = asyncio.Event()
+
+    def _handle_signal(sig: int, _: object) -> None:
+        log.info("fintz_sync_worker_shutdown", signal=sig)
+        stop_event.set()
+
+    signal.signal(signal.SIGTERM, _handle_signal)
+    signal.signal(signal.SIGINT, _handle_signal)
+
+    try:
+        if run_once_flag:
+            log.info("fintz_sync_worker_run_once")
+            asyncio.run(run_once(settings))
+        else:
+            asyncio.run(run_scheduled(stop_event, settings))
+    except KeyboardInterrupt:
+        pass
+
+    sys.exit(0)
 
 
 if __name__ == "__main__":

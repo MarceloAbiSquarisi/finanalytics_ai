@@ -1,149 +1,134 @@
 # ──────────────────────────────────────────────────────────────────────────────
-# FinAnalytics AI — Makefile
+# Makefile — finanalytics_ai
 #
-# Stacks disponíveis:
-#   make up          → API + Postgres + Redis (dev, hot reload, ~10s)
-#   make up-full     → stack completa: + Kafka + TimescaleDB
-#   make up-obs      → + Prometheus + Grafana (sobre a stack atual)
-#   make up-prod     → produção (sem override dev)
-#   make down        → para e remove containers (mantém volumes)
-#   make clean       → para E remove volumes (limpa dados)
-#
-# Build:
-#   make build       → reconstrói imagem da API
-#   make build-worker → reconstrói imagem do worker
-#   make build-all   → reconstrói API + worker
-#
-# Dev:
-#   make logs        → tail logs da API
-#   make logs-worker → tail logs do worker
-#   make shell       → bash na API
-#   make psql        → psql no PostgreSQL
-#   make test        → pytest dentro do container
-#   make lint        → ruff + mypy
-#   make health      → health check manual
+# Uso:
+#   make install       instala dependências (dev)
+#   make test          roda testes unitários
+#   make test-all      roda unit + integration (precisa de banco)
+#   make lint          ruff + black check
+#   make fmt           formata código com black
+#   make typecheck     mypy
+#   make check         lint + typecheck + test (pre-commit / CI)
+#   make worker        sobe event_worker localmente
+#   make sync          roda fintz_sync_worker em modo RUN_ONCE
+#   make migration     cria nova migration (NAME=nome_da_migration)
+#   make migrate       aplica todas as migrations pendentes
+#   make clean         remove arquivos temporários
 # ──────────────────────────────────────────────────────────────────────────────
 
-.PHONY: up up-full up-obs up-prod down clean \
-        build build-worker build-all \
-        logs logs-worker logs-all shell psql kafka-topics \
-        test lint health status help
+.PHONY: install test test-all lint fmt typecheck check worker sync \
+        migration migrate clean publish-test-events
 
-# ── Setup automático de .env ───────────────────────────────────────────────────
-.env:
-	@echo "⚠️  .env não encontrado — copiando .env.docker como base"
-	cp .env.docker .env
-	@echo "✅ .env criado. Edite BRAPI_TOKEN e APP_SECRET_KEY antes de subir."
-	@echo ""
+PYTHON   := uv run python
+PYTEST   := uv run python -m pytest
+MYPY     := uv run mypy
+RUFF     := uv run ruff
+BLACK    := uv run black
+ALEMBIC  := uv run alembic
 
-# ── Stacks ────────────────────────────────────────────────────────────────────
+# Variáveis de ambiente mínimas para comandos que não precisam de banco
+UNIT_ENV := \
+	DATABASE_URL="postgresql+asyncpg://test:test@localhost/test" \
+	APP_SECRET_KEY="dev-secret-key-local" \
+	LOG_LEVEL="ERROR" \
+	METRICS_ENABLED="false"
 
-## [Stack] API + Postgres + Redis (dev rápido, hot reload)
-up: .env
-	docker compose up -d postgres redis api worker
-	@echo ""
-	@echo "✅ Stack dev subindo... aguarde ~15s para os healthchecks."
-	@echo "   API:  http://localhost:${API_PORT:-8000}"
-	@echo "   Docs: http://localhost:${API_PORT:-8000}/docs"
-	@echo "   Logs: make logs"
+# ── Instalação ─────────────────────────────────────────────────────────────────
 
-## [Stack] Stack completa: + Kafka + TimescaleDB
-up-full: .env
-	docker compose up -d
-	@echo ""
-	@echo "✅ Stack completa subindo... aguarde ~60s (Kafka demora)."
-	@echo "   API:  http://localhost:${API_PORT:-8000}"
-	@echo "   Kafka: localhost:${KAFKA_PORT:-9092}"
+install:
+	uv pip install -e ".[dev]"
 
-## [Stack] + Prometheus (9090) + Grafana (3000)
-up-obs: .env
-	docker compose -f docker-compose.yml \
-	               -f docker-compose.override.yml \
-	               -f docker-compose.observability.yml up -d
-	@echo ""
-	@echo "✅ Stack com observabilidade:"
-	@echo "   Prometheus: http://localhost:9090"
-	@echo "   Grafana:    http://localhost:3000  (admin/admin)"
+# ── Testes ─────────────────────────────────────────────────────────────────────
 
-## [Stack] Modo produção (sem overrides de dev)
-up-prod: .env
-	docker compose -f docker-compose.yml up -d
-	@echo "✅ Produção subindo (sem hot reload)."
-
-## Para containers (mantém volumes de dados)
-down:
-	docker compose down
-
-## Para e remove TODOS os volumes (⚠️ dados apagados)
-clean:
-	docker compose down -v
-	@echo "⚠️  Volumes removidos — dados apagados."
-
-# ── Build ──────────────────────────────────────────────────────────────────────
-
-## Reconstrói imagem da API sem cache
-build:
-	docker compose build --no-cache api
-
-## Reconstrói imagem do worker sem cache
-build-worker:
-	docker build --target worker -t finanalytics-worker:latest --no-cache .
-
-## Reconstrói API + worker
-build-all:
-	docker compose build --no-cache api
-	docker build --target worker -t finanalytics-worker:latest --no-cache .
-
-# ── Logs ──────────────────────────────────────────────────────────────────────
-
-## Logs da API em tempo real
-logs:
-	docker compose logs -f api
-
-## Logs do worker em tempo real
-logs-worker:
-	docker compose logs -f worker
-
-## Logs de todos os serviços
-logs-all:
-	docker compose logs -f
-
-# ── Dev ───────────────────────────────────────────────────────────────────────
-
-## Shell bash na API
-shell:
-	docker compose exec api bash
-
-## psql no PostgreSQL
-psql:
-	docker compose exec postgres psql -U finanalytics -d finanalytics
-
-## Lista tópicos Kafka (requer up-full)
-kafka-topics:
-	docker compose exec kafka kafka-topics \
-	    --bootstrap-server localhost:9092 --list
-
-## Roda pytest dentro do container da API
 test:
-	docker compose run --rm api \
-	    python -m pytest tests/ -v --tb=short
+	$(UNIT_ENV) $(PYTEST) tests/unit/ -v --tb=short
 
-## Lint: ruff + mypy
+test-cov:
+	$(UNIT_ENV) $(PYTEST) tests/unit/ \
+		--cov=src/finanalytics_ai \
+		--cov-report=term-missing \
+		--cov-report=html:htmlcov \
+		--cov-fail-under=80
+
+test-all:
+	$(PYTEST) tests/ -v --tb=short -m "not slow"
+
+test-integration:
+	$(PYTEST) tests/integration/ -v --tb=short -m integration
+
+# ── Qualidade de código ────────────────────────────────────────────────────────
+
 lint:
-	docker compose run --rm api \
-	    sh -c "ruff check src/ && mypy src/ --no-error-summary"
+	$(RUFF) check src/ tests/
+	$(BLACK) --check src/ tests/
 
-## Status de todos os containers
-status:
-	docker compose ps
+fmt:
+	$(RUFF) check --fix src/ tests/
+	$(BLACK) src/ tests/
 
-## Health check manual da API
-health:
-	@curl -sf http://localhost:${API_PORT:-8000}/health | python -m json.tool \
-	    || echo "❌ API não respondeu em http://localhost:${API_PORT:-8000}/health"
+typecheck:
+	$(MYPY) src/
 
-## Mostra este help
-help:
-	@echo "FinAnalytics AI — comandos disponíveis:"
-	@echo ""
-	@grep -E '^## ' Makefile | sed 's/## /  /'
+# Roda lint + typecheck + testes unit — para usar antes de push
+check: lint typecheck test
+	@echo "✓ Tudo OK — pronto para commit"
+
+# ── Workers ────────────────────────────────────────────────────────────────────
+
+worker:
+	$(PYTHON) -m finanalytics_ai.workers.event_worker
+
+sync:
+	RUN_ONCE=true $(PYTHON) -m finanalytics_ai.workers.fintz_sync_worker
+
+# ── API ────────────────────────────────────────────────────────────────────────
+
+api:
+	uv run uvicorn finanalytics_ai.app:app --reload --host 0.0.0.0 --port 8000
+
+# ── Database ───────────────────────────────────────────────────────────────────
+
+migrate:
+	$(ALEMBIC) upgrade head
+
+# Uso: make migration NAME=add_alert_table
+migration:
+	$(ALEMBIC) revision --autogenerate -m "$(NAME)"
+
+db-current:
+	$(ALEMBIC) current
+
+db-history:
+	$(ALEMBIC) history --verbose
+
+# ── Debug scripts ──────────────────────────────────────────────────────────────
+
+# Uso: make publish-test-events TYPE=completed DATASET=cotacoes COUNT=5
+publish-test-events:
+	$(PYTHON) scripts/publish_test_events.py \
+		--type $(or $(TYPE),completed) \
+		--dataset $(or $(DATASET),cotacoes) \
+		--count $(or $(COUNT),3)
+
+validate-pipeline:
+	$(PYTHON) scripts/validate_event_pipeline.py
+
+# ── Docker ─────────────────────────────────────────────────────────────────────
+
+docker-build:
+	docker build -f Dockerfile.event_worker -t finanalytics-event-worker:latest .
+
+docker-worker:
+	docker compose -f docker-compose.yml -f docker-compose.event_worker.yml \
+		up -d event_worker
+
+docker-logs:
+	docker logs finanalytics_event_worker --follow --tail 50
+
+# ── Limpeza ────────────────────────────────────────────────────────────────────
+
+clean:
+	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	find . -type f -name "*.pyc" -delete 2>/dev/null || true
+	rm -rf htmlcov .coverage .mypy_cache .ruff_cache .pytest_cache
+	@echo "✓ Limpo"

@@ -1,4 +1,4 @@
-# Contexto do Projeto — finanalytics_ai
+cld# Contexto do Projeto — finanalytics_ai
 > Cole este arquivo no início de uma nova conversa para retomar de onde paramos.
 
 ## Projeto

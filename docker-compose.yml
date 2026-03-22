@@ -14,7 +14,7 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - E:/finanalytics_data/docker/postgres:/var/lib/postgresql/data
       - ./init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test:     ["CMD-SHELL", "pg_isready -U finanalytics -d finanalytics"]
@@ -35,7 +35,7 @@ services:
     ports:
       - "${TIMESCALE_PORT:-5433}:5432"
     volumes:
-      - tsdata:/var/lib/postgresql/data
+      - E:/finanalytics_data/docker/timescale:/var/lib/postgresql/data
     healthcheck:
       test:     ["CMD-SHELL", "pg_isready -U finanalytics -d market_data"]
       interval: 5s
@@ -53,8 +53,8 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME:   2000
     volumes:
-      - zkdata:/var/lib/zookeeper/data
-      - zklogs:/var/lib/zookeeper/log
+      - E:/finanalytics_data/docker/kafka/zk-data:/var/lib/zookeeper/data
+      - E:/finanalytics_data/docker/kafka/zk-logs:/var/lib/zookeeper/log
     healthcheck:
       test:     ["CMD-SHELL", "echo ruok | nc localhost 2181"]
       interval: 10s
@@ -83,7 +83,7 @@ services:
     ports:
       - "${KAFKA_PORT:-9092}:9092"
     volumes:
-      - kafkadata:/var/lib/kafka/data
+      - E:/finanalytics_data/docker/kafka:/var/lib/kafka/data
     healthcheck:
       test:     ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
       interval: 15s
@@ -253,11 +253,3 @@ networks:
   finanalytics_net:
     name: finanalytics_net
     driver: bridge
-
-volumes:
-  pgdata:
-  tsdata:
-  kafkadata:
-  zkdata:
-  zklogs:
-  redisdata:

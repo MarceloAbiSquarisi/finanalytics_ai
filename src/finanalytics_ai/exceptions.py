@@ -1,201 +1,130 @@
 """
-finanalytics_ai.exceptions
-───────────────────────────
-Hierarquia de exceções customizadas do domínio.
+Exceções customizadas do sistema.
 
-Design decision: Hierarquia explícita permite que o código chamador
-faça catch granular ou amplo conforme o contexto. Evita usar
-exceções genéricas (ValueError, RuntimeError) que perdem contexto.
+Hierarquia:
+    AppError                  ← base para tudo
+    ├── DomainError           ← violações de regras de negócio (não retry)
+    │   ├── InvalidEventIdError
+    │   ├── InvalidStatusTransitionError
+    │   └── EventValidationError
+    ├── ApplicationError      ← erros de orquestração
+    │   ├── EventAlreadyProcessedError
+    │   ├── NoHandlerFoundError
+    │   └── BusinessRuleError
+    └── InfrastructureError   ← erros de I/O (candidatos a retry)
+        ├── DatabaseError
+        ├── TransientDatabaseError  ← subconjunto retryable
+        └── ExternalServiceError
+            └── TransientExternalServiceError
 
-Cada exceção carrega um `code` estruturado — útil para logging,
-monitoramento e respostas de API padronizadas.
+Regra de retry: apenas subclasses de TransientError são retentadas.
 """
 
-from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any
+class AppError(Exception):
+    """Raiz da hierarquia. Nunca capture esta classe diretamente no app code."""
 
-
-@dataclass
-class FinAnalyticsError(Exception):
-    """Raiz da hierarquia de exceções do FinAnalytics AI."""
-
-    message: str
-    code: str = "FINANALYTICS_ERROR"
-    context: dict[str, Any] = field(default_factory=dict)
-
-    def __str__(self) -> str:
-        if self.context:
-            ctx_str = ", ".join(f"{k}={v!r}" for k, v in self.context.items())
-            return f"[{self.code}] {self.message} ({ctx_str})"
-        return f"[{self.code}] {self.message}"
+    def __init__(self, message: str, *, context: dict | None = None) -> None:
+        super().__init__(message)
+        self.context: dict = context or {}
 
 
-# ── Domínio ───────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+# Application errors
+# ──────────────────────────────────────────────────────────────────────────────
 
 
-@dataclass
-class DomainError(FinAnalyticsError):
-    """Violação de regra de negócio."""
-
-    code: str = "DOMAIN_ERROR"
+class ApplicationError(AppError):
+    pass
 
 
-@dataclass
-class InvalidTickerError(DomainError):
-    """Ticker de ativo inválido ou não encontrado."""
+class EventAlreadyProcessedError(ApplicationError):
+    """Lançado quando tentamos reprocessar um evento já COMPLETED.
 
-    code: str = "INVALID_TICKER"
+    Não é um erro de verdade — é idempotência. O caller deve ignorar.
+    """
 
-
-@dataclass
-class InsufficientFundsError(DomainError):
-    """Saldo insuficiente para a operação."""
-
-    code: str = "INSUFFICIENT_FUNDS"
+    pass
 
 
-@dataclass
-class InvalidQuantityError(DomainError):
-    """Quantidade de ativos inválida (negativa ou zero)."""
+class NoHandlerFoundError(ApplicationError):
+    """Nenhuma BusinessRule registrada para o EventType recebido."""
 
-    code: str = "INVALID_QUANTITY"
-
-
-@dataclass
-class PortfolioNotFoundError(DomainError):
-    """Portfólio não encontrado para o usuário."""
-
-    code: str = "PORTFOLIO_NOT_FOUND"
+    pass
 
 
-@dataclass
-class StopLossViolationError(DomainError):
-    """Operação bloqueada por regra de stop loss."""
+class BusinessRuleError(ApplicationError):
+    """A regra de negócio rejeitou o evento (dados inválidos, estado inconsistente).
 
-    code: str = "STOP_LOSS_VIOLATION"
+    Não faz sentido retentar — o payload não vai mudar.
+    Deve ir direto para dead-letter.
+    """
 
-
-# ── Aplicação ─────────────────────────────────────────────────────────────────
-
-
-@dataclass
-class ApplicationError(FinAnalyticsError):
-    """Erros de orquestração e casos de uso."""
-
-    code: str = "APPLICATION_ERROR"
+    pass
 
 
-@dataclass
-class DuplicateEventError(ApplicationError):
-    """Evento duplicado detectado — idempotência."""
-
-    code: str = "DUPLICATE_EVENT"
+# ──────────────────────────────────────────────────────────────────────────────
+# Infrastructure errors
+# ──────────────────────────────────────────────────────────────────────────────
 
 
-@dataclass
-class EventProcessingError(ApplicationError):
-    """Falha ao processar um evento de mercado."""
-
-    code: str = "EVENT_PROCESSING_ERROR"
+class InfrastructureError(AppError):
+    pass
 
 
-@dataclass
-class CommandValidationError(ApplicationError):
-    """Command inválido (campos faltando, tipos errados)."""
-
-    code: str = "COMMAND_VALIDATION_ERROR"
-
-
-# ── Infraestrutura ────────────────────────────────────────────────────────────
-
-
-@dataclass
-class InfrastructureError(FinAnalyticsError):
-    """Erros de I/O, banco, rede."""
-
-    code: str = "INFRASTRUCTURE_ERROR"
-
-
-@dataclass
 class DatabaseError(InfrastructureError):
-    """Falha de banco de dados."""
-
-    code: str = "DATABASE_ERROR"
+    pass
 
 
-@dataclass
-class ConnectionPoolExhaustedError(DatabaseError):
-    """Pool de conexões esgotado."""
+class TransientDatabaseError(DatabaseError):
+    """Falhas de conexão, deadlock, timeout — candidatas a retry."""
 
-    code: str = "CONNECTION_POOL_EXHAUSTED"
-
-
-@dataclass
-class MarketDataUnavailableError(InfrastructureError):
-    """API de dados de mercado indisponível ou sem resposta."""
-
-    code: str = "MARKET_DATA_UNAVAILABLE"
+    pass
 
 
-@dataclass
-class BrokerAPIError(InfrastructureError):
-    """Erro na API da corretora (XP, BTG)."""
-
-    code: str = "BROKER_API_ERROR"
-    status_code: int = 0
+class ExternalServiceError(InfrastructureError):
+    pass
 
 
-@dataclass
-class TransientError(InfrastructureError):
-    """
-    Erro transitório — elegível para retry.
+class TransientExternalServiceError(ExternalServiceError):
+    """HTTP 429, 503, timeout — candidatas a retry com backoff."""
 
-    O decorator de retry (tenacity) captura esta exceção.
-    Não envolva erros permanentes (ex: 404) nesta classe.
-    """
-
-    code: str = "TRANSIENT_ERROR"
-    attempt: int = 0
+    pass
 
 
-# ── Fintz ─────────────────────────────────────────────────────────────────────
+# ── Exceções do domínio legado (compatibilidade) ─────────────────────────────
 
+class InvalidTickerError(AppError):
+    pass
 
-@dataclass
+class InvalidQuantityError(AppError):
+    pass
+
 class FintzAPIError(InfrastructureError):
-    """
-    Erro na API Fintz — resposta HTTP inesperada ou timeout.
+    pass
 
-    Capture para retry ou skip do dataset com log de erro.
-    """
-
-    code: str = "FINTZ_API_ERROR"
-    status_code: int = 0
-    dataset_key: str = ""
-
-
-@dataclass
 class FintzParseError(InfrastructureError):
-    """
-    Erro ao parsear o arquivo parquet retornado pela Fintz.
+    pass
 
-    Indica schema inesperado — investigar se a Fintz mudou o formato.
-    """
+class FintzSyncError(InfrastructureError):
+    pass
 
-    code: str = "FINTZ_PARSE_ERROR"
-    dataset_key: str = ""
+# ── Exceções legado — compatibilidade com código pré-existente ───────────────
 
+class FinAnalyticsError(AppError):
+    pass
 
-@dataclass
-class FintzSyncError(ApplicationError):
-    """
-    Falha na orquestração do sync Fintz.
+class InsufficientFundsError(AppError):
+    pass
 
-    Agrupa erros de múltiplos datasets numa única exceção de sumário.
-    """
+class PortfolioNotFoundError(AppError):
+    pass
 
-    code: str = "FINTZ_SYNC_ERROR"
-    failed_datasets: list[str] = field(default_factory=list)
+class MarketDataUnavailableError(InfrastructureError):
+    pass
 
+class EventProcessingError(ApplicationError):
+    pass
+
+class TransientError(InfrastructureError):
+    pass

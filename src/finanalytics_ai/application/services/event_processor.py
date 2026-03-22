@@ -1,361 +1,279 @@
 """
-EventProcessorService — orquestra o processamento assíncrono de eventos.
+Application Service — EventProcessor.
 
-Design decision: O serviço de aplicação NÃO conhece detalhes de I/O.
-Ele recebe as dependências (ports) via construtor — Injeção de Dependência
-manual. Isso permite testar com mocks sem nenhum framework de DI.
+Este é o coração do sistema. Orquestra:
+  1. Verificação de idempotência
+  2. Dispatch para a BusinessRule correta
+  3. Persistência do resultado
+  4. Retry com backoff exponencial para erros transitórios
+  5. Dead-letter para erros permanentes
 
-Idempotência: antes de processar, verifica se event_id já existe no store.
-Resiliência: tenacity com retry para erros transitórios.
-Logging: structlog com context binding por evento.
-Observabilidade: spans OTel em cada handler + métricas Prometheus por tipo.
+Injeção de dependência manual:
+    Todas as dependências chegam pelo __init__. Sem globals, sem imports circulares.
+    Testável sem banco de dados real (use repositório fake).
 
---- Tracer opcional ---
-O tracer é injetado via construtor como `tracer: Tracer | None = None`.
-Quando None, o código cria spans no-op (OTel garante isso via
-trace.get_tracer("noop") quando nenhum provider está configurado).
-Isso permite que testes unitários rodem sem OTel configurado e que
-o serviço seja usado sem observabilidade em ambientes simplificados.
+Por que não usar Celery/ARQ/Dramatiq?
+    Para este domínio, o controle explícito da máquina de estados e retry logic
+    justifica a implementação própria. Frameworks de filas adicionam complexidade
+    operacional (broker, serialização, versionamento de tasks) que não é necessária
+    quando o volume de eventos cabe em um asyncio.Semaphore de concorrência controlada.
+    Se o volume crescer para >10k eventos/s, migrar para ARQ (Redis-backed) é trivial
+    porque o contrato de BusinessRule não muda.
 """
 
 from __future__ import annotations
 
+import asyncio
 import time
-from decimal import Decimal, InvalidOperation
-from typing import TYPE_CHECKING
+from typing import Sequence
 
 import structlog
-from opentelemetry import trace
-from tenacity import (
-    AsyncRetrying,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
 
-from finanalytics_ai.domain.entities.event import EventStatus, EventType, MarketEvent
+from finanalytics_ai.config import Settings
+from finanalytics_ai.domain.events.entities import (
+    Event,
+    EventProcessingRecord,
+    EventStatus,
+    EventType,
+)
+from finanalytics_ai.domain.events.ports import (
+    BusinessRule,
+    EventRepository,
+    ObservabilityPort,
+)
 from finanalytics_ai.exceptions import (
-    EventProcessingError,
-    TransientError,
+    ApplicationError,
+    BusinessRuleError,
+    EventAlreadyProcessedError,
+    InfrastructureError,
+    NoHandlerFoundError,
+    TransientDatabaseError,
+    TransientExternalServiceError,
 )
-from finanalytics_ai.observability import (
-    event_processing_duration_seconds,
-    events_processed_total,
-    handler_duration_seconds,
-    handler_events_total,
-)
+from finanalytics_ai.observability.logging import get_logger
+from finanalytics_ai.observability.metrics import trace_span
 
-if TYPE_CHECKING:
-    from finanalytics_ai.application.commands.process_event import ProcessMarketEventCommand
-    from finanalytics_ai.domain.ports.event_store import EventStore
-    from finanalytics_ai.domain.ports.market_data import MarketDataProvider
-    from finanalytics_ai.domain.ports.ohlc_repository import OHLCBarRepository
-
-logger = structlog.get_logger(__name__)
-
-# Tracer de fallback: no-op quando OTel não está configurado
-_noop_tracer = trace.get_tracer("finanalytics_ai.noop")
+log: structlog.stdlib.BoundLogger = get_logger(__name__)
 
 
-class EventProcessorService:
-    """
-    Processa eventos de mercado com:
-    - Idempotência via event_id
-    - Retry com backoff exponencial para erros transitórios
-    - Logging estruturado por evento
-    - Métricas Prometheus por tipo e status
-    - Spans OpenTelemetry por handler (quando tracer injetado)
+class EventProcessor:
+    """Serviço de processamento assíncrono de eventos.
+
+    Parâmetros injetados:
+        repository: EventRepository — persistência (Postgres, in-memory para testes)
+        rules: Sequence[BusinessRule] — regras de negócio registradas
+        observability: ObservabilityPort — métricas e tracing
+        settings: Settings — configurações do sistema
     """
 
     def __init__(
         self,
-        event_store: EventStore,
-        market_data: MarketDataProvider,
-        max_retry_attempts: int = 3,
-        tracer: trace.Tracer | None = None,
-        ohlc_repo: OHLCBarRepository | None = None,
+        repository: EventRepository,
+        rules: Sequence[BusinessRule],
+        observability: ObservabilityPort,
+        settings: Settings,
     ) -> None:
-        self._store = event_store
-        self._market_data = market_data
-        self._max_retries = max_retry_attempts
-        # Tracer opcional — usa no-op se não fornecido
-        self._tracer: trace.Tracer = tracer or _noop_tracer
-        # OHLCBarRepository opcional — backward compat e testes sem DB
-        self._ohlc_repo = ohlc_repo
+        self._repository = repository
+        self._observability = observability
+        self._settings = settings
+        self._semaphore = asyncio.Semaphore(settings.event_processor_concurrency)
 
-    async def process(self, command: ProcessMarketEventCommand) -> MarketEvent:
-        """
-        Ponto de entrada principal. Garante idempotência e resiliência.
+        # Constrói índice EventType → Rule para dispatch O(1)
+        # Trade-off: múltiplas regras para o mesmo tipo causam ValueError no startup,
+        # forçando o dev a ser explícito. Alternativa: lista de regras por tipo.
+        self._rule_index: dict[EventType, BusinessRule] = {}
+        for rule in rules:
+            for event_type in rule.handles:
+                if event_type in self._rule_index:
+                    raise ValueError(
+                        f"Conflito: duas regras registradas para {event_type}. "
+                        f"Registre apenas uma BusinessRule por EventType."
+                    )
+                self._rule_index[event_type] = rule
 
-        Returns: MarketEvent com status final (PROCESSED | SKIPPED | FAILED)
-        Raises: EventProcessingError se esgotar as tentativas
-        """
-        log = logger.bind(
-            event_id=command.event_id,
-            event_type=command.event_type,
-            ticker=command.ticker,
+        log.info(
+            "event_processor_initialized",
+            registered_types=[t.value for t in self._rule_index],
+            concurrency=settings.event_processor_concurrency,
         )
 
-        # ── 1. Idempotência ──────────────────────────────────────────────────
-        if await self._store.exists(command.event_id):
-            log.info("event.skipped.duplicate")
-            events_processed_total.labels(event_type=command.event_type, status="skipped").inc()
-            existing = await self._store.find_by_id(command.event_id)
-            if existing is None:
-                raise EventProcessingError(
-                    message="Evento duplicado mas não encontrado no store",
-                    context={"event_id": command.event_id},
+    # ──────────────────────────────────────────────────────────────────────────
+    # Public API
+    # ──────────────────────────────────────────────────────────────────────────
+
+    async def process(self, event: Event) -> EventProcessingRecord:
+        """Processa um único evento com idempotência e retry.
+
+        Garante que:
+        - Eventos COMPLETED não são reprocessados (idempotência).
+        - Erros transitórios são retentados com backoff exponencial.
+        - Erros permanentes movem o evento para dead-letter imediatamente.
+
+        Returns:
+            EventProcessingRecord com o estado final do processamento.
+
+        Raises:
+            EventAlreadyProcessedError: evento já foi completado com sucesso.
+        """
+        async with self._semaphore:
+            return await self._process_with_retry(event)
+
+    async def process_batch(self, events: list[Event]) -> list[EventProcessingRecord]:
+        """Processa múltiplos eventos concorrentemente respeitando o semaphore."""
+        tasks = [self.process(event) for event in events]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        records: list[EventProcessingRecord] = []
+        for event, result in zip(events, results, strict=True):
+            if isinstance(result, EventAlreadyProcessedError):
+                log.info("event_skipped_already_processed", event_id=str(event.id))
+            elif isinstance(result, Exception):
+                log.error(
+                    "event_batch_item_failed",
+                    event_id=str(event.id),
+                    error=str(result),
                 )
+            else:
+                records.append(result)
+
+        return records
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Internal machinery
+    # ──────────────────────────────────────────────────────────────────────────
+
+    async def _process_with_retry(self, event: Event) -> EventProcessingRecord:
+        record = await self._get_or_create_record(event)
+
+        if record.status == EventStatus.COMPLETED:
+            raise EventAlreadyProcessedError(
+                f"Evento {event.id} já foi processado com sucesso."
+            )
+
+        if record.status == EventStatus.DEAD_LETTER:
+            log.warning(
+                "event_in_dead_letter_skipped",
+                event_id=str(event.id),
+                last_error=record.last_error,
+            )
+            return record
+
+        max_retries = self._settings.event_max_retries
+        base_delay = self._settings.event_retry_base_delay
+
+        while record.attempt < max_retries:
+            record.mark_processing()
+            await self._repository.upsert_processing_record(record)
+
+            start = time.perf_counter()
+            try:
+                async with trace_span(
+                    "process_event",
+                    event_id=str(event.id),
+                    event_type=event.event_type.value,
+                ):
+                    metadata = await self._dispatch(event)
+
+                duration = time.perf_counter() - start
+                record.mark_completed(metadata)
+                await self._repository.upsert_processing_record(record)
+
+                self._observability.record_event_processed(
+                    event.event_type.value, "completed"
+                )
+                self._observability.record_processing_duration(
+                    event.event_type.value, duration
+                )
+
+                log.info(
+                    "event_processed_successfully",
+                    event_id=str(event.id),
+                    event_type=event.event_type.value,
+                    attempt=record.attempt,
+                    duration_s=round(duration, 3),
+                )
+                return record
+
+            except BusinessRuleError as exc:
+                # Erro permanente — não retry
+                record.mark_failed(str(exc), max_retries=0)
+                await self._repository.upsert_processing_record(record)
+                self._observability.record_event_processed(
+                    event.event_type.value, "dead_letter_business_rule"
+                )
+                log.error(
+                    "event_business_rule_error",
+                    event_id=str(event.id),
+                    error=str(exc),
+                )
+                return record
+
+            except (TransientDatabaseError, TransientExternalServiceError) as exc:
+                # Erro transitório — retry com backoff exponencial
+                self._observability.record_retry(
+                    event.event_type.value, record.attempt
+                )
+                delay = base_delay * (2 ** (record.attempt - 1))
+                log.warning(
+                    "event_transient_error_retrying",
+                    event_id=str(event.id),
+                    attempt=record.attempt,
+                    delay_s=delay,
+                    error=str(exc),
+                )
+                record.mark_failed(str(exc), max_retries=max_retries)
+                await self._repository.upsert_processing_record(record)
+
+                if record.status != EventStatus.DEAD_LETTER:
+                    await asyncio.sleep(delay)
+                else:
+                    break
+
+            except (ApplicationError, InfrastructureError) as exc:
+                # Outros erros não transitórios
+                record.mark_failed(str(exc), max_retries=0)
+                await self._repository.upsert_processing_record(record)
+                self._observability.record_event_processed(
+                    event.event_type.value, "dead_letter"
+                )
+                log.error(
+                    "event_permanent_error",
+                    event_id=str(event.id),
+                    error=str(exc),
+                    exc_info=True,
+                )
+                return record
+
+        # Esgotou retries
+        if record.status != EventStatus.DEAD_LETTER:
+            record.mark_failed("Max retries exhausted", max_retries=0)
+            await self._repository.upsert_processing_record(record)
+
+        self._observability.record_event_processed(
+            event.event_type.value, "dead_letter_max_retries"
+        )
+        return record
+
+    async def _dispatch(self, event: Event) -> dict:
+        """Rota o evento para a BusinessRule correta."""
+        rule = self._rule_index.get(event.event_type)
+        if rule is None:
+            raise NoHandlerFoundError(
+                f"Nenhuma BusinessRule registrada para {event.event_type!r}. "
+                f"Registradas: {list(self._rule_index)}"
+            )
+        return await rule.apply(event)
+
+    async def _get_or_create_record(self, event: Event) -> EventProcessingRecord:
+        """Busca ou cria o registro de processamento (checkpoint de idempotência)."""
+        existing = await self._repository.get_processing_record(event.id)
+        if existing is not None:
             return existing
 
-        # ── 2. Persiste como PENDING ─────────────────────────────────────────
-        event = MarketEvent(
-            event_id=command.event_id,
-            event_type=EventType(command.event_type),
-            ticker=command.ticker,
-            payload=command.payload,
-            source=command.source,
+        record = EventProcessingRecord(
+            event_id=event.id,
+            status=EventStatus.PENDING,
         )
-        await self._store.save(event)
-        log.info("event.received")
-
-        # ── 3. Processa com retry ────────────────────────────────────────────
-        timer = event_processing_duration_seconds.labels(event_type=command.event_type)
-        with timer.time():
-            try:
-                processed = await self._process_with_retry(event, log)
-            except Exception as exc:
-                event.mark_failed(str(exc))
-                await self._store.update_status(event.event_id, EventStatus.FAILED, str(exc))
-                events_processed_total.labels(event_type=command.event_type, status="failed").inc()
-                log.error("event.failed", error=str(exc))
-                raise EventProcessingError(
-                    message=f"Falha ao processar evento {command.event_id}",
-                    context={"event_id": command.event_id, "error": str(exc)},
-                ) from exc
-
-        events_processed_total.labels(event_type=command.event_type, status="processed").inc()
-        log.info("event.processed")
-        return processed
-
-    async def _process_with_retry(self, event: MarketEvent, log: structlog.BoundLogger) -> MarketEvent:
-        """Retry com backoff exponencial apenas para TransientError."""
-        async for attempt in AsyncRetrying(
-            stop=stop_after_attempt(self._max_retries),
-            wait=wait_exponential(multiplier=1, min=1, max=10),
-            retry=retry_if_exception_type(TransientError),
-            reraise=True,
-        ):
-            with attempt:
-                await self._store.update_status(event.event_id, EventStatus.PROCESSING)
-                result = await self._dispatch(event)
-                processed = result.mark_processed()
-                await self._store.update_status(event.event_id, EventStatus.PROCESSED)
-                return processed
-
-        # nunca atingido — tenacity reraise=True
-        raise EventProcessingError(message="Retry esgotado", context={"event_id": event.event_id})
-
-    async def _dispatch(self, event: MarketEvent) -> MarketEvent:
-        """
-        Despacha para o handler específico por tipo, envolvendo em span OTel.
-
-        O span "event.dispatch" é o pai de todos os spans de handler.
-        Atributos rastreados: event_id, event_type, ticker.
-        """
-        with self._tracer.start_as_current_span(
-            "event.dispatch",
-            attributes={
-                "event.id": event.event_id,
-                "event.type": event.event_type.value,
-                "event.ticker": event.ticker,
-            },
-        ) as span:
-            try:
-                match event.event_type:
-                    case EventType.PRICE_UPDATE:
-                        await self._handle_price_update(event)
-                    case EventType.OHLC_BAR_CLOSED:
-                        await self._handle_ohlc_bar(event)
-                    case _:
-                        logger.warning("event.unhandled", event_type=event.event_type)
-                        span.set_attribute("event.unhandled", True)
-            except Exception as exc:
-                span.record_exception(exc)
-                span.set_status(trace.StatusCode.ERROR, str(exc))
-                raise
-
-        return event
-
-    async def _handle_price_update(self, event: MarketEvent) -> None:
-        """
-        Processa atualização de preço.
-
-        Responsabilidades:
-        - Valida e normaliza o campo price do payload
-        - Registra métricas de latência e contagem
-        - Emite span OTel com ticker e price como atributos
-        - Hook point para alertas e stop loss (via AlertService no worker)
-
-        Design decision: a avaliação de alertas NÃO acontece aqui.
-        Ela é responsabilidade do worker (_process_event em main.py),
-        que chama AlertService após o processamento do evento.
-        Isso mantém EventProcessorService agnóstico sobre o AlertService,
-        evitando dependência circular e facilitando testes.
-        """
-        _start = time.perf_counter()
-        handler_name = "price_update"
-
-        with self._tracer.start_as_current_span(
-            "handler.price_update",
-            attributes={"event.ticker": event.ticker},
-        ) as span:
-            try:
-                raw_price = event.payload.get("price")
-                price: Decimal | None = None
-                if raw_price is not None:
-                    try:
-                        price = Decimal(str(raw_price))
-                        span.set_attribute("price.value", float(price))
-                    except InvalidOperation:
-                        logger.warning(
-                            "price_update.invalid_price",
-                            ticker=event.ticker,
-                            raw=str(raw_price),
-                        )
-
-                logger.debug(
-                    "price.updated",
-                    ticker=event.ticker,
-                    price=str(price) if price is not None else None,
-                )
-                handler_events_total.labels(handler=handler_name, status="ok").inc()
-
-            except Exception as exc:
-                span.record_exception(exc)
-                span.set_status(trace.StatusCode.ERROR, str(exc))
-                handler_events_total.labels(handler=handler_name, status="error").inc()
-                raise
-            finally:
-                handler_duration_seconds.labels(handler=handler_name).observe(time.perf_counter() - _start)
-
-    async def _handle_ohlc_bar(self, event: MarketEvent) -> None:
-        """
-        Processa barra OHLC fechada e persiste via OHLCBarRepository.
-
-        Responsabilidades:
-        - Valida e extrai campos OHLC do payload
-        - Persiste barra com idempotência (ON CONFLICT DO NOTHING)
-        - Registra métricas e emite span com atributos OHLC
-
-        Payload esperado:
-          open, high, low, close: float/str (obrigatório)
-          volume: float/str (opcional)
-          timestamp: ISO8601 str ou epoch int (opcional, default=occurred_at)
-          timeframe: str (opcional, default="1m")
-
-        Design decision: ohlc_repo é opcional — quando None o handler loga
-        mas não falha. Isso permite rodar o worker sem DB de OHLC configurado
-        (ex: modo leve sem storage de séries temporais). O span registra
-        ohlc.persisted=False para rastreabilidade de qual path foi usado.
-        """
-        from datetime import UTC, datetime
-        from decimal import Decimal, InvalidOperation
-
-        _start = time.perf_counter()
-        handler_name = "ohlc_bar"
-
-        with self._tracer.start_as_current_span(
-            "handler.ohlc_bar",
-            attributes={"event.ticker": event.ticker},
-        ) as span:
-            try:
-                payload = event.payload
-
-                # ── Extrai campos obrigatórios ────────────────────────────────
-                def _to_decimal(key: str) -> Decimal | None:
-                    val = payload.get(key)
-                    if val is None:
-                        return None
-                    try:
-                        return Decimal(str(val))
-                    except InvalidOperation:
-                        logger.warning("ohlc.invalid_field", field=key, value=str(val))
-                        return None
-
-                close = _to_decimal("close")
-                open_ = _to_decimal("open")
-                high = _to_decimal("high")
-                low = _to_decimal("low")
-                volume = _to_decimal("volume") or Decimal("0")
-                timeframe = str(payload.get("timeframe", "1m"))
-
-                # ── Extrai timestamp ──────────────────────────────────────────
-                ts_raw = payload.get("timestamp")
-                if isinstance(ts_raw, str):
-                    try:
-                        bar_ts = datetime.fromisoformat(ts_raw)
-                        if bar_ts.tzinfo is None:
-                            bar_ts = bar_ts.replace(tzinfo=UTC)
-                    except ValueError:
-                        bar_ts = event.occurred_at
-                elif isinstance(ts_raw, (int, float)):
-                    bar_ts = datetime.fromtimestamp(ts_raw, tz=UTC)
-                else:
-                    bar_ts = event.occurred_at
-
-                # ── Span attributes ───────────────────────────────────────────
-                if close is not None:
-                    span.set_attribute("ohlc.close", float(close))
-                if volume:
-                    span.set_attribute("ohlc.volume", float(volume))
-                span.set_attribute("ohlc.timeframe", timeframe)
-
-                # ── Persiste via repository ───────────────────────────────────
-                persisted = False
-                if self._ohlc_repo is not None and all(v is not None for v in (open_, high, low, close)):
-                    from finanalytics_ai.domain.entities.event import OHLCBar
-
-                    bar = OHLCBar(
-                        ticker=event.ticker,
-                        timestamp=bar_ts,
-                        timeframe=timeframe,
-                        open=open_,  # type: ignore[arg-type]
-                        high=high,  # type: ignore[arg-type]
-                        low=low,  # type: ignore[arg-type]
-                        close=close,  # type: ignore[arg-type]
-                        volume=volume,
-                        source=event.source,
-                    )
-                    persisted = await self._ohlc_repo.upsert_bar(bar)
-                    span.set_attribute("ohlc.persisted", persisted)
-                else:
-                    span.set_attribute("ohlc.persisted", False)
-                    if self._ohlc_repo is None:
-                        logger.debug("ohlc.bar.repo_not_configured", ticker=event.ticker)
-                    else:
-                        logger.warning(
-                            "ohlc.bar.missing_fields",
-                            ticker=event.ticker,
-                            has_open=open_ is not None,
-                            has_high=high is not None,
-                            has_low=low is not None,
-                            has_close=close is not None,
-                        )
-
-                logger.debug(
-                    "ohlc.bar.processed",
-                    ticker=event.ticker,
-                    timeframe=timeframe,
-                    close=str(close) if close is not None else None,
-                    persisted=persisted,
-                )
-                handler_events_total.labels(handler=handler_name, status="ok").inc()
-
-            except Exception as exc:
-                span.record_exception(exc)
-                span.set_status(trace.StatusCode.ERROR, str(exc))
-                handler_events_total.labels(handler=handler_name, status="error").inc()
-                raise
-            finally:
-                handler_duration_seconds.labels(handler=handler_name).observe(time.perf_counter() - _start)
+        await self._repository.save_event(event)
+        await self._repository.upsert_processing_record(record)
+        return record

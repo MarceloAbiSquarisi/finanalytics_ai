@@ -1,49 +1,166 @@
 # ──────────────────────────────────────────────────────────────────────────────
-# docker-compose.override.yml — Overrides para DESENVOLVIMENTO local
+# docker-compose.override.yml
 #
-# Aplicado automaticamente quando você roda `docker compose up`.
-# NÃO usar em staging/produção.
+# Otimizações para hardware dedicado:
+#   CPU  : i9-14900K  — 24 cores / 32 threads / 6 GHz
+#   RAM  : 196 GB
+#   GPU  : 2x RTX 4090 (24 GB VRAM) — GPU2 dedicada a processamento
+#   Disco: E:\ 2 TB NVMe (bind mounts)
 #
-# O que este arquivo faz:
-#   - Hot reload: volume mount de src/ sem rebuild
-#   - Stage correto: target: api (com volume sobrepondo src copiado)
-#   - Fila em memória: sem Kafka para startup rápido (~10s vs ~60s)
-#   - Logs coloridos no terminal
-#   - Deps relaxadas: api sobe sem kafka/timescale (dev usa memory queue)
+# Este arquivo é carregado automaticamente pelo Docker Compose junto com
+# docker-compose.yml. NÃO versione valores de senha — use .env.
+#
+# Decisões arquiteturais:
+#   - shared_buffers = 32 GB  → 16% da RAM (conservador; TimescaleDB e app
+#     também usam memória. Aumentar para 48 GB se banco for o único workload).
+#   - work_mem = 256 MB       → com max_parallel_workers_per_gather=8,
+#     uma query pode usar até 8 * 256 MB = 2 GB por conexão. Com 20 conexões
+#     ativas = 40 GB pico. Seguro dentro dos 196 GB.
+#   - effective_cache_size = 128 GB → estimativa para o planner de quanto
+#     o OS cache + shared_buffers cobrem. Não aloca memória real.
+#   - random_page_cost = 1.1  → SSD/NVMe. Default é 4.0 (HDD).
+#   - TimescaleDB: max_background_workers = 16 para compressão e políticas
+#     de retenção rodarem em paralelo sem bloquear queries.
 # ──────────────────────────────────────────────────────────────────────────────
-services:
-  api:
-    restart: always
-    build:
-      target: api           # stage final com deps instaladas
-    volumes:
-      - ./src:/app/src:ro   # hot reload: mudanças refletem sem rebuild
-    command:
-      - uvicorn
-      - finanalytics_ai.interfaces.api.run:app
-      - --host
-      - "0.0.0.0"
-      - --port
-      - "8000"
-      - --reload
-      - --reload-dir
-      - /app/src
-    environment:
-      APP_LOG_FORMAT:      console     # logs coloridos no terminal
-      APP_LOG_LEVEL:       DEBUG
-      EVENT_QUEUE_BACKEND: memory      # sem Kafka em dev
-    # Dev: só precisa de postgres + redis para subir
-    # kafka e timescale são opcionais e iniciados separadamente
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
 
-  worker:
-    restart: always
-    volumes:
-      - ./src:/app/src:ro   # hot reload no worker também
+services:
+
+  # ── PostgreSQL — OLTP otimizado ────────────────────────────────────────────
+  postgres:
+    command: >
+      postgres
+        -c shared_buffers=32GB
+        -c effective_cache_size=128GB
+        -c work_mem=256MB
+        -c maintenance_work_mem=4GB
+        -c wal_buffers=64MB
+        -c checkpoint_completion_target=0.9
+        -c checkpoint_timeout=15min
+        -c max_wal_size=8GB
+        -c min_wal_size=2GB
+        -c default_statistics_target=500
+        -c random_page_cost=1.1
+        -c effective_io_concurrency=200
+        -c max_worker_processes=24
+        -c max_parallel_workers=16
+        -c max_parallel_workers_per_gather=8
+        -c max_parallel_maintenance_workers=4
+        -c enable_partitionwise_join=on
+        -c enable_partitionwise_aggregate=on
+        -c jit=on
+        -c log_min_duration_statement=1000
+        -c log_checkpoints=on
+        -c shared_preload_libraries=pg_stat_statements
     environment:
-      APP_LOG_FORMAT: console
-      APP_LOG_LEVEL:  DEBUG
+      POSTGRES_DB:       finanalytics
+      POSTGRES_USER:     finanalytics
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
+    shm_size: '4gb'
+
+  # ── TimescaleDB — séries temporais otimizado ───────────────────────────────
+  timescale:
+    command: >
+      postgres
+        -c shared_buffers=16GB
+        -c effective_cache_size=64GB
+        -c work_mem=512MB
+        -c maintenance_work_mem=8GB
+        -c wal_buffers=64MB
+        -c checkpoint_completion_target=0.9
+        -c checkpoint_timeout=20min
+        -c max_wal_size=16GB
+        -c min_wal_size=4GB
+        -c default_statistics_target=500
+        -c random_page_cost=1.1
+        -c effective_io_concurrency=200
+        -c max_worker_processes=24
+        -c max_parallel_workers=16
+        -c max_parallel_workers_per_gather=8
+        -c max_parallel_maintenance_workers=8
+        -c timescaledb.max_background_workers=16
+        -c enable_partitionwise_join=on
+        -c enable_partitionwise_aggregate=on
+        -c jit=on
+        -c log_min_duration_statement=500
+        -c shared_preload_libraries=timescaledb
+    environment:
+      POSTGRES_DB:       market_data
+      POSTGRES_USER:     finanalytics
+      POSTGRES_PASSWORD: ${TIMESCALE_PASSWORD:-timescale_secret}
+    shm_size: '4gb'
+
+  # ── API — pool de conexões ampliado ───────────────────────────────────────
+  api:
+    environment:
+      DATABASE_POOL_SIZE:     20
+      DATABASE_MAX_OVERFLOW:  40
+      TIMESCALE_URL:          postgresql+asyncpg://finanalytics:${TIMESCALE_PASSWORD:-timescale_secret}@timescale:5432/market_data
+      TIMESCALE_POOL_SIZE:    10
+      TIMESCALE_MAX_OVERFLOW: 20
+      # GPU2 disponível para inferência via CUDA
+      CUDA_VISIBLE_DEVICES:   "1"
+    deploy:
+      resources:
+        limits:
+          cpus: '16'
+          memory: 8G
+
+  # ── Worker — processamento paralelo ───────────────────────────────────────
+  worker:
+    environment:
+      DATABASE_POOL_SIZE:    10
+      DATABASE_MAX_OVERFLOW: 20
+      TIMESCALE_URL:         postgresql+asyncpg://finanalytics:${TIMESCALE_PASSWORD:-timescale_secret}@timescale:5432/market_data
+      # GPU2 dedicada ao worker de processamento
+      CUDA_VISIBLE_DEVICES:  "1"
+      # Polars usa todos os threads disponíveis — limita para não interferir
+      POLARS_MAX_THREADS:    "16"
+    deploy:
+      resources:
+        limits:
+          cpus: '16'
+          memory: 32G
+
+  # ── Scheduler ─────────────────────────────────────────────────────────────
+  scheduler:
+    environment:
+      TIMESCALE_URL:        postgresql+asyncpg://finanalytics:${TIMESCALE_PASSWORD:-timescale_secret}@timescale:5432/market_data
+      CUDA_VISIBLE_DEVICES: "1"
+      POLARS_MAX_THREADS:   "8"
+    deploy:
+      resources:
+        limits:
+          cpus: '8'
+          memory: 16G
+
+  # ── Kafka — mais memória para brokers ─────────────────────────────────────
+  kafka:
+    environment:
+      KAFKA_HEAP_OPTS: "-Xmx4G -Xms2G"
+      KAFKA_JVM_PERFORMANCE_OPTS: >
+        -server
+        -XX:+UseG1GC
+        -XX:MaxGCPauseMillis=20
+        -XX:InitiatingHeapOccupancyPercent=35
+        -XX:+ExplicitGCInvokesConcurrent
+        -Djava.awt.headless=true
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 6G
+
+  # ── Redis — aumenta limite de memória ─────────────────────────────────────
+  redis:
+    command: >
+      redis-server
+        --maxmemory 4gb
+        --maxmemory-policy allkeys-lru
+        --save ""
+        --io-threads 4
+        --io-threads-do-reads yes
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 5G
