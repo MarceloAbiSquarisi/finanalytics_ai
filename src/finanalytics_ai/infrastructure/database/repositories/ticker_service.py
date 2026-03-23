@@ -45,8 +45,23 @@ class TickerService:
 
 def _guess_type(ticker: str) -> str:
     t = ticker.upper()
+    # ETFs conhecidos (terminam em 11 mas sao ETFs)
+    _ETF_KEYWORDS = ["BOVA", "SMAL", "IVVB", "HASH", "GOLD", "FIND",
+                     "DIVO", "SPXI", "MATB", "ECOO", "GOVE", "XFIX",
+                     "NASD", "ACWI", "USTK", "BBSD", "BBVO", "FIXA"]
+    # Acoes que terminam em 11 (units) — NAO sao FIIs
+    _UNITS_STOCKS = [
+        "BPAC11", "BBSE11", "SAPR11", "TAEE11", "KLBN11", "ENGI11",
+        "SANB11", "BPAN11", "WIZC11", "CASH11", "TIMS11", "EVEN11",
+        "SMFT11", "MEAL11", "BMGB11", "DESK11", "PARD11", "PGMN11",
+        "RANI11", "AFLT11", "BPFF11", "CBOP11", "INEP11", "PORT11",
+    ]
     if t.endswith("11"):
-        return "etf" if any(x in t for x in ["BOVA", "SMAL", "IVVB", "HASH"]) else "fii"
+        if any(x in t for x in _ETF_KEYWORDS):
+            return "etf"
+        if t in _UNITS_STOCKS:
+            return "stock"
+        return "fii"
     if t.endswith("34") or t.endswith("35"):
         return "bdr"
     return "stock"
