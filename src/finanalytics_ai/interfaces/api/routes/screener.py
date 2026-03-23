@@ -53,6 +53,8 @@ class ScreenerRequest(BaseModel):
     market_cap_max: float | None = None
     # Setor
     sector: str | None = None
+    # Liquidez
+    volume_min: float | None = None  # Volume financeiro diario minimo (R$)
     # Universo
     extra_tickers: list[str] = Field(default_factory=list)
     use_universe: bool = True
@@ -102,6 +104,7 @@ async def run_screener(
         market_cap_min=body.market_cap_min,
         market_cap_max=body.market_cap_max,
         sector=body.sector,
+        volume_min=body.volume_min,
     )
     try:
         result = await svc.screen(

@@ -228,6 +228,7 @@ class FilterCriteria:
     market_cap_min: float | None = None  # R$ bilhoes
     market_cap_max: float | None = None
     sector: str | None = None  # filtro por setor (substring)
+    volume_min: float | None = None  # Volume financeiro diario minimo (R$)
 
     def is_empty(self) -> bool:
         """Retorna True se nenhum criterio foi definido."""
@@ -292,6 +293,7 @@ def apply_filters(
                 criteria.market_cap_min,
                 criteria.market_cap_max,
             ),
+            _passes_range(stock.volume, criteria.volume_min, None),
         ]
 
         if all(checks):
