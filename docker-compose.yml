@@ -249,7 +249,6 @@ services:
     networks:
       - finanalytics_net
 
-  # ── Observabilidade ───────────────────────────────────────────────────────
   grafana:
     image: grafana/grafana:10.4.0
     container_name: finanalytics_grafana
@@ -302,64 +301,12 @@ services:
       - "${REDISINSIGHT_PORT:-8001}:5540"
     networks:
       - finanalytics_net
-
-
-  # ── Observabilidade ───────────────────────────────────────────────────────
-  grafana:
-    image: grafana/grafana:10.4.0
-    container_name: finanalytics_grafana
-    restart: unless-stopped
-    ports:
-      - "${GRAFANA_PORT:-3000}:3000"
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
-      GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_INSTALL_PLUGINS: "grafana-clock-panel,grafana-simple-json-datasource"
-    volumes:
-      - grafana_data:/var/lib/grafana
-    networks:
-      - finanalytics_net
-
-  pgadmin:
-    image: dpage/pgadmin4:8.5
-    container_name: finanalytics_pgadmin
-    restart: unless-stopped
-    ports:
-      - "${PGADMIN_PORT:-5050}:80"
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@finanalytics.ai}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
-      PGADMIN_CONFIG_SERVER_MODE: "False"
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    networks:
-      - finanalytics_net
-
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    container_name: finanalytics_kafka_ui
-    restart: unless-stopped
-    ports:
-      - "${KAFKA_UI_PORT:-8080}:8080"
-    environment:
-      KAFKA_CLUSTERS_0_NAME: finanalytics
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
-    depends_on:
-      - kafka
-    networks:
-      - finanalytics_net
-
-  redis-insight:
-    image: redis/redisinsight:2.50
-    container_name: finanalytics_redisinsight
-    restart: unless-stopped
-    ports:
-      - "${REDISINSIGHT_PORT:-8001}:5540"
-    networks:
-      - finanalytics_net
-
 
 networks:
   finanalytics_net:
     name: finanalytics_net
     driver: bridge
+
+volumes:
+  grafana_data:
+  pgadmin_data:
