@@ -279,5 +279,6 @@ class EventProcessor:
         return record
 
 
-# Alias de compatibilidade com código pré-existente
-EventProcessorService = EventProcessor
+# EventProcessorService: shim com API legada (handlers individuais + metricas + OTel)
+# Importado de event_processor_service.py — NÃO é alias de EventProcessor
+from finanalytics_ai.application.services.event_processor_service import EventProcessorService  # noqa: F401
