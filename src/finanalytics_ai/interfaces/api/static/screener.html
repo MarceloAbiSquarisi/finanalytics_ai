@@ -8,14 +8,14 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg:       #080b10;
-  --s1:       #0d1117;
-  --s2:       #111822;
-  --border:   #1c2535;
-  --border2:  #253045;
-  --text:     #cdd6e0;
-  --muted:    #4a5e72;
-  --muted2:   #2a3a4a;
+  --bg:       #060810;
+  --s1:       #0e1420;
+  --s2:       #141d2b;
+  --border:   #243045;
+  --border2:  #2e3d55;
+  --text:     #e2eaf4;
+  --muted:    #7a95b0;
+  --muted2:   #3a4f66;
   --accent:   #00d4ff;
   --green:    #00e676;
   --red:      #ff3d5a;
@@ -319,6 +319,14 @@ tbody td:nth-child(2), tbody td:nth-child(3) { text-align: left; }
     <a href="/optimizer">Otimizador</a>
     <a href="/hub">Hub</a>
   </nav>
+  <div class="fa-user-chip" id="fa-user-chip" style="display:none">
+    <div class="fa-avatar" id="fa-avatar">U</div>
+    <span id="fa-username" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+  </div>
+  <button class="fa-logout-btn" onclick="faLogout()" title="Sair">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+    Sair
+  </button>
 </div>
 
 <div class="hdr">
