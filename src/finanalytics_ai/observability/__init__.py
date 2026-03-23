@@ -1,48 +1,51 @@
 # observability/__init__.py
-# Re-exporta metricas de metrics.py e utilitarios de logging/tracing
 from __future__ import annotations
 
 try:
     from finanalytics_ai.metrics import (
-        events_processed_total,
+        alerts_active,
+        alerts_triggered_total,
+        anomaly_detections_total,
+        anomaly_scans_total,
+        anomaly_tickers_scanned,
+        backtest_duration_seconds,
+        backtest_runs_total,
+        brapi_request_duration_seconds,
+        brapi_requests_total,
+        build_info,
+        correlation_runs_total,
         event_processing_duration_seconds,
-        market_data_requests_total,
-        portfolio_operations_total,
-        handler_events_total,
-        handler_duration_seconds,
-        fintz_sync_attempts_total,
-        fintz_sync_success_total,
-        fintz_sync_skips_total,
-        fintz_sync_errors_total,
+        events_processed_total,
         fintz_rows_upserted_total,
+        fintz_sync_attempts_total,
+        fintz_sync_errors_total,
+        fintz_sync_skips_total,
+        fintz_sync_success_total,
+        handler_duration_seconds,
+        handler_events_total,
+        http_request_duration_seconds,
+        http_requests_in_flight,
+        http_requests_total,
+        kafka_messages_consumed_total,
+        market_data_requests_total,
+        optimizer_runs_total,
+        portfolio_operations_total,
+        price_producer_polls_total,
+        price_producer_tickers_updated,
+        screener_pass_rate,
+        screener_runs_total,
+        screener_stocks_passed_total,
+        screener_stocks_scanned_total,
     )
-except ImportError:
-    events_processed_total = None
-    event_processing_duration_seconds = None
-    market_data_requests_total = None
-    portfolio_operations_total = None
-    handler_events_total = None
-    handler_duration_seconds = None
-    fintz_sync_attempts_total = None
-    fintz_sync_success_total = None
-    fintz_sync_skips_total = None
-    fintz_sync_errors_total = None
-    fintz_rows_upserted_total = None
+except Exception:
+    pass
 
 from finanalytics_ai.observability.logging import configure_logging, get_logger
 from finanalytics_ai.observability.metrics import NoOpObservability, PrometheusObservability
 
-__all__ = [
-    "configure_logging", "get_logger",
-    "NoOpObservability", "PrometheusObservability",
-    "market_data_requests_total", "handler_events_total", "handler_duration_seconds",
-    "fintz_sync_attempts_total", "fintz_sync_success_total", "fintz_sync_skips_total",
-    "fintz_sync_errors_total", "fintz_rows_upserted_total",
-]
-
 try:
     from finanalytics_ai.observability_legacy import setup_metrics, setup_tracing
-except ImportError:
+except Exception:
     try:
         import sys, importlib.util
         spec = importlib.util.spec_from_file_location(

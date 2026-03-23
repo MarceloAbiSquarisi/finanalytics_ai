@@ -145,6 +145,22 @@ class FintzAnomalyDetector:
                 std = variance ** 0.5
 
                 if std == 0:
+                    # std=0: historico constante — usa desvio relativo
+                    # Evita falso positivo para pequenas variações (8.0->8.5)
+                    # Detecta anomalias reais (8.0->500.0)
+                    ref = abs(mean) if mean != 0 else 1.0
+                    relative_dev = abs(latest - mean) / ref
+                    if relative_dev > 0.5:  # >50% de desvio relativo
+                        anomalies += 1
+                        log.warning(
+                            "post_sync.anomaly.detected",
+                            ticker=ticker,
+                            indicador=indicador,
+                            latest=latest,
+                            mean=round(mean, 4),
+                            z_score=float("inf"),
+                            threshold=threshold,
+                        )
                     continue
 
                 z_score = abs(latest - mean) / std

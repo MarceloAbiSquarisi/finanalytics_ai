@@ -246,6 +246,46 @@ def record_brapi_call(endpoint: str, success: bool, duration: float) -> None:
 _SKIP_PATHS = frozenset({"/metrics", "/health", "/favicon.ico"})
 
 
+handler_events_total = Counter(
+    name="finanalytics_handler_events_total",
+    documentation="Total de eventos por handler específico",
+    labelnames=["handler", "status"],
+)
+
+handler_duration_seconds = Histogram(
+    name="finanalytics_handler_duration_seconds",
+    documentation="Latência de cada handler de evento em segundos",
+    labelnames=["handler"],
+    buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0),
+)
+
+
+events_processed_total = Counter(
+    name="finanalytics_events_processed_total",
+    documentation="Total de eventos de mercado processados",
+    labelnames=["event_type", "status"],
+)
+
+event_processing_duration_seconds = Histogram(
+    name="finanalytics_event_processing_duration_seconds",
+    documentation="Duração do processamento de eventos em segundos",
+    labelnames=["event_type"],
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5),
+)
+
+market_data_requests_total = Counter(
+    name="finanalytics_market_data_requests_total",
+    documentation="Total de requisições a APIs de dados de mercado",
+    labelnames=["provider", "status"],
+)
+
+portfolio_operations_total = Counter(
+    name="finanalytics_portfolio_operations_total",
+    documentation="Operações em portfólio (buy/sell/rebalance)",
+    labelnames=["operation", "asset_class"],
+)
+
+
 class PrometheusMiddleware(BaseHTTPMiddleware):
     """
     Middleware Starlette que instrumenta todas as requisições HTTP.
