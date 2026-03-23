@@ -68,7 +68,7 @@ async def _create_pool() -> Any:
 
     settings = get_settings()
     # Converte URL para formato asyncpg (remove +asyncpg se presente)
-    dsn = settings.timescale_url.replace("postgresql+asyncpg://", "postgresql://")
+    dsn = str(settings.timescale_url).replace("postgresql+asyncpg://", "postgresql://")
 
     pool = await asyncpg.create_pool(
         dsn,
