@@ -48,6 +48,8 @@ class UserModel(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    totp_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     reset_token: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
     reset_token_exp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -153,3 +155,22 @@ class UserRepository:
             model.hashed_password = hashed_password
             await self._session.flush()
             logger.info("user.password_updated", user_id=user_id)
+
+    async def update_totp(self, user_id: str, secret: str | None, enabled: bool) -> None:
+        """Atualiza secret e status TOTP do usuário."""
+        from sqlalchemy import update as sa_update
+        stmt = (
+            sa_update(UserModel)
+            .where(UserModel.user_id == user_id)
+            .values(totp_secret=secret, totp_enabled=enabled)
+        )
+        await self._session.execute(stmt)
+        await self._session.commit()
+
+    async def get_by_id(self, user_id: str) -> User | None:
+        """Busca usuário por ID."""
+        result = await self._session.execute(
+            select(UserModel).where(UserModel.user_id == user_id)
+        )
+        model = result.scalar_one_or_none()
+        return _to_domain(model) if model else None

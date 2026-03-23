@@ -83,6 +83,21 @@ class JWTHandler:
             expires_in=self.access_expire_minutes * 60,
         )
 
+
+    def create_totp_pending_token(self, user: User) -> str:
+        """Token temporário (5min) para aguardar código TOTP."""
+        return self._create_token(user, "totp_pending", timedelta(minutes=5))
+
+    def create_token_pair_remember(self, user: User) -> "TokenPair":
+        """Token pair com access de 24h para remember_me=True."""
+        access = self._create_token(user, "access", timedelta(hours=24))
+        refresh = self._create_token(user, "refresh", timedelta(days=7))
+        return TokenPair(
+            access_token=access,
+            refresh_token=refresh,
+            expires_in=24 * 3600,
+        )
+
     def decode(self, token: str) -> TokenPayload:
         """
         Decodifica e valida token. Lança TokenExpiredError ou TokenInvalidError.
@@ -204,7 +219,7 @@ def get_jwt_handler() -> JWTHandler:
 
         s = get_settings()
         _handler = JWTHandler(
-            secret_key=s.app_secret_key,
+            secret_key=s.secret_key,
             access_expire_minutes=getattr(s, "jwt_access_expire_minutes", 30),
             refresh_expire_days=getattr(s, "jwt_refresh_expire_days", 7),
         )

@@ -46,6 +46,8 @@ class AuthErrorCode(StrEnum):
     EMAIL_ALREADY_EXISTS = "email_already_exists"
     INACTIVE_USER = "inactive_user"
     INSUFFICIENT_PERMISSIONS = "insufficient_permissions"
+    TOTP_REQUIRED = "totp_required"
+    TOTP_INVALID = "totp_invalid"
 
 
 # ── Exceções customizadas ─────────────────────────────────────────────────────
@@ -111,6 +113,8 @@ class User:
     is_active: bool = True
     created_at: datetime | None = None
     last_login_at: datetime | None = None
+    totp_secret: str | None = None
+    totp_enabled: bool = False
 
     @staticmethod
     def new(email: str, hashed_password: str, full_name: str, role: UserRole = UserRole.USER) -> User:

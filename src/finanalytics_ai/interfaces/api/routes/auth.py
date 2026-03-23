@@ -46,6 +46,7 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: str = Field(..., min_length=5)
     password: str = Field(..., min_length=1)
+    remember_me: bool = Field(default=False, description="Manter logado por 7 dias")
 
 
 class RefreshRequest(BaseModel):
@@ -57,6 +58,8 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int
+    totp_required: bool = False
+    totp_token: str | None = None
 
 
 class UserResponse(BaseModel):
@@ -125,11 +128,19 @@ async def login(
 ) -> TokenResponse:
     """Autentica usuário e retorna par de tokens."""
     try:
-        pair = await _svc(session).login(body.email, body.password)
+        result = await _svc(session).login(body.email, body.password, remember_me=body.remember_me)
+        if hasattr(result, "totp_required") and result.totp_required:
+            return TokenResponse(
+                access_token="",
+                refresh_token="",
+                expires_in=0,
+                totp_required=True,
+                totp_token=result.totp_token,
+            )
         return TokenResponse(
-            access_token=pair.access_token,
-            refresh_token=pair.refresh_token,
-            expires_in=pair.expires_in,
+            access_token=result.access_token,
+            refresh_token=result.refresh_token,
+            expires_in=result.expires_in,
         )
     except AuthError as e:
         raise _auth_error_to_http(e) from e
@@ -286,3 +297,83 @@ async def reset_password(
 
     logger.info("auth.password_reset", user_id=model.user_id)
     return {"message": "Senha redefinida com sucesso. Você já pode fazer login."}
+
+
+# ── 2FA Endpoints ─────────────────────────────────────────────────────────────
+
+
+class TOTPEnableResponse(BaseModel):
+    secret: str
+    qr_base64: str
+    provisioning_uri: str
+
+
+class TOTPVerifySetupRequest(BaseModel):
+    code: str = Field(..., min_length=6, max_length=6)
+
+
+class TOTPAuthenticateRequest(BaseModel):
+    totp_token: str
+    code: str = Field(..., min_length=6, max_length=6)
+
+
+@router.post("/totp/enable", response_model=TOTPEnableResponse)
+async def totp_enable(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> TOTPEnableResponse:
+    """Inicia ativação do 2FA — retorna QR code para escanear."""
+    from finanalytics_ai.infrastructure.auth.totp_handler import get_totp_handler
+    handler = get_totp_handler()
+    secret = handler.generate_secret()
+    qr = handler.get_qr_base64(secret, current_user.email)
+    uri = handler.get_provisioning_uri(secret, current_user.email)
+    # Salva secret temporário (não ativado ainda)
+    svc = _svc(session)
+    await svc.save_totp_secret(current_user.user_id, secret, enabled=False)
+    return TOTPEnableResponse(secret=secret, qr_base64=qr, provisioning_uri=uri)
+
+
+@router.post("/totp/verify-setup", status_code=status.HTTP_200_OK)
+async def totp_verify_setup(
+    body: TOTPVerifySetupRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Confirma código TOTP e ativa o 2FA para a conta."""
+    svc = _svc(session)
+    ok = await svc.verify_and_enable_totp(current_user.user_id, body.code)
+    if not ok:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Código inválido ou expirado.")
+    return {"message": "2FA ativado com sucesso."}
+
+
+@router.post("/totp/disable", status_code=status.HTTP_200_OK)
+async def totp_disable(
+    body: TOTPVerifySetupRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Desativa o 2FA após confirmar com código atual."""
+    svc = _svc(session)
+    ok = await svc.disable_totp(current_user.user_id, body.code)
+    if not ok:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Código inválido.")
+    return {"message": "2FA desativado."}
+
+
+@router.post("/totp/authenticate", response_model=TokenResponse)
+async def totp_authenticate(
+    body: TOTPAuthenticateRequest,
+    session: AsyncSession = Depends(get_db_session),
+) -> TokenResponse:
+    """Valida código TOTP após login com senha — retorna tokens reais."""
+    try:
+        pair = await _svc(session).authenticate_totp(body.totp_token, body.code)
+        return TokenResponse(
+            access_token=pair.access_token,
+            refresh_token=pair.refresh_token,
+            expires_in=pair.expires_in,
+        )
+    except AuthError as e:
+        raise _auth_error_to_http(e) from e
