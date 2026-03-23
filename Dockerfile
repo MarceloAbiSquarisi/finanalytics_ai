@@ -57,7 +57,7 @@ RUN uv pip install --system \
         "prophet>=1.1.5" \
         "torch>=2.2.0" \
         "pytorch-forecasting>=1.0.0" \
-    || echo "[WARN] forecast deps parcialmente instaladas — modelos degradarão graciosamente"
+    || echo "[WARN] forecast deps parcialmente instaladas — modelos degradarao graciosamente" # rebuild-202603231812 — modelos degradarão graciosamente"
 
 # Copiar código-fonte depois das deps (preserva cache de deps no rebuild)
 COPY src/ ./src/
