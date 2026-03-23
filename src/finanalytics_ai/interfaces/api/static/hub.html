@@ -324,27 +324,6 @@ body::before{
 
 
 /* ── Infra service cards ── */
-.infra-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
-.infra-card{
-  background:var(--s2);border:1px solid var(--border);border-radius:8px;
-  padding:10px 12px;text-decoration:none;
-  display:flex;align-items:center;gap:10px;
-  transition:all .15s;cursor:pointer;
-}
-.infra-card:hover{border-color:var(--card-color,var(--accent));
-  background:rgba(0,200,255,.04);transform:translateY(-1px)}
-.infra-icon{font-size:20px;flex-shrink:0;width:32px;text-align:center}
-.infra-info{flex:1;min-width:0}
-.infra-name{font-family:var(--mono);font-size:10px;font-weight:700;
-  color:var(--text);letter-spacing:.04em}
-.infra-url{font-family:var(--mono);font-size:8px;color:var(--muted);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
-.infra-badge{font-family:var(--mono);font-size:7px;font-weight:700;
-  padding:1px 5px;border-radius:2px;flex-shrink:0}
-.badge-ok  {background:rgba(0,230,118,.1);color:var(--green);border:1px solid rgba(0,230,118,.2)}
-.badge-off {background:rgba(100,100,120,.1);color:var(--muted);border:1px solid var(--border)}
-.badge-warn{background:rgba(240,180,41,.1);color:var(--gold);border:1px solid rgba(240,180,41,.2)}
-
 </style>
 </head>
 <body>
@@ -393,9 +372,7 @@ body::before{
     <a href="/correlation">Correlação</a>
     <a href="/anomaly">Anomalias</a>
     <a href="/watchlist">Watchlist</a>
-    <a href="/performance">Performance</a>
-    <a href="/fixed-income">Renda Fixa</a><a href="/fintz">Fintz</a>
-    <a href="/etf">ETFs</a>
+<a href="/etf">ETFs</a>
     <a href="/optimizer">Otimizador</a>
     <a href="/hub" class="active">Hub</a>
   </nav>
@@ -426,9 +403,7 @@ body::before{
     <a class="nav-btn" href="/screener">Screener</a>
     <a class="nav-btn" href="/anomaly">Anomalias</a>
     <a class="nav-btn" href="/watchlist">Watchlist</a>
-    <a href="/performance">Performance</a>
-    <a href="/fixed-income">Renda Fixa</a><a href="/fintz">Fintz</a>
-  </div>
+</div>
   <div class="hdr-right">
     <div class="live-pill"><div class="live-dot"></div>AO VIVO</div>
     <div class="clock" id="clock">--:--:--</div>
@@ -575,6 +550,44 @@ body::before{
         <div class="svc-row"><div class="svc-dot" id="dot-ts"></div><span class="svc-name">TimescaleDB</span><span class="svc-tag" id="tag-ts">—</span></div>
         <div class="svc-row"><div class="svc-dot" id="dot-kafka"></div><span class="svc-name">Kafka</span><span class="svc-tag" id="tag-kafka">—</span></div>
         <div class="svc-row"><div class="svc-dot" id="dot-brapi"></div><span class="svc-name">BRAPI</span><span class="svc-tag" id="tag-brapi">—</span></div>
+      </div>
+    </div>
+
+
+    <!-- Infraestrutura -->
+    <div class="sb-block">
+      <div class="sb-title">Infraestrutura</div>
+      <div class="infra-grid">
+        <a class="infra-card" href="http://localhost:3000" target="_blank" style="--card-color:rgba(240,134,54,1)">
+          <div class="infra-icon">&#128202;</div>
+          <div class="infra-info"><div class="infra-name">Grafana</div><div class="infra-url">localhost:3000</div></div>
+          <div class="infra-badge" id="badge-grafana">—</div>
+        </a>
+        <a class="infra-card" href="http://localhost:5050" target="_blank" style="--card-color:rgba(0,150,255,1)">
+          <div class="infra-icon">&#128024;</div>
+          <div class="infra-info"><div class="infra-name">pgAdmin</div><div class="infra-url">localhost:5050</div></div>
+          <div class="infra-badge" id="badge-pgadmin">—</div>
+        </a>
+        <a class="infra-card" href="http://localhost:8080" target="_blank" style="--card-color:rgba(168,85,247,1)">
+          <div class="infra-icon">&#128232;</div>
+          <div class="infra-info"><div class="infra-name">Kafka UI</div><div class="infra-url">localhost:8080</div></div>
+          <div class="infra-badge" id="badge-kafka-ui">—</div>
+        </a>
+        <a class="infra-card" href="http://localhost:8001" target="_blank" style="--card-color:rgba(220,50,50,1)">
+          <div class="infra-icon">&#128308;</div>
+          <div class="infra-info"><div class="infra-name">RedisInsight</div><div class="infra-url">localhost:8001</div></div>
+          <div class="infra-badge" id="badge-redis-ui">—</div>
+        </a>
+        <a class="infra-card" href="http://localhost:5432" target="_blank" style="--card-color:rgba(0,150,255,1)">
+          <div class="infra-icon">&#128451;</div>
+          <div class="infra-info"><div class="infra-name">PostgreSQL</div><div class="infra-url">localhost:5432</div></div>
+          <div class="infra-badge badge-ok">5432</div>
+        </a>
+        <a class="infra-card" href="http://localhost:5433" target="_blank" style="--card-color:rgba(0,200,120,1)">
+          <div class="infra-icon">&#9201;</div>
+          <div class="infra-info"><div class="infra-name">TimescaleDB</div><div class="infra-url">localhost:5433</div></div>
+          <div class="infra-badge badge-ok">5433</div>
+        </a>
       </div>
     </div>
 
