@@ -299,6 +299,29 @@ body::before{
 .fa-user-chip{display:flex;align-items:center;gap:6px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;color:#556677;letter-spacing:.3px;flex-shrink:0}
 .fa-user-chip .fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:10px;color:#8899aa}
 
+
+/* ── Infra service cards ── */
+.infra-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.infra-card{
+  background:var(--s2);border:1px solid var(--border);border-radius:8px;
+  padding:10px 12px;text-decoration:none;
+  display:flex;align-items:center;gap:10px;
+  transition:all .15s;cursor:pointer;
+}
+.infra-card:hover{border-color:var(--card-color,var(--accent));
+  background:rgba(0,200,255,.04);transform:translateY(-1px)}
+.infra-icon{font-size:20px;flex-shrink:0;width:32px;text-align:center}
+.infra-info{flex:1;min-width:0}
+.infra-name{font-family:var(--mono);font-size:10px;font-weight:700;
+  color:var(--text);letter-spacing:.04em}
+.infra-url{font-family:var(--mono);font-size:8px;color:var(--muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
+.infra-badge{font-family:var(--mono);font-size:7px;font-weight:700;
+  padding:1px 5px;border-radius:2px;flex-shrink:0}
+.badge-ok  {background:rgba(0,230,118,.1);color:var(--green);border:1px solid rgba(0,230,118,.2)}
+.badge-off {background:rgba(100,100,120,.1);color:var(--muted);border:1px solid var(--border)}
+.badge-warn{background:rgba(240,180,41,.1);color:var(--gold);border:1px solid rgba(240,180,41,.2)}
+
 </style>
 </head>
 <body>
@@ -353,6 +376,14 @@ body::before{
     <a href="/optimizer">Otimizador</a>
     <a href="/hub" class="active">Hub</a>
   </nav>
+  <div class="fa-user-chip" id="fa-user-chip" style="display:none">
+    <div class="fa-avatar" id="fa-avatar">U</div>
+    <span id="fa-username" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+  </div>
+  <button class="fa-logout-btn" onclick="faLogout()" title="Sair">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+    Sair
+  </button>
 </div>
 
 <!-- ── Header ── -->
@@ -791,6 +822,35 @@ function faLogout() {
   sessionStorage.clear();
   window.location.replace('/login');
 }
+
+// ── Infra services health ──────────────────────────────────────────────────────
+async function checkInfraServices() {
+  const services = [
+    {id:'badge-grafana',    url:'http://localhost:3000/api/health'},
+    {id:'badge-pgadmin',    url:'http://localhost:5050/misc/ping'},
+    {id:'badge-kafka-ui',   url:'http://localhost:8080/actuator/health'},
+    {id:'badge-redis-ui',   url:'http://localhost:8001/api/health'},
+  ];
+  for (const svc of services) {
+    const el = document.getElementById(svc.id);
+    if (!el) continue;
+    try {
+      const ctrl = new AbortController();
+      const tid  = setTimeout(() => ctrl.abort(), 1500);
+      const res  = await fetch(svc.url, {signal: ctrl.signal, mode: 'no-cors'});
+      clearTimeout(tid);
+      // no-cors sempre retorna opaque — se nao lancar excecao, esta UP
+      el.textContent = 'UP';
+      el.className = 'infra-badge badge-ok';
+    } catch {
+      el.textContent = 'OFF';
+      el.className = 'infra-badge badge-off';
+    }
+  }
+}
+setTimeout(checkInfraServices, 2000);
+setInterval(checkInfraServices, 60000);
+
 </script>
 </body>
 </html>
