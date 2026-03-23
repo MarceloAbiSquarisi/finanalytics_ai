@@ -219,7 +219,7 @@ def get_jwt_handler() -> JWTHandler:
 
         s = get_settings()
         _handler = JWTHandler(
-            secret_key=s.secret_key,
+            secret_key=s.app_secret_key,
             access_expire_minutes=getattr(s, "jwt_access_expire_minutes", 30),
             refresh_expire_days=getattr(s, "jwt_refresh_expire_days", 7),
         )
