@@ -39,3 +39,20 @@ __all__ = [
     "fintz_sync_attempts_total", "fintz_sync_success_total", "fintz_sync_skips_total",
     "fintz_sync_errors_total", "fintz_rows_upserted_total",
 ]
+
+try:
+    from finanalytics_ai.observability_legacy import setup_metrics, setup_tracing
+except ImportError:
+    try:
+        import sys, importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "observability_legacy",
+            __file__.replace("__init__.py", "").rstrip("/\\") + "/../observability.py"
+        )
+        _mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_mod)
+        setup_metrics = getattr(_mod, "setup_metrics", lambda *a, **kw: None)
+        setup_tracing = getattr(_mod, "setup_tracing", lambda *a, **kw: None)
+    except Exception:
+        def setup_metrics(*a, **kw): pass
+        def setup_tracing(*a, **kw): return None
