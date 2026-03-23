@@ -376,6 +376,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .fa-user-chip{display:flex;align-items:center;gap:6px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;color:#556677;letter-spacing:.3px;flex-shrink:0}
 .fa-user-chip .fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:10px;color:#8899aa}
 
+
+.rb-period { background: rgba(240,180,41,.08) !important; color: #b8860b !important; border-color: rgba(240,180,41,.2) !important; }
+.rb-period:hover { background: rgba(240,180,41,.16) !important; color: #F0B429 !important; }
+.rb-period.active-period { background: rgba(240,180,41,.22) !important; color: #F0B429 !important; border-color: rgba(240,180,41,.5) !important; font-weight:700; }
+
 </style>
 </head>
 <body>
@@ -430,6 +435,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <a href="/optimizer">Otimizador</a>
     <a href="/hub">Hub</a>
   </nav>
+  <div class="fa-user-chip" id="fa-user-chip" style="display:none">
+    <div class="fa-avatar" id="fa-avatar">U</div>
+    <span id="fa-username" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+  </div>
+  <button class="fa-logout-btn" onclick="faLogout()" title="Sair">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+    Sair
+  </button>
 </div>
 
 
@@ -512,6 +525,18 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
           <button class="rb rb-swing active" onclick="changeInterval('1wk')">1S</button>
           <button class="rb rb-swing" onclick="changeInterval('1mo')">1M</button>
           <button class="rb rb-swing" onclick="changeInterval('3mo')">3M</button>
+          <span style="width:1px;background:var(--border);align-self:stretch;margin:0 6px;display:inline-block"></span>
+          <span style="font-size:9px;color:var(--muted);letter-spacing:.5px;font-family:var(--mono)">PER:</span>
+          <button class="rb rb-period" onclick="changePeriod('1d')" data-p="1d">1D</button>
+          <button class="rb rb-period" onclick="changePeriod('5d')" data-p="5d">5D</button>
+          <button class="rb rb-period" onclick="changePeriod('1mo')" data-p="1mo">1M</button>
+          <button class="rb rb-period" onclick="changePeriod('3mo')" data-p="3mo" >3M</button>
+          <button class="rb rb-period" onclick="changePeriod('6mo')" data-p="6mo">6M</button>
+          <button class="rb rb-period active-period" onclick="changePeriod('1y')" data-p="1y">1A</button>
+          <button class="rb rb-period" onclick="changePeriod('2y')" data-p="2y">2A</button>
+          <button class="rb rb-period" onclick="changePeriod('5y')" data-p="5y">5A</button>
+          <button class="rb rb-period" onclick="changePeriod('max')" data-p="max">MAX</button>
+
         </div>
       </div>
       <div style="display:flex;align-items:baseline;gap:7px">
@@ -833,7 +858,8 @@ const RLBL  = {'1d':'1D','5d':'5D','1mo':'1M','3mo':'3M','6mo':'6M','1y':'1A','2
 
 let currentPf     = null;
 let currentTicker = null;
-let currentRange  = '1mo';
+let currentRange  = '1y';
+let currentPeriod = '1y';
 var currentInterval = '1wk';
 let tradeMode     = 'buy';
 let indVisible    = {bb: false, rsi: false, macd: false, adx: false, patterns: false};
