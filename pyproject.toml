@@ -19,6 +19,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+auth = ["python-jose[cryptography]>=3.3.0", "passlib[bcrypt]>=1.7.4"]
+cache = ["redis[asyncio]>=5.0.0"]
+kafka = ["aiokafka>=0.10.0"]
+market = ["yfinance>=0.2.0"]
+observability = ["opentelemetry-api>=1.20.0", "opentelemetry-sdk>=1.20.0"]
+
 dev = [
     "pytest>=8.2.0",
     "pytest-asyncio>=0.23.0",

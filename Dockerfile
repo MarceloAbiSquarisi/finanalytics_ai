@@ -46,7 +46,7 @@ RUN mkdir -p src/finanalytics_ai \
 # --no-dev: exclui [dev] extras (ruff, mypy, pytest não vão para produção)
 RUN uv pip install --system -e . \
     && uv pip install --system \
-        "uvicorn[standard]>=0.30.0"         "httpx>=0.27.0"         "pandas>=2.0.0"         "python-multipart>=0.0.9"         "opentelemetry-api>=1.20.0"         "opentelemetry-sdk>=1.20.0" \
+        "uvicorn[standard]>=0.30.0"         "httpx>=0.27.0"         "pandas>=2.0.0"         "python-multipart>=0.0.9"         "opentelemetry-api>=1.20.0"         "opentelemetry-sdk>=1.20.0"         "python-jose[cryptography]>=3.3.0"         "passlib[bcrypt]>=1.7.4"         "redis[asyncio]>=5.0.0"         "aiokafka>=0.10.0"         "yfinance>=0.2.0" \
         "uvloop>=0.19.0" \
         "httptools>=0.6.0" \
         "pyarrow>=16.0.0"
