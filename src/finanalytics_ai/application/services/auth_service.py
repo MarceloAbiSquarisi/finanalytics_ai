@@ -86,7 +86,10 @@ class AuthService:
 
         user.ensure_active()
         await self._repo.update_last_login(user.user_id)
-        logger.info("auth.login", user_id=user.user_id)
+        logger.info("auth.login", user_id=user.user_id, totp=user.totp_enabled)
+
+        if remember_me:
+            return self._jwt.create_token_pair_remember(user)
         return self._jwt.create_token_pair(user)
 
     async def refresh(self, refresh_token: str) -> TokenPair:

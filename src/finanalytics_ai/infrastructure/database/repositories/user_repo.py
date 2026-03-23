@@ -173,4 +173,4 @@ class UserRepository:
             select(UserModel).where(UserModel.user_id == user_id)
         )
         model = result.scalar_one_or_none()
-        return _to_domain(model) if model else None
+        return self._to_domain(model) if model else None
