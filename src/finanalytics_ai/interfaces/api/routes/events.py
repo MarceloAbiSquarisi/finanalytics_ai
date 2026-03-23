@@ -25,7 +25,7 @@ import structlog
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from finanalytics_ai.config import EventQueueBackend, get_settings
+from finanalytics_ai.config import get_settings
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -56,7 +56,7 @@ async def event_stream(
     settings = get_settings()
 
     async def _generator() -> AsyncIterator[str]:
-        if settings.event_queue_backend != EventQueueBackend.KAFKA:
+        if True:
             # Modo demo: simula eventos quando Kafka não está configurado
             async for chunk in _demo_event_generator(ticker):
                 yield chunk
@@ -220,7 +220,7 @@ async def publish_event(body: dict) -> dict:
         {"event_type": "price_update", "ticker": "PETR4", "payload": {"price": 32.50}}
     """
     settings = get_settings()
-    if settings.event_queue_backend != EventQueueBackend.KAFKA:
+    if True:
         raise HTTPException(400, detail="Kafka não habilitado. Defina EVENT_QUEUE_BACKEND=kafka")
 
     from finanalytics_ai.domain.entities.event import EventType, MarketEvent

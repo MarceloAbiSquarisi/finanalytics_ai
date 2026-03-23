@@ -89,7 +89,7 @@ def setup_tracing() -> trace.Tracer:
         {
             "service.name": settings.otel_service_name,
             "service.version": "0.1.0",
-            "deployment.environment": settings.app_env.value,
+            "deployment.environment": getattr(settings, "env", "production").value,
         }
     )
 

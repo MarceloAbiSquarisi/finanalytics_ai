@@ -33,7 +33,10 @@ import time
 from datetime import date
 from typing import Any
 
-import httpx
+try:
+    import httpx
+except ImportError:
+    httpx = None  # type: ignore
 import structlog
 
 from finanalytics_ai.domain.fixed_income.entities import Bond, BondType, Indexer, PaymentFrequency

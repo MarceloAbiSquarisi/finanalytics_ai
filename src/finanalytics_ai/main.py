@@ -168,7 +168,7 @@ async def main() -> None:
 
     logger.info(
         "finanalytics_ai.starting",
-        env=settings.app_env,
+        env=getattr(settings, "env", "production"),
         version="0.1.0",
     )
 

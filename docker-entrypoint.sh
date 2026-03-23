@@ -44,7 +44,7 @@ import asyncio
 import asyncpg
 import os
 
-HEAD_REVISION = "0002_portfolio_multi"
+HEAD_REVISION = "53e92a4075c2"
 SENTINEL_TABLE = "portfolios"
 
 async def ensure_alembic_version():
@@ -69,6 +69,17 @@ async def ensure_alembic_version():
                     "INSERT INTO alembic_version (version_num) VALUES ($1)", HEAD_REVISION
                 )
                 print(f"[entrypoint] Stamp -> {HEAD_REVISION}")
+            # Verifica se a versao atual existe nos arquivos de migration
+            try:
+                import subprocess, sys
+                r = subprocess.run(["python", "-m", "alembic", "current"], capture_output=True, text=True)
+                if "Can't locate" in r.stderr or "Can't locate" in r.stdout:
+                    print(f"[entrypoint] Revisao {versions} nao encontrada na chain — fazendo stamp para head")
+                    await conn.execute("DELETE FROM alembic_version")
+                    await conn.execute("INSERT INTO alembic_version (version_num) VALUES () ON CONFLICT DO NOTHING", HEAD_REVISION)
+                    print(f"[entrypoint] Stamp -> {HEAD_REVISION}")
+            except Exception as e:
+                print(f"[entrypoint] Aviso: {e}")
             return
 
         sentinel_exists = await conn.fetchval(f"""

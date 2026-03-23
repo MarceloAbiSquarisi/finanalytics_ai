@@ -20,7 +20,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from finanalytics_ai.config import EventQueueBackend, get_settings
+from finanalytics_ai.config import get_settings
 from finanalytics_ai.exceptions import FinAnalyticsError
 from finanalytics_ai.infrastructure.database.connection import close_engine, get_engine
 from finanalytics_ai.interfaces.api.routes import (
@@ -103,7 +103,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     global _kafka_consumer, _kafka_task, _alert_service, _price_producer, _producer_task
 
     settings = get_settings()
-    logger.info("api.starting", env=settings.app_env)
+    logger.info("api.starting", env=getattr(settings, "env", "production"))
 
     # ── 1. PostgreSQL ─────────────────────────────────────────────────────────
     get_engine()
@@ -140,51 +140,50 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # ── 4. Kafka consumer ─────────────────────────────────────────────────────
     kafka_ok = False
-    if settings.event_queue_backend == EventQueueBackend.KAFKA:
-        try:
-            from finanalytics_ai.infrastructure.queue.kafka_adapter import KafkaMarketEventConsumer
+    try:
+        from finanalytics_ai.infrastructure.queue.kafka_adapter import KafkaMarketEventConsumer
 
-            consumer = KafkaMarketEventConsumer()
-            await consumer.start()
-            _kafka_consumer = consumer
+        consumer = KafkaMarketEventConsumer()
+        await consumer.start()
+        _kafka_consumer = consumer
 
-            async def _handle_event(event: Any) -> None:
-                from finanalytics_ai.domain.entities.event import EventType, MarketEvent
+        async def _handle_event(event: Any) -> None:
+            from finanalytics_ai.domain.entities.event import EventType, MarketEvent
 
-                if not isinstance(event, MarketEvent):
-                    return
-                logger.debug("kafka.event.received", type=event.event_type, ticker=event.ticker)
+            if not isinstance(event, MarketEvent):
+                return
+            logger.debug("kafka.event.received", type=event.event_type, ticker=event.ticker)
 
-                if event.event_type == EventType.PRICE_UPDATE and _alert_service:
-                    price = event.payload.get("price")
-                    if price:
-                        triggered = await _alert_service.evaluate_price(event.ticker, float(price))
-                        if triggered:
-                            logger.info("alerts.triggered", ticker=event.ticker, count=triggered)
+            if event.event_type == EventType.PRICE_UPDATE and _alert_service:
+                price = event.payload.get("price")
+                if price:
+                    triggered = await _alert_service.evaluate_price(event.ticker, float(price))
+                    if triggered:
+                        logger.info("alerts.triggered", ticker=event.ticker, count=triggered)
 
-                if event.event_type == EventType.PRICE_UPDATE and timescale_ok:
-                    try:
-                        from finanalytics_ai.infrastructure.timescale.repository import (
-                            TimescalePriceTickRepository,
-                            get_timescale_pool,
-                        )
+            if event.event_type == EventType.PRICE_UPDATE and timescale_ok:
+                try:
+                    from finanalytics_ai.infrastructure.timescale.repository import (
+                        TimescalePriceTickRepository,
+                        get_timescale_pool,
+                    )
 
-                        pool = await get_timescale_pool()
-                        repo = TimescalePriceTickRepository(pool)
-                        await repo.save_tick(
-                            ticker=event.ticker,
-                            price=float(event.payload.get("price", 0)),
-                            change_pct=event.payload.get("change_pct"),
-                            volume=event.payload.get("volume"),
-                            source=event.source,
-                        )
-                    except Exception as e:
-                        logger.warning("timescale.tick.save_failed", error=str(e))
+                    pool = await get_timescale_pool()
+                    repo = TimescalePriceTickRepository(pool)
+                    await repo.save_tick(
+                        ticker=event.ticker,
+                        price=float(event.payload.get("price", 0)),
+                        change_pct=event.payload.get("change_pct"),
+                        volume=event.payload.get("volume"),
+                        source=event.source,
+                    )
+                except Exception as e:
+                    logger.warning("timescale.tick.save_failed", error=str(e))
 
-            _kafka_task = asyncio.create_task(consumer.consume_loop(_handle_event))
-            kafka_ok = True
-            logger.info("kafka.consumer.running", group=settings.kafka_consumer_group)
-        except Exception as exc:
+        _kafka_task = asyncio.create_task(consumer.consume_loop(_handle_event))
+        kafka_ok = True
+        logger.info("kafka.consumer.running", group=settings.kafka_consumer_group)
+    except Exception as exc:
             logger.warning("kafka.unavailable", error=str(exc))
 
     # ── 5. BacktestService + OptimizerService + WalkForwardService ───────────
@@ -479,7 +478,8 @@ def create_app() -> FastAPI:
         app.include_router(fintz_sync_status.router, prefix="/api/v1/fintz", tags=["Fintz Sync"])
     except Exception as _fss:
         import structlog as _sl3
-        _sl3.get_logger(__name__).warning("fintz_sync_status.router.FAILED", error=str(_fss))    try:
+        _sl3.get_logger(__name__).warning("fintz_sync_status.router.FAILED", error=str(_fss))
+    try:
         from finanalytics_ai.interfaces.api.routes import fintz_data as fintz_data_routes
         app.include_router(fintz_data_routes.router, prefix="/api/v1/fintz", tags=["Fintz Histórico"])
     except Exception as _fe2:

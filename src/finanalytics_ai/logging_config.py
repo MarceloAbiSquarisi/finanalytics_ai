@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from finanalytics_ai.config import LogFormat, get_settings
+from finanalytics_ai.config import get_settings
 
 if TYPE_CHECKING:
     from structlog.types import EventDict, WrappedLogger
@@ -39,8 +39,8 @@ def _add_app_context(
 ) -> EventDict:
     """Injeta metadados padrão em todos os logs."""
     settings = get_settings()
-    event_dict["service"] = settings.otel_service_name
-    event_dict["env"] = settings.app_env.value
+    event_dict["service"] = getattr(settings, "otel_service_name", "finanalytics-ai")
+    event_dict["env"] = str(getattr(settings, "env", "production"))
     return event_dict
 
 
@@ -74,7 +74,7 @@ def configure_logging() -> None:
         _drop_color_message_key,
     ]
 
-    if settings.app_log_format == LogFormat.JSON or settings.is_production:
+    if settings.log_format == "json" or settings.is_production:
         renderer: structlog.types.Processor = structlog.processors.JSONRenderer()
     else:
         renderer = structlog.dev.ConsoleRenderer(colors=True)
@@ -103,7 +103,7 @@ def configure_logging() -> None:
     root_logger = logging.getLogger()
     root_logger.handlers.clear()
     root_logger.addHandler(handler)
-    root_logger.setLevel(settings.app_log_level.value)
+    root_logger.setLevel(settings.log_level.upper())
 
     # Silencia loggers verbosos de libs externas
     for noisy_lib in ("asyncio", "aiohttp.access", "sqlalchemy.engine"):

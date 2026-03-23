@@ -11,6 +11,30 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+
+    # ── Campos legados / opcionais ────────────────────────────────────────────
+    redis_url: str = Field(default="redis://localhost:6379/0")
+    brapi_token: str = Field(default="")
+    brapi_base_url: str = Field(default="https://brapi.dev/api")
+    anthropic_api_key: str = Field(default="")
+    ollama_url: str = Field(default="http://localhost:11434")
+    ollama_model: str = Field(default="llama3")
+    kafka_consumer_group: str = Field(default="finanalytics")
+    kafka_topic_market_events: str = Field(default="market_events")
+    kafka_topic_price_updates: str = Field(default="price_updates")
+    event_queue_backend: str = Field(default="memory")
+    otel_service_name: str = Field(default="finanalytics-ai")
+    prometheus_port: int = Field(default=9090)
+    producer_enabled: bool = Field(default=False)
+    producer_poll_interval_seconds: float = Field(default=60.0)
+    producer_tickers: str = Field(default="PETR4,VALE3,ITUB4")
+    forecast_cache_ttl_seconds: int = Field(default=3600)
+    http_timeout_seconds: float = Field(default=30.0)
+    http_retry_max_attempts: int = Field(default=3)
+    reset_token_expire_minutes: int = Field(default=30)
+    fintz_download_timeout_s: float = Field(default=300.0)
+    env: str = Field(default="production")
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
