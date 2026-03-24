@@ -1,11 +1,7 @@
 """
 application/services/fundamental_analysis_service.py
-Serviço de análise fundamentalista.
-
-Responsabilidades:
-  1. Buscar dados do Fintz (TimescaleDB) + BRAPI
-  2. Montar estrutura de dados para o gerador de PDF
-  3. Suportar empresa única e comparativo
+Serviço de análise fundamentalista — dados exclusivamente do Fintz (PostgreSQL).
+BRAPI suspenso.
 """
 from __future__ import annotations
 
@@ -21,42 +17,54 @@ log = structlog.get_logger(__name__)
 INDICADORES_VALUATION     = ["P_L", "P_VP", "EV_EBITDA", "P_EBITDA", "P_SR"]
 INDICADORES_RENTABILIDADE = ["ROE", "ROIC", "ROA", "MargemLiquida", "MargemEBITDA"]
 INDICADORES_DIVIDENDOS    = ["DividendYield"]
-INDICADORES_ENDIVIDAMENTO = ["DividaLiquida_EBITDA", "DividaLiquida_PatrimonioLiquido"]
+INDICADORES_ENDIVIDAMENTO = ["DividaLiquida_EBITDA", "DividaLiquida_PatrimonioLiquido",
+                              "DividaBruta_PatrimonioLiquido"]
 ITENS_DRE = ["Receita Liquida", "EBITDA", "Lucro Liquido", "Divida Liquida"]
 
-# Mapa Fintz -> nome legivel para o PDF
-INDICADOR_LABELS = {
-    "P_L":                           "P/L",
-    "P_VP":                          "P/VP",
-    "EV_EBITDA":                     "EV/EBITDA",
-    "P_EBITDA":                      "P/EBITDA",
-    "P_SR":                          "P/Receita",
-    "ROE":                           "ROE",
-    "ROIC":                          "ROIC",
-    "ROA":                           "ROA",
-    "MargemLiquida":                 "Margem Líquida",
-    "MargemEBITDA":                  "Margem EBITDA",
-    "MargemBruta":                   "Margem Bruta",
-    "MargemEBIT":                    "Margem EBIT",
-    "DividendYield":                 "DY",
-    "DividaLiquida_EBITDA":          "Dívida/EBITDA",
-    "DividaLiquida_PatrimonioLiquido": "Dívida/PL",
-    "ValorDeMercado":                "Market Cap",
-    "LPA":                           "LPA",
-    "VPA":                           "VPA",
-    "EV":                            "EV",
+# Mapa Fintz -> nome legível para o PDF
+INDICADOR_LABELS: dict[str, str] = {
+    "P_L":                              "Preço/Lucro (P/L)",
+    "P_VP":                             "Preço/Valor Patrimonial (P/VP)",
+    "EV_EBITDA":                        "EV/EBITDA",
+    "P_EBITDA":                         "Preço/EBITDA",
+    "P_SR":                             "Preço/Receita",
+    "ROE":                              "Retorno sobre Patrimônio (ROE)",
+    "ROIC":                             "Retorno sobre Capital Investido (ROIC)",
+    "ROA":                              "Retorno sobre Ativos (ROA)",
+    "MargemLiquida":                    "Margem Líquida",
+    "MargemEBITDA":                     "Margem EBITDA",
+    "MargemBruta":                      "Margem Bruta",
+    "MargemEBIT":                       "Margem EBIT",
+    "DividendYield":                    "Dividend Yield (DY)",
+    "DividaLiquida_EBITDA":             "Dívida Líquida / EBITDA",
+    "DividaLiquida_PatrimonioLiquido":  "Dívida Líquida / Patrimônio Líquido",
+    "DividaBruta_PatrimonioLiquido":    "Dívida Bruta / Patrimônio Líquido",
+    "ValorDeMercado":                   "Valor de Mercado",
+    "LPA":                              "Lucro por Ação (LPA)",
+    "VPA":                              "Valor Patrimonial por Ação (VPA)",
+    "EV":                               "Enterprise Value (EV)",
+    "EV_EBIT":                          "EV/EBIT",
+    "LiquidezCorrente":                 "Liquidez Corrente",
+    "GiroAtivos":                       "Giro dos Ativos",
+}
+
+# Indicadores armazenados em decimal no Fintz que devem ser exibidos como %
+PCT_INDICATORS = {
+    "ROE", "ROIC", "ROA", "MargemLiquida", "MargemEBITDA",
+    "MargemBruta", "MargemEBIT", "DividendYield",
+    "EBIT_Ativos", "GiroAtivos",
 }
 
 
 class FundamentalAnalysisService:
     """
-    Orquestra busca de dados para relatorios fundamentalistas.
-    Injecao: fintz_repo (FintzRepo — PostgreSQL), brapi_client (BrapiClient).
+    Orquestra busca de dados para relatórios fundamentalistas.
+    Dados exclusivamente do Fintz (PostgreSQL). BRAPI suspenso.
     """
 
-    def __init__(self, fintz_repo: Any, brapi_client: Any) -> None:
+    def __init__(self, fintz_repo: Any, brapi_client: Any = None) -> None:
         self._repo = fintz_repo
-        self._brapi = brapi_client
+        # brapi_client mantido na assinatura para compatibilidade mas não usado
 
     # ── Empresa única ─────────────────────────────────────────────────────────
     async def get_single_company_data(
@@ -64,72 +72,87 @@ class FundamentalAnalysisService:
         ticker: str,
         periodo_anos: int = 5,
     ) -> dict[str, Any]:
-        """Coleta todos os dados necessários para relatório de empresa única."""
         ticker = ticker.upper()
         start = date.today() - timedelta(days=365 * periodo_anos)
-        limit_dias = periodo_anos * 252
-        limit_ind = periodo_anos * 52  # indicadores semanais/mensais — mais dados
+        limit_cot = periodo_anos * 252
+        limit_ind = periodo_anos * 20  # por indicador individual
 
         log.info("fundamental.single.start", ticker=ticker, anos=periodo_anos)
 
-        # Busca em paralelo
-        results = await asyncio.gather(
+        # Busca todos os indicadores relevantes em paralelo (série por indicador)
+        all_indicators = (INDICADORES_VALUATION + INDICADORES_RENTABILIDADE +
+                          INDICADORES_DIVIDENDOS + INDICADORES_ENDIVIDAMENTO)
+
+        tasks = [
             self._repo.get_indicadores_latest(ticker),
-            self._repo.get_indicadores(ticker, INDICADORES_VALUATION, start, limit_ind),
-            self._repo.get_indicadores(ticker, INDICADORES_RENTABILIDADE, start, limit_ind),
-            self._repo.get_indicadores(ticker, INDICADORES_DIVIDENDOS, start, limit_ind),
-            self._repo.get_indicadores(ticker, INDICADORES_ENDIVIDAMENTO, start, limit_ind),
+            self._repo.get_cotacoes(ticker, start=start, limit=limit_cot),
             self._repo.get_itens_contabeis(ticker, ITENS_DRE, "12M", start, 40),
-            self._repo.get_cotacoes(ticker, start=start, limit=limit_dias),
-            self._get_brapi_info(ticker),
-            return_exceptions=True,
-        )
+        ] + [
+            self._repo.get_indicador_serie(ticker, ind, start, limit_ind)
+            for ind in all_indicators
+        ]
 
-        ind_latest, val_serie, rent_serie, div_serie, end_serie, dre_raw, cotacoes, brapi = results
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Trata exceptions individuais graciosamente
         def safe(r: Any, default: Any) -> Any:
             return default if isinstance(r, Exception) else r
 
-        ind_latest = safe(ind_latest, {})
-        val_serie   = safe(val_serie, [])
-        rent_serie  = safe(rent_serie, [])
-        div_serie   = safe(div_serie, [])
-        end_serie   = safe(end_serie, [])
-        dre_raw     = safe(dre_raw, [])
-        cotacoes    = safe(cotacoes, [])
-        brapi       = safe(brapi, {})
+        ind_latest = safe(results[0], {})
+        cotacoes    = safe(results[1], [])
+        dre_raw     = safe(results[2], [])
+
+        # Mapeia séries por indicador
+        series_map: dict[str, list] = {}
+        for i, ind_name in enumerate(all_indicators):
+            series_map[ind_name] = safe(results[3 + i], [])
+
+        # Converte indicadores percentuais (decimal → %)
+        for key in list(ind_latest.keys()):
+            if key in PCT_INDICATORS and ind_latest[key].get("valor") is not None:
+                ind_latest[key]["valor"] = ind_latest[key]["valor"] * 100
 
         # Pivota DRE: {item: [rows]}
         dre: dict[str, list] = {}
         for row in dre_raw:
-            item = row.get("item", "")
-            dre.setdefault(item, []).append(row)
+            dre.setdefault(row.get("item", ""), []).append(row)
 
-        # Enriquece com dados BRAPI
-        nome = brapi.get("longName") or brapi.get("shortName") or ticker
-        setor = brapi.get("sector") or brapi.get("industry") or "—"
-        preco = brapi.get("regularMarketPrice")
-        mcap = brapi.get("marketCap")
+        # Extrai preço e market cap do Fintz
+        preco = None
+        if cotacoes:
+            preco = cotacoes[0].get("fechamento_ajustado") or cotacoes[0].get("fechamento")
+
+        mcap_entry = ind_latest.get("ValorDeMercado", {})
+        mcap = mcap_entry.get("valor") if isinstance(mcap_entry, dict) else None
 
         log.info("fundamental.single.ready", ticker=ticker,
                  ind_count=len(ind_latest), cotacoes=len(cotacoes))
 
         return {
             "ticker": ticker,
-            "nome": nome,
-            "setor": setor,
+            "nome": ticker,      # Fintz não fornece nome — será buscado pela UI
+            "setor": "—",        # Fintz não fornece setor
             "preco": preco,
             "market_cap": mcap,
             "indicadores_latest": ind_latest,
-            "valuation_serie": val_serie,
-            "rentabilidade_serie": rent_serie,
-            "dividendos_serie": div_serie,
-            "endividamento_serie": end_serie,
+            "series_map": series_map,          # {indicador: [{data, valor}]}
+            "valuation_serie": self._merge_series(series_map, INDICADORES_VALUATION),
+            "rentabilidade_serie": self._merge_series(series_map, INDICADORES_RENTABILIDADE),
+            "dividendos_serie": self._merge_series(series_map, INDICADORES_DIVIDENDOS),
+            "endividamento_serie": self._merge_series(series_map, INDICADORES_ENDIVIDAMENTO),
             "dre": dre,
             "cotacoes": cotacoes,
             "periodo_anos": periodo_anos,
+            "indicador_labels": INDICADOR_LABELS,
+            "pct_indicators": list(PCT_INDICATORS),
         }
+
+    def _merge_series(self, series_map: dict, indicadores: list) -> list[dict]:
+        """Junta séries de múltiplos indicadores num único list com campo indicador."""
+        result = []
+        for ind in indicadores:
+            for row in series_map.get(ind, []):
+                result.append({**row, "indicador": ind})
+        return result
 
     # ── Comparativo ───────────────────────────────────────────────────────────
     async def get_comparative_data(
@@ -137,8 +160,7 @@ class FundamentalAnalysisService:
         tickers: list[str],
         periodo_anos: int = 5,
     ) -> dict[str, Any]:
-        """Coleta dados para relatório comparativo."""
-        tickers = [t.upper() for t in tickers[:10]]  # máximo 10
+        tickers = [t.upper() for t in tickers[:10]]
         log.info("fundamental.comparative.start", tickers=tickers, anos=periodo_anos)
 
         tasks = [self.get_single_company_data(t, periodo_anos) for t in tickers]
@@ -154,23 +176,8 @@ class FundamentalAnalysisService:
             else:
                 empresas[ticker] = result
 
-        log.info("fundamental.comparative.ready", tickers=tickers)
         return {
             "tickers": tickers,
             "empresas": empresas,
             "periodo_anos": periodo_anos,
         }
-
-    # ── Helpers ───────────────────────────────────────────────────────────────
-    async def _get_brapi_info(self, ticker: str) -> dict[str, Any]:
-        """Busca informações gerais do ticker via BRAPI."""
-        try:
-            result = await self._brapi.get_quote(ticker)
-            if isinstance(result, dict):
-                results = result.get("results", [result])
-                if results:
-                    return results[0]
-            return {}
-        except Exception as exc:
-            log.warning("fundamental.brapi_failed", ticker=ticker, error=str(exc))
-            return {}

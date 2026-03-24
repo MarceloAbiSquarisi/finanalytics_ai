@@ -216,6 +216,36 @@ class FintzRepo:
             for r in rows
         ]
 
+
+    async def get_indicador_serie(
+        self,
+        ticker: str,
+        indicador: str,
+        start=None,
+        limit: int = 300,
+    ):
+        where = "WHERE ticker = :ticker AND indicador = :indicador"
+        params = {"ticker": ticker.upper(), "indicador": indicador}
+        if start:
+            where += " AND data_publicacao >= :start"
+            params["start"] = start
+        params["limit"] = limit
+        sql = text(f"""
+            SELECT data_publicacao as data, valor
+            FROM fintz_indicadores
+            {where}
+            ORDER BY data_publicacao ASC
+            LIMIT :limit
+        """)
+        async with get_session() as session:
+            result = await session.execute(sql, params)
+            rows = result.fetchall()
+        return [
+            {"data": str(r.data),
+             "valor": float(r.valor) if r.valor is not None else None}
+            for r in rows
+        ]
+
     async def get_itens_contabeis(
         self,
         ticker: str,
