@@ -149,6 +149,153 @@ class FintzRepo:
 
     # ── Indicadores PIT ───────────────────────────────────────────────────────
 
+
+    # ── Metodos de leitura para FundamentalAnalysisService ───────────────────
+
+    async def get_indicadores_latest(
+        self,
+        ticker: str,
+        indicadores: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Snapshot mais recente de todos os indicadores de um ticker."""
+        where = "WHERE ticker = :ticker"
+        params: dict = {"ticker": ticker.upper()}
+        if indicadores:
+            where += " AND indicador = ANY(:inds)"
+            params["inds"] = indicadores
+        sql = text(f"""
+            SELECT DISTINCT ON (indicador)
+                indicador,
+                valor,
+                data_publicacao as data_ref
+            FROM fintz_indicadores
+            {where}
+            ORDER BY indicador, data_publicacao DESC
+        """)
+        async with get_session() as session:
+            result = await session.execute(sql, params)
+            rows = result.fetchall()
+        return {
+            r.indicador: {
+                "valor": float(r.valor) if r.valor is not None else None,
+                "data_ref": str(r.data_ref),
+            }
+            for r in rows
+        }
+
+    async def get_indicadores(
+        self,
+        ticker: str,
+        indicadores: list[str] | None = None,
+        start: Any = None,
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        """Serie historica de indicadores."""
+        where = "WHERE ticker = :ticker"
+        params: dict = {"ticker": ticker.upper()}
+        if indicadores:
+            where += " AND indicador = ANY(:inds)"
+            params["inds"] = indicadores
+        if start:
+            where += " AND data_publicacao >= :start"
+            params["start"] = start
+        params["limit"] = limit
+        sql = text(f"""
+            SELECT indicador, data_publicacao as data, valor
+            FROM fintz_indicadores
+            {where}
+            ORDER BY data_publicacao DESC, indicador
+            LIMIT :limit
+        """)
+        async with get_session() as session:
+            result = await session.execute(sql, params)
+            rows = result.fetchall()
+        return [
+            {"indicador": r.indicador, "data": str(r.data),
+             "valor": float(r.valor) if r.valor is not None else None}
+            for r in rows
+        ]
+
+    async def get_itens_contabeis(
+        self,
+        ticker: str,
+        itens: list[str] | None = None,
+        tipo_periodo: str | None = None,
+        start: Any = None,
+        limit: int = 80,
+    ) -> list[dict[str, Any]]:
+        """Serie historica de itens contabeis."""
+        where = "WHERE ticker = :ticker"
+        params: dict = {"ticker": ticker.upper()}
+        if itens:
+            where += " AND item = ANY(:itens)"
+            params["itens"] = itens
+        if tipo_periodo:
+            where += " AND tipo_periodo = :tipo_periodo"
+            params["tipo_periodo"] = tipo_periodo
+        if start:
+            where += " AND data_publicacao >= :start"
+            params["start"] = start
+        params["limit"] = limit
+        sql = text(f"""
+            SELECT item, tipo_periodo, data_publicacao, valor
+            FROM fintz_itens_contabeis
+            {where}
+            ORDER BY data_publicacao DESC, item
+            LIMIT :limit
+        """)
+        async with get_session() as session:
+            result = await session.execute(sql, params)
+            rows = result.fetchall()
+        return [
+            {"item": r.item, "tipo_periodo": r.tipo_periodo,
+             "data_publicacao": str(r.data_publicacao),
+             "valor": float(r.valor) if r.valor is not None else None}
+            for r in rows
+        ]
+
+    async def get_cotacoes(
+        self,
+        ticker: str,
+        start: Any = None,
+        end: Any = None,
+        limit: int = 756,
+    ) -> list[dict[str, Any]]:
+        """Serie historica de cotacoes."""
+        where = "WHERE ticker = :ticker"
+        params: dict = {"ticker": ticker.upper()}
+        if start:
+            where += " AND data >= :start"
+            params["start"] = start
+        if end:
+            where += " AND data <= :end"
+            params["end"] = end
+        params["limit"] = limit
+        sql = text(f"""
+            SELECT data, ticker,
+                   preco_fechamento as fechamento,
+                   preco_fechamento_ajustado as fechamento_ajustado,
+                   preco_abertura as abertura,
+                   preco_minimo as minimo,
+                   preco_maximo as maximo,
+                   volume_negociado as volume
+            FROM fintz_cotacoes
+            {where}
+            ORDER BY data DESC
+            LIMIT :limit
+        """)
+        async with get_session() as session:
+            result = await session.execute(sql, params)
+            rows = result.fetchall()
+        return [
+            {"data": str(r.data), "ticker": r.ticker,
+             "fechamento": float(r.fechamento) if r.fechamento else None,
+             "fechamento_ajustado": float(r.fechamento_ajustado) if r.fechamento_ajustado else None,
+             "abertura": float(r.abertura) if r.abertura else None,
+             "volume": float(r.volume) if r.volume else None}
+            for r in rows
+        ]
+
     async def upsert_indicadores(self, df: pd.DataFrame, spec: FintzDatasetSpec) -> int:
         df = self._normalize_indicadores(df, spec)
         total = 0
