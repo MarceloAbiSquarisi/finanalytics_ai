@@ -298,7 +298,7 @@ class ChangePasswordRequest(BaseModel):
 async def change_password(
     body: ChangePasswordRequest,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session_dep),
+    session: AsyncSession = Depends(get_db_session),
 ) -> dict:
     try:
         await _svc(session).change_password(
