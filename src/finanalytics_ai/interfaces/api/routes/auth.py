@@ -307,5 +307,10 @@ async def change_password(
             body.new_password,
         )
         return {"message": "Senha alterada com sucesso"}
+    except HTTPException:
+        raise
     except Exception as err:
-        raise _auth_error_to_http(err) from err
+        from finanalytics_ai.domain.auth.exceptions import AuthError
+        if isinstance(err, AuthError):
+            raise _auth_error_to_http(err) from err
+        raise HTTPException(status_code=400, detail=str(err)) from err
