@@ -29,6 +29,7 @@ from finanalytics_ai.interfaces.api.routes import (
     backtest,
     correlation,
     dashboard,
+    fundamental_analysis,
     events,
     fixed_income,
     health,
@@ -456,7 +457,7 @@ def create_app() -> FastAPI:
         app.include_router(patrimony_routes.router, tags=["Patrimônio"])
     app.include_router(dashboard.router, tags=["Dashboard"])
     app.include_router(health.router, tags=["Health"])
-    app.include_router(fundamental_router)
+    app.include_router(fundamental_analysis.router)
 
     from finanalytics_ai.interfaces.api.routes import auth as auth_routes
     app.include_router(auth_routes.router, tags=["Autenticação"])
