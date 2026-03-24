@@ -75,14 +75,17 @@ def chart_linha_indicador(
         return _grafico_vazio(titulo, figsize)
     datas, valores = zip(*pairs)
 
+    x = list(range(len(valores)))
+    y_min = min((v for v in valores if v is not None), default=0)
     fig, ax = plt.subplots(figsize=figsize)
-    ax.plot(datas, valores, color=color, linewidth=2, marker="o", markersize=3)
-    ax.fill_between(range(len(valores)), valores, alpha=0.1, color=color)
-
+    ax.plot(x, valores, color=color, linewidth=2, marker="o", markersize=3)
+    ax.fill_between(x, valores, y_min * 0.98 if y_min > 0 else y_min * 1.02,
+                    alpha=0.1, color=color)
     # Ticks esparsos
     step = max(1, len(datas) // 8)
-    ax.set_xticks(range(0, len(datas), step))
-    ax.set_xticklabels([datas[i] for i in range(0, len(datas), step)],
+    tick_pos = x[::step]
+    ax.set_xticks(tick_pos)
+    ax.set_xticklabels([datas[i] for i in tick_pos],
                        rotation=30, ha="right", fontsize=7)
     ax.set_title(titulo, fontsize=10, fontweight="bold", pad=8)
     ax.set_ylabel(ylabel, fontsize=8)
