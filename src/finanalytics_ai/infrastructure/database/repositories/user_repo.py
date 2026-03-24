@@ -117,6 +117,8 @@ class UserRepository:
             is_active=m.is_active,
             created_at=m.created_at,
             last_login_at=m.last_login_at,
+            totp_secret=m.totp_secret,
+            totp_enabled=m.totp_enabled,
         )
 
     async def set_reset_token(self, user_id: str, token: str, expires_at: datetime) -> None:
