@@ -120,7 +120,7 @@ class AuthService:
         current_password: str,
         new_password: str,
     ) -> None:
-        user = await self._repo.get_by_id(user_id)
+        user = await self._repo.find_by_id(user_id)
         if user is None:
             raise AuthError("user_not_found")
         if not self._hasher.verify(current_password, user.hashed_password):
@@ -139,7 +139,7 @@ class AuthService:
     async def verify_and_enable_totp(self, user_id: str, code: str) -> bool:
         """Verifica código TOTP e ativa 2FA se correto."""
         from finanalytics_ai.infrastructure.auth.totp_handler import get_totp_handler
-        user = await self._repo.get_by_id(user_id)
+        user = await self._repo.find_by_id(user_id)
         if not user or not user.totp_secret:
             return False
         handler = get_totp_handler()
@@ -151,7 +151,7 @@ class AuthService:
     async def disable_totp(self, user_id: str, code: str) -> bool:
         """Desativa 2FA após verificação do código atual."""
         from finanalytics_ai.infrastructure.auth.totp_handler import get_totp_handler
-        user = await self._repo.get_by_id(user_id)
+        user = await self._repo.find_by_id(user_id)
         if not user or not user.totp_secret or not user.totp_enabled:
             return False
         handler = get_totp_handler()
