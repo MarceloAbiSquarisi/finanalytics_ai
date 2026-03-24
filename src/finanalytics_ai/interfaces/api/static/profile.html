@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perfil — FinAnalytics AI</title>
+<style>
+:root {
+  --bg:#080b10;--s1:#0d1117;--s2:#111822;--border:#1c2535;--border2:#253045;
+  --text:#cdd6e0;--muted:#4a5e72;--accent:#00d4ff;--green:#00e676;--red:#ff3d5a;
+  --gold:#F0B429;--mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+  --sb-w:220px;--sb-w-collapsed:52px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;min-height:100vh}
+.fa-topbar{height:52px;background:var(--s1);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;padding:0 16px;position:sticky;top:0;z-index:300}
+.fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none}
+.fa-logo-text{font-family:monospace;font-size:13px;font-weight:600;color:#e2eaf4}
+.fa-logo-text em{color:var(--gold);font-style:normal}
+.fa-ai-badge{background:var(--gold);color:#0a1628;font-size:8px;font-weight:800;
+  padding:1px 5px;border-radius:3px;letter-spacing:.08em;vertical-align:middle;margin-left:2px}
+.fa-nav{display:flex;align-items:center;gap:2px;flex:1}
+.fa-user-chip{display:flex;align-items:center;gap:6px;margin-left:auto}
+.fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);
+  border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:10px;color:#8899aa}
+.fa-logout-btn{background:transparent;border:1px solid var(--border);border-radius:5px;
+  color:var(--muted);font-size:11px;padding:4px 10px;cursor:pointer;display:flex;
+  align-items:center;gap:5px;transition:.15s}
+.fa-logout-btn:hover{color:var(--red);border-color:var(--red)}
+/* Sidebar */
+.fa-sidebar{position:fixed;left:0;top:52px;bottom:0;width:var(--sb-w-collapsed);
+  background:#0a0f18;border-right:1px solid var(--border);display:flex;flex-direction:column;
+  overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1);z-index:200}
+.fa-sidebar.open{width:var(--sb-w)}
+.fa-sidebar-toggle{width:100%;padding:10px 14px;background:transparent;border:none;
+  border-bottom:1px solid var(--border);color:#7a95b0;cursor:pointer;display:flex;
+  align-items:center;gap:10px;font-size:13px;white-space:nowrap;overflow:hidden}
+.fa-sidebar-toggle:hover{color:var(--gold);background:rgba(240,180,41,.06)}
+.fa-sidebar-toggle svg{flex-shrink:0}
+.fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;
+  text-decoration:none;font-size:12px;white-space:nowrap;overflow:hidden;transition:all .15s}
+.fa-sb-link:hover{color:#e2eaf4;background:rgba(0,212,255,.05)}
+.fa-sb-link.active{color:var(--accent);background:rgba(0,212,255,.08);border-right:2px solid var(--accent)}
+.fa-sb-link svg{flex-shrink:0}
+.fa-sb-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-link span{opacity:1}
+/* Page */
+.fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1)}
+body.sb-open .fa-page-content{margin-left:var(--sb-w)}
+.main{padding:24px;max-width:700px}
+.page-title{font-size:22px;font-weight:700;color:#e2eaf4;margin-bottom:4px}
+.page-sub{font-size:11px;color:var(--muted);margin-bottom:24px}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px}
+.card-title{font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.08em;
+  text-transform:uppercase;margin-bottom=16px;display:flex;align-items:center;gap:8px;margin-bottom:16px}
+.form-group{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.form-group label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.form-group input{background:var(--s2);border:1px solid var(--border);border-radius:6px;
+  color:var(--text);font-size:12px;padding:9px 12px;outline:none;font-family:monospace;transition:.15s}
+.form-group input:focus{border-color:var(--accent)}
+.btn-primary{background:linear-gradient(135deg,#00a8cc,var(--accent));color:#0a1628;
+  border:none;border-radius:7px;font-weight:700;font-size:12px;padding:9px 20px;
+  cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.15s}
+.btn-primary:hover{opacity:.85}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.msg{padding:10px 14px;border-radius:7px;font-size:11px;font-family:monospace;margin-top:12px;display:none}
+.msg.success{background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.3);color:var(--green)}
+.msg.error{background:rgba(255,61,90,.08);border:1px solid rgba(255,61,90,.3);color:var(--red)}
+/* Info card */
+.info-row{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 0;border-bottom:1px solid var(--border)}
+.info-row:last-child{border-bottom:none}
+.info-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.info-value{font-size:12px;color:var(--text);font-family:monospace}
+</style>
+</head>
+<body>
+<div class="fa-topbar">
+  <a href="/" class="fa-logo">
+    <svg width="28" height="28" viewBox="0 0 170 170" fill="none"><circle cx="85" cy="85" r="82" fill="#0D2144"/><rect x="38" y="98" width="14" height="36" rx="2" fill="#E05555" opacity=".9"/><rect x="60" y="72" width="14" height="44" rx="2" fill="#2ED47A"/><rect x="82" y="50" width="14" height="58" rx="2" fill="#2ED47A"/><rect x="104" y="66" width="14" height="32" rx="2" fill="#E05555"/><rect x="126" y="44" width="14" height="68" rx="2" fill="#F0B429"/></svg>
+    <span class="fa-logo-text">Fin<em>Analytics</em><span class="fa-ai-badge">AI</span></span>
+  </a>
+  <span id="fa-page-title" style="font-size:12px;font-weight:600;color:#7a95b0;letter-spacing:.06em;margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Perfil</span>
+  <nav class="fa-nav"></nav>
+  <div class="fa-user-chip" id="fa-user-chip" style="display:none">
+    <div class="fa-avatar" id="fa-avatar">U</div>
+    <span id="fa-username" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+  </div>
+  <button class="fa-logout-btn" onclick="faLogout()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+    Sair
+  </button>
+</div>
+
+<aside class="fa-sidebar" id="fa-sidebar">
+  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <span style="font-weight:700;color:#F0B429;font-size:11px">MENU</span>
+  </button>
+  <div style="overflow-y:auto;flex:1">
+    <a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
+    <a href="/fundamental" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Fundamentalista</span></a>
+    <a href="/screener" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Screener</span></a>
+    <a href="/backtest" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Backtesting</span></a>
+    <a href="/profile" class="fa-sb-link active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
+  </div>
+</aside>
+
+<div class="fa-page-content">
+<div class="main">
+  <div class="page-title">Perfil</div>
+  <div class="page-sub">Gerencie suas informações e segurança da conta.</div>
+
+  <!-- Info da conta -->
+  <div class="card">
+    <div class="card-title">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Informações da Conta
+    </div>
+    <div class="info-row">
+      <div class="info-label">E-mail</div>
+      <div class="info-value" id="info-email">—</div>
+    </div>
+    <div class="info-row">
+      <div class="info-label">ID do Usuário</div>
+      <div class="info-value" id="info-id">—</div>
+    </div>
+    <div class="info-row">
+      <div class="info-label">2FA</div>
+      <div class="info-value" id="info-2fa">—</div>
+    </div>
+  </div>
+
+  <!-- Alterar senha -->
+  <div class="card">
+    <div class="card-title">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Alterar Senha
+    </div>
+    <div class="form-group">
+      <label>Senha Atual</label>
+      <input type="password" id="current-password" placeholder="Digite sua senha atual" autocomplete="current-password">
+    </div>
+    <div class="form-group">
+      <label>Nova Senha</label>
+      <input type="password" id="new-password" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+    </div>
+    <div class="form-group">
+      <label>Confirmar Nova Senha</label>
+      <input type="password" id="confirm-password" placeholder="Repita a nova senha" autocomplete="new-password">
+    </div>
+    <button class="btn-primary" onclick="alterarSenha()" id="btn-change">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      Salvar Nova Senha
+    </button>
+    <div class="msg" id="msg-change"></div>
+  </div>
+</div>
+</div>
+
+<script>
+const TOKEN_KEY = 'access_token';
+function getToken() { return localStorage.getItem(TOKEN_KEY); }
+function faLogout() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem('refresh_token');
+  window.location.href = '/login';
+}
+function faSidebarToggle() {
+  var sb = document.getElementById('fa-sidebar');
+  sb.classList.toggle('open');
+  document.body.classList.toggle('sb-open');
+  localStorage.setItem('fa_sidebar_open', sb.classList.contains('open') ? '1' : '0');
+}
+(function() {
+  if (localStorage.getItem('fa_sidebar_open') === '1') {
+    document.getElementById('fa-sidebar').classList.add('open');
+    document.body.classList.add('sb-open');
+  }
+})();
+
+function showMsg(id, text, type) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'msg ' + type;
+  el.style.display = 'block';
+  if (type === 'success') setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+async function initProfile() {
+  const token = getToken();
+  if (!token) { window.location.href = '/login'; return; }
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    document.getElementById('info-email').textContent = payload.email || '—';
+    document.getElementById('info-id').textContent = payload.sub || '—';
+    document.getElementById('fa-user-chip').style.display = 'flex';
+    document.getElementById('fa-avatar').textContent = (payload.email || 'U')[0].toUpperCase();
+    document.getElementById('fa-username').textContent = payload.email || '';
+  } catch {}
+  try {
+    const res = await fetch('/api/v1/auth/me', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (res.ok) {
+      const user = await res.json();
+      document.getElementById('info-2fa').textContent = user.totp_enabled ? '✅ Ativo' : '❌ Inativo';
+    }
+  } catch {}
+}
+initProfile();
+
+async function alterarSenha() {
+  const current = document.getElementById('current-password').value;
+  const novo = document.getElementById('new-password').value;
+  const confirm = document.getElementById('confirm-password').value;
+
+  if (!current || !novo || !confirm) {
+    showMsg('msg-change', '⚠ Preencha todos os campos', 'error'); return;
+  }
+  if (novo.length < 8) {
+    showMsg('msg-change', '⚠ Nova senha deve ter no mínimo 8 caracteres', 'error'); return;
+  }
+  if (novo !== confirm) {
+    showMsg('msg-change', '⚠ Nova senha e confirmação não coincidem', 'error'); return;
+  }
+
+  const btn = document.getElementById('btn-change');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/v1/auth/change-password', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + getToken(),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ current_password: current, new_password: novo })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showMsg('msg-change', '✅ ' + data.message, 'success');
+      document.getElementById('current-password').value = '';
+      document.getElementById('new-password').value = '';
+      document.getElementById('confirm-password').value = '';
+    } else {
+      showMsg('msg-change', '⚠ ' + (data.detail || 'Erro ao alterar senha'), 'error');
+    }
+  } catch (e) {
+    showMsg('msg-change', '⚠ Erro de conexão', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('confirm-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') alterarSenha();
+});
+</script>
+</body>
+</html>
