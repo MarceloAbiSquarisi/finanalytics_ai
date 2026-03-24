@@ -310,7 +310,7 @@ async def change_password(
     except HTTPException:
         raise
     except Exception as err:
-        from finanalytics_ai.domain.auth.exceptions import AuthError
+        from finanalytics_ai.domain.auth.entities import AuthError
         if isinstance(err, AuthError):
             raise _auth_error_to_http(err) from err
         raise HTTPException(status_code=400, detail=str(err)) from err
