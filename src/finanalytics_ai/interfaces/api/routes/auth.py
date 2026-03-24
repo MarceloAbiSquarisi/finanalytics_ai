@@ -302,7 +302,7 @@ async def change_password(
 ) -> dict:
     try:
         await _svc(session).change_password(
-            str(current_user.id),
+            str(current_user.user_id),
             body.current_password,
             body.new_password,
         )
