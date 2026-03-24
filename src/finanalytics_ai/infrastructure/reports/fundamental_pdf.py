@@ -207,15 +207,22 @@ def _draw_footer(canvas: Any, doc: Any) -> None:
 # ── KPI Cards ────────────────────────────────────────────────────────────────
 def _kpi_cards(indicadores: dict[str, Any], st: dict) -> Table:
     """Linha de cards KPI com os principais indicadores."""
+    def _g(ind, key):
+        v = ind.get(key, {})
+        return v.get("valor") if isinstance(v, dict) else v
+    # Indicadores percentuais: Fintz guarda em decimal (0.19 = 19%)
+    def _pct(ind, key):
+        v = _g(ind, key)
+        return v * 100 if v is not None else None
     items = [
-        ("P/L",          indicadores.get("P/L", {}).get("valor")),
-        ("P/VP",         indicadores.get("P/VP", {}).get("valor")),
-        ("ROE",          indicadores.get("ROE", {}).get("valor"), "%"),
-        ("DY",           indicadores.get("DY", {}).get("valor"), "%"),
-        ("ROIC",         indicadores.get("ROIC", {}).get("valor"), "%"),
-        ("EV/EBITDA",    indicadores.get("EV/EBITDA", {}).get("valor")),
-        ("Mg. EBITDA",   indicadores.get("Margem EBITDA", {}).get("valor"), "%"),
-        ("D/EBITDA",     indicadores.get("Dívida Líquida/EBITDA", {}).get("valor")),
+        ("P/L",        _g(indicadores, "P_L")),
+        ("P/VP",       _g(indicadores, "P_VP")),
+        ("ROE",        _pct(indicadores, "ROE"), "%"),
+        ("DY",         _pct(indicadores, "DividendYield"), "%"),
+        ("ROIC",       _pct(indicadores, "ROIC"), "%"),
+        ("EV/EBITDA",  _g(indicadores, "EV_EBITDA")),
+        ("Mg. EBITDA", _pct(indicadores, "MargemEBITDA"), "%"),
+        ("D/EBITDA",   _g(indicadores, "DividaLiquida_EBITDA")),
     ]
     labels = [[Paragraph(label, st["kpi_label"])] for label, *_ in items]
     suffix_map = {i: s for i, (_, __, *s) in enumerate(items) if s}
@@ -383,7 +390,7 @@ def generate_fundamental_single(data: dict[str, Any]) -> bytes:
 
     # Tabela snapshot valuation
     val_snap = {k: v for k, v in ind.items()
-                if k in ["P/L", "P/VP", "EV/EBITDA", "P/EBITDA", "P/Receita Líquida"]}
+                if k in ["P_L", "P_VP", "EV_EBITDA", "P_EBITDA", "P_SR", "EV_EBIT"]}
     if val_snap:
         rows = [[Paragraph("Indicador", st["table_header"]),
                  Paragraph("Valor Atual", st["table_header"]),

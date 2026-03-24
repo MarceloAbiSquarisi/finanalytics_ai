@@ -68,7 +68,7 @@ class FundamentalAnalysisService:
         ticker = ticker.upper()
         start = date.today() - timedelta(days=365 * periodo_anos)
         limit_dias = periodo_anos * 252
-        limit_ind = periodo_anos * 12  # indicadores mensais/trimestrais
+        limit_ind = periodo_anos * 52  # indicadores semanais/mensais — mais dados
 
         log.info("fundamental.single.start", ticker=ticker, anos=periodo_anos)
 
