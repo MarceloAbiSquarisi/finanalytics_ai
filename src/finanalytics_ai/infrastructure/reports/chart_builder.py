@@ -59,10 +59,18 @@ def chart_linha_indicador(
     if not series:
         return _grafico_vazio(titulo, figsize)
 
-    datas = [str(r.get("data", ""))[:7] for r in reversed(series)]
-    valores = [r.get("valor") for r in reversed(series)]
-    # Remove Nones
+    datas = [str(r.get("data", ""))[:7] for r in series]
+    valores = [r.get("valor") for r in series]
+    # Remove Nones e outliers extremos (IQR x 3)
     pairs = [(d, v) for d, v in zip(datas, valores) if v is not None]
+    if len(pairs) > 4:
+        vals_only = sorted(p[1] for p in pairs)
+        q1 = vals_only[len(vals_only)//4]
+        q3 = vals_only[3*len(vals_only)//4]
+        iqr = q3 - q1
+        fence = 3.0
+        lo, hi = q1 - fence * iqr, q3 + fence * iqr
+        pairs = [(d, v) for d, v in pairs if lo <= v <= hi]
     if not pairs:
         return _grafico_vazio(titulo, figsize)
     datas, valores = zip(*pairs)
