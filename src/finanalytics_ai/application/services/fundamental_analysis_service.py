@@ -75,7 +75,7 @@ class FundamentalAnalysisService:
         ticker = ticker.upper()
         start = date.today() - timedelta(days=365 * periodo_anos)
         limit_cot = periodo_anos * 252
-        limit_ind = periodo_anos * 20  # por indicador individual
+        limit_ind = periodo_anos * 260  # diarios: 5a*260=1300; trimestrais: so ~20 pontos reais
 
         log.info("fundamental.single.start", ticker=ticker, anos=periodo_anos)
 
