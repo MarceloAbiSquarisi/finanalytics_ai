@@ -287,3 +287,25 @@ async def reset_password(
 
     logger.info("auth.password_reset", user_id=model.user_id)
     return {"message": "Senha redefinida com sucesso. Você já pode fazer login."}
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+@router.post("/change-password", status_code=200)
+async def change_password(
+    body: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session_dep),
+) -> dict:
+    try:
+        await _svc(session).change_password(
+            str(current_user.id),
+            body.current_password,
+            body.new_password,
+        )
+        return {"message": "Senha alterada com sucesso"}
+    except Exception as err:
+        raise _auth_error_to_http(err) from err

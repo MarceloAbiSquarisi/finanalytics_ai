@@ -113,6 +113,23 @@ class AuthService:
         user.ensure_active()
         return user
 
+
+    async def change_password(
+        self,
+        user_id: str,
+        current_password: str,
+        new_password: str,
+    ) -> None:
+        user = await self._repo.get_by_id(user_id)
+        if user is None:
+            raise AuthError("user_not_found")
+        if not self._hasher.verify(current_password, user.hashed_password):
+            raise AuthError("invalid_credentials")
+        if len(new_password) < 8:
+            raise AuthError("password_too_short")
+        hashed = self._hasher.hash(new_password)
+        await self._repo.update_password(user_id, hashed)
+
     async def save_totp_secret(
         self, user_id: str, secret: str, enabled: bool = False
     ) -> None:
