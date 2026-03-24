@@ -26,8 +26,8 @@ ITENS_DRE = ["Receita Líquida", "EBITDA", "Lucro Líquido", "Dívida Líquida"]
 
 class FundamentalAnalysisService:
     """
-    Orquestra busca de dados para relatórios fundamentalistas.
-    Injeção: fintz_repo (TimescaleFintzRepository), brapi_client (BrapiClient).
+    Orquestra busca de dados para relatorios fundamentalistas.
+    Injecao: fintz_repo (FintzRepo — PostgreSQL), brapi_client (BrapiClient).
     """
 
     def __init__(self, fintz_repo: Any, brapi_client: Any) -> None:

@@ -369,10 +369,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from finanalytics_ai.application.services.fundamental_analysis_service import (
             FundamentalAnalysisService,
         )
-        from finanalytics_ai.infrastructure.timescale.fintz_repo import TimescaleFintzRepository
-        from finanalytics_ai.infrastructure.timescale.repository import get_timescale_pool
-        _ts_pool = await get_timescale_pool()
-        _fintz_repo = TimescaleFintzRepository(_ts_pool)
+        from finanalytics_ai.infrastructure.database.repositories.fintz_repo import FintzRepo
+        _fintz_repo = FintzRepo()
         app.state.fintz_ts_repo = _fintz_repo
         _brapi = getattr(app.state, "market_client", None)
         if _brapi:
