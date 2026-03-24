@@ -551,6 +551,10 @@ def create_app() -> FastAPI:
             status_code=200 if f.exists() else 404,
         )
 
+    @app.get("/fundamental", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_fundamental() -> HTMLResponse:
+        return _html("fundamental.html")
+
     @app.get("/hub", response_class=HTMLResponse, include_in_schema=False)
     async def serve_hub() -> HTMLResponse:
         return _html("hub.html")

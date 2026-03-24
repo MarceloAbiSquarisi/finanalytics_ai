@@ -93,6 +93,58 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
 .fa-user-chip{display:flex;align-items:center;gap:6px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;color:#556677;letter-spacing:.3px;flex-shrink:0}
 .fa-user-chip .fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:10px;color:#8899aa}
 
+
+/* ── Collapsible Sidebar ─────────────────────────────────── */
+:root { --sb-w: 220px; --sb-w-collapsed: 52px; }
+.fa-sidebar {
+  position: fixed; left: 0; top: 52px; bottom: 0;
+  width: var(--sb-w-collapsed);
+  background: #0a0f18;
+  border-right: 1px solid #1c2535;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  transition: width .22s cubic-bezier(.4,0,.2,1);
+  z-index: 200;
+}
+.fa-sidebar.open { width: var(--sb-w); }
+.fa-sidebar-toggle {
+  width: 100%; padding: 10px 14px;
+  background: transparent; border: none;
+  border-bottom: 1px solid #1c2535;
+  color: #7a95b0; cursor: pointer;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px; white-space: nowrap; overflow: hidden;
+}
+.fa-sidebar-toggle:hover { color: #F0B429; background: rgba(240,180,41,.06); }
+.fa-sidebar-toggle svg { flex-shrink: 0; }
+.fa-sb-section { padding: 8px 0; border-bottom: 1px solid #141f2e; }
+.fa-sb-section-label {
+  font-size: 8px; letter-spacing: .12em; color: #3a5570;
+  padding: 4px 16px 2px; text-transform: uppercase;
+  white-space: nowrap; overflow: hidden;
+  opacity: 0; transition: opacity .15s;
+}
+.fa-sidebar.open .fa-sb-section-label { opacity: 1; }
+.fa-sb-link {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 14px; color: #6a8aa8;
+  text-decoration: none; font-size: 12px;
+  white-space: nowrap; overflow: hidden;
+  transition: all .15s;
+}
+.fa-sb-link:hover { color: #e2eaf4; background: rgba(0,212,255,.05); }
+.fa-sb-link.active { color: #00d4ff; background: rgba(0,212,255,.08);
+  border-right: 2px solid #00d4ff; }
+.fa-sb-link svg { flex-shrink: 0; }
+.fa-sb-link span { opacity: 0; transition: opacity .15s; }
+.fa-sidebar.open .fa-sb-link span { opacity: 1; }
+/* Push content right */
+.fa-page-content {
+  margin-left: var(--sb-w-collapsed);
+  transition: margin-left .22s cubic-bezier(.4,0,.2,1);
+}
+body.sb-open .fa-page-content { margin-left: var(--sb-w); }
+
 </style>
 </head>
 <body>
@@ -134,21 +186,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
 </svg>
     <span class="fa-logo-text">Fin<em>Analytics</em> <span class="fa-ai-badge">AI</span></span>
   </a>
-  <nav class="fa-nav">
-    <a href="/">Dashboard</a>
-    <a href="/backtest">Backtest</a>
-    <a href="/screener">Screener</a>
-    <a href="/correlation">Correlação</a>
-    <a href="/anomaly">Anomalias</a>
-    <a href="/forecast">Forecast</a>
-    <a href="/watchlist">Watchlist</a>
-    <a href="/performance">Performance</a>
-    <a href="/fixed-income">Renda Fixa</a>
-    <a href="/fintz">Fintz</a>
-    <a href="/etf">ETFs</a>
-    <a href="/optimizer">Otimizador</a>
-    <a href="/hub">Hub</a>
-  </nav>
+  <nav class="fa-nav"></nav>
   <div class="fa-user-chip" id="fa-user-chip" style="display:none">
     <div class="fa-avatar" id="fa-avatar">U</div>
     <span id="fa-username" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
@@ -660,5 +698,6 @@ function faLogout() {
   window.location.replace('/login');
 }
 </script>
+</div><!-- /fa-page-content -->
 </body>
 </html>
