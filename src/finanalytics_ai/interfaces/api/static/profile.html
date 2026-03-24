@@ -8,11 +8,10 @@
 :root {
   --bg:#080b10;--s1:#0d1117;--s2:#111822;--border:#1c2535;--border2:#253045;
   --text:#cdd6e0;--muted:#4a5e72;--accent:#00d4ff;--green:#00e676;--red:#ff3d5a;
-  --gold:#F0B429;--mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
-  --sb-w:220px;--sb-w-collapsed:52px;
+  --gold:#F0B429;--sb-w:220px;--sb-w-collapsed:52px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;min-height:100vh}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif,system-ui;font-size:13px;min-height:100vh}
 .fa-topbar{height:52px;background:var(--s1);border-bottom:1px solid var(--border);
   display:flex;align-items:center;gap:12px;padding:0 16px;position:sticky;top:0;z-index:300}
 .fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none}
@@ -20,7 +19,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 .fa-logo-text em{color:var(--gold);font-style:normal}
 .fa-ai-badge{background:var(--gold);color:#0a1628;font-size:8px;font-weight:800;
   padding:1px 5px;border-radius:3px;letter-spacing:.08em;vertical-align:middle;margin-left:2px}
-.fa-nav{display:flex;align-items:center;gap:2px;flex:1}
+.fa-nav{flex:1}
 .fa-user-chip{display:flex;align-items:center;gap:6px;margin-left:auto}
 .fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);
   border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:10px;color:#8899aa}
@@ -48,31 +47,57 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13
 /* Page */
 .fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1)}
 body.sb-open .fa-page-content{margin-left:var(--sb-w)}
-.main{padding:24px;max-width:700px}
+.main{padding:24px;max-width:720px}
 .page-title{font-size:22px;font-weight:700;color:#e2eaf4;margin-bottom:4px}
 .page-sub{font-size:11px;color:var(--muted);margin-bottom:24px}
 .card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px}
 .card-title{font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.08em;
-  text-transform:uppercase;margin-bottom=16px;display:flex;align-items:center;gap:8px;margin-bottom:16px}
+  text-transform:uppercase;display:flex;align-items:center;gap:8px;margin-bottom:16px}
 .form-group{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
 .form-group label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 .form-group input{background:var(--s2);border:1px solid var(--border);border-radius:6px;
   color:var(--text);font-size:12px;padding:9px 12px;outline:none;font-family:monospace;transition:.15s}
 .form-group input:focus{border-color:var(--accent)}
-.btn-primary{background:linear-gradient(135deg,#00a8cc,var(--accent));color:#0a1628;
-  border:none;border-radius:7px;font-weight:700;font-size:12px;padding:9px 20px;
+.btn{border:none;border-radius:7px;font-weight:700;font-size:12px;padding:9px 20px;
   cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.15s}
-.btn-primary:hover{opacity:.85}
-.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-primary{background:linear-gradient(135deg,#00a8cc,var(--accent));color:#0a1628}
+.btn-primary:hover:not(:disabled){opacity:.85}
+.btn-danger{background:linear-gradient(135deg,#cc0020,var(--red));color:#fff}
+.btn-danger:hover:not(:disabled){opacity:.85}
+.btn-gold{background:linear-gradient(135deg,#c87b00,var(--gold));color:#0a1628}
+.btn-gold:hover:not(:disabled){opacity:.85}
 .msg{padding:10px 14px;border-radius:7px;font-size:11px;font-family:monospace;margin-top:12px;display:none}
 .msg.success{background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.3);color:var(--green)}
 .msg.error{background:rgba(255,61,90,.08);border:1px solid rgba(255,61,90,.3);color:var(--red)}
+.msg.info{background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.2);color:var(--accent)}
 /* Info card */
 .info-row{display:flex;align-items:center;justify-content:space-between;
   padding:10px 0;border-bottom:1px solid var(--border)}
 .info-row:last-child{border-bottom:none}
 .info-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 .info-value{font-size:12px;color:var(--text);font-family:monospace}
+/* 2FA */
+.twofa-status{display:flex;align-items:center;gap:10px;padding:12px 16px;
+  border-radius:8px;margin-bottom:16px}
+.twofa-status.active{background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.3)}
+.twofa-status.inactive{background:rgba(255,61,90,.08);border:1px solid rgba(255,61,90,.3)}
+.twofa-status-dot{width:8px;height:8px;border-radius:50%}
+.twofa-status.active .twofa-status-dot{background:var(--green)}
+.twofa-status.inactive .twofa-status-dot{background:var(--red)}
+.twofa-status-text{font-size:12px;font-weight:600}
+.twofa-status.active .twofa-status-text{color:var(--green)}
+.twofa-status.inactive .twofa-status-text{color:var(--red)}
+.qr-area{display:none;text-align:center;padding:16px;background:var(--s2);
+  border-radius:8px;border:1px solid var(--border);margin-bottom:14px}
+.qr-area img{width:180px;height:180px;border-radius:6px;background:#fff;padding:4px}
+.qr-desc{font-size:10px;color:var(--muted);margin-top:8px;line-height:1.5}
+.secret-box{font-family:monospace;font-size:11px;color:var(--accent);background:rgba(0,212,255,.06);
+  border:1px solid rgba(0,212,255,.2);border-radius:5px;padding:6px 10px;margin-top:6px;
+  word-break:break-all;letter-spacing:.1em}
+.step-label{font-size:10px;font-weight:700;color:var(--gold);text-transform:uppercase;
+  letter-spacing:.08em;margin-bottom:8px}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 </style>
 </head>
 <body>
@@ -103,6 +128,16 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
     <a href="/fundamental" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Fundamentalista</span></a>
     <a href="/screener" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Screener</span></a>
     <a href="/backtest" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Backtesting</span></a>
+    <a href="/correlation" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></svg><span>Correlação</span></a>
+    <a href="/anomaly" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg><span>Anomalias</span></a>
+    <a href="/forecast" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg><span>Forecast</span></a>
+    <a href="/watchlist" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span>Watchlist</span></a>
+    <a href="/performance" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Performance</span></a>
+    <a href="/optimizer" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg><span>Otimizador</span></a>
+    <a href="/fintz" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><span>Fintz</span></a>
+    <a href="/fixed-income" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/></svg><span>Renda Fixa</span></a>
+    <a href="/etf" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="2"/></svg><span>ETFs</span></a>
+    <a href="/hub" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Hub</span></a>
     <a href="/profile" class="fa-sb-link active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
   </div>
 </aside>
@@ -124,10 +159,10 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
     </div>
     <div class="info-row">
       <div class="info-label">ID do Usuário</div>
-      <div class="info-value" id="info-id">—</div>
+      <div class="info-value" id="info-id" style="font-size:10px">—</div>
     </div>
     <div class="info-row">
-      <div class="info-label">2FA</div>
+      <div class="info-label">Autenticação 2 Fatores</div>
       <div class="info-value" id="info-2fa">—</div>
     </div>
   </div>
@@ -135,7 +170,7 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
   <!-- Alterar senha -->
   <div class="card">
     <div class="card-title">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       Alterar Senha
     </div>
     <div class="form-group">
@@ -150,12 +185,79 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
       <label>Confirmar Nova Senha</label>
       <input type="password" id="confirm-password" placeholder="Repita a nova senha" autocomplete="new-password">
     </div>
-    <button class="btn-primary" onclick="alterarSenha()" id="btn-change">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+    <button class="btn btn-primary" onclick="alterarSenha()" id="btn-change">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
       Salvar Nova Senha
     </button>
     <div class="msg" id="msg-change"></div>
   </div>
+
+  <!-- 2FA -->
+  <div class="card">
+    <div class="card-title">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Autenticação de Dois Fatores (2FA)
+    </div>
+
+    <!-- Status -->
+    <div class="twofa-status inactive" id="twofa-status">
+      <div class="twofa-status-dot"></div>
+      <div class="twofa-status-text" id="twofa-status-text">2FA Inativo</div>
+    </div>
+
+    <!-- Seção ATIVAR -->
+    <div id="section-enable">
+      <p style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+        Adicione uma camada extra de segurança à sua conta. Use o Google Authenticator, Authy ou qualquer app compatível com TOTP.
+      </p>
+      <button class="btn btn-gold" onclick="iniciarSetup2FA()" id="btn-setup">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Configurar 2FA
+      </button>
+    </div>
+
+    <!-- QR Code area -->
+    <div class="qr-area" id="qr-area">
+      <div class="step-label">Passo 1 — Escaneie o QR Code</div>
+      <img id="qr-img" src="" alt="QR Code 2FA">
+      <div class="qr-desc">
+        Abra o Google Authenticator ou Authy e escaneie o código acima.<br>
+        Ou adicione manualmente o código secreto:
+      </div>
+      <div class="secret-box" id="secret-display"></div>
+      <div style="margin-top:16px" class="step-label">Passo 2 — Confirme o código do app</div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:8px">
+        <input type="text" id="totp-confirm-code" placeholder="000000" maxlength="6"
+          style="width:120px;text-align:center;font-size:18px;letter-spacing:.2em;
+          background:var(--s1);border:1px solid var(--border);border-radius:6px;
+          color:var(--text);padding:8px;outline:none;font-family:monospace">
+        <button class="btn btn-primary" onclick="confirmarSetup2FA()" id="btn-confirm-2fa">
+          Ativar 2FA
+        </button>
+      </div>
+      <div class="msg" id="msg-setup"></div>
+    </div>
+
+    <!-- Seção DESATIVAR -->
+    <div id="section-disable" style="display:none">
+      <p style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+        Para desativar o 2FA, informe o código atual do seu app autenticador.
+      </p>
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <div class="form-group" style="margin-bottom:0;flex:1;max-width:200px">
+          <label>Código TOTP Atual</label>
+          <input type="text" id="totp-disable-code" placeholder="000000" maxlength="6"
+            style="text-align:center;font-size:16px;letter-spacing:.15em;font-family:monospace">
+        </div>
+        <button class="btn btn-danger" onclick="desativar2FA()" id="btn-disable-2fa">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          Desativar 2FA
+        </button>
+      </div>
+      <div class="msg" id="msg-disable"></div>
+    </div>
+  </div>
+
 </div>
 </div>
 
@@ -185,19 +287,21 @@ function showMsg(id, text, type) {
   el.textContent = text;
   el.className = 'msg ' + type;
   el.style.display = 'block';
-  if (type === 'success') setTimeout(() => { el.style.display = 'none'; }, 4000);
+  if (type === 'success') setTimeout(() => { el.style.display = 'none'; }, 5000);
 }
+
+let userTotpEnabled = false;
 
 async function initProfile() {
   const token = getToken();
   if (!token) { window.location.href = '/login'; return; }
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
-    document.getElementById('info-email').textContent = payload.email || '—';
-    document.getElementById('info-id').textContent = payload.sub || '—';
     document.getElementById('fa-user-chip').style.display = 'flex';
     document.getElementById('fa-avatar').textContent = (payload.email || 'U')[0].toUpperCase();
     document.getElementById('fa-username').textContent = payload.email || '';
+    document.getElementById('info-email').textContent = payload.email || '—';
+    document.getElementById('info-id').textContent = payload.sub || '—';
   } catch {}
   try {
     const res = await fetch('/api/v1/auth/me', {
@@ -205,36 +309,127 @@ async function initProfile() {
     });
     if (res.ok) {
       const user = await res.json();
-      document.getElementById('info-2fa').textContent = user.totp_enabled ? '✅ Ativo' : '❌ Inativo';
+      userTotpEnabled = user.totp_enabled || false;
+      update2FAStatus(userTotpEnabled);
     }
   } catch {}
 }
-initProfile();
 
+function update2FAStatus(enabled) {
+  userTotpEnabled = enabled;
+  const status = document.getElementById('twofa-status');
+  const statusText = document.getElementById('twofa-status-text');
+  const info2fa = document.getElementById('info-2fa');
+  const sectionEnable = document.getElementById('section-enable');
+  const sectionDisable = document.getElementById('section-disable');
+
+  if (enabled) {
+    status.className = 'twofa-status active';
+    statusText.textContent = '2FA Ativo — conta protegida';
+    info2fa.innerHTML = '<span style="color:var(--green)">✅ Ativo</span>';
+    sectionEnable.style.display = 'none';
+    sectionDisable.style.display = 'block';
+  } else {
+    status.className = 'twofa-status inactive';
+    statusText.textContent = '2FA Inativo — recomendamos ativar';
+    info2fa.innerHTML = '<span style="color:var(--red)">❌ Inativo</span>';
+    sectionEnable.style.display = 'block';
+    sectionDisable.style.display = 'none';
+    document.getElementById('qr-area').style.display = 'none';
+  }
+}
+
+async function iniciarSetup2FA() {
+  const btn = document.getElementById('btn-setup');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/v1/auth/2fa/setup', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Erro');
+
+    // Mostra QR code
+    const qrArea = document.getElementById('qr-area');
+    qrArea.style.display = 'block';
+    document.getElementById('secret-display').textContent = data.secret;
+
+    if (data.qr_base64) {
+      document.getElementById('qr-img').src = 'data:image/png;base64,' + data.qr_base64;
+    } else {
+      // Fallback: mostra URI
+      document.getElementById('qr-img').style.display = 'none';
+      const uri = document.createElement('div');
+      uri.style.cssText = 'font-size:9px;color:var(--muted);word-break:break-all;margin-top:8px';
+      uri.textContent = data.uri;
+      document.getElementById('qr-area').appendChild(uri);
+    }
+    document.getElementById('totp-confirm-code').focus();
+  } catch (e) {
+    alert('Erro ao iniciar 2FA: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function confirmarSetup2FA() {
+  const code = document.getElementById('totp-confirm-code').value.trim();
+  if (!code || code.length !== 6) {
+    showMsg('msg-setup', '⚠ Informe o código de 6 dígitos do app', 'error'); return;
+  }
+  const btn = document.getElementById('btn-confirm-2fa');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/v1/auth/2fa/enable', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + getToken(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const data = await res.json();
+    if (!res.ok) { showMsg('msg-setup', '⚠ ' + (data.detail || 'Código inválido'), 'error'); return; }
+    showMsg('msg-setup', '✅ ' + data.message, 'success');
+    setTimeout(() => update2FAStatus(true), 1500);
+  } catch { showMsg('msg-setup', '⚠ Erro de conexão', 'error'); }
+  finally { btn.disabled = false; }
+}
+
+async function desativar2FA() {
+  const code = document.getElementById('totp-disable-code').value.trim();
+  if (!code || code.length !== 6) {
+    showMsg('msg-disable', '⚠ Informe o código de 6 dígitos', 'error'); return;
+  }
+  if (!confirm('Deseja realmente desativar o 2FA?')) return;
+  const btn = document.getElementById('btn-disable-2fa');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/v1/auth/2fa/disable', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + getToken(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const data = await res.json();
+    if (!res.ok) { showMsg('msg-disable', '⚠ ' + (data.detail || 'Código inválido'), 'error'); return; }
+    showMsg('msg-disable', '✅ ' + data.message, 'success');
+    setTimeout(() => update2FAStatus(false), 1500);
+  } catch { showMsg('msg-disable', '⚠ Erro de conexão', 'error'); }
+  finally { btn.disabled = false; }
+}
+
+// Alterar senha
 async function alterarSenha() {
   const current = document.getElementById('current-password').value;
   const novo = document.getElementById('new-password').value;
   const confirm = document.getElementById('confirm-password').value;
-
-  if (!current || !novo || !confirm) {
-    showMsg('msg-change', '⚠ Preencha todos os campos', 'error'); return;
-  }
-  if (novo.length < 8) {
-    showMsg('msg-change', '⚠ Nova senha deve ter no mínimo 8 caracteres', 'error'); return;
-  }
-  if (novo !== confirm) {
-    showMsg('msg-change', '⚠ Nova senha e confirmação não coincidem', 'error'); return;
-  }
-
+  if (!current || !novo || !confirm) { showMsg('msg-change', '⚠ Preencha todos os campos', 'error'); return; }
+  if (novo.length < 8) { showMsg('msg-change', '⚠ Nova senha deve ter no mínimo 8 caracteres', 'error'); return; }
+  if (novo !== confirm) { showMsg('msg-change', '⚠ Senhas não coincidem', 'error'); return; }
   const btn = document.getElementById('btn-change');
   btn.disabled = true;
   try {
     const res = await fetch('/api/v1/auth/change-password', {
       method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + getToken(),
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Authorization': 'Bearer ' + getToken(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ current_password: current, new_password: novo })
     });
     const data = await res.json();
@@ -244,18 +439,17 @@ async function alterarSenha() {
       document.getElementById('new-password').value = '';
       document.getElementById('confirm-password').value = '';
     } else {
-      showMsg('msg-change', '⚠ ' + (data.detail || 'Erro ao alterar senha'), 'error');
+      showMsg('msg-change', '⚠ ' + (data.detail || 'Erro'), 'error');
     }
-  } catch (e) {
-    showMsg('msg-change', '⚠ Erro de conexão', 'error');
-  } finally {
-    btn.disabled = false;
-  }
+  } catch { showMsg('msg-change', '⚠ Erro de conexão', 'error'); }
+  finally { btn.disabled = false; }
 }
 
-document.getElementById('confirm-password').addEventListener('keydown', e => {
-  if (e.key === 'Enter') alterarSenha();
-});
+document.getElementById('confirm-password').addEventListener('keydown', e => { if (e.key === 'Enter') alterarSenha(); });
+document.getElementById('totp-confirm-code').addEventListener('keydown', e => { if (e.key === 'Enter') confirmarSetup2FA(); });
+document.getElementById('totp-disable-code').addEventListener('keydown', e => { if (e.key === 'Enter') desativar2FA(); });
+
+initProfile();
 </script>
 </body>
 </html>

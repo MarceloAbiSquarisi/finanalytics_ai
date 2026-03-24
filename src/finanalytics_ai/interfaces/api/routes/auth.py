@@ -314,3 +314,56 @@ async def change_password(
         if isinstance(err, AuthError):
             raise _auth_error_to_http(err) from err
         raise HTTPException(status_code=400, detail=str(err)) from err
+
+
+# ── 2FA endpoints ─────────────────────────────────────────────────────────────
+
+class TOTPVerifyRequest(BaseModel):
+    code: str
+
+class TOTPDisableRequest(BaseModel):
+    code: str
+
+
+@router.post("/2fa/setup", status_code=200)
+async def setup_2fa(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Gera novo secret TOTP e retorna QR code base64. Nao ativa ainda."""
+    from finanalytics_ai.infrastructure.auth.totp_handler import get_totp_handler
+    handler = get_totp_handler()
+    secret = handler.generate_secret()
+    qr_b64 = handler.get_qr_base64(secret, current_user.email)
+    uri    = handler.get_provisioning_uri(secret, current_user.email)
+    svc = _svc(session)
+    await svc.save_totp_secret(str(current_user.user_id), secret, enabled=False)
+    return {"secret": secret, "qr_base64": qr_b64, "uri": uri}
+
+
+@router.post("/2fa/enable", status_code=200)
+async def enable_2fa(
+    body: TOTPVerifyRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Verifica codigo TOTP e ativa 2FA."""
+    svc = _svc(session)
+    ok = await svc.verify_and_enable_totp(str(current_user.user_id), body.code)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Codigo TOTP invalido")
+    return {"message": "2FA ativado com sucesso"}
+
+
+@router.post("/2fa/disable", status_code=200)
+async def disable_2fa(
+    body: TOTPDisableRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Desativa 2FA verificando o codigo atual."""
+    svc = _svc(session)
+    ok = await svc.disable_totp(str(current_user.user_id), body.code)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Codigo TOTP invalido")
+    return {"message": "2FA desativado com sucesso"}
