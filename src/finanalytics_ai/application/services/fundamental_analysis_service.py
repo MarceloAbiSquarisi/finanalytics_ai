@@ -17,11 +17,35 @@ import structlog
 
 log = structlog.get_logger(__name__)
 
-INDICADORES_VALUATION     = ["P/L", "P/VP", "EV/EBITDA", "P/EBITDA", "P/Receita Líquida"]
-INDICADORES_RENTABILIDADE = ["ROE", "ROIC", "ROA", "Margem Líquida", "Margem EBITDA"]
-INDICADORES_DIVIDENDOS    = ["DY", "Payout"]
-INDICADORES_ENDIVIDAMENTO = ["Dívida Líquida/EBITDA", "Dívida Líquida/Patrimônio Líquido"]
-ITENS_DRE = ["Receita Líquida", "EBITDA", "Lucro Líquido", "Dívida Líquida"]
+# Nomes exatos do Fintz (verificados no banco)
+INDICADORES_VALUATION     = ["P_L", "P_VP", "EV_EBITDA", "P_EBITDA", "P_SR"]
+INDICADORES_RENTABILIDADE = ["ROE", "ROIC", "ROA", "MargemLiquida", "MargemEBITDA"]
+INDICADORES_DIVIDENDOS    = ["DividendYield"]
+INDICADORES_ENDIVIDAMENTO = ["DividaLiquida_EBITDA", "DividaLiquida_PatrimonioLiquido"]
+ITENS_DRE = ["Receita Liquida", "EBITDA", "Lucro Liquido", "Divida Liquida"]
+
+# Mapa Fintz -> nome legivel para o PDF
+INDICADOR_LABELS = {
+    "P_L":                           "P/L",
+    "P_VP":                          "P/VP",
+    "EV_EBITDA":                     "EV/EBITDA",
+    "P_EBITDA":                      "P/EBITDA",
+    "P_SR":                          "P/Receita",
+    "ROE":                           "ROE",
+    "ROIC":                          "ROIC",
+    "ROA":                           "ROA",
+    "MargemLiquida":                 "Margem Líquida",
+    "MargemEBITDA":                  "Margem EBITDA",
+    "MargemBruta":                   "Margem Bruta",
+    "MargemEBIT":                    "Margem EBIT",
+    "DividendYield":                 "DY",
+    "DividaLiquida_EBITDA":          "Dívida/EBITDA",
+    "DividaLiquida_PatrimonioLiquido": "Dívida/PL",
+    "ValorDeMercado":                "Market Cap",
+    "LPA":                           "LPA",
+    "VPA":                           "VPA",
+    "EV":                            "EV",
+}
 
 
 class FundamentalAnalysisService:
