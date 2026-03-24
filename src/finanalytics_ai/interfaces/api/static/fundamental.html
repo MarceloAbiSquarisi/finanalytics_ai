@@ -260,11 +260,11 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 
 <script>
 // ── Auth ───────────────────────────────────────────────────────────────────
-const TOKEN_KEY = 'fa_access_token';
+const TOKEN_KEY = 'access_token';
 function getToken() { return localStorage.getItem(TOKEN_KEY); }
 function faLogout() {
   localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem('fa_refresh_token');
+  localStorage.removeItem('refresh_token');
   window.location.href = '/login';
 }
 function initAuth() {
