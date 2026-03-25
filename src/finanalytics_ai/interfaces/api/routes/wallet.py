@@ -168,8 +168,7 @@ async def create_trade(
     data["total_cost"] = float(data["quantity"]) * float(data["unit_price"]) + float(data["fees"])
     for k in ("quantity", "unit_price", "fees", "total_cost"):
         data[k] = float(data[k])
-    if data.get("trade_date"):
-        data["trade_date"] = data["trade_date"].isoformat()
+    # trade_date permanece como objeto date para o SQLAlchemy
     return await _repo().create_trade(data)
 
 @router.delete("/trades/{trade_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -239,9 +238,7 @@ async def create_other(
     for k in ("current_value", "invested_value"):
         if data[k] is not None:
             data[k] = float(data[k])
-    for k in ("acquisition_date", "maturity_date"):
-        if data[k]:
-            data[k] = data[k].isoformat()
+    # datas permanecem como objetos date para o SQLAlchemy
     return await _repo().create_other_asset(data)
 
 @router.patch("/other/{asset_id}")
@@ -254,8 +251,7 @@ async def update_other(
     for k in ("current_value", "invested_value"):
         if k in data:
             data[k] = float(data[k])
-    if "maturity_date" in data:
-        data["maturity_date"] = data["maturity_date"].isoformat()
+    # maturity_date permanece como objeto date
     asset = await _repo().update_other_asset(asset_id, str(user.user_id), data)
     if not asset:
         raise HTTPException(404, "Ativo não encontrado")
