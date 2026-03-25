@@ -164,7 +164,7 @@ async def system_status(_: User = Depends(require_admin)) -> dict:
         from sqlalchemy import text
         async with get_engine().connect() as conn:
             row = await conn.execute(text(
-                "SELECT MAX(data_referencia), COUNT(*) FROM fintz_indicadores"
+                "SELECT MAX(data_publicacao), COUNT(*) FROM fintz_indicadores"
             ))
             r = row.fetchone()
             last_fintz = str(r[0]) if r and r[0] else None
@@ -243,3 +243,4 @@ async def stop_producer(_: User = Depends(require_admin)) -> dict:
         return {"ok": True, "message": "Producer nao estava rodando"}
     await producer.stop()
     return {"ok": True, "message": "Producer parado"}
+
