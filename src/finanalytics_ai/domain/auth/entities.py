@@ -34,8 +34,9 @@ if TYPE_CHECKING:
 
 
 class UserRole(StrEnum):
-    USER = "user"
-    ADMIN = "admin"
+    USER   = "user"
+    ADMIN  = "admin"
+    MASTER = "master"  # pode ver carteiras de outros usuarios, sem movimentacao
 
 
 class AuthErrorCode(StrEnum):
