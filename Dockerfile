@@ -49,7 +49,7 @@ RUN uv pip install --system -e . \
         "uvicorn[standard]>=0.30.0"         "httpx>=0.27.0"         "pandas>=2.0.0"         "python-multipart>=0.0.9"         "opentelemetry-api>=1.20.0"         "opentelemetry-sdk>=1.20.0"         "python-jose[cryptography]>=3.3.0"         "passlib[bcrypt]>=1.7.4"         "bcrypt<4.0.0"         "redis[asyncio]>=5.0.0"         "aiokafka>=0.10.0"         "yfinance>=0.2.0"         "pyotp>=2.9.0"         "qrcode[pil]>=7.4.0" \
         "uvloop>=0.19.0" \
         "httptools>=0.6.0" \
-        "pyarrow>=16.0.0"
+        "pyarrow>=16.0.0"         "reportlab>=4.0.0"         "matplotlib>=3.7.0"         "seaborn>=0.13.0"         "Pillow>=10.0.0"
 
 # ── Dependências de Forecast (Prophet + PyTorch + PyTorch-Forecasting) ────────
 # Instaladas em camada separada para melhor cache — só rebuildam se esta linha mudar
