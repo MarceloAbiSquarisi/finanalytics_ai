@@ -3,1051 +3,419 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FinAnalytics AI — Hub</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<title>Monitoramento — FinAnalytics AI</title>
 <style>
-:root {
-  --bg:       #04060d;
-  --s1:       #070c18;
-  --s2:       #0b1120;
-  --border:   #111c2e;
-  --border2:  #1a2a42;
-  --text:     #c8d8e8;
-  --muted:    #3a5570;
-  --dim:      #1e2f42;
-  --accent:   #00c8ff;
-  --gold:     #f0b429;
-  --green:    #00e676;
-  --red:      #ff3d5a;
-  --orange:   #ff8c00;
-  --purple:   #a855f7;
-  --raj:      'Rajdhani', sans-serif;
-  --mono:     'JetBrains Mono', monospace;
+:root{
+  --bg:#080b10;--s1:#0d1117;--s2:#111822;--border:#1c2535;--border2:#253045;
+  --text:#cdd6e0;--muted:#4a5e72;--accent:#00d4ff;--green:#00e676;--red:#ff3d5a;
+  --gold:#F0B429;--purple:#a855f7;--orange:#fb923c;--yellow:#fbbf24;
+  --sb-w:220px;--sb-w-collapsed:52px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;overflow:hidden}
-body{background:var(--bg);color:var(--text);font-family:var(--raj);}
-
-/* ── Ambient background ── */
-body::before{
-  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
-  background:
-    radial-gradient(ellipse 60% 40% at 10% 20%, rgba(0,200,255,.04) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 50% at 90% 80%, rgba(240,180,41,.03) 0%, transparent 60%),
-    repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,200,255,.012) 40px),
-    repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,200,255,.012) 40px);
-}
-
-/* ── Header ── */
-.hdr{
-  position:relative;z-index:100;
-  height:48px;padding:0 24px;
-  display:flex;align-items:center;justify-content:space-between;
-  background:rgba(4,6,13,.9);backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--border2);
-}
-.hdr-brand{display:flex;align-items:center;gap:12px;}
-.brand-logo{
-  width:32px;height:32px;border-radius:6px;
-  background:linear-gradient(135deg,rgba(0,200,255,.2),rgba(0,200,255,.05));
-  border:1px solid rgba(0,200,255,.3);
-  display:flex;align-items:center;justify-content:center;
-  font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent);
-}
-.brand-name{font-size:18px;font-weight:700;letter-spacing:.06em;color:var(--text);}
-.brand-name span{color:var(--accent);}
-.brand-tag{font-family:var(--mono);font-size:8px;font-weight:700;
-            background:linear-gradient(90deg,var(--gold),var(--orange));
-            -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-            background-clip:text;letter-spacing:.15em;}
-.hdr-center{display:flex;gap:2px;}
-.nav-btn{
-  font-family:var(--mono);font-size:9px;font-weight:500;letter-spacing:.06em;
-  color:var(--muted);text-decoration:none;
-  padding:5px 14px;border-radius:4px;
-  border:1px solid transparent;transition:all .1s;
-}
-.nav-btn:hover{color:var(--text);border-color:var(--border2);background:var(--s2);}
-.nav-btn.active{color:var(--accent);border-color:rgba(0,200,255,.25);background:rgba(0,200,255,.06);}
-.hdr-right{display:flex;align-items:center;gap:16px;}
-.live-pill{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9px;color:var(--muted);}
-.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:blink 2s infinite;}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
-.clock{font-family:var(--mono);font-size:10px;color:var(--muted);}
-
-/* ── Main layout ── */
-.layout{
-  position:relative;z-index:1;
-  height:calc(100vh - 48px);
-  display:grid;
-  grid-template-columns:1fr 320px;
-  grid-template-rows:auto 1fr auto;
-  gap:0;overflow:hidden;
-}
-
-/* ── Market pulse strip ── */
-.pulse-strip{
-  grid-column:1/-1;
-  background:var(--s1);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;overflow:hidden;height:44px;
-  padding:0 20px;gap:0;
-}
-.pulse-item{
-  display:flex;align-items:center;gap:10px;
-  padding:0 18px;border-right:1px solid var(--border);
-  min-width:140px;cursor:pointer;transition:background .1s;flex-shrink:0;
-}
-.pulse-item:first-child{padding-left:0;}
-.pulse-item:hover{background:rgba(0,200,255,.04);}
-.pulse-ticker{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--accent);letter-spacing:.06em;width:48px;}
-.pulse-price{font-family:var(--mono);font-size:11px;font-weight:500;}
-.pulse-chg{font-family:var(--mono);font-size:9px;font-weight:700;}
-.up{color:var(--green)}.dn{color:var(--red)}.neu{color:var(--muted)}
-.pulse-loading{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.06em;}
-
-/* ── Left content ── */
-.content{overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px;}
-
-/* Module cards grid */
-.modules-grid{
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:10px;
-}
-
-.mod-card{
-  background:var(--s1);border:1px solid var(--border);border-radius:10px;
-  padding:16px;cursor:pointer;text-decoration:none;
-  display:flex;flex-direction:column;gap:10px;
-  transition:all .15s;
-  position:relative;overflow:hidden;
-  animation:fadeUp .3s ease both;
-}
-.mod-card::before{
-  content:'';position:absolute;inset:0;opacity:0;transition:opacity .2s;
-  background:radial-gradient(ellipse 80% 60% at 50% 100%,var(--card-color,.3),transparent);
-}
-.mod-card:hover{border-color:var(--card-color);transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.3);}
-.mod-card:hover::before{opacity:.08;}
-@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-
-.mod-head{display:flex;align-items:flex-start;justify-content:space-between;}
-.mod-icon{
-  width:36px;height:36px;border-radius:8px;
-  display:flex;align-items:center;justify-content:center;
-  font-size:17px;flex-shrink:0;
-}
-.mod-status{font-family:var(--mono);font-size:8px;font-weight:700;padding:2px 7px;
-              border-radius:3px;letter-spacing:.06em;}
-.st-ok  {background:rgba(0,230,118,.1);color:var(--green);border:1px solid rgba(0,230,118,.2);}
-.st-run {background:rgba(0,200,255,.1);color:var(--accent);border:1px solid rgba(0,200,255,.2);}
-.st-off {background:rgba(100,100,120,.1);color:var(--muted);border:1px solid var(--border);}
-
-.mod-name{font-size:16px;font-weight:700;letter-spacing:.02em;}
-.mod-desc{font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.5;}
-.mod-stat{font-family:var(--mono);font-size:9px;color:var(--dim);
-           border-top:1px solid var(--border);padding-top:8px;margin-top:auto;
-           display:flex;justify-content:space-between;}
-.mod-stat-val{color:var(--text);}
-
-/* Section header */
-.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
-.sec-title{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
-            color:var(--muted);display:flex;align-items:center;gap:8px;}
-.sec-title::before{content:'';width:3px;height:12px;background:var(--accent);border-radius:2px;display:block;}
-.sec-action{font-family:var(--mono);font-size:9px;color:var(--accent);
-             cursor:pointer;border:none;background:none;letter-spacing:.04em;}
-.sec-action:hover{text-decoration:underline;}
-
-/* Quick anomaly widget */
-.quick-panel{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:14px;}
-.quick-form{display:flex;gap:8px;margin-bottom:10px;}
-.quick-input{
-  flex:1;background:var(--bg);border:1px solid var(--border);border-radius:5px;
-  color:var(--text);font-family:var(--mono);font-size:10px;padding:6px 10px;outline:none;
-  transition:border-color .1s;
-}
-.quick-input:focus{border-color:var(--accent);}
-.quick-btn{
-  background:linear-gradient(135deg,rgba(0,200,255,.15),rgba(0,200,255,.05));
-  border:1px solid rgba(0,200,255,.3);border-radius:5px;
-  color:var(--accent);font-family:var(--mono);font-size:9px;font-weight:700;
-  padding:6px 14px;cursor:pointer;letter-spacing:.06em;white-space:nowrap;transition:all .1s;
-}
-.quick-btn:hover:not(:disabled){background:rgba(0,200,255,.12);}
-.quick-btn:disabled{opacity:.3;cursor:not-allowed;}
-
-.anom-list{display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;}
-.anom-row{
-  display:flex;align-items:center;gap:10px;
-  padding:6px 10px;background:var(--s2);border-radius:6px;
-  border-left:3px solid var(--border);transition:border-color .1s;
-}
-.anom-row.high  {border-color:var(--red);}
-.anom-row.medium{border-color:var(--gold);}
-.anom-row.low   {border-color:var(--accent);}
-.anom-tk{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--accent);width:44px;flex-shrink:0;}
-.anom-type{font-family:var(--mono);font-size:8px;color:var(--muted);width:72px;flex-shrink:0;letter-spacing:.04em;}
-.anom-desc{font-family:var(--mono);font-size:9px;color:var(--text);flex:1;
-            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.anom-sev{font-family:var(--mono);font-size:8px;font-weight:700;padding:1px 5px;border-radius:2px;}
-.sev-high  {background:rgba(255,61,90,.15);color:var(--red);}
-.sev-medium{background:rgba(240,180,41,.12);color:var(--gold);}
-.sev-low   {background:rgba(0,200,255,.1);color:var(--accent);}
-
-.no-anom{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;padding:16px;}
-
-/* Quick screener results */
-.screen-list{display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;}
-.screen-row{
-  display:flex;align-items:center;gap:10px;
-  padding:5px 10px;background:var(--s2);border-radius:5px;
-}
-.sc-tk  {font-family:var(--mono);font-size:10px;font-weight:700;color:var(--accent);width:44px;}
-.sc-name{font-family:var(--mono);font-size:9px;color:var(--muted);flex:1;
-          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.sc-val {font-family:var(--mono);font-size:9px;color:var(--text);width:48px;text-align:right;}
-.sc-pos {color:var(--green);}
-
-/* ── Right sidebar ── */
-.sidebar{
-  border-left:1px solid var(--border);background:var(--s1);
-  display:flex;flex-direction:column;overflow:hidden;
-}
-.sb-block{border-bottom:1px solid var(--border);padding:14px;}
-.sb-title{font-family:var(--mono);font-size:8px;color:var(--muted);
-           letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px;}
-
-/* Service health */
-.svc-list{display:flex;flex-direction:column;gap:5px;}
-.svc-row{display:flex;align-items:center;gap:8px;}
-.svc-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
-.svc-dot.ok  {background:var(--green);box-shadow:0 0 5px var(--green);}
-.svc-dot.warn{background:var(--gold);}
-.svc-dot.off {background:var(--muted);}
-.svc-name{font-family:var(--mono);font-size:9px;flex:1;color:var(--text);}
-.svc-tag{font-family:var(--mono);font-size:8px;color:var(--muted);}
-
-/* Portfolio KPIs */
-.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
-.kpi-cell{background:var(--s2);border-radius:6px;padding:8px 10px;}
-.kpi-lbl{font-family:var(--mono);font-size:7px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px;}
-.kpi-val{font-size:16px;font-weight:700;letter-spacing:-.01em;}
-
-/* Activity feed */
-.feed{flex:1;overflow-y:auto;padding:14px;}
-.feed-item{
-  padding:8px 0;border-bottom:1px solid rgba(17,28,46,.8);
-  display:flex;gap:8px;align-items:flex-start;
-}
-.feed-item:last-child{border-bottom:none;}
-.feed-time{font-family:var(--mono);font-size:8px;color:var(--muted);white-space:nowrap;margin-top:1px;}
-.feed-msg{font-family:var(--mono);font-size:9px;color:var(--text);line-height:1.4;}
-.feed-tag{display:inline-block;font-size:7px;font-weight:700;padding:1px 4px;
-           border-radius:2px;margin-bottom:2px;letter-spacing:.06em;}
-.tag-anom{background:rgba(255,61,90,.15);color:var(--red);}
-.tag-screen{background:rgba(0,230,118,.1);color:var(--green);}
-.tag-corr{background:rgba(168,85,247,.1);color:var(--purple);}
-.tag-bt{background:rgba(0,200,255,.1);color:var(--accent);}
-
-/* Bottom status bar */
-.statusbar{
-  grid-column:1/-1;
-  background:var(--s1);border-top:1px solid var(--border);
-  height:28px;padding:0 20px;
-  display:flex;align-items:center;gap:24px;
-}
-.sb-item{font-family:var(--mono);font-size:8px;color:var(--muted);
-          display:flex;align-items:center;gap:5px;}
-.sb-val{color:var(--text);}
-
-/* Loading skeleton */
-.skel{background:linear-gradient(90deg,var(--border) 25%,var(--border2) 50%,var(--border) 75%);
-       background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:3px;height:10px;}
-@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-
-/* ── FinAnalytics Unified Topbar ────────────────────────────────── */
-.fa-topbar{position:sticky;top:0;z-index:200;display:flex;align-items:center;
-  gap:16px;padding:0 20px;height:52px;
-  background:#070f1a;border-bottom:1px solid #1e3a5f;
-  box-shadow:0 2px 12px rgba(0,0,0,.4)}
-.fa-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
-.fa-logo svg{display:block}
-.fa-logo-text{font-family:'Georgia','Times New Roman',serif;font-size:17px;
-  font-weight:700;color:#e8f4fd;white-space:nowrap;letter-spacing:-.3px}
-.fa-logo-text em{color:#F0B429;font-style:normal}
-.fa-ai-badge{display:inline-block;background:#1B3A6B;color:#fff;
-  font-family:'Arial',sans-serif;font-size:9px;font-weight:800;
-  letter-spacing:1.5px;padding:2px 5px;border-radius:3px;vertical-align:middle;margin-left:2px}
-.fa-nav{display:flex;align-items:center;gap:2px;overflow-x:auto;
-  scrollbar-width:none;-ms-overflow-style:none;flex:1}
-.fa-nav::-webkit-scrollbar{display:none}
-.fa-nav a{white-space:nowrap;font-family:'Rajdhani','Arial',sans-serif;font-size:12px;
-  font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;
-  padding:5px 10px;border-radius:5px;transition:.15s}
-.fa-nav a:hover{color:#00c48c;background:rgba(0,196,140,.08)}
-.fa-nav a.active{color:#00c48c;background:rgba(0,196,140,.1)}
-/* ── Table overflow fix ────────────────────────────────────────── */
-.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:6px}
-.tbl-wrap table{min-width:600px;border-collapse:collapse;width:100%}
-.tbl-wrap th,.tbl-wrap td{white-space:normal!important;word-break:break-word}
-
-
-.fa-logout-btn{display:flex;align-items:center;gap:6px;font-family:'Rajdhani','Arial',sans-serif;font-size:12px;font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;padding:5px 10px;border-radius:5px;border:1px solid transparent;cursor:pointer;background:transparent;white-space:nowrap;transition:.15s;flex-shrink:0}
-.fa-logout-btn:hover{color:#ff6b6b;background:rgba(255,107,107,.08);border-color:rgba(255,107,107,.2)}
-.fa-user-chip{display:flex;align-items:center;gap:6px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;color:#556677;letter-spacing:.3px;flex-shrink:0}
-.fa-user-chip .fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:10px;color:#8899aa}
-
-
-/* ── Infra service cards ── */
-.infra-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
-.infra-card{
-  background:var(--s2);border:1px solid var(--border);border-radius:8px;
-  padding:10px 12px;text-decoration:none;
-  display:flex;align-items:center;gap:10px;
-  transition:all .15s;cursor:pointer;
-}
-.infra-card:hover{border-color:var(--card-color,var(--accent));
-  background:rgba(0,200,255,.04);transform:translateY(-1px)}
-.infra-icon{font-size:20px;flex-shrink:0;width:32px;text-align:center}
-.infra-info{flex:1;min-width:0}
-.infra-name{font-family:var(--mono);font-size:10px;font-weight:700;
-  color:var(--text);letter-spacing:.04em}
-.infra-url{font-family:var(--mono);font-size:8px;color:var(--muted);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
-.infra-badge{font-family:var(--mono);font-size:7px;font-weight:700;
-  padding:1px 5px;border-radius:2px;flex-shrink:0}
-.badge-ok  {background:rgba(0,230,118,.1);color:var(--green);border:1px solid rgba(0,230,118,.2)}
-.badge-off {background:rgba(100,100,120,.1);color:var(--muted);border:1px solid var(--border)}
-.badge-warn{background:rgba(240,180,41,.1);color:var(--gold);border:1px solid rgba(240,180,41,.2)}
-
-
-/* ── Infra service cards ── */
-
-/* ── Hub sidebar contraste ── */
-.sb-title {
-  color: #ffffff !important;
-  font-size: 9px !important;
-  font-weight: 700 !important;
-  letter-spacing: .12em;
-}
-.svc-name  { color: #e2eaf4 !important; font-size: 10px !important; }
-.svc-tag   { color: #8ab0cc !important; }
-.kpi-lbl   { color: #8ab0cc !important; font-size: 8px !important; }
-.kpi-val   { color: #e2eaf4 !important; }
-.feed-msg  { color: #d0dce8 !important; font-size: 10px !important; }
-.feed-time { color: #6a8aa8 !important; }
-.infra-name{ color: #e2eaf4 !important; font-size: 11px !important; }
-.infra-url { color: #7a9ab8 !important; font-size: 9px !important; }
-.sb-item   { color: #8ab0cc !important; }
-.sb-val    { color: #e2eaf4 !important; }
-/* Aumenta variaveis de cor base */
-:root {
-  --text:   #e2eaf4;
-  --muted:  #7a95b0;
-  --dim:    #3a5570;
-  --border: #1c2d42;
-  --s2:     #0f1a28;
-}
-
-
-/* ── Titulos modulos e sidebar padding ── */
-.mod-name {
-  color: #e8eaf6 !important;
-  font-size: 16px;
-  font-weight: 700;
-}
-.mod-desc { color: #8ab0cc !important; }
-.mod-stat { color: #6a8aa8 !important; }
-.mod-stat-val { color: #c8d8e8 !important; }
-.sec-title { color: #a0b8d0 !important; }
-.anom-desc { color: #c8d8e8 !important; }
-.anom-tk   { color: #5bc8ff !important; }
-.sc-name   { color: #a0b8cc !important; }
-.sc-tk     { color: #5bc8ff !important; }
-.quick-input { color: #e0eaf4 !important; }
-
-/* ── Sidebar mais larga com padding interno ── */
-.sidebar {
-  width: 360px !important;
-  min-width: 360px !important;
-  padding-right: 4px;
-}
-.sb-block { padding: 14px 16px !important; }
-.infra-grid {
-  grid-template-columns: 1fr 1fr !important;
-  gap: 8px !important;
-}
-.infra-card {
-  padding: 10px 10px !important;
-  min-width: 0;
-}
-.infra-name { font-size: 10px !important; }
-.infra-url  { font-size: 8px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* ── Layout grid ajustado ── */
-.layout {
-  grid-template-columns: 1fr 360px !important;
-}
-
-
-/* ── Collapsible Sidebar ─────────────────────────────────── */
-:root { --sb-w: 220px; --sb-w-collapsed: 52px; }
-.fa-sidebar {
-  position: fixed; left: 0; top: 52px; bottom: 0;
-  width: var(--sb-w-collapsed);
-  background: #0a0f18;
-  border-right: 1px solid #1c2535;
-  display: flex; flex-direction: column;
-  overflow: hidden;
-  transition: width .22s cubic-bezier(.4,0,.2,1);
-  z-index: 200;
-}
-.fa-sidebar.open { width: var(--sb-w); }
-.fa-sidebar-toggle {
-  width: 100%; padding: 10px 14px;
-  background: transparent; border: none;
-  border-bottom: 1px solid #1c2535;
-  color: #7a95b0; cursor: pointer;
-  display: flex; align-items: center; gap: 10px;
-  font-size: 13px; white-space: nowrap; overflow: hidden;
-}
-.fa-sidebar-toggle:hover { color: #F0B429; background: rgba(240,180,41,.06); }
-.fa-sidebar-toggle svg { flex-shrink: 0; }
-.fa-sb-section { padding: 8px 0; border-bottom: 1px solid #141f2e; }
-.fa-sb-section-label {
-  font-size: 8px; letter-spacing: .12em; color: #3a5570;
-  padding: 4px 16px 2px; text-transform: uppercase;
-  white-space: nowrap; overflow: hidden;
-  opacity: 0; transition: opacity .15s;
-}
-.fa-sidebar.open .fa-sb-section-label { opacity: 1; }
-.fa-sb-link {
-  display: flex; align-items: center; gap: 10px;
-  padding: 7px 14px; color: #6a8aa8;
-  text-decoration: none; font-size: 12px;
-  white-space: nowrap; overflow: hidden;
-  transition: all .15s;
-}
-.fa-sb-link:hover { color: #e2eaf4; background: rgba(0,212,255,.05); }
-.fa-sb-link.active { color: #00d4ff; background: rgba(0,212,255,.08);
-  border-right: 2px solid #00d4ff; }
-.fa-sb-link svg { flex-shrink: 0; }
-.fa-sb-link span { opacity: 0; transition: opacity .15s; }
-.fa-sidebar.open .fa-sb-link span { opacity: 1; }
-/* Push content right */
-.fa-page-content {
-  margin-left: var(--sb-w-collapsed);
-  transition: margin-left .22s cubic-bezier(.4,0,.2,1);
-}
-body.sb-open .fa-page-content { margin-left: var(--sb-w); }
-
+body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;font-size:13px;min-height:100vh}
+.fa-topbar{height:52px;background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 16px;position:sticky;top:0;z-index:300}
+.fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none}
+.fa-logo-text{font-family:monospace;font-size:13px;font-weight:600;color:#e2eaf4}
+.fa-logo-text em{color:var(--gold);font-style:normal}
+.fa-ai-badge{background:var(--gold);color:#0a1628;font-size:8px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.08em;vertical-align:middle;margin-left:2px}
+.fa-user-chip{display:flex;align-items:center;gap:6px;margin-left:auto}
+.fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:10px;color:#8899aa}
+.fa-logout-btn{background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-size:11px;padding:4px 10px;cursor:pointer;display:flex;align-items:center;gap:5px;transition:.15s}
+.fa-logout-btn:hover{color:var(--red);border-color:var(--red)}
+.fa-sidebar{position:fixed;left:0;top:52px;bottom:0;width:var(--sb-w-collapsed);background:#0a0f18;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1);z-index:200}
+.fa-sidebar.open{width:var(--sb-w)}
+.fa-sidebar-toggle{width:100%;padding:10px 14px;background:transparent;border:none;border-bottom:1px solid var(--border);color:#7a95b0;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;white-space:nowrap;overflow:hidden}
+.fa-sidebar-toggle:hover{color:var(--gold);background:rgba(240,180,41,.06)}
+.fa-sidebar-toggle svg{flex-shrink:0}
+.fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;text-decoration:none;font-size:12px;white-space:nowrap;overflow:hidden;transition:all .15s}
+.fa-sb-link:hover{color:#e2eaf4;background:rgba(0,212,255,.05)}
+.fa-sb-link.active{color:var(--accent);background:rgba(0,212,255,.08);border-right:2px solid var(--accent)}
+.fa-sb-link svg{flex-shrink:0}
+.fa-sb-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-link span{opacity:1}
+.fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1)}
+body.sb-open .fa-page-content{margin-left:var(--sb-w)}
+.main{padding:20px 24px;max-width:1600px}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.page-title{font-size:22px;font-weight:700;color:#e2eaf4;display:flex;align-items:center;gap:10px}
+.page-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.refresh-btn{background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);border-radius:6px;color:var(--accent);font-size:11px;font-weight:600;padding:7px 14px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:.15s}
+.refresh-btn:hover{background:rgba(0,212,255,.15)}
+.refresh-btn.spinning svg{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.section{margin-bottom:28px}
+.sec-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.sec-title{font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;gap:8px}
+.sec-timestamp{font-size:10px;color:var(--muted);font-family:monospace}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.dot-ok{background:var(--green);box-shadow:0 0 6px rgba(0,230,118,.5)}
+.dot-warning{background:var(--yellow);box-shadow:0 0 6px rgba(251,191,36,.5)}
+.dot-error{background:var(--red);box-shadow:0 0 6px rgba(255,61,90,.5)}
+.dot-pulse{animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.infra-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.infra-card{background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:16px;position:relative;overflow:hidden;transition:.2s}
+.infra-card:hover{border-color:var(--border2)}
+.infra-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.infra-card-icon{width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.infra-badge{font-size:9px;font-weight:700;padding:3px 8px;border-radius:4px;letter-spacing:.06em}
+.badge-ok{background:rgba(0,230,118,.12);color:var(--green);border:1px solid rgba(0,230,118,.2)}
+.badge-off{background:rgba(255,61,90,.12);color:var(--red);border:1px solid rgba(255,61,90,.2)}
+.infra-card-name{font-size:13px;font-weight:600;color:#e2eaf4;margin-bottom:2px}
+.infra-card-url{font-size:10px;color:var(--muted);font-family:monospace}
+.infra-card-link{position:absolute;inset:0;z-index:1}
+.tbl-wrap{border:1px solid var(--border);border-radius:8px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th{background:#0a0f18;color:var(--muted);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:9px 14px;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:9px 14px;font-size:11px;color:var(--text);border-bottom:1px solid rgba(28,37,53,.6)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(0,212,255,.015)}
+.svc-name{font-weight:600;color:#e2eaf4;font-size:12px}
+.svc-detail{font-size:10px;color:var(--muted);margin-top:2px;font-family:monospace}
+.latency{font-family:monospace;font-size:10px;color:var(--muted)}
+.latency.fast{color:var(--green)}
+.latency.slow{color:var(--yellow)}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase}
+.pill-ok{background:rgba(0,230,118,.1);color:var(--green);border:1px solid rgba(0,230,118,.2)}
+.pill-warning{background:rgba(251,191,36,.1);color:var(--yellow);border:1px solid rgba(251,191,36,.2)}
+.pill-error{background:rgba(255,61,90,.1);color:var(--red);border:1px solid rgba(255,61,90,.2)}
+.pill-stopped{background:rgba(74,94,114,.1);color:var(--muted);border:1px solid rgba(74,94,114,.2)}
+.upd-time{font-family:monospace;font-size:10px;color:var(--muted)}
+.upd-time.recent{color:var(--green)}
+.btn-restart{background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);border-radius:5px;color:var(--accent);font-size:10px;font-weight:600;padding:4px 10px;cursor:pointer;transition:.15s}
+.btn-restart:hover{background:rgba(0,212,255,.15)}
+.btn-stop{background:rgba(255,61,90,.08);border:1px solid rgba(255,61,90,.2);border-radius:5px;color:var(--red);font-size:10px;font-weight:600;padding:4px 10px;cursor:pointer;transition:.15s}
+.btn-stop:hover{background:rgba(255,61,90,.15)}
+.status-bar{display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:8px;margin-bottom:20px;font-size:12px;font-weight:600}
+.status-bar-ok{background:rgba(0,230,118,.06);border:1px solid rgba(0,230,118,.15);color:var(--green)}
+.status-bar-warn{background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.15);color:var(--yellow)}
+.status-bar-err{background:rgba(255,61,90,.06);border:1px solid rgba(255,61,90,.15);color:var(--red)}
+.status-bar-time{margin-left:auto;font-size:10px;font-weight:400;color:var(--muted);font-family:monospace}
+.denied{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;gap:12px}
+.loading-row td{text-align:center;color:var(--muted);font-style:italic;padding:24px}
 </style>
 </head>
 <body>
 
 <div class="fa-topbar">
-  <a href="/" class="fa-logo" title="FinAnalytics AI">
-    <svg width="34" height="34" viewBox="0 0 170 170" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="lg_gold" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#F0B429"/><stop offset="100%" stop-color="#E08C00"/>
-    </linearGradient>
-    <linearGradient id="lg_neural" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#3ABFF8" stop-opacity="0"/>
-      <stop offset="40%" stop-color="#3ABFF8"/><stop offset="100%" stop-color="#F0B429"/>
-    </linearGradient>
-  </defs>
-  <circle cx="85" cy="85" r="82" fill="#0D2144"/>
-  <circle cx="85" cy="85" r="80" fill="#0D2144" stroke="#1e3a5f" stroke-width="1"/>
-  <rect x="38" y="98" width="14" height="36" rx="2.5" fill="#E05555" opacity=".9"/>
-  <line x1="45" y1="89" x2="45" y2="98" stroke="#E05555" stroke-width="2.5" opacity=".9"/>
-  <line x1="45" y1="134" x2="45" y2="142" stroke="#E05555" stroke-width="2.5" opacity=".9"/>
-  <rect x="60" y="72" width="14" height="44" rx="2.5" fill="#2ED47A" opacity=".9"/>
-  <line x1="67" y1="62" x2="67" y2="72" stroke="#2ED47A" stroke-width="2.5"/>
-  <line x1="67" y1="116" x2="67" y2="126" stroke="#2ED47A" stroke-width="2.5"/>
-  <rect x="82" y="50" width="14" height="58" rx="2.5" fill="#2ED47A"/>
-  <line x1="89" y1="38" x2="89" y2="50" stroke="#2ED47A" stroke-width="2.5"/>
-  <line x1="89" y1="108" x2="89" y2="120" stroke="#2ED47A" stroke-width="2.5"/>
-  <rect x="104" y="66" width="14" height="32" rx="2.5" fill="#E05555" opacity=".8"/>
-  <line x1="111" y1="55" x2="111" y2="66" stroke="#E05555" stroke-width="2.5"/>
-  <line x1="111" y1="98" x2="111" y2="108" stroke="#E05555" stroke-width="2.5"/>
-  <rect x="126" y="44" width="14" height="68" rx="2.5" fill="url(#lg_gold)"/>
-  <line x1="133" y1="30" x2="133" y2="44" stroke="#E08C00" stroke-width="2.5"/>
-  <line x1="133" y1="112" x2="133" y2="126" stroke="#E08C00" stroke-width="2.5"/>
-  <circle cx="45" cy="82" r="5" fill="#3ABFF8" opacity=".8"/>
-  <circle cx="89" cy="38" r="5.5" fill="#3ABFF8"/>
-  <circle cx="133" cy="30" r="4.5" fill="#F0B429"/>
-  <circle cx="150" cy="54" r="4" fill="#3ABFF8" opacity=".6"/>
-  <polyline points="45,82 89,38 133,30 150,54" fill="none" stroke="url(#lg_neural)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".8"/>
-</svg>
-    <span class="fa-logo-text">Fin<em>Analytics</em> <span class="fa-ai-badge">AI</span></span>
+  <a href="/" class="fa-logo">
+    <span class="fa-logo-text">Fin<em>Analytics</em><span class="fa-ai-badge">AI</span></span>
   </a>
-
-  <span id="fa-page-title" style="font-size:12px;font-weight:600;color:#7a95b0;letter-spacing:.06em;margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Hub</span>
-  <nav class="fa-nav"></nav>
-  <div class="fa-user-chip" id="fa-user-chip" style="display:none">
-    <div class="fa-avatar" id="fa-avatar">U</div>
-    <span id="fa-username" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+  <div class="fa-user-chip">
+    <div class="fa-avatar" id="avatarInitial">?</div>
+    <span id="topbarEmail" style="font-size:11px;color:var(--muted)"></span>
+    <button class="fa-logout-btn" onclick="logout()">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      Sair
+    </button>
   </div>
-  <button class="fa-logout-btn" onclick="faLogout()" title="Sair">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-    Sair
+</div>
+
+<div class="fa-sidebar" id="sidebar">
+  <button class="fa-sidebar-toggle" onclick="toggleSidebar()">
+    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <span>Menu</span>
   </button>
+  <a href="/dashboard" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
+  <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
+  <a href="/fundamental" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Fundamentalista</span></a>
+  <a href="/screener" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Screener</span></a>
+  <a href="/backtest" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Backtest</span></a>
+  <a href="/forecast" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Forecast</span></a>
+  <a href="/watchlist" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span>Watchlist</span></a>
+  <a href="/performance" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg><span>Performance</span></a>
+  <a href="/profile" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
+  <a href="/admin" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Admin</span></a>
+  <a href="/hub" class="fa-sb-link active"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg><span>Monitoramento</span></a>
 </div>
 
-<!-- ── Header ── -->
-<div class="hdr">
-  <div class="hdr-brand">
-    <div class="brand-logo">FA</div>
-    <div>
-      <div class="brand-name">Fin<span>Analytics</span> <span style="font-size:11px;color:var(--muted);font-weight:400">AI</span></div>
-      <div class="brand-tag">COMMAND CENTER</div>
-    </div>
-  </div>
-  <div class="hdr-right">
-    <div class="live-pill"><div class="live-dot"></div>AO VIVO</div>
-    <div class="clock" id="clock">--:--:--</div>
-  </div>
-</div>
+<div class="fa-page-content">
+<div class="main">
 
-<aside class="fa-sidebar" id="fa-sidebar">
-  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:11px">MENU</span></button>
-  <div style="overflow-y:auto;flex:1"><a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
-<a href="/carteira" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
-<a href="/fundamental" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg><span>Fundamentalista</span></a>
-<a href="/screener" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Screener</span></a>
-<a href="/watchlist" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span>Watchlist</span></a>
-<a href="/backtest" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Backtest</span></a>
-<a href="/correlation" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></svg><span>Correlacao</span></a>
-<a href="/anomaly" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg><span>Anomalias</span></a>
-<a href="/forecast" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg><span>Forecast</span></a>
-<a href="/performance" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Performance</span></a>
-<a href="/optimizer" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg><span>Otimizador</span></a>
-<a href="/fintz" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><span>Fintz</span></a>
-<a href="/fixed-income" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><span>Renda Fixa</span></a>
-<a href="/etf" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-4"/></svg><span>ETFs</span></a>
-<a href="/hub" class="fa-sb-link active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Hub</span></a></div>
-</aside>
-<script>
-function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.classList.toggle("open");document.body.classList.toggle("sb-open");localStorage.setItem("fa_sidebar_open",sb.classList.contains("open")?"1":"0");}
-(function(){if(localStorage.getItem("fa_sidebar_open")==="1"){document.getElementById("fa-sidebar").classList.add("open");document.body.classList.add("sb-open");}})();
-</script>
-<div class="fa-page-content"><div class="layout">
-
-  <!-- ── Market Pulse ── -->
-  <div class="pulse-strip" id="pulse-strip">
-    <div class="pulse-loading">Carregando cotações...</div>
+  <div class="denied" id="accessDenied" style="display:none">
+    <svg width="64" height="64" fill="none" stroke="var(--red)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <p style="font-size:20px;font-weight:700;color:#e2eaf4">Acesso Restrito</p>
+    <p style="color:var(--muted)">Exclusivo para administradores.</p>
+    <a href="/dashboard" style="color:var(--accent);font-size:12px">Voltar ao Dashboard</a>
   </div>
 
-  <!-- ── Left: main content ── -->
-  <div class="content">
-
-    <!-- Module cards -->
-    <div>
-      <div class="sec-hdr">
-        <div class="sec-title">Módulos</div>
-      </div>
-      <div class="modules-grid" id="modules-grid">
-        <a class="mod-card" href="/" style="--card-color:rgba(58,191,248,1);animation-delay:.05s">
-          <div class="mod-head">
-            <div class="mod-icon" style="background:rgba(58,191,248,.1)">📈</div>
-            <div class="mod-status st-ok" id="svc-dashboard">ONLINE</div>
-          </div>
-          <div class="mod-name">Dashboard</div>
-          <div class="mod-desc">Cotações em tempo real, gráficos OHLC,<br>indicadores técnicos e alertas de preço.</div>
-          <div class="mod-stat">
-            <span>RSI · MACD · Bollinger</span>
-            <span class="mod-stat-val">Tempo real</span>
-          </div>
-        </a>
-
-        <a class="mod-card" href="/backtest" style="--card-color:rgba(0,230,118,1);animation-delay:.1s">
-          <div class="mod-head">
-            <div class="mod-icon" style="background:rgba(0,230,118,.1)">⚡</div>
-            <div class="mod-status st-ok">ONLINE</div>
-          </div>
-          <div class="mod-name">Backtest</div>
-          <div class="mod-desc">6 estratégias, grid search,<br>walk-forward e comparativo multi-ticker.</div>
-          <div class="mod-stat">
-            <span>RSI · MACD · EMA · Bollinger</span>
-            <span class="mod-stat-val">6 estratégias</span>
-          </div>
-        </a>
-
-        <a class="mod-card" href="/correlation" style="--card-color:rgba(168,85,247,1);animation-delay:.15s">
-          <div class="mod-head">
-            <div class="mod-icon" style="background:rgba(168,85,247,.1)">🔗</div>
-            <div class="mod-status st-ok">ONLINE</div>
-          </div>
-          <div class="mod-name">Correlação</div>
-          <div class="mod-desc">Matriz de correlação entre ativos,<br>score de diversificação, rolling correlation.</div>
-          <div class="mod-stat">
-            <span>Pearson · Rolling · Heatmap</span>
-            <span class="mod-stat-val">Até 10 ativos</span>
-          </div>
-        </a>
-
-        <a class="mod-card" href="/screener" style="--card-color:rgba(0,200,255,1);animation-delay:.2s">
-          <div class="mod-head">
-            <div class="mod-icon" style="background:rgba(0,200,255,.1)">🔍</div>
-            <div class="mod-status st-ok">ONLINE</div>
-          </div>
-          <div class="mod-name">Screener</div>
-          <div class="mod-desc">Filtros fundamentalistas sobre ~75 ativos<br>do Ibovespa. P/L, P/VP, DY, ROE, ROIC.</div>
-          <div class="mod-stat">
-            <span>18 indicadores · 5 presets</span>
-            <span class="mod-stat-val" id="screen-count">—</span>
-          </div>
-        </a>
-
-        <a class="mod-card" href="/anomaly" style="--card-color:rgba(255,61,90,1);animation-delay:.25s">
-          <div class="mod-head">
-            <div class="mod-icon" style="background:rgba(255,61,90,.1)">⚠️</div>
-            <div class="mod-status st-ok" id="anom-mod-status">ONLINE</div>
-          </div>
-          <div class="mod-name">Anomalias ML</div>
-          <div class="mod-desc">Z-Score, Bollinger, CUSUM e Volume Spike.<br>Detecção automática sem threshold fixo.</div>
-          <div class="mod-stat">
-            <span>4 algoritmos · stdlib puro</span>
-            <span class="mod-stat-val" id="anom-mod-count">—</span>
-          </div>
-        </a>
-
-        <div class="mod-card" style="--card-color:rgba(240,180,41,1);animation-delay:.3s;cursor:default;opacity:.5">
-          <div class="mod-head">
-            <div class="mod-icon" style="background:rgba(240,180,41,.1)">📊</div>
-            <div class="mod-status st-off">EM BREVE</div>
-          </div>
-          <div class="mod-name">Relatórios</div>
-          <div class="mod-desc">Exportação PDF da carteira,<br>P&amp;L consolidado e análise de risco.</div>
-          <div class="mod-stat">
-            <span>PDF · Portfólio · P&amp;L</span>
-            <span class="mod-stat-val">Sprint 21</span>
-          </div>
+  <div id="monitorContent" style="display:none">
+    <div class="page-header">
+      <div>
+        <div class="page-title">
+          <svg width="20" height="20" fill="none" stroke="var(--accent)" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          Central de Monitoramento
         </div>
+        <div class="page-sub">Status em tempo real de todos os servicos da plataforma</div>
       </div>
+      <button class="refresh-btn" onclick="loadAll()" id="refreshBtn">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Atualizar
+      </button>
     </div>
 
-    <!-- Quick anomaly scan -->
-    <div>
-      <div class="sec-hdr">
-        <div class="sec-title">Scan Rápido de Anomalias</div>
-        <button class="sec-action" onclick="runQuickScan()">↻ Atualizar</button>
-      </div>
-      <div class="quick-panel">
-        <div class="quick-form">
-          <input class="quick-input" id="scan-tickers" type="text"
-            value="PETR4,VALE3,ITUB4,WEGE3,ABEV3,MGLU3,BBAS3,BBDC4"
-            placeholder="Tickers separados por vírgula">
-          <button class="quick-btn" id="scan-btn" onclick="runQuickScan()">▶ SCAN</button>
-        </div>
-        <div id="scan-result">
-          <div class="no-anom">Configure os tickers e execute o scan</div>
-        </div>
-      </div>
+    <div id="statusBar" class="status-bar status-bar-ok">
+      <span class="dot dot-ok dot-pulse" id="overallDot"></span>
+      <span id="overallMsg">Verificando servicos...</span>
+      <span class="status-bar-time" id="statusTime"></span>
     </div>
 
-    <!-- Quick screener -->
-    <div>
-      <div class="sec-hdr">
-        <div class="sec-title">Screener Rápido — Dividendos</div>
-        <a class="sec-action" href="/screener">Ver completo →</a>
+    <div class="section">
+      <div class="sec-header">
+        <div class="sec-title">Ferramentas de Infraestrutura</div>
       </div>
-      <div class="quick-panel">
-        <div id="screener-result"><div class="no-anom">Carregando...</div></div>
-      </div>
-    </div>
-
-  </div><!-- /content -->
-
-  <!-- ── Right sidebar ── -->
-  <div class="sidebar">
-
-    <!-- Health -->
-    <div class="sb-block">
-      <div class="sb-title">Status dos Serviços</div>
-      <div class="svc-list" id="svc-list">
-        <div class="svc-row"><div class="svc-dot ok"></div><span class="svc-name">API</span><span class="svc-tag">FastAPI</span></div>
-        <div class="svc-row"><div class="svc-dot" id="dot-db"></div><span class="svc-name">PostgreSQL</span><span class="svc-tag" id="tag-db">—</span></div>
-        <div class="svc-row"><div class="svc-dot" id="dot-ts"></div><span class="svc-name">TimescaleDB</span><span class="svc-tag" id="tag-ts">—</span></div>
-        <div class="svc-row"><div class="svc-dot" id="dot-kafka"></div><span class="svc-name">Kafka</span><span class="svc-tag" id="tag-kafka">—</span></div>
-        <div class="svc-row"><div class="svc-dot" id="dot-brapi"></div><span class="svc-name">BRAPI</span><span class="svc-tag" id="tag-brapi">—</span></div>
-      </div>
-    </div>
-
-
-    <!-- Infraestrutura -->
-    <div class="sb-block">
-      <div class="sb-title">Infraestrutura</div>
       <div class="infra-grid">
-        <a class="infra-card" href="http://localhost:3000" target="_blank" style="--card-color:rgba(240,134,54,1)">
-          <div class="infra-icon">&#128202;</div>
-          <div class="infra-info"><div class="infra-name">Grafana</div><div class="infra-url">localhost:3000</div></div>
-          <div class="infra-badge" id="badge-grafana">—</div>
-        </a>
-        <a class="infra-card" href="http://localhost:8000/metrics" target="_blank" style="--card-color:rgba(232,75,75,1)">
-          <div class="infra-icon">&#128200;</div>
-          <div class="infra-info"><div class="infra-name">Prometheus</div><div class="infra-url">localhost:8000/metrics</div></div>
-          <div class="infra-badge" id="badge-prometheus">—</div>
-        </a>
-        <a class="infra-card" href="http://localhost:5050" target="_blank" style="--card-color:rgba(0,150,255,1)">
-          <div class="infra-icon">&#128024;</div>
-          <div class="infra-info"><div class="infra-name">pgAdmin</div><div class="infra-url">localhost:5050</div></div>
-          <div class="infra-badge" id="badge-pgadmin">—</div>
-        </a>
-        <a class="infra-card" href="http://localhost:8080" target="_blank" style="--card-color:rgba(168,85,247,1)">
-          <div class="infra-icon">&#128232;</div>
-          <div class="infra-info"><div class="infra-name">Kafka UI</div><div class="infra-url">localhost:8080</div></div>
-          <div class="infra-badge" id="badge-kafka-ui">—</div>
-        </a>
-        <a class="infra-card" href="http://localhost:8001" target="_blank" style="--card-color:rgba(220,50,50,1)">
-          <div class="infra-icon">&#128308;</div>
-          <div class="infra-info"><div class="infra-name">RedisInsight</div><div class="infra-url">localhost:8001</div></div>
-          <div class="infra-badge" id="badge-redis-ui">—</div>
-        </a>
-        <a class="infra-card" href="http://localhost:5432" target="_blank" style="--card-color:rgba(0,150,255,1)">
-          <div class="infra-icon">&#128451;</div>
-          <div class="infra-info"><div class="infra-name">PostgreSQL</div><div class="infra-url">localhost:5432</div></div>
-          <div class="infra-badge badge-ok">5432</div>
-        </a>
-        <div class="infra-card" style="cursor:default;opacity:.7" target="_blank" style="--card-color:rgba(0,200,120,1)">
-          <div class="infra-icon">&#9201;</div>
-          <div class="infra-info"><div class="infra-name">TimescaleDB</div><div class="infra-url">localhost:5433</div></div>
-          <div class="infra-badge badge-ok">5433</div>
+        <div class="infra-card">
+          <div class="infra-card-top"><div class="infra-card-icon" style="background:rgba(240,180,41,.1)">📊</div><span class="infra-badge badge-ok" id="badge-grafana">...</span></div>
+          <div class="infra-card-name">Grafana</div><div class="infra-card-url">localhost:3000</div>
+          <a href="http://localhost:3000" target="_blank" class="infra-card-link"></a>
+        </div>
+        <div class="infra-card">
+          <div class="infra-card-top"><div class="infra-card-icon" style="background:rgba(0,212,255,.1)">🐘</div><span class="infra-badge badge-ok" id="badge-pgadmin">...</span></div>
+          <div class="infra-card-name">pgAdmin</div><div class="infra-card-url">localhost:5050</div>
+          <a href="http://localhost:5050" target="_blank" class="infra-card-link"></a>
+        </div>
+        <div class="infra-card">
+          <div class="infra-card-top"><div class="infra-card-icon" style="background:rgba(168,85,247,.1)">📨</div><span class="infra-badge badge-ok" id="badge-kafka-ui">...</span></div>
+          <div class="infra-card-name">Kafka UI</div><div class="infra-card-url">localhost:8080</div>
+          <a href="http://localhost:8080" target="_blank" class="infra-card-link"></a>
+        </div>
+        <div class="infra-card">
+          <div class="infra-card-top"><div class="infra-card-icon" style="background:rgba(255,61,90,.1)">🔴</div><span class="infra-badge badge-ok" id="badge-redis-ui">...</span></div>
+          <div class="infra-card-name">RedisInsight</div><div class="infra-card-url">localhost:8001</div>
+          <a href="http://localhost:8001" target="_blank" class="infra-card-link"></a>
+        </div>
+        <div class="infra-card">
+          <div class="infra-card-top"><div class="infra-card-icon" style="background:rgba(0,230,118,.1)">⚡</div><span class="infra-badge badge-ok" id="badge-api">...</span></div>
+          <div class="infra-card-name">API Docs</div><div class="infra-card-url">localhost:8000/docs</div>
+          <a href="http://localhost:8000/docs" target="_blank" class="infra-card-link"></a>
+        </div>
+        <div class="infra-card">
+          <div class="infra-card-top"><div class="infra-card-icon" style="background:rgba(251,191,36,.1)">📈</div><span class="infra-badge badge-ok" id="badge-metrics">...</span></div>
+          <div class="infra-card-name">Prometheus</div><div class="infra-card-url">localhost:8000/metrics</div>
+          <a href="http://localhost:8000/metrics" target="_blank" class="infra-card-link"></a>
         </div>
       </div>
     </div>
 
-    <!-- Portfolio KPIs -->
-    <div class="sb-block">
-      <div class="sb-title">Portfólio</div>
-      <div class="kpi-grid" id="portfolio-kpis">
-        <div class="kpi-cell"><div class="kpi-lbl">Posições</div><div class="kpi-val" id="kpi-pos">—</div></div>
-        <div class="kpi-cell"><div class="kpi-lbl">Ativos</div><div class="kpi-val" id="kpi-assets">—</div></div>
-        <div class="kpi-cell"><div class="kpi-lbl">Alertas</div><div class="kpi-val" id="kpi-alerts" style="color:var(--gold)">—</div></div>
-        <div class="kpi-cell"><div class="kpi-lbl">Anomalias</div><div class="kpi-val" id="kpi-anom" style="color:var(--red)">—</div></div>
+    <div class="section">
+      <div class="sec-header">
+        <div class="sec-title">Servicos da API</div>
+        <span class="sec-timestamp" id="svcTimestamp"></span>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Servico</th><th>Status</th><th>Detalhe</th><th>Latencia</th><th>Acao</th></tr></thead>
+          <tbody id="svcTbody"><tr class="loading-row"><td colspan="5">Carregando...</td></tr></tbody>
+        </table>
       </div>
     </div>
 
-    <!-- Activity feed -->
-    <div class="sb-block" style="flex:1;overflow:hidden;display:flex;flex-direction:column;border-bottom:none;">
-      <div class="sb-title">Atividade Recente</div>
-      <div class="feed" id="activity-feed">
-        <div class="feed-item">
-          <div class="feed-time">agora</div>
-          <div class="feed-msg"><div class="feed-tag tag-bt">HUB</div><br>Hub iniciado. Execute um scan.</div>
-        </div>
+    <div class="section">
+      <div class="sec-header">
+        <div class="sec-title">Coletores de Dados</div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Servico</th><th>Descricao</th><th>Status</th><th>Ultima Atualizacao</th><th>Proxima Atualizacao</th><th>Detalhe</th><th>Acao</th></tr></thead>
+          <tbody id="collTbody"><tr class="loading-row"><td colspan="7">Carregando...</td></tr></tbody>
+        </table>
       </div>
     </div>
-
-  </div><!-- /sidebar -->
-
-  <!-- ── Status bar ── -->
-  <div class="statusbar">
-    <div class="sb-item">UNIVERSO <span class="sb-val">~75 ativos Ibovespa</span></div>
-    <div class="sb-item">ALGORITMOS <span class="sb-val">Z-Score · Bollinger · CUSUM · Volume</span></div>
-    <div class="sb-item">ESTRATÉGIAS <span class="sb-val">RSI · MACD · EMA · Momentum · Combined · Bollinger</span></div>
-    <div class="sb-item" style="margin-left:auto">BUILD <span class="sb-val">Sprint 20</span></div>
   </div>
 
-</div><!-- /layout -->
+</div>
+</div>
 
 <script>
-(function authGuard(){var t=localStorage.getItem("access_token"),e=parseInt(localStorage.getItem("token_expires_at")||"0");if(!t||e<Date.now()+60000)window.location.replace("/login");})();
-'use strict';
+var API = '/api/v1';
 
-var PULSE_TICKERS = ['PETR4','VALE3','ITUB4','BBDC4','WEGE3','ABEV3','MGLU3','BBAS3'];
+function tok() { return localStorage.getItem('access_token'); }
+function H() { return {'Content-Type':'application/json', Authorization: 'Bearer ' + tok()}; }
 
-// ── Clock ─────────────────────────────────────────────────────────────────────
-function tick() {
-  document.getElementById('clock').textContent =
-    new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-}
-setInterval(tick, 1000); tick();
-
-// ── Health ────────────────────────────────────────────────────────────────────
-function loadHealth() {
-  fetch('/health')
-    .then(function(r){return r.json();})
-    .then(function(d){
-      var comps = d.components || {};
-      function setDot(id, tagId, ok, label) {
-        var dot = document.getElementById(id);
-        var tag = document.getElementById(tagId);
-        if (!dot) return;
-        dot.className = 'svc-dot ' + (ok ? 'ok' : 'warn');
-        if (tag) tag.textContent = ok ? 'OK' : 'ERR';
-      }
-      setDot('dot-db',    'tag-db',    comps.postgresql !== false, '');
-      setDot('dot-ts',    'tag-ts',    comps.timescaledb !== false, '');
-      setDot('dot-kafka', 'tag-kafka', comps.kafka !== false, '');
-      setDot('dot-brapi', 'tag-brapi', comps.brapi !== false, '');
-    }).catch(function(){});
-}
-loadHealth();
-setInterval(loadHealth, 30000);
-
-// ── Market Pulse ──────────────────────────────────────────────────────────────
-function loadPulse() {
-  var strip = document.getElementById('pulse-strip');
-  Promise.all(PULSE_TICKERS.map(function(t) {
-    return fetch('/api/v1/quotes/' + t)
-      .then(function(r){return r.ok ? r.json() : null;})
-      .catch(function(){return null;});
-  })).then(function(results) {
-    var html = '';
-    results.forEach(function(d, i) {
-      var tk = PULSE_TICKERS[i];
-      if (!d) {
-        html += '<div class="pulse-item"><span class="pulse-ticker">' + tk + '</span><span class="pulse-price neu">—</span></div>';
-        return;
-      }
-      var price  = d.price || d.regularMarketPrice || 0;
-      var chgPct = d.change_pct || d.regularMarketChangePercent || 0;
-      var cls    = chgPct > 0 ? 'up' : chgPct < 0 ? 'dn' : 'neu';
-      var sign   = chgPct > 0 ? '+' : '';
-      html += '<div class="pulse-item" onclick="window.location=\'/?ticker=' + tk + '\'">'
-        + '<span class="pulse-ticker">' + tk + '</span>'
-        + '<span class="pulse-price ' + cls + '">R$' + price.toFixed(2) + '</span>'
-        + '<span class="pulse-chg ' + cls + '">' + sign + chgPct.toFixed(2) + '%</span>'
-        + '</div>';
-    });
-    strip.innerHTML = html || '<div class="pulse-loading">Sem dados</div>';
-  });
-}
-loadPulse();
-setInterval(loadPulse, 30000);
-
-// ── Portfolio KPIs ────────────────────────────────────────────────────────────
-function loadPortfolio() {
-  fetch('/api/v1/portfolio/')
-    .then(function(r){return r.json();})
-    .then(function(portfolios) {
-      var total = Array.isArray(portfolios) ? portfolios.length : 0;
-      document.getElementById('kpi-pos').textContent = total;
-      // Count unique tickers
-      var tickers = new Set();
-      (portfolios || []).forEach(function(p) {
-        (p.positions || []).forEach(function(pos) { tickers.add(pos.ticker); });
-      });
-      document.getElementById('kpi-assets').textContent = tickers.size || '—';
-    }).catch(function(){
-      document.getElementById('kpi-pos').textContent = '—';
-    });
-}
-loadPortfolio();
-
-// ── Quick Anomaly Scan ─────────────────────────────────────────────────────────
-function runQuickScan() {
-  var input   = document.getElementById('scan-tickers');
-  var btn     = document.getElementById('scan-btn');
-  var result  = document.getElementById('scan-result');
-  var tickers = input.value.split(',').map(function(t){return t.trim().toUpperCase();}).filter(Boolean);
-  if (!tickers.length) return;
-
-  btn.disabled = true;
-  result.innerHTML = '<div class="no-anom" style="color:var(--accent)">Escaneando ' + tickers.length + ' ativos...</div>';
-
-  fetch('/api/v1/anomaly/scan', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({tickers:tickers, range_period:'3mo', zscore_threshold:2.5, volume_multiplier:3.0, lookback_bars:100}),
-  })
-  .then(function(r){return r.json();})
-  .then(function(d) {
-    var results = d.results || [];
-    var anomalies = [];
-    results.forEach(function(r) {
-      (r.anomalies || []).forEach(function(a) {
-        anomalies.push({ticker: r.ticker, anomaly: a});
-      });
-    });
-
-    // Update mod card stat
-    document.getElementById('anom-mod-count').textContent = anomalies.length + ' anomalias';
-    document.getElementById('kpi-anom').textContent = anomalies.length;
-
-    if (!anomalies.length) {
-      result.innerHTML = '<div class="no-anom" style="color:var(--green)">✓ Nenhuma anomalia detectada nos ' + tickers.length + ' ativos</div>';
-      addActivity('ANOMALY', 'Scan de ' + tickers.length + ' ativos: 0 anomalias', 'tag-screen');
+async function init() {
+  if (!tok()) { location.href='/'; return; }
+  try {
+    var me = await fetch(API + '/auth/me', {headers: H()}).then(function(r){ return r.json(); });
+    if (!me.user_id) { location.href='/'; return; }
+    if (me.role !== 'master' && me.role !== 'admin') {
+      document.getElementById('accessDenied').style.display = 'flex';
       return;
     }
-
-    // Sort: HIGH first
-    var order = {high:2, medium:1, low:0};
-    anomalies.sort(function(a,b){ return (order[b.anomaly.severity]||0) - (order[a.anomaly.severity]||0); });
-
-    var TYPE_LABEL = {
-      zscore_spike:'Z-SCORE', bollinger_break:'BOLLINGER',
-      cusum_shift:'CUSUM', volume_spike:'VOLUME',
-    };
-    var html = '<div class="anom-list">';
-    anomalies.slice(0, 12).forEach(function(item) {
-      var a = item.anomaly;
-      var typeLabel = TYPE_LABEL[a.anomaly_type] || a.anomaly_type;
-      html += '<div class="anom-row ' + a.severity + '">'
-        + '<span class="anom-tk">' + item.ticker + '</span>'
-        + '<span class="anom-type">' + typeLabel + '</span>'
-        + '<span class="anom-desc">' + a.description + '</span>'
-        + '<span class="anom-sev sev-' + a.severity + '">' + a.severity.toUpperCase() + '</span>'
-        + '</div>';
-    });
-    if (anomalies.length > 12) {
-      html += '<div class="no-anom" style="padding:6px">+ ' + (anomalies.length - 12) + ' mais — <a href="/anomaly" style="color:var(--accent)">ver tudo</a>
-<a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a></div>';
-    }
-    html += '</div>';
-    result.innerHTML = html;
-
-    var highCount = anomalies.filter(function(a){return a.anomaly.severity==='high';}).length;
-    addActivity('ANOMALY',
-      'Scan: ' + anomalies.length + ' anomalias (' + highCount + ' HIGH) em ' + tickers.length + ' ativos',
-      'tag-anom');
-  })
-  .catch(function(err) {
-    result.innerHTML = '<div class="no-anom" style="color:var(--red)">Erro: ' + err.message + '</div>';
-  })
-  .finally(function(){ btn.disabled = false; });
+    document.getElementById('topbarEmail').textContent = me.email;
+    document.getElementById('avatarInitial').textContent = (me.full_name||me.email)[0].toUpperCase();
+    document.getElementById('monitorContent').style.display = 'block';
+    loadAll();
+    checkInfra();
+    setInterval(loadAll, 30000);
+    setInterval(checkInfra, 60000);
+  } catch(e) { location.href='/'; }
 }
 
-// Auto-run on load
-setTimeout(runQuickScan, 800);
-
-// ── Quick Screener ─────────────────────────────────────────────────────────────
-function loadQuickScreener() {
-  fetch('/api/v1/screener/run?dy_min=5&roe_min=12&debt_equity_max=2&pe_max=20')
-    .then(function(r){return r.json();})
-    .then(function(d) {
-      var stocks = (d.stocks || []).slice(0, 8);
-      document.getElementById('screen-count').textContent = d.total_passed + ' encontradas';
-      document.getElementById('kpi-alerts').textContent = d.total_passed;
-
-      if (!stocks.length) {
-        document.getElementById('screener-result').innerHTML =
-          '<div class="no-anom">Nenhuma ação no filtro atual</div>';
-        return;
-      }
-      var html = '<div class="screen-list">';
-      stocks.forEach(function(s) {
-        html += '<div class="screen-row">'
-          + '<span class="sc-tk">' + s.ticker + '</span>'
-          + '<span class="sc-name">' + (s.name || s.sector || '—') + '</span>'
-          + '<span class="sc-val">' + (s.dy !== null ? '<span class="sc-pos">DY ' + s.dy.toFixed(1) + '%</span>' : '—') + '</span>'
-          + '<span class="sc-val">' + (s.pe  !== null ? 'P/L ' + s.pe.toFixed(1)  : '—') + '</span>'
-          + '</div>';
-      });
-      html += '</div>';
-      document.getElementById('screener-result').innerHTML = html;
-      addActivity('SCREENER', 'Screener Dividendos: ' + d.total_passed + ' ações passaram nos filtros', 'tag-screen');
-    })
-    .catch(function(){
-      document.getElementById('screener-result').innerHTML =
-        '<div class="no-anom">Erro ao carregar screener</div>';
-    });
+function toggleSidebar() {
+  var sb = document.getElementById('sidebar');
+  var open = sb.classList.toggle('open');
+  document.body.classList.toggle('sb-open', open);
+  localStorage.setItem('fa_sidebar_open', open ? '1' : '0');
 }
-setTimeout(loadQuickScreener, 1200);
-
-// ── Activity Feed ─────────────────────────────────────────────────────────────
-function addActivity(tag, msg, tagClass) {
-  var feed = document.getElementById('activity-feed');
-  var now  = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  var item = document.createElement('div');
-  item.className = 'feed-item';
-  item.innerHTML = '<div class="feed-time">' + now + '</div>'
-    + '<div class="feed-msg"><div class="feed-tag ' + tagClass + '">' + tag + '</div><br>' + msg + '</div>';
-  feed.insertBefore(item, feed.firstChild);
-  // Keep max 20 items
-  while (feed.children.length > 20) feed.removeChild(feed.lastChild);
+if (localStorage.getItem('fa_sidebar_open') === '1') {
+  document.getElementById('sidebar').classList.add('open');
+  document.body.classList.add('sb-open');
 }
-</script>
 
-<script>
-(function faAuth(){
-  var token = localStorage.getItem('access_token');
-  if (!token) return;
-  var chip = document.getElementById('fa-user-chip');
-  var nameEl = document.getElementById('fa-username');
-  var avatarEl = document.getElementById('fa-avatar');
-  if (chip) chip.style.display = 'flex';
-  try {
-    var b64 = token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
-    var payload = JSON.parse(atob(b64));
-    var email = payload.email || payload.sub || '';
-    var name = email.split('@')[0];
-    if (nameEl) nameEl.textContent = name;
-    if (avatarEl) avatarEl.textContent = name.charAt(0).toUpperCase();
-  } catch(e) {}
-})();
-function faLogout() {
-  if (!confirm('Deseja sair?')) return;
+function logout() {
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
-  localStorage.removeItem('token_expires_at');
-  sessionStorage.clear();
-  window.location.replace('/login');
+  location.href='/';
 }
 
-// ── Infra services health ──────────────────────────────────────────────────────
-async function checkInfraServices() {
-  const services = [
-    {id:'badge-grafana',    url:'http://localhost:3000/api/health'},
-    {id:'badge-pgadmin',    url:'http://localhost:5050/misc/ping'},
-    {id:'badge-kafka-ui',   url:'http://localhost:8080/actuator/health'},
-    {id:'badge-redis-ui',   url:'http://localhost:8001/api/health'},
-  ];
-  for (const svc of services) {
-    const el = document.getElementById(svc.id);
-    if (!el) continue;
-    try {
-      const ctrl = new AbortController();
-      const tid  = setTimeout(() => ctrl.abort(), 1500);
-      const res  = await fetch(svc.url, {signal: ctrl.signal, mode: 'no-cors'});
-      clearTimeout(tid);
-      // no-cors sempre retorna opaque — se nao lancar excecao, esta UP
-      el.textContent = 'UP';
-      el.className = 'infra-badge badge-ok';
-    } catch {
-      el.textContent = 'OFF';
-      el.className = 'infra-badge badge-off';
-    }
+async function loadAll() {
+  var btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  try {
+    var data = await fetch(API + '/system/status', {headers: H()}).then(function(r){ return r.json(); });
+    renderServices(data.services || []);
+    renderCollectors(data.data_collectors || []);
+    renderOverall(data.services || []);
+    var ts = new Date(data.timestamp).toLocaleTimeString('pt-BR');
+    document.getElementById('svcTimestamp').textContent = ts;
+    document.getElementById('statusTime').textContent = 'Atualizado as ' + ts;
+  } catch(e) {
+    document.getElementById('overallMsg').textContent = 'Erro: ' + e.message;
+  } finally {
+    btn.classList.remove('spinning');
   }
 }
-setTimeout(checkInfraServices, 2000);
-setInterval(checkInfraServices, 60000);
 
-
-// ── Infra services health ──────────────────────────────────────────────────────
-async function checkInfraServices() {
-  const services = [
-    {id:'badge-grafana',    url:'http://localhost:3000/api/health'},
-    {id:'badge-pgadmin',    url:'http://localhost:5050/misc/ping'},
-    {id:'badge-kafka-ui',   url:'http://localhost:8080/actuator/health'},
-    {id:'badge-redis-ui',   url:'http://localhost:8001/api/health'},
-  ];
-  for (const svc of services) {
-    const el = document.getElementById(svc.id);
-    if (!el) continue;
-    try {
-      const ctrl = new AbortController();
-      const tid  = setTimeout(() => ctrl.abort(), 1500);
-      const res  = await fetch(svc.url, {signal: ctrl.signal, mode: 'no-cors'});
-      clearTimeout(tid);
-      // no-cors sempre retorna opaque — se nao lancar excecao, esta UP
-      el.textContent = 'UP';
-      el.className = 'infra-badge badge-ok';
-    } catch {
-      el.textContent = 'OFF';
-      el.className = 'infra-badge badge-off';
-    }
+function renderOverall(services) {
+  var bar = document.getElementById('statusBar');
+  var dot = document.getElementById('overallDot');
+  var msg = document.getElementById('overallMsg');
+  var errors = 0, warnings = 0;
+  for (var i = 0; i < services.length; i++) {
+    if (services[i].status === 'error') errors++;
+    else if (services[i].status === 'warning') warnings++;
+  }
+  if (errors > 0) {
+    bar.className = 'status-bar status-bar-err';
+    dot.className = 'dot dot-error dot-pulse';
+    msg.textContent = errors + ' servico(s) com ERRO';
+  } else if (warnings > 0) {
+    bar.className = 'status-bar status-bar-warn';
+    dot.className = 'dot dot-warning dot-pulse';
+    msg.textContent = warnings + ' alerta(s) — sistema operacional';
+  } else {
+    bar.className = 'status-bar status-bar-ok';
+    dot.className = 'dot dot-ok dot-pulse';
+    msg.textContent = 'Todos os ' + services.length + ' servicos operacionais';
   }
 }
-setTimeout(checkInfraServices, 2000);
-setInterval(checkInfraServices, 60000);
 
+function pill(s) {
+  var cls = {ok:'pill-ok', warning:'pill-warning', error:'pill-error', stopped:'pill-stopped'};
+  var lbl = {ok:'Operacional', warning:'Alerta', error:'Erro', stopped:'Parado'};
+  return '<span class="pill ' + (cls[s]||'pill-stopped') + '">' + (lbl[s]||s) + '</span>';
+}
+
+function renderServices(services) {
+  var tb = document.getElementById('svcTbody');
+  if (!services.length) { tb.innerHTML = '<tr class="loading-row"><td colspan="5">Sem dados.</td></tr>'; return; }
+  var html = '';
+  for (var i = 0; i < services.length; i++) {
+    var s = services[i];
+    var lat = s.latency_ms > 0
+      ? '<span class="latency ' + (s.latency_ms < 50 ? 'fast' : 'slow') + '">' + s.latency_ms + 'ms</span>'
+      : '<span class="latency">--</span>';
+    var action = '--';
+    if (s.key === 'producer') {
+      action = '<button class="btn-restart" onclick="ctrlProducer(\'start\')">Iniciar</button> '
+             + '<button class="btn-stop" onclick="ctrlProducer(\'stop\')">Parar</button>';
+    }
+    html += '<tr>'
+      + '<td><div class="svc-name">' + s.name + '</div></td>'
+      + '<td>' + pill(s.status) + '</td>'
+      + '<td><div class="svc-detail">' + (s.detail||'--') + '</div></td>'
+      + '<td>' + lat + '</td>'
+      + '<td>' + action + '</td>'
+      + '</tr>';
+  }
+  tb.innerHTML = html;
+}
+
+function fmtDate(iso) {
+  if (!iso) return '<span style="color:var(--muted)">--</span>';
+  try {
+    var d = new Date(iso);
+    var diff = Date.now() - d.getTime();
+    var cls = diff < 3600000 ? 'recent' : '';
+    return '<span class="upd-time ' + cls + '">'
+      + d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})
+      + '</span>';
+  } catch(e) { return String(iso); }
+}
+
+function renderCollectors(collectors) {
+  var tb = document.getElementById('collTbody');
+  if (!collectors.length) { tb.innerHTML = '<tr class="loading-row"><td colspan="7">Sem dados.</td></tr>'; return; }
+  var html = '';
+  for (var i = 0; i < collectors.length; i++) {
+    var c = collectors[i];
+    var action = '--';
+    if (c.can_restart && c.key === 'producer') {
+      action = c.running
+        ? '<button class="btn-stop" onclick="ctrlProducer(\'stop\')">Parar</button>'
+        : '<button class="btn-restart" onclick="ctrlProducer(\'start\')">Iniciar</button>';
+    }
+    html += '<tr>'
+      + '<td><div class="svc-name">' + c.name + '</div></td>'
+      + '<td><div class="svc-detail" style="color:var(--muted)">' + c.description + '</div></td>'
+      + '<td>' + pill(c.status) + '</td>'
+      + '<td>' + fmtDate(c.last_update) + '</td>'
+      + '<td>' + fmtDate(c.next_update) + '</td>'
+      + '<td><div class="svc-detail">' + (c.detail||'--') + '</div></td>'
+      + '<td>' + action + '</td>'
+      + '</tr>';
+  }
+  tb.innerHTML = html;
+}
+
+async function ctrlProducer(action) {
+  try {
+    await fetch(API + '/system/producer/' + action, {method:'POST', headers: H()});
+    setTimeout(loadAll, 1000);
+  } catch(e) { alert('Erro: ' + e.message); }
+}
+
+async function checkInfra() {
+  var items = [
+    {id:'badge-grafana',  url:'http://localhost:3000/api/health'},
+    {id:'badge-pgadmin',  url:'http://localhost:5050/misc/ping'},
+    {id:'badge-kafka-ui', url:'http://localhost:8080/actuator/health'},
+    {id:'badge-redis-ui', url:'http://localhost:8001/api/health'},
+    {id:'badge-api',      url:'http://localhost:8000/health'},
+    {id:'badge-metrics',  url:'http://localhost:8000/metrics'}
+  ];
+  for (var i = 0; i < items.length; i++) {
+    (function(item) {
+      var el = document.getElementById(item.id);
+      if (!el) return;
+      var ctrl = new AbortController();
+      var tid = setTimeout(function(){ ctrl.abort(); }, 2000);
+      fetch(item.url, {signal: ctrl.signal, mode: 'no-cors'})
+        .then(function() {
+          clearTimeout(tid);
+          el.textContent = 'UP';
+          el.className = 'infra-badge badge-ok';
+        })
+        .catch(function() {
+          el.textContent = 'OFF';
+          el.className = 'infra-badge badge-off';
+        });
+    })(items[i]);
+  }
+}
+
+init();
 </script>
-</div><!-- /fa-page-content -->
 </body>
 </html>
-
