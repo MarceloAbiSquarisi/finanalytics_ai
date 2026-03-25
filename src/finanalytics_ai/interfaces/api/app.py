@@ -24,6 +24,7 @@ from finanalytics_ai.config import get_settings
 from finanalytics_ai.exceptions import FinAnalyticsError
 from finanalytics_ai.infrastructure.database.connection import close_engine, get_engine
 from finanalytics_ai.interfaces.api.routes import admin as admin_routes
+from finanalytics_ai.interfaces.api.routes import admin as admin_routes
 from finanalytics_ai.interfaces.api.routes import (
     wallet,
     alerts,
@@ -111,6 +112,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # ── 1. PostgreSQL ─────────────────────────────────────────────────────────
     get_engine()
     logger.info("postgres.connected")
+
+    # ── Bootstrap: garante que marceloabisquarisi é sempre MASTER ─────────────
+    try:
+        from finanalytics_ai.interfaces.api.routes.admin import run_bootstrap
+        from finanalytics_ai.infrastructure.database.connection import get_session as _get_bs_session
+        async with _get_bs_session() as _bs_session:
+            _result = await run_bootstrap(_bs_session)
+            logger.info("bootstrap.master", result=_result)
+    except Exception as _be:
+        logger.warning("bootstrap.FAILED", error=str(_be))
 
     # ── Bootstrap: garante que marceloabisquarisi é sempre MASTER ─────────────
     try:
@@ -492,6 +503,7 @@ def create_app() -> FastAPI:
     from finanalytics_ai.interfaces.api.routes import auth as auth_routes
     app.include_router(auth_routes.router, tags=["Autenticação"])
     app.include_router(admin_routes.router, tags=["Admin"])
+    app.include_router(admin_routes.router, tags=["Admin"])
     app.include_router(portfolio.router, prefix="/api/v1/portfolios", tags=["Portfolio"])
     app.include_router(quotes.router, prefix="/api/v1/quotes", tags=["Cotações"])
     app.include_router(events.router, prefix="/api/v1/events", tags=["Eventos"])
@@ -653,12 +665,21 @@ def create_app() -> FastAPI:
     async def serve_admin() -> HTMLResponse:
         return _html("admin.html")
 
+    @app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_admin() -> HTMLResponse:
+        return _html("admin.html")
+
     @app.get("/fintz", response_class=HTMLResponse, include_in_schema=False)
     async def serve_fintz() -> HTMLResponse:
         return _html("fintz.html")
 
 
     return app
+
+
+
+
+
 
 
 
