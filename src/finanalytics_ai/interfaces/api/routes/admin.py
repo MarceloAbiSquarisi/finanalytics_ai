@@ -1,0 +1,279 @@
+"""
+finanalytics_ai.interfaces.api.routes.admin
+Acesso restrito a UserRole.MASTER
+Endpoints:
+  GET    /api/v1/admin/users
+  POST   /api/v1/admin/users
+  PATCH  /api/v1/admin/users/{id}/role
+  PATCH  /api/v1/admin/users/{id}/active
+  POST   /api/v1/admin/users/{id}/reset-password
+  GET    /api/v1/admin/agents
+  POST   /api/v1/admin/agents
+  PATCH  /api/v1/admin/agents/{id}
+  DELETE /api/v1/admin/agents/{id}
+  POST   /api/v1/admin/bootstrap
+"""
+from __future__ import annotations
+import secrets
+import uuid
+from typing import TYPE_CHECKING
+
+import structlog
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
+
+from finanalytics_ai.domain.auth.entities import User, UserRole
+from finanalytics_ai.infrastructure.auth.password_hasher import get_password_hasher
+from finanalytics_ai.infrastructure.database.repositories.admin_repo import FinancialAgentRepository
+from finanalytics_ai.infrastructure.database.repositories.user_repo import UserModel, UserRepository
+from finanalytics_ai.interfaces.api.dependencies import get_current_user, get_db_session
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = structlog.get_logger(__name__)
+router = APIRouter(prefix="/api/v1/admin", tags=["Admin"])
+
+MASTER_EMAIL = "marceloabisquarisi@gmail.com"
+
+
+# ── Guard ─────────────────────────────────────────────────────────────────────
+
+def require_master(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role not in (UserRole.MASTER, UserRole.ADMIN):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Acesso restrito a administradores.")
+    return current_user
+
+
+# ── Schemas ───────────────────────────────────────────────────────────────────
+
+class CreateUserRequest(BaseModel):
+    email: str = Field(..., min_length=5)
+    full_name: str = Field(..., min_length=2)
+    password: str = Field(..., min_length=8)
+    role: str = Field(default="user")
+
+class ChangeRoleRequest(BaseModel):
+    role: str
+
+class ResetPasswordRequest(BaseModel):
+    new_password: str = Field(..., min_length=8)
+
+class AgentCreate(BaseModel):
+    name: str = Field(..., min_length=2)
+    code: str | None = None
+    agent_type: str = "corretora"
+    country: str = "BRA"
+    website: str | None = None
+    is_active: bool = True
+    note: str | None = None
+
+class AgentUpdate(BaseModel):
+    name: str | None = None
+    code: str | None = None
+    agent_type: str | None = None
+    country: str | None = None
+    website: str | None = None
+    is_active: bool | None = None
+    note: str | None = None
+
+
+# ── Bootstrap ─────────────────────────────────────────────────────────────────
+
+async def run_bootstrap(session: AsyncSession) -> dict:
+    """Garante que marceloabisquarisi é sempre MASTER."""
+    from sqlalchemy import select, update as sa_update
+    res = await session.execute(
+        select(UserModel).where(UserModel.email == MASTER_EMAIL)
+    )
+    user = res.scalar_one_or_none()
+    if not user:
+        return {"status": "not_found", "email": MASTER_EMAIL}
+    if user.role == UserRole.MASTER.value:
+        return {"status": "already_master", "user_id": user.user_id}
+    await session.execute(
+        sa_update(UserModel)
+        .where(UserModel.email == MASTER_EMAIL)
+        .values(role=UserRole.MASTER.value, is_active=True)
+    )
+    await session.commit()
+    logger.info("bootstrap.master_promoted", email=MASTER_EMAIL)
+    return {"status": "promoted", "user_id": user.user_id}
+
+
+@router.post("/bootstrap", status_code=200, include_in_schema=False)
+async def bootstrap(session: AsyncSession = Depends(get_db_session)) -> dict:
+    return await run_bootstrap(session)
+
+
+# ── Users ─────────────────────────────────────────────────────────────────────
+
+@router.get("/users")
+async def list_users(
+    _: User = Depends(require_master),
+    session: AsyncSession = Depends(get_db_session),
+) -> list[dict]:
+    from sqlalchemy import select
+    res = await session.execute(
+        select(UserModel).order_by(UserModel.created_at.desc())
+    )
+    users = res.scalars().all()
+    return [
+        {
+            "user_id": u.user_id,
+            "email": u.email,
+            "full_name": u.full_name,
+            "role": u.role,
+            "is_active": u.is_active,
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+            "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None,
+            "totp_enabled": u.totp_enabled,
+        }
+        for u in users
+    ]
+
+
+@router.post("/users", status_code=201)
+async def create_user(
+    body: CreateUserRequest,
+    _: User = Depends(require_master),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    repo = UserRepository(session)
+    if await repo.email_exists(body.email):
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="E-mail já cadastrado.")
+    try:
+        role = UserRole(body.role)
+    except ValueError:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Role inválido: {body.role}")
+    hasher = get_password_hasher()
+    user = User(
+        user_id=str(uuid.uuid4()),
+        email=body.email.lower().strip(),
+        hashed_password=hasher.hash(body.password),
+        full_name=body.full_name,
+        role=role,
+        is_active=True,
+    )
+    created = await repo.create(user)
+    await session.commit()
+    return {"user_id": created.user_id, "email": created.email, "role": created.role.value}
+
+
+@router.patch("/users/{user_id}/role")
+async def change_role(
+    user_id: str,
+    body: ChangeRoleRequest,
+    actor: User = Depends(require_master),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    from sqlalchemy import update as sa_update
+    # Protege o dono do sistema
+    res = await session.execute(
+        __import__("sqlalchemy", fromlist=["select"]).select(UserModel).where(UserModel.user_id == user_id)
+    )
+    target = res.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado.")
+    if target.email == MASTER_EMAIL and body.role != UserRole.MASTER.value:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Não é possível rebaixar o usuário master do sistema.")
+    try:
+        UserRole(body.role)
+    except ValueError:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Role inválido: {body.role}")
+    await session.execute(
+        sa_update(UserModel).where(UserModel.user_id == user_id).values(role=body.role)
+    )
+    await session.commit()
+    logger.info("admin.role_changed", target=user_id, role=body.role, actor=actor.user_id)
+    return {"user_id": user_id, "role": body.role}
+
+
+@router.patch("/users/{user_id}/active")
+async def toggle_active(
+    user_id: str,
+    actor: User = Depends(require_master),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    from sqlalchemy import select, update as sa_update
+    res = await session.execute(select(UserModel).where(UserModel.user_id == user_id))
+    target = res.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado.")
+    if target.email == MASTER_EMAIL:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Não é possível desativar o usuário master.")
+    new_status = not target.is_active
+    await session.execute(
+        sa_update(UserModel).where(UserModel.user_id == user_id).values(is_active=new_status)
+    )
+    await session.commit()
+    logger.info("admin.active_toggled", target=user_id, is_active=new_status, actor=actor.user_id)
+    return {"user_id": user_id, "is_active": new_status}
+
+
+@router.post("/users/{user_id}/reset-password")
+async def admin_reset_password(
+    user_id: str,
+    body: ResetPasswordRequest,
+    actor: User = Depends(require_master),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    from sqlalchemy import select
+    res = await session.execute(select(UserModel).where(UserModel.user_id == user_id))
+    target = res.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado.")
+    hasher = get_password_hasher()
+    target.hashed_password = hasher.hash(body.new_password)
+    target.reset_token = None
+    target.reset_token_exp = None
+    await session.commit()
+    logger.info("admin.password_reset", target=user_id, actor=actor.user_id)
+    return {"message": "Senha redefinida com sucesso."}
+
+
+# ── Financial Agents ──────────────────────────────────────────────────────────
+
+@router.get("/agents")
+async def list_agents(
+    _: User = Depends(require_master),
+    session: AsyncSession = Depends(get_db_session),
+) -> list[dict]:
+    return await FinancialAgentRepository(session).list_all()
+
+
+@router.post("/agents", status_code=201)
+async def create_agent(
+    body: AgentCreate,
+    _: User = Depends(require_master),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    agent = await FinancialAgentRepository(session).create(body.model_dump())
+    await session.commit()
+    return agent
+
+
+@router.patch("/agents/{agent_id}")
+async def update_agent(
+    agent_id: str,
+    body: AgentUpdate,
+    _: User = Depends(require_master),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    updated = await FinancialAgentRepository(session).update(agent_id, body.model_dump(exclude_none=True))
+    if not updated:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Agente não encontrado.")
+    await session.commit()
+    return updated
+
+
+@router.delete("/agents/{agent_id}", status_code=204)
+async def delete_agent(
+    agent_id: str,
+    _: User = Depends(require_master),
+    session: AsyncSession = Depends(get_db_session),
+) -> None:
+    ok = await FinancialAgentRepository(session).delete(agent_id)
+    if not ok:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Agente não encontrado.")
+    await session.commit()
