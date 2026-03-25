@@ -24,6 +24,7 @@ from finanalytics_ai.config import get_settings
 from finanalytics_ai.exceptions import FinAnalyticsError
 from finanalytics_ai.infrastructure.database.connection import close_engine, get_engine
 from finanalytics_ai.interfaces.api.routes import (
+    wallet,
     alerts,
     anomaly,
     backtest,
@@ -475,6 +476,7 @@ def create_app() -> FastAPI:
     app.include_router(dashboard.router, tags=["Dashboard"])
     app.include_router(health.router, tags=["Health"])
     app.include_router(fundamental_analysis.router)
+    app.include_router(wallet.router)
 
     from finanalytics_ai.interfaces.api.routes import auth as auth_routes
     app.include_router(auth_routes.router, tags=["Autenticação"])
@@ -550,6 +552,10 @@ def create_app() -> FastAPI:
             f.read_text(encoding="utf-8") if f.exists() else f"<h1>{name} não encontrado</h1>",
             status_code=200 if f.exists() else 404,
         )
+
+    @app.get("/carteira", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_carteira() -> HTMLResponse:
+        return _html("carteira.html")
 
     @app.get("/profile", response_class=HTMLResponse, include_in_schema=False)
     async def serve_profile() -> HTMLResponse:
