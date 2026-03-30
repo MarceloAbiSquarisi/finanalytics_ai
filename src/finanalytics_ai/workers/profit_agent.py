@@ -573,7 +573,7 @@ class ProfitAgent:
 
         # 4. Aguarda conexao (threading.Event — sem asyncio)
         log.info("profit_agent.waiting_connection timeout=60s")
-        connected = self._market_connected.wait(timeout=60.0)
+        connected = self._market_connected.wait(timeout=120.0)
         if not connected:
             log.warning("profit_agent.market_timeout continuing_anyway")
 
@@ -631,11 +631,8 @@ class ProfitAgent:
             return
         ret_t = self._dll.SubscribeTicker(c_wchar_p(ticker), c_wchar_p(exchange))
 
-        # Subscribe no depth para book de precos
-        asset_id = TConnectorAssetIdentifier(
-            Version=0, Ticker=ticker, Exchange=exchange, FeedType=0
-        )
-        ret_d = self._dll.SubscribePriceDepth(byref(asset_id))
+        # SubscribePriceDepth desabilitado temporariamente (price_depth_cb precisa refatoracao)
+        # ret_d = self._dll.SubscribePriceDepth(...)
 
         if ret_t == 0:
             self._subscribed.add(key)
@@ -755,23 +752,47 @@ class ProfitAgent:
             agent._discovered_accounts[name] = (broker_id, acc)
             agent._discovered_accounts[acc]  = (broker_id, acc)
 
-        # 2. Trade callback V1 (passado no init como NewTradeCallback)
-        @WINFUNCTYPE(None, TAssetID, c_wchar_p, c_uint, c_double, c_double,
+        # 2. Trade callback V1 - principal receptor de ticks (testado e funcionando)
+        # c_void_p: TAssetIDRec com c_wchar_p passado como ponteiro oculto em Python 64-bit
+        @WINFUNCTYPE(None, c_void_p, c_wchar_p, c_uint, c_double, c_double,
                      c_int, c_int, c_int, c_int, c_int)
-        def new_trade_cb(asset_id, date, trade_num, price, vol, qty,
+        def new_trade_cb(asset_ptr, date, trade_num, price, vol, qty,
                          buy_agent, sell_agent, trade_type, is_edit) -> None:
-            pass  # usa TradeCallbackV2
+            if not asset_ptr:
+                return
+            asset_id = ctypes.cast(asset_ptr, POINTER(TAssetID)).contents
+            ticker = asset_id.ticker or ""
+            if not ticker:
+                return
+            agent._total_ticks += 1
+            now = datetime.now(tz=timezone.utc)
+            try:
+                agent._db_queue.put_nowait({
+                    "_type": "tick",
+                    "time": now, "ticker": ticker,
+                    "exchange": asset_id.bolsa or "B",
+                    "price": price, "quantity": qty,
+                    "volume": vol, "buy_agent": buy_agent,
+                    "sell_agent": sell_agent, "trade_number": trade_num,
+                    "trade_type": trade_type,
+                    "is_edit": bool(is_edit),
+                })
+            except queue.Full:
+                pass
 
         # 3. Daily callback
-        @WINFUNCTYPE(None, POINTER(TAssetID), c_wchar_p,
+        # c_void_p: POINTER(TAssetID) deve ser tratado como c_void_p em 64-bit
+        @WINFUNCTYPE(None, c_void_p, c_wchar_p,
                      c_double, c_double, c_double, c_double, c_double, c_double,
                      c_double, c_double, c_double, c_double,
                      c_int, c_int, c_int, c_int, c_int, c_int, c_int)
-        def daily_cb(asset_id_ptr, date, s_open, s_high, s_low, s_close, s_vol,
+        def daily_cb(asset_ptr, date, s_open, s_high, s_low, s_close, s_vol,
                      s_ajuste, s_max_lim, s_min_lim, s_vol_buyer, s_vol_seller,
                      n_qty, n_neg, n_contratos, n_qty_buyer, n_qty_seller,
                      n_neg_buyer, n_neg_seller) -> None:
-            asset_id = asset_id_ptr.contents
+            if not asset_ptr:
+                return
+            asset_id = ctypes.cast(asset_ptr, POINTER(TAssetID)).contents
             log.info("DAILY_RAW ticker=%r date=%r close=%r", asset_id.ticker, date, s_close)
             ticker = asset_id.ticker or ""
             if not ticker:
@@ -795,13 +816,13 @@ class ProfitAgent:
             })
 
         # 4. Progress callback
-        @WINFUNCTYPE(None, POINTER(TAssetID), c_int)
-        def progress_cb(asset_id_ptr, progress) -> None:
+        @WINFUNCTYPE(None, c_void_p, c_int)
+        def progress_cb(asset_ptr, progress) -> None:
             pass  # noop
 
         # 5. TinyBook callback
-        @WINFUNCTYPE(None, POINTER(TAssetID), c_double, c_int, c_int)
-        def tiny_book_cb(asset_id_ptr, price, qty, side) -> None:
+        @WINFUNCTYPE(None, c_void_p, c_double, c_int, c_int)
+        def tiny_book_cb(asset_ptr, price, qty, side) -> None:
             pass  # noop
 
         # 6. Trade callback V2 (SetTradeCallbackV2)
@@ -809,7 +830,6 @@ class ProfitAgent:
         # causa ponteiro dangling. A DLL sempre passa por referencia.
         @WINFUNCTYPE(None, TConnectorAssetIdentifier, c_size_t, c_uint)
         def trade_v2_cb(asset_id, p_trade, flags) -> None:
-            import sys; print(f"TICK_RAW ticker={asset_id.Ticker!r} p={p_trade}", flush=True, file=sys.stderr)
             if not agent._dll:
                 return
             trade = TConnectorTrade(Version=0)
@@ -834,15 +854,18 @@ class ProfitAgent:
                 pass  # descarta se fila cheia
 
         # 7. Asset list info V2 (SetAssetListInfoCallbackV2)
-        @WINFUNCTYPE(None, POINTER(TAssetID), c_wchar_p, c_wchar_p,
+        # c_void_p: POINTER(TAssetID) como c_void_p em 64-bit
+        @WINFUNCTYPE(None, c_void_p, c_wchar_p, c_wchar_p,
                      c_int, c_int, c_int, c_int, c_int,
                      c_double, c_double, c_wchar_p, c_wchar_p,
                      c_wchar_p, c_wchar_p, c_wchar_p)
-        def asset_info_v2_cb(asset_id_ptr, name, description,
+        def asset_info_v2_cb(asset_ptr, name, description,
                               min_qty, max_qty, lot, sec_type, sec_subtype,
                               min_incr, contract_mult, valid_date, isin,
                               sector, sub_sector, segment) -> None:
-            asset_id = asset_id_ptr.contents
+            if not asset_ptr:
+                return
+            asset_id = ctypes.cast(asset_ptr, POINTER(TAssetID)).contents
             ticker = asset_id.ticker or ""
             if not ticker:
                 return
@@ -871,16 +894,19 @@ class ProfitAgent:
                 pass
 
         # 8. Asset list callback (V1 compat)
-        @WINFUNCTYPE(None, POINTER(TAssetID), c_wchar_p)
-        def asset_cb(asset_id_ptr, name) -> None:
+        @WINFUNCTYPE(None, c_void_p, c_wchar_p)
+        def asset_cb(asset_ptr, name) -> None:
             pass  # usa V2
 
         # 9. Adjust history V2
-        @WINFUNCTYPE(None, POINTER(TAssetID), c_double, c_wchar_p, c_wchar_p,
+        # c_void_p: POINTER(TAssetID) como c_void_p em 64-bit
+        @WINFUNCTYPE(None, c_void_p, c_double, c_wchar_p, c_wchar_p,
                      c_wchar_p, c_wchar_p, c_wchar_p, c_uint, c_double)
-        def adjust_v2_cb(asset_id_ptr, value, adj_type, observ,
+        def adjust_v2_cb(asset_ptr, value, adj_type, observ,
                           dt_ajuste, dt_delib, dt_pgto, flags, mult) -> None:
-            asset_id = asset_id_ptr.contents
+            if not asset_ptr:
+                return
+            asset_id = ctypes.cast(asset_ptr, POINTER(TAssetID)).contents
             ticker = asset_id.ticker or ""
             if not ticker:
                 return
@@ -905,39 +931,10 @@ class ProfitAgent:
             except queue.Full:
                 pass
 
-        # 10. Price depth callback
-        # CORRIGIDO: POINTER — mesmo motivo do trade_v2_cb.
-        # asset_id_ptr passado diretamente para GetPriceGroup/GetTheoreticalValues
-        # (ambos esperam POINTER, nao byref de uma copia local).
-        @WINFUNCTYPE(None, TConnectorAssetIdentifier, c_ubyte, c_int, c_ubyte)
-        def price_depth_cb(asset_id, side, position, update_type) -> None:
-            if not agent._dll:
-                return
-            # update_type 4=FullBook, 1=Edit, 3=Insert, 0=Add
-            if update_type in (0, 1, 3, 4):
-                pg = TConnectorPriceGroup(Version=0)
-                if agent._dll.GetPriceGroup(byref(asset_id), side, position, byref(pg)) != 0:
-                    return
-                price = pg.Price
-                # Preco teorico em leilao
-                if pg.PriceGroupFlags & PG_IS_THEORIC:
-                    tp = c_double()
-                    tq = c_int64()
-                    if agent._dll.GetTheoreticalValues(byref(asset_id), byref(tp), byref(tq)) == 0:
-                        price = tp.value
-                try:
-                    agent._db_queue.put_nowait({
-                        "_type": "book",
-                        "time": datetime.now(tz=timezone.utc),
-                        "ticker": asset_id.Ticker or "",
-                        "exchange": asset_id.Exchange or "B",
-                        "side": side, "position": position,
-                        "price": price, "quantity": pg.Quantity,
-                        "count": pg.Count,
-                        "is_theoric": bool(pg.PriceGroupFlags & PG_IS_THEORIC),
-                    })
-                except queue.Full:
-                    pass
+        # 10. Price depth callback — noop seguro (refatorar depois)
+        @WINFUNCTYPE(None, c_void_p, c_ubyte, c_int, c_ubyte)
+        def price_depth_cb(asset_ptr, side, position, update_type) -> None:
+            pass  # noop - implementar com c_void_p + cast depois
 
         # 11. Order callback
         @WINFUNCTYPE(None, TConnectorOrderIdentifier)
