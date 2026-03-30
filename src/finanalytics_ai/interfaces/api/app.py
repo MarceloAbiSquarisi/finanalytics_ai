@@ -504,16 +504,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_routes.router, tags=["Autenticação"])
     app.include_router(admin_routes.router, tags=["Admin"])
     try:
-        from finanalytics_ai.interfaces.api.routes import system_status
-    from finanalytics_ai.interfaces.api.routes import events_admin as events_admin_routes as sys_routes
-        app.include_router(sys_routes.router, tags=["System"])
-    except Exception as _sse:
-        import structlog as _sl4
-        _sl4.get_logger(__name__).warning("system_status.router.FAILED", error=str(_sse))
-    app.include_router(admin_routes.router, tags=["Admin"])
-    try:
-        from finanalytics_ai.interfaces.api.routes import system_status
-    from finanalytics_ai.interfaces.api.routes import events_admin as events_admin_routes as sys_routes
+        from finanalytics_ai.interfaces.api.routes import system_status as sys_routes
         app.include_router(sys_routes.router, tags=["System"])
     except Exception as _sse:
         import structlog as _sl4

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Domínio de backtesting — entidades, Protocol e métricas.
 
 Design decisions:
@@ -245,14 +245,13 @@ def run_backtest(
             entry_price = price
             entry_date = date
             entry_reason = f"Sinal BUY barra {i}"
-            equity -= commission  # desconta comissão de entrada
+            equity -= capital_to_invest  # desconta capital investido do caixa comissão de entrada
 
         # Fecha posição
         elif signal == Signal.SELL and position > 0.0:
             proceeds = position * price
             commission = proceeds * commission_pct
-            pnl = proceeds - commission - (position * entry_price)
-            equity += pnl
+            equity += proceeds - commission  # devolve capital + lucro ao caixa
 
             trade = Trade(
                 ticker=ticker,
@@ -291,8 +290,7 @@ def run_backtest(
         )
         proceeds = position * last_price
         commission = proceeds * commission_pct
-        pnl = proceeds - commission - (position * entry_price)
-        equity += pnl
+        equity += proceeds - commission  # devolve capital + lucro ao caixa
         trades.append(
             Trade(
                 ticker=ticker,

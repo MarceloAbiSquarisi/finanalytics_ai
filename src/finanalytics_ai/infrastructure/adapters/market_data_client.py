@@ -1,4 +1,4 @@
-"""
+﻿"""
 finanalytics_ai.infrastructure.adapters.market_data_client
 ────────────────────────────────────────────────────────────
 CompositeMarketDataClient: BRAPI como primário, Yahoo como fallback.
@@ -57,6 +57,7 @@ from typing import TYPE_CHECKING, Any
 import structlog
 
 from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
+from finanalytics_ai.infrastructure.adapters.fintz_market_client import FintzMarketDataClient
 from finanalytics_ai.infrastructure.adapters.yahoo_client import YahooFinanceClient
 
 if TYPE_CHECKING:
@@ -86,6 +87,7 @@ class CompositeMarketDataClient:
     ) -> None:
         self._brapi = brapi_client
         self._yahoo = yahoo_client or YahooFinanceClient()
+        self._fintz = FintzMarketDataClient()
 
     # ── Interface principal ───────────────────────────────────────────────────
 
@@ -106,7 +108,18 @@ class CompositeMarketDataClient:
         if range_period in YAHOO_PREFERRED_RANGES:
             return await self._fetch_yahoo_only(ticker, range_period, interval)
 
-        # Tenta BRAPI
+        # 1. Tenta Fintz (banco local - zero latencia de rede)
+        fintz_bars = await self._fetch_fintz_safe(ticker, range_period, interval)
+        if len(fintz_bars) >= MIN_BARS_THRESHOLD:
+            logger.info(
+                "market_data.source.fintz",
+                ticker=str(ticker),
+                range=range_period,
+                bars=len(fintz_bars),
+            )
+            return fintz_bars
+
+        # 2. Tenta BRAPI
         brapi_bars = await self._fetch_brapi_safe(ticker, range_period, interval)
 
         if len(brapi_bars) >= MIN_BARS_THRESHOLD:
@@ -153,6 +166,18 @@ class CompositeMarketDataClient:
             range=range_period,
         )
         return brapi_bars
+
+    async def _fetch_fintz_safe(
+        self,
+        ticker: Any,
+        range_period: str,
+        interval: str | None,
+    ) -> list[dict[str, Any]]:
+        try:
+            return await self._fintz.get_ohlc_bars(ticker, range_period=range_period, interval=interval)
+        except Exception as exc:
+            logger.warning("market_data.fintz_error", ticker=str(ticker), error=str(exc))
+            return []
 
     async def _fetch_brapi_safe(
         self,
