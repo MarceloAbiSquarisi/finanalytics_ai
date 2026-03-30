@@ -11,15 +11,15 @@ Regra: nenhum arquivo de infra é importado aqui.
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
-from finanalytics_ai.domain.events.entities import (
-    Event,
-    EventId,
-    EventProcessingRecord,
-    EventType,
-)
-
+if TYPE_CHECKING:
+    from finanalytics_ai.domain.events.entities import (
+        Event,
+        EventId,
+        EventProcessingRecord,
+        EventType,
+    )
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Storage port

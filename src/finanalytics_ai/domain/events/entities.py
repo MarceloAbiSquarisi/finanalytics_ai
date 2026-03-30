@@ -16,10 +16,9 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Value objects / Enums
@@ -108,7 +107,7 @@ class Event:
             event_type=event_type,
             payload=payload,
             source=source,
-            created_at=datetime.now(tz=timezone.utc),
+            created_at=datetime.now(tz=UTC),
             correlation_id=correlation_id,
         )
 
@@ -140,7 +139,7 @@ class EventProcessingRecord:
 
     def mark_completed(self, metadata: dict[str, Any] | None = None) -> None:
         self.status = EventStatus.COMPLETED
-        self.processed_at = datetime.now(tz=timezone.utc)
+        self.processed_at = datetime.now(tz=UTC)
         if metadata:
             self.result_metadata.update(metadata)
 

@@ -1,4 +1,4 @@
-﻿"""
+"""
 profit_market_worker.py — Worker de mercado via ProfitDLL (Nelogica).
 
 Arquitetura:
@@ -126,7 +126,7 @@ async def _build_processor(settings: Any, session_factory: Any) -> Any:
             async with ts_pool.acquire() as conn:
                 row = await conn.fetchrow(
                     "SELECT preco_fechamento FROM fintz_cotacoes_ts "
-                    "WHERE ticker = $1 ORDER BY time DESC LIMIT 1",
+                    "WHERE ticker =  ORDER BY time DESC LIMIT 1",
                     ticker,
                 )
                 return float(row["preco_fechamento"]) if row else None
@@ -164,23 +164,23 @@ async def run_profit_worker() -> None:
     from finanalytics_ai.infrastructure.database.connection import get_session_factory
     from finanalytics_ai.observability.logging import configure_logging
 
-    from dotenv import load_dotenv
-    load_dotenv(override=False)
     settings = get_settings()
     configure_logging(settings)
+    session_factory = get_session_factory()
 
     log.info("profit_market_worker.starting")
 
     profit_client = _get_profit_client()
     tickers = _parse_tickers()
 
-    # Conecta a DLL ANTES de qualquer outra inicializacao de rede
-    # asyncpg/redis inicializam Winsock e bloqueiam a DLL se chamados antes
-    connect_timeout = float(os.getenv("PROFIT_CONNECT_TIMEOUT", "30"))
-    log.info("profit_market_worker.connecting", timeout=connect_timeout)
+    service, redis_client, ts_pool = await _build_processor(settings, session_factory)
 
-    if hasattr(profit_client, "start"):
-        await profit_client.start()
+    source = ProfitDLLMessageSource(profit_client, poll_timeout=0.5)
+    worker = EventConsumerWorker(
+        service,
+        concurrency=int(os.getenv("PROFIT_CONCURRENCY", "5")),
+        max_retries=int(os.getenv("PROFIT_MAX_RETRIES", "3")),
+    )
 
     # Shutdown gracioso
     stop_event = asyncio.Event()
@@ -192,28 +192,12 @@ async def run_profit_worker() -> None:
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
 
-    # Aguarda DLL conectar ANTES de qualquer inicializacao de DB/Redis
-    # SQLAlchemy asyncpg inicializa Winsock e bloqueia o handshake de market data
-    connected = await profit_client.wait_connected(timeout=connect_timeout)
-    if not connected:
-        log.error("profit_market_worker.connect_failed")
-        return
-
-    log.info("profit_market_worker.dll_connected")
-
-    # Somente apos DLL conectada: inicializa DB/Redis
-    session_factory = get_session_factory()
-    service, redis_client, ts_pool = await _build_processor(settings, session_factory)
-
-    source = ProfitDLLMessageSource(profit_client, poll_timeout=0.5)
-    worker = EventConsumerWorker(
-        service,
-        concurrency=int(os.getenv("PROFIT_CONCURRENCY", "5")),
-        max_retries=int(os.getenv("PROFIT_MAX_RETRIES", "3")),
-    )
+    # Conectar e subscrever
+    connect_timeout = float(os.getenv("PROFIT_CONNECT_TIMEOUT", "30"))
+    log.info("profit_market_worker.connecting", timeout=connect_timeout)
 
     if hasattr(profit_client, "start"):
-        _ = None  # start ja foi chamado acima
+        await profit_client.start()
         connected = await profit_client.wait_connected(timeout=connect_timeout)
         if not connected:
             log.error("profit_market_worker.connect_failed")
@@ -252,11 +236,6 @@ async def run_profit_worker() -> None:
 
 
 if __name__ == "__main__":
-    # ProactorEventLoop (padrao no Windows) interfere com Winsock da ProfitDLL.
-    # SelectorEventLoop evita o conflito de IOCP.
-    import sys
-    if sys.platform == "win32":
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     asyncio.run(run_profit_worker())
 
 

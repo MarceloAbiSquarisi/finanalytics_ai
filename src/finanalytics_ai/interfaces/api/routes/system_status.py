@@ -199,6 +199,24 @@ async def system_status(_: User = Depends(require_admin)) -> dict:
         "detail": "Modulo nao carregado (ohlc_updater ausente)",
         "can_restart": False, "running": False,
     })
+        # ── ProfitDLL status ──────────────────────────────────────────────────────
+        try:
+            import os as _os
+            dll_path = _os.getenv("PROFIT_DLL_PATH", r"C:\Nelogica\ProfitDLL64.dll")
+            dll_exists = _os.path.exists(dll_path) if _os.name == "nt" else False
+            has_key = bool(_os.getenv("PROFIT_ACTIVATION_KEY", ""))
+            profit_status = {
+                "name": "ProfitDLL",
+                "dll_found": dll_exists,
+                "credentials_configured": has_key,
+                "tickers": _os.getenv("PROFIT_TICKERS", "").split(","),
+                "platform": "windows" if _os.name == "nt" else "non-windows (noop mode)",
+                "status": "configured" if (dll_exists and has_key) else "not_configured",
+            }
+        except Exception as _pe:
+            profit_status = {"name": "ProfitDLL", "status": "error", "error": str(_pe)}
+        result["profit_dll"] = profit_status
+
 
     return result
 
@@ -243,4 +261,5 @@ async def stop_producer(_: User = Depends(require_admin)) -> dict:
         return {"ok": True, "message": "Producer nao estava rodando"}
     await producer.stop()
     return {"ok": True, "message": "Producer parado"}
+
 

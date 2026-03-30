@@ -1,4 +1,4 @@
-"""
+﻿"""
 FastAPI application factory — Sprint 7: BRAPI Price Producer.
 
 Lifespan startup order:
@@ -504,14 +504,16 @@ def create_app() -> FastAPI:
     app.include_router(auth_routes.router, tags=["Autenticação"])
     app.include_router(admin_routes.router, tags=["Admin"])
     try:
-        from finanalytics_ai.interfaces.api.routes import system_status as sys_routes
+        from finanalytics_ai.interfaces.api.routes import system_status
+    from finanalytics_ai.interfaces.api.routes import events_admin as events_admin_routes as sys_routes
         app.include_router(sys_routes.router, tags=["System"])
     except Exception as _sse:
         import structlog as _sl4
         _sl4.get_logger(__name__).warning("system_status.router.FAILED", error=str(_sse))
     app.include_router(admin_routes.router, tags=["Admin"])
     try:
-        from finanalytics_ai.interfaces.api.routes import system_status as sys_routes
+        from finanalytics_ai.interfaces.api.routes import system_status
+    from finanalytics_ai.interfaces.api.routes import events_admin as events_admin_routes as sys_routes
         app.include_router(sys_routes.router, tags=["System"])
     except Exception as _sse:
         import structlog as _sl4
@@ -685,8 +687,12 @@ def create_app() -> FastAPI:
     async def serve_fintz() -> HTMLResponse:
         return _html("fintz.html")
 
+    @app.get("/profit-tickers", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_profit_tickers() -> HTMLResponse:
+        return _html("tickers.html")
 
     return app
+
 
 
 

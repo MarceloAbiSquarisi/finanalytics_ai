@@ -1,4 +1,4 @@
-﻿"""
+"""
 infrastructure/market_data/profit_dll/client.py
 
 ProfitDLLClient — wrapper async-friendly para a ProfitDLL64 da Nelogica.
@@ -171,51 +171,18 @@ class ProfitDLLClient:
     # ── Public API ────────────────────────────────────────────────────────────
 
     async def start(self, loop: asyncio.AbstractEventLoop | None = None) -> None:
-        """Inicializa a DLL — padrao identico ao script de diagnostico que funciona."""
-        self._loop = loop or asyncio.get_running_loop()
-        # Recria o Event dentro do loop ativo (Python 3.12 requer isso)
-        self._connected_event = asyncio.Event()
-
-        # Carrega DLL sem configurar restype (igual ao diagnostico)
-        from ctypes import WinDLL as _WinDLL, WINFUNCTYPE as _WFTYPE, c_int as _cint, c_wchar_p as _wstr
-        self._dll = _WinDLL(self._dll_path)
-
-        # Callback MINIMAL identico ao diagnostico — sem Structures, sem c_int32
-        _loop = self._loop
-        _state = self._state
-        _event = self._connected_event
-
-        @_WFTYPE(None, _cint, _cint)
-        def _state_cb(t, r):
-            if t == 0:
-                _state.login_connected = (r == 0)
-            elif t == 2:
-                _state.market_connected = (r == 4)
-            elif t == 3:
-                _state.market_login_valid = (r == 0)
-            if _state.ready and _loop:
-                _loop.call_soon_threadsafe(_event.set)
-
-        self._cb_state = _state_cb  # evita GC
-
-        # Chamada identica ao diagnostico
-        self._dll.DLLInitializeMarketLogin(
-            _wstr(self._activation_key),
-            _wstr(self._username),
-            _wstr(self._password),
-            _state_cb,
-            None, None, None, None, None, None, None,
-        )
-
+        """Inicializa a DLL e aguarda conexão com o servidor de Market Data."""
+        self._loop = loop or asyncio.get_event_loop()
+        self._dll = self._load_dll()
+        self._register_callbacks()
+        self._initialize()
+        self._consumer_task = asyncio.create_task(self._consume_loop())
         log.info("profit_dll.started", dll_path=self._dll_path)
 
     async def wait_connected(self, timeout: float = 30.0) -> bool:
         """Aguarda até a conexão estar pronta (Market Data + Login válido)."""
         try:
             await asyncio.wait_for(self._connected_event.wait(), timeout=timeout)
-            # Inicia consumer apenas apos conexao confirmada
-            if self._consumer_task is None:
-                self._consumer_task = asyncio.create_task(self._consume_loop())
             return True
         except asyncio.TimeoutError:
             log.warning("profit_dll.connect_timeout", timeout=timeout, state=self._state)
@@ -312,28 +279,10 @@ class ProfitDLLClient:
         """Cria e registra todos os callbacks necessários."""
         assert self._dll is not None
 
-        # State callback MINIMAL — sem logging dentro do callback
-        # Manual Nelogica: nenhum processamento pesado em callbacks
-        _loop_ref = self._loop
-        _state_ref = self._state
-        _event_ref = self._connected_event
-
+        # State callback
         @WINFUNCTYPE(None, c_int32, c_int32)
         def state_callback(conn_type: int, result: int) -> None:
-            if conn_type == 0:
-                _state_ref.login_connected = (result == 0)
-            elif conn_type == 2:
-                _state_ref.market_connected = (result == 4)
-            elif conn_type == 3:
-                _state_ref.market_login_valid = (result == 0)
-            if _state_ref.ready and _loop_ref:
-                _loop_ref.call_soon_threadsafe(_event_ref.set)
-            if _loop_ref:
-                _loop_ref.call_soon_threadsafe(
-                    lambda ct=conn_type, r=result: log.info(
-                        "profit_dll.state_callback", conn_type=ct, result=r
-                    )
-                )
+            self._on_state(conn_type, result)
 
         # Trade callback V2 (preferencial)
         # Assinatura: (AssetID, pTrade pointer, flags)
@@ -399,37 +348,29 @@ class ProfitDLLClient:
         self._cb_history_trade = history_trade_callback
 
     def _initialize(self) -> None:
-        """
-        Chama DLLInitializeMarketLogin passando None para todos os callbacks
-        opcionais (trade, daily, book, etc.) e registra-os via Set* apos a init.
-
-        Motivo: callbacks com assinaturas incorretas passados diretamente ao
-        DLLInitializeMarketLogin corrompem a ConnectorThread internamente,
-        impedindo a transicao MARKET_CONNECTING -> MARKET_CONNECTED.
-        O script de diagnostico confirmou que passar None e registrar via Set*
-        resolve o problema (conectou em 2s).
-        """
+        """Chama DLLInitializeMarketLogin com todos os callbacks obrigatórios."""
         assert self._dll is not None
 
-        from ctypes import c_wchar_p as _wstr
         ret = self._dll.DLLInitializeMarketLogin(
-            _wstr(self._activation_key),
-            _wstr(self._username),
-            _wstr(self._password),
-            self._cb_state,  # unico callback na init — igual ao diagnostico
-            None,  # NewTradeCallback
-            None,  # NewDailyCallback
-            None,  # PriceBookCallback
-            None,  # OfferBookCallback
-            None,  # HistoryTradeCallback
-            None,  # ProgressCallback
-            None,  # TinyBookCallback
+            self._activation_key,
+            self._username,
+            self._password,
+            self._cb_state,
+            self._cb_trade,
+            self._cb_daily,
+            self._cb_price_book,
+            self._cb_offer_book,
+            self._cb_history_trade,
+            self._cb_progress,
+            self._cb_tiny_book,
         )
 
         if ret != 0:
             raise RuntimeError(f"DLLInitializeMarketLogin falhou: {ret}")
 
         log.info("profit_dll.initialized")
+
+    # ── Callbacks (chamados na ConnectorThread) ────────────────────────────────
 
     def _on_state(self, conn_type: int, result: int) -> None:
         """Atualiza estado de conexão. Chamado na ConnectorThread."""

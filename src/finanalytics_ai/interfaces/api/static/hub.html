@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -195,6 +195,14 @@ tr:hover td{background:rgba(0,212,255,.015)}
           <div class="infra-card-name">Prometheus</div><div class="infra-card-url">localhost:8000/metrics</div>
           <a href="http://localhost:8000/metrics" target="_blank" class="infra-card-link"></a>
         </div>
+        <div class="infra-card">
+          <div class="infra-card-top">
+            <div class="infra-card-icon" style="background:rgba(0,212,255,.1);font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.04em">DLL</div>
+            <span class="infra-badge badge-ok" id="badge-profit">...</span>
+          </div>
+          <div class="infra-card-name">Profit Agent</div><div class="infra-card-url">localhost:8001</div>
+          <a href="/profit-tickers" class="infra-card-link"></a>
+        </div>
       </div>
     </div>
 
@@ -227,6 +235,23 @@ tr:hover td{background:rgba(0,212,255,.015)}
 </div>
 </div>
 
+<
+    <div class="section">
+      <div class="sec-header">
+        <div class="sec-title">Profit Agent (Nelogica)</div>
+        <a href="/profit-tickers" style="font-size:10px;color:var(--accent);text-decoration:none;display:flex;align-items:center;gap:4px">
+          <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Gerenciar Tickers
+        </a>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Parametro</th><th>Valor</th><th>Detalhe</th></tr></thead>
+          <tbody id="profitTbody"><tr><td colspan="3" style="text-align:center;padding:20px;color:var(--muted);font-style:italic">Carregando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
 <script>
 var API = '/api/v1';
 
@@ -249,6 +274,8 @@ async function init() {
     checkInfra();
     setInterval(loadAll, 30000);
     setInterval(checkInfra, 60000);
+    loadProfitAgent();
+    setInterval(loadProfitAgent, 20000);
   } catch(e) { location.href='/'; }
 }
 
@@ -269,6 +296,30 @@ function logout() {
   location.href='/';
 }
 
+async function loadProfitAgent() {
+  var tb = document.getElementById('profitTbody');
+  if (!tb) return;
+  try {
+    var ctrl = new AbortController();
+    setTimeout(function() { ctrl.abort(); }, 3000);
+    var s = await fetch('http://localhost:8001/status', {signal: ctrl.signal}).then(function(r){ return r.json(); });
+    var tickers = s.subscribed_tickers || [];
+    function onOff(ok) {
+      return ok ? '<span class="pill pill-ok">ON</span>' : '<span class="pill pill-error">OFF</span>';
+    }
+    tb.innerHTML =
+      '<tr><td>Market Data</td><td>' + onOff(s.market_connected) + '</td><td style="font-size:10px;color:var(--muted)">Conexao com servidor de cotacoes</td></tr>' +
+      '<tr><td>Roteamento</td><td>' + onOff(s.routing_connected) + '</td><td style="font-size:10px;color:var(--muted)">Conexao com corretora para ordens</td></tr>' +
+      '<tr><td>Login</td><td>' + onOff(s.login_ok) + '</td><td style="font-size:10px;color:var(--muted)">Autenticacao Nelogica</td></tr>' +
+      '<tr><td>Tickers Subscritos</td><td><span style="font-family:monospace;color:var(--accent)">' + tickers.length + '</span></td><td style="font-size:10px;font-family:monospace;color:var(--muted)">' + (tickers.length ? tickers.join(', ') : 'nenhum') + '</td></tr>' +
+      '<tr><td>Total Ticks</td><td><span style="font-family:monospace;color:var(--text)">' + (s.total_ticks || 0).toLocaleString('pt-BR') + '</span></td><td style="font-size:10px;color:var(--muted)">Negociacoes recebidas desde o inicio</td></tr>' +
+      '<tr><td>Ativos Catalogados</td><td><span style="font-family:monospace;color:var(--text)">' + (s.total_assets || 0).toLocaleString('pt-BR') + '</span></td><td style="font-size:10px;color:var(--muted)">Ativos do catalogo B3</td></tr>' +
+      '<tr><td>Fila DB</td><td><span style="font-family:monospace;color:' + (s.db_queue_size > 1000 ? 'var(--red)' : 'var(--green)') + '">' + (s.db_queue_size || 0) + '</span></td><td style="font-size:10px;color:var(--muted)">Registros aguardando gravacao</td></tr>';
+  } catch(e) {
+    tb.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--red)">Profit Agent offline (localhost:8001 inacessivel)</td></tr>';
+  }
+}
+
 async function loadAll() {
   var btn = document.getElementById('refreshBtn');
   btn.classList.add('spinning');
@@ -285,6 +336,7 @@ async function loadAll() {
   } finally {
     btn.classList.remove('spinning');
   }
+  loadProfitAgent();
 }
 
 function renderOverall(services) {
@@ -393,7 +445,8 @@ async function checkInfra() {
     {id:'badge-kafka-ui', url:'http://localhost:8080/actuator/health'},
     {id:'badge-redis-ui', url:'http://localhost:8001/api/health'},
     {id:'badge-api',      url:'http://localhost:8000/health'},
-    {id:'badge-metrics',  url:'http://localhost:8000/metrics'}
+    {id:'badge-metrics',  url:'http://localhost:8000/metrics'},
+    {id:'badge-profit',   url:'http://localhost:8001/health'}
   ];
   for (var i = 0; i < items.length; i++) {
     (function(item) {
