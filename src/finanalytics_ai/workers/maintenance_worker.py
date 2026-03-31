@@ -486,6 +486,124 @@ async def recompute_ml_features(report: MaintenanceReport) -> None:
         report.add(step)
 
 
+
+
+# ── ETAPA 6: Sync macro (indices, taxas, cambio, tesouro) ─────────────────────
+
+async def sync_macro_data(report: MaintenanceReport) -> None:
+    """Atualiza indices, taxas, cambio e tesouro direto via Fintz."""
+    t0 = time.perf_counter()
+    step = StepResult(name="macro_sync")
+    try:
+        import aiohttp as _aiohttp
+        FINTZ_BASE_URL = os.getenv("FINTZ_BASE_URL", "https://api.fintz.com.br")
+        headers = {"X-API-Key": FINTZ_KEY}
+        conn = _pg_conn()
+
+        INDICES = ["IBOV","IFIX","IDIV","IGCT","SMLL","IBXX","IBXL","IGCX","ITAG","MLCX"]
+        TAXAS   = [{"codigo": 12, "nome": "CDI"}, {"codigo": 11, "nome": "Selic"},
+                   {"codigo": 4391, "nome": "CDI acum"}, {"codigo": 4390, "nome": "Selic acum"}]
+        MOEDAS  = ["USD","EUR","GBP","JPY","ARS","CHF","CNY"]
+
+        total = 0
+        today = date.today().isoformat()
+
+        async with _aiohttp.ClientSession() as session:
+
+            # Indices — apenas dados novos
+            for indice in INDICES:
+                with conn.cursor() as c:
+                    c.execute("SELECT MAX(data) FROM fintz_indices WHERE indice=%s", (indice,))
+                    last = c.fetchone()[0]
+                start = (last + timedelta(days=1)).isoformat() if last else "2010-01-01"
+                if start > today: continue
+                async with session.get(f"{FINTZ_BASE_URL}/indices/historico",
+                    headers=headers, params={"indice":indice,"dataInicio":start,"dataFim":today,"ordem":"ASC"},
+                    timeout=_aiohttp.ClientTimeout(total=30)) as r:
+                    if r.status == 200:
+                        for row in await r.json():
+                            with conn.cursor() as c:
+                                c.execute("INSERT INTO fintz_indices(indice,data,valor) VALUES(%s,%s,%s) ON CONFLICT DO NOTHING",
+                                    (row["indice"],row["data"],row["valor"]))
+                                total += c.rowcount
+                conn.commit()
+
+            # Taxas
+            for taxa in TAXAS:
+                with conn.cursor() as c:
+                    c.execute("SELECT MAX(data) FROM fintz_taxas WHERE codigo=%s", (taxa["codigo"],))
+                    last = c.fetchone()[0]
+                start = (last + timedelta(days=1)).isoformat() if last else "2010-01-01"
+                if start > today: continue
+                async with session.get(f"{FINTZ_BASE_URL}/taxas/historico",
+                    headers=headers, params={"codigo":str(taxa["codigo"]),"dataInicio":start,"dataFim":today,"ordem":"ASC"},
+                    timeout=_aiohttp.ClientTimeout(total=30)) as r:
+                    if r.status == 200:
+                        for row in await r.json():
+                            with conn.cursor() as c:
+                                c.execute("INSERT INTO fintz_taxas(codigo,nome,data,valor) VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                                    (taxa["codigo"],row.get("nome",taxa["nome"]),row["data"][:10],row["valor"]))
+                                total += c.rowcount
+                conn.commit()
+
+            # Cambio
+            for moeda in MOEDAS:
+                with conn.cursor() as c:
+                    c.execute("SELECT MAX(data) FROM fintz_cambio WHERE codigo=%s", (moeda,))
+                    last = c.fetchone()[0]
+                start = (last + timedelta(days=1)).isoformat() if last else "2010-01-01"
+                if start > today: continue
+                async with session.get(f"{FINTZ_BASE_URL}/cambio/ptax/historico",
+                    headers=headers, params={"codigo":moeda,"dataInicio":start,"dataFim":today,"ordem":"ASC"},
+                    timeout=_aiohttp.ClientTimeout(total=30)) as r:
+                    if r.status == 200:
+                        for row in await r.json():
+                            if row.get("tipoBoletim","") != "Fechamento": continue
+                            with conn.cursor() as c:
+                                c.execute("""INSERT INTO fintz_cambio(codigo,nome,data,cotacao_compra,cotacao_venda,tipo_boletim)
+                                    VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
+                                    (row["codigo"],row.get("nome",""),row["data"][:10],
+                                     row.get("cotacaoCompra"),row.get("cotacaoVenda"),row.get("tipoBoletim","")))
+                                total += c.rowcount
+                conn.commit()
+
+            # Tesouro — precos atuais
+            async with session.get(f"{FINTZ_BASE_URL}/titulos-publicos/tesouro",
+                headers=headers, params={"pagina":"1","tamanho":"100"},
+                timeout=_aiohttp.ClientTimeout(total=30)) as r:
+                if r.status == 200:
+                    data = await r.json()
+                    titulos = data.get("dados",[]) if isinstance(data,dict) else []
+                    for t in [x for x in titulos if not x.get("vencido",True)]:
+                        async with session.get(
+                            f"{FINTZ_BASE_URL}/titulos-publicos/tesouro/{t['codigo']}/precos/atual",
+                            headers=headers, timeout=_aiohttp.ClientTimeout(total=15)) as pr:
+                            if pr.status == 200:
+                                p = await pr.json()
+                                if isinstance(p,dict) and p.get("dataUltAtualizacao"):
+                                    with conn.cursor() as c:
+                                        c.execute("""INSERT INTO fintz_tesouro_precos
+                                            (codigo,data_atualizacao,taxa_juros_compra,taxa_juros_venda,pu_compra,pu_venda,possivel_investir,possivel_resgatar)
+                                            VALUES(%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
+                                            (t["codigo"],p["dataUltAtualizacao"],
+                                             p.get("taxaJurosCompra"),p.get("taxaJurosVenda"),
+                                             p.get("puCompra"),p.get("puVenda"),
+                                             p.get("possivelInvestir"),p.get("possivelResgatar")))
+                                    total += 1
+                    conn.commit()
+
+        step.rows_affected = total
+        step.message = f"Macro: {total} registros atualizados (indices/taxas/cambio/tesouro)"
+        conn.close()
+
+    except Exception as exc:
+        step.ok = False
+        step.message = str(exc)
+        log.exception("maintenance.macro_sync.error", error=str(exc))
+    finally:
+        step.duration_s = time.perf_counter() - t0
+        report.add(step)
+
 # ── Orquestrador principal ────────────────────────────────────────────────────
 
 async def run_maintenance(skip_ml: bool = False) -> MaintenanceReport:
@@ -508,7 +626,10 @@ async def run_maintenance(skip_ml: bool = False) -> MaintenanceReport:
     # 4. Validacao de integridade
     validate_data_integrity(report)
 
-    # 5. ML features (async — pesado, opcional)
+    # 5. Sync macro (indices, taxas, cambio, tesouro)
+    await sync_macro_data(report)
+
+    # 6. ML features (async — pesado, opcional)
     if not skip_ml:
         await recompute_ml_features(report)
 
