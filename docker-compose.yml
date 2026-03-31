@@ -1,4 +1,4 @@
-# ──────────────────────────────────────────────────────────────────────────────
+﻿# ──────────────────────────────────────────────────────────────────────────────
 # FinAnalytics AI — Stack principal
 # ──────────────────────────────────────────────────────────────────────────────
 services:
@@ -222,6 +222,27 @@ services:
       - ${DATA_DIR_HOST:-E:/finanalytics_data}:/data
     entrypoint: ["python"]
     command: ["/app/src/finanalytics_ai/workers/scheduler_worker.py"]
+    networks:
+      - finanalytics_net
+
+  fintz_maintenance:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    image: finanalytics-ai:latest
+    container_name: finanalytics_maintenance
+    restart: "no"
+    profiles: ["maintenance"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      PYTHONPATH: /app/src
+      MAINTENANCE_SKIP_ML: ${MAINTENANCE_SKIP_ML:-false}
+      MAINTENANCE_DRY_RUN: ${MAINTENANCE_DRY_RUN:-false}
+    command: ["python", "-m", "finanalytics_ai.workers.maintenance_worker"]
     networks:
       - finanalytics_net
 

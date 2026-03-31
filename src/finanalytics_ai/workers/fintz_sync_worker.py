@@ -1,4 +1,4 @@
-"""
+﻿"""
 Worker de sincronizacao Fintz -- Sprint I: integracao real com FintzSyncService.
 
 Substitui o stub _sync_dataset pela chamada real.
