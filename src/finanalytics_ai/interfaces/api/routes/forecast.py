@@ -11,7 +11,6 @@ Design:
     to minimize latency.
   - Result is cached in-memory (TTL configurable via FORECAST_CACHE_TTL_SECONDS).
 """
-from __future__ import annotations
 
 import time
 from typing import Annotated, Any
@@ -29,7 +28,6 @@ router = APIRouter(prefix="/api/v1/forecast", tags=["Forecast"])
 # Simple in-memory cache: key → (timestamp, result_dict)
 _cache: dict[str, tuple[float, dict[str, Any]]] = {}
 
-
 def _get_forecast_service(request: Request) -> Any:
     svc = getattr(request.app.state, "forecast_service", None)
     if svc is None:
@@ -39,7 +37,6 @@ def _get_forecast_service(request: Request) -> Any:
         request.app.state.forecast_service = svc
     return svc
 
-
 def _get_narrative_service(request: Request) -> Any:
     svc = getattr(request.app.state, "narrative_service", None)
     if svc is None:
@@ -48,11 +45,10 @@ def _get_narrative_service(request: Request) -> Any:
         svc = NarrativeService(
             ollama_url=settings.ollama_url,
             ollama_model=settings.ollama_model,
-            anthropic_api_key=settings.anthropic_api_key,
+            anthropic_api_key=settings.anthropic_api_key
         )
         request.app.state.narrative_service = svc
     return svc
-
 
 @router.get("/{ticker}")
 async def run_forecast(
@@ -60,7 +56,7 @@ async def run_forecast(
     request: Request,
     horizon: Annotated[int, Query(ge=5, le=90, description="Dias de forecast")] = 30,
     range_period: Annotated[str, Query(description="Histórico")] = "2y",
-    models: Annotated[str, Query(description="all | prophet | lstm | tft")] = "all",
+    models: Annotated[str, Query(description="all | prophet | lstm | tft")] = "all"
 ) -> dict[str, Any]:
     """
     Run ensemble price forecast for a ticker.
@@ -96,7 +92,7 @@ async def run_forecast(
     if not bars or len(bars) < 60:
         raise HTTPException(
             status_code=422,
-            detail=f"Dados insuficientes para {ticker} ({len(bars or [])} barras). Mínimo: 60 dias.",
+            detail=f"Dados insuficientes para {ticker} ({len(bars or [])} barras). Mínimo: 60 dias."
         )
 
     # Fetch indicators in parallel for narrative context
@@ -135,7 +131,7 @@ async def run_forecast(
         result = await forecast_svc.forecast(
             ticker=ticker.upper(),
             bars=bars,
-            horizon=horizon,
+            horizon=horizon
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
@@ -173,10 +169,9 @@ async def run_forecast(
         horizon=horizon,
         signal=result.signal,
         change_pct=result.change_pct,
-        provider=result.narrative_provider,
+        provider=result.narrative_provider
     )
     return {**data, "cached": False}
-
 
 @router.get("/{ticker}/models")
 async def get_model_status(ticker: str, request: Request) -> dict[str, Any]:

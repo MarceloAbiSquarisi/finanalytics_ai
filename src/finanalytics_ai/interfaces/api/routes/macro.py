@@ -11,7 +11,6 @@ Design:
   - Cache em memória por 1h (dados macro mudam pouco)
   - Fallback para dados simulados se Parquet ainda não foi coletado
 """
-from __future__ import annotations
 
 import time
 from typing import Any
@@ -44,13 +43,11 @@ _SERIES_META: dict[str, dict[str, str]] = {
     "focus_igpm":   {"label": "Focus IGP-M",    "unit": "% a.a.", "source": "BCB/Focus", "freq": "semanal"},
 }
 
-
 def _get_storage(request: Request) -> Any:
     from finanalytics_ai.config import get_settings
     from finanalytics_ai.infrastructure.storage.data_storage_service import get_storage
     settings = get_settings()
     return get_storage(settings.data_dir)
-
 
 def _cached(key: str, fn: Any) -> Any:
     now = time.time()
@@ -60,12 +57,10 @@ def _cached(key: str, fn: Any) -> Any:
     _cache[key] = (now, result)
     return result
 
-
 @router.get("/series")
 async def list_series() -> dict[str, Any]:
     """Lista séries macro disponíveis com metadados."""
     return {"series": _SERIES_META}
-
 
 @router.get("/snapshot")
 async def snapshot(request: Request) -> dict[str, Any]:
@@ -101,12 +96,11 @@ async def snapshot(request: Request) -> dict[str, Any]:
 
     return {"snapshot": result, "cached": True}
 
-
 @router.get("/{series}")
 async def get_series(
     series: str,
     request: Request,
-    limit: int = 500,
+    limit: int = 500
 ) -> dict[str, Any]:
     """
     Retorna histórico de uma série macro.
@@ -115,7 +109,7 @@ async def get_series(
     if series not in _SERIES_META:
         raise HTTPException(
             status_code=404,
-            detail=f"Série '{series}' não encontrada. Disponíveis: {list(_SERIES_META)}",
+            detail=f"Série '{series}' não encontrada. Disponíveis: {list(_SERIES_META)}"
         )
 
     storage = _get_storage(request)
@@ -145,7 +139,6 @@ async def get_series(
         "data": data,
     }
 
-
 @router.get("/focus/snapshot")
 async def focus_snapshot() -> dict[str, Any]:
     """
@@ -170,11 +163,10 @@ async def focus_snapshot() -> dict[str, Any]:
     _cache[cache_key] = (time.time(), snapshot)
     return {"focus": snapshot, "cached": False}
 
-
 @router.get("/focus/expectations")
 async def focus_expectations(
     indicador: str | None = None,
-    semanas: int = 8,
+    semanas: int = 8
 ) -> dict[str, Any]:
     """
     Expectativas detalhadas do Boletim Focus.

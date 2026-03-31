@@ -6,36 +6,31 @@ GET /api/v1/portfolios/{portfolio_id}/performance?period=1y
 Períodos válidos: 1mo, 3mo, 6mo, 1y, 2y, 3y, 5y, ytd, max
 """
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from finanalytics_ai.application.services.performance_service import (
     PerformanceError,
-    PerformanceService,
+    PerformanceService
 )
 from finanalytics_ai.interfaces.api.dependencies import get_db_session
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-    from starlette.requests import Request
+from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
 
-
 async def _get_performance_svc(
     request: Request,
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session)
 ) -> PerformanceService:
     from fastapi import HTTPException
 
     from finanalytics_ai.application.services.performance_service import PerformanceService
     from finanalytics_ai.infrastructure.database.repositories.portfolio_repo import (
-        SQLPortfolioRepository,
+        SQLPortfolioRepository
     )
 
     market = getattr(request.app.state, "market_client", None)
@@ -43,12 +38,11 @@ async def _get_performance_svc(
         raise HTTPException(503, detail="Market client não disponível.")
     return PerformanceService(SQLPortfolioRepository(session), market)
 
-
 @router.get("/api/v1/portfolios/{portfolio_id}/performance")
 async def get_portfolio_performance(
     portfolio_id: str,
     period: str = Query("1y", description="1mo|3mo|6mo|1y|2y|3y|5y|ytd|max"),
-    svc: PerformanceService = Depends(_get_performance_svc),
+    svc: PerformanceService = Depends(_get_performance_svc)
 ) -> dict[str, Any]:
     try:
         result = await svc.get_performance(portfolio_id, period)

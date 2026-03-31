@@ -23,10 +23,10 @@ from finanalytics_ai.exceptions import FintzAPIError, FintzParseError
 
 if TYPE_CHECKING:
     from finanalytics_ai.application.services.event_publisher import EventPublisher
-    from finanalytics_ai.domain.fintz.entities import FintzDatasetSpec
-    from finanalytics_ai.domain.fintz.ports import FintzRepository
-    from finanalytics_ai.domain.fintz.timescale_port import TimescaleWriter
-    from finanalytics_ai.infrastructure.adapters.fintz_client import FintzClient
+from finanalytics_ai.domain.fintz.entities import FintzDatasetSpec
+from finanalytics_ai.domain.fintz.ports import FintzRepository
+from finanalytics_ai.domain.fintz.timescale_port import TimescaleWriter
+from finanalytics_ai.infrastructure.adapters.fintz_client import FintzClient
 
 logger = structlog.get_logger(__name__)
 

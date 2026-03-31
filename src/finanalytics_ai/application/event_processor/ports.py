@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 if TYPE_CHECKING:
     import uuid
 
-    from finanalytics_ai.domain.events.models import DomainEvent, EventStatus
+from finanalytics_ai.domain.events.models import DomainEvent, EventStatus
 
 
 @runtime_checkable

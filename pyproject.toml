@@ -16,6 +16,12 @@ dependencies = [
     "prometheus-client>=0.20.0",
     "alembic>=1.13.0",
     "python-dotenv>=1.0.0",
+    "lightgbm>=4.3",
+    "polars>=0.20",
+    "scipy>=1.13",
+    "scikit-learn>=1.4",
+    "arch>=6.3",
+
     "opentelemetry-api>=1.40.0",
     "psycopg2-binary>=2.9.11",
 ]

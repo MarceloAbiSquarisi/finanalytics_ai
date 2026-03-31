@@ -29,8 +29,8 @@ from finanalytics_ai.observability.logging import get_logger
 
 if TYPE_CHECKING:
     from finanalytics_ai.domain.events.entities import Event
-    from finanalytics_ai.infrastructure.timescale.fintz_repo import TimescaleFintzRepository
-    from finanalytics_ai.infrastructure.cache.backend import CacheBackend
+from finanalytics_ai.infrastructure.timescale.fintz_repo import TimescaleFintzRepository
+from finanalytics_ai.infrastructure.cache.backend import CacheBackend
 
 log = get_logger(__name__)
 

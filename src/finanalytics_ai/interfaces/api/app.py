@@ -1,4 +1,4 @@
-﻿"""
+"""
 FastAPI application factory — Sprint 7: BRAPI Price Producer.
 
 Lifespan startup order:
@@ -9,11 +9,9 @@ Lifespan startup order:
   5. BrapiPriceProducer (polling BRAPI → Kafka) — apenas se PRODUCER_ENABLED=true
 """
 
-from __future__ import annotations
-
 import asyncio
 from contextlib import asynccontextmanager, suppress
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import structlog
 from fastapi import FastAPI
@@ -25,6 +23,7 @@ from finanalytics_ai.exceptions import FinAnalyticsError
 from finanalytics_ai.infrastructure.database.connection import close_engine, get_engine
 from finanalytics_ai.interfaces.api.routes import admin as admin_routes
 from finanalytics_ai.interfaces.api.routes import admin as admin_routes
+from finanalytics_ai.interfaces.api.routes import ml_forecasting as ml_routes
 from finanalytics_ai.interfaces.api.routes import (
     wallet,
     alerts,
@@ -42,7 +41,7 @@ from finanalytics_ai.interfaces.api.routes import (
     quotes,
     reports,
     screener,
-    watchlist,
+    watchlist
 )
 
 try:
@@ -76,9 +75,7 @@ except ImportError:
 from finanalytics_ai.infrastructure.cache.backend import create_cache_backend
 from finanalytics_ai.infrastructure.cache.rate_limiter import create_rate_limiter
 from finanalytics_ai.metrics import PrometheusMiddleware, metrics_endpoint
-
-if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 logger = structlog.get_logger(__name__)
 
@@ -89,18 +86,14 @@ _alert_service: Any = None
 _price_producer: Any = None
 _producer_task: Any = None
 
-
 def get_kafka_consumer() -> Any:
     return _kafka_consumer
-
 
 def get_alert_service() -> Any:
     return _alert_service
 
-
 def get_price_producer() -> Any:
     return _price_producer
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -158,7 +151,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     bus = get_notification_bus()
     _alert_service = AlertService(
         session_factory=get_session,
-        notification_bus=bus,
+        notification_bus=bus
     )
     logger.info("alert_service.ready")
 
@@ -189,7 +182,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 try:
                     from finanalytics_ai.infrastructure.timescale.repository import (
                         TimescalePriceTickRepository,
-                        get_timescale_pool,
+                        get_timescale_pool
                     )
 
                     pool = await get_timescale_pool()
@@ -199,7 +192,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                         price=float(event.payload.get("price", 0)),
                         change_pct=event.payload.get("change_pct"),
                         volume=event.payload.get("volume"),
-                        source=event.source,
+                        source=event.source
                     )
                 except Exception as e:
                     logger.warning("timescale.tick.save_failed", error=str(e))
@@ -220,7 +213,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from finanalytics_ai.application.services.screener_service import ScreenerService
         from finanalytics_ai.application.services.walkforward_service import WalkForwardService
         from finanalytics_ai.infrastructure.adapters.market_data_client import (
-            create_cached_market_data_client,
+            create_cached_market_data_client
         )
         from finanalytics_ai.infrastructure.database.connection import get_session_factory
 
@@ -238,7 +231,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Sem token BRAPI: serviços analíticos indisponíveis, mas watchlist
         # funciona com Yahoo Finance como fonte primária
         from finanalytics_ai.infrastructure.adapters.market_data_client import (
-            create_cached_market_data_client,
+            create_cached_market_data_client
         )
         from finanalytics_ai.infrastructure.database.connection import get_session_factory
 
@@ -259,14 +252,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from finanalytics_ai.infrastructure.database.connection import Base
     from finanalytics_ai.infrastructure.database.repositories.ohlc_repo import (  # noqa: F401
         OHLCBarModel,
-        OHLCCacheMetaModel,
+        OHLCCacheMetaModel
     )
     from finanalytics_ai.infrastructure.database.repositories.rf_repo import (
-        Base as RFBase,
+        Base as RFBase
     )
     from finanalytics_ai.infrastructure.database.repositories.rf_repo import (  # noqa: F401
         RFHoldingModel,
-        RFPortfolioModel,
+        RFPortfolioModel
     )
     from finanalytics_ai.infrastructure.database.repositories.user_repo import (
         UserModel,  # noqa: F401
@@ -313,7 +306,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from finanalytics_ai.application.services.ohlc_updater import OHLCUpdaterService
         from finanalytics_ai.infrastructure.timescale.connection import (
             init_ts_pool,
-            ts_pool_available,
+            ts_pool_available
         )
         from finanalytics_ai.infrastructure.timescale.ohlc_ts_repo import OHLCTimescaleRepo
         from finanalytics_ai.infrastructure.timescale.schema import init_schema
@@ -340,10 +333,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from finanalytics_ai.infrastructure.database.connection import get_engine as _get_eng
         from finanalytics_ai.infrastructure.database.connection import get_session_factory
         from finanalytics_ai.infrastructure.database.repositories.ticker_repo import (
-            Base as TickerBase,
+            Base as TickerBase
         )
         from finanalytics_ai.infrastructure.database.repositories.ticker_service import (
-            TickerService,
+            TickerService
         )
 
         async with _get_eng().begin() as conn:
@@ -369,7 +362,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 tickers=tickers,
                 poll_interval=settings.producer_poll_interval_seconds,
                 brapi_client=brapi,
-                kafka_producer=kprod,
+                kafka_producer=kprod
             )
             await _price_producer.start()
             _producer_task = asyncio.create_task(_price_producer.run())
@@ -377,20 +370,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger.info(
                 "price_producer.running",
                 tickers=tickers,
-                interval=settings.producer_poll_interval_seconds,
+                interval=settings.producer_poll_interval_seconds
             )
         except Exception as exc:
             logger.warning("price_producer.unavailable", error=str(exc))
     elif settings.producer_enabled and not settings.brapi_token:
         logger.warning(
             "price_producer.disabled",
-            reason="BRAPI_TOKEN não configurado — adicione ao .env para ativar o producer automático",
+            reason="BRAPI_TOKEN não configurado — adicione ao .env para ativar o producer automático"
         )
 
     # ── Fundamental Analysis Service ──────────────────────────────────────
     try:
         from finanalytics_ai.application.services.fundamental_analysis_service import (
-            FundamentalAnalysisService,
+            FundamentalAnalysisService
         )
         from finanalytics_ai.infrastructure.database.repositories.fintz_repo import FintzRepo
         _fintz_repo = FintzRepo()
@@ -409,7 +402,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         postgres=True,
         timescale=timescale_ok,
         kafka=kafka_ok,
-        producer=producer_ok,
+        producer=producer_ok
     )
     yield
 
@@ -450,7 +443,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await close_engine()
     logger.info("api.stopped")
 
-
 def create_app() -> FastAPI:
     app = FastAPI(
         title="FinAnalytics AI",
@@ -458,7 +450,7 @@ def create_app() -> FastAPI:
         version="0.1.0",
         lifespan=lifespan,
         docs_url="/docs",
-        redoc_url="/redoc",
+        redoc_url="/redoc"
     )
 
     app.add_middleware(
@@ -466,7 +458,7 @@ def create_app() -> FastAPI:
         allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["*"],
-        allow_headers=["*"],
+        allow_headers=["*"]
     )
     app.add_middleware(PrometheusMiddleware)
 
@@ -484,7 +476,7 @@ def create_app() -> FastAPI:
         }
         return JSONResponse(
             status_code=status_map.get(exc.code, 400),
-            content={"error": exc.code, "message": exc.message, "context": exc.context},
+            content={"error": exc.code, "message": exc.message, "context": exc.context}
         )
 
     if _ETF_AVAILABLE:
@@ -517,11 +509,11 @@ def create_app() -> FastAPI:
     app.include_router(backtest.router, tags=["Backtest"])
     app.include_router(correlation.router, tags=["Correlation"])
     app.include_router(screener.router, tags=["Screener"])
+    app.include_router(ml_routes.router, tags=["ML Probabilistico"])
     app.include_router(anomaly.router, tags=["Anomaly"])
     app.include_router(reports.router, tags=["Reports"])
     app.include_router(watchlist.router, tags=["Watchlist"])
     app.include_router(performance.router, tags=["Performance"])
-
 
     try:
         from finanalytics_ai.interfaces.api.routes import fintz_sync_status
@@ -579,7 +571,7 @@ def create_app() -> FastAPI:
         f = _static / name
         return HTMLResponse(
             f.read_text(encoding="utf-8") if f.exists() else f"<h1>{name} não encontrado</h1>",
-            status_code=200 if f.exists() else 404,
+            status_code=200 if f.exists() else 404
         )
 
     @app.get("/carteira", response_class=HTMLResponse, include_in_schema=False)
@@ -626,6 +618,10 @@ def create_app() -> FastAPI:
     @app.get("/screener", response_class=HTMLResponse, include_in_schema=False)
     async def serve_screener() -> HTMLResponse:
         return _html("screener.html")
+
+    @app.get("/ml", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_ml() -> HTMLResponse:
+        return _html("ml.html")
 
     @app.get("/anomaly", response_class=HTMLResponse, include_in_schema=False)
     async def serve_anomaly() -> HTMLResponse:
@@ -683,15 +679,4 @@ def create_app() -> FastAPI:
         return _html("tickers.html")
 
     return app
-
-
-
-
-
-
-
-
-
-
-
 

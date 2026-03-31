@@ -1,4 +1,4 @@
-﻿
+
 """
 profit_agent.py — Agente standalone ProfitDLL (Nelogica)
 
@@ -7,7 +7,8 @@ Usa apenas stdlib + psycopg2 + python-dotenv para garantir
 que nada inicializa Winsock antes da DLL conectar.
 
 Funcionalidades:
-  - Conecta via DLLInitializeLogin (Market Data + Roteamento)
+  - Conecta via DLLInitializeMarketLogin (Market Data)
+  - Roteamento desabilitado neste processo (DLL nao suporta dual-init)
   - Baixa catalogo completo de ativos → profit_assets
   - Recebe ticks em tempo real → profit_ticks (TimescaleDB)
   - Recebe candles diarios → profit_daily_bars
@@ -233,6 +234,29 @@ class TConnectorPriceGroup(Structure):
         ("Quantity",        c_long),    # c_long = 32-bit no Windows (conforme manual Nelogica)
         ("PriceGroupFlags", c_uint),
     ]
+
+class TConnectorTradingMessageResult(Structure):
+    """Resultado de uma operacao de roteamento (aceite, rejeicao, fill)."""
+    _fields_ = [
+        ("Version",       c_ubyte),
+        ("BrokerID",      c_int),
+        ("OrderID",       TConnectorOrderIdentifier),
+        ("MessageID",     c_int64),
+        ("ResultCode",    c_ubyte),
+        ("Message",       c_wchar_p),
+        ("MessageLength", c_int),
+    ]
+
+# Mapa de ResultCode para order_status (convencao FIX parcial)
+_TRADING_RESULT_STATUS: dict[int, int] = {
+    0:  0,   # OK / New
+    1:  8,   # Rejected
+    2:  2,   # Filled
+    3:  1,   # Partial fill
+    4:  4,   # Cancelled
+    5:  0,   # Changed (aceito)
+    6:  4,   # ZeroPosition aceito
+}
 
 # ---------------------------------------------------------------------------
 # Constantes (manual pag. 13)
@@ -486,6 +510,9 @@ class ProfitAgent:
         self._total_ticks  = 0
         self._total_orders = 0
         self._total_assets = 0
+        self._book: dict = {}
+        self._sse_clients: list = []
+        self._sse_lock = __import__('threading').Lock()
 
         # Tickers subscritos
         self._subscribed: set[str] = set()
@@ -533,49 +560,90 @@ class ProfitAgent:
         self._dll = WinDLL(self._dll_path)
         self._setup_dll_restypes()
 
-        # 2. Registra callbacks
-        self._register_callbacks()
+        # 2. NOOP_PATTERN_APPLIED
+        # Noops simples para DLLInitializeLogin — padrao identico ao
+        # 02_test_state_callback.py e 05_test_trade_v2.py que conectaram.
+        # Assinatura minima: c_void_p como primeiro arg (nao Structures).
+        # V2 callbacks (trade, daily, assets) registrados via Set* apos init.
+        from ctypes import WINFUNCTYPE as _WF, c_int as _ci, c_double as _cd, c_void_p as _cv
 
-        # 3. Inicializa com DLLInitializeLogin (Market Data + Roteamento)
-        log.info("profit_agent.initializing")
-        ret = self._dll.DLLInitializeLogin(
+        @_WF(None, _ci, _ci)
+        def _state_cb_init(conn_type: int, result: int) -> None:
+            with self._state_lock:
+                if conn_type == CONN_STATE_MARKET_DATA:
+                    self._market_ok = (result == MARKET_CONNECTED)
+                    if result == MARKET_CONNECTED:
+                        self._market_connected.set()
+                elif conn_type == CONN_STATE_LOGIN:
+                    self._login_ok = (result == LOGIN_CONNECTED)
+                elif conn_type == CONN_STATE_MARKET_LOGIN:
+                    self._activate_ok = (result == ACTIVATE_VALID)
+                elif conn_type == CONN_STATE_ROUTING:
+                    self._routing_ok = (result == ROUTING_BROKER_CONNECTED)
+            try:
+                self._db_queue.put_nowait({
+                    '_type': 'state',
+                    'conn_type': conn_type, 'result': result,
+                })
+            except Exception:
+                pass
+
+        # Noops V1 — assinaturas simples (c_void_p), identicos ao teste 02
+        _noop_trade    = _WF(None, _cv)(lambda p: None)
+        _noop_daily    = _WF(None, _cv)(lambda p: None)
+        _noop_progress = _WF(None, _cv, _ci)(lambda p, v: None)
+        _noop_tiny     = _WF(None, _cv, _cd, _ci, _ci)(lambda *a: None)
+
+        @_WF(None, _ci, c_wchar_p, c_wchar_p, c_wchar_p)
+        def _account_cb_init(bid, bname, aid, owner):
+            name = (bname or '').upper()
+            acc  = (aid  or '').strip()
+            log.info('account broker_id=%d broker_name=%s account=%s owner=%s',
+                     bid, name, acc, owner)
+            self._discovered_accounts[name] = (bid, acc)
+            self._discovered_accounts[acc]  = (bid, acc)
+
+        # Guarda refs contra GC
+        self._init_refs = [
+            _state_cb_init, _noop_trade, _noop_daily,
+            _noop_progress, _noop_tiny, _account_cb_init,
+        ]
+
+        # 3. DLLInitializeLogin com noops V1 — padrao dos testes que funcionaram
+        log.info('profit_agent.initializing_market_data')
+        ret_md = self._dll.DLLInitializeLogin(
             c_wchar_p(self._act_key),
             c_wchar_p(self._username),
             c_wchar_p(self._password),
-            self._callbacks[0],   # state
-            None,                  # history
-            None,                  # order_change
-            self._callbacks[1],   # account
-            self._callbacks[2],   # new_trade (V1 compat)
-            self._callbacks[3],   # new_daily
-            None,                  # price_book
-            None,                  # offer_book
-            None,                  # history_trade
-            self._callbacks[4],   # progress
-            self._callbacks[5],   # tiny_book
+            _state_cb_init,   # state
+            None,              # history
+            None,              # order_change
+            _account_cb_init, # account
+            _noop_trade,      # new_trade V1 (noop — usa SetTradeCallbackV2)
+            _noop_daily,      # new_daily  (noop — usa SetDailyCallback)
+            None,              # price_book
+            None,              # offer_book
+            None,              # history_trade
+            _noop_progress,   # progress
+            _noop_tiny,       # tiny_book
         )
-        if ret != 0:
-            log.error("profit_agent.dll_init_failed ret=%d", ret)
+        if ret_md != 0:
+            log.error('profit_agent.dll_init_failed ret=%d', ret_md)
             sys.exit(1)
 
-        # Registra callbacks opcionais via Set* (pos-init, conforme exemplo Nelogica)
-        self._dll.SetTradeCallbackV2(self._callbacks[6])
-        self._dll.SetDailyCallback(self._callbacks[3])
-        self._dll.SetAssetListInfoCallbackV2(self._callbacks[7])
-        self._dll.SetAssetListCallback(self._callbacks[8])
-        self._dll.SetAdjustHistoryCallbackV2(self._callbacks[9])
-        self._dll.SetPriceDepthCallback(self._callbacks[10])
-        self._dll.SetOrderCallback(self._callbacks[11])
-        self._dll.SetTradingMessageResultCallback(self._callbacks[12])
-        self._dll.SetBrokerAccountListChangedCallback(self._callbacks[13])
+        # 4. Configura restypes e registra callbacks V2 APOS DLLInitializeLogin
+        self._setup_dll_restypes()
+        self._register_callbacks()
+        log.info('profit_agent.callbacks_registered')
 
-        log.info("profit_agent.dll_initialized")
+        log.info('profit_agent.dll_initialized market_ret=%d', ret_md)
 
         # 4. Aguarda conexao (threading.Event — sem asyncio)
         log.info("profit_agent.waiting_connection timeout=60s")
         connected = self._market_connected.wait(timeout=120.0)
         if not connected:
             log.warning("profit_agent.market_timeout continuing_anyway")
+
 
         # 5. Inicia DB (APOS DLL conectar)
         log.info("profit_agent.connecting_db")
@@ -631,8 +699,13 @@ class ProfitAgent:
             return
         ret_t = self._dll.SubscribeTicker(c_wchar_p(ticker), c_wchar_p(exchange))
 
-        # SubscribePriceDepth desabilitado temporariamente (price_depth_cb precisa refatoracao)
-        # ret_d = self._dll.SubscribePriceDepth(...)
+        # SubscribePriceDepth - habilitado apos implementacao do price_depth_cb
+        conn_id = TConnectorAssetIdentifier(
+            Version=0, Ticker=ticker, Exchange=exchange, FeedType=c_ubyte(0),
+        )
+        ret_d = self._dll.SubscribePriceDepth(byref(conn_id))
+        if ret_d != 0:
+            log.warning("profit_agent.subscribe_depth_failed ticker=%s ret=%d", ticker, ret_d)
 
         if ret_t == 0:
             self._subscribed.add(key)
@@ -820,10 +893,21 @@ class ProfitAgent:
         def progress_cb(asset_ptr, progress) -> None:
             pass  # noop
 
-        # 5. TinyBook callback
+        # 5. TinyBook callback - top of book (nivel 1)
         @WINFUNCTYPE(None, c_void_p, c_double, c_int, c_int)
         def tiny_book_cb(asset_ptr, price, qty, side) -> None:
-            pass  # noop
+            if not asset_ptr:
+                return
+            asset_id = ctypes.cast(asset_ptr, POINTER(TAssetID)).contents
+            ticker = asset_id.ticker or ""
+            if not ticker:
+                return
+            side_key = "bids" if side == 0 else "asks"
+            if ticker not in agent._book:
+                agent._book[ticker] = {"bids": {}, "asks": {}}
+            agent._book[ticker][side_key][1] = {
+                "price": price, "quantity": qty, "count": 1, "is_theoric": False
+            }
 
         # 6. Trade callback V2 (SetTradeCallbackV2)
         # CORRIGIDO: POINTER(TConnectorAssetIdentifier) — by-value com c_wchar_p
@@ -852,6 +936,19 @@ class ProfitAgent:
                 })
             except queue.Full:
                 pass  # descarta se fila cheia
+
+            if agent._sse_clients:
+                import json as _j
+                _e = _j.dumps({
+                    'ticker': ticker, 'price': trade.Price,
+                    'quantity': trade.Quantity, 'volume': trade.Volume,
+                    'time': datetime.now(tz=timezone.utc).isoformat(),
+                })
+                with agent._sse_lock:
+                    _dead = [q for q in agent._sse_clients
+                             if not _try_sse_put(q, _e)]
+                    for q in _dead:
+                        agent._sse_clients.remove(q)
 
         # 7. Asset list info V2 (SetAssetListInfoCallbackV2)
         # c_void_p: POINTER(TAssetID) como c_void_p em 64-bit
@@ -931,35 +1028,98 @@ class ProfitAgent:
             except queue.Full:
                 pass
 
-        # 10. Price depth callback — noop seguro (refatorar depois)
+        # 10. Price depth callback - book completo (5 niveis bid + ask)
         @WINFUNCTYPE(None, c_void_p, c_ubyte, c_int, c_ubyte)
         def price_depth_cb(asset_ptr, side, position, update_type) -> None:
-            pass  # noop - implementar com c_void_p + cast depois
+            if not asset_ptr or not agent._dll:
+                return
+            asset_id = ctypes.cast(asset_ptr, POINTER(TAssetID)).contents
+            ticker = asset_id.ticker or ""
+            if not ticker:
+                return
 
-        # 11. Order callback
+            # Constroi TConnectorAssetIdentifier para GetPriceGroup
+            conn_id = TConnectorAssetIdentifier(
+                Version=0,
+                Ticker=ticker,
+                Exchange=asset_id.bolsa or "B",
+                FeedType=c_ubyte(asset_id.feed if asset_id.feed else 0),
+            )
+            pg = TConnectorPriceGroup(Version=0)
+            ret = agent._dll.GetPriceGroup(
+                byref(conn_id), c_ubyte(side), c_int(position), byref(pg)
+            )
+            if ret != 0:
+                return
+
+            is_theoric = bool(pg.PriceGroupFlags & PG_IS_THEORIC)
+            side_key = "bids" if side == 0 else "asks"
+
+            # Atualiza book em memoria
+            if ticker not in agent._book:
+                agent._book[ticker] = {"bids": {}, "asks": {}}
+            agent._book[ticker][side_key][position] = {
+                "price": pg.Price,
+                "quantity": pg.Quantity,
+                "count": pg.Count,
+                "is_theoric": is_theoric,
+            }
+
+            # Persiste no TimescaleDB via fila
+            try:
+                agent._db_queue.put_nowait({
+                    "_type": "book",
+                    "time": datetime.now(tz=timezone.utc),
+                    "ticker": ticker,
+                    "exchange": asset_id.bolsa or "B",
+                    "side": int(side),
+                    "position": position,
+                    "price": pg.Price,
+                    "quantity": pg.Quantity,
+                    "count": pg.Count,
+                    "is_theoric": is_theoric,
+                })
+            except queue.Full:
+                pass
+
+        # 11. Order callback - confirma recebimento e registra cl_ord_id
         @WINFUNCTYPE(None, TConnectorOrderIdentifier)
         def order_cb(order_id) -> None:
-            log.info("order_callback local_id=%d cl_ord=%s",
-                     order_id.LocalOrderID, order_id.ClOrderID or "")
+            local_id = order_id.LocalOrderID
+            cl_ord   = order_id.ClOrderID or ""
+            log.info("order_callback local_id=%d cl_ord=%s", local_id, cl_ord)
+            try:
+                agent._db_queue.put_nowait({
+                    "_type": "order_update",
+                    "local_order_id": local_id,
+                    "cl_ord_id": cl_ord,
+                    "order_status": 0,   # new - corretora confirmou
+                })
+            except queue.Full:
+                pass
 
-        # 12. TradingMessageResult callback
-        class TConnectorTradingMessageResult(Structure):
-            _fields_ = [
-                ("Version",       c_ubyte),
-                ("BrokerID",      c_int),
-                ("OrderID",       TConnectorOrderIdentifier),
-                ("MessageID",     c_int64),
-                ("ResultCode",    c_ubyte),
-                ("Message",       c_wchar_p),
-                ("MessageLength", c_int),
-            ]
-
+        # 12. TradingMessageResult callback - resultado de roteamento
         @WINFUNCTYPE(None, POINTER(TConnectorTradingMessageResult))
         def trading_msg_cb(result_ptr) -> None:
-            r = result_ptr.contents
-            log.info("trading_msg broker=%d msg_id=%d code=%d msg=%s",
-                     r.BrokerID, r.MessageID, r.ResultCode,
-                     (r.Message or "")[:80])
+            r        = result_ptr.contents
+            code     = r.ResultCode
+            msg_text = (r.Message or "")[:200]
+            status   = _TRADING_RESULT_STATUS.get(code, 3)
+            log.info("trading_msg broker=%d msg_id=%d code=%d status=%d msg=%s",
+                     r.BrokerID, r.MessageID, code, status, msg_text[:80])
+            try:
+                agent._db_queue.put_nowait({
+                    "_type": "trading_result",
+                    "local_order_id": r.OrderID.LocalOrderID,
+                    "cl_ord_id":      r.OrderID.ClOrderID or "",
+                    "message_id":     r.MessageID,
+                    "broker_id":      r.BrokerID,
+                    "result_code":    code,
+                    "order_status":   status,
+                    "message":        msg_text if code != 0 else None,
+                })
+            except queue.Full:
+                pass
 
         # 13. Broker account list changed
         @WINFUNCTYPE(None, c_int, c_uint)
@@ -1024,6 +1184,36 @@ class ProfitAgent:
                         item["side"], item["position"], item.get("price"),
                         item.get("quantity"), item.get("count"), item.get("is_theoric",False),
                     ))
+                elif t == "order_update":
+                    self._db.execute(
+                        """UPDATE profit_orders SET
+                               cl_ord_id    = COALESCE(%s, cl_ord_id),
+                               order_status = LEAST(order_status, %s),
+                               updated_at   = NOW()
+                           WHERE local_order_id = %s""",
+                        (item.get("cl_ord_id") or None,
+                         item.get("order_status", 0),
+                         item["local_order_id"]),
+                    )
+                elif t == "trading_result":
+                    code   = item.get("result_code", 0)
+                    status = item.get("order_status", 0)
+                    msg    = item.get("message")
+                    self._db.execute(
+                        """UPDATE profit_orders SET
+                               order_status  = %s,
+                               cl_ord_id     = COALESCE(%s, cl_ord_id),
+                               error_message = CASE WHEN %s IS NOT NULL THEN %s
+                                                    ELSE error_message END,
+                               updated_at    = NOW()
+                           WHERE local_order_id = %s
+                              OR (message_id IS NOT NULL AND message_id = %s)""",
+                        (status,
+                         item.get("cl_ord_id") or None,
+                         msg, msg,
+                         item.get("local_order_id"),
+                         item.get("message_id")),
+                    )
                 elif t == "state":
                     log.info("state conn_type=%d result=%d",
                              item["conn_type"], item["result"])
@@ -1062,6 +1252,21 @@ class ProfitAgent:
         return (broker_id, account_key, "", routing_pass)
 
     def send_order(self, params: dict) -> dict:
+        """
+        Envio de ordens requer DLLInitializeLogin (roteamento).
+        profit_agent usa DLLInitializeMarketLogin (market data only).
+        Para ordens, use profit_market_worker.py em processo separado.
+        """
+        return {
+            "ok": False,
+            "error": (
+                "Roteamento nao disponivel neste processo. "
+                "profit_agent usa DLLInitializeMarketLogin (market data only). "
+                "Para ordens, use profit_market_worker.py."
+            ),
+        }
+
+    def _send_order_legacy(self, params: dict) -> dict:
         """
         Envia uma ordem. params:
           env           : 'simulation' | 'production'
@@ -1236,6 +1441,174 @@ class ProfitAgent:
                 log.warning("profit_agent.unsubscribe_error ticker=%s e=%s", ticker, e)
         return {"ok": True, "subscribed": list(self._subscribed)}
 
+    def list_orders(self, ticker: str = "", status: str = "", env: str = "", limit: int = 100) -> dict:
+        """Retorna ordens com filtros opcionais."""
+        if self._db is None or self._db._conn is None:
+            return {"orders": [], "error": "DB indisponivel"}
+        try:
+            conditions = []
+            params: list = []
+            if ticker:
+                conditions.append("ticker = %s")
+                params.append(ticker.upper())
+            if status.isdigit():
+                conditions.append("order_status = %s")
+                params.append(int(status))
+            if env in ("simulation", "production"):
+                conditions.append("env = %s")
+                params.append(env)
+            where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+            params.append(limit)
+            sql = f"SELECT * FROM profit_orders {where} ORDER BY created_at DESC LIMIT %s"
+            with self._db._lock:
+                cur = self._db._conn.cursor()
+                cur.execute(sql, params)
+                cols = [d[0] for d in cur.description]
+                rows = [dict(zip(cols, row)) for row in cur.fetchall()]
+                cur.close()
+            for r in rows:
+                for k, v in r.items():
+                    if hasattr(v, "isoformat"):
+                        r[k] = v.isoformat()
+            return {"orders": rows, "total": len(rows)}
+        except Exception as exc:
+            log.warning("list_orders.error error=%s", exc)
+            return {"orders": [], "error": str(exc)}
+
+    def query_ticks(self, ticker: str, limit: int = 100) -> dict:
+        if self._db is None or self._db._conn is None:
+            return {'ticks': [], 'error': 'DB indisponivel'}
+        try:
+            sql = ('SELECT time,ticker,exchange,price,quantity,volume,'
+                   'buy_agent,sell_agent,trade_number,trade_type,is_edit '
+                   'FROM profit_ticks WHERE ticker=%s ORDER BY time DESC LIMIT %s')
+            with self._db._lock:
+                cur = self._db._conn.cursor()
+                cur.execute(sql, (ticker.upper(), limit))
+                cols = [d[0] for d in cur.description]
+                rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+                cur.close()
+            for r in rows:
+                if hasattr(r.get('time'), 'isoformat'): r['time'] = r['time'].isoformat()
+            return {'ticker': ticker.upper(), 'ticks': rows, 'total': len(rows)}
+        except Exception as e:
+            return {'ticks': [], 'error': str(e)}
+
+    def query_assets(self, search: str='', sector: str='',
+                     sec_type: int=0, limit: int=200) -> dict:
+        if self._db is None or self._db._conn is None:
+            return {'assets': [], 'error': 'DB indisponivel'}
+        try:
+            conds, params = [], []
+            if search:
+                conds.append('(ticker ILIKE %s OR name ILIKE %s OR isin ILIKE %s)')
+                s = '%' + search.upper() + '%'
+                params += [s, s, s]
+            if sector:
+                conds.append('sector ILIKE %s'); params.append('%' + sector + '%')
+            if sec_type:
+                conds.append('security_type=%s'); params.append(sec_type)
+            where = ('WHERE ' + ' AND '.join(conds)) if conds else ''
+            params.append(limit)
+            sql = (f'SELECT ticker,exchange,name,description,security_type,'
+                   f'lot_size,min_price_increment,isin,sector,sub_sector,segment '
+                   f'FROM profit_assets {where} ORDER BY ticker LIMIT %s')
+            with self._db._lock:
+                cur = self._db._conn.cursor()
+                cur.execute(sql, params)
+                cols = [d[0] for d in cur.description]
+                rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+                cur.close()
+            return {'assets': rows, 'total': len(rows)}
+        except Exception as e:
+            return {'assets': [], 'error': str(e)}
+
+    def query_daily_summary(self) -> dict:
+        if self._db is None or self._db._conn is None:
+            return {'summary': [], 'error': 'DB indisponivel'}
+        try:
+            tickers = [t for t, _ in self._db.get_subscribed_tickers()]
+            if not tickers: return {'summary': [], 'note': 'sem tickers'}
+            ph = ','.join(['%s'] * len(tickers))
+            sql = (f'SELECT DISTINCT ON (ticker) ticker,exchange,time,'
+                   f'open,high,low,close,volume,adjust,qty,trades '
+                   f'FROM profit_daily_bars WHERE ticker IN ({ph}) '
+                   f'ORDER BY ticker,time DESC')
+            with self._db._lock:
+                cur = self._db._conn.cursor()
+                cur.execute(sql, tickers)
+                cols = [d[0] for d in cur.description]
+                rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+                cur.close()
+            for r in rows:
+                if hasattr(r.get('time'), 'isoformat'): r['time'] = r['time'].isoformat()
+                for k in ('open','high','low','close','volume','adjust'):
+                    if r.get(k) is not None: r[k] = float(r[k])
+            return {'summary': rows}
+        except Exception as e:
+            return {'summary': [], 'error': str(e)}
+
+    def get_positions(self, env: str = "simulation") -> dict:
+        """Posicao liquida por ticker: soma fills positivos (buy) e negativos (sell)."""
+        if self._db is None or self._db._conn is None:
+            return {"positions": [], "error": "DB indisponivel"}
+        try:
+            sql = """
+                SELECT ticker, exchange,
+                    SUM(CASE WHEN order_side = 1 THEN filled_qty
+                             WHEN order_side = 2 THEN -filled_qty ELSE 0 END) AS net_qty,
+                    SUM(CASE WHEN order_side = 1 THEN filled_qty * COALESCE(avg_fill_price,0)
+                             WHEN order_side = 2 THEN -filled_qty * COALESCE(avg_fill_price,0)
+                             ELSE 0 END) AS financial_exposure
+                FROM profit_orders
+                WHERE env = %s AND order_status IN (1, 2)
+                GROUP BY ticker, exchange
+                HAVING SUM(CASE WHEN order_side = 1 THEN filled_qty
+                                WHEN order_side = 2 THEN -filled_qty ELSE 0 END) != 0
+                ORDER BY ticker
+            """
+            with self._db._lock:
+                cur = self._db._conn.cursor()
+                cur.execute(sql, (env,))
+                cols = [d[0] for d in cur.description]
+                rows = [dict(zip(cols, row)) for row in cur.fetchall()]
+                cur.close()
+            for r in rows:
+                for k, v in r.items():
+                    if hasattr(v, "__float__"):
+                        r[k] = float(v) if v is not None else None
+            return {"positions": rows, "env": env}
+        except Exception as exc:
+            log.warning("get_positions.error error=%s", exc)
+            return {"positions": [], "error": str(exc)}
+
+    def list_book(self, ticker: str = "") -> dict:
+        """Retorna snapshot atual do book em memoria."""
+        if ticker:
+            book_data = self._book.get(ticker.upper())
+            if not book_data:
+                return {"ticker": ticker, "bids": [], "asks": [], "error": "sem dados"}
+            def _side(side_dict):
+                return [
+                    {"position": pos, **data}
+                    for pos, data in sorted(side_dict.items())
+                ]
+            return {
+                "ticker": ticker.upper(),
+                "bids": _side(book_data.get("bids", {})),
+                "asks": _side(book_data.get("asks", {})),
+            }
+        # Todos os tickers
+        result = {}
+        for t, book_data in self._book.items():
+            def _side(sd):
+                return [{"position": p, **d} for p, d in sorted(sd.items())]
+            result[t] = {
+                "bids": _side(book_data.get("bids", {})),
+                "asks": _side(book_data.get("asks", {})),
+            }
+        return {"book": result, "tickers": list(result.keys())}
+
     def list_tickers(self) -> dict:
         db_tickers = []
         if self._db:
@@ -1314,6 +1687,72 @@ class ProfitAgent:
                     self._send_json(agent.list_tickers())
                 elif self.path == "/health":
                     self._send_json({"ok": True})
+                elif self.path == "/orders":
+                    from urllib.parse import urlparse, parse_qs
+                    qs = parse_qs(urlparse(self.path).query)
+                    self._send_json(agent.list_orders(
+                        ticker=qs.get("ticker",[""])[0],
+                        status=qs.get("status",[""])[0],
+                        env=qs.get("env",[""])[0],
+                        limit=int(qs.get("limit",["100"])[0]),
+                    ))
+                elif self.path.startswith("/positions"):
+                    from urllib.parse import urlparse, parse_qs
+                    qs2 = parse_qs(urlparse(self.path).query)
+                    self._send_json(agent.get_positions(qs2.get("env",["simulation"])[0]))
+                elif self.path.startswith('/ticks/'):
+                    from urllib.parse import urlparse, parse_qs as _pqs
+                    _p = urlparse(self.path)
+                    _tkr = _p.path.split('/ticks/',1)[-1].upper()
+                    _ql = int(_pqs(_p.query).get('limit',['100'])[0])
+                    self._send_json(agent.query_ticks(_tkr, _ql))
+                elif self.path.startswith('/assets/'):
+                    _at = self.path.split('/assets/',1)[-1].upper()
+                    _ar = agent.query_assets(search=_at, limit=1)
+                    self._send_json(_ar['assets'][0] if _ar['assets'] else {'error':'nao encontrado'})
+                elif self.path.startswith('/assets'):
+                    from urllib.parse import urlparse, parse_qs as _pqs2
+                    _aq = _pqs2(urlparse(self.path).query)
+                    self._send_json(agent.query_assets(
+                        search=_aq.get('search',[''])[0],
+                        sector=_aq.get('sector',[''])[0],
+                        sec_type=int(_aq.get('type',['0'])[0]),
+                        limit=int(_aq.get('limit',['200'])[0]),
+                    ))
+                elif self.path == '/summary':
+                    self._send_json(agent.query_daily_summary())
+                elif self.path == '/stream/ticks':
+                    import queue as _qmod
+                    self.send_response(200)
+                    self.send_header('Content-Type','text/event-stream')
+                    self.send_header('Cache-Control','no-cache')
+                    self.send_header('Connection','keep-alive')
+                    self.end_headers()
+                    _cq = _qmod.Queue(maxsize=500)
+                    with agent._sse_lock:
+                        agent._sse_clients.append(_cq)
+                    try:
+                        while True:
+                            try:
+                                _d = _cq.get(timeout=15)
+                                self.wfile.write(('data: ' + _d + '\n\n').encode())
+                                self.wfile.flush()
+                            except _qmod.Empty:
+                                self.wfile.write(b': heartbeat\n\n')
+                                self.wfile.flush()
+                    except Exception:
+                        pass
+                    finally:
+                        with agent._sse_lock:
+                            try: agent._sse_clients.remove(_cq)
+                            except ValueError: pass
+                    return
+                elif self.path == "/book":
+
+                    self._send_json(agent.list_book())
+                elif self.path.startswith("/book/"):
+                    tkr = self.path.split("/book/", 1)[-1].upper()
+                    self._send_json(agent.list_book(tkr))
                 else:
                     self._send_json({"error": "not found"}, 404)
 

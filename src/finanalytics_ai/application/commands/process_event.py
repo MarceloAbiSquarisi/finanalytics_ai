@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from datetime import datetime
-    from decimal import Decimal
+from decimal import Decimal
 
 
 @dataclass(frozen=True)

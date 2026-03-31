@@ -50,7 +50,7 @@ from finanalytics_ai.exceptions import MarketDataUnavailableError, TransientErro
 
 if TYPE_CHECKING:
     from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
-    from finanalytics_ai.infrastructure.queue.kafka_adapter import KafkaMarketEventProducer
+from finanalytics_ai.infrastructure.queue.kafka_adapter import KafkaMarketEventProducer
 
 logger = structlog.get_logger(__name__)
 

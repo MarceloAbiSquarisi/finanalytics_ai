@@ -30,14 +30,14 @@ from finanalytics_ai.domain.events.models import (
 
 if TYPE_CHECKING:
     import uuid
-    from collections.abc import Sequence
+from collections.abc import Sequence
 
-    from finanalytics_ai.application.event_processor.ports import (
+from finanalytics_ai.application.event_processor.ports import (
         EventRepository,
         IdempotencyStore,
         ObservabilityPort,
     )
-    from finanalytics_ai.domain.events.rules import BusinessRule
+from finanalytics_ai.domain.events.rules import BusinessRule
 
 logger = structlog.get_logger(__name__)
 

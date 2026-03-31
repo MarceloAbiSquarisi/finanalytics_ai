@@ -9,9 +9,7 @@ Design: aceita GET com query params para facilitar chamadas diretas do
 frontend sem montar body JSON — UX mais simples no dashboard.
 """
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -19,16 +17,12 @@ from pydantic import BaseModel, Field
 
 from finanalytics_ai.application.services.backtest_service import BacktestError, BacktestService
 from finanalytics_ai.infrastructure.cache.dependencies import rate_limit
-
-if TYPE_CHECKING:
-    from finanalytics_ai.application.services.optimizer_service import OptimizerService
+from finanalytics_ai.application.services.optimizer_service import OptimizerService
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/backtest", tags=["backtest"])
 
-
 # ── Schemas ───────────────────────────────────────────────────────────────────
-
 
 class BacktestRequest(BaseModel):
     ticker: str = Field(..., description="PETR4")
@@ -44,7 +38,6 @@ class BacktestRequest(BaseModel):
     macd_fast: int | None = None
     macd_slow: int | None = None
     macd_signal: int | None = None
-
 
 def _build_strategy_params(req: BacktestRequest) -> dict[str, Any]:
     """Monta dict de parâmetros apenas com os campos fornecidos."""
@@ -81,16 +74,13 @@ def _build_strategy_params(req: BacktestRequest) -> dict[str, Any]:
 
     return mapping
 
-
 def _get_service(request: Request) -> BacktestService:
     svc = getattr(request.app.state, "backtest_service", None)
     if svc is None:
         raise HTTPException(503, "BacktestService não inicializado")
     return svc
 
-
 # ── Endpoints ─────────────────────────────────────────────────────────────────
-
 
 @router.get("/strategies")
 async def list_strategies() -> dict[str, Any]:
@@ -133,15 +123,13 @@ async def list_strategies() -> dict[str, Any]:
         ]
     }
 
-
 @router.post("/run")
 async def run_backtest_post(
     body: BacktestRequest,
-    request: Request,
+    request: Request
 ) -> dict[str, Any]:
     """Executa backtest via POST JSON."""
     return await _execute(request, body)
-
 
 @router.get("/run")
 async def run_backtest_get(
@@ -157,7 +145,7 @@ async def run_backtest_get(
     rsi_overbought: float | None = Query(None),
     macd_fast: int | None = Query(None),
     macd_slow: int | None = Query(None),
-    macd_signal: int | None = Query(None),
+    macd_signal: int | None = Query(None)
 ) -> dict[str, Any]:
     """Executa backtest via GET query params (para o dashboard)."""
     body = BacktestRequest(
@@ -172,10 +160,9 @@ async def run_backtest_get(
         rsi_overbought=rsi_overbought,
         macd_fast=macd_fast,
         macd_slow=macd_slow,
-        macd_signal=macd_signal,
+        macd_signal=macd_signal
     )
     return await _execute(request, body)
-
 
 async def _execute(request: Request, body: BacktestRequest) -> dict[str, Any]:
     service = _get_service(request)
@@ -187,7 +174,7 @@ async def _execute(request: Request, body: BacktestRequest) -> dict[str, Any]:
             initial_capital=body.initial_capital,
             position_size=body.position_size,
             commission_pct=body.commission_pct,
-            strategy_params=_build_strategy_params(body) or None,
+            strategy_params=_build_strategy_params(body) or None
         )
         return result.to_dict()
     except BacktestError as exc:
@@ -196,9 +183,7 @@ async def _execute(request: Request, body: BacktestRequest) -> dict[str, Any]:
         logger.error("backtest.unexpected_error", error=str(exc))
         raise HTTPException(500, "Erro interno ao executar backtest") from exc
 
-
 # ── Optimize ──────────────────────────────────────────────────────────────────
-
 
 class OptimizeRequest(BaseModel):
     ticker: str = Field(..., description="PETR4")
@@ -210,20 +195,18 @@ class OptimizeRequest(BaseModel):
     objective: str = Field("sharpe", description="sharpe|return|calmar|win_rate|profit_factor")
     top_n: int = Field(10, ge=1, le=20)
 
-
 def _get_optimizer(request: Request) -> OptimizerService:
     svc = getattr(request.app.state, "optimizer_service", None)
     if svc is None:
         raise HTTPException(503, "OptimizerService nao inicializado")
     return svc
 
-
 @router.post("/optimize")
 async def optimize_strategy(
     body: OptimizeRequest,
     request: Request,
     response: Response,
-    _rl: None = Depends(rate_limit(limit=5, window=60)),
+    _rl: None = Depends(rate_limit(limit=5, window=60))
 ) -> dict[str, Any]:
     """
     Otimiza parametros de uma estrategia via grid search.
@@ -243,7 +226,7 @@ async def optimize_strategy(
             position_size=body.position_size,
             commission_pct=body.commission_pct,
             objective=body.objective,
-            top_n=body.top_n,
+            top_n=body.top_n
         )
         return result.to_dict()
     except BacktestError as exc:
@@ -251,7 +234,6 @@ async def optimize_strategy(
     except Exception as exc:
         logger.error("optimize.unexpected_error", error=str(exc))
         raise HTTPException(500, "Erro interno na otimizacao") from exc
-
 
 @router.get("/optimize")
 async def optimize_strategy_get(
@@ -263,7 +245,7 @@ async def optimize_strategy_get(
     position_size: float = Query(1.0),
     commission_pct: float = Query(0.001),
     objective: str = Query("sharpe"),
-    top_n: int = Query(10),
+    top_n: int = Query(10)
 ) -> dict[str, Any]:
     """Otimiza via GET query params."""
     body = OptimizeRequest(
@@ -274,7 +256,7 @@ async def optimize_strategy_get(
         position_size=position_size,
         commission_pct=commission_pct,
         objective=objective,
-        top_n=top_n,
+        top_n=top_n
     )
     svc = _get_optimizer(request)
     try:
@@ -286,7 +268,7 @@ async def optimize_strategy_get(
             position_size=body.position_size,
             commission_pct=body.commission_pct,
             objective=body.objective,
-            top_n=body.top_n,
+            top_n=body.top_n
         )
         return result.to_dict()
     except BacktestError as exc:
@@ -295,9 +277,7 @@ async def optimize_strategy_get(
         logger.error("optimize.unexpected_error", error=str(exc))
         raise HTTPException(500, "Erro interno na otimizacao") from exc
 
-
 # ── Walk-Forward ──────────────────────────────────────────────────────────────
-
 
 class WalkForwardRequest(BaseModel):
     ticker: str = Field(..., description="PETR4")
@@ -311,20 +291,18 @@ class WalkForwardRequest(BaseModel):
     oos_pct: float = Field(0.3, ge=0.1, le=0.5)
     anchored: bool = Field(False)
 
-
 def _get_walkforward(request: Request):
     svc = getattr(request.app.state, "walkforward_service", None)
     if svc is None:
         raise HTTPException(503, "WalkForwardService nao inicializado")
     return svc
 
-
 @router.post("/walkforward")
 async def run_walkforward(
     body: WalkForwardRequest,
     request: Request,
     response: Response,
-    _rl: None = Depends(rate_limit(limit=5, window=60)),
+    _rl: None = Depends(rate_limit(limit=5, window=60))
 ) -> dict[str, Any]:
     """
     Executa walk-forward validation para detectar overfitting.
@@ -347,7 +325,7 @@ async def run_walkforward(
             objective=body.objective,
             n_splits=body.n_splits,
             oos_pct=body.oos_pct,
-            anchored=body.anchored,
+            anchored=body.anchored
         )
         return result.to_dict()
     except BacktestError as exc:
@@ -355,7 +333,6 @@ async def run_walkforward(
     except Exception as exc:
         logger.error("walkforward.unexpected_error", error=str(exc))
         raise HTTPException(500, "Erro interno no walk-forward") from exc
-
 
 @router.get("/walkforward")
 async def run_walkforward_get(
@@ -369,7 +346,7 @@ async def run_walkforward_get(
     objective: str = Query("sharpe"),
     n_splits: int = Query(3),
     oos_pct: float = Query(0.3),
-    anchored: bool = Query(False),
+    anchored: bool = Query(False)
 ) -> dict[str, Any]:
     """Walk-forward via GET query params."""
     body = WalkForwardRequest(
@@ -382,7 +359,7 @@ async def run_walkforward_get(
         objective=objective,
         n_splits=n_splits,
         oos_pct=oos_pct,
-        anchored=anchored,
+        anchored=anchored
     )
     svc = _get_walkforward(request)
     try:
@@ -396,7 +373,7 @@ async def run_walkforward_get(
             objective=body.objective,
             n_splits=body.n_splits,
             oos_pct=body.oos_pct,
-            anchored=body.anchored,
+            anchored=body.anchored
         )
         return result.to_dict()
     except BacktestError as exc:
@@ -405,14 +382,10 @@ async def run_walkforward_get(
         logger.error("walkforward.unexpected_error", error=str(exc))
         raise HTTPException(500, "Erro interno no walk-forward") from exc
 
-
 # ── Multi-Ticker Compare ───────────────────────────────────────────────────────
 
 from finanalytics_ai.domain.backtesting.multi_ticker import MAX_TICKERS
-
-if TYPE_CHECKING:
-    from finanalytics_ai.application.services.multi_ticker_service import MultiTickerService
-
+from finanalytics_ai.application.services.multi_ticker_service import MultiTickerService
 
 class MultiTickerRequest(BaseModel):
     tickers: list[str] = Field(..., min_length=1, max_length=MAX_TICKERS)
@@ -424,20 +397,18 @@ class MultiTickerRequest(BaseModel):
     objective: str = Field("sharpe")
     top_n: int = Field(5, ge=1, le=10)
 
-
 def _get_multi_ticker(request: Request) -> MultiTickerService:
     svc = getattr(request.app.state, "multi_ticker_service", None)
     if svc is None:
         raise HTTPException(503, "MultiTickerService nao inicializado")
     return svc
 
-
 @router.post("/multi")
 async def compare_multi_ticker(
     body: MultiTickerRequest,
     request: Request,
     response: Response,
-    _rl: None = Depends(rate_limit(limit=5, window=60)),
+    _rl: None = Depends(rate_limit(limit=5, window=60))
 ) -> dict[str, Any]:
     """
     Compara a mesma estrategia em multiplos tickers via grid search.
@@ -457,7 +428,7 @@ async def compare_multi_ticker(
             position_size=body.position_size,
             commission_pct=body.commission_pct,
             objective=body.objective,
-            top_n=body.top_n,
+            top_n=body.top_n
         )
         return result.to_dict()
     except BacktestError as exc:
@@ -465,7 +436,6 @@ async def compare_multi_ticker(
     except Exception as exc:
         logger.error("multi_ticker.unexpected_error", error=str(exc))
         raise HTTPException(500, "Erro interno no comparativo multi-ticker") from exc
-
 
 @router.get("/multi")
 async def compare_multi_ticker_get(
@@ -477,7 +447,7 @@ async def compare_multi_ticker_get(
     position_size: float = Query(1.0),
     commission_pct: float = Query(0.001),
     objective: str = Query("sharpe"),
-    top_n: int = Query(5),
+    top_n: int = Query(5)
 ) -> dict[str, Any]:
     """Compara via GET — tickers como string separada por virgula."""
     ticker_list = [t.strip() for t in tickers.split(",") if t.strip()]
@@ -489,7 +459,7 @@ async def compare_multi_ticker_get(
         position_size=position_size,
         commission_pct=commission_pct,
         objective=objective,
-        top_n=top_n,
+        top_n=top_n
     )
     svc = _get_multi_ticker(request)
     try:
@@ -501,7 +471,7 @@ async def compare_multi_ticker_get(
             position_size=body.position_size,
             commission_pct=body.commission_pct,
             objective=body.objective,
-            top_n=body.top_n,
+            top_n=body.top_n
         )
         return result.to_dict()
     except BacktestError as exc:

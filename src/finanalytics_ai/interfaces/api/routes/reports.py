@@ -16,25 +16,20 @@ Design:
     Reduz carga na BRAPI (que é chamada pelo get_snapshot).
 """
 
-from __future__ import annotations
-
 import asyncio
 import io
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from finanalytics_ai.interfaces.api.dependencies import get_portfolio_service
-
-if TYPE_CHECKING:
-    from finanalytics_ai.application.services.portfolio_service import PortfolioService
+from finanalytics_ai.application.services.portfolio_service import PortfolioService
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["Reports"])
-
 
 def _snapshot_to_dict(snapshot: Any) -> dict[str, Any]:
     """Converte PortfolioSnapshot (Pydantic) para dict serialização."""
@@ -44,7 +39,6 @@ def _snapshot_to_dict(snapshot: Any) -> dict[str, Any]:
         return snapshot.dict()
     return dict(snapshot)
 
-
 @router.get(
     "/api/v1/portfolios/{portfolio_id}/report.pdf",
     response_class=StreamingResponse,
@@ -53,11 +47,11 @@ def _snapshot_to_dict(snapshot: Any) -> dict[str, Any]:
         "Gera um relatório PDF completo com posições, P&L, "
         "gráfico de alocação e histórico. Cotações em tempo real via BRAPI."
     ),
-    include_in_schema=True,
+    include_in_schema=True
 )
 async def export_portfolio_pdf(
     portfolio_id: str,
-    svc: PortfolioService = Depends(get_portfolio_service),
+    svc: PortfolioService = Depends(get_portfolio_service)
 ) -> StreamingResponse:
     """
     Exporta relatório PDF do portfólio.
@@ -73,7 +67,7 @@ async def export_portfolio_pdf(
         logger.warning("report.snapshot_failed", portfolio_id=portfolio_id, error=str(exc))
         raise HTTPException(
             status_code=404,
-            detail={"error": "PORTFOLIO_NOT_FOUND", "message": str(exc)},
+            detail={"error": "PORTFOLIO_NOT_FOUND", "message": str(exc)}
         ) from exc
 
     snap_dict = _snapshot_to_dict(snapshot)
@@ -81,7 +75,7 @@ async def export_portfolio_pdf(
     logger.info(
         "report.pdf.generating",
         portfolio_id=portfolio_id,
-        positions=len(snap_dict.get("positions", [])),
+        positions=len(snap_dict.get("positions", []))
     )
 
     try:
@@ -92,7 +86,7 @@ async def export_portfolio_pdf(
         logger.error("report.pdf.failed", portfolio_id=portfolio_id, error=str(exc))
         raise HTTPException(
             status_code=500,
-            detail={"error": "REPORT_GENERATION_FAILED", "message": "Erro ao gerar PDF."},
+            detail={"error": "REPORT_GENERATION_FAILED", "message": "Erro ao gerar PDF."}
         ) from exc
 
     filename = f"carteira_{portfolio_id[:8]}.pdf"
@@ -105,5 +99,5 @@ async def export_portfolio_pdf(
             "Content-Disposition": f'attachment; filename="{filename}"',
             "Content-Length": str(len(pdf_bytes)),
             "X-Report-Positions": str(len(snap_dict.get("positions", []))),
-        },
+        }
     )

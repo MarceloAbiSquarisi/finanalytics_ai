@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 if TYPE_CHECKING:
     import pandas as pd
 
-    from finanalytics_ai.domain.fintz.entities import FintzDatasetSpec
+from finanalytics_ai.domain.fintz.entities import FintzDatasetSpec
 
 
 @runtime_checkable

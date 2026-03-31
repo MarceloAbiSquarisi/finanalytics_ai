@@ -18,7 +18,7 @@ from finanalytics_ai.infrastructure.database.repositories.ohlc_1m_repo import (
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-    from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
+from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
 
 logger = structlog.get_logger(__name__)
 DAILY = {"1d", "2d", "3d", "4d", "5d", "1wk", "1mo", "3mo"}

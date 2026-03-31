@@ -7,7 +7,6 @@ from fastapi.responses import HTMLResponse
 
 router = APIRouter()
 
-
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard() -> HTMLResponse:
     html_path = pathlib.Path(__file__).parent.parent / "static" / "dashboard.html"

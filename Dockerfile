@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+﻿# syntax=docker/dockerfile:1
 # ──────────────────────────────────────────────────────────────────────────────
 # FinAnalytics AI — Dockerfile multi-stage
 #
@@ -66,14 +66,21 @@ COPY src/ ./src/
 FROM base AS api
 
 # Copiar site-packages instalados no builder
+RUN apt-get update -qq && apt-get install -y -q --no-install-recommends libgomp1 && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /usr/local/lib/python3.12/site-packages \
                     /usr/local/lib/python3.12/site-packages
+RUN apt-get update -qq && apt-get install -y -q --no-install-recommends libgomp1 && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /usr/local/bin/uvicorn  /usr/local/bin/uvicorn
+RUN apt-get update -qq && apt-get install -y -q --no-install-recommends libgomp1 && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /usr/local/bin/alembic  /usr/local/bin/alembic
 COPY --from=builder /app/src ./src
 
 # Migrations e entrypoint
 COPY alembic/              ./alembic/
+COPY init_timescale/       ./init_timescale/
 COPY alembic.ini           ./alembic.ini
 COPY docker-entrypoint.sh  ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
@@ -95,6 +102,8 @@ ENTRYPOINT ["./docker-entrypoint.sh"]
 
 # ── worker: processador de eventos (main.py) ───────────────────────────────────
 FROM base AS worker
+
+RUN apt-get update -qq && apt-get install -y -q --no-install-recommends libgomp1 && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /usr/local/lib/python3.12/site-packages \
                     /usr/local/lib/python3.12/site-packages

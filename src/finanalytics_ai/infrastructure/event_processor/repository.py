@@ -32,7 +32,7 @@ from finanalytics_ai.infrastructure.event_processor.orm_models import EventRecor
 if TYPE_CHECKING:
     import uuid
 
-    from finanalytics_ai.domain.events.models import DomainEvent, EventStatus
+from finanalytics_ai.domain.events.models import DomainEvent, EventStatus
 
 logger = structlog.get_logger(__name__)
 

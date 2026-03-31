@@ -9,7 +9,6 @@ API REST para carteira multi-usuário:
   /api/v1/wallet/summary      — visão geral da carteira
   /api/v1/wallet/master       — visão master (ADMIN/MASTER apenas)
 """
-from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 from typing import Any, Optional
@@ -21,16 +20,13 @@ from finanalytics_ai.infrastructure.database.repositories.wallet_repo import Wal
 
 router = APIRouter(prefix="/api/v1/wallet", tags=["Carteira"])
 
-
 def _repo() -> WalletRepository:
     return WalletRepository()
-
 
 def _require_master_or_admin(user: User) -> User:
     if user.role not in (UserRole.ADMIN, UserRole.MASTER):
         raise HTTPException(status_code=403, detail="Acesso negado: requer perfil MASTER ou ADMIN")
     return user
-
 
 # ── Schemas ───────────────────────────────────────────────────────────────
 
@@ -95,20 +91,19 @@ class OtherAssetUpdate(BaseModel):
     maturity_date: Optional[date] = None
     note: Optional[str] = None
 
-
 # ── Investment Accounts ───────────────────────────────────────────────────
 
 @router.get("/accounts")
 async def list_accounts(
     include_inactive: bool = False,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user)
 ) -> list[dict]:
     return await _repo().list_accounts(str(user.user_id), include_inactive)
 
 @router.post("/accounts", status_code=status.HTTP_201_CREATED)
 async def create_account(
     body: AccountCreate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user)
 ) -> dict:
     data = body.model_dump()
     data["user_id"] = str(user.user_id)
@@ -117,7 +112,7 @@ async def create_account(
 @router.get("/accounts/{account_id}")
 async def get_account(
     account_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user)
 ) -> dict:
     acc = await _repo().get_account(account_id, str(user.user_id))
     if not acc:
@@ -128,7 +123,7 @@ async def get_account(
 async def update_account(
     account_id: str,
     body: AccountUpdate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user)
 ) -> dict:
     data = {k: v for k, v in body.model_dump().items() if v is not None}
     acc = await _repo().update_account(account_id, str(user.user_id), data)
@@ -139,12 +134,11 @@ async def update_account(
 @router.delete("/accounts/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def deactivate_account(
     account_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user)
 ) -> None:
     ok = await _repo().delete_account(account_id, str(user.user_id))
     if not ok:
         raise HTTPException(404, "Conta não encontrada")
-
 
 # ── Trades ────────────────────────────────────────────────────────────────
 
@@ -153,14 +147,14 @@ async def list_trades(
     ticker: Optional[str] = None,
     asset_class: Optional[str] = None,
     account_id: Optional[str] = None,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user)
 ) -> list[dict]:
     return await _repo().list_trades(str(user.user_id), ticker, asset_class, account_id)
 
 @router.post("/trades", status_code=status.HTTP_201_CREATED)
 async def create_trade(
     body: TradeCreate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user)
 ) -> dict:
     data = body.model_dump()
     data["user_id"] = str(user.user_id)
@@ -174,22 +168,20 @@ async def create_trade(
 @router.delete("/trades/{trade_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_trade(
     trade_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user)
 ) -> None:
     ok = await _repo().delete_trade(trade_id, str(user.user_id))
     if not ok:
         raise HTTPException(404, "Trade não encontrado")
-
 
 # ── Positions (preço médio calculado) ────────────────────────────────────
 
 @router.get("/positions")
 async def get_positions(
     asset_class: Optional[str] = None,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user)
 ) -> list[dict]:
     return await _repo().get_positions_summary(str(user.user_id), asset_class)
-
 
 # ── Crypto ────────────────────────────────────────────────────────────────
 
@@ -200,7 +192,7 @@ async def list_crypto(user: User = Depends(get_current_user)) -> list[dict]:
 @router.put("/crypto", status_code=status.HTTP_200_OK)
 async def upsert_crypto(
     body: CryptoUpsert,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user)
 ) -> dict:
     data = body.model_dump()
     data["user_id"] = str(user.user_id)
@@ -212,26 +204,25 @@ async def upsert_crypto(
 @router.delete("/crypto/{crypto_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_crypto(
     crypto_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user)
 ) -> None:
     ok = await _repo().delete_crypto(crypto_id, str(user.user_id))
     if not ok:
         raise HTTPException(404, "Cripto não encontrada")
-
 
 # ── Other Assets ──────────────────────────────────────────────────────────
 
 @router.get("/other")
 async def list_other(
     asset_type: Optional[str] = None,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user)
 ) -> list[dict]:
     return await _repo().list_other_assets(str(user.user_id), asset_type)
 
 @router.post("/other", status_code=status.HTTP_201_CREATED)
 async def create_other(
     body: OtherAssetCreate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user)
 ) -> dict:
     data = body.model_dump()
     data["user_id"] = str(user.user_id)
@@ -245,7 +236,7 @@ async def create_other(
 async def update_other(
     asset_id: str,
     body: OtherAssetUpdate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user)
 ) -> dict:
     data = {k: v for k, v in body.model_dump().items() if v is not None}
     for k in ("current_value", "invested_value"):
@@ -260,12 +251,11 @@ async def update_other(
 @router.delete("/other/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_other(
     asset_id: str,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user)
 ) -> None:
     ok = await _repo().delete_other_asset(asset_id, str(user.user_id))
     if not ok:
         raise HTTPException(404, "Ativo não encontrado")
-
 
 # ── Summary ───────────────────────────────────────────────────────────────
 
@@ -277,7 +267,7 @@ async def wallet_summary(user: User = Depends(get_current_user)) -> dict:
         repo.list_accounts(uid),
         repo.get_positions_summary(uid),
         repo.list_crypto(uid),
-        repo.list_other_assets(uid),
+        repo.list_other_assets(uid)
     )
     return {
         "accounts": accounts,
@@ -292,13 +282,12 @@ async def wallet_summary(user: User = Depends(get_current_user)) -> dict:
         }
     }
 
-
 # ── Master view ───────────────────────────────────────────────────────────
 
 @router.get("/master")
 async def master_view(
     user_id: Optional[str] = Query(None),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user)
 ) -> list[dict]:
     _require_master_or_admin(user)
     return await _repo().list_all_users_summary(user_id)

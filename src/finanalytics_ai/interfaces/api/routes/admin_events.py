@@ -15,8 +15,6 @@ Decisões:
 - Resposta com TypedDict explícito evita `dict[str, Any]` solto nos retornos.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -25,16 +23,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from finanalytics_ai.domain.events.entities import EventId
 from finanalytics_ai.infrastructure.database.repositories.event_repository import (
-    PostgresEventRepository,
+    PostgresEventRepository
 )
 
 router = APIRouter(prefix="/admin/events", tags=["admin", "events"])
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Response schemas (Pydantic v2)
 # ──────────────────────────────────────────────────────────────────────────────
-
 
 class DeadLetterEventResponse(BaseModel):
     event_id: str
@@ -46,25 +42,21 @@ class DeadLetterEventResponse(BaseModel):
     last_error: str | None
     payload_preview: dict[str, Any]  # primeiros N campos do payload
 
-
 class DeadLetterListResponse(BaseModel):
     total_returned: int
     limit: int
     offset: int
     items: list[DeadLetterEventResponse]
 
-
 class RequeueResponse(BaseModel):
     event_id: str
     requeued: bool
     message: str
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Dependency — session
 # Nota: adapte get_db para o padrão de DI do seu app.py principal.
 # ──────────────────────────────────────────────────────────────────────────────
-
 
 async def get_db() -> AsyncSession:  # type: ignore[return]
     """Placeholder — substitua pelo session factory do app principal.
@@ -79,17 +71,15 @@ async def get_db() -> AsyncSession:  # type: ignore[return]
     """
     raise NotImplementedError("Configure get_db no app.py principal")
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Endpoints
 # ──────────────────────────────────────────────────────────────────────────────
-
 
 @router.get("/dead-letter", response_model=DeadLetterListResponse)
 async def list_dead_letter_events(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_db)
 ) -> DeadLetterListResponse:
     """Lista todos os eventos em dead-letter com paginação.
 
@@ -116,14 +106,13 @@ async def list_dead_letter_events(
         total_returned=len(items),
         limit=limit,
         offset=offset,
-        items=items,
+        items=items
     )
-
 
 @router.post("/dead-letter/{event_id}/requeue", response_model=RequeueResponse)
 async def requeue_dead_letter_event(
     event_id: str,
-    session: AsyncSession = Depends(get_db),
+    session: AsyncSession = Depends(get_db)
 ) -> RequeueResponse:
     """Recoloca um evento dead-letter na fila como 'pending'.
 
@@ -150,11 +139,11 @@ async def requeue_dead_letter_event(
     if not requeued:
         raise HTTPException(
             status_code=404,
-            detail=f"Evento {event_id!r} não encontrado em dead-letter.",
+            detail=f"Evento {event_id!r} não encontrado em dead-letter."
         )
 
     return RequeueResponse(
         event_id=event_id,
         requeued=True,
-        message="Evento recolocado em 'pending'. Será processado no próximo poll do worker.",
+        message="Evento recolocado em 'pending'. Será processado no próximo poll do worker."
     )

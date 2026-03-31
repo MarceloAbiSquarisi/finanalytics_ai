@@ -1,7 +1,5 @@
 """finanalytics_ai.interfaces.api.routes.fund_analysis"""
 
-from __future__ import annotations
-
 import structlog
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
@@ -11,16 +9,14 @@ router = APIRouter(prefix="/api/v1/fund-analysis", tags=["Análise de Lâminas"]
 
 _MAX_UPLOAD = 20 * 1024 * 1024  # 20 MB
 
-
 def _get_service():
     from finanalytics_ai.application.services.fund_analysis_service import (
         ConfigurationError,
         FundAnalysisError,
-        FundAnalysisService,
+        FundAnalysisService
     )
 
     return FundAnalysisService(), FundAnalysisError, ConfigurationError
-
 
 @router.get("/status")
 async def fund_analysis_status() -> dict:
@@ -34,7 +30,6 @@ async def fund_analysis_status() -> dict:
             else "ANTHROPIC_API_KEY não configurada. Adicione ao .env e reinicie o container."
         ),
     }
-
 
 @router.post("/analyze")
 async def analyze_fund(file: UploadFile = File(...)) -> JSONResponse:

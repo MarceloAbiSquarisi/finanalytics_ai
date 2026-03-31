@@ -16,8 +16,8 @@ if TYPE_CHECKING:
         IdempotencyStore,
         ObservabilityPort,
     )
-    from finanalytics_ai.application.event_processor.tracing import TracingPort
-    from finanalytics_ai.domain.events.rules import BusinessRule
+from finanalytics_ai.application.event_processor.tracing import TracingPort
+from finanalytics_ai.domain.events.rules import BusinessRule
 
 
 def create_event_processor_service(

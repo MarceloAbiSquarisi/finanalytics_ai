@@ -17,8 +17,6 @@ Design:
   - Paginação via limit/offset para listas longas
 """
 
-from __future__ import annotations
-
 from datetime import date
 from typing import Annotated, Any
 
@@ -36,24 +34,22 @@ INDICADORES_RENTABILIDADE = ["ROE", "ROIC", "ROA", "Margem Líquida", "Margem EB
 INDICADORES_DIVIDENDOS = ["DY", "Payout"]
 INDICADORES_ENDIVIDAMENTO = ["Dívida Líquida/EBITDA", "Dívida Líquida/Patrimônio Líquido"]
 
-
 def _get_repo(request: Request) -> Any:
     """Dependency: retorna o TimescaleFintzRepository do app.state."""
     repo = getattr(request.app.state, "fintz_ts_repo", None)
     if repo is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="TimescaleDB indisponível. Tente novamente em instantes.",
+            detail="TimescaleDB indisponível. Tente novamente em instantes."
         )
     return repo
-
 
 # ── Cotações ──────────────────────────────────────────────────────────────────
 
 @router.get(
     "/cotacoes/{ticker}",
     summary="Série histórica de cotações",
-    response_description="Lista de candles diários ajustados",
+    response_description="Lista de candles diários ajustados"
 )
 async def get_cotacoes(
     ticker: str,
@@ -61,7 +57,7 @@ async def get_cotacoes(
     start: date | None = Query(default=None, description="Data inicial (YYYY-MM-DD)"),
     end: date | None = Query(default=None, description="Data final (YYYY-MM-DD)"),
     limit: Annotated[int, Query(ge=1, le=2520)] = 252,
-    current_user: Any = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user)
 ) -> dict[str, Any]:
     """
     Retorna série histórica de cotações para um ticker.
@@ -80,10 +76,9 @@ async def get_cotacoes(
         "cotacoes": data,
     }
 
-
 @router.get(
     "/cotacoes/{ticker}/agregado",
-    summary="Cotações agregadas por período",
+    summary="Cotações agregadas por período"
 )
 async def get_cotacoes_agregadas(
     ticker: str,
@@ -94,7 +89,7 @@ async def get_cotacoes_agregadas(
     ] = "1 month",
     start: date | None = Query(default=None),
     limit: Annotated[int, Query(ge=1, le=120)] = 60,
-    current_user: Any = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user)
 ) -> dict[str, Any]:
     """
     Cotações OHLCV agregadas por bucket temporal (powered by TimescaleDB time_bucket).
@@ -107,12 +102,11 @@ async def get_cotacoes_agregadas(
     )
     return {"ticker": ticker.upper(), "bucket": bucket, "count": len(data), "periodos": data}
 
-
 # ── Indicadores ───────────────────────────────────────────────────────────────
 
 @router.get(
     "/indicadores/{ticker}/latest",
-    summary="Snapshot atual de indicadores fundamentalistas",
+    summary="Snapshot atual de indicadores fundamentalistas"
 )
 async def get_indicadores_latest(
     ticker: str,
@@ -121,7 +115,7 @@ async def get_indicadores_latest(
         str | None,
         Query(description="Grupo pré-definido", enum=["valuation", "rentabilidade", "dividendos", "endividamento"]),
     ] = None,
-    current_user: Any = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user)
 ) -> dict[str, Any]:
     """
     Snapshot mais recente de todos os indicadores fundamentalistas.
@@ -143,10 +137,9 @@ async def get_indicadores_latest(
     data = await repo.get_indicadores_latest(ticker=ticker.upper(), indicadores=indicadores)
     return {"ticker": ticker.upper(), "grupo": grupo, "indicadores": data}
 
-
 @router.get(
     "/indicadores/{ticker}/serie/{indicador}",
-    summary="Série temporal de um indicador",
+    summary="Série temporal de um indicador"
 )
 async def get_indicador_serie(
     ticker: str,
@@ -154,7 +147,7 @@ async def get_indicador_serie(
     request: Request,
     start: date | None = Query(default=None),
     limit: Annotated[int, Query(ge=1, le=1000)] = 252,
-    current_user: Any = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user)
 ) -> dict[str, Any]:
     """
     Série temporal de um único indicador fundamentalista.
@@ -172,18 +165,17 @@ async def get_indicador_serie(
         "serie": data,
     }
 
-
 # ── Itens Contábeis ───────────────────────────────────────────────────────────
 
 @router.get(
     "/itens/{ticker}/latest",
-    summary="Snapshot atual de itens contábeis",
+    summary="Snapshot atual de itens contábeis"
 )
 async def get_itens_latest(
     ticker: str,
     request: Request,
     tipo_periodo: Annotated[str, Query(enum=["12M", "TRIMESTRAL"])] = "12M",
-    current_user: Any = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user)
 ) -> dict[str, Any]:
     """
     Snapshot mais recente dos itens contábeis (DRE, Balanço, Fluxo de Caixa).
@@ -201,10 +193,9 @@ async def get_itens_latest(
         "itens": data,
     }
 
-
 @router.get(
     "/itens/{ticker}/serie",
-    summary="Série histórica de itens contábeis",
+    summary="Série histórica de itens contábeis"
 )
 async def get_itens_serie(
     ticker: str,
@@ -216,7 +207,7 @@ async def get_itens_serie(
     tipo_periodo: Annotated[str, Query(enum=["12M", "TRIMESTRAL"])] = "12M",
     start: date | None = Query(default=None),
     limit: Annotated[int, Query(ge=1, le=500)] = 80,
-    current_user: Any = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user)
 ) -> dict[str, Any]:
     """
     Série histórica de itens contábeis para análise de tendência.
@@ -229,7 +220,7 @@ async def get_itens_serie(
         itens=itens,
         tipo_periodo=tipo_periodo,
         start=start,
-        limit=limit,
+        limit=limit
     )
     return {
         "ticker": ticker.upper(),
@@ -238,17 +229,16 @@ async def get_itens_serie(
         "itens": data,
     }
 
-
 # ── Utilitários ───────────────────────────────────────────────────────────────
 
 @router.get(
     "/coverage/{ticker}",
-    summary="Cobertura temporal de dados para um ticker",
+    summary="Cobertura temporal de dados para um ticker"
 )
 async def get_coverage(
     ticker: str,
     request: Request,
-    current_user: Any = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user)
 ) -> dict[str, Any]:
     """
     Retorna período de cobertura e contagem de registros por dataset.
@@ -257,10 +247,9 @@ async def get_coverage(
     repo = _get_repo(request)
     return await repo.get_coverage(ticker=ticker.upper())
 
-
 @router.get(
     "/tickers",
-    summary="Lista tickers disponíveis",
+    summary="Lista tickers disponíveis"
 )
 async def list_tickers(
     request: Request,
@@ -268,7 +257,7 @@ async def list_tickers(
         str,
         Query(enum=["cotacoes", "indicadores", "itens"]),
     ] = "cotacoes",
-    current_user: Any = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user)
 ) -> dict[str, Any]:
     """Lista todos os tickers com dados disponíveis em um dataset."""
     repo = _get_repo(request)

@@ -4,7 +4,6 @@ GET  /api/v1/system/status          -- status agregado (MASTER/ADMIN)
 POST /api/v1/system/producer/start  -- inicia producer
 POST /api/v1/system/producer/stop   -- para producer
 """
-from __future__ import annotations
 import time
 
 import structlog
@@ -16,12 +15,10 @@ from finanalytics_ai.interfaces.api.dependencies import get_current_user
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/system", tags=["System"])
 
-
 def require_admin(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role not in (UserRole.MASTER, UserRole.ADMIN):
         raise HTTPException(403, detail="Acesso restrito a administradores.")
     return current_user
-
 
 @router.get("/status")
 async def system_status(_: User = Depends(require_admin)) -> dict:
@@ -199,27 +196,25 @@ async def system_status(_: User = Depends(require_admin)) -> dict:
         "detail": "Modulo nao carregado (ohlc_updater ausente)",
         "can_restart": False, "running": False,
     })
-        # ── ProfitDLL status ──────────────────────────────────────────────────────
-        try:
-            import os as _os
-            dll_path = _os.getenv("PROFIT_DLL_PATH", r"C:\Nelogica\ProfitDLL64.dll")
-            dll_exists = _os.path.exists(dll_path) if _os.name == "nt" else False
-            has_key = bool(_os.getenv("PROFIT_ACTIVATION_KEY", ""))
-            profit_status = {
-                "name": "ProfitDLL",
-                "dll_found": dll_exists,
-                "credentials_configured": has_key,
-                "tickers": _os.getenv("PROFIT_TICKERS", "").split(","),
-                "platform": "windows" if _os.name == "nt" else "non-windows (noop mode)",
-                "status": "configured" if (dll_exists and has_key) else "not_configured",
-            }
-        except Exception as _pe:
-            profit_status = {"name": "ProfitDLL", "status": "error", "error": str(_pe)}
-        result["profit_dll"] = profit_status
-
+    # ── ProfitDLL status ──────────────────────────────────────────────────────
+    try:
+        import os as _os
+        dll_path = _os.getenv("PROFIT_DLL_PATH", r"C:\Nelogica\ProfitDLL64.dll")
+        dll_exists = _os.path.exists(dll_path) if _os.name == "nt" else False
+        has_key = bool(_os.getenv("PROFIT_ACTIVATION_KEY", ""))
+        profit_status = {
+            "name": "ProfitDLL",
+            "dll_found": dll_exists,
+            "credentials_configured": has_key,
+            "tickers": _os.getenv("PROFIT_TICKERS", "").split(","),
+            "platform": "windows" if _os.name == "nt" else "non-windows (noop mode)",
+            "status": "configured" if (dll_exists and has_key) else "not_configured",
+        }
+    except Exception as _pe:
+        profit_status = {"name": "ProfitDLL", "status": "error", "error": str(_pe)}
+    result["profit_dll"] = profit_status
 
     return result
-
 
 @router.post("/producer/start")
 async def start_producer(_: User = Depends(require_admin)) -> dict:
@@ -241,7 +236,7 @@ async def start_producer(_: User = Depends(require_admin)) -> dict:
             tickers = [t.strip() for t in settings.producer_tickers.split(",") if t.strip()]
             p = BrapiPriceProducer(
                 tickers=tickers, poll_interval=settings.producer_poll_interval_seconds,
-                brapi_client=BrapiClient(), kafka_producer=KafkaMarketEventProducer(),
+                brapi_client=BrapiClient(), kafka_producer=KafkaMarketEventProducer()
             )
             await p.start()
             _app._price_producer = p
@@ -252,7 +247,6 @@ async def start_producer(_: User = Depends(require_admin)) -> dict:
     await producer.start()
     return {"ok": True, "message": "Producer iniciado"}
 
-
 @router.post("/producer/stop")
 async def stop_producer(_: User = Depends(require_admin)) -> dict:
     from finanalytics_ai.interfaces.api.app import get_price_producer
@@ -261,5 +255,4 @@ async def stop_producer(_: User = Depends(require_admin)) -> dict:
         return {"ok": True, "message": "Producer nao estava rodando"}
     await producer.stop()
     return {"ok": True, "message": "Producer parado"}
-
 

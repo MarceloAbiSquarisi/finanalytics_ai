@@ -13,10 +13,8 @@ Endpoints:
   DELETE /api/v1/admin/agents/{id}
   POST   /api/v1/admin/bootstrap
 """
-from __future__ import annotations
 import secrets
 import uuid
-from typing import TYPE_CHECKING
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -27,15 +25,12 @@ from finanalytics_ai.infrastructure.auth.password_hasher import get_password_has
 from finanalytics_ai.infrastructure.database.repositories.admin_repo import FinancialAgentRepository
 from finanalytics_ai.infrastructure.database.repositories.user_repo import UserModel, UserRepository
 from finanalytics_ai.interfaces.api.dependencies import get_current_user, get_db_session
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/admin", tags=["Admin"])
 
 MASTER_EMAIL = "marceloabisquarisi@gmail.com"
-
 
 # ── Guard ─────────────────────────────────────────────────────────────────────
 
@@ -43,7 +38,6 @@ def require_master(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role not in (UserRole.MASTER, UserRole.ADMIN):
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Acesso restrito a administradores.")
     return current_user
-
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
@@ -77,7 +71,6 @@ class AgentUpdate(BaseModel):
     is_active: bool | None = None
     note: str | None = None
 
-
 # ── Bootstrap ─────────────────────────────────────────────────────────────────
 
 async def run_bootstrap(session: AsyncSession) -> dict:
@@ -100,18 +93,16 @@ async def run_bootstrap(session: AsyncSession) -> dict:
     logger.info("bootstrap.master_promoted", email=MASTER_EMAIL)
     return {"status": "promoted", "user_id": user.user_id}
 
-
 @router.post("/bootstrap", status_code=200, include_in_schema=False)
 async def bootstrap(session: AsyncSession = Depends(get_db_session)) -> dict:
     return await run_bootstrap(session)
-
 
 # ── Users ─────────────────────────────────────────────────────────────────────
 
 @router.get("/users")
 async def list_users(
     _: User = Depends(require_master),
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session)
 ) -> list[dict]:
     from sqlalchemy import select
     res = await session.execute(
@@ -132,12 +123,11 @@ async def list_users(
         for u in users
     ]
 
-
 @router.post("/users", status_code=201)
 async def create_user(
     body: CreateUserRequest,
     _: User = Depends(require_master),
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session)
 ) -> dict:
     repo = UserRepository(session)
     if await repo.email_exists(body.email):
@@ -153,19 +143,18 @@ async def create_user(
         hashed_password=hasher.hash(body.password),
         full_name=body.full_name,
         role=role,
-        is_active=True,
+        is_active=True
     )
     created = await repo.create(user)
     await session.commit()
     return {"user_id": created.user_id, "email": created.email, "role": created.role.value}
-
 
 @router.patch("/users/{user_id}/role")
 async def change_role(
     user_id: str,
     body: ChangeRoleRequest,
     actor: User = Depends(require_master),
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session)
 ) -> dict:
     from sqlalchemy import update as sa_update
     # Protege o dono do sistema
@@ -188,12 +177,11 @@ async def change_role(
     logger.info("admin.role_changed", target=user_id, role=body.role, actor=actor.user_id)
     return {"user_id": user_id, "role": body.role}
 
-
 @router.patch("/users/{user_id}/active")
 async def toggle_active(
     user_id: str,
     actor: User = Depends(require_master),
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session)
 ) -> dict:
     from sqlalchemy import select, update as sa_update
     res = await session.execute(select(UserModel).where(UserModel.user_id == user_id))
@@ -210,13 +198,12 @@ async def toggle_active(
     logger.info("admin.active_toggled", target=user_id, is_active=new_status, actor=actor.user_id)
     return {"user_id": user_id, "is_active": new_status}
 
-
 @router.post("/users/{user_id}/reset-password")
 async def admin_reset_password(
     user_id: str,
     body: ResetPasswordRequest,
     actor: User = Depends(require_master),
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session)
 ) -> dict:
     from sqlalchemy import select
     res = await session.execute(select(UserModel).where(UserModel.user_id == user_id))
@@ -231,34 +218,31 @@ async def admin_reset_password(
     logger.info("admin.password_reset", target=user_id, actor=actor.user_id)
     return {"message": "Senha redefinida com sucesso."}
 
-
 # ── Financial Agents ──────────────────────────────────────────────────────────
 
 @router.get("/agents")
 async def list_agents(
     _: User = Depends(require_master),
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session)
 ) -> list[dict]:
     return await FinancialAgentRepository(session).list_all()
-
 
 @router.post("/agents", status_code=201)
 async def create_agent(
     body: AgentCreate,
     _: User = Depends(require_master),
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session)
 ) -> dict:
     agent = await FinancialAgentRepository(session).create(body.model_dump())
     await session.commit()
     return agent
-
 
 @router.patch("/agents/{agent_id}")
 async def update_agent(
     agent_id: str,
     body: AgentUpdate,
     _: User = Depends(require_master),
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session)
 ) -> dict:
     updated = await FinancialAgentRepository(session).update(agent_id, body.model_dump(exclude_none=True))
     if not updated:
@@ -266,12 +250,11 @@ async def update_agent(
     await session.commit()
     return updated
 
-
 @router.delete("/agents/{agent_id}", status_code=204)
 async def delete_agent(
     agent_id: str,
     _: User = Depends(require_master),
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session)
 ) -> None:
     ok = await FinancialAgentRepository(session).delete(agent_id)
     if not ok:

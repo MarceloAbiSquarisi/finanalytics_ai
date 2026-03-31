@@ -1,4 +1,4 @@
-"""
+﻿"""
 Configuração centralizada via pydantic-settings.
 """
 
@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     kafka_consumer_group: str = Field(default="finanalytics")
     kafka_topic_market_events: str = Field(default="market_events")
     kafka_topic_price_updates: str = Field(default="price_updates")
+    kafka_bootstrap_servers: str = Field(default="", description="Kafka broker. Vazio = Kafka desabilitado.")
+    kafka_auto_offset_reset: str = Field(default="latest", description="earliest | latest")
     event_queue_backend: str = Field(default="memory")
     otel_service_name: str = Field(default="finanalytics-ai")
     prometheus_port: int = Field(default=9090)

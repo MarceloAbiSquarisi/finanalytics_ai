@@ -53,7 +53,7 @@ from starlette.responses import Response
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-    from starlette.requests import Request
+from starlette.requests import Request
 
 logger = structlog.get_logger(__name__)
 

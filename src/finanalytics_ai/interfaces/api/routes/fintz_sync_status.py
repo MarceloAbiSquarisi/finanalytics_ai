@@ -9,8 +9,6 @@ POST /api/v1/fintz/sync/trigger         -- dispara sync manual (admin)
 POST /api/v1/fintz/sync/trigger/{key}   -- sync de dataset especifico
 """
 
-from __future__ import annotations
-
 from datetime import datetime, timezone, timedelta
 from typing import Annotated, Any
 
@@ -32,7 +30,6 @@ MAX_AGE_HOURS = {
     "indicador":   26,
 }
 
-
 def _get_db(request: Request):
     """Dependency: session factory do app."""
     factory = getattr(request.app.state, "session_factory", None)
@@ -40,16 +37,15 @@ def _get_db(request: Request):
         raise HTTPException(503, "Database nao disponivel")
     return factory
 
-
 @router.get(
     "/sync/status",
     summary="Status de atualizacao dos datasets Fintz",
-    response_description="Lista de datasets com status de atualizacao",
+    response_description="Lista de datasets com status de atualizacao"
 )
 async def get_sync_status(
     request: Request,
     outdated_only: bool = Query(default=False, description="Retorna apenas datasets desatualizados"),
-    current_user: Any = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user)
 ) -> dict[str, Any]:
     """
     Verifica quais datasets Fintz precisam de atualizacao.
@@ -129,7 +125,7 @@ async def get_sync_status(
     results.sort(key=lambda x: (
         not x["is_critical"],
         not x["is_outdated"],
-        -(x["age_hours"] or 9999),
+        -(x["age_hours"] or 9999)
     ))
 
     return {
@@ -144,16 +140,15 @@ async def get_sync_status(
         "datasets": results,
     }
 
-
 @router.get(
     "/sync/history",
-    summary="Historico de syncs Fintz",
+    summary="Historico de syncs Fintz"
 )
 async def get_sync_history(
     request: Request,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     status_filter: str | None = Query(default=None, description="ok | error | skip"),
-    current_user: Any = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user)
 ) -> dict[str, Any]:
     """Historico dos ultimos syncs por dataset."""
     from sqlalchemy import text
@@ -186,15 +181,14 @@ async def get_sync_history(
 
     return {"count": len(history), "history": history}
 
-
 @router.post(
     "/sync/trigger",
     summary="Dispara sync manual de todos os datasets",
-    status_code=status.HTTP_202_ACCEPTED,
+    status_code=status.HTTP_202_ACCEPTED
 )
 async def trigger_sync(
     request: Request,
-    current_user: Any = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user)
 ) -> dict[str, Any]:
     """
     Dispara sync manual em background.
@@ -219,16 +213,15 @@ async def trigger_sync(
         "triggered_at": datetime.now(tz=timezone.utc).isoformat(),
     }
 
-
 @router.post(
     "/sync/trigger/{dataset_key}",
     summary="Dispara sync de um dataset especifico",
-    status_code=status.HTTP_202_ACCEPTED,
+    status_code=status.HTTP_202_ACCEPTED
 )
 async def trigger_sync_dataset(
     dataset_key: str,
     request: Request,
-    current_user: Any = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user)
 ) -> dict[str, Any]:
     """
     Dispara sync de um dataset especifico em background.
@@ -245,7 +238,7 @@ async def trigger_sync_dataset(
         raise HTTPException(
             status_code=404,
             detail=f"Dataset '{dataset_key}' nao encontrado. "
-                   f"Use GET /api/v1/fintz/tickers para listar datasets validos.",
+                   f"Use GET /api/v1/fintz/tickers para listar datasets validos."
         )
 
     settings = get_settings()
@@ -254,7 +247,7 @@ async def trigger_sync_dataset(
     logger.info(
         "fintz_sync.manual_trigger_dataset",
         dataset_key=dataset_key,
-        user=getattr(current_user, "email", "?"),
+        user=getattr(current_user, "email", "?")
     )
 
     return {
@@ -264,10 +257,9 @@ async def trigger_sync_dataset(
         "triggered_at": datetime.now(tz=timezone.utc).isoformat(),
     }
 
-
 async def _run_sync_background(
     settings: Any,
-    datasets: list[str] | None = None,
+    datasets: list[str] | None = None
 ) -> None:
     """Executa sync em background — erros sao logados, nao propagados."""
     from finanalytics_ai.workers.fintz_sync_worker import run_once

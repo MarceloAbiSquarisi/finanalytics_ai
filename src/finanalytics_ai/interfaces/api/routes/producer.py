@@ -7,8 +7,6 @@ Rotas do BRAPI Producer — controle e observabilidade.
   GET  /producer/status   — métricas
 """
 
-from __future__ import annotations
-
 import structlog
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -16,16 +14,13 @@ from pydantic import BaseModel
 router = APIRouter()
 logger = structlog.get_logger(__name__)
 
-
 class TriggerRequest(BaseModel):
     tickers: list[str] | None = None
-
 
 def _get_producer():
     from finanalytics_ai.interfaces.api.app import get_price_producer
 
     return get_price_producer()
-
 
 @router.post("/start")
 async def start_producer() -> dict:
@@ -54,7 +49,7 @@ async def start_producer() -> dict:
                 tickers=tickers,
                 poll_interval=settings.producer_poll_interval_seconds,
                 brapi_client=BrapiClient(),
-                kafka_producer=KafkaMarketEventProducer(),
+                kafka_producer=KafkaMarketEventProducer()
             )
             await p.start()
             _app._price_producer = p
@@ -66,7 +61,6 @@ async def start_producer() -> dict:
     await producer.start()
     return {"started": True, "tickers": producer.state.tickers}
 
-
 @router.post("/stop")
 async def stop_producer() -> dict:
     producer = _get_producer()
@@ -74,7 +68,6 @@ async def stop_producer() -> dict:
         return {"stopped": False, "message": "Producer não estava rodando"}
     await producer.stop()
     return {"stopped": True}
-
 
 @router.post("/trigger")
 async def trigger_cycle(body: TriggerRequest = TriggerRequest()) -> dict:
@@ -93,7 +86,6 @@ async def trigger_cycle(body: TriggerRequest = TriggerRequest()) -> dict:
         }
     except Exception as exc:
         raise HTTPException(502, detail=f"Erro ao buscar cotações BRAPI: {exc}") from exc
-
 
 @router.get("/status")
 async def producer_status() -> dict:
