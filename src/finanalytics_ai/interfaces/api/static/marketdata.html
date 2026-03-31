@@ -1,0 +1,571 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Market Data — FinAnalytics</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lightweight-charts/4.1.3/lightweight-charts.standalone.production.js"></script>
+<style>
+  :root {
+    --bg: #0a0c10;
+    --panel: #0f1218;
+    --border: #1c2130;
+    --text: #e2e8f0;
+    --muted: #4a5568;
+    --mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --green: #00e676;
+    --red: #ff4444;
+    --blue: #4fc3f7;
+    --yellow: #ffd740;
+    --accent: #6c63ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 12px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Header */
+  .header { display: flex; align-items: center; gap: 16px; padding: 8px 16px; border-bottom: 1px solid var(--border); background: var(--panel); flex-shrink: 0; }
+  .header h1 { font-size: 13px; font-weight: 700; letter-spacing: 2px; color: var(--text); }
+  .header .badge { background: var(--accent); color: #fff; font-size: 9px; padding: 2px 6px; border-radius: 2px; font-weight: 700; letter-spacing: 1px; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .status-dot.live { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .status-text { font-size: 10px; color: var(--muted); }
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .refresh-btn { background: var(--border); border: 1px solid var(--muted); color: var(--text); padding: 4px 10px; border-radius: 3px; cursor: pointer; font-family: var(--mono); font-size: 11px; }
+  .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Layout */
+  .main { display: grid; grid-template-columns: 340px 1fr; grid-template-rows: 1fr; flex: 1; overflow: hidden; gap: 1px; background: var(--border); }
+  .left-col { display: flex; flex-direction: column; gap: 1px; background: var(--border); overflow: hidden; }
+  .right-col { display: flex; flex-direction: column; gap: 1px; background: var(--border); overflow: hidden; }
+
+  /* Panels */
+  .panel { background: var(--panel); overflow: hidden; display: flex; flex-direction: column; }
+  .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .panel-title { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; }
+  .panel-body { flex: 1; overflow: hidden; }
+
+  /* Quote Board */
+  #quote-board { height: 200px; overflow-y: auto; }
+  .quote-row { display: grid; grid-template-columns: 70px 80px 60px 60px 70px; align-items: center; padding: 5px 12px; border-bottom: 1px solid #111827; cursor: pointer; transition: background .1s; }
+  .quote-row:hover { background: #141824; }
+  .quote-row.selected { background: #1a1f2e; border-left: 2px solid var(--accent); }
+  .q-ticker { font-weight: 700; font-size: 12px; color: var(--text); }
+  .q-price { font-size: 13px; font-weight: 700; text-align: right; }
+  .q-chg { font-size: 11px; text-align: right; }
+  .q-vol { font-size: 10px; color: var(--muted); text-align: right; }
+  .q-trades { font-size: 10px; color: var(--muted); text-align: right; }
+  .up { color: var(--green); }
+  .dn { color: var(--red); }
+  .flat { color: var(--muted); }
+
+  /* Tick stream */
+  #tick-stream { height: 180px; overflow-y: auto; }
+  .tick-row { display: grid; grid-template-columns: 60px 80px 50px 60px; padding: 3px 12px; border-bottom: 1px solid #0d1117; font-size: 11px; animation: fadeIn .2s; }
+  @keyframes fadeIn { from{opacity:0;transform:translateX(-4px)} to{opacity:1;transform:none} }
+  .t-time { color: var(--muted); }
+  .t-price { font-weight: 700; }
+  .t-qty { color: var(--muted); text-align: right; }
+  .t-type { font-size: 10px; text-align: right; }
+
+  /* Chart */
+  #chart-container { flex: 1; min-height: 0; }
+
+  /* Candles toolbar */
+  .candle-toolbar { display: flex; gap: 2px; }
+  .res-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 2px 8px; border-radius: 2px; cursor: pointer; font-family: var(--mono); font-size: 10px; }
+  .res-btn.active, .res-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Volume bar */
+  #volume-bar { display: flex; align-items: center; gap: 8px; padding: 6px 12px; flex-shrink: 0; border-top: 1px solid var(--border); font-size: 11px; }
+  .vol-item { display: flex; gap: 4px; }
+  .vol-label { color: var(--muted); }
+  .vol-value { color: var(--text); font-weight: 700; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  /* ADX Panel */
+  #adx-panel { background: var(--panel); border-top: 1px solid var(--border); flex-shrink: 0; }
+  .adx-header { display: flex; align-items: center; justify-content: space-between; padding: 5px 12px; border-bottom: 1px solid var(--border); }
+  .adx-nums { display: flex; gap: 16px; font-size: 11px; }
+  .adx-item { display: flex; gap: 4px; }
+  .adx-label { color: var(--muted); }
+  .adx-val { font-weight: 700; }
+  .adx-val.yellow { color: var(--yellow); }
+  .adx-val.green  { color: var(--green); }
+  .adx-val.red    { color: var(--red); }
+  .adx-val.muted  { color: var(--muted); }
+  .adx-trend { font-size: 10px; padding: 2px 8px; border-radius: 2px; font-weight: 700; letter-spacing: 1px; }
+  .trend-alta   { background: #0d2b1a; color: var(--green); border: 1px solid var(--green); }
+  .trend-baixa  { background: #1f0d0d; color: var(--red);   border: 1px solid var(--red); }
+  .trend-lateral{ background: #1a1a0d; color: var(--yellow);border: 1px solid var(--yellow); }
+  .trend-forte  { background: #1a0d2b; color: var(--accent);border: 1px solid var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>MARKET DATA</h1>
+  <span class="badge">LIVE</span>
+  <div class="status-dot" id="status-dot"></div>
+  <span class="status-text" id="status-text">Conectando...</span>
+  <div class="header-right">
+    <span class="status-text" id="tick-counter">ticks: —</span>
+    <button class="refresh-btn" onclick="loadQuotes()">↻ REFRESH</button>
+  </div>
+</div>
+
+<div class="main">
+  <!-- LEFT: quote board + tick stream -->
+  <div class="left-col">
+    <div class="panel" style="flex:0 0 auto">
+      <div class="panel-header">
+        <span class="panel-title">QUOTE BOARD</span>
+        <span class="status-text" id="quote-time">—</span>
+      </div>
+      <div class="panel-body">
+        <div class="quote-row" style="background:#0d1117;font-size:10px;color:var(--muted)">
+          <span>TICKER</span><span style="text-align:right">ÚLTIMO</span><span style="text-align:right">VAR%</span><span style="text-align:right">VOL</span><span style="text-align:right">TRADES</span>
+        </div>
+        <div id="quote-board"></div>
+      </div>
+    </div>
+
+    <div class="panel" style="flex:1">
+      <div class="panel-header">
+        <span class="panel-title">TIME & TRADES — <span id="stream-ticker">—</span></span>
+      </div>
+      <div class="panel-body">
+        <div id="tick-stream"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: candle chart + volume -->
+  <div class="right-col">
+    <div class="panel" style="flex:1">
+      <div class="panel-header">
+        <span class="panel-title">CANDLES — <span id="chart-ticker">SELECIONE UM TICKER</span></span>
+        <div class="candle-toolbar">
+          <button class="res-btn active" onclick="setRes('1m')">1M</button>
+          <button class="res-btn" onclick="setRes('5m')">5M</button>
+          <button class="res-btn" onclick="setRes('15m')">15M</button>
+          <button class="res-btn" onclick="setRes('1h')">1H</button>
+        </div>
+      </div>
+      <div class="panel-body" id="chart-container"></div>
+      <div id="adx-panel" style="display:none">
+  <div class="adx-header">
+    <span class="panel-title">ADX / DI+ / DI-</span>
+    <div class="adx-nums" id="adx-nums">
+      <div class="adx-item"><span class="adx-label">ADX</span><span class="adx-val yellow" id="adx-adx">—</span></div>
+      <div class="adx-item"><span class="adx-label">DI+</span><span class="adx-val green"  id="adx-dip">—</span></div>
+      <div class="adx-item"><span class="adx-label">DI-</span><span class="adx-val red"    id="adx-din">—</span></div>
+      <div class="adx-item"><span class="adx-label">TENDENCIA</span><span class="adx-trend trend-lateral" id="adx-trend">LATERAL</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="status-text">Periodo</span>
+      <select id="adx-period" onchange="refreshADX()" style="background:var(--border);border:1px solid var(--muted);color:var(--text);padding:2px 4px;font-family:var(--mono);font-size:10px;border-radius:2px">
+        <option value="7">7</option>
+        <option value="14" selected>14</option>
+        <option value="21">21</option>
+      </select>
+    </div>
+  </div>
+  <div style="height:100px;padding:4px 8px">
+    <canvas id="adx-canvas"></canvas>
+  </div>
+</div>
+<div id="volume-bar">
+        <div class="vol-item"><span class="vol-label">OPEN</span><span class="vol-value" id="v-open">—</span></div>
+        <div class="vol-item"><span class="vol-label">HIGH</span><span class="vol-value up" id="v-high">—</span></div>
+        <div class="vol-item"><span class="vol-label">LOW</span><span class="vol-value dn" id="v-low">—</span></div>
+        <div class="vol-item"><span class="vol-label">CLOSE</span><span class="vol-value" id="v-close">—</span></div>
+        <div class="vol-item"><span class="vol-label">VOL</span><span class="vol-value" id="v-vol">—</span></div>
+        <div class="vol-item"><span class="vol-label">VWAP</span><span class="vol-value" id="v-vwap">—</span></div>
+        <div class="vol-item"><span class="vol-label">TRADES</span><span class="vol-value" id="v-trades">—</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api/v1/marketdata';
+let selectedTicker = null;
+let resolution = '1m';
+let chart = null;
+let candleSeries = null;
+let volSeries = null;
+let refreshInterval = null;
+let tickInterval = null;
+
+// ── Init chart ─────────────────────────────────────────────────────────────
+function initChart() {
+  const container = document.getElementById('chart-container');
+  chart = LightweightCharts.createChart(container, {
+    layout: { background: { color: '#0f1218' }, textColor: '#4a5568' },
+    grid: { vertLines: { color: '#1c2130' }, horzLines: { color: '#1c2130' } },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    rightPriceScale: { borderColor: '#1c2130' },
+    timeScale: { borderColor: '#1c2130', timeVisible: true, secondsVisible: false },
+    width: container.clientWidth,
+    height: container.clientHeight,
+  });
+
+  candleSeries = chart.addCandlestickSeries({
+    upColor: '#00e676', downColor: '#ff4444',
+    borderUpColor: '#00e676', borderDownColor: '#ff4444',
+    wickUpColor: '#00e676', wickDownColor: '#ff4444',
+  });
+
+  volSeries = chart.addHistogramSeries({
+    color: '#6c63ff33',
+    priceFormat: { type: 'volume' },
+    priceScaleId: 'vol',
+  });
+  chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+
+  new ResizeObserver(() => {
+    chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+  }).observe(container);
+}
+
+// ── Format helpers ─────────────────────────────────────────────────────────
+function fmtPrice(v) { return v != null ? Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2}) : '—'; }
+function fmtVol(v) { if (v == null) return '—'; v = Number(v); if (v >= 1e9) return (v/1e9).toFixed(1)+'B'; if (v >= 1e6) return (v/1e6).toFixed(1)+'M'; if (v >= 1e3) return (v/1e3).toFixed(0)+'K'; return v.toFixed(0); }
+function fmtTime(ts) { if (!ts) return '—'; const d = new Date(ts); return d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+
+// ── Quote board ─────────────────────────────────────────────────────────────
+async function loadQuotes() {
+  try {
+    const r = await fetch(API + '/quotes');
+    const data = await r.json();
+    if (!r.ok) return;
+    const board = document.getElementById('quote-board');
+    board.innerHTML = (data.quotes || []).map(q => {
+      const chg = Number(q.change_pct || 0);
+      const cls = chg > 0 ? 'up' : chg < 0 ? 'dn' : 'flat';
+      const sel = q.ticker === selectedTicker ? 'selected' : '';
+      return `<div class="quote-row ${sel}" onclick="selectTicker('${q.ticker}')">
+        <span class="q-ticker">${q.ticker}</span>
+        <span class="q-price ${cls}">${fmtPrice(q.price)}</span>
+        <span class="q-chg ${cls}">${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%</span>
+        <span class="q-vol">${fmtVol(q.volume_day)}</span>
+        <span class="q-trades">${fmtVol(q.trades_day)}</span>
+      </div>`;
+    }).join('');
+    document.getElementById('quote-time').textContent = new Date().toLocaleTimeString('pt-BR');
+  } catch(e) {}
+}
+
+// ── Select ticker ──────────────────────────────────────────────────────────
+function selectTicker(ticker) {
+  selectedTicker = ticker;
+  document.getElementById('stream-ticker').textContent = ticker;
+  document.getElementById('chart-ticker').textContent = ticker;
+  loadQuotes();
+  loadCandles();
+  loadTicks();
+  loadVolume();
+}
+
+// ── Candles ────────────────────────────────────────────────────────────────
+function setRes(r) {
+  resolution = r;
+  document.querySelectorAll('.res-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  if (selectedTicker) loadCandles();
+}
+
+async function loadCandles() {
+  if (!selectedTicker) return;
+  try {
+    const r = await fetch(`${API}/candles/${selectedTicker}?resolution=${resolution}&limit=200`);
+    const data = await r.json();
+    if (!r.ok || !data.candles) return;
+    const candles = data.candles.map(c => ({
+      time: Math.floor(new Date(c.ts).getTime() / 1000),
+      open: Number(c.open), high: Number(c.high),
+      low: Number(c.low), close: Number(c.close),
+    }));
+    const vols = data.candles.map(c => ({
+      time: Math.floor(new Date(c.ts).getTime() / 1000),
+      value: Number(c.volume || 0),
+      color: Number(c.close) >= Number(c.open) ? '#00e67633' : '#ff444433',
+    }));
+    candleSeries.setData(candles);
+    volSeries.setData(vols);
+  } catch(e) {}
+}
+
+// ── Tick stream ────────────────────────────────────────────────────────────
+let lastTickTime = null;
+async function loadTicks() {
+  if (!selectedTicker) return;
+  try {
+    const r = await fetch(`${API}/ticks/${selectedTicker}?limit=60`);
+    const data = await r.json();
+    if (!r.ok || !data.ticks) return;
+    const stream = document.getElementById('tick-stream');
+    stream.innerHTML = data.ticks.slice(-50).reverse().map(t => {
+      const side = t.buy_agent > t.sell_agent ? '<span class="up">C</span>' : '<span class="dn">V</span>';
+      return `<div class="tick-row">
+        <span class="t-time">${fmtTime(t.time)}</span>
+        <span class="t-price">${fmtPrice(t.price)}</span>
+        <span class="t-qty">${t.quantity}</span>
+        <span class="t-type">${side}</span>
+      </div>`;
+    }).join('');
+  } catch(e) {}
+}
+
+// ── Volume stats ──────────────────────────────────────────────────────────
+async function loadVolume() {
+  if (!selectedTicker) return;
+  try {
+    const r = await fetch(`${API}/volume/${selectedTicker}`);
+    const d = await r.json();
+    if (!r.ok) return;
+    document.getElementById('v-open').textContent   = fmtPrice(d.open);
+    document.getElementById('v-high').textContent   = fmtPrice(d.high);
+    document.getElementById('v-low').textContent    = fmtPrice(d.low);
+    document.getElementById('v-close').textContent  = fmtPrice(d.close);
+    document.getElementById('v-vol').textContent    = fmtVol(d.total_volume);
+    document.getElementById('v-vwap').textContent   = fmtPrice(d.vwap);
+    document.getElementById('v-trades').textContent = fmtVol(d.trades);
+  } catch(e) {}
+}
+
+// ── Agent status ──────────────────────────────────────────────────────────
+async function loadStatus() {
+  try {
+    const r = await fetch(API + '/status');
+    const d = await r.json();
+    if (!r.ok) return;
+    const dot = document.getElementById('status-dot');
+    const txt = document.getElementById('status-text');
+    const ctr = document.getElementById('tick-counter');
+    if (d.market_connected) {
+      dot.classList.add('live');
+      txt.textContent = 'CONECTADO';
+    } else {
+      dot.classList.remove('live');
+      txt.textContent = d.is_connected ? 'LOGIN OK' : 'OFFLINE';
+    }
+    if (d.total_ticks) ctr.textContent = 'ticks: ' + Number(d.total_ticks).toLocaleString('pt-BR');
+  } catch(e) {
+    document.getElementById('status-text').textContent = 'agent offline';
+  }
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────
+initChart();
+loadQuotes();
+loadStatus();
+
+// Auto-refresh
+setInterval(loadQuotes, 3000);
+setInterval(loadStatus, 5000);
+setInterval(() => { if (selectedTicker) { loadTicks(); loadCandles(); } }, 5000);
+setInterval(() => { if (selectedTicker) loadVolume(); }, 10000);
+
+// Auto-select primeiro ticker
+setTimeout(async () => {
+  const r = await fetch(API + '/quotes');
+  const d = await r.json();
+  if (d.quotes && d.quotes.length > 0) selectTicker(d.quotes[0].ticker);
+}, 800);
+// ── ADX / DI+ / DI- (Wilder, periodo configuravel) ─────────────────────────
+function calcADX(bars, period) {
+  period = period || 14;
+  var n = bars.length;
+  if (n < period + 1) return null;
+
+  var trArr = [], pdm = [], ndm = [];
+  for (var i = 1; i < n; i++) {
+    var h = bars[i].high, l = bars[i].low, pc = bars[i-1].close;
+    var tr  = Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
+    var upM = h - bars[i-1].high;
+    var dnM = bars[i-1].low - l;
+    trArr.push(tr);
+    pdm.push(upM > dnM && upM > 0 ? upM : 0);
+    ndm.push(dnM > upM && dnM > 0 ? dnM : 0);
+  }
+
+  // Wilder smoothing (EMA-like with alpha = 1/period)
+  function wilder(arr, p) {
+    var out = new Array(arr.length).fill(null);
+    var sum = 0;
+    for (var i = 0; i < p; i++) sum += arr[i];
+    out[p - 1] = sum;
+    for (var i = p; i < arr.length; i++)
+      out[i] = out[i-1] - out[i-1] / p + arr[i];
+    return out;
+  }
+
+  var atr  = wilder(trArr, period);
+  var spDM = wilder(pdm,   period);
+  var snDM = wilder(ndm,   period);
+
+  var diP = [], diN = [], dx = [], adx = [], times = [];
+  for (var i = 0; i < trArr.length; i++) {
+    if (atr[i] === null) { diP.push(null); diN.push(null); dx.push(null); adx.push(null); continue; }
+    var dp = atr[i] > 0 ? 100 * spDM[i] / atr[i] : 0;
+    var dn = atr[i] > 0 ? 100 * snDM[i] / atr[i] : 0;
+    var dxv = (dp + dn) > 0 ? 100 * Math.abs(dp - dn) / (dp + dn) : 0;
+    diP.push(dp); diN.push(dn); dx.push(dxv);
+    times.push(bars[i+1] ? bars[i+1].time : bars[i].time);
+  }
+
+  // ADX = Wilder smooth of DX
+  var adxSmooth = wilder(dx.filter(v => v !== null), period);
+  var adxFull = new Array(dx.length).fill(null);
+  var j = 0;
+  for (var i = 0; i < dx.length; i++) {
+    if (dx[i] !== null) { adxFull[i] = adxSmooth[j++]; }
+  }
+
+  return { times: times, diP: diP, diN: diN, adx: adxFull };
+}
+
+function renderADXChart(canvasId, bars, period) {
+  period = period || 14;
+  var result = calcADX(bars, period);
+  if (!result) return;
+
+  var labels = result.times.map(function(t) {
+    if (!t) return '';
+    var d = typeof t === 'number' ? new Date(t * 1000) : new Date(t);
+    return d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+  });
+
+  var canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  if (canvas._adxChart) canvas._adxChart.destroy();
+
+  canvas._adxChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'ADX',
+          data: result.adx,
+          borderColor: '#ffd740',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0.1,
+        },
+        {
+          label: 'DI+',
+          data: result.diP,
+          borderColor: '#00e676',
+          borderWidth: 1,
+          pointRadius: 0,
+          tension: 0.1,
+        },
+        {
+          label: 'DI-',
+          data: result.diN,
+          borderColor: '#ff4444',
+          borderWidth: 1,
+          pointRadius: 0,
+          tension: 0.1,
+        },
+      ]
+    },
+    options: {
+      animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, position: 'top', labels: { color: '#7a95b0', font: { size: 10, family: 'monospace' }, boxWidth: 20, padding: 8 } },
+        tooltip: {
+          backgroundColor: '#0f1218',
+          borderColor: '#1c2130',
+          borderWidth: 1,
+          titleColor: '#e2e8f0',
+          bodyColor: '#7a95b0',
+          callbacks: {
+            label: function(ctx) {
+              var v = ctx.parsed.y;
+              return ' ' + ctx.dataset.label + ': ' + (v !== null ? v.toFixed(1) : '—');
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#4a5568', font: { size: 9, family: 'monospace' }, maxTicksLimit: 8, maxRotation: 0 },
+          grid: { color: '#1c2130' },
+        },
+        y: {
+          min: 0,
+          max: 60,
+          ticks: { color: '#4a5568', font: { size: 9, family: 'monospace' }, stepSize: 20 },
+          grid: { color: '#1c2130' },
+        }
+      }
+    }
+  });
+}
+// ── ADX numeric summary ────────────────────────────────────────────────────
+function adxSummary(result) {
+  if (!result) return { adx: null, diP: null, diN: null, trend: 'N/A' };
+  var last = function(arr) { for (var i = arr.length-1; i >= 0; i--) if (arr[i] !== null) return arr[i]; return null; };
+  var adv = last(result.adx), dp = last(result.diP), dn = last(result.diN);
+  var trend = 'LATERAL';
+  if (adv !== null) {
+    if (adv >= 25 && dp > dn) trend = 'ALTA';
+    else if (adv >= 25 && dn > dp) trend = 'BAIXA';
+    else if (adv >= 40) trend = 'FORTE';
+    else trend = 'LATERAL';
+  }
+  return { adx: adv, diP: dp, diN: dn, trend: trend };
+}
+
+var _adxBars = [];
+
+function refreshADX() {
+  if (_adxBars.length < 15) return;
+  var period = parseInt(document.getElementById('adx-period').value);
+  renderADXChart('adx-canvas', _adxBars, period);
+  var result = calcADX(_adxBars, period);
+  var s = adxSummary(result);
+  document.getElementById('adx-adx').textContent = s.adx !== null ? s.adx.toFixed(1) : '—';
+  document.getElementById('adx-dip').textContent = s.diP !== null ? s.diP.toFixed(1) : '—';
+  document.getElementById('adx-din').textContent = s.diN !== null ? s.diN.toFixed(1) : '—';
+  var tEl = document.getElementById('adx-trend');
+  tEl.textContent = s.trend;
+  tEl.className = 'adx-trend trend-' + s.trend.toLowerCase();
+  document.getElementById('adx-panel').style.display = 'block';
+}
+
+// Patch loadCandles para alimentar ADX
+var _origLoadCandles = loadCandles;
+loadCandles = async function() {
+  await _origLoadCandles.apply(this, arguments);
+  if (!selectedTicker) return;
+  try {
+    var res = document.getElementById('chart-container') ? resolution : '1m';
+    var r = await fetch(API + '/candles/' + selectedTicker + '?resolution=' + res + '&limit=200');
+    var data = await r.json();
+    if (data.candles && data.candles.length > 15) {
+      _adxBars = data.candles.map(function(c) {
+        return {
+          time:  new Date(c.ts).getTime() / 1000,
+          open:  Number(c.open),
+          high:  Number(c.high),
+          low:   Number(c.low),
+          close: Number(c.close),
+        };
+      });
+      refreshADX();
+    }
+  } catch(e) {}
+};
+</script>

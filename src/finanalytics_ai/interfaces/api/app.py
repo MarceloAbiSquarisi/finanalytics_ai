@@ -1,4 +1,4 @@
-"""
+﻿"""
 FastAPI application factory — Sprint 7: BRAPI Price Producer.
 
 Lifespan startup order:
@@ -24,6 +24,7 @@ from finanalytics_ai.infrastructure.database.connection import close_engine, get
 from finanalytics_ai.interfaces.api.routes import admin as admin_routes
 from finanalytics_ai.interfaces.api.routes import admin as admin_routes
 from finanalytics_ai.interfaces.api.routes import ml_forecasting as ml_routes
+from finanalytics_ai.interfaces.api.routes import marketdata as marketdata_routes
 from finanalytics_ai.interfaces.api.routes import (
     wallet,
     alerts,
@@ -510,6 +511,7 @@ def create_app() -> FastAPI:
     app.include_router(correlation.router, tags=["Correlation"])
     app.include_router(screener.router, tags=["Screener"])
     app.include_router(ml_routes.router, tags=["ML Probabilistico"])
+    app.include_router(marketdata_routes.router, tags=["Market Data"])
     app.include_router(anomaly.router, tags=["Anomaly"])
     app.include_router(reports.router, tags=["Reports"])
     app.include_router(watchlist.router, tags=["Watchlist"])

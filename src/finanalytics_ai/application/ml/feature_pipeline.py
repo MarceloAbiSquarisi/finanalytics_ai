@@ -1,4 +1,4 @@
-"""
+﻿"""
 finanalytics_ai.application.ml.feature_pipeline
 
 Computa features tecnicas a partir de series OHLC.
@@ -131,12 +131,12 @@ def build_features_from_ohlc(
         rsi_14=compute_rsi_14(closes),
         beta_60d=compute_beta_60d(ticker_rets, ibov_rets),
         volume_ratio_21d=compute_volume_ratio(volumes),
-        pe=fundamental.get("P/L"),
-        pvp=fundamental.get("P/VP"),
+        pe=fundamental.get("P_L"),
+        pvp=fundamental.get("P_VP"),
         roe=fundamental.get("ROE"),
         roic=fundamental.get("ROIC"),
-        ev_ebitda=fundamental.get("EV/EBITDA"),
-        debt_ebitda=fundamental.get("Divida_Liquida/EBITDA"),
-        net_margin=fundamental.get("Margem_Liquida"),
-        revenue_growth=fundamental.get("Crescimento_Receita_1A"),
+        ev_ebitda=fundamental.get("EV_EBITDA"),
+        debt_ebitda=fundamental.get("DividaLiquida_EBITDA"),
+        net_margin=fundamental.get("MargemLiquida"),
+        revenue_growth=fundamental.get("GiroAtivos"),
     )

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -288,6 +288,15 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
 }
 body.sb-open .fa-page-content { margin-left: var(--sb-w); }
 
+  .adx-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:16px}
+  .adx-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .adx-card-title{font-size:9px;color:var(--muted);font-family:monospace;letter-spacing:1px;text-transform:uppercase}
+  .adx-nums-bt{display:flex;gap:16px;font-size:11px;font-family:monospace}
+  .adx-item-bt{display:flex;flex-direction:column;align-items:center;gap:2px}
+  .adx-label-bt{font-size:9px;color:var(--muted)}
+  .adx-val-bt{font-size:14px;font-weight:700}
+  .adx-wrap{position:relative;height:120px;margin-top:8px}
+  .adx-trend-bt{font-size:10px;padding:3px 10px;border-radius:4px;font-weight:700;letter-spacing:1px}
 </style>
 </head>
 <body>
@@ -308,6 +317,9 @@ body.sb-open .fa-page-content { margin-left: var(--sb-w); }
 <a href="/fintz" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><span>Fintz</span></a>
 <a href="/fixed-income" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><span>Renda Fixa</span></a>
 <a href="/etf" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-4"/></svg><span>ETFs</span></a>
+  <a href="/marketdata" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Market Data</span></a>
+  <a href="/ml" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span>ML Probabilístico</span></a>
+
 <a href="/hub" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Hub</span></a></div>
 </aside>
 <script>
@@ -806,6 +818,42 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
       <div class="chart-card">
         <div class="chart-title">Drawdown (%)</div>
         <div class="chart-wrap"><canvas id="dd-chart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ADX PANEL -->
+    <div class="adx-card" id="adx-panel-bt" style="display:none">
+      <div class="adx-card-header">
+        <span class="adx-card-title">ADX / DI+ / DI-</span>
+        <div class="adx-nums-bt">
+          <div class="adx-item-bt">
+            <span class="adx-label-bt">ADX</span>
+            <span class="adx-val-bt" id="bt-adx" style="color:#ffd740">—</span>
+          </div>
+          <div class="adx-item-bt">
+            <span class="adx-label-bt">DI+</span>
+            <span class="adx-val-bt" id="bt-dip" style="color:#00e676">—</span>
+          </div>
+          <div class="adx-item-bt">
+            <span class="adx-label-bt">DI-</span>
+            <span class="adx-val-bt" id="bt-din" style="color:#ff4444">—</span>
+          </div>
+          <div class="adx-item-bt">
+            <span class="adx-label-bt">TENDENCIA</span>
+            <span class="adx-trend-bt" id="bt-trend" style="background:#1a1a0d;color:#ffd740;border:1px solid #ffd740">LATERAL</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;font-family:monospace;font-size:10px;color:#7a95b0">
+          Periodo
+          <select id="bt-adx-period" onchange="btRefreshADX()" style="background:#1c2130;border:1px solid #4a5568;color:#e2e8f0;padding:2px 4px;font-family:monospace;font-size:10px;border-radius:4px">
+            <option value="7">7</option>
+            <option value="14" selected>14</option>
+            <option value="21">21</option>
+          </select>
+        </div>
+      </div>
+      <div class="adx-wrap">
+        <canvas id="bt-adx-canvas"></canvas>
       </div>
     </div>
 
@@ -2007,8 +2055,200 @@ function faLogout() {
   sessionStorage.clear();
   window.location.replace('/login');
 }
-</script>
-</div><!-- /fa-page-content -->
-</body>
-</html>
 
+// ── ADX / DI+ / DI- (Wilder, periodo configuravel) ─────────────────────────
+function calcADX(bars, period) {
+  period = period || 14;
+  var n = bars.length;
+  if (n < period + 1) return null;
+
+  var trArr = [], pdm = [], ndm = [];
+  for (var i = 1; i < n; i++) {
+    var h = bars[i].high, l = bars[i].low, pc = bars[i-1].close;
+    var tr  = Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
+    var upM = h - bars[i-1].high;
+    var dnM = bars[i-1].low - l;
+    trArr.push(tr);
+    pdm.push(upM > dnM && upM > 0 ? upM : 0);
+    ndm.push(dnM > upM && dnM > 0 ? dnM : 0);
+  }
+
+  // Wilder smoothing (EMA-like with alpha = 1/period)
+  function wilder(arr, p) {
+    var out = new Array(arr.length).fill(null);
+    var sum = 0;
+    for (var i = 0; i < p; i++) sum += arr[i];
+    out[p - 1] = sum;
+    for (var i = p; i < arr.length; i++)
+      out[i] = out[i-1] - out[i-1] / p + arr[i];
+    return out;
+  }
+
+  var atr  = wilder(trArr, period);
+  var spDM = wilder(pdm,   period);
+  var snDM = wilder(ndm,   period);
+
+  var diP = [], diN = [], dx = [], adx = [], times = [];
+  for (var i = 0; i < trArr.length; i++) {
+    if (atr[i] === null) { diP.push(null); diN.push(null); dx.push(null); adx.push(null); continue; }
+    var dp = atr[i] > 0 ? 100 * spDM[i] / atr[i] : 0;
+    var dn = atr[i] > 0 ? 100 * snDM[i] / atr[i] : 0;
+    var dxv = (dp + dn) > 0 ? 100 * Math.abs(dp - dn) / (dp + dn) : 0;
+    diP.push(dp); diN.push(dn); dx.push(dxv);
+    times.push(bars[i+1] ? bars[i+1].time : bars[i].time);
+  }
+
+  // ADX = Wilder smooth of DX
+  var adxSmooth = wilder(dx.filter(v => v !== null), period);
+  var adxFull = new Array(dx.length).fill(null);
+  var j = 0;
+  for (var i = 0; i < dx.length; i++) {
+    if (dx[i] !== null) { adxFull[i] = adxSmooth[j++]; }
+  }
+
+  return { times: times, diP: diP, diN: diN, adx: adxFull };
+}
+
+function renderADXChart(canvasId, bars, period) {
+  period = period || 14;
+  var result = calcADX(bars, period);
+  if (!result) return;
+
+  var labels = result.times.map(function(t) {
+    if (!t) return '';
+    var d = typeof t === 'number' ? new Date(t * 1000) : new Date(t);
+    return d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+  });
+
+  var canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  if (canvas._adxChart) canvas._adxChart.destroy();
+
+  canvas._adxChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'ADX',
+          data: result.adx,
+          borderColor: '#ffd740',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0.1,
+        },
+        {
+          label: 'DI+',
+          data: result.diP,
+          borderColor: '#00e676',
+          borderWidth: 1,
+          pointRadius: 0,
+          tension: 0.1,
+        },
+        {
+          label: 'DI-',
+          data: result.diN,
+          borderColor: '#ff4444',
+          borderWidth: 1,
+          pointRadius: 0,
+          tension: 0.1,
+        },
+      ]
+    },
+    options: {
+      animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, position: 'top', labels: { color: '#7a95b0', font: { size: 10, family: 'monospace' }, boxWidth: 20, padding: 8 } },
+        tooltip: {
+          backgroundColor: '#0f1218',
+          borderColor: '#1c2130',
+          borderWidth: 1,
+          titleColor: '#e2e8f0',
+          bodyColor: '#7a95b0',
+          callbacks: {
+            label: function(ctx) {
+              var v = ctx.parsed.y;
+              return ' ' + ctx.dataset.label + ': ' + (v !== null ? v.toFixed(1) : '—');
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#4a5568', font: { size: 9, family: 'monospace' }, maxTicksLimit: 8, maxRotation: 0 },
+          grid: { color: '#1c2130' },
+        },
+        y: {
+          min: 0,
+          max: 60,
+          ticks: { color: '#4a5568', font: { size: 9, family: 'monospace' }, stepSize: 20 },
+          grid: { color: '#1c2130' },
+        }
+      }
+    }
+  });
+}
+// ── ADX numeric summary ────────────────────────────────────────────────────
+function adxSummary(result) {
+  if (!result) return { adx: null, diP: null, diN: null, trend: 'N/A' };
+  var last = function(arr) { for (var i = arr.length-1; i >= 0; i--) if (arr[i] !== null) return arr[i]; return null; };
+  var adv = last(result.adx), dp = last(result.diP), dn = last(result.diN);
+  var trend = 'LATERAL';
+  if (adv !== null) {
+    if (adv >= 25 && dp > dn) trend = 'ALTA';
+    else if (adv >= 25 && dn > dp) trend = 'BAIXA';
+    else if (adv >= 40) trend = 'FORTE';
+    else trend = 'LATERAL';
+  }
+  return { adx: adv, diP: dp, diN: dn, trend: trend };
+}
+
+var _btBars = [];
+
+function btRefreshADX() {
+  if (_btBars.length < 15) return;
+  var period = parseInt(document.getElementById('bt-adx-period').value);
+  renderADXChart('bt-adx-canvas', _btBars, period);
+  var result = calcADX(_btBars, period);
+  var s = adxSummary(result);
+  document.getElementById('bt-adx').textContent = s.adx !== null ? s.adx.toFixed(1) : '—';
+  document.getElementById('bt-dip').textContent = s.diP !== null ? s.diP.toFixed(1) : '—';
+  document.getElementById('bt-din').textContent = s.diN !== null ? s.diN.toFixed(1) : '—';
+  var tEl = document.getElementById('bt-trend');
+  tEl.textContent = s.trend;
+  var map = { ALTA: ['#0d2b1a','#00e676','#00e676'], BAIXA: ['#1f0d0d','#ff4444','#ff4444'], FORTE: ['#1a0d2b','#6c63ff','#6c63ff'], LATERAL: ['#1a1a0d','#ffd740','#ffd740'] };
+  var colors = map[s.trend] || map.LATERAL;
+  tEl.style.background = colors[0];
+  tEl.style.color = colors[1];
+  tEl.style.borderColor = colors[2];
+  document.getElementById('adx-panel-bt').style.display = 'block';
+}
+
+// Hook: chamado apos backtest retornar com equity_curve
+// A equity_curve tem {time, equity} — precisamos das barras OHLC
+// Buscamos do endpoint de candles do market data
+async function btLoadADX(ticker) {
+  if (!ticker) return;
+  try {
+    var r = await fetch('/api/v1/marketdata/candles/' + ticker + '?resolution=1h&limit=300');
+    var data = await r.json();
+    if (!data.candles || data.candles.length < 15) {
+      // fallback: 1d via fintz
+      return;
+    }
+    _btBars = data.candles.map(function(c) {
+      return {
+        time:  new Date(c.ts).getTime() / 1000,
+        open:  Number(c.open),
+        high:  Number(c.high),
+        low:   Number(c.low),
+        close: Number(c.close),
+      };
+    });
+    btRefreshADX();
+  } catch(e) {}
+}
+</script>

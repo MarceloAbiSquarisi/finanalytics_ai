@@ -81,9 +81,9 @@ class SqlFeatureRepository:
                            Margem_Liquida, Crescimento_Receita_1A
         """
         indicadores = [
-            "ROE", "P/L", "P/VP", "ROIC",
-            "EV/EBITDA", "Divida_Liquida/EBITDA",
-            "Margem_Liquida", "Crescimento_Receita_1A",
+            "ROE", "P_L", "P_VP", "ROIC",
+            "EV_EBITDA", "DividaLiquida_EBITDA",
+            "MargemLiquida", "GiroAtivos",
         ]
         placeholders = ", ".join(f"'{i}'" for i in indicadores)
         sql = text(f"""
@@ -119,7 +119,7 @@ class SqlFeatureRepository:
             ORDER BY data ASC
         """.replace(":window", str(window_days * 2)))
         rows = await self._session.execute(sql, {"ref_date": reference_date})
-        closes = [r[0] for r in rows if r[0] is not None]
+        closes = [float(r[0]) for r in rows if r[0] is not None]
         return _to_returns(closes)
 
     async def upsert_features(self, features: list[TickerFeatures]) -> None:
