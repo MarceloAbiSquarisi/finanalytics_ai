@@ -89,7 +89,7 @@ class SqlFeatureRepository:
         sql = text(f"""
             SELECT DISTINCT ON (indicador)
                 indicador, valor
-            FROM fintz_indicadores
+            FROM fintz_indicadores_dedup
             WHERE ticker = :ticker
               AND indicador IN ({placeholders})
               AND data_publicacao <= :ref_date
