@@ -208,6 +208,15 @@ async def run_scheduled(stop_event: asyncio.Event, settings: Settings) -> None:
         log.info("fintz_sync.running_scheduled")
         try:
             await run_sync(session_factory, settings)
+            # Hook pos-sync: manutencao completa de dados
+            try:
+                from finanalytics_ai.workers.maintenance_worker import run_maintenance
+                log.info("fintz_sync.maintenance_started")
+                report = await run_maintenance(skip_ml=False)
+                log.info("fintz_sync.maintenance_completed",
+                         errors=report.total_errors, steps=len(report.steps))
+            except Exception as maint_exc:
+                log.warning("fintz_sync.maintenance_error", error=str(maint_exc))
         except Exception as exc:
             log.exception("fintz_sync.scheduled_error", error=str(exc))
 
