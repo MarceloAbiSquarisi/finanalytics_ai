@@ -1,4 +1,4 @@
-
+﻿
 """
 profit_agent.py — Agente standalone ProfitDLL (Nelogica)
 
@@ -569,28 +569,68 @@ class ProfitAgent:
 
         @_WF(None, _ci, _ci)
         def _state_cb_init(conn_type: int, result: int) -> None:
-            with self._state_lock:
-                if conn_type == CONN_STATE_MARKET_DATA:
-                    self._market_ok = (result == MARKET_CONNECTED)
-                    if result == MARKET_CONNECTED:
-                        self._market_connected.set()
-                elif conn_type == CONN_STATE_LOGIN:
-                    self._login_ok = (result == LOGIN_CONNECTED)
-                elif conn_type == CONN_STATE_MARKET_LOGIN:
-                    self._activate_ok = (result == ACTIVATE_VALID)
-                elif conn_type == CONN_STATE_ROUTING:
-                    self._routing_ok = (result == ROUTING_BROKER_CONNECTED)
+            # MINIMAL — sem lock, sem queue durante init (diagnostico prova que
+            # with self._state_lock bloqueia result=4 de ser entregue)
+            if conn_type == CONN_STATE_MARKET_DATA:
+                self._market_ok = (result == MARKET_CONNECTED)
+                if result == MARKET_CONNECTED:
+                    self._market_connected.set()
+            elif conn_type == CONN_STATE_LOGIN:
+                self._login_ok = (result == LOGIN_CONNECTED)
+            elif conn_type == CONN_STATE_MARKET_LOGIN:
+                self._activate_ok = (result == ACTIVATE_VALID)
+            elif conn_type == CONN_STATE_ROUTING:
+                self._routing_ok = (result == ROUTING_BROKER_CONNECTED)
+
+        # Callbacks V1 REAIS para DLLInitializeLogin — padrao do teste 11 que funcionou.
+        # CRITICO: a DLL precisa de callbacks reais (nao noops) para completar
+        # a conexao de market data e entregar result=4 (MARKET_CONNECTED).
+        # Os callbacks V2 (SetTradeCallbackV2 etc.) registrados antes continuam
+        # sendo os receptores principais — estes V1 apenas satisfazem a DLL na init.
+        from ctypes import c_char as _cc, c_wchar_p as _cwp, c_uint as _cu
+        import queue as _queue
+
+        @_WF(None, _cv, _cwp, _cu, _cd, _cd, _ci, _ci, _ci, _ci, _cc)
+        def _trade_v1_init(asset_ptr, date, trade_num, price, vol, qty,
+                           buy_agent, sell_agent, trade_type, edit):
+            if not asset_ptr:
+                return
             try:
+                import ctypes as _ct2
+                asset_id = _ct2.cast(asset_ptr, _ct2.POINTER(TAssetID)).contents
+                ticker = asset_id.ticker or ""
+                if not ticker:
+                    return
+                from datetime import datetime, timezone
+                self._total_ticks += 1
                 self._db_queue.put_nowait({
-                    '_type': 'state',
-                    'conn_type': conn_type, 'result': result,
+                    "_type": "tick",
+                    "time": datetime.now(tz=timezone.utc),
+                    "ticker": ticker,
+                    "exchange": asset_id.bolsa or "B",
+                    "price": price, "quantity": qty,
+                    "volume": vol, "buy_agent": buy_agent,
+                    "sell_agent": sell_agent,
+                    "trade_number": trade_num,
+                    "trade_type": trade_type,
+                    "is_edit": bool(edit),
                 })
+                if self._total_ticks <= 5:
+                    log.info("TICK_V1 ticker=%s price=%s qty=%s", ticker, price, qty)
             except Exception:
                 pass
 
-        # Noops V1 — assinaturas simples (c_void_p), identicos ao teste 02
-        _noop_trade    = _WF(None, _cv)(lambda p: None)
-        _noop_daily    = _WF(None, _cv)(lambda p: None)
+        @_WF(None, _cv, _cwp,
+             _cd, _cd, _cd, _cd, _cd, _cd,
+             _cd, _cd, _cd, _cd,
+             _ci, _ci, _ci, _ci, _ci, _ci, _ci)
+        def _daily_v1_init(asset_ptr, date, s_open, s_high, s_low, s_close,
+                           s_vol, s_ajuste, s_max_lim, s_min_lim,
+                           s_vol_buyer, s_vol_seller,
+                           n_qty, n_neg, n_contratos, n_qty_buyer, n_qty_seller,
+                           n_neg_buyer, n_neg_seller):
+            pass  # daily V2 cuida dos dados reais
+
         _noop_progress = _WF(None, _cv, _ci)(lambda p, v: None)
         _noop_tiny     = _WF(None, _cv, _cd, _ci, _ci)(lambda *a: None)
 
@@ -605,11 +645,15 @@ class ProfitAgent:
 
         # Guarda refs contra GC
         self._init_refs = [
-            _state_cb_init, _noop_trade, _noop_daily,
+            _state_cb_init, _trade_v1_init, _daily_v1_init,
             _noop_progress, _noop_tiny, _account_cb_init,
         ]
 
-        # 3. DLLInitializeLogin com noops V1 — padrao dos testes que funcionaram
+        # 3. Configura restypes ANTES de qualquer chamada
+        self._setup_dll_restypes()
+
+
+        # 5. DLLInitializeLogin com noops V1 — padrao dos testes que funcionaram
         log.info('profit_agent.initializing_market_data')
         ret_md = self._dll.DLLInitializeLogin(
             c_wchar_p(self._act_key),
@@ -619,8 +663,8 @@ class ProfitAgent:
             None,              # history
             None,              # order_change
             _account_cb_init, # account
-            _noop_trade,      # new_trade V1 (noop — usa SetTradeCallbackV2)
-            _noop_daily,      # new_daily  (noop — usa SetDailyCallback)
+            _trade_v1_init,   # new_trade V1 REAL (necessario para result=4)
+            _daily_v1_init,   # new_daily V1 REAL (necessario para result=4)
             None,              # price_book
             None,              # offer_book
             None,              # history_trade
@@ -631,21 +675,19 @@ class ProfitAgent:
             log.error('profit_agent.dll_init_failed ret=%d', ret_md)
             sys.exit(1)
 
-        # 4. Configura restypes e registra callbacks V2 APOS DLLInitializeLogin
-        self._setup_dll_restypes()
-        self._register_callbacks()
-        log.info('profit_agent.callbacks_registered')
-
         log.info('profit_agent.dll_initialized market_ret=%d', ret_md)
 
         # 4. Aguarda conexao (threading.Event — sem asyncio)
-        log.info("profit_agent.waiting_connection timeout=60s")
-        connected = self._market_connected.wait(timeout=120.0)
+        log.info("profit_agent.waiting_connection timeout=180s")
+        connected = self._market_connected.wait(timeout=180.0)
         if not connected:
             log.warning("profit_agent.market_timeout continuing_anyway")
 
 
-        # 5. Inicia DB (APOS DLL conectar)
+        # 5. Registra callbacks V2 APOS market connected (padrao teste 11)
+        self._post_connect_setup()
+
+        # 6. Inicia DB (APOS DLL conectar)
         log.info("profit_agent.connecting_db")
         self._db = DBWriter(self._ts_dsn)
         if self._db.connect():
@@ -692,6 +734,46 @@ class ProfitAgent:
 
         # 10. Heartbeat loop (main thread)
         self._heartbeat_loop()
+
+    def _post_connect_setup(self) -> None:
+        """
+        Registra Set*Callback V2 APOS market connected.
+        Padrao validado pelo teste 11: Set*Callback antes do DLLInitializeLogin
+        impede result=4 de ser entregue.
+        """
+        if not self._dll:
+            return
+        cbs = getattr(self, "_callbacks", [])
+        if len(cbs) < 7:
+            log.info("profit_agent._post_connect_setup calling _register_callbacks")
+            self._register_callbacks()
+            cbs = self._callbacks
+
+        # Indices na lista self._callbacks (definida em _register_callbacks):
+        # [0]=state, [1]=account, [2]=trade_v1, [3]=daily, [4]=progress,
+        # [5]=tiny, [6]=trade_v2, [7]=asset_info_v2, [8]=asset, [9]=adjust_v2,
+        # [10]=price_depth, [11]=order, [12]=trading_msg, [13]=broker_account
+        setters = [
+            ("SetTradeCallbackV2",              6),
+            ("SetDailyCallback",                3),
+            ("SetAssetListInfoCallbackV2",       7),
+            ("SetAssetListCallback",             8),
+            ("SetAdjustHistoryCallbackV2",       9),
+            ("SetPriceDepthCallback",           10),
+            ("SetOrderCallback",                11),
+            ("SetTradingMessageResultCallback", 12),
+            ("SetBrokerAccountListChangedCallback", 13),
+        ]
+        for fn_name, cb_idx in setters:
+            try:
+                fn = getattr(self._dll, fn_name, None)
+                if fn and cb_idx < len(cbs):
+                    fn(cbs[cb_idx])
+                    log.info("profit_agent.%s registered", fn_name)
+            except Exception as exc:
+                log.warning("profit_agent.%s failed e=%s", fn_name, exc)
+
+        log.info("profit_agent.v2_callbacks_registered")
 
     def _subscribe(self, ticker: str, exchange: str = "B") -> None:
         key = f"{ticker}:{exchange}"
@@ -1033,6 +1115,7 @@ class ProfitAgent:
         def price_depth_cb(asset_ptr, side, position, update_type) -> None:
             if not asset_ptr or not agent._dll:
                 return
+            return  # TODO: fix TAssetID cast para price_depth
             asset_id = ctypes.cast(asset_ptr, POINTER(TAssetID)).contents
             ticker = asset_id.ticker or ""
             if not ticker:
@@ -1126,7 +1209,11 @@ class ProfitAgent:
         def broker_account_cb(broker_id, changed) -> None:
             log.info("broker_account_changed broker=%d changed=%d", broker_id, changed)
 
-        # Guarda todas as refs
+        # Set*Callback V2 registrados aqui como refs mas NAO chamados ainda.
+        # Serao ativados via _post_connect_setup() APOS result=4 (MARKET_CONNECTED).
+        # O teste 11 prova que chamar Set*Callback ANTES do DLLInitializeLogin
+        # impede result=4 de chegar.
+        # Guarda todas as refs (CRITICO: manter em memoria para evitar GC)
         self._callbacks = [
             state_cb, account_cb, new_trade_cb, daily_cb,
             progress_cb, tiny_book_cb, trade_v2_cb, asset_info_v2_cb,
