@@ -2847,22 +2847,23 @@ function setRefreshInterval(ms) {
 async function _doRefresh() {
   if (!currentTicker || !priceSeries) return;
   try {
-    var rm = {'1m':'1m','2m':'1m','5m':'5m','15m':'15m','30m':'15m','60m':'1h','90m':'1h','1h':'1h','1d':'1d','5d':'1d','1wk':'1d','1mo':'1d','3mo':'1d'};
-    var res = rm[currentInterval] || '5m';
-    var r = await fetch('/api/v1/marketdata/candles/'+currentTicker+'?resolution='+res+'&limit=5000');
-    if (!r.ok) return;
-    var d = await r.json();
-    if (!d.candles || !d.candles.length) return;
-    var bars = d.candles;
-    priceSeries.setData(bars.map(function(c){var t=c.ts;if(typeof t==="string"&&t.indexOf("/")>-1){var p=t.split(" ");var d=p[0].split("/");var h=p[1]?p[1].split(":"):[0,0,0];t=Date.UTC(+d[2],+d[1]-1,+d[0],+h[0],+h[1],+h[2]?+h[2]:0)/1000;}else{t=new Date(t).getTime()/1000;}return {time:t,open:+c.open,high:+c.high,low:+c.low,close:+c.close};}));
-    if (volSeries) volSeries.setData(bars.map(function(c){var t=c.ts;if(typeof t==="string"&&t.indexOf("/")>-1){var p=t.split(" ");var d=p[0].split("/");var h=p[1]?p[1].split(":"):[0,0,0];t=Date.UTC(+d[2],+d[1]-1,+d[0],+h[0],+h[1],+h[2]?+h[2]:0)/1000;}else{t=new Date(t).getTime()/1000;}return {time:t,value:+(c.volume||0),color:(+c.close>=+c.open)?"#00e67633":"#ff444433"};}));
-    var last = bars[bars.length-1];
-    var pxEl = document.getElementById('tk-px'), chgEl = document.getElementById('tk-chg');
-    if (pxEl && last) {
-      pxEl.textContent = 'R$ '+f2(last.close);
-      var chg = last.close-last.open, pct = (chg/last.open*100).toFixed(2);
-      pxEl.style.color = chg>=0 ? 'var(--green)' : 'var(--red)';
-      if (chgEl) { chgEl.textContent=(chg>=0?'+':'')+f2(chg)+' ('+pct+'%)'; chgEl.className='tb-chg '+(chg>=0?'up':'dn'); }
+    var rm={'1m':'1m','2m':'1m','5m':'5m','15m':'15m','30m':'15m','60m':'1h','90m':'1h','1h':'1h','1d':'1d','5d':'1d','1wk':'1d','1mo':'1d','3mo':'1d'};
+    var res=rm[currentInterval]||'5m';
+    var r=await fetch('/api/v1/marketdata/candles/'+currentTicker+'/last?resolution='+res);
+    if(!r.ok)return;
+    var d=await r.json();
+    if(!d.candle)return;
+    var c=d.candle;
+    function _ts(ts){if(typeof ts==='string'&&ts.indexOf('/')>-1){var p=ts.split(' ');var dv=p[0].split('/');var h=p[1]?p[1].split(':'):[0,0,0];return Date.UTC(+dv[2],+dv[1]-1,+dv[0],+h[0],+h[1],+h[2]?+h[2]:0)/1000;}return new Date(ts).getTime()/1000;}
+    var bar={time:_ts(c.ts),open:+c.open,high:+c.high,low:+c.low,close:+c.close};
+    priceSeries.update(bar);
+    if(volSeries)volSeries.update({time:bar.time,value:+(c.volume||0),color:(+c.close>=+c.open)?'#00e67633':'#ff444433'});
+    var pxEl=document.getElementById('tk-px'),chgEl=document.getElementById('tk-chg');
+    if(pxEl){
+      pxEl.textContent='R$ '+f2(c.close);
+      var chg=c.close-c.open,pct=(chg/c.open*100).toFixed(2);
+      pxEl.style.color=chg>=0?'var(--green)':'var(--red)';
+      if(chgEl){chgEl.textContent=(chg>=0?'+':'')+f2(chg)+' ('+pct+'%)';chgEl.className='tb-chg '+(chg>=0?'up':'dn');}
     }
   } catch(e) {}
 }
