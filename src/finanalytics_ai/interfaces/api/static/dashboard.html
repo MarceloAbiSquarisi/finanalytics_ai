@@ -2535,6 +2535,39 @@ function startFeed() {
   // SSE desativado — sem elementos de feed na UI
   // Polling de preços da watchlist
   setInterval(() => { refreshWLPrices(); }, 60000);
+
+// Auto-refresh candle mais recente a cada 1s
+setInterval(async function() {
+  if (!currentTicker || !priceSeries) return;
+  try {
+    const r = await api('/api/v1/quotes/' + currentTicker + '/history?range=' + currentRange + '&interval=' + currentInterval);
+    if (!r.bars || !r.bars.length) return;
+    const bars = r.bars;
+    const last = bars[bars.length-1];
+    // Atualiza apenas o ultimo candle (mais eficiente)
+    priceSeries.update({
+      time: last.time,
+      open: last.open,
+      high: last.high,
+      low: last.low,
+      close: last.close
+    });
+    if (volSeries) volSeries.update({
+      time: last.time,
+      value: last.volume || 0,
+      color: last.close >= last.open ? '#00e67633' : '#ff444433'
+    });
+    // Atualiza preco no header
+    const pxEl = document.getElementById('tk-px');
+    const chgEl = document.getElementById('tk-chg');
+    if (pxEl) {
+      pxEl.textContent = 'R\$ ' + f2(last.close);
+      const chg = last.close - last.open, pct = (chg/last.open*100).toFixed(2);
+      pxEl.style.color = chg >= 0 ? 'var(--green)' : 'var(--red)';
+      if (chgEl) { chgEl.textContent = (chg>=0?'+':'') + f2(chg) + ' (' + pct + '%)'; chgEl.className = 'tb-chg ' + (chg>=0?'up':'dn'); }
+    }
+  } catch(e) {}
+}, 1000);
 }
 
 function appendFeedItem(data) { /* feed removido */ }
