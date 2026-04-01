@@ -92,6 +92,7 @@ tr:hover td{background:rgba(0,212,255,.02)}
 select.role-sel{background:var(--s2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:10px;padding:3px 7px;cursor:pointer}
 .search-bar{background:var(--s2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;padding:7px 12px;outline:none;width:260px;font-family:monospace}
 .search-bar:focus{border-color:var(--accent)}
+@keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
 </style>
 </head>
 <body>
@@ -99,6 +100,10 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
 <div class="fa-topbar">
   <a href="/" class="fa-logo">
     <span class="fa-logo-text">Fin<em>Analytics</em><span class="fa-ai-badge">AI</span></span>
+  </a>
+  <a href="/marketdata" style="display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.35);border-radius:5px;color:#00e676;font-size:11px;font-weight:700;padding:4px 10px;text-decoration:none;letter-spacing:.5px;transition:.15s;white-space:nowrap" onmouseover="this.style.background='rgba(0,230,118,.2)'" onmouseout="this.style.background='rgba(0,230,118,.1)'">
+    <span style="width:7px;height:7px;border-radius:50%;background:#00e676;display:inline-block;animation:livePulse 1.8s ease-in-out infinite"></span>
+    MERCADO AO VIVO
   </a>
   <div class="fa-user-chip">
     <div class="fa-avatar" id="avatarInitial">?</div>

@@ -94,6 +94,7 @@ tr:hover td{background:rgba(0,212,255,.02)}
 .refresh-btn:hover{background:rgba(0,212,255,.15)}
 .refresh-btn.spinning svg{animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+@keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
 </style>
 </head>
 <body>
@@ -101,6 +102,10 @@ tr:hover td{background:rgba(0,212,255,.02)}
 <div class="fa-topbar">
   <a href="/" class="fa-logo">
     <span class="fa-logo-text">Fin<em>Analytics</em><span class="fa-ai-badge">AI</span></span>
+  </a>
+  <a href="/marketdata" style="display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.35);border-radius:5px;color:#00e676;font-size:11px;font-weight:700;padding:4px 10px;text-decoration:none;letter-spacing:.5px;transition:.15s;white-space:nowrap" onmouseover="this.style.background='rgba(0,230,118,.2)'" onmouseout="this.style.background='rgba(0,230,118,.1)'">
+    <span style="width:7px;height:7px;border-radius:50%;background:#00e676;display:inline-block;animation:livePulse 1.8s ease-in-out infinite"></span>
+    MERCADO AO VIVO
   </a>
   <div class="fa-user-chip">
     <div class="fa-avatar" id="avatarInitial">?</div>

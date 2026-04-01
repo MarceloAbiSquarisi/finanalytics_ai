@@ -155,6 +155,7 @@ body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);mi
 }
 body.sb-open .fa-page-content { margin-left: var(--sb-w); }
 
+@keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
 </style>
 </head>
 <body>
@@ -208,6 +209,10 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 <a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
   <span id="fa-page-title" style="font-size:12px;font-weight:600;color:#7a95b0;letter-spacing:.06em;margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Forecast</span>
   <nav class="fa-nav"></nav>
+  <a href="/marketdata" style="display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.35);border-radius:5px;color:#00e676;font-size:11px;font-weight:700;padding:4px 10px;text-decoration:none;letter-spacing:.5px;transition:.15s;white-space:nowrap" onmouseover="this.style.background='rgba(0,230,118,.2)'" onmouseout="this.style.background='rgba(0,230,118,.1)'">
+    <span style="width:7px;height:7px;border-radius:50%;background:#00e676;display:inline-block;animation:livePulse 1.8s ease-in-out infinite"></span>
+    MERCADO AO VIVO
+  </a>
   <div class="fa-user-chip" id="fa-user-chip" style="display:none">
     <div class="fa-avatar" id="fa-avatar">U</div>
     <span id="fa-username" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
