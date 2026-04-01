@@ -1386,19 +1386,19 @@ function renderPriceChart(bars, bb) {
   priceChart.timeScale().fitContent(); // mostra maximo de dados
 
   // Crosshair sync
-  priceChart.subscribeCrosshairMove(p => {
-    if (!p.time || !p.seriesData) return;
-    const b = p.seriesData.get(priceSeries);
-    if (!b) return;
-    document.getElementById('tk-px').textContent = `R$ ${f2(b.close)}`;
-    const chg = b.close - b.open, pct = (chg/b.open*100).toFixed(2);
-    const el = document.getElementById('tk-chg');
-    el.textContent = `${chg>=0?'+':''}${f2(chg)} (${pct}%)`;
-    el.className   = `tb-chg ${chg>=0?'up':'dn'}`;
-  });
+  // Tooltip flutuante junto ao cursor
+  let _tip = document.getElementById('chart-tooltip');
+  if (!_tip) { _tip = document.createElement('div'); _tip.id='chart-tooltip'; _tip.style.cssText='position:absolute;display:none;pointer-events:none;z-index:50;background:rgba(13,33,68,.95);border:1px solid rgba(58,191,248,.25);border-radius:6px;padding:6px 12px;font-family:DM Mono,monospace;font-size:11px;color:#e2eaf4;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.5)'; container.appendChild(_tip); }
 
-  new ResizeObserver(() => {
-    if (priceChart) priceChart.applyOptions({autoSize: true});
+  priceChart.subscribeCrosshairMove(p => {
+    if (!p.time || !p.seriesData || !p.point) { _tip.style.display='none'; return; }
+    const b = p.seriesData.get(priceSeries);
+    if (!b) { _tip.style.display='none'; return; }
+    const chg = b.close - b.open, pct = (chg/b.open*100).toFixed(2), col = chg>=0?'#2ED47A':'#E05555';
+    _tip.innerHTML = '<span style=color:' + col + ';font-weight:700>R\$ ' + f2(b.close) + '</span>&nbsp;&nbsp;<span style=color:' + col + '>' + (chg>=0?'+':'') + f2(chg) + ' (' + pct + '%)</span><br><span style=color:#4a6080>O:' + f2(b.open) + ' H:' + f2(b.high) + ' L:' + f2(b.low) + '</span>';
+    const x=p.point.x, y=p.point.y, W=container.clientWidth, H=container.clientHeight;
+    _tip.style.display='block'; _tip.style.left=(x+16+180>W?x-195:x+16)+'px'; _tip.style.top=(y+16+55>H?y-65:y+16)+'px';
+  });
   }).observe(container);
 
   drawDaySeparators(priceChart, bars, container);
