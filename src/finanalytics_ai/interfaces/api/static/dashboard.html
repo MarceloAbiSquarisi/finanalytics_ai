@@ -2833,4 +2833,16 @@ async function checkProfitStatus() {
 setInterval(checkProfitStatus, 5000);
 setInterval(refreshWLPrices, 10000);
 // -- END PROFIT AGENT STATUS --------------------------------------------------
-</script>
+      // Profit Agent (TimescaleDB) → BRAPI fallback
+      const _resMap = {'1m':'1m','2m':'1m','5m':'5m','15m':'15m','30m':'15m','60m':'1h','90m':'1h','1h':'1h','1d':'1d','5d':'1d','1wk':'1d','1mo':'1d','3mo':'1d'};
+      const _res = _resMap[interval] || '5m';
+      const _profitR = await fetch('/api/v1/marketdata/candles/' + ticker + '?resolution=' + _res + '&limit=1000');
+      let histData;
+      if (_profitR.ok) {
+        const _pd = await _profitR.json();
+        if (_pd.candles && _pd.candles.length > 5) {
+          histData = { bars: _pd.candles.map(c => ({time:c.ts, open:Number(c.open), high:Number(c.high), low:Number(c.low), close:Number(c.close), volume:Number(c.volume||0)})) };
+        }
+      }
+      if (!histData) histData = await api('/api/v1/quotes/' + ticker + '/history?range=' + range + '&interval=' + interval);
+      Promise.resolve(histData),
