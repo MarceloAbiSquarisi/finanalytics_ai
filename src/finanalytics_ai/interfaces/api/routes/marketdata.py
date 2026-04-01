@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/v1/marketdata", tags=["Market Data"])
 
 _TS_DSN = os.getenv(
     "PROFIT_TIMESCALE_DSN",
-    "postgresql://finanalytics:timescale_secret@localhost:5433/market_data",
+    "postgresql://finanalytics:timescale_secret@timescale:5432/market_data",
 ).replace("postgresql://", "postgres://")
 
 
