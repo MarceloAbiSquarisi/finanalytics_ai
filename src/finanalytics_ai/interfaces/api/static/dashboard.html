@@ -380,6 +380,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .rb-period { background: rgba(240,180,41,.08) !important; color: #b8860b !important; border-color: rgba(240,180,41,.2) !important; }
 .rb-period:hover { background: rgba(240,180,41,.16) !important; color: #F0B429 !important; }
 .rb-period.active-period { background: rgba(240,180,41,.22) !important; color: #F0B429 !important; border-color: rgba(240,180,41,.5) !important; font-weight:700; }
+.refresh-sel{background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:5px;font-family:DM Mono,monospace;font-size:10px;padding:3px 7px;cursor:pointer;outline:none;transition:.15s}
+.refresh-sel:hover,.refresh-sel:focus{border-color:var(--blue);color:var(--white)}
 
 
 /* ── Collapsible Sidebar ─────────────────────────────────── */
@@ -618,7 +620,19 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
       <div class="ctrl-bar">
         <div class="sep"></div>
         <div class="ind-toggles">
-          <button class="itgl-open" id="btn-ind-popup" onclick="toggleIndPopup(event)">
+  <div style="display:flex;align-items:center;gap:5px;margin-left:8px;border-left:1px solid var(--border);padding-left:10px">
+    <span style="font-size:9px;color:var(--muted);letter-spacing:.5px">↻</span>
+    <select id="refresh-interval-sel" class="refresh-sel" onchange="setRefreshInterval(this.value)" title="Intervalo de atualização">
+      <option value="500">0.5s</option>
+      <option value="1000">1s</option>
+      <option value="2000">2s</option>
+      <option value="5000" selected>5s</option>
+      <option value="10000">10s</option>
+      <option value="30000">30s</option>
+      <option value="60000">1min</option>
+      <option value="0">Pausado</option>
+    </select>
+  </div>          <button class="itgl-open" id="btn-ind-popup" onclick="toggleIndPopup(event)">
             ⚙ Indicadores <span id="ind-count-badge" style="background:rgba(58,191,248,.25);color:var(--blue);border-radius:8px;padding:1px 6px;font-size:9px;margin-left:4px">3</span>
           </button>
         </div>
@@ -2541,32 +2555,6 @@ function startFeed() {
   // Polling de preços da watchlist
   setInterval(() => { refreshWLPrices(); }, 60000);
 
-// Auto-refresh candle mais recente a cada 1s
-setInterval(async function() {
-  if (!currentTicker || !priceSeries) return;
-  try {
-    const r = await api('/api/v1/quotes/' + currentTicker + '/history?range=' + currentRange + '&interval=' + currentInterval);
-    if (!r.bars || !r.bars.length) return;
-    const bars = r.bars;
-    const last = bars[bars.length-1];
-    // Atualiza apenas o ultimo candle (mais eficiente)
-    priceSeries.update({
-      time: last.time,
-      open: last.open,
-      high: last.high,
-      low: last.low,
-      close: last.close
-    });
-    if (volSeries) volSeries.update({
-      time: last.time,
-      value: last.volume || 0,
-      color: last.close >= last.open ? '#00e67633' : '#ff444433'
-    });
-    // Atualiza preco no header
-    const pxEl = document.getElementById('tk-px');
-    const chgEl = document.getElementById('tk-chg');
-    if (pxEl) {
-      pxEl.textContent = 'R\$ ' + f2(last.close);
       const chg = last.close - last.open, pct = (chg/last.open*100).toFixed(2);
       pxEl.style.color = chg >= 0 ? 'var(--green)' : 'var(--red)';
       if (chgEl) { chgEl.textContent = (chg>=0?'+':'') + f2(chg) + ' (' + pct + '%)'; chgEl.className = 'tb-chg ' + (chg>=0?'up':'dn'); }
@@ -2835,6 +2823,60 @@ async function checkProfitStatus() {
     if (connected) refreshWLPrices();
   } catch {}
 }
+
+// ── Auto-refresh configuravel ────────────────────────────────────────────────
+var _refreshMs    = 5000;
+var _refreshTimer = null;
+
+function setRefreshInterval(ms) {
+  ms = parseInt(ms);
+  _refreshMs = ms;
+  if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; }
+  if (ms > 0) {
+    _refreshTimer = setInterval(_doRefresh, ms);
+  }
+  const sel = document.getElementById('refresh-interval-sel');
+  if (sel) sel.value = String(ms);
+  localStorage.setItem('fa_refresh_ms', ms);
+}
+
+async function _doRefresh() {
+  if (!currentTicker || !priceSeries) return;
+  try {
+    const _resMap = {'1m':'1m','2m':'1m','5m':'5m','15m':'15m','30m':'15m','60m':'1h','90m':'1h','1h':'1h','1d':'1d','5d':'1d','1wk':'1d','1mo':'1d','3mo':'1d'};
+    const _res = _resMap[currentInterval] || '5m';
+    const r = await fetch('/api/v1/marketdata/candles/'+currentTicker+'?resolution='+_res+'&limit=1000');
+    if (!r.ok) return;
+    const d = await r.json();
+    if (!d.candles || !d.candles.length) return;
+    const bars = d.candles;
+    // Atualiza todos os candles (garante historico completo)
+    const mapped = bars.map(c => ({time:c.ts, open:Number(c.open), high:Number(c.high), low:Number(c.low), close:Number(c.close)}));
+    const vols   = bars.map(c => ({time:c.ts, value:Number(c.volume||0), color:Number(c.close)>=Number(c.open)?'#00e67633':'#ff444433'}));
+    priceSeries.setData(mapped);
+    if (volSeries) volSeries.setData(vols);
+    // Atualiza preco no header
+    const last = bars[bars.length-1];
+    const pxEl = document.getElementById('tk-px');
+    const chgEl = document.getElementById('tk-chg');
+    if (pxEl && last) {
+      pxEl.textContent = 'R$ ' + f2(last.close);
+      const chg = last.close - last.open, pct = (chg/last.open*100).toFixed(2);
+      pxEl.style.color = chg >= 0 ? 'var(--green)' : 'var(--red)';
+      if (chgEl) { chgEl.textContent = (chg>=0?'+':'')+f2(chg)+' ('+pct+'%)'; chgEl.className='tb-chg '+(chg>=0?'up':'dn'); }
+    }
+    // Atualiza watchlist com preco ao vivo
+    const wpEl = document.getElementById('wp-'+currentTicker);
+    if (wpEl && last) wpEl.textContent = 'R$ '+f2(last.close);
+  } catch(e) {}
+}
+
+// Restaura intervalo salvo
+(function() {
+  const saved = parseInt(localStorage.getItem('fa_refresh_ms') || '5000');
+  setRefreshInterval(saved);
+})();
+// ── fim auto-refresh ──────────────────────────────────────────────────────────
 setInterval(checkProfitStatus, 5000);
 setInterval(refreshWLPrices, 10000);
 // -- END PROFIT AGENT STATUS --------------------------------------------------
