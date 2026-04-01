@@ -1659,7 +1659,7 @@ function updateSignals(data) {
     else if (lastPb < 0.2) { bbEl.textContent=`PERTO INFERIOR ${lastPb.toFixed(2)}`; bbEl.className='sig-badge buy'; }
     else                   { bbEl.textContent=`NEUTRO ${lastPb.toFixed(2)}`; bbEl.className='sig-badge neutral'; }
   }
-  }
+
 
   // ADX Signal
   const adxEl = document.getElementById('sig-adx');
