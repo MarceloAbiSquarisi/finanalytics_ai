@@ -1399,7 +1399,7 @@ function renderPriceChart(bars, bb) {
     const x=p.point.x, y=p.point.y, W=container.clientWidth, H=container.clientHeight;
     _tip.style.display='block'; _tip.style.left=(x+16+180>W?x-195:x+16)+'px'; _tip.style.top=(y+16+55>H?y-65:y+16)+'px';
   });
-  }).observe(container);
+  new ResizeObserver(() => { if (priceChart) priceChart.applyOptions({autoSize:true}); }).observe(container);
 
   drawDaySeparators(priceChart, bars, container);
 }
