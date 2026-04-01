@@ -1234,6 +1234,7 @@ async function loadChartAndIndicators(ticker, range, interval) {
     const histData = _hd;
     const indData = await api('/api/v1/quotes/'+ticker+'/indicators?range='+range);
     // (fim busca de dados)
+    indCache = indData;
     indCache._bars = histData.bars;
     if (!indData.adx) indData.adx = computeADXFromBars(histData.bars, indConfig.adxPeriod);
     renderPriceChart(histData.bars, indData.bollinger);
