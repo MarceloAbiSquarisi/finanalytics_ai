@@ -482,7 +482,7 @@ body.sb-open .fa-page-content { margin-left: var(--sb-w); }
     <span style="width:7px;height:7px;border-radius:50%;background:#00e676;display:inline-block;animation:livePulse 1.8s ease-in-out infinite"></span>
     MERCADO AO VIVO
   </a>
-  <div class="fa-user-chip" id="fa-user-chip" style="display:none">
+
     <div class="fa-avatar" id="fa-avatar">U</div>
     <span id="fa-username" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
   </div>
@@ -1091,21 +1091,43 @@ function removeFromWL(ticker) {
 
 async function refreshWLPrices() {
   const tickers = activeWL()?.tickers || [];
+  // Tenta profit_agent primeiro (dados ao vivo), fallback para BRAPI
+  let liveQuotes = {};
+  try {
+    const r = await fetch(`/api/v1/marketdata/quotes`);
+    if (r.ok) {
+      const d = await r.json();
+      (d.quotes || []).forEach(q => { liveQuotes[q.ticker] = q; });
+    }
+  } catch {}
   await Promise.allSettled(tickers.map(async t => {
     try {
+      if (liveQuotes[t]) {
+        const q = liveQuotes[t];
+        const el_p = document.getElementById(`wp-${t}`);
+        const el_c = document.getElementById(`wc-${t}`);
+        if (el_p && q.price) el_p.textContent = `R$ ${f2(Number(q.price))}`;
+        if (el_c && q.change_pct != null) {
+          const pct = Number(q.change_pct).toFixed(2);
+          el_c.textContent = `${parseFloat(pct)>=0?"+":""}${pct}%`;
+          el_c.className = `wc ${parseFloat(pct)>=0?"up":"dn"}`;
+        }
+        return;
+      }
+      // Fallback BRAPI
       const d = await api(`/api/v1/quotes/${t}/detail`);
       if (d.price) document.getElementById(`wp-${t}`).textContent = `R$ ${f2(d.price)}`;
       if (d.change_pct != null) {
         const pct = d.change_pct.toFixed(2);
         const el  = document.getElementById(`wc-${t}`);
-        el.textContent = `${parseFloat(pct)>=0?'+':''}${pct}%`;
-        el.className = `wc ${parseFloat(pct)>=0?'up':'dn'}`;
+        el.textContent = `${parseFloat(pct)>=0?"+":""}${pct}%`;
+        el.className = `wc ${parseFloat(pct)>=0?"up":"dn"}`;
       }
     } catch {}
   }));
 }
 
-// -- TICKER --------------------------------------------------------------------
+// -- TICKERER --------------------------------------------------------------------
 async function selectTicker(ticker) {
   currentTicker = ticker;
   document.querySelectorAll('.wi').forEach(e => e.classList.remove('active'));
@@ -2713,8 +2735,27 @@ function faLogout() {
   sessionStorage.clear();
   window.location.replace('/login');
 }
-</script>
-</div><!-- /fa-page-content -->
-</body>
-</html>
 
+// -- PROFIT AGENT STATUS ------------------------------------------------------
+async function checkProfitStatus() {
+  try {
+    const r = await fetch('/api/v1/marketdata/status');
+    const d = await r.json();
+    const dot = document.getElementById('profit-dot');
+    const txt = document.getElementById('profit-txt');
+    const badge = document.getElementById('profit-badge');
+    if (!dot || !txt) return;
+    const connected = d.market_connected === true || d.market_connected === 'True';
+    dot.style.background = connected ? '#00e676' : '#4a6080';
+    dot.style.boxShadow  = connected ? '0 0 6px #00e676' : 'none';
+    txt.textContent      = connected ? 'AO VIVO' : (d.login_ok ? 'LOGIN OK' : 'AGENTE OFF');
+    badge.style.color    = connected ? '#00e676' : '#4a6080';
+    badge.style.borderColor = connected ? 'rgba(0,230,118,.35)' : 'rgba(255,255,255,.08)';
+    badge.style.background  = connected ? 'rgba(0,230,118,.08)' : 'rgba(255,255,255,.03)';
+    if (connected) refreshWLPrices();
+  } catch {}
+}
+setInterval(checkProfitStatus, 5000);
+setInterval(refreshWLPrices, 10000);
+// -- END PROFIT AGENT STATUS --------------------------------------------------
+</script>
