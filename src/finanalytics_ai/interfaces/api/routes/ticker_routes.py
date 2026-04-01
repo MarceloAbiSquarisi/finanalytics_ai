@@ -1,5 +1,5 @@
 ﻿
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 
 router = APIRouter(prefix="/api/v1/tickers", tags=["tickers"])
@@ -18,8 +18,9 @@ async def search_tickers(
 
 
 @router.get("/subscriptions")
-async def list_subscriptions(session_factory=Depends(get_session_factory)):
+async def list_subscriptions(request: Request):
     """Lista todos os tickers com status de subscricao no profit_agent."""
+    session_factory = request.app.state.session_factory
     async with session_factory() as session:
         from sqlalchemy import text
         rows = await session.execute(text("""
@@ -32,14 +33,11 @@ async def list_subscriptions(session_factory=Depends(get_session_factory)):
         return {"tickers": [dict(r._mapping) for r in rows]}
 
 @router.post("/subscriptions/{ticker}")
-async def toggle_subscription(
-    ticker: str,
-    body: dict,
-    session_factory=Depends(get_session_factory)
-):
+async def toggle_subscription(ticker: str, body: dict, request: Request):
     """Ativa ou desativa subscricao de um ticker no profit_agent."""
     subscribed = body.get("subscribed", True)
     exchange   = body.get("exchange", "B")
+    session_factory = request.app.state.session_factory
     async with session_factory() as session:
         from sqlalchemy import text
         await session.execute(text("""
