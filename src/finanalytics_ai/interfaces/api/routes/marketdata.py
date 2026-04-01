@@ -162,37 +162,6 @@ async def get_volume(ticker: str) -> Any:
 
 
 
-@router.get("/candles/{ticker}/last")
-async def get_last_candle(
-    ticker: str,
-    resolution: str = Query("1m", regex="^(1m|5m|15m|30m|1h|1d)$"),
-    db=Depends(get_timescale_session),
-) -> Any:
-    """Retorna apenas o candle atual (barra em formacao) — usado para update por tick."""
-    intervals = {"1m":"1 minute","5m":"5 minutes","15m":"15 minutes",
-                 "30m":"30 minutes","1h":"1 hour","1d":"1 day"}
-    bucket = intervals[resolution]
-    rows = await db.execute(text(f"""
-        SELECT
-            to_char(time_bucket('{bucket}', time AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo'),
-                    'DD/MM/YYYY HH24:MI:SS') AS ts,
-            (array_agg(price ORDER BY time ASC))[1]  AS open,
-            MAX(price)                                AS high,
-            MIN(price)                                AS low,
-            (array_agg(price ORDER BY time DESC))[1] AS close,
-            SUM(quantity)                             AS volume
-        FROM profit_ticks
-        WHERE ticker = :ticker
-          AND time >= date_trunc('{bucket}', NOW() AT TIME ZONE 'America/Sao_Paulo'
-                                            AT TIME ZONE 'UTC')
-        GROUP BY 1
-        ORDER BY 1 DESC
-        LIMIT 1
-    """), {"ticker": ticker.upper()})
-    row = rows.mappings().first()
-    if not row:
-        return {"ticker": ticker.upper(), "candle": None}
-    return {"ticker": ticker.upper(), "candle": dict(row)}
 
 @router.get("/status")
 async def get_agent_status() -> Any:
@@ -206,3 +175,40 @@ async def get_agent_status() -> Any:
                 return await r.json()
     except Exception as e:
         return JSONResponse({"error": str(e), "agent_url": agent_url}, status_code=503)
+@router.get("/candles/{ticker}/last")
+async def get_last_candle(
+    ticker: str,
+    resolution: str = Query("1m", regex="^(1m|5m|15m|30m|1h|1d)$"),
+) -> Any:
+    """Retorna o candle atual em formacao — usado para update por tick."""
+    import os, asyncpg as _apg
+    intervals = {"1m":"1 minute","5m":"5 minutes","15m":"15 minutes",
+                 "30m":"30 minutes","1h":"1 hour","1d":"1 day"}
+    bucket = intervals[resolution]
+    dsn = os.getenv("PROFIT_TIMESCALE_DSN",
+                    "postgresql://finanalytics:timescale_secret@timescale:5432/market_data")
+    try:
+        conn = await _apg.connect(dsn=dsn)
+        row = await conn.fetchrow(f"""
+            SELECT
+                to_char(time_bucket('{bucket}', time AT TIME ZONE 'America/Sao_Paulo'),
+                        'DD/MM/YYYY HH24:MI:SS') AS ts,
+                (array_agg(price ORDER BY time ASC))[1]  AS open,
+                MAX(price)                                AS high,
+                MIN(price)                                AS low,
+                (array_agg(price ORDER BY time DESC))[1] AS close,
+                SUM(quantity)                             AS volume
+            FROM profit_ticks
+            WHERE ticker = $1
+              AND time >= date_trunc('{bucket}', NOW() AT TIME ZONE 'America/Sao_Paulo'
+                                                AT TIME ZONE 'UTC')
+            GROUP BY 1
+            ORDER BY 1 DESC
+            LIMIT 1
+        """, ticker.upper())
+        await conn.close()
+        if not row:
+            return {"ticker": ticker.upper(), "candle": None}
+        return {"ticker": ticker.upper(), "candle": dict(row)}
+    except Exception as e:
+        return {"ticker": ticker.upper(), "candle": None, "error": str(e)}
