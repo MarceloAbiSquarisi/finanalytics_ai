@@ -744,6 +744,10 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
           <p>Clique em um ativo para ver o gráfico</p>
         </div>
         <div class="ov hide" id="ov-price"><div class="spin"></div><span>Carregando…</span></div>
+        <div id="chart-watermark" style="position:absolute;bottom:18px;left:50%;transform:translateX(-50%);pointer-events:none;z-index:1;text-align:center;user-select:none;display:none">
+          <div style="font-size:52px;font-weight:800;color:rgba(58,191,248,.06);letter-spacing:4px;line-height:1;font-family:DM Mono,monospace" id="wm-ticker"></div>
+          <div style="font-size:13px;font-weight:400;color:rgba(58,191,248,.04);letter-spacing:2px;margin-top:2px;font-family:DM Mono,monospace" id="wm-name"></div>
+        </div>
       </div>
 
       <!-- RSI Pane -->
@@ -1134,6 +1138,8 @@ async function selectTicker(ticker) {
   document.getElementById(`wi-${ticker}`)?.classList.add('active');
   document.getElementById('t-tk').value = ticker;
   document.getElementById('empty').style.display = 'none';
+  const wm = document.getElementById('chart-watermark');
+  if (wm) { wm.style.display = 'block'; document.getElementById('wm-ticker').textContent = ticker; }
 
   await Promise.all([loadDetail(ticker), loadChartAndIndicators(ticker, currentRange)]);
 }
@@ -1143,6 +1149,8 @@ async function loadDetail(ticker) {
     const d = await api(`/api/v1/quotes/${ticker}/detail`);
     document.getElementById('tk-sym').textContent = d.ticker || ticker;
     document.getElementById('tk-nm').textContent  = d.name   || '';
+    const wmName = document.getElementById('wm-name');
+    if (wmName) wmName.textContent = d.name || '';
     if (d.price) {
       document.getElementById('tk-px').textContent = `R$ ${f2(d.price)}`;
       document.getElementById('t-p').value = d.price.toFixed(2);
