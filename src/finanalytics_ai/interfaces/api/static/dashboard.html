@@ -934,7 +934,7 @@ const RLBL  = {'1d':'1D','5d':'5D','1mo':'1M','3mo':'3M','6mo':'6M','1y':'1A','2
 
 let currentPf     = null;
 let currentTicker = null;
-let currentRange  = '1y';
+let currentRange  = 'max';
 let currentPeriod = '1y';
 let tradeMode     = 'buy';
 let indVisible    = {bb: false, rsi: false, macd: false, adx: false, patterns: false};
@@ -1199,7 +1199,7 @@ var currentInterval = '5m';
 
 function changeInterval(interval) {
   currentInterval = interval;
-  currentRange = INTERVAL_RANGE_MAP[interval] || '3mo';
+  // currentRange fixo em max — sempre mostra tudo
 
   // Atualizar botões ativos
   document.querySelectorAll('.rb').forEach(function(b) {
@@ -1383,7 +1383,7 @@ function renderPriceChart(bars, bb) {
   if (indVisible.patterns) drawPatterns(bars);
   else { patternMarkers = []; if(priceSeries) priceSeries.setMarkers([]); }
 
-  priceChart.timeScale().fitContent();
+  priceChart.timeScale().fitContent(); // mostra maximo de dados
 
   // Crosshair sync
   priceChart.subscribeCrosshairMove(p => {
