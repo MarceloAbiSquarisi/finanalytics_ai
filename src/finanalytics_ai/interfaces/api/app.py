@@ -621,6 +621,10 @@ def create_app() -> FastAPI:
     async def serve_screener() -> HTMLResponse:
         return _html("screener.html")
 
+    @app.get("/marketdata", response_class=HTMLResponse, include_in_schema=False)
+    async def marketdata_page():
+        return _html("marketdata.html")
+
     @app.get("/ml", response_class=HTMLResponse, include_in_schema=False)
     async def serve_ml() -> HTMLResponse:
         return _html("ml.html")
