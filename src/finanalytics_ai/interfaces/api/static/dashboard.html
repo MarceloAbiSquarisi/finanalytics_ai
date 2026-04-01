@@ -1235,7 +1235,7 @@ async function loadChartAndIndicators(ticker, range, interval) {
     renderPriceChart(histData.bars, indData.bollinger);
     renderRSI(indData.rsi, indData.timestamps);
     renderMACD(indData.macd, indData.timestamps);
-    renderADX(indData.adx, indData.timestamps);
+    renderADX(indData.adx, indData.timestamps || histData.bars.map(b => b.time));
     updateSignals(indData);
   } catch {
     // fallback demo
@@ -1594,8 +1594,8 @@ function renderADX(adx, timestamps) {
     const dp = p.seriesData.get(diPlusLine);
     const dm = p.seriesData.get(diMinusLine);
     if (a && dp && dm) {
-      document.getElementById('adx-val').textContent =
-        ` ADX ${a.value.toFixed(1)}  +DI ${dp.value.toFixed(1)}  -DI ${dm.value.toFixed(1)}`;
+      document.getElementById('adx-val').innerHTML = '<span style="color:#E8F4FD">ADX ' + a.value.toFixed(1) + '</span> &nbsp;<span style="color:#2ED47A">+DI ' + dp.value.toFixed(1) + '</span> &nbsp;<span style="color:#E05555">-DI ' + dm.value.toFixed(1) + '</span>';
+
     }
   });
 
@@ -1604,8 +1604,8 @@ function renderADX(adx, timestamps) {
   const lastDIp  = adx.di_plus.filter(v=>v!=null).at(-1);
   const lastDIm  = adx.di_minus.filter(v=>v!=null).at(-1);
   if (lastADX != null) {
-    document.getElementById('adx-val').textContent =
-      ` ADX ${lastADX.toFixed(1)}  +DI ${lastDIp.toFixed(1)}  -DI ${lastDIm.toFixed(1)}`;
+    document.getElementById('adx-val').innerHTML = '<span style="color:#E8F4FD">ADX ' + lastADX.toFixed(1) + '</span> &nbsp;<span style="color:#2ED47A">+DI ' + lastDIp.toFixed(1) + '</span> &nbsp;<span style="color:#E05555">-DI ' + lastDIm.toFixed(1) + '</span>';
+
     const trend = lastADX > 25
       ? (lastDIp > lastDIm ? 'ALTA' : 'BAIXA')
       : 'LATERAL';
