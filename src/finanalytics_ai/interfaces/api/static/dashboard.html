@@ -1235,7 +1235,7 @@ async function loadChartAndIndicators(ticker, range, interval) {
     renderPriceChart(histData.bars, indData.bollinger);
     renderRSI(indData.rsi, indData.timestamps);
     renderMACD(indData.macd, indData.timestamps);
-    renderADX(indData.adx, indData.timestamps || histData.bars.map(b => b.time));
+    renderADX(indData.adx, histData.bars.map(function(b){return b.time;}));
     updateSignals(indData);
   } catch {
     // fallback demo
@@ -1246,7 +1246,7 @@ async function loadChartAndIndicators(ticker, range, interval) {
     renderPriceChart(bars, indData.bollinger);
     renderRSI(indData.rsi, indData.timestamps);
     renderMACD(indData.macd, indData.timestamps);
-    renderADX(indData.adx, indData.timestamps);
+    renderADX(indData.adx, histData.bars.map(function(b){return b.time;}));
     updateSignals(indData);
     toast('BRAPI indisponivel -- modo demo', 'err');
   } finally {
@@ -1539,8 +1539,14 @@ function renderMACD(macd, timestamps) {
 function renderADX(adx, timestamps) {
   const container = document.getElementById('pane-adx');
   if (adxChart) { adxChart.remove(); adxChart=null; adxLine=null; diPlusLine=null; diMinusLine=null; }
+  // adx render
   if (!indVisible.adx || !adx || !adx.adx.length) return;
-
+  // Alinha timestamps com adx (computeADXFromBars retorna arrays do mesmo tamanho das barras)
+  if (timestamps && timestamps.length !== adx.adx.length) {
+    const diff = adx.adx.length - timestamps.length;
+    if (diff > 0) timestamps = Array(diff).fill(null).concat(timestamps);
+    else timestamps = timestamps.slice(-adx.adx.length);
+  }
   adxChart = LightweightCharts.createChart(container, {
     width: container.clientWidth, height: container.clientHeight,
     layout: {background:{color:'transparent'}, textColor:'#6A9EBF', fontFamily:"'DM Mono',monospace", fontSize:9},
