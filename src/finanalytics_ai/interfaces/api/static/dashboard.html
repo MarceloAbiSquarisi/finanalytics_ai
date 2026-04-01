@@ -1384,6 +1384,18 @@ function renderPriceChart(bars, bb) {
   else { patternMarkers = []; if(priceSeries) priceSeries.setMarkers([]); }
 
   priceChart.timeScale().fitContent(); // mostra maximo de dados
+  // Exibe ultimo preco imediatamente apos carregar
+  if (bars && bars.length) {
+    const last = bars[bars.length-1];
+    const pxEl = document.getElementById('tk-px');
+    const chgEl = document.getElementById('tk-chg');
+    if (pxEl) {
+      pxEl.textContent = 'R\$ ' + f2(last.close);
+      const chg = last.close - last.open, pct = (chg/last.open*100).toFixed(2);
+      pxEl.style.color = chg >= 0 ? 'var(--green)' : 'var(--red)';
+      if (chgEl) { chgEl.textContent = (chg>=0?'+':'') + f2(chg) + ' (' + pct + '%)'; chgEl.className = 'tb-chg ' + (chg>=0?'up':'dn'); }
+    }
+  }
 
   // Crosshair sync
   // Tooltip flutuante junto ao cursor
