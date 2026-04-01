@@ -2555,11 +2555,11 @@ function startFeed() {
   // Polling de preços da watchlist
   setInterval(() => { refreshWLPrices(); }, 60000);
 
-      const chg = last.close - last.open, pct = (chg/last.open*100).toFixed(2);
-      pxEl.style.color = chg >= 0 ? 'var(--green)' : 'var(--red)';
-      if (chgEl) { chgEl.textContent = (chg>=0?'+':'') + f2(chg) + ' (' + pct + '%)'; chgEl.className = 'tb-chg ' + (chg>=0?'up':'dn'); }
-    }
-  } catch(e) {}
+
+
+
+
+
 
 
 
