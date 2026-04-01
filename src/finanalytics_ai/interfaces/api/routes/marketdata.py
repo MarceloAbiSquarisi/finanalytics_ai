@@ -163,17 +163,13 @@ async def get_volume(ticker: str) -> Any:
 
 @router.get("/status")
 async def get_agent_status() -> Any:
-    """Status do profit_agent."""
+    """Status do profit_agent — consulta direto o agente na porta 8002."""
+    import aiohttp
+    agent_url = os.getenv("PROFIT_AGENT_URL", "http://host.docker.internal:8002")
     try:
-        conn = await _conn()
-        row = await conn.fetchrow("""
-            SELECT last_heartbeat, is_connected, market_connected,
-                   routing_connected, subscribed_tickers,
-                   total_ticks, total_orders
-            FROM profit_agent_status
-            WHERE id = 1
-        """)
-        await conn.close()
-        return dict(row) if row else {"error": "no status"}
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{agent_url}/status",
+                                   timeout=aiohttp.ClientTimeout(total=3)) as r:
+                return await r.json()
     except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=503)
+        return JSONResponse({"error": str(e), "agent_url": agent_url}, status_code=503)
