@@ -435,6 +435,7 @@ body.sb-open .fa-page-content { margin-left: var(--sb-w); }
 
 @keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
 .refresh-sel{background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:4px;font-family:DM Mono,monospace;font-size:10px;padding:3px 6px;cursor:pointer;outline:none}
+.refresh-sel{background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:4px;font-family:DM Mono,monospace;font-size:10px;padding:3px 6px;cursor:pointer;outline:none}
 </style>
 </head>
 <body>
@@ -514,6 +515,7 @@ body.sb-open .fa-page-content { margin-left: var(--sb-w); }
   <a href="/marketdata" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Market Data</span></a>
   <a href="/ml" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span>ML Probabilístico</span></a>
 
+<a href="/subscriptions" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span>Subscricoes Profit</span></a>
 <a href="/hub" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Hub</span></a>
 <a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a></div>
 </aside>
@@ -620,6 +622,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
         <div class="sep"></div>
         <div class="ind-toggles">
   <select id="refresh-sel" class="refresh-sel" onchange="setRefreshInterval(this.value)" title="Intervalo de atualizacao" style="margin-right:8px"><option value="500">0.5s</option><option value="1000">1s</option><option value="2000">2s</option><option value="5000" selected>5s</option><option value="10000">10s</option><option value="30000">30s</option><option value="60000">1min</option><option value="0">Pause</option></select>
+  <select id="refresh-sel" class="refresh-sel" onchange="setRefreshInterval(this.value)" title="Intervalo" style="margin-right:8px"><option value="-1">Por tick</option><option value="500">0.5s</option><option value="1000">1s</option><option value="2000">2s</option><option value="5000" selected>5s</option><option value="10000">10s</option><option value="30000">30s</option><option value="60000">1min</option><option value="0">Pause</option></select>
           <button class="itgl-open" id="btn-ind-popup" onclick="toggleIndPopup(event)">
             ⚙ Indicadores <span id="ind-count-badge" style="background:rgba(58,191,248,.25);color:var(--blue);border-radius:8px;padding:1px 6px;font-size:9px;margin-left:4px">3</span>
           </button>
@@ -1227,12 +1230,13 @@ async function loadChartAndIndicators(ticker, range, interval) {
   setLoading(true);
   try {
     // Busca OHLC e indicadores em paralelo
-    const [histData, indData] = await Promise.all([
-      api(`/api/v1/quotes/${ticker}/history?range=${range}&interval=${interval}`),
-      api(`/api/v1/quotes/${ticker}/indicators?range=${range}`),
-    ]);
-    indCache = indData;   // salva para reuso no toggle
-    indCache._bars = histData.bars;
+    const _rm2={'1m':'1m','2m':'1m','5m':'5m','15m':'15m','30m':'15m','60m':'1h','90m':'1h','1h':'1h','1d':'1d','5d':'1d','1wk':'1d','1mo':'1d','3mo':'1d'};
+    const _res2=_rm2[interval]||'5m';
+    const _pr2=await fetch('/api/v1/marketdata/candles/'+ticker+'?resolution='+_res2+'&limit=2000');
+    function _tsC(ts){if(typeof ts==='string'&&ts.indexOf('/')>-1){var p=ts.split(' ');var dv=p[0].split('/');var h=p[1]?p[1].split(':'):[0,0,0];return Date.UTC(+dv[2],+dv[1]-1,+dv[0],+h[0],+h[1],+h[2]?+h[2]:0)/1000;}return new Date(ts).getTime()/1000;}
+    let _hd2=null; if(_pr2.ok){const _pd2=await _pr2.json();if(_pd2.candles&&_pd2.candles.length>5){_hd2={bars:_pd2.candles.map(c=>({time:_tsC(c.ts),open:+c.open,high:+c.high,low:+c.low,close:+c.close,volume:+(c.volume||0)}))};}} if(!_hd2)_hd2=await api('/api/v1/quotes/'+ticker+'/history?range='+range+'&interval='+interval); const histData=_hd2;
+    const indData=await api('/api/v1/quotes/'+ticker+'/indicators?range='+range);
+    indCache = indData; indCache._bars = histData.bars;
     if (!indData.adx) indData.adx = computeADXFromBars(histData.bars, indConfig.adxPeriod);
     renderPriceChart(histData.bars, indData.bollinger);
     renderRSI(indData.rsi, indData.timestamps);
@@ -2489,7 +2493,7 @@ async function deleteAlert(alertId) {
 function startAlertStream() {
   if (alertSse) { alertSse.close(); alertSse = null; }
   try {
-    alertSse = new EventSource(`${API}/api/v1/alerts/stream`);
+
     alertSse.onmessage = (e) => {
       try {
         const d = JSON.parse(e.data);
@@ -2863,6 +2867,38 @@ async function _doRefresh() {
   } catch(e) {}
 }
 (function(){ var s=parseInt(localStorage.getItem('fa_refresh_ms')||'5000'); setRefreshInterval(s); })();
+var _refreshTimer = null;
+function setRefreshInterval(ms) {
+  ms = parseInt(ms);
+  if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; }
+  var sel = document.getElementById('refresh-sel'); if (sel) sel.value = String(ms);
+  localStorage.setItem('fa_refresh_ms', ms);
+  if (ms === -1 || ms > 0) { _refreshTimer = setInterval(_doRefresh, ms === -1 ? 200 : ms); }
+}
+async function _doRefresh() {
+  if (!currentTicker || !priceSeries) return;
+  try {
+    var rm={'1m':'1m','2m':'1m','5m':'5m','15m':'15m','30m':'15m','60m':'1h','90m':'1h','1h':'1h','1d':'1d','5d':'1d','1wk':'1d','1mo':'1d','3mo':'1d'};
+    var res=rm[currentInterval]||'5m';
+    var r=await fetch('/api/v1/marketdata/candles/'+currentTicker+'?resolution='+res+'&limit=2000');
+    if(!r.ok)return;
+    var d=await r.json();
+    if(!d.candles||!d.candles.length)return;
+    var bars=d.candles;
+    function _ts2(ts){if(typeof ts==='string'&&ts.indexOf('/')>-1){var p=ts.split(' ');var dv=p[0].split('/');var h=p[1]?p[1].split(':'):[0,0,0];return Date.UTC(+dv[2],+dv[1]-1,+dv[0],+h[0],+h[1],+h[2]?+h[2]:0)/1000;}return new Date(ts).getTime()/1000;}
+    priceSeries.setData(bars.map(c=>({time:_ts2(c.ts),open:+c.open,high:+c.high,low:+c.low,close:+c.close})));
+    if(volSeries)volSeries.setData(bars.map(c=>({time:_ts2(c.ts),value:+(c.volume||0),color:(+c.close>=+c.open)?'#00e67633':'#ff444433'})));
+    var last=bars[bars.length-1];
+    var pxEl=document.getElementById('tk-px'),chgEl=document.getElementById('tk-chg');
+    if(pxEl&&last){
+      pxEl.textContent='R$ '+f2(last.close);
+      var chg=last.close-last.open,pct=(chg/last.open*100).toFixed(2);
+      pxEl.style.color=chg>=0?'var(--green)':'var(--red)';
+      if(chgEl){chgEl.textContent=(chg>=0?'+':'')+f2(chg)+' ('+pct+'%)';chgEl.className='tb-chg '+(chg>=0?'up':'dn');}
+    }
+  } catch(e) {}
+}
+(function(){var s=parseInt(localStorage.getItem('fa_refresh_ms')||'5000');setRefreshInterval(s);})();
 setInterval(checkProfitStatus, 5000);
 setInterval(refreshWLPrices, 10000);
 // -- END PROFIT AGENT STATUS --------------------------------------------------

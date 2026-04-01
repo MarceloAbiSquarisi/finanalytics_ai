@@ -78,7 +78,7 @@ async def get_quotes() -> Any:
 
 
 @router.get("/ticks/{ticker}")
-async def get_ticks(ticker: str, limit: int = Query(200, le=1000)) -> Any:
+async def get_ticks(ticker: str, limit: int = Query(500, le=1000)) -> Any:
     """Ultimos N ticks de um ticker."""
     try:
         conn = await _conn()
@@ -100,8 +100,8 @@ async def get_ticks(ticker: str, limit: int = Query(200, le=1000)) -> Any:
 @router.get("/candles/{ticker}")
 async def get_candles(
     ticker: str,
-    resolution: str = Query("1m", regex="^(1m|5m|15m|1h)$"),
-    limit: int = Query(120, le=500),
+    resolution: str = Query("1m", regex="^(1m|5m|15m|30m|1h|1d)$"),
+    limit: int = Query(120, le=5000),
 ) -> Any:
     """Candles OHLCV agregados do TimescaleDB."""
     intervals = {"1m": "1 minute", "5m": "5 minutes", "15m": "15 minutes", "1h": "1 hour"}
