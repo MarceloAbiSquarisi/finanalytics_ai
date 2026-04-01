@@ -1659,6 +1659,24 @@ function updateSignals(data) {
     else if (lastPb < 0.2) { bbEl.textContent=`PERTO INFERIOR ${lastPb.toFixed(2)}`; bbEl.className='sig-badge buy'; }
     else                   { bbEl.textContent=`NEUTRO ${lastPb.toFixed(2)}`; bbEl.className='sig-badge neutral'; }
   }
+  }
+
+  // ADX Signal
+  const adxEl = document.getElementById('sig-adx');
+  if (adxEl && data.adx && data.adx.adx) {
+    const adxVals = data.adx.adx.filter(v => v != null);
+    const dipVals = data.adx.di_plus.filter(v => v != null);
+    const dimVals = data.adx.di_minus.filter(v => v != null);
+    const lastAdx = adxVals[adxVals.length-1];
+    const lastDip = dipVals[dipVals.length-1];
+    const lastDim = dimVals[dimVals.length-1];
+    if (lastAdx != null) {
+      if (lastAdx >= 25 && lastDip > lastDim) { adxEl.innerHTML='<span style=color:#2ED47A>ALTA ' + lastAdx.toFixed(1) + '</span>'; adxEl.className='sig-badge buy'; }
+      else if (lastAdx >= 25 && lastDim > lastDip) { adxEl.innerHTML='<span style=color:#E05555>BAIXA ' + lastAdx.toFixed(1) + '</span>'; adxEl.className='sig-badge sell'; }
+      else if (lastAdx >= 40) { adxEl.innerHTML='<span style=color:#6c63ff>FORTE ' + lastAdx.toFixed(1) + '</span>'; adxEl.className='sig-badge neutral'; }
+      else { adxEl.innerHTML='<span style=color:#ffd740>LATERAL ' + lastAdx.toFixed(1) + '</span>'; adxEl.className='sig-badge neutral'; }
+    }
+  }
 }
 
 // -- INDICATOR POPUP -----------------------------------------------------------
