@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Scheduler Worker — Coleta diária automática de dados de mercado.
 

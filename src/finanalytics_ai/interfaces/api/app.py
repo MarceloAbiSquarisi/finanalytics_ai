@@ -25,6 +25,7 @@ from finanalytics_ai.interfaces.api.routes import admin as admin_routes
 from finanalytics_ai.interfaces.api.routes import admin as admin_routes
 from finanalytics_ai.interfaces.api.routes import ml_forecasting as ml_routes
 from finanalytics_ai.interfaces.api.routes import marketdata as marketdata_routes
+from finanalytics_ai.interfaces.api.routes import fundos as fundos_routes
 from finanalytics_ai.interfaces.api.routes import (
     wallet,
     alerts,
@@ -507,6 +508,7 @@ def create_app() -> FastAPI:
     app.include_router(events.router, prefix="/api/v1/events", tags=["Eventos"])
     app.include_router(alerts.router, prefix="/api/v1/alerts", tags=["Alertas"])
     app.include_router(producer.router, prefix="/api/v1/producer", tags=["Producer"])
+    app.include_router(fundos_routes.router)
     app.include_router(backtest.router, tags=["Backtest"])
     app.include_router(correlation.router, tags=["Correlation"])
     app.include_router(screener.router, tags=["Screener"])
@@ -656,6 +658,10 @@ def create_app() -> FastAPI:
     @app.get("/optimizer", response_class=HTMLResponse, include_in_schema=False)
     async def serve_optimizer() -> HTMLResponse:
         return _html("optimizer.html")
+
+    @app.get("/fundos", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_fundos() -> HTMLResponse:
+        return _html("laminas.html")
 
     @app.get("/laminas", response_class=HTMLResponse, include_in_schema=False)
     async def serve_laminas() -> HTMLResponse:
