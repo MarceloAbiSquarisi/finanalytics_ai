@@ -200,8 +200,7 @@ async def get_last_candle(
                 SUM(quantity)                             AS volume
             FROM profit_ticks
             WHERE ticker = $1
-              AND time >= date_trunc('{bucket}', NOW() AT TIME ZONE 'America/Sao_Paulo'
-                                                AT TIME ZONE 'UTC')
+              AND time >= NOW() - INTERVAL '1 hour'
             GROUP BY 1
             ORDER BY 1 DESC
             LIMIT 1
