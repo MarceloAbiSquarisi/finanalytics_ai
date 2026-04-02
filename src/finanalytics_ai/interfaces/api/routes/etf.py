@@ -1,4 +1,4 @@
-"""finanalytics_ai.interfaces.api.routes.etf — Rotas REST para análise de ETFs."""
+﻿"""finanalytics_ai.interfaces.api.routes.etf — Rotas REST para análise de ETFs."""
 
 import structlog
 from fastapi import APIRouter, HTTPException, Query
@@ -133,3 +133,79 @@ async def rebalance(body: RebalanceRequest, request: Request) -> dict:
         )
     except Exception as e:
         raise HTTPException(400, str(e)) from e
+
+# ── Sync e Overview ───────────────────────────────────────────────────────────
+
+@router.post("/sync")
+async def sync_etf(
+    tickers: str = Query(default="", description="Tickers separados por vírgula. Vazio = todos"),
+    range_: str = Query(default="1y", alias="range"),
+) -> dict:
+    """Sincroniza preços de ETFs via BRAPI e persiste no banco."""
+    import os
+    from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+    from sqlalchemy.orm import sessionmaker
+    from finanalytics_ai.application.services.etf_sync_service import sync_etf_prices, ETF_TICKERS
+    ticker_list = [t.strip().upper() for t in tickers.split(",") if t.strip()] or ETF_TICKERS
+    db_url = os.environ.get("DATABASE_URL", "postgresql+asyncpg://finanalytics:secret@postgres:5432/finanalytics")
+    engine = create_async_engine(db_url)
+    SM = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with SM() as s:
+        async with s.begin():
+            result = await sync_etf_prices(s, ticker_list, range_)
+    await engine.dispose()
+    return {"ok": True, "registros": result, "tickers": ticker_list}
+
+
+@router.get("/overview")
+async def etf_overview(request: Request) -> list[dict]:
+    """Retorna overview de todos os ETFs com preço, variação e retorno 12m."""
+    import os
+    from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+    from sqlalchemy.orm import sessionmaker
+    from finanalytics_ai.application.services.etf_sync_service import get_etf_overview
+    db_url = os.environ.get("DATABASE_URL","postgresql+asyncpg://finanalytics:secret@postgres:5432/finanalytics")
+    engine = create_async_engine(db_url)
+    SM = sessionmaker(engine, class_=AsyncSession)
+    async with SM() as s:
+        result = await get_etf_overview(s)
+    await engine.dispose()
+    return result
+
+
+@router.get("/history/{ticker}")
+async def etf_history(
+    ticker: str,
+    days: int = Query(252, ge=5, le=1260),
+    request: Request = None,
+) -> dict:
+    """Retorna histórico de preços de um ETF para gráfico."""
+    from finanalytics_ai.interfaces.api.dependencies import get_db_session
+    from sqlalchemy import text as _text
+    from datetime import datetime, timezone
+    import os as _os
+    from sqlalchemy.ext.asyncio import create_async_engine as _cae, AsyncSession as _AS
+    from sqlalchemy.orm import sessionmaker as _SM
+    db_url = _os.environ.get("DATABASE_URL","postgresql+asyncpg://finanalytics:secret@postgres:5432/finanalytics")
+    _engine = _cae(db_url)
+    _SMF = _SM(_engine, class_=_AS)
+    async with _SMF() as session:
+        rows = await session.execute(_text("""
+            SELECT data, fechamento, var_dia, volume
+            FROM   etf_precos
+            WHERE  ticker = :t
+              AND  data >= CURRENT_DATE - (:d * INTERVAL '1 day')
+              AND  fechamento IS NOT NULL
+            ORDER  BY data ASC
+        """), {"t": ticker.upper(), "d": days})
+        candles = []
+        for r in rows:
+            ts = int(datetime.combine(r.data, datetime.min.time())
+                    .replace(tzinfo=timezone.utc).timestamp())
+            candles.append({
+                "time": ts,
+                "value": float(r.fechamento),
+                "var_dia": float(r.var_dia) if r.var_dia else None,
+            })
+    await _engine.dispose()
+    return {"ticker": ticker.upper(), "candles": candles, "total": len(candles)}

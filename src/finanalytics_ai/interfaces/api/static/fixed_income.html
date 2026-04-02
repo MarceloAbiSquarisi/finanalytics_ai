@@ -410,6 +410,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     <div style="font-size:10px;font-weight:700;letter-spacing:.8px;color:var(--muted);text-transform:uppercase">Taxas de referência:</div>
     <div class="rate-item">
       <span class="rate-label">CDI</span>
+      <div id="rates-status" style="font-size:10px;color:#8899aa;margin-bottom:8px;padding:4px 0">Carregando taxas BCB...</div>
       <input class="rate-input" id="r-cdi"   type="number" step="0.01" value="10.65" onchange="onRateChange()">
       <span class="rate-unit">% a.a.</span>
     </div>
@@ -603,6 +604,31 @@ function rates() {
   };
 }
 function onRateChange() { /* taxas editáveis em tempo real */ }
+// ── Taxas BCB ao vivo ─────────────────────────────────────────────────────────
+async function loadLiveRates() {
+  const el = document.getElementById('rates-status');
+  if (el) el.textContent = 'Buscando taxas BCB...';
+  try {
+    const tok = localStorage.getItem('access_token') || '';
+    const r = await fetch('/api/v1/fixed-income/rates/live', {
+      headers: tok ? {Authorization: 'Bearer ' + tok} : {}
+    });
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    if (d.cdi  !== undefined) document.getElementById('r-cdi').value   = d.cdi.toFixed(2);
+    if (d.selic !== undefined) document.getElementById('r-selic').value = d.selic.toFixed(2);
+    if (d.ipca !== undefined) document.getElementById('r-ipca').value  = d.ipca.toFixed(2);
+    if (d.igpm !== undefined) document.getElementById('r-igpm').value  = d.igpm.toFixed(2);
+    if (el) {
+      const now = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+      el.innerHTML = '<span style="color:#00c48c">✓ BCB ' + now + '</span> &nbsp; SELIC ' + (d.selic||'--') + '% &nbsp; CDI ' + (d.cdi||'--') + '% &nbsp; IPCA ' + (d.ipca||'--') + '% &nbsp; IGPM ' + (d.igpm||'--') + '%';
+    }
+    onRateChange();
+  } catch(e) {
+    if (el) el.innerHTML = '<span style="color:#8899aa">taxas padrão (BCB indisponível)</span>';
+  }
+}
+
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 function switchTab(id) {
@@ -612,6 +638,8 @@ function switchTab(id) {
 }
 
 // ── Load bonds ────────────────────────────────────────────────────────────────
+// Carrega taxas BCB ao iniciar
+async function initPage() { await loadLiveRates(); await initPage(); }
 async function loadBonds() {
   const params = new URLSearchParams();
   const t = document.getElementById('f-type').value;
@@ -1019,7 +1047,7 @@ async function runGoal() {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-loadBonds();
+initPage();
 </script>
 
 
