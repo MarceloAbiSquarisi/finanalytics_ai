@@ -2896,7 +2896,7 @@ async function _doRefresh() {
       pxEl.style.color=chg>=0?'var(--green)':'var(--red)';
       if(chgEl){chgEl.textContent=(chg>=0?'+':'')+f2(chg)+' ('+pct+'%)';chgEl.className='tb-chg '+(chg>=0?'up':'dn');}
     }
-  } catch(e) {}
+  } catch(e) { console.warn('refresh err',e); } finally { _refreshInProgress = false; }
 }
 var _refreshTimer = null;
 function setRefreshInterval(ms) {
