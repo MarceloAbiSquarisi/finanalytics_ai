@@ -2873,8 +2873,10 @@ async function checkProfitStatus() {
     if (connected) refreshWLPrices();
   } catch {}
 }
+var _refreshInProgress = false;
 async function _doRefresh() {
-  if (!currentTicker || !priceSeries) return;
+  if (!currentTicker || !priceSeries || _refreshInProgress) return;
+  _refreshInProgress = true;
   try {
     var rm={'1m':'1m','2m':'1m','5m':'5m','15m':'15m','30m':'15m','60m':'1h','90m':'1h','1h':'1h','1d':'1d','5d':'1d','1wk':'1d','1mo':'1d','3mo':'1d'};
     var res=rm[currentInterval]||'5m';
@@ -2896,17 +2898,15 @@ async function _doRefresh() {
     }
   } catch(e) {}
 }
-(function(){ setRefreshInterval(-1); })(); // sempre por tick
 var _refreshTimer = null;
 function setRefreshInterval(ms) {
   ms = parseInt(ms);
   if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; }
   var sel = document.getElementById('refresh-sel'); if (sel) sel.value = String(ms);
   localStorage.setItem('fa_refresh_ms', ms);
-  if (ms === -1 || ms > 0) { _refreshTimer = setInterval(_doRefresh, ms === -1 ? 200 : ms); }
+  if (ms === -1 || ms > 0) { _refreshTimer = setInterval(_doRefresh, ms === -1 ? 1000 : ms); }
 }
-}
-(function(){var s=parseInt(localStorage.getItem('fa_refresh_ms')||'5000');setRefreshInterval(s);})();
+(function(){ setRefreshInterval(-1); })(); // sempre por tick
 setInterval(checkProfitStatus, 5000);
 setInterval(refreshWLPrices, 10000);
 // -- END PROFIT AGENT STATUS --------------------------------------------------
