@@ -622,7 +622,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
         <div class="sep"></div>
         <div class="ind-toggles">
 
-  <select id="refresh-sel" class="refresh-sel" onchange="setRefreshInterval(this.value)" title="Intervalo" style="margin-right:8px"><option value="-1">Por tick</option><option value="500">0.5s</option><option value="1000">1s</option><option value="2000">2s</option><option value="5000" selected>5s</option><option value="10000">10s</option><option value="30000">30s</option><option value="60000">1min</option><option value="0">Pause</option></select>
+  
           <button class="itgl-open" id="btn-ind-popup" onclick="toggleIndPopup(event)">
             ⚙ Indicadores <span id="ind-count-badge" style="background:rgba(58,191,248,.25);color:var(--blue);border-radius:8px;padding:1px 6px;font-size:9px;margin-left:4px">3</span>
           </button>
@@ -1292,15 +1292,23 @@ async function loadChartAndIndicators(ticker, range, interval) {
     const _res2=_rm2[interval]||'5m';
     const _pr2=await fetch('/api/v1/marketdata/candles/'+ticker+'?resolution='+_res2+'&limit=5000');
     function _tsC(ts){if(typeof ts==='string'&&ts.indexOf('/')>-1){var p=ts.split(' ');var dv=p[0].split('/');var h=p[1]?p[1].split(':'):[0,0,0];return Date.UTC(+dv[2],+dv[1]-1,+dv[0],+h[0],+h[1],+h[2]?+h[2]:0)/1000-10800;}return new Date(ts).getTime()/1000-10800;}
-    let _hd2=null; if(_pr2.ok){const _pd2=await _pr2.json();if(_pd2.candles&&_pd2.candles.length>5){_hd2={bars:_pd2.candles.map(c=>({time:_tsC(c.ts),open:+c.open,high:+c.high,low:+c.low,close:+c.close,volume:+(c.volume||0)}))};}} if(!_hd2)throw new Error('Sem dados do Profit Agent para '+ticker); const histData=_hd2;
-    const indData=await api('/api/v1/quotes/'+ticker+'/indicators?range='+range);
+    if(!_pr2.ok) throw new Error('Profit Agent indisponivel para '+ticker);
+    const _pd2=await _pr2.json();
+    if(!_pd2.candles||_pd2.candles.length<2) throw new Error('Sem candles para '+ticker);
+    const histData={bars:_pd2.candles.map(c=>({time:_tsC(c.ts),open:+c.open,high:+c.high,low:+c.low,close:+c.close,volume:+(c.volume||0)}))};
+    // Renderiza candles imediatamente
+    renderPriceChart(histData.bars, null);
+    // Indicadores em paralelo - falha silenciosamente
+    let indData={};
+    try {
+      indData=await api('/api/v1/quotes/'+ticker+'/indicators?range='+range);
+      if (!indData.adx) indData.adx = computeADXFromBars(histData.bars, indConfig.adxPeriod);
+      renderRSI(indData.rsi, indData.timestamps);
+      renderMACD(indData.macd, indData.timestamps);
+      renderADX(indData.adx, histData.bars.map(function(b){return b.time;}));
+      updateSignals(indData);
+    } catch(e2) { console.warn('Indicadores indisponiveis:', e2.message); }
     indCache = indData; indCache._bars = histData.bars;
-    if (!indData.adx) indData.adx = computeADXFromBars(histData.bars, indConfig.adxPeriod);
-    renderPriceChart(histData.bars, indData.bollinger);
-    renderRSI(indData.rsi, indData.timestamps);
-    renderMACD(indData.macd, indData.timestamps);
-    renderADX(indData.adx, histData.bars.map(function(b){return b.time;}));
-    updateSignals(indData);
   } catch {
     // fallback demo
     const bars = mockBars(range);
@@ -1405,7 +1413,6 @@ function renderPriceChart(bars, bb) {
     wickUpColor:'#2ED47A', wickDownColor:'#E05555',
   });
   priceSeries.setData(bars);
-  initDaySeparators(bars);
 
   // Volume
   volSeries = priceChart.addHistogramSeries({
@@ -1449,6 +1456,8 @@ function renderPriceChart(bars, bb) {
   else { patternMarkers = []; if(priceSeries) priceSeries.setMarkers([]); }
 
   priceChart.timeScale().fitContent();
+  // Separadores de dia apos render
+  setTimeout(function(){if(typeof initDaySeparators==='function'&&typeof bars!=='undefined')initDaySeparators(bars);},250);
   // Exibe ultimo preco imediatamente apos carregar
   if (bars && bars.length) {
     const last = bars[bars.length-1];
@@ -2887,7 +2896,7 @@ async function _doRefresh() {
     }
   } catch(e) {}
 }
-(function(){ var s=parseInt(localStorage.getItem('fa_refresh_ms')||'5000'); setRefreshInterval(s); })();
+(function(){ setRefreshInterval(-1); })(); // sempre por tick
 var _refreshTimer = null;
 function setRefreshInterval(ms) {
   ms = parseInt(ms);
