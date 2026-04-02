@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -1291,7 +1291,7 @@ async function loadChartAndIndicators(ticker, range, interval) {
     const _rm2={'1m':'1m','2m':'1m','5m':'5m','15m':'15m','30m':'15m','60m':'1h','90m':'1h','1h':'1h','1d':'1d','5d':'1d','1wk':'1d','1mo':'1d','3mo':'1d'};
     const _res2=_rm2[interval]||'5m';
     const _pr2=await fetch('/api/v1/marketdata/candles/'+ticker+'?resolution='+_res2+'&limit=5000');
-    function _tsC(ts){if(typeof ts==='string'&&ts.indexOf('/')>-1){var p=ts.split(' ');var dv=p[0].split('/');var h=p[1]?p[1].split(':'):[0,0,0];return Date.UTC(+dv[2],+dv[1]-1,+dv[0],+h[0],+h[1],+h[2]?+h[2]:0)/1000-10800;}return new Date(ts).getTime()/1000-10800;}
+    function _tsC(ts){if(typeof ts==='string'&&ts.indexOf('/')>-1){var p=ts.split(' ');var dv=p[0].split('/');var h=p[1]?p[1].split(':'):[0,0,0];return Date.UTC(+dv[2],+dv[1]-1,+dv[0],+h[0],+h[1],+h[2]?+h[2]:0)/1000;}return new Date(ts).getTime()/1000;}
     if(!_pr2.ok) throw new Error('Profit Agent indisponivel para '+ticker);
     const _pd2=await _pr2.json();
     if(!_pd2.candles||_pd2.candles.length<2) throw new Error('Sem candles para '+ticker);
@@ -1309,18 +1309,9 @@ async function loadChartAndIndicators(ticker, range, interval) {
       updateSignals(indData);
     } catch(e2) { console.warn('Indicadores indisponiveis:', e2.message); }
     indCache = indData; indCache._bars = histData.bars;
-  } catch {
-    // fallback demo
-    const bars = mockBars(range);
-    const indData = computeMockIndicators(bars);
-    indCache = indData;   // salva para reuso no toggle
-    indCache._bars = bars;
-    renderPriceChart(bars, indData.bollinger);
-    renderRSI(indData.rsi, indData.timestamps);
-    renderMACD(indData.macd, indData.timestamps);
-    renderADX(indData.adx, bars.map(function(b){return b.time;}));
-    updateSignals(indData);
-    toast('Profit Agent indisponivel -- modo demo', 'err');
+  } catch(e) {
+    console.error('loadChartAndIndicators error:', e.message);
+    toast('Erro ao carregar dados: ' + e.message, 'err');
   } finally {
     setLoading(false);
   }
@@ -1412,7 +1403,18 @@ function renderPriceChart(bars, bb) {
     borderUpColor:'#2ED47A', borderDownColor:'#E05555',
     wickUpColor:'#2ED47A', wickDownColor:'#E05555',
   });
-  priceSeries.setData(bars);
+  // Garante timestamps numericos antes de setData
+  var _bars2 = bars.map(function(b){
+    var t = b.time;
+    if (typeof t !== 'number') {
+      t = typeof t === 'string' ? (t.indexOf('/')>-1 ?
+        (function(ts){var p=ts.split(' ');var dv=p[0].split('/');var h=p[1]?p[1].split(':'):[0,0,0];return Date.UTC(+dv[2],+dv[1]-1,+dv[0],+h[0],+h[1],+(h[2]||0))/1000;})(t)
+        : new Date(t).getTime()/1000)
+      : new Date(t).getTime()/1000;
+    }
+    return {time:t, open:b.open, high:b.high, low:b.low, close:b.close, volume:b.volume};
+  });
+  priceSeries.setData(_bars2);
 
   // Volume
   volSeries = priceChart.addHistogramSeries({
@@ -2608,7 +2610,7 @@ const FEED_MAX = 30;
 function startFeed() {
   // SSE desativado — sem elementos de feed na UI
   // Polling de preços da watchlist
-  setInterval(() => { refreshWLPrices(); }, 60000);
+  // refreshWLPrices removido daqui — coberto pelo setInterval(refreshWLPrices, 10000) global
 
 // Auto-refresh feito pelo _doRefresh via /last endpoint
 }
@@ -2878,25 +2880,31 @@ async function _doRefresh() {
   if (!currentTicker || !priceSeries || _refreshInProgress) return;
   _refreshInProgress = true;
   try {
-    var rm={'1m':'1m','2m':'1m','5m':'5m','15m':'15m','30m':'15m','60m':'1h','90m':'1h','1h':'1h','1d':'1d','5d':'1d','1wk':'1d','1mo':'1d','3mo':'1d'};
-    var res=rm[currentInterval]||'5m';
-    var r=await fetch('/api/v1/marketdata/candles/'+currentTicker+'/last?resolution='+res);
+    var rm={"1m":"1m","2m":"1m","5m":"5m","15m":"15m","30m":"15m","60m":"1h","90m":"1h","1h":"1h","1d":"1d","5d":"1d","1wk":"1d","1mo":"1d","3mo":"1d"};
+    var res=rm[currentInterval]||"5m";
+    var r=await fetch("/api/v1/marketdata/candles/"+currentTicker+"/last?resolution="+res);
     if(!r.ok)return;
     var d=await r.json();
     if(!d.candle)return;
     var c=d.candle;
-    function _ts(ts){if(typeof ts==='string'&&ts.indexOf('/')>-1){var p=ts.split(' ');var dv=p[0].split('/');var h=p[1]?p[1].split(':'):[0,0,0];return Date.UTC(+dv[2],+dv[1]-1,+dv[0],+h[0],+h[1],+h[2]?+h[2]:0)/1000-10800;}return new Date(ts).getTime()/1000-10800;}
-    var bar={time:_ts(c.ts),open:+c.open,high:+c.high,low:+c.low,close:+c.close};
-    priceSeries.update(bar);
-    if(volSeries)volSeries.update({time:bar.time,value:+(c.volume||0),color:(+c.close>=+c.open)?'#00e67633':'#ff444433'});
-    var pxEl=document.getElementById('tk-px'),chgEl=document.getElementById('tk-chg');
-    if(pxEl){
-      pxEl.textContent='R$ '+f2(c.close);
-      var chg=c.close-c.open,pct=(chg/c.open*100).toFixed(2);
-      pxEl.style.color=chg>=0?'var(--green)':'var(--red)';
-      if(chgEl){chgEl.textContent=(chg>=0?'+':'')+f2(chg)+' ('+pct+'%)';chgEl.className='tb-chg '+(chg>=0?'up':'dn');}
+    // ts vem como ISO 8601 UTC do backend (ex: "2026-04-02T14:00:00+00:00")
+    // Mantém suporte legado a "DD/MM/YYYY HH:MM:SS" caso rollback seja necessário
+    var ts=c.ts||"";
+    var t;
+    if(ts.indexOf("/")>-1){
+      var p=ts.split(" ");var dv=p[0].split("/");var hv=p[1]?p[1].split(":"):[0,0,0];
+      t=Math.floor(Date.UTC(+dv[2],+dv[1]-1,+dv[0],+hv[0],+hv[1],+hv[2]||0)/1000);
+    } else {
+      t=Math.floor(new Date(ts).getTime()/1000);
     }
-  } catch(e) { console.warn('refresh err',e); } finally { _refreshInProgress = false; }
+    if(!t||isNaN(t))return;
+    var bar={time:t,open:+c.open,high:+c.high,low:+c.low,close:+c.close};
+    priceSeries.update(bar);
+    if(volSeries)volSeries.update({time:t,value:+(c.volume||0),color:(+c.close>=+c.open)?"#00e67633":"#ff444433"});
+    var pxEl=document.getElementById("tk-px"),chgEl=document.getElementById("tk-chg");
+    if(pxEl){pxEl.textContent="R$ "+f2(c.close);var chg=c.close-c.open,pct=(chg/c.open*100).toFixed(2);pxEl.style.color=chg>=0?"var(--green)":"var(--red)";if(chgEl){chgEl.textContent=(chg>=0?"+":"")+f2(chg)+" ("+pct+"%)";chgEl.className="tb-chg "+(chg>=0?"up":"dn");}}
+  } catch(e) { console.warn("refresh err",e); }
+  finally { _refreshInProgress = false; }
 }
 var _refreshTimer = null;
 function setRefreshInterval(ms) {
@@ -2904,7 +2912,7 @@ function setRefreshInterval(ms) {
   if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; }
   var sel = document.getElementById('refresh-sel'); if (sel) sel.value = String(ms);
   localStorage.setItem('fa_refresh_ms', ms);
-  if (ms === -1 || ms > 0) { _refreshTimer = setInterval(_doRefresh, ms === -1 ? 1000 : ms); }
+  if (ms === -1 || ms > 0) { _refreshTimer = setInterval(_doRefresh, ms === -1 ? 500 : ms); }
 }
 (function(){ setRefreshInterval(-1); })(); // sempre por tick
 setInterval(checkProfitStatus, 5000);
