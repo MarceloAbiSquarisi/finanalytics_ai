@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 import structlog
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Path, Query
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from finanalytics_ai.interfaces.api.dependencies import get_db_session
@@ -63,7 +63,7 @@ async def listar_tipos(session: AsyncSession = Depends(get_db_session)) -> dict:
     return {"tipos": [{"tipo": r.tipo, "total": r.total,
             "pl_total": float(r.pl_total) if r.pl_total else None} for r in rows]}
 
-@router.get("/{cnpj}/cotas")
+@router.get("/{cnpj:path}/cotas")
 async def historico_cotas(
     cnpj: str,
     session: AsyncSession = Depends(get_db_session),
@@ -80,7 +80,7 @@ async def historico_cotas(
                for r in rows]
     return {"cnpj": cnpj, "candles": candles, "total": len(candles)}
 
-@router.get("/{cnpj}")
+@router.get("/{cnpj:path}")
 async def detalhe_fundo(cnpj: str, session: AsyncSession = Depends(get_db_session)) -> dict[str, Any]:
     row = await session.execute(text("SELECT * FROM fundos_cadastro WHERE cnpj = :cnpj"), {"cnpj": cnpj.strip()})
     cad = row.mappings().first()
@@ -128,7 +128,7 @@ async def trigger_sync_informe(
     result = await sync_informe_diario(session, competencia=competencia or None)
     return {"ok": True, **result}
 
-@router.post("/{cnpj}/rentabilidade")
+@router.post("/{cnpj:path}/rentabilidade")
 async def calcular_rent(cnpj: str, session: AsyncSession = Depends(get_db_session)) -> dict:
     from finanalytics_ai.application.services.fundos_cvm_service import calcular_rentabilidade
     result = await calcular_rentabilidade(session, cnpj)
