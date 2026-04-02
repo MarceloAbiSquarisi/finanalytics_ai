@@ -1,4 +1,4 @@
-"""
+﻿"""
 finanalytics_ai.interfaces.api.routes.fixed_income
 ────────────────────────────────────────────────────
 GET  /api/v1/fixed-income/bonds          — lista/filtra títulos
@@ -13,6 +13,8 @@ from typing import Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
+from finanalytics_ai.interfaces.api.dependencies import get_db_session
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 
 from finanalytics_ai.application.services.fixed_income_service import (
@@ -217,6 +219,65 @@ async def stress_test(body: StressTestRequest) -> list[dict]:
         base_igpm=body.base_igpm / 100
     )
 
+
+@router.get("/rates/live")
+async def get_live_rates(session: AsyncSession = Depends(get_db_session)) -> dict:
+    """Retorna taxas BCB atualizadas (SELIC, CDI, IPCA, IGPM)."""
+    from finanalytics_ai.application.services.bcb_service import get_taxas_atuais
+    rates = await get_taxas_atuais(session)
+    return rates
+
+@router.post("/rates/sync")
+async def sync_bcb_rates() -> dict:
+    """Dispara sync de indicadores BCB manualmente."""
+    import os
+    from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+    from sqlalchemy.orm import sessionmaker
+    from finanalytics_ai.application.services.bcb_service import sync_indicadores
+    db_url = os.environ.get("DATABASE_URL","postgresql+asyncpg://finanalytics:secret@postgres:5432/finanalytics")
+    engine = create_async_engine(db_url)
+    SM = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    # 1. Busca HTTP fora de qualquer sessao DB
+    from finanalytics_ai.application.services.bcb_service import _fetch_all
+    all_data = await _fetch_all()
+    # 2. Persiste no banco
+    async with SM() as s:
+        async with s.begin():
+            from finanalytics_ai.application.services.bcb_service import _dt, _flt
+            from sqlalchemy import text as _text
+            from datetime import date as _date
+            result = {}
+            for nome, dados in all_data.items():
+                ok = 0
+                for row in dados:
+                    dt = _dt(row.get("data",""))
+                    val = _flt(row.get("valor",""))
+                    if dt is None or val is None or not isinstance(dt, _date): continue
+                    await s.execute(_text("""
+                        INSERT INTO macro_indicators (indicador, data, valor)
+                        VALUES (:i, :d, :v)
+                        ON CONFLICT (indicador, data) DO UPDATE SET valor = EXCLUDED.valor
+                    """), {"i": nome, "d": dt, "v": val})
+                    ok += 1
+                if dados:
+                    ultimo = _flt(dados[-1].get("valor",""))
+                    if ultimo:
+                        anu = round(((1+ultimo/100)**252-1)*100,4) if "diaria" in nome or "diario" in nome else round(((1+ultimo/100)**12-1)*100,4)
+                        result[nome] = {"ultimo": ultimo, "anualizado": anu}
+    await engine.dispose()
+    return {"ok": True, "registros": {k: len(v) for k,v in all_data.items()}, "taxas": result}
+
+@router.get("/rates/historico")
+async def get_historico_taxa(
+    indicador: str = Query("selic_diaria", description="selic_diaria|cdi_diario|ipca_mensal|igpm_mensal"),
+    dias: int = Query(252, ge=30, le=1260),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Retorna historico de um indicador para grafico."""
+    from finanalytics_ai.application.services.bcb_service import get_historico
+    dados = await get_historico(session, indicador, dias)
+    return {"indicador": indicador, "dados": dados, "total": len(dados)}
+
 @router.get("/scenarios/default")
 async def default_scenarios() -> list[dict]:
     """Retorna a lista de cenários de stress padrão."""
@@ -236,8 +297,6 @@ async def default_scenarios() -> list[dict]:
 from datetime import date as _date
 
 from finanalytics_ai.application.services.rf_portfolio_service import RFPortfolioService
-from finanalytics_ai.interfaces.api.dependencies import get_db_session
-from sqlalchemy.ext.asyncio import AsyncSession
 
 class CreatePortfolioRFRequest(BaseModel):
     user_id: str = Field(..., min_length=1)
