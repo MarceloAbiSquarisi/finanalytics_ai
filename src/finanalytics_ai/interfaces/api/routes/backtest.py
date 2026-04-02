@@ -26,21 +26,40 @@ router = APIRouter(prefix="/api/v1/backtest", tags=["backtest"])
 
 class BacktestRequest(BaseModel):
     ticker: str = Field(..., description="PETR4")
-    strategy: str = Field("combined", description="rsi|macd|combined")
+    strategy: str = Field("combined", description="rsi|macd|combined|pin_bar|setup_91|...")
     range_period: str = Field("3mo", description="1mo|3mo|6mo|1y|2y")
     initial_capital: float = Field(10_000.0, ge=100.0)
     position_size: float = Field(1.0, ge=0.1, le=1.0)
     commission_pct: float = Field(0.001, ge=0.0, le=0.05)
-    # Parâmetros opcionais por estratégia
+    # Parâmetros legados (retrocompatibilidade)
     rsi_period: int | None = None
     rsi_oversold: float | None = None
     rsi_overbought: float | None = None
     macd_fast: int | None = None
     macd_slow: int | None = None
     macd_signal: int | None = None
+    # Parâmetros genéricos: JSON string com dict de params da estratégia
+    # ex: '{"wick_ratio":0.65,"trend_filter":true}'
+    strategy_params_json: str | None = Field(None, description="JSON dict de params")
 
 def _build_strategy_params(req: BacktestRequest) -> dict[str, Any]:
-    """Monta dict de parâmetros apenas com os campos fornecidos."""
+    """
+    Monta dict de parâmetros da estratégia.
+
+    Prioridade:
+      1. strategy_params_json (parâmetros genéricos via JSON)
+      2. Campos legados rsi_period / macd_fast etc. (retrocompatibilidade)
+    """
+    import json
+
+    # Parâmetros genéricos via JSON (novas estratégias)
+    if req.strategy_params_json:
+        try:
+            return json.loads(req.strategy_params_json)
+        except (json.JSONDecodeError, ValueError):
+            pass  # Fallback para campos legados
+
+    # Campos legados (retrocompatibilidade RSI/MACD/Combined)
     mapping: dict[str, Any] = {}
     if req.rsi_period is not None:
         mapping["period"] = req.rsi_period
@@ -55,7 +74,6 @@ def _build_strategy_params(req: BacktestRequest) -> dict[str, Any]:
     if req.macd_signal is not None:
         mapping["signal_period"] = req.macd_signal
 
-    # Combined usa prefixo rsi_/macd_
     if req.strategy == "combined":
         combined: dict[str, Any] = {}
         if req.rsi_period is not None:
@@ -84,42 +102,83 @@ def _get_service(request: Request) -> BacktestService:
 
 @router.get("/strategies")
 async def list_strategies() -> dict[str, Any]:
-    """Lista estratégias disponíveis com seus parâmetros padrão."""
+    """Lista todas as 19 estratégias disponíveis com parâmetros padrão."""
     return {
         "strategies": [
-            {
-                "id": "rsi",
-                "name": "RSI Reversal",
-                "description": "Compra na saída de sobrevenda, vende na sobrecompra",
-                "params": {
-                    "period": {"default": 14, "type": "int", "min": 5, "max": 50},
-                    "oversold": {"default": 30.0, "type": "float", "min": 10, "max": 45},
-                    "overbought": {"default": 70.0, "type": "float", "min": 55, "max": 90},
-                },
-            },
-            {
-                "id": "macd",
-                "name": "MACD Crossover",
-                "description": "Cruzamento da linha MACD com a Signal line",
-                "params": {
-                    "fast": {"default": 12, "type": "int", "min": 3, "max": 50},
-                    "slow": {"default": 26, "type": "int", "min": 10, "max": 100},
-                    "signal_period": {"default": 9, "type": "int", "min": 3, "max": 20},
-                },
-            },
-            {
-                "id": "combined",
-                "name": "RSI + MACD Combined",
-                "description": "Confirmação dupla: BUY só quando ambos concordam",
-                "params": {
-                    "rsi_period": {"default": 14, "type": "int"},
-                    "rsi_oversold": {"default": 30.0, "type": "float"},
-                    "rsi_overbought": {"default": 70.0, "type": "float"},
-                    "macd_fast": {"default": 12, "type": "int"},
-                    "macd_slow": {"default": 26, "type": "int"},
-                    "macd_signal": {"default": 9, "type": "int"},
-                },
-            },
+            # ── Osciladores ──────────────────────────────────────────────────
+            {"id": "rsi", "name": "RSI Reversal", "category": "Oscilador",
+             "description": "Compra na saída de sobrevenda, vende na sobrecompra",
+             "params": {"period": {"default": 14, "min": 5, "max": 50},
+                        "oversold": {"default": 30.0, "min": 10, "max": 45},
+                        "overbought": {"default": 70.0, "min": 55, "max": 90}}},
+            {"id": "macd", "name": "MACD Crossover", "category": "Oscilador",
+             "description": "Cruzamento MACD/Signal line",
+             "params": {"fast": {"default": 12, "min": 3, "max": 50},
+                        "slow": {"default": 26, "min": 10, "max": 100},
+                        "signal_period": {"default": 9, "min": 3, "max": 20}}},
+            {"id": "combined", "name": "RSI + MACD", "category": "Oscilador",
+             "description": "Confirmação dupla: BUY só quando ambos concordam",
+             "params": {"rsi_period": {"default": 14}, "rsi_oversold": {"default": 30.0},
+                        "rsi_overbought": {"default": 70.0}, "macd_fast": {"default": 12},
+                        "macd_slow": {"default": 26}, "macd_signal": {"default": 9}}},
+            {"id": "bollinger", "name": "Bollinger Bands", "category": "Oscilador",
+             "description": "Reversão nas bandas de Bollinger",
+             "params": {"period": {"default": 20}, "std_dev": {"default": 2.0}}},
+            {"id": "momentum", "name": "Momentum (ROC)", "category": "Oscilador",
+             "description": "Rate of Change cruza o zero",
+             "params": {"period": {"default": 10}, "rsi_filter": {"default": 65.0}}},
+            # ── Médias ──────────────────────────────────────────────────────
+            {"id": "ema_cross", "name": "EMA Cross", "category": "Media",
+             "description": "Golden/death cross de EMAs",
+             "params": {"fast": {"default": 9}, "slow": {"default": 21}}},
+            {"id": "hilo", "name": "Hilo Activator", "category": "Media",
+             "description": "Média de máximas/mínimas como sinal e trailing",
+             "params": {"period": {"default": 8}}},
+            # ── Price Action ─────────────────────────────────────────────────
+            {"id": "pin_bar", "name": "Pin Bar", "category": "Price Action",
+             "description": "Rejeição de nível — Hammer/Shooting Star",
+             "params": {"wick_ratio": {"default": 0.6}, "trend_filter": {"default": True},
+                        "trend_period": {"default": 50}}},
+            {"id": "inside_bar", "name": "Inside Bar", "category": "Price Action",
+             "description": "Compressão de volatilidade + rompimento",
+             "params": {"trend_filter": {"default": True}, "trend_period": {"default": 21}}},
+            {"id": "engulfing", "name": "Engulfing", "category": "Price Action",
+             "description": "Absorção — candle atual engole o anterior",
+             "params": {"body_ratio": {"default": 1.1}, "volume_filter": {"default": False}}},
+            {"id": "fakey", "name": "Fakey", "category": "Price Action",
+             "description": "Inside bar + falso rompimento + reversão",
+             "params": {"confirm_bars": {"default": 1}}},
+            # ── Clássicos BR ─────────────────────────────────────────────────
+            {"id": "setup_91", "name": "Setup 9.1 (Stormer)", "category": "Classico BR",
+             "description": "EMA 9/21 + candle de sinal acima da máxima anterior",
+             "params": {"fast_period": {"default": 9}, "slow_period": {"default": 21},
+                        "rsi_filter": {"default": 70.0}}},
+            {"id": "larry_williams", "name": "Larry Williams", "category": "Classico BR",
+             "description": "Compra na mínima anterior em uptrend",
+             "params": {"trend_fast": {"default": 9}, "trend_slow": {"default": 21},
+                        "lookback": {"default": 1}}},
+            {"id": "turtle_soup", "name": "Turtle Soup", "category": "Classico BR",
+             "description": "Falso rompimento de N-period high/low",
+             "params": {"lookback": {"default": 20}, "confirm_bars": {"default": 2}}},
+            # ── Tendência / Rompimento ────────────────────────────────────────
+            {"id": "breakout", "name": "Breakout Range", "category": "Tendencia",
+             "description": "Rompimento do canal de Donchian N períodos",
+             "params": {"period": {"default": 20}, "atr_filter": {"default": True}}},
+            {"id": "pullback_trend", "name": "Pullback in Trend", "category": "Tendencia",
+             "description": "Retração para zona neutra de RSI em tendência",
+             "params": {"trend_fast": {"default": 9}, "trend_slow": {"default": 21},
+                        "pullback_low": {"default": 40.0}, "pullback_high": {"default": 60.0}}},
+            {"id": "first_pullback", "name": "First Pullback", "category": "Tendencia",
+             "description": "Primeira retração após barra de força",
+             "params": {"strength_ratio": {"default": 0.6}, "ema_period": {"default": 9}}},
+            # ── Outros ───────────────────────────────────────────────────────
+            {"id": "gap_and_go", "name": "Gap and Go", "category": "Outro",
+             "description": "Continuação de gap na direção da abertura",
+             "params": {"gap_pct": {"default": 0.5}, "volume_filter": {"default": True}}},
+            {"id": "bollinger_squeeze", "name": "Bollinger Squeeze", "category": "Outro",
+             "description": "Contração extrema de volatilidade + expansão",
+             "params": {"squeeze_threshold": {"default": 0.05},
+                        "lookback_squeeze": {"default": 5}}},
         ]
     }
 
@@ -145,7 +204,8 @@ async def run_backtest_get(
     rsi_overbought: float | None = Query(None),
     macd_fast: int | None = Query(None),
     macd_slow: int | None = Query(None),
-    macd_signal: int | None = Query(None)
+    macd_signal: int | None = Query(None),
+    strategy_params_json: str | None = Query(None, description="JSON dict de params")
 ) -> dict[str, Any]:
     """Executa backtest via GET query params (para o dashboard)."""
     body = BacktestRequest(
@@ -160,7 +220,8 @@ async def run_backtest_get(
         rsi_overbought=rsi_overbought,
         macd_fast=macd_fast,
         macd_slow=macd_slow,
-        macd_signal=macd_signal
+        macd_signal=macd_signal,
+        strategy_params_json=strategy_params_json
     )
     return await _execute(request, body)
 

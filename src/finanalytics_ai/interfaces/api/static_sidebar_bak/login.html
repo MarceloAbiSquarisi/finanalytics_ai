@@ -1,0 +1,364 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinAnalytics AI — Entrar</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+
+/* ── Topbar fixa no topo ── */
+.fa-topbar{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  display:flex;align-items:center;gap:16px;padding:0 20px;height:52px;
+  background:#070f1a;border-bottom:1px solid #1e3a5f;
+  box-shadow:0 2px 12px rgba(0,0,0,.4)
+}
+.fa-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
+.fa-logo svg{display:block}
+.fa-logo-text{font-family:'Georgia','Times New Roman',serif;font-size:17px;
+  font-weight:700;color:#e8f4fd;white-space:nowrap;letter-spacing:-.3px}
+.fa-logo-text em{color:#F0B429;font-style:normal}
+.fa-ai-badge{display:inline-block;background:#1B3A6B;color:#fff;
+  font-family:'Arial',sans-serif;font-size:9px;font-weight:800;
+  letter-spacing:1.5px;padding:2px 5px;border-radius:3px;vertical-align:middle;margin-left:2px}
+.fa-nav{display:flex;align-items:center;gap:2px;overflow-x:auto;
+  scrollbar-width:none;-ms-overflow-style:none;flex:1}
+.fa-nav::-webkit-scrollbar{display:none}
+.fa-nav a{white-space:nowrap;font-family:'Rajdhani','Arial',sans-serif;font-size:12px;
+  font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;
+  padding:5px 10px;border-radius:5px;transition:.15s}
+.fa-nav a:hover{color:#00c48c;background:rgba(0,196,140,.08)}
+
+/* ── Body centralizado abaixo da topbar ── */
+body{
+  font-family:'Rajdhani',sans-serif;
+  background:#0b1118;
+  min-height:100vh;
+  padding-top:52px; /* altura da topbar */
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow-x:hidden
+}
+
+/* BG animado */
+.bg-grid{position:fixed;inset:0;top:52px;
+  background-image:linear-gradient(rgba(0,196,140,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,196,140,.03) 1px,transparent 1px);
+  background-size:40px 40px;z-index:0}
+.bg-glow{position:fixed;width:600px;height:600px;border-radius:50%;
+  background:radial-gradient(circle,rgba(0,196,140,.06) 0%,transparent 70%);
+  top:50%;left:50%;transform:translate(-50%,-50%);z-index:0;
+  animation:pulse 4s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.1)}}
+
+/* ── Card de login centralizado ── */
+.container{position:relative;z-index:1;width:100%;max-width:420px;padding:20px}
+
+.card{background:rgba(17,25,35,.95);border:1px solid #1e3a5f;border-radius:12px;
+  padding:36px 32px;backdrop-filter:blur(10px)}
+
+.logo{text-align:center;margin-bottom:24px}
+.logo-text{font-size:20px;font-weight:700;letter-spacing:2px;color:#e8eaf6}
+.logo-sub{font-size:11px;color:#556677;letter-spacing:1px;text-transform:uppercase;margin-top:4px}
+
+/* TABS */
+.tabs{display:flex;background:#0b1118;border-radius:7px;padding:3px;margin-bottom:24px;gap:3px}
+.tab{flex:1;background:transparent;border:none;color:#8899aa;
+  font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;
+  padding:8px;border-radius:5px;cursor:pointer;transition:all .2s;letter-spacing:.5px}
+.tab.active{background:#00c48c;color:#000}
+
+/* FORM */
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:10px;font-weight:700;letter-spacing:.8px;
+  color:#8899aa;text-transform:uppercase;margin-bottom:5px}
+.form-input{width:100%;background:#0b1118;border:1px solid #1e3a5f;border-radius:6px;
+  color:#e8eaf6;font-family:'JetBrains Mono',monospace;font-size:13px;
+  padding:10px 12px;outline:none;transition:border .15s}
+.form-input:focus{border-color:#00c48c}
+.form-input::placeholder{color:#445566}
+
+/* ── Lembrar / Esqueci ── */
+.form-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.remember{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
+.remember input[type=checkbox]{
+  appearance:none;-webkit-appearance:none;
+  width:15px;height:15px;border:1px solid #1e3a5f;border-radius:3px;
+  background:#0b1118;cursor:pointer;position:relative;flex-shrink:0;transition:all .15s
+}
+.remember input[type=checkbox]:checked{background:#00c48c;border-color:#00c48c}
+.remember input[type=checkbox]:checked::after{
+  content:'✓';position:absolute;top:-1px;left:2px;
+  font-size:11px;color:#000;font-weight:700
+}
+.remember span{font-size:11px;color:#8899aa}
+.forgot-link{font-size:11px;color:#00c48c;text-decoration:none;opacity:.8}
+.forgot-link:hover{opacity:1}
+
+.btn-submit{width:100%;background:#00c48c;border:none;border-radius:7px;
+  color:#000;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;
+  padding:12px;cursor:pointer;letter-spacing:.5px;transition:all .15s;margin-top:4px}
+.btn-submit:hover{opacity:.88}
+.btn-submit:disabled{opacity:.4;cursor:not-allowed}
+
+.error-msg{background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.3);
+  border-radius:6px;color:#ff4757;font-size:12px;padding:8px 12px;margin-bottom:12px;display:none}
+.error-msg.show{display:block}
+.success-msg{background:rgba(0,196,140,.08);border:1px solid rgba(0,196,140,.3);
+  border-radius:6px;color:#00c48c;font-size:12px;padding:8px 12px;margin-bottom:12px;display:none}
+.success-msg.show{display:block}
+
+.footer-note{text-align:center;font-size:11px;color:#556677;margin-top:20px}
+.footer-note a{color:#00c48c;text-decoration:none}
+
+/* PASSWORD STRENGTH */
+.pw-bar{height:3px;border-radius:2px;margin-top:4px;transition:all .3s;background:#1e3a5f}
+.pw-bar.weak{background:#ff4757;width:30%}
+.pw-bar.medium{background:#ffb300;width:65%}
+.pw-bar.strong{background:#00c48c;width:100%}
+
+/* LOADING */
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,.3);
+  border-top-color:#000;border-radius:50%;animation:spin .7s linear infinite;
+  vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
+</style>
+</head>
+<body>
+
+<!-- ── Topbar fixa ── -->
+<div class="fa-topbar">
+  <a href="/" class="fa-logo" title="FinAnalytics AI">
+    <svg width="34" height="34" viewBox="0 0 170 170" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="lg_gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F0B429"/><stop offset="100%" stop-color="#E08C00"/>
+    </linearGradient>
+    <linearGradient id="lg_neural" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3ABFF8" stop-opacity="0"/>
+      <stop offset="40%" stop-color="#3ABFF8"/><stop offset="100%" stop-color="#F0B429"/>
+    </linearGradient>
+  </defs>
+  <circle cx="85" cy="85" r="82" fill="#0D2144"/>
+  <circle cx="85" cy="85" r="80" fill="#0D2144" stroke="#1e3a5f" stroke-width="1"/>
+  <rect x="38" y="98" width="14" height="36" rx="2.5" fill="#E05555" opacity=".9"/>
+  <rect x="60" y="72" width="14" height="44" rx="2.5" fill="#2ED47A" opacity=".9"/>
+  <rect x="82" y="50" width="14" height="58" rx="2.5" fill="#2ED47A"/>
+  <rect x="104" y="66" width="14" height="32" rx="2.5" fill="#E05555" opacity=".8"/>
+  <rect x="126" y="44" width="14" height="68" rx="2.5" fill="url(#lg_gold)"/>
+  <circle cx="45" cy="82" r="5" fill="#3ABFF8" opacity=".8"/>
+  <circle cx="89" cy="38" r="5.5" fill="#3ABFF8"/>
+  <circle cx="133" cy="30" r="4.5" fill="#F0B429"/>
+  <polyline points="45,82 89,38 133,30 150,54" fill="none" stroke="url(#lg_neural)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".8"/>
+</svg>
+    <span class="fa-logo-text">Fin<em>Analytics</em> <span class="fa-ai-badge">AI</span></span>
+  </a>
+  <nav class="fa-nav">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/backtest">Backtest</a>
+    <a href="/screener">Screener</a>
+    <a href="/correlation">Correlação</a>
+    <a href="/anomaly">Anomalias</a>
+    <a href="/watchlist">Watchlist</a>
+    <a href="/performance">Performance</a>
+    <a href="/fixed-income">Renda Fixa</a>
+    <a href="/etf">ETFs</a>
+    <a href="/optimizer">Otimizador</a>
+    <a href="/hub">Hub</a>
+  </nav>
+</div>
+
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+
+<!-- ── Card centralizado ── -->
+<div class="container">
+  <div class="card">
+    <div class="logo">
+      <div class="logo-text">FINANALYTICS AI</div>
+      <div class="logo-sub">Gestão de Investimentos</div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('login')">Entrar</button>
+      <button class="tab" onclick="switchTab('register')">Criar Conta</button>
+    </div>
+
+    <div id="error-box" class="error-msg"></div>
+    <div id="success-box" class="success-msg"></div>
+
+    <!-- LOGIN -->
+    <div id="form-login">
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" id="login-email" placeholder="seu@email.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Senha</label>
+        <input class="form-input" type="password" id="login-password" placeholder="••••••••"
+          autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <!-- Lembrar-me + Esqueci a senha -->
+      <div class="form-row">
+        <label class="remember">
+          <input type="checkbox" id="remember-me">
+          <span>Lembrar de mim</span>
+        </label>
+        <a href="/reset-password" class="forgot-link">Esqueci a senha</a>
+      </div>
+      <button class="btn-submit" id="btn-login" onclick="doLogin()">Entrar</button>
+    </div>
+
+    <!-- REGISTER -->
+    <div id="form-register" style="display:none">
+      <div class="form-group">
+        <label class="form-label">Nome Completo</label>
+        <input class="form-input" type="text" id="reg-name" placeholder="João Silva" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" id="reg-email" placeholder="seu@email.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Senha <span style="color:#556677;font-size:9px">(mín. 8 caracteres)</span></label>
+        <input class="form-input" type="password" id="reg-password" placeholder="••••••••"
+          autocomplete="new-password" oninput="checkPwStrength()">
+        <div class="pw-bar" id="pw-bar"></div>
+      </div>
+      <button class="btn-submit" id="btn-register" onclick="doRegister()">Criar Conta</button>
+    </div>
+
+    <div class="footer-note">
+      Ao continuar, você concorda com os <a href="#">Termos de Uso</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api/v1/auth';
+const REMEMBER_KEY = 'fa_remember_email';
+
+// Pré-preenche email se lembrado
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem(REMEMBER_KEY);
+  if (saved) {
+    document.getElementById('login-email').value = saved;
+    document.getElementById('remember-me').checked = true;
+  }
+});
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t,i) =>
+    t.classList.toggle('active', ['login','register'][i] === tab));
+  document.getElementById('form-login').style.display    = tab==='login'    ? 'block' : 'none';
+  document.getElementById('form-register').style.display = tab==='register' ? 'block' : 'none';
+  clearMessages();
+}
+
+function showError(msg)   { const el=document.getElementById('error-box');   el.textContent=msg; el.classList.add('show'); document.getElementById('success-box').classList.remove('show'); }
+function showSuccess(msg) { const el=document.getElementById('success-box'); el.textContent=msg; el.classList.add('show'); document.getElementById('error-box').classList.remove('show'); }
+function clearMessages()  { document.getElementById('error-box').classList.remove('show'); document.getElementById('success-box').classList.remove('show'); }
+
+function setLoading(btnId, loading) {
+  const btn = document.getElementById(btnId);
+  btn.disabled = loading;
+  btn.innerHTML = loading
+    ? '<span class="spinner"></span>Aguarde...'
+    : (btnId==='btn-login' ? 'Entrar' : 'Criar Conta');
+}
+
+async function doLogin() {
+  const email    = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const remember = document.getElementById('remember-me').checked;
+  if (!email || !password) { showError('Preencha email e senha.'); return; }
+  setLoading('btn-login', true);
+  clearMessages();
+  try {
+    const res  = await fetch(`${API}/login`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email, password}),
+    });
+    const data = await res.json();
+    if (!res.ok) { showError(data.detail || 'Credenciais inválidas.'); return; }
+    // Lembrar email
+    if (remember) {
+      localStorage.setItem(REMEMBER_KEY, email);
+    } else {
+      localStorage.removeItem(REMEMBER_KEY);
+    }
+    storeTokens(data, remember);
+    showSuccess('Login realizado! Redirecionando...');
+    setTimeout(() => { window.location.href = '/dashboard'; }, 700);
+  } catch(e) {
+    showError('Erro de conexão. Verifique se o servidor está ativo.');
+  } finally {
+    setLoading('btn-login', false);
+  }
+}
+
+async function doRegister() {
+  const full_name = document.getElementById('reg-name').value.trim();
+  const email     = document.getElementById('reg-email').value.trim();
+  const password  = document.getElementById('reg-password').value;
+  if (!full_name || !email || !password) { showError('Preencha todos os campos.'); return; }
+  if (password.length < 8) { showError('Senha deve ter no mínimo 8 caracteres.'); return; }
+  setLoading('btn-register', true);
+  clearMessages();
+  try {
+    const res  = await fetch(`${API}/register`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email, password, full_name}),
+    });
+    const data = await res.json();
+    if (!res.ok) { showError(data.detail || 'Erro ao criar conta.'); return; }
+    storeTokens(data, false);
+    showSuccess('Conta criada! Redirecionando...');
+    setTimeout(() => { window.location.href = '/dashboard'; }, 700);
+  } catch(e) {
+    showError('Erro de conexão. Verifique se o servidor está ativo.');
+  } finally {
+    setLoading('btn-register', false);
+  }
+}
+
+function storeTokens(data, persistent) {
+  // Se "lembrar", usa localStorage (persiste entre sessões)
+  // Caso contrário usa sessionStorage (limpa ao fechar o browser)
+  const store = persistent ? localStorage : sessionStorage;
+  const expires = String(Date.now() + (data.expires_in || 1800) * 1000);
+  store.setItem('access_token',  data.access_token);
+  store.setItem('refresh_token', data.refresh_token);
+  store.setItem('token_expires_at', expires);
+  // Garante que está em localStorage para o authGuard das outras páginas
+  localStorage.setItem('access_token',     data.access_token);
+  localStorage.setItem('refresh_token',    data.refresh_token);
+  localStorage.setItem('token_expires_at', expires);
+}
+
+function checkPwStrength() {
+  const pw  = document.getElementById('reg-password').value;
+  const bar = document.getElementById('pw-bar');
+  if (!pw.length) { bar.className='pw-bar'; return; }
+  const score = (pw.length>=8?1:0) + (/[A-Z]/.test(pw)?1:0) +
+                (/[0-9]/.test(pw)?1:0) + (/[^a-zA-Z0-9]/.test(pw)?1:0);
+  bar.className = 'pw-bar ' + (score<=1?'weak':score<=2?'medium':'strong');
+}
+
+// Auto-redirect se já estiver logado
+(function checkExisting() {
+  const token   = localStorage.getItem('access_token');
+  const expires = parseInt(localStorage.getItem('token_expires_at') || '0');
+  if (token && expires > Date.now() + 60000) {
+    window.location.replace('/dashboard');
+  }
+})();
+</script>
+</body>
+</html>

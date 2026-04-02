@@ -269,6 +269,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from finanalytics_ai.infrastructure.database.repositories.watchlist_repo import (
         WatchlistItemModel,  # noqa: F401
     )
+    from finanalytics_ai.infrastructure.database.repositories.diario_repo import (
+        DiarioModel,  # noqa: F401 — registra trade_journal na metadata
+    )
 
     try:
         async with get_engine().begin() as conn:
@@ -345,6 +348,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await conn.run_sync(lambda c: TickerBase.metadata.create_all(c, checkfirst=True))
         app.state.ticker_service = TickerService(get_session_factory())
         logger.info("ticker_service.ready")
+
+    # ── DiarioRepository ──────────────────────────────────────────────────────
+    try:
+        from finanalytics_ai.infrastructure.database.repositories.diario_repo import (
+            DiarioRepository,
+        )
+        from finanalytics_ai.infrastructure.database.connection import get_session_factory
+
+        app.state.diario_repo = DiarioRepository(get_session_factory())
+        logger.info("diario_repo.ready")
+    except Exception as exc:
+        logger.warning("diario_repo.FAILED", error=str(exc))
+        app.state.diario_repo = None
     except Exception as exc:
         logger.warning("ticker_service.FAILED", error=str(exc))
 
@@ -510,6 +526,13 @@ def create_app() -> FastAPI:
     app.include_router(producer.router, prefix="/api/v1/producer", tags=["Producer"])
     app.include_router(fundos_routes.router)
     app.include_router(backtest.router, tags=["Backtest"])
+
+    try:
+        from finanalytics_ai.interfaces.api.routes import diario as diario_routes
+        app.include_router(diario_routes.router, tags=["Diário"])
+    except Exception as _de:
+        import structlog as _sl5
+        _sl5.get_logger(__name__).warning("diario.router.FAILED", error=str(_de))
     app.include_router(correlation.router, tags=["Correlation"])
     app.include_router(screener.router, tags=["Screener"])
     app.include_router(ml_routes.router, tags=["ML Probabilistico"])
@@ -614,6 +637,10 @@ def create_app() -> FastAPI:
     @app.get("/backtest", response_class=HTMLResponse, include_in_schema=False)
     async def serve_backtest() -> HTMLResponse:
         return _html("backtest.html")
+
+    @app.get("/diario", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_diario() -> HTMLResponse:
+        return _html("diario.html")
 
     @app.get("/correlation", response_class=HTMLResponse, include_in_schema=False)
     async def serve_correlation() -> HTMLResponse:

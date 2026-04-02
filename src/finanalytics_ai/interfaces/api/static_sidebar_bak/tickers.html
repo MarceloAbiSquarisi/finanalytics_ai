@@ -1,0 +1,411 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profit Tickers - FinAnalytics AI</title>
+<style>
+:root{--bg:#080b10;--s1:#0d1117;--s2:#111822;--border:#1c2535;--border2:#253045;
+  --text:#cdd6e0;--muted:#4a5e72;--accent:#00d4ff;--green:#00e676;--red:#ff3d5a;
+  --gold:#F0B429;--purple:#a855f7;--orange:#fb923c;
+  --sb-w:220px;--sb-w-collapsed:52px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;font-size:13px;min-height:100vh}
+.fa-topbar{height:52px;background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 16px;position:sticky;top:0;z-index:300}
+.fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none}
+.fa-logo-text{font-family:monospace;font-size:13px;font-weight:600;color:#e2eaf4}
+.fa-logo-text em{color:var(--gold);font-style:normal}
+.fa-ai-badge{background:var(--gold);color:#0a1628;font-size:8px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.08em;vertical-align:middle;margin-left:2px}
+.fa-user-chip{display:flex;align-items:center;gap:6px;margin-left:auto}
+.fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:10px;color:#8899aa}
+.fa-logout-btn{background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-size:11px;padding:4px 10px;cursor:pointer;display:flex;align-items:center;gap:5px;transition:.15s}
+.fa-logout-btn:hover{color:var(--red);border-color:var(--red)}
+.fa-sidebar{position:fixed;left:0;top:52px;bottom:0;width:var(--sb-w-collapsed);background:#0a0f18;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1);z-index:200}
+.fa-sidebar.open{width:var(--sb-w)}
+.fa-sidebar-toggle{width:100%;padding:10px 14px;background:transparent;border:none;border-bottom:1px solid var(--border);color:#7a95b0;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;white-space:nowrap;overflow:hidden}
+.fa-sidebar-toggle:hover{color:var(--gold);background:rgba(240,180,41,.06)}
+.fa-sidebar-toggle svg{flex-shrink:0}
+.fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;text-decoration:none;font-size:12px;white-space:nowrap;overflow:hidden;transition:all .15s}
+.fa-sb-link:hover{color:#e2eaf4;background:rgba(0,212,255,.05)}
+.fa-sb-link.active{color:var(--accent);background:rgba(0,212,255,.08);border-right:2px solid var(--accent)}
+.fa-sb-link svg{flex-shrink:0}
+.fa-sb-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-link span{opacity:1}
+.fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1)}
+body.sb-open .fa-page-content{margin-left:var(--sb-w)}
+.main{padding:20px 24px;max-width:1200px}
+.page-title{font-size:22px;font-weight:700;color:#e2eaf4;margin-bottom:2px;display:flex;align-items:center;gap:10px}
+.page-sub{font-size:11px;color:var(--muted);margin-bottom:20px}
+.sec-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.sec-title{font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.06em}
+.btn{border:none;border-radius:6px;font-weight:600;font-size:11px;padding:7px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:.15s}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-primary{background:linear-gradient(135deg,#00a8cc,var(--accent));color:#0a1628}
+.btn-primary:hover:not(:disabled){opacity:.85}
+.btn-sm{padding:5px 10px;font-size:10px}
+.btn-danger{background:rgba(255,61,90,.12);border:1px solid rgba(255,61,90,.3);color:var(--red)}
+.btn-danger:hover{background:rgba(255,61,90,.2)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{color:var(--text);border-color:var(--border2)}
+.tbl-wrap{overflow-x:auto;border-radius:7px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;min-width:400px}
+th{background:var(--s1);color:var(--muted);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:8px 12px;font-size:11px;color:var(--text);border-bottom:1px solid #111822}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(0,212,255,.02)}
+.badge{display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.05em}
+.badge-on{background:rgba(0,230,118,.1);color:var(--green);border:1px solid rgba(0,230,118,.2)}
+.badge-off{background:rgba(255,61,90,.1);color:var(--red);border:1px solid rgba(255,61,90,.2)}
+.badge-warn{background:rgba(251,191,36,.1);color:var(--gold);border:1px solid rgba(251,191,36,.2)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;display:none;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:24px;width:420px;max-width:95vw}
+.modal-title{font-size:14px;font-weight:700;color:#e2eaf4;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between}
+.modal-close{background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1}
+.modal-close:hover{color:var(--red)}
+.form-grid{display:grid;gap:12px}
+.form-2{grid-template-columns:1fr 1fr}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.form-group input,.form-group select{background:var(--s2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;padding:8px 10px;outline:none;font-family:monospace;transition:.15s;width:100%}
+.form-group input:focus,.form-group select:focus{border-color:var(--accent)}
+.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.msg{padding:8px 12px;border-radius:6px;font-size:11px;font-family:monospace;display:none;margin-top:10px}
+.msg.error{background:rgba(255,61,90,.08);border:1px solid rgba(255,61,90,.3);color:var(--red);display:block}
+.msg.success{background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.3);color:var(--green);display:block}
+.empty{text-align:center;padding:40px;color:var(--muted);font-size:12px}
+.status-bar{display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:8px;margin-bottom:20px;font-size:12px;font-weight:600}
+.status-bar-ok{background:rgba(0,230,118,.06);border:1px solid rgba(0,230,118,.15);color:var(--green)}
+.status-bar-warn{background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.15);color:var(--gold)}
+.status-bar-err{background:rgba(255,61,90,.06);border:1px solid rgba(255,61,90,.15);color:var(--red)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.dot-ok{background:var(--green);box-shadow:0 0 6px rgba(0,230,118,.5)}
+.dot-warn{background:var(--gold);box-shadow:0 0 6px rgba(251,191,36,.5)}
+.dot-err{background:var(--red);box-shadow:0 0 6px rgba(255,61,90,.5)}
+.dot-pulse{animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+.stat-card{background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:12px 16px;flex:1;min-width:130px}
+.stat-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.stat-value{font-size:20px;font-weight:700;color:#e2eaf4;font-family:monospace}
+.stat-value.ok{color:var(--green)}
+.stat-value.err{color:var(--red)}
+.refresh-btn{background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);border-radius:6px;color:var(--accent);font-size:11px;font-weight:600;padding:7px 14px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:.15s}
+.refresh-btn:hover{background:rgba(0,212,255,.15)}
+.refresh-btn.spinning svg{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
+</style>
+</head>
+<body>
+
+<div class="fa-topbar">
+  <a href="/" class="fa-logo">
+    <span class="fa-logo-text">Fin<em>Analytics</em><span class="fa-ai-badge">AI</span></span>
+  </a>
+  <a href="/marketdata" style="display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.35);border-radius:5px;color:#00e676;font-size:11px;font-weight:700;padding:4px 10px;text-decoration:none;letter-spacing:.5px;transition:.15s;white-space:nowrap" onmouseover="this.style.background='rgba(0,230,118,.2)'" onmouseout="this.style.background='rgba(0,230,118,.1)'">
+    <span style="width:7px;height:7px;border-radius:50%;background:#00e676;display:inline-block;animation:livePulse 1.8s ease-in-out infinite"></span>
+    MERCADO AO VIVO
+  </a>
+  <div class="fa-user-chip">
+    <div class="fa-avatar" id="avatarInitial">?</div>
+    <span id="topbarEmail" style="font-size:11px;color:var(--muted)"></span>
+    <button class="fa-logout-btn" onclick="logout()">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      Sair
+    </button>
+  </div>
+</div>
+
+<div class="fa-sidebar" id="sidebar">
+  <button class="fa-sidebar-toggle" onclick="toggleSidebar()">
+    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <span>Menu</span>
+  </button>
+  <a href="/dashboard" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
+  <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
+  <a href="/fundamental" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Fundamentalista</span></a>
+  <a href="/screener" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Screener</span></a>
+  <a href="/backtest" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Backtest</span></a>
+  <a href="/forecast" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Forecast</span></a>
+  <a href="/watchlist" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span>Watchlist</span></a>
+  <a href="/performance" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg><span>Performance</span></a>
+  <a href="/profile" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
+  <a href="/admin" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Admin</span></a>
+  <a href="/marketdata" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Market Data</span></a>
+  <a href="/ml" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span>ML Probabilístico</span></a>
+
+  <a href="/hub" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg><span>Monitoramento</span></a>
+  <a href="/profit-tickers" class="fa-sb-link active"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Profit Tickers</span></a>
+</div>
+
+<div class="fa-page-content">
+<div class="main">
+
+  <div class="page-title">
+    <svg width="20" height="20" fill="none" stroke="var(--accent)" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Profit Tickers
+  </div>
+  <p class="page-sub">Gerenciamento de tickers subscritos no Profit Agent (Nelogica) - porta 8001</p>
+
+  <div id="agentStatusBar" class="status-bar status-bar-warn">
+    <span class="dot dot-warn dot-pulse" id="agentDot"></span>
+    <span id="agentStatusMsg">Conectando ao Profit Agent...</span>
+    <button class="refresh-btn" onclick="loadAll()" id="refreshBtn" style="margin-left:auto;padding:4px 10px;font-size:10px">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      Atualizar
+    </button>
+  </div>
+
+  <div class="stat-row" id="statRow">
+    <div class="stat-card"><div class="stat-label">Market Data</div><div class="stat-value" id="statMarket">--</div></div>
+    <div class="stat-card"><div class="stat-label">Roteamento</div><div class="stat-value" id="statRouting">--</div></div>
+    <div class="stat-card"><div class="stat-label">Total Ticks</div><div class="stat-value" id="statTicks">--</div></div>
+    <div class="stat-card"><div class="stat-label">Fila DB</div><div class="stat-value" id="statQueue">--</div></div>
+    <div class="stat-card"><div class="stat-label">Tickers no DB</div><div class="stat-value" id="statCount">--</div></div>
+  </div>
+
+  <div class="sec-header">
+    <span class="sec-title">Tickers Subscritos</span>
+    <button class="btn btn-primary" onclick="openModal('modalAdd')">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Adicionar Ticker
+    </button>
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th>Exchange</th>
+          <th>Status DLL</th>
+          <th>Notas</th>
+          <th>Acao</th>
+        </tr>
+      </thead>
+      <tbody id="tickersTbody">
+        <tr><td colspan="5" class="empty">Carregando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div id="pageMsg" class="msg"></div>
+
+</div>
+</div>
+
+<!-- MODAL: Adicionar Ticker -->
+<div class="modal-overlay" id="modalAdd">
+  <div class="modal">
+    <div class="modal-title">
+      Adicionar Ticker
+      <button class="modal-close" onclick="closeModal('modalAdd')">x</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-grid form-2">
+        <div class="form-group">
+          <label>Ticker</label>
+          <input id="add-ticker" placeholder="PETR4" style="text-transform:uppercase">
+        </div>
+        <div class="form-group">
+          <label>Exchange</label>
+          <select id="add-exchange">
+            <option value="B">B (BM&FBovespa)</option>
+            <option value="F">F (Futuros)</option>
+            <option value="N">N (NYSE/NASDAQ)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Notas (opcional)</label>
+        <input id="add-notes" placeholder="Ex: indice de referencia">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modalAdd')">Cancelar</button>
+      <button class="btn btn-primary" onclick="addTicker()">Adicionar</button>
+    </div>
+    <div id="addMsg" class="msg"></div>
+  </div>
+</div>
+
+<script>
+var AGENT = 'http://localhost:8001';
+var API   = '/api/v1';
+
+function tok() { return localStorage.getItem('access_token'); }
+function H()   { return {'Content-Type':'application/json', Authorization: 'Bearer ' + tok()}; }
+
+async function init() {
+  if (!tok()) { location.href = '/'; return; }
+  try {
+    var me = await fetch(API + '/auth/me', {headers: H()}).then(function(r){ return r.json(); });
+    if (!me.user_id) { location.href = '/'; return; }
+    if (me.role !== 'master' && me.role !== 'admin') {
+      document.querySelector('.main').innerHTML = '<div class="empty" style="padding:80px"><p style="font-size:20px;margin-bottom:8px">Acesso Restrito</p><p style="color:var(--muted)">Exclusivo para administradores.</p></div>';
+      return;
+    }
+    document.getElementById('topbarEmail').textContent = me.email;
+    document.getElementById('avatarInitial').textContent = (me.full_name || me.email)[0].toUpperCase();
+    loadAll();
+    setInterval(loadAll, 15000);
+  } catch(e) { location.href = '/'; }
+}
+
+function toggleSidebar() {
+  var sb = document.getElementById('sidebar');
+  var open = sb.classList.toggle('open');
+  document.body.classList.toggle('sb-open', open);
+  localStorage.setItem('fa_sidebar_open', open ? '1' : '0');
+}
+if (localStorage.getItem('fa_sidebar_open') === '1') {
+  document.getElementById('sidebar').classList.add('open');
+  document.body.classList.add('sb-open');
+}
+
+function logout() {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+  location.href = '/';
+}
+
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.modal-overlay').forEach(function(o) {
+  o.addEventListener('click', function(e) { if (e.target === o) o.classList.remove('open'); });
+});
+
+function showMsg(id, text, type) {
+  var el = document.getElementById(id);
+  el.className = 'msg ' + type;
+  el.textContent = text;
+  setTimeout(function() { el.className = 'msg'; el.textContent = ''; }, 4000);
+}
+
+async function loadAll() {
+  var btn = document.getElementById('refreshBtn');
+  if (btn) btn.classList.add('spinning');
+  await Promise.all([loadStatus(), loadTickers()]);
+  if (btn) btn.classList.remove('spinning');
+}
+
+async function loadStatus() {
+  var bar = document.getElementById('agentStatusBar');
+  var dot = document.getElementById('agentDot');
+  var msg = document.getElementById('agentStatusMsg');
+  try {
+    var ctrl = new AbortController();
+    setTimeout(function() { ctrl.abort(); }, 3000);
+    var s = await fetch(AGENT + '/status', {signal: ctrl.signal}).then(function(r){ return r.json(); });
+
+    document.getElementById('statMarket').textContent  = s.market_connected  ? 'ON' : 'OFF';
+    document.getElementById('statMarket').className    = 'stat-value ' + (s.market_connected  ? 'ok' : 'err');
+    document.getElementById('statRouting').textContent = s.routing_connected ? 'ON' : 'OFF';
+    document.getElementById('statRouting').className   = 'stat-value ' + (s.routing_connected ? 'ok' : 'err');
+    document.getElementById('statTicks').textContent   = (s.total_ticks || 0).toLocaleString('pt-BR');
+    document.getElementById('statQueue').textContent   = s.db_queue_size || 0;
+    document.getElementById('statCount').textContent   = (s.subscribed_tickers || []).length;
+
+    if (s.market_connected) {
+      bar.className = 'status-bar status-bar-ok';
+      dot.className = 'dot dot-ok dot-pulse';
+      msg.textContent = 'Profit Agent conectado - market data ativo';
+    } else {
+      bar.className = 'status-bar status-bar-warn';
+      dot.className = 'dot dot-warn dot-pulse';
+      msg.textContent = 'Profit Agent em execucao - aguardando conexao';
+    }
+  } catch(e) {
+    bar.className = 'status-bar status-bar-err';
+    dot.className = 'dot dot-err dot-pulse';
+    msg.textContent = 'Profit Agent offline (porta 8001 inacessivel)';
+    document.getElementById('statMarket').textContent  = '--';
+    document.getElementById('statRouting').textContent = '--';
+    document.getElementById('statTicks').textContent   = '--';
+    document.getElementById('statQueue').textContent   = '--';
+    document.getElementById('statCount').textContent   = '--';
+  }
+}
+
+async function loadTickers() {
+  var tb = document.getElementById('tickersTbody');
+  try {
+    var ctrl = new AbortController();
+    setTimeout(function() { ctrl.abort(); }, 3000);
+    var data = await fetch(AGENT + '/tickers', {signal: ctrl.signal}).then(function(r){ return r.json(); });
+    var tickers = data.tickers || [];
+    if (!tickers.length) {
+      tb.innerHTML = '<tr><td colspan="5" class="empty">Nenhum ticker cadastrado. Clique em "Adicionar Ticker".</td></tr>';
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < tickers.length; i++) {
+      var t = tickers[i];
+      var badge = t.subscribed
+        ? '<span class="badge badge-on">Subscrito</span>'
+        : '<span class="badge badge-warn">Pendente</span>';
+      html += '<tr>'
+        + '<td><strong style="color:#e2eaf4;font-family:monospace;font-size:13px">' + t.ticker + '</strong></td>'
+        + '<td><span style="font-family:monospace;color:var(--muted)">' + t.exchange + '</span></td>'
+        + '<td>' + badge + '</td>'
+        + '<td style="color:var(--muted)">' + (t.notes || '--') + '</td>'
+        + '<td><button class="btn btn-sm btn-danger" onclick="removeTicker(\'' + t.ticker + '\',\'' + t.exchange + '\')">Remover</button></td>'
+        + '</tr>';
+    }
+    tb.innerHTML = html;
+  } catch(e) {
+    tb.innerHTML = '<tr><td colspan="5" class="empty" style="color:var(--red)">Profit Agent inacessivel. Verifique se esta em execucao.</td></tr>';
+  }
+}
+
+async function addTicker() {
+  var ticker   = document.getElementById('add-ticker').value.trim().toUpperCase();
+  var exchange = document.getElementById('add-exchange').value;
+  var notes    = document.getElementById('add-notes').value.trim();
+  if (!ticker) { showMsg('addMsg', 'Ticker obrigatorio.', 'error'); return; }
+  try {
+    var res = await fetch(AGENT + '/tickers/add', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ticker: ticker, exchange: exchange, notes: notes})
+    });
+    var data = await res.json();
+    if (data.ok) {
+      showMsg('addMsg', ticker + ' adicionado com sucesso!', 'success');
+      document.getElementById('add-ticker').value = '';
+      document.getElementById('add-notes').value  = '';
+      setTimeout(function() { closeModal('modalAdd'); }, 1200);
+      await loadAll();
+    } else {
+      showMsg('addMsg', data.error || 'Erro ao adicionar.', 'error');
+    }
+  } catch(e) {
+    showMsg('addMsg', 'Profit Agent inacessivel.', 'error');
+  }
+}
+
+async function removeTicker(ticker, exchange) {
+  if (!confirm('Remover ' + ticker + ' da lista de tickers subscritos?')) return;
+  try {
+    var res = await fetch(AGENT + '/tickers/remove', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ticker: ticker, exchange: exchange})
+    });
+    var data = await res.json();
+    if (data.ok) {
+      showMsg('pageMsg', ticker + ' removido com sucesso.', 'success');
+      await loadAll();
+    } else {
+      showMsg('pageMsg', data.error || 'Erro ao remover.', 'error');
+    }
+  } catch(e) {
+    showMsg('pageMsg', 'Profit Agent inacessivel.', 'error');
+  }
+}
+
+init();
+</script>
+</body>
+</html>

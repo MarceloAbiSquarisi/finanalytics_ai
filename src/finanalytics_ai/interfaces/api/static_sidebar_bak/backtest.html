@@ -276,7 +276,8 @@ main{position:relative;z-index:1;padding:24px;max-width:1400px;margin:0 auto}
   transition: all .15s;
 }
 .fa-sb-link:hover { color: #e2eaf4; background: rgba(0,212,255,.05); }
-.fa-sb-link.active{color:#F0B429;background:rgba(240,180,41,.08);border-right:2px solid #F0B429}
+.fa-sb-link.active { color: #00d4ff; background: rgba(0,212,255,.08);
+  border-right: 2px solid #00d4ff; }
 .fa-sb-link svg { flex-shrink: 0; }
 .fa-sb-link span { opacity: 0; transition: opacity .15s; }
 .fa-sidebar.open .fa-sb-link span { opacity: 1; }
@@ -303,11 +304,12 @@ body.sb-open .fa-page-content { margin-left: var(--sb-w); }
 <aside class="fa-sidebar" id="fa-sidebar">
   <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:11px">MENU</span></button>
   <div style="overflow-y:auto;flex:1"><a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
+
 <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
 <a href="/fundamental" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg><span>Fundamentalista</span></a>
 <a href="/screener" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Screener</span></a>
 <a href="/watchlist" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span>Watchlist</span></a>
-<a href="/backtest" class="fa-sb-link active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Backtest</span></a>
+<a href="/backtest" class="fa-sb-link active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Backtesting</span></a>
 <a href="/correlation" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></svg><span>Correlacao</span></a>
 <a href="/anomaly" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg><span>Anomalias</span></a>
 <a href="/forecast" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg><span>Forecast</span></a>
@@ -316,12 +318,11 @@ body.sb-open .fa-page-content { margin-left: var(--sb-w); }
 <a href="/fintz" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><span>Fintz</span></a>
 <a href="/fixed-income" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><span>Renda Fixa</span></a>
 <a href="/etf" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-4"/></svg><span>ETFs</span></a>
-<a href="/marketdata" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Market Data</span></a>
-<a href="/ml" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span>ML Probabilístico</span></a>
-<a href="/subscriptions" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span>Subscricoes Profit</span></a>
-<a href="/hub" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Hub</span></a>
-<a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
-  </div>
+  <a href="/marketdata" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Market Data</span></a>
+  <a href="/ml" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span>ML Probabilístico</span></a>
+
+<a <a href="/subscriptions" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span>Subscricoes Profit</span></a>
+href="/hub" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Hub</span></a></div>
 </aside>
 <script>
 function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.classList.toggle("open");document.body.classList.toggle("sb-open");localStorage.setItem("fa_sidebar_open",sb.classList.contains("open")?"1":"0");}
@@ -400,51 +401,15 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
       </div>
       <div class="fld">
         <label>Estrategia</label>
-        <select id="f-strategy" onchange="onStrategyChange()">
-          <optgroup label="── Osciladores">
-            <option value="combined">RSI + MACD (confirmacao dupla)</option>
-            <option value="rsi">RSI Reversal</option>
-            <option value="macd">MACD Crossover</option>
-            <option value="bollinger">Bollinger Bands</option>
-            <option value="momentum">Momentum (ROC)</option>
-          </optgroup>
-          <optgroup label="── Medias">
-            <option value="ema_cross">EMA Cross (9/21)</option>
-            <option value="hilo">Hilo Activator</option>
-          </optgroup>
-          <optgroup label="── Price Action">
-            <option value="pin_bar">Pin Bar</option>
-            <option value="inside_bar">Inside Bar</option>
-            <option value="engulfing">Engulfing</option>
-            <option value="fakey">Fakey (False Breakout)</option>
-          </optgroup>
-          <optgroup label="── Classicos BR">
-            <option value="setup_91">Setup 9.1 (Stormer)</option>
-            <option value="larry_williams">Larry Williams</option>
-            <option value="turtle_soup">Turtle Soup</option>
-          </optgroup>
-          <optgroup label="── Tendencia / Rompimento">
-            <option value="breakout">Breakout Range (Donchian)</option>
-            <option value="pullback_trend">Pullback in Trend</option>
-            <option value="first_pullback">First Pullback</option>
-          </optgroup>
-          <optgroup label="── Outros">
-            <option value="gap_and_go">Gap and Go</option>
-            <option value="bollinger_squeeze">Bollinger Squeeze</option>
-          </optgroup>
+        <select id="f-strategy">
+          <option value="combined">RSI + MACD</option>
+          <option value="rsi">RSI Reversal</option>
+          <option value="macd">MACD Crossover</option>
+          <option value="bollinger">Bollinger Bands</option>
+          <option value="ema_cross">EMA Cross (9/21)</option>
+          <option value="momentum">Momentum (ROC)</option>
         </select>
       </div>
-      <!-- Painel de parâmetros dinâmico por estratégia -->
-      <div id="strategy-params-panel" style="grid-column:1/-1;display:none;
-           background:rgba(58,191,248,.04);border:1px solid rgba(58,191,248,.15);
-           border-radius:6px;padding:10px 14px;margin-bottom:2px">
-        <div style="font-size:9px;color:#4a8bb0;font-family:monospace;
-             text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">
-          Parâmetros da Estratégia
-        </div>
-        <div id="strategy-params-fields" style="display:flex;flex-wrap:wrap;gap:10px"></div>
-      </div>
-
       <div class="fld">
         <label>Periodo <span style="color:#8899AA;font-size:9px;font-weight:normal">* via Yahoo Finance</span></label>
         <select id="f-range">
@@ -1126,7 +1091,6 @@ function renderHeatmap(hm, objective) {
 function applyParams(params, strategy) {
   // Sets the strategy selector and updates URL params for "Run"
   document.getElementById('f-strategy').value = strategy;
-  onStrategyChange();
 
   // Store params for next run
   window._pendingParams = params;
@@ -1430,126 +1394,14 @@ function runSingle() {
     });
 }
 
-// Config de params por estratégia
-var STRATEGY_PARAMS = {
-  rsi:              [{key:'period',label:'Período RSI',default:14,min:5,max:50,step:1},
-                     {key:'oversold',label:'Oversold',default:30,min:10,max:45,step:1},
-                     {key:'overbought',label:'Overbought',default:70,min:55,max:90,step:1}],
-  macd:             [{key:'fast',label:'Fast EMA',default:12,min:3,max:50,step:1},
-                     {key:'slow',label:'Slow EMA',default:26,min:10,max:100,step:1},
-                     {key:'signal_period',label:'Signal',default:9,min:3,max:20,step:1}],
-  combined:         [{key:'rsi_period',label:'RSI Período',default:14,min:5,max:50,step:1},
-                     {key:'rsi_oversold',label:'Oversold',default:30,min:10,max:45,step:1},
-                     {key:'macd_fast',label:'MACD Fast',default:12,min:3,max:50,step:1},
-                     {key:'macd_slow',label:'MACD Slow',default:26,min:10,max:100,step:1}],
-  bollinger:        [{key:'period',label:'Período BB',default:20,min:5,max:100,step:1},
-                     {key:'std_dev',label:'Desvio Padrão',default:2.0,min:0.5,max:4,step:0.5}],
-  ema_cross:        [{key:'fast',label:'EMA Rápida',default:9,min:3,max:50,step:1},
-                     {key:'slow',label:'EMA Lenta',default:21,min:5,max:200,step:1}],
-  momentum:         [{key:'period',label:'Período ROC',default:10,min:3,max:50,step:1},
-                     {key:'rsi_filter',label:'RSI Filtro',default:65,min:50,max:90,step:5}],
-  hilo:             [{key:'period',label:'Período Hilo',default:8,min:3,max:30,step:1}],
-  pin_bar:          [{key:'wick_ratio',label:'Ratio Pavio',default:0.6,min:0.4,max:0.85,step:0.05},
-                     {key:'trend_period',label:'EMA Tendência',default:50,min:10,max:200,step:5}],
-  inside_bar:       [{key:'trend_period',label:'EMA Tendência',default:21,min:5,max:100,step:1}],
-  engulfing:        [{key:'body_ratio',label:'Ratio Corpo',default:1.1,min:1.0,max:2.0,step:0.1}],
-  fakey:            [{key:'confirm_bars',label:'Barras Confirm.',default:1,min:1,max:3,step:1}],
-  setup_91:         [{key:'fast_period',label:'EMA Rápida',default:9,min:5,max:20,step:1},
-                     {key:'slow_period',label:'EMA Lenta',default:21,min:10,max:50,step:1},
-                     {key:'rsi_filter',label:'RSI Filtro',default:70,min:55,max:85,step:5}],
-  larry_williams:   [{key:'trend_fast',label:'EMA Rápida',default:9,min:5,max:20,step:1},
-                     {key:'trend_slow',label:'EMA Lenta',default:21,min:10,max:50,step:1},
-                     {key:'lookback',label:'Lookback (barras)',default:1,min:1,max:5,step:1}],
-  turtle_soup:      [{key:'lookback',label:'N-Period Range',default:20,min:10,max:55,step:5},
-                     {key:'confirm_bars',label:'Confirm. Barras',default:2,min:1,max:5,step:1}],
-  breakout:         [{key:'period',label:'Período Donchian',default:20,min:10,max:55,step:5}],
-  pullback_trend:   [{key:'trend_fast',label:'EMA Rápida',default:9,min:5,max:20,step:1},
-                     {key:'trend_slow',label:'EMA Lenta',default:21,min:10,max:50,step:1},
-                     {key:'pullback_low',label:'RSI Pullback Low',default:40,min:25,max:50,step:5},
-                     {key:'pullback_high',label:'RSI Pullback High',default:60,min:50,max:75,step:5}],
-  first_pullback:   [{key:'strength_ratio',label:'Força Mínima',default:0.6,min:0.4,max:0.9,step:0.05},
-                     {key:'ema_period',label:'EMA Período',default:9,min:3,max:21,step:1}],
-  gap_and_go:       [{key:'gap_pct',label:'Gap Mínimo (%)',default:0.5,min:0.1,max:3.0,step:0.1}],
-  bollinger_squeeze:[{key:'squeeze_threshold',label:'Squeeze Threshold',default:0.05,min:0.02,max:0.15,step:0.01},
-                     {key:'lookback_squeeze',label:'Min. Barras Squeeze',default:5,min:2,max:15,step:1}]
-};
-
-var STRATEGY_DESC = {
-  rsi: 'Compra na saída de sobrevenda (RSI cruza 30 para cima), vende na sobrecompra.',
-  macd: 'Crossover bullish/bearish entre a linha MACD e a Signal line.',
-  combined: 'BUY só quando RSI E MACD confirmam. SELL quando qualquer um sinaliza.',
-  bollinger: 'Reversão: fecha abaixo da banda inferior → volta acima (e vice-versa).',
-  ema_cross: 'Golden cross (EMA rápida > lenta = BUY) e death cross (SELL).',
-  momentum: 'ROC (Rate of Change) cruza zero — momentum virando de direção.',
-  hilo: 'Hilo = média(MA máximas, MA mínimas). Close cruza o Hilo = sinal.',
-  pin_bar: 'Pavio longo rejeitando nível. Bullish (martelo) ou bearish (shooting star).',
-  inside_bar: 'Barra dentro do range da anterior. Rompimento = sinal.',
-  engulfing: 'Candle atual engole o anterior na direção contrária.',
-  fakey: '3 barras: inside bar → falso rompimento → reversão. Setup muito confiável.',
-  setup_91: 'Setup Stormer: EMA 9 > EMA 21 (tendência) + fecha acima da máxima anterior.',
-  larry_williams: 'Em uptrend, compra quando o preço toca a mínima anterior e reverte.',
-  turtle_soup: 'Falso rompimento de N-period high/low. Opera a reversão do stop hunt.',
-  breakout: 'Donchian Channel: close acima da máxima de N períodos = BUY.',
-  pullback_trend: 'Tendência (EMAs) + RSI recua para zona neutra + retoma = entrada.',
-  first_pullback: 'Barra forte (rompimento) + primeira retração acima da EMA = entrada.',
-  gap_and_go: 'Gap de abertura + fechamento na direção do gap = continuação.',
-  bollinger_squeeze: 'Volatilidade comprime (squeeze) → explode. Opera a expansão.'
-};
-
-function onStrategyChange() {
-  var s = document.getElementById('f-strategy').value;
-  var panel = document.getElementById('strategy-params-panel');
-  var fields = document.getElementById('strategy-params-fields');
-  var defs = STRATEGY_PARAMS[s] || [];
-
-  if (!defs.length) {
-    panel.style.display = 'none';
-    return;
-  }
-
-  var desc = STRATEGY_DESC[s] || '';
-  fields.innerHTML = (desc ? '<div style="font-size:10px;color:#6a8aa8;width:100%;margin-bottom:6px">' + desc + '</div>' : '') +
-    defs.map(function(d) {
-      return '<div style="display:flex;flex-direction:column;gap:3px">' +
-        '<label style="font-size:9px;color:#6a8aa8;font-family:monospace">' + d.label + '</label>' +
-        '<input id="sp-' + d.key + '" type="number" value="' + d.default + '" ' +
-        'min="' + (d.min||0) + '" max="' + (d.max||9999) + '" step="' + (d.step||1) + '" ' +
-        'style="width:90px;background:rgba(10,22,40,.8);border:1px solid #1c2535;' +
-        'border-radius:4px;color:#e2e8f0;padding:4px 7px;font-family:monospace;font-size:11px">' +
-        '</div>';
-    }).join('');
-  panel.style.display = 'block';
-}
-
-function getStrategyParamsJson() {
-  var s = document.getElementById('f-strategy').value;
-  var defs = STRATEGY_PARAMS[s] || [];
-  if (!defs.length) return null;
-  var obj = {};
-  defs.forEach(function(d) {
-    var el = document.getElementById('sp-' + d.key);
-    if (el) {
-      var v = parseFloat(el.value);
-      if (!isNaN(v)) obj[d.key] = v;
-    }
-  });
-  return Object.keys(obj).length ? JSON.stringify(obj) : null;
-}
-
-// Inicializa painel na carga
-document.addEventListener('DOMContentLoaded', function() { onStrategyChange(); });
-
 function buildParams(ticker) {
   var s = document.getElementById('f-strategy').value;
   var r = document.getElementById('f-range').value;
   var c = document.getElementById('f-capital').value;
   var p = document.getElementById('f-possize').value;
   var cm = document.getElementById('f-commission').value;
-  var base = 'ticker=' + ticker + '&strategy=' + s + '&range_period=' + r +
-             '&initial_capital=' + c + '&position_size=' + p + '&commission_pct=' + cm;
-  var paramsJson = getStrategyParamsJson();
-  if (paramsJson) base += '&strategy_params_json=' + encodeURIComponent(paramsJson);
-  return base;
+  return 'ticker=' + ticker + '&strategy=' + s + '&range_period=' + r +
+         '&initial_capital=' + c + '&position_size=' + p + '&commission_pct=' + cm;
 }
 
 // RENDER SINGLE ----
