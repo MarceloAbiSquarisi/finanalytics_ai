@@ -357,6 +357,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning("ticker_service.FAILED", error=str(exc))
 
 
+    # -- RankingService (ranking de acoes por metodologia)
+    try:
+        from finanalytics_ai.application.services.ranking_service import RankingService
+        from finanalytics_ai.infrastructure.database.connection import get_session_factory as _gsf3
+        app.state.ranking_service = RankingService(_gsf3())
+        logger.info("ranking_service.ready")
+    except Exception as _rke:
+        logger.warning("ranking_service.FAILED", error=str(_rke))
+        app.state.ranking_service = None
+
     # -- IndicatorAlertService (alertas de indicadores Fintz)
     try:
         from finanalytics_ai.application.services.indicator_alert_service import (
@@ -577,6 +587,15 @@ def create_app() -> FastAPI:
     try:
         from finanalytics_ai.interfaces.api.routes import alerts_indicator
         app.include_router(alerts_indicator.router, tags=["Alertas Indicadores"])
+        logger.info("alerts_indicator.route.registered")
+    except Exception as _aire:
+        logger.warning("alerts_indicator.route.FAILED", error=str(_aire))
+    try:
+        from finanalytics_ai.interfaces.api.routes import ranking as ranking_routes
+        app.include_router(ranking_routes.router, tags=["Ranking"])
+        logger.info("ranking.route.registered")
+    except Exception as _rre:
+        logger.warning("ranking.route.FAILED", error=str(_rre))
         logger.info("alerts_indicator.route.registered")
     except Exception as _aire:
         logger.warning("alerts_indicator.route.FAILED", error=str(_aire))
