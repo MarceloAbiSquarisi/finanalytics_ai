@@ -1,4 +1,4 @@
-﻿"""
+"""
 infrastructure/market_data/profit_dll/client.py
 
 ProfitDLLClient — wrapper async-friendly para a ProfitDLL64 da Nelogica.
@@ -117,7 +117,9 @@ class ConnectionState:
 
     @property
     def ready(self) -> bool:
-        return self.market_connected and self.market_login_valid
+        # market_connected=True so quando mercado esta aberto (result==4).
+        # market_login_valid=True indica credenciais validas mesmo com mercado fechado.
+        return self.market_login_valid
 
 
 # ── ProfitDLLClient ───────────────────────────────────────────────────────────

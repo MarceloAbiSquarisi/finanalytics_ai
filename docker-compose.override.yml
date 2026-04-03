@@ -164,3 +164,28 @@ services:
         limits:
           cpus: '4'
           memory: 5G
+  # Event Worker V2 -- coexiste com worker V1 durante a migracao.
+  # Para desligar V1 e manter so V2: remova o servico 'worker' do docker-compose.yml
+  event_worker_v2:
+    build:
+      context: .
+      target: worker-v2
+    image: finanalytics-worker-v2:latest
+    container_name: finanalytics_worker_v2
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/app/src
+      - ENVIRONMENT=production
+      - LOG_FORMAT=json
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - finanalytics_net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"

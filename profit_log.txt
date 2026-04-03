@@ -1,0 +1,18 @@
+2026-04-03T18:37:01.407883Z [INFO     ] profit_market_worker.starting  [__main__]
+2026-04-03T18:37:01.411027Z [INFO     ] profit_market_worker.connecting [__main__] timeout=90.0
+2026-04-03T18:37:01.876109Z [INFO     ] profit_dll.started             [finanalytics_ai.infrastructure.market_data.profit_dll.client] dll_path=C:\Nelogica\ProfitDLL.dll
+2026-04-03T18:37:04.432605Z [INFO     ] profit_market_worker.dll_connected [__main__]
+2026-04-03T18:37:04.457053Z [INFO     ] database.engine.created        [finanalytics_ai.infrastructure.database.connection] pool_size=10
+2026-04-03T18:37:04.552646Z [INFO     ] profit_dll.consumer_started    [finanalytics_ai.infrastructure.market_data.profit_dll.client]
+2026-04-03T18:37:08.261194Z [WARNING  ] profit_worker.timescale_unavailable [__main__] error='[Errno 11001] getaddrinfo failed'
+2026-04-03T18:37:08.270235Z [INFO     ] profit_dll.subscribed          [finanalytics_ai.infrastructure.market_data.profit_dll.client] exchange=B ticker=PETR4
+2026-04-03T18:37:08.272235Z [INFO     ] profit_dll.subscribed          [finanalytics_ai.infrastructure.market_data.profit_dll.client] exchange=B ticker=VALE3
+2026-04-03T18:37:08.274233Z [INFO     ] profit_dll.subscribed          [finanalytics_ai.infrastructure.market_data.profit_dll.client] exchange=B ticker=ITUB4
+2026-04-03T18:37:08.275235Z [INFO     ] profit_dll.subscribed          [finanalytics_ai.infrastructure.market_data.profit_dll.client] exchange=B ticker=BBDC4
+2026-04-03T18:37:08.276272Z [INFO     ] profit_dll.subscribed          [finanalytics_ai.infrastructure.market_data.profit_dll.client] exchange=B ticker=ABEV3
+2026-04-03T18:37:08.277861Z [INFO     ] profit_dll.subscribed          [finanalytics_ai.infrastructure.market_data.profit_dll.client] exchange=B ticker=WEGE3
+2026-04-03T18:37:08.278865Z [INFO     ] profit_dll.subscribed          [finanalytics_ai.infrastructure.market_data.profit_dll.client] exchange=B ticker=WINFUT
+2026-04-03T18:37:08.279866Z [INFO     ] profit_dll.subscribed          [finanalytics_ai.infrastructure.market_data.profit_dll.client] exchange=B ticker=WDOFUT
+2026-04-03T18:37:08.279866Z [INFO     ] profit_market_worker.subscribed [__main__] tickers=['PETR4', 'VALE3', 'ITUB4', 'BBDC4', 'ABEV3', 'WEGE3', 'WINFUT', 'WDOFUT']
+2026-04-03T18:37:08.279866Z [INFO     ] consumer.started               [finanalytics_ai.infrastructure.event_processor.consumer]
+2026-04-03T18:37:08.280865Z [INFO     ] profit_dll_source.started      [finanalytics_ai.infrastructure.market_data.profit_dll.message_source]

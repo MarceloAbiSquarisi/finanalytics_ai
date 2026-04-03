@@ -1,4 +1,4 @@
-﻿# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1
 # ──────────────────────────────────────────────────────────────────────────────
 # FinAnalytics AI — Dockerfile multi-stage
 #
@@ -125,3 +125,27 @@ USER appuser
 HEALTHCHECK NONE
 
 ENTRYPOINT ["./docker-entrypoint-worker.sh"]
+
+# -- worker-v2: EventProcessorService V2 --------------------------------------
+FROM base AS worker-v2
+
+RUN apt-get update -qq \
+    && apt-get install -y -q --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /usr/local/lib/python3.12/site-packages \
+                    /usr/local/lib/python3.12/site-packages
+COPY --from=builder /app/src ./src
+
+COPY docker-entrypoint-worker-v2.sh ./docker-entrypoint-worker-v2.sh
+RUN chmod +x ./docker-entrypoint-worker-v2.sh
+
+RUN adduser --disabled-password --gecos "" --uid 1001 appuser \
+    && chown -R appuser:appuser /app
+USER appuser
+
+# Worker monitorado via logs estruturados e metricas Prometheus.
+# Sem HEALTHCHECK HTTP -- adicionar sentinel file para Kubernetes no futuro.
+HEALTHCHECK NONE
+
+ENTRYPOINT ["./docker-entrypoint-worker-v2.sh"]

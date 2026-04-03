@@ -204,3 +204,38 @@ jobs:
         run: |
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+  # -- Testes de integracao SQLite (sem Postgres/Redis) -----------------------
+  integration-sqlite:
+    name: Integration SQLite
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: pip install uv==0.4.29 --quiet
+
+      - name: Cache deps
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ hashFiles('pyproject.toml') }}
+          restore-keys: uv-
+
+      - name: Install deps
+        run: uv sync --dev
+
+      - name: pytest integration sqlite
+        run: uv run pytest tests/integration_sqlite/ -v --tb=short -q
+        env:
+          PYTHONPATH: src
+          LOG_LEVEL: ERROR
+          METRICS_ENABLED: "false"
+          TRACING_ENABLED: "false"
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+          APP_SECRET_KEY: "test-secret-key"

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Worker de sincronizacao Fintz -- Sprint I: integracao real com FintzSyncService.
 
 Substitui o stub _sync_dataset pela chamada real.
@@ -19,12 +19,23 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from finanalytics_ai.application.services.event_publisher import EventPublisher
 from finanalytics_ai.config import Settings, get_settings
-from finanalytics_ai.container import (
-    bootstrap,
-    build_engine,
-    build_session_factory,
-    build_timescale_writer,
+from finanalytics_ai.container_v2 import bootstrap_v2 as bootstrap
+from finanalytics_ai.container_v2 import build_engine_v2 as build_engine
+from finanalytics_ai.container_v2 import build_session_factory_v2 as build_session_factory
+from finanalytics_ai.infrastructure.database.repositories.timescale_writer import (
+    NoOpTimescaleWriter,
 )
+
+def build_timescale_writer(settings, timescale_session_factory=None):
+    """
+    Adapter de compatibilidade com a assinatura original do container V1.
+    Retorna NoOpTimescaleWriter se TimescaleDB nao estiver configurado.
+    Em producao com TimescaleDB: passar timescale_session_factory explicitamente.
+    """
+    if timescale_session_factory is None:
+        return NoOpTimescaleWriter()
+    from finanalytics_ai.infrastructure.database.repositories.timescale_writer import PgTimescaleWriter
+    return PgTimescaleWriter(timescale_session_factory)
 from finanalytics_ai.observability.logging import get_logger
 
 log = get_logger(__name__)

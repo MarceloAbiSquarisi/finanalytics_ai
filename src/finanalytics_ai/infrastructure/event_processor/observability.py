@@ -1,4 +1,4 @@
-"""
+﻿"""
 Implementacoes do ObservabilityPort.
 
 Tres implementacoes:
@@ -126,3 +126,15 @@ class CompositeObservability:
     def record_retry(self, event_type: str, retry_count: int) -> None:
         for b in self._backends:
             b.record_retry(event_type, retry_count)
+
+class NoOpObservability:
+    """Observabilidade no-op para desenvolvimento sem Prometheus configurado."""
+
+    def record_processing_time(self, event_type: str, duration_ms: float) -> None:
+        pass
+
+    def record_event_status(self, event_type: str, status: str) -> None:
+        pass
+
+    def record_retry(self, event_type: str, retry_count: int) -> None:
+        pass

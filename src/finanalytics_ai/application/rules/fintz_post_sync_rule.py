@@ -28,7 +28,7 @@ from finanalytics_ai.domain.events.entities import EventType
 from finanalytics_ai.observability.logging import get_logger
 
 if TYPE_CHECKING:
-    from finanalytics_ai.domain.events.entities import Event
+    from finanalytics_ai.domain.events.models import DomainEvent
 from finanalytics_ai.infrastructure.timescale.fintz_repo import TimescaleFintzRepository
 from finanalytics_ai.infrastructure.cache.backend import CacheBackend
 
@@ -524,7 +524,7 @@ class PostSyncOrchestrator:
         self._model_flagger = ModelStalenessFlagge(cache)
         self._tickers_sample = tickers_sample or FintzCacheWarmer.TOP_TICKERS
 
-    async def apply(self, event: Event) -> dict[str, Any]:
+    async def apply(self, event: DomainEvent) -> dict[str, Any]:
         """
         Executa as 4 ações pós-sync em paralelo.
         Retorna result_metadata para o EventProcessingRecord.

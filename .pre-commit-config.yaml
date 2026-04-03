@@ -1,0 +1,60 @@
+# .pre-commit-config.yaml
+# Hooks executados automaticamente antes de cada commit.
+#
+# Instalação (uma vez):
+#   uv pip install pre-commit
+#   pre-commit install
+#
+# Execução manual:
+#   pre-commit run --all-files
+#
+# O que cada hook faz:
+#   ruff       — linting + isort automático (mais rápido que flake8 + isort)
+#   ruff-format— formatação (substitui black nos arquivos .py)
+#   mypy       — type checking estrito (strict = true no pyproject.toml)
+#   trailing-whitespace, end-of-file-fixer — higiene básica
+#
+# Trade-off: mypy no pre-commit é lento na primeira execução (~30s).
+# Use `SKIP=mypy git commit` para commits rápidos de WIP.
+# O pipeline CI sempre roda mypy completo.
+
+repos:
+  # ── Ruff (linting + isort) ─────────────────────────────────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.0
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        types_or: [python, pyi]
+      - id: ruff-format
+        types_or: [python, pyi]
+
+  # ── Mypy (type checking) ────────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        args: [--config-file=pyproject.toml]
+        additional_dependencies:
+          - pydantic>=2.7.0
+          - pydantic-settings>=2.2.0
+          - sqlalchemy[mypy]>=2.0.0
+          - structlog>=24.1.0
+          - types-tenacity
+        pass_filenames: false
+        # Roda mypy no src/ inteiro — mais confiável que arquivo por arquivo
+        entry: mypy src/
+
+  # ── Higiene básica ───────────────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: debug-statements       # bloqueia print/breakpoint esquecidos
+        types: [python]
+      - id: check-added-large-files
+        args: [--maxkb=500]        # bloqueia arquivos > 500KB acidentais

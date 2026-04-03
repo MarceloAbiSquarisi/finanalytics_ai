@@ -278,9 +278,12 @@ class TestMomentumStrategy:
 
 
 class TestGetStrategyNewStrategies:
-    def test_all_six_keys_in_registry(self):
-        expected = {"rsi", "macd", "combined", "bollinger", "ema_cross", "momentum"}
-        assert set(STRATEGIES.keys()) == expected
+    def test_all_six_keys_in_registry(self) -> None:
+        """Verifica backward-compat: as 6 estrategias originais ainda estao no registro."""
+        original_six = {"rsi", "macd", "combined", "bollinger", "ema_cross", "momentum"}
+        assert original_six.issubset(set(STRATEGIES.keys())), (
+            f"Estrategias originais ausentes: {original_six - set(STRATEGIES.keys())}"
+        )
 
     def test_factory_bollinger(self):
         s = get_strategy("bollinger")
@@ -324,3 +327,4 @@ class TestGetStrategyNewStrategies:
             s = get_strategy(name)
             assert isinstance(s.params, dict), f"{name}: params must be dict"
             assert len(s.params) > 0, f"{name}: params must not be empty"
+

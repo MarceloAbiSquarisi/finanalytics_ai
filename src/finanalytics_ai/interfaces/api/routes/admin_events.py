@@ -1,3 +1,4 @@
+import uuid
 """
 Admin router — Dead-letter queue management.
 
@@ -21,7 +22,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from finanalytics_ai.domain.events.entities import EventId
 from finanalytics_ai.infrastructure.database.repositories.event_repository import (
     PostgresEventRepository
 )
@@ -62,7 +62,7 @@ async def get_db() -> AsyncSession:  # type: ignore[return]
     """Placeholder — substitua pelo session factory do app principal.
 
     Exemplo de uso no app.py:
-        from finanalytics_ai.container import build_session_factory, build_engine
+        from finanalytics_ai.container_v2 import build_session_factory_v2 as build_session_factory, build_engine_v2 as build_engine
         session_factory = build_session_factory(build_engine(settings))
 
         async def get_db():
@@ -128,7 +128,7 @@ async def requeue_dead_letter_event(
       Neste caso, crie um novo evento com o payload correto.
     """
     try:
-        eid = EventId.from_str(event_id)
+        eid = uuid.UUID(event_id)
     except Exception:
         raise HTTPException(status_code=422, detail=f"event_id inválido: {event_id!r}")
 

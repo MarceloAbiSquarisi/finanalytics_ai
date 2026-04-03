@@ -1,0 +1,28 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="pytest unit" type="PythonConfigurationType" factoryName="Python">
+    <module name="finanalytics-ai" />
+    <option name="INTERPRETER_OPTIONS" value="" />
+    <option name="PARENT_ENVS" value="true" />
+    <envs>
+      <env name="DATABASE_URL" value="postgresql+asyncpg://test:test@localhost/test" />
+      <env name="APP_SECRET_KEY" value="dev-secret-key-local" />
+      <env name="LOG_LEVEL" value="ERROR" />
+      <env name="METRICS_ENABLED" value="false" />
+      <env name="PYTHONPATH" value="$PROJECT_DIR$/src" />
+    </envs>
+    <option name="SDK_HOME" value="" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <option name="IS_MODULE_SDK" value="true" />
+    <option name="ADD_CONTENT_ROOTS" value="true" />
+    <option name="ADD_SOURCE_ROOTS" value="true" />
+    <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+    <option name="SCRIPT_NAME" value="-m pytest" />
+    <option name="PARAMETERS" value="tests/unit/ -v --tb=short -q" />
+    <option name="SHOW_COMMAND_LINE" value="false" />
+    <option name="EMULATE_TERMINAL" value="false" />
+    <option name="MODULE_MODE" value="true" />
+    <option name="REDIRECT_INPUT" value="false" />
+    <option name="INPUT_FILE" value="" />
+    <method v="2" />
+  </configuration>
+</component>

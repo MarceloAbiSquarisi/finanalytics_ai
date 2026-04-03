@@ -28,11 +28,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from finanalytics_ai.config import get_settings
-from finanalytics_ai.container import (
-    bootstrap,
-    build_engine,
-    build_session_factory,
-)
+from finanalytics_ai.container_v2 import bootstrap_v2 as bootstrap, build_engine_v2 as build_engine, build_session_factory_v2 as build_session_factory
 from finanalytics_ai.interfaces.api.routes import admin_events
 from finanalytics_ai.observability.logging import get_logger
 
