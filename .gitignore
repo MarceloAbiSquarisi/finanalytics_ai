@@ -46,3 +46,11 @@ diagnose_project.py
 export_*.py
 dev.ps1
 
+
+# Logs temporarios
+*.log
+profit_log.txt
+worker_error.txt
+test_result.txt
+result.txt
+count.txt
