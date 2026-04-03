@@ -352,7 +352,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning("ticker_service.FAILED", error=str(exc))
 
 
+    # -- FintzScreenerService (dados locais Fintz)
+    try:
+        from finanalytics_ai.application.services.fintz_screener_service import FintzScreenerService
+        from finanalytics_ai.infrastructure.database.connection import get_session_factory as _gsf
+        app.state.fintz_screener_service = FintzScreenerService(_gsf())
+        logger.info("fintz_screener_service.ready")
+    except Exception as _fse:
+        logger.warning("fintz_screener_service.FAILED", error=str(_fse))
+        app.state.fintz_screener_service = None
+
     # ── DiarioRepository ──────────────────────────────────────────────────────
+    
+    
+    
+
     try:
         from finanalytics_ai.infrastructure.database.repositories.diario_repo import (
             DiarioRepository,
@@ -536,6 +550,12 @@ def create_app() -> FastAPI:
         _sl5.get_logger(__name__).warning("diario.router.FAILED", error=str(_de))
     app.include_router(correlation.router, tags=["Correlation"])
     app.include_router(screener.router, tags=["Screener"])
+    try:
+        from finanalytics_ai.interfaces.api.routes import screener_fintz
+        app.include_router(screener_fintz.router, tags=["Screener Fintz"])
+        logger.info("screener_fintz.route.registered")
+    except Exception as _sfe:
+        logger.warning("screener_fintz.route.FAILED", error=str(_sfe))
     app.include_router(ml_routes.router, tags=["ML Probabilistico"])
     app.include_router(marketdata_routes.router, tags=["Market Data"])
     app.include_router(anomaly.router, tags=["Anomaly"])
