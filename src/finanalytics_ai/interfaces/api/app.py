@@ -352,6 +352,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning("ticker_service.FAILED", error=str(exc))
 
 
+    # -- IndicatorAlertService (alertas de indicadores Fintz)
+    try:
+        from finanalytics_ai.application.services.indicator_alert_service import (
+            IndicatorAlertService,
+        )
+        from finanalytics_ai.infrastructure.database.connection import get_session_factory as _gsf2
+        _notification_bus = getattr(app.state, 'notification_bus', None)
+        app.state.indicator_alert_service = IndicatorAlertService(_gsf2(), _notification_bus)
+        logger.info("indicator_alert_service.ready")
+    except Exception as _iae:
+        logger.warning("indicator_alert_service.FAILED", error=str(_iae))
+        app.state.indicator_alert_service = None
+
     # -- FintzScreenerService (dados locais Fintz)
     try:
         from finanalytics_ai.application.services.fintz_screener_service import FintzScreenerService
@@ -553,6 +566,15 @@ def create_app() -> FastAPI:
     try:
         from finanalytics_ai.interfaces.api.routes import screener_fintz
         app.include_router(screener_fintz.router, tags=["Screener Fintz"])
+        logger.info("screener_fintz.route.registered")
+    except Exception as _sfe:
+        logger.warning("screener_fintz.route.FAILED", error=str(_sfe))
+    try:
+        from finanalytics_ai.interfaces.api.routes import alerts_indicator
+        app.include_router(alerts_indicator.router, tags=["Alertas Indicadores"])
+        logger.info("alerts_indicator.route.registered")
+    except Exception as _aire:
+        logger.warning("alerts_indicator.route.FAILED", error=str(_aire))
         logger.info("screener_fintz.route.registered")
     except Exception as _sfe:
         logger.warning("screener_fintz.route.FAILED", error=str(_sfe))
