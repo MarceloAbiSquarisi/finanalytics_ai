@@ -1,4 +1,4 @@
-﻿"""
+"""
 FastAPI application factory — Sprint 7: BRAPI Price Producer.
 
 Lifespan startup order:
@@ -348,6 +348,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await conn.run_sync(lambda c: TickerBase.metadata.create_all(c, checkfirst=True))
         app.state.ticker_service = TickerService(get_session_factory())
         logger.info("ticker_service.ready")
+    except Exception as exc:
+        logger.warning("ticker_service.FAILED", error=str(exc))
+
 
     # ── DiarioRepository ──────────────────────────────────────────────────────
     try:
@@ -361,8 +364,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.warning("diario_repo.FAILED", error=str(exc))
         app.state.diario_repo = None
-    except Exception as exc:
-        logger.warning("ticker_service.FAILED", error=str(exc))
 
     # ── 6. BRAPI Price Producer ───────────────────────────────────────────────
     producer_ok = False
