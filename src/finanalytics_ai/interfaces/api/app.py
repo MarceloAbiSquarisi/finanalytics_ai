@@ -658,6 +658,13 @@ def create_app() -> FastAPI:
     except Exception as _rre:
         logger.warning("ranking.route.FAILED", error=str(_rre))
     try:
+        from finanalytics_ai.interfaces.api.routes import whatsapp as whatsapp_routes
+        app.include_router(whatsapp_routes.router, tags=["WhatsApp"])
+        logger.info("whatsapp.route.registered")
+    except Exception as _ware:
+        logger.warning("whatsapp.route.FAILED", error=str(_ware))
+
+    try:
         from finanalytics_ai.interfaces.api.routes import dividendos as dividendos_routes
         app.include_router(dividendos_routes.router, tags=["Dividendos"])
         logger.info("dividendos.route.registered")
@@ -792,6 +799,11 @@ def create_app() -> FastAPI:
     @app.get("/vol-surface", response_class=HTMLResponse, include_in_schema=False)
     async def serve_vol_surface() -> HTMLResponse:
         return _html("vol_surface.html")
+
+    
+    @app.get("/whatsapp", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_whatsapp() -> HTMLResponse:
+        return _html("whatsapp.html")
 
     @app.get("/dividendos", response_class=HTMLResponse, include_in_schema=False)
     async def serve_dividendos() -> HTMLResponse:

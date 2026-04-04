@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhatsApp Alertas | FinAnalytics AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0A1628;--card:#0e1a2e;--border:#1c2535;--white:#e2eaf4;--muted:#4a6a8a;--blue:#3ABFF8;--gold:#F0B429;--green:#00e676;--red:#ff3d5a;--wa:#25D366;--sb-w:220px;--sb-w-collapsed:52px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--navy);color:var(--white);font-family:'Syne',sans-serif;overflow-x:hidden}
+.fa-topbar{position:fixed;top:0;left:0;right:0;height:52px;background:rgba(10,22,40,.97);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:300}
+.fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--gold);font-weight:800;font-size:15px}
+.fa-sidebar{position:fixed;left:0;top:52px;bottom:0;width:var(--sb-w-collapsed);background:#0a0f18;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1);z-index:200}
+.fa-sidebar.open{width:var(--sb-w)}
+.fa-sidebar-toggle{width:100%;padding:10px 14px;background:transparent;border:none;border-bottom:1px solid var(--border);color:#7a95b0;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;white-space:nowrap;overflow:hidden}
+.fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;text-decoration:none;font-size:15px;white-space:nowrap;overflow:hidden;transition:all .15s}
+.fa-sb-link:hover{color:#e2eaf4;background:rgba(0,212,255,.05)}
+.fa-sb-link.active{color:var(--gold);background:rgba(240,180,41,.08);border-right:2px solid var(--gold)}
+.fa-sb-link svg{flex-shrink:0}
+.fa-sb-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-link span{opacity:1}
+.fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1);padding:72px 24px 32px}
+body.sb-open .fa-page-content{margin-left:var(--sb-w)}
+.page-title{font-size:26px;font-weight:800;color:var(--wa);margin-bottom:4px}
+.page-sub{font-size:15px;color:var(--muted);margin-bottom:24px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px}
+.card-title{font-size:16px;font-weight:700;color:var(--wa);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+/* Status */
+.status-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.status-dot.connected{background:var(--green);box-shadow:0 0 8px var(--green)}
+.status-dot.disconnected{background:var(--red)}
+.status-dot.loading{background:var(--gold);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.status-text{font-size:14px;font-family:'DM Mono',monospace}
+/* QR */
+.qr-wrap{text-align:center;padding:20px}
+.qr-img{max-width:220px;border-radius:10px;border:3px solid var(--wa)}
+/* Form */
+.field-row{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.field-label{font-size:13px;color:var(--muted)}
+.field-input{background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:14px;padding:8px 12px;width:100%;outline:none}
+.field-input:focus{border-color:var(--wa)}
+.field-select{background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:14px;padding:8px 12px;width:100%;outline:none}
+.wa-btn{background:linear-gradient(135deg,#128c3b,var(--wa));border:none;border-radius:7px;color:var(--white);font-family:'Syne',sans-serif;font-weight:800;font-size:14px;padding:10px 20px;cursor:pointer;width:100%;transition:all .2s;margin-top:4px}
+.wa-btn:hover{transform:translateY(-1px);box-shadow:0 0 16px rgba(37,211,102,.3)}
+.send-btn{background:linear-gradient(135deg,#128c3b,var(--wa));border:none;border-radius:7px;color:var(--white);font-family:'Syne',sans-serif;font-weight:800;font-size:14px;padding:9px 20px;cursor:pointer;transition:all .2s}
+.send-btn:hover{box-shadow:0 0 12px rgba(37,211,102,.3)}
+/* Alertas */
+.alerta-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0a1220;border-radius:8px;margin-bottom:6px}
+.alerta-type{font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;font-family:'DM Mono',monospace}
+.alerta-type.preco{background:rgba(240,180,41,.15);color:var(--gold)}
+.alerta-type.setup{background:rgba(37,211,102,.15);color:var(--wa)}
+.alerta-info{flex:1;font-size:13px;font-family:'DM Mono',monospace;color:var(--muted)}
+.alerta-del{background:transparent;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:2px 8px;border-radius:4px;opacity:.5}
+.alerta-del:hover{opacity:1;background:rgba(255,61,90,.1)}
+/* Msg history */
+.msg-item{padding:10px 12px;background:#0a1220;border-left:3px solid var(--wa);border-radius:0 8px 8px 0;margin-bottom:6px;font-size:13px;font-family:'DM Mono',monospace;color:var(--muted)}
+.msg-item .msg-time{font-size:11px;color:#4a6a8a;margin-bottom:4px}
+.msg-item .msg-text{color:var(--white)}
+.empty-msg{color:var(--muted);font-size:14px;text-align:center;padding:20px}
+.tab-bar{display:flex;gap:4px;margin-bottom:16px;background:#0a1220;border-radius:8px;padding:4px}
+.tab-btn{flex:1;padding:8px;border:none;border-radius:6px;cursor:pointer;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;background:transparent;color:var(--muted);transition:all .2s}
+.tab-btn.active{background:var(--wa);color:var(--white)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+</style>
+</head>
+<body>
+<div class="fa-topbar">
+  <a href="/" class="fa-logo">
+    <svg width="28" height="28" viewBox="0 0 170 170" fill="none"><defs><linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3ABFF8"/><stop offset="100%" stop-color="#F0B429"/></linearGradient></defs><rect width="170" height="170" rx="28" fill="#0A1628"/><polyline points="24,130 60,75 90,100 130,40" stroke="url(#lg1)" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="130" cy="40" r="10" fill="#F0B429"/></svg>
+    FinAnalytics AI
+  </a>
+</div>
+
+<aside class="fa-sidebar" id="fa-sidebar">
+  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <span style="font-weight:700;color:var(--gold);font-size:11px">MENU</span>
+  </button>
+  <div style="overflow-y:auto;flex:1">
+    <a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
+    <a href="/daytrade/setups" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 1 18"/></svg><span>Setups</span></a>
+    <a href="/sentiment" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Sentimento</span></a>
+    <a href="/whatsapp" class="fa-sb-link active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span>WhatsApp</span></a>
+    <a href="/dividendos" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span>Dividendos</span></a>
+    <a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
+  </div>
+</aside>
+
+<div class="fa-page-content">
+  <div class="page-title">&#128172; WhatsApp Alertas</div>
+  <div class="page-sub">Alertas automaticos via Evolution API — Setups, Precos e Sentimento</div>
+
+  <!-- Status + QR -->
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        Status da Conexao
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <div class="status-dot loading" id="status-dot"></div>
+        <span class="status-text" id="status-text">Verificando...</span>
+      </div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px" id="status-number"></div>
+      <button class="wa-btn" onclick="conectar()">&#128247; Conectar / Novo QR Code</button>
+      <button onclick="checkStatus()" style="background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--muted);font-family:'Syne',sans-serif;font-size:13px;padding:8px;cursor:pointer;width:100%;margin-top:6px">Atualizar Status</button>
+    </div>
+    <div class="card" id="qr-card">
+      <div class="card-title">&#128247; QR Code</div>
+      <div class="qr-wrap" id="qr-area">
+        <div style="color:var(--muted);font-size:14px">Clique em Conectar para gerar o QR Code</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="showTab('enviar',this)">&#128172; Enviar Mensagem</button>
+    <button class="tab-btn" onclick="showTab('alerta-preco',this)">&#128178; Alerta de Preco</button>
+    <button class="tab-btn" onclick="showTab('alerta-setup',this)">&#9889; Alerta de Setup</button>
+    <button class="tab-btn" onclick="showTab('alertas',this)">&#128203; Meus Alertas</button>
+  </div>
+
+  <!-- Tab: Enviar -->
+  <div class="tab-content active" id="tab-enviar">
+    <div class="card" style="max-width:500px">
+      <div class="card-title">&#128172; Enviar Mensagem</div>
+      <div class="field-row">
+        <div class="field-label">Numero WhatsApp (com DDD)</div>
+        <input class="field-input" id="send-number" placeholder="11999999999" type="tel">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Mensagem</div>
+        <textarea class="field-input" id="send-msg" rows="4" placeholder="Sua mensagem aqui..." style="resize:vertical"></textarea>
+      </div>
+      <button class="wa-btn" onclick="enviarMensagem()">&#128172; Enviar Agora</button>
+      <div id="send-result" style="margin-top:10px;font-size:13px;font-family:'DM Mono',monospace"></div>
+    </div>
+  </div>
+
+  <!-- Tab: Alerta Preco -->
+  <div class="tab-content" id="tab-alerta-preco">
+    <div class="card" style="max-width:500px">
+      <div class="card-title">&#128178; Alerta de Preco</div>
+      <div class="field-row">
+        <div class="field-label">Ticker</div>
+        <input class="field-input" id="ap-ticker" placeholder="PETR4" maxlength="8">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Condicao</div>
+        <select class="field-select" id="ap-cond">
+          <option value="acima">Preco acima de</option>
+          <option value="abaixo">Preco abaixo de</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field-label">Preco Alvo (R$)</div>
+        <input class="field-input" id="ap-preco" type="number" placeholder="50.00" step="0.01" style="text-transform:none">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Seu numero WhatsApp</div>
+        <input class="field-input" id="ap-number" placeholder="11999999999" type="tel">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Mensagem adicional (opcional)</div>
+        <input class="field-input" id="ap-msg" placeholder="Ex: Verificar suporte em 50">
+      </div>
+      <button class="wa-btn" onclick="criarAlertaPreco()">&#128178; Criar Alerta</button>
+      <div id="ap-result" style="margin-top:10px;font-size:13px;font-family:'DM Mono',monospace"></div>
+    </div>
+  </div>
+
+  <!-- Tab: Alerta Setup -->
+  <div class="tab-content" id="tab-alerta-setup">
+    <div class="card" style="max-width:500px">
+      <div class="card-title">&#9889; Alerta de Setup Intraday</div>
+      <div class="field-row">
+        <div class="field-label">Tickers (separados por virgula)</div>
+        <input class="field-input" id="as-tickers" placeholder="PETR4,VALE3,ITUB4">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Setups a monitorar (vazio = todos)</div>
+        <input class="field-input" id="as-setups" placeholder="setup_91,larry_williams,ema_cross">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Seu numero WhatsApp</div>
+        <input class="field-input" id="as-number" placeholder="11999999999" type="tel">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Intervalo minimo entre alertas (minutos)</div>
+        <input class="field-input" id="as-intervalo" type="number" value="60" min="5" style="text-transform:none">
+      </div>
+      <button class="wa-btn" onclick="criarAlertaSetup()">&#9889; Criar Alerta</button>
+      <div id="as-result" style="margin-top:10px;font-size:13px;font-family:'DM Mono',monospace"></div>
+    </div>
+  </div>
+
+  <!-- Tab: Meus Alertas -->
+  <div class="tab-content" id="tab-alertas">
+    <div class="card">
+      <div class="card-title" style="justify-content:space-between">
+        <span>&#128203; Alertas Configurados</span>
+        <button onclick="loadAlertas()" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-size:12px;padding:4px 10px;cursor:pointer">Atualizar</button>
+      </div>
+      <div id="alertas-list"><div class="empty-msg">Nenhum alerta configurado</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+var API='';
+function faSidebarToggle(){var s=document.getElementById('fa-sidebar');s.classList.toggle('open');document.body.classList.toggle('sb-open');localStorage.setItem('fa_sidebar_open',s.classList.contains('open')?'1':'0');}
+(function(){if(localStorage.getItem('fa_sidebar_open')==='1'){document.getElementById('fa-sidebar').classList.add('open');document.body.classList.add('sb-open');}})();
+
+function showTab(t,btn){
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active');});
+  btn.classList.add('active');
+  document.getElementById('tab-'+t).classList.add('active');
+  if(t==='alertas')loadAlertas();
+}
+
+async function checkStatus(){
+  var dot=document.getElementById('status-dot');
+  var txt=document.getElementById('status-text');
+  var num=document.getElementById('status-number');
+  dot.className='status-dot loading';
+  txt.textContent='Verificando...';
+  try{
+    var r=await fetch(API+'/api/v1/whatsapp/status');
+    var d=await r.json();
+    if(d.connected){
+      dot.className='status-dot connected';
+      txt.textContent='Conectado';
+      txt.style.color='var(--green)';
+      num.textContent='Numero: '+d.number;
+    }else{
+      dot.className='status-dot disconnected';
+      txt.textContent='Desconectado ('+d.state+')';
+      txt.style.color='var(--red)';
+      num.textContent='';
+    }
+  }catch(e){
+    dot.className='status-dot disconnected';
+    txt.textContent='Evolution API offline';
+    txt.style.color='var(--red)';
+    num.textContent='Inicie: docker-compose up -d evolution-api';
+  }
+}
+
+async function conectar(){
+  var area=document.getElementById('qr-area');
+  area.innerHTML='<div style="color:var(--muted)">Gerando QR Code...</div>';
+  try{
+    var r=await fetch(API+'/api/v1/whatsapp/qrcode');
+    var d=await r.json();
+    if(d.qrcode){
+      area.innerHTML='<img class="qr-img" src="'+d.qrcode+'" alt="QR Code"><p style="font-size:12px;color:var(--muted);margin-top:10px">Escaneie com o WhatsApp do celular<br>Configuracoes > Aparelhos Vinculados</p>';
+    }else{
+      area.innerHTML='<div style="color:var(--red)">Erro ao gerar QR. Verifique se a Evolution API esta rodando.</div>';
+    }
+  }catch(e){
+    area.innerHTML='<div style="color:var(--red)">Evolution API offline.<br><code style="font-size:11px">docker-compose up -d evolution-api</code></div>';
+  }
+}
+
+async function enviarMensagem(){
+  var number=document.getElementById('send-number').value.trim();
+  var msg=document.getElementById('send-msg').value.trim();
+  var res=document.getElementById('send-result');
+  if(!number||!msg){alert('Preencha numero e mensagem');return;}
+  res.textContent='Enviando...';res.style.color='var(--muted)';
+  try{
+    var r=await fetch(API+'/api/v1/whatsapp/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({number:number,message:msg})});
+    var d=await r.json();
+    if(d.success){res.textContent='Mensagem enviada!';res.style.color='var(--green)';}
+    else{res.textContent='Erro: '+JSON.stringify(d);res.style.color='var(--red)';}
+  }catch(e){res.textContent='Erro: '+e.message;res.style.color='var(--red)';}
+}
+
+async function criarAlertaPreco(){
+  var res=document.getElementById('ap-result');
+  var body={
+    ticker:document.getElementById('ap-ticker').value.trim().toUpperCase(),
+    condicao:document.getElementById('ap-cond').value,
+    preco_alvo:parseFloat(document.getElementById('ap-preco').value)||0,
+    number:document.getElementById('ap-number').value.trim(),
+    mensagem_extra:document.getElementById('ap-msg').value.trim(),
+  };
+  if(!body.ticker||!body.preco_alvo||!body.number){alert('Preencha ticker, preco e numero');return;}
+  try{
+    var r=await fetch(API+'/api/v1/whatsapp/alerta/preco',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    var d=await r.json();
+    res.textContent='Alerta criado! ID: '+d.alerta_id;res.style.color='var(--green)';
+  }catch(e){res.textContent='Erro: '+e.message;res.style.color='var(--red)';}
+}
+
+async function criarAlertaSetup(){
+  var res=document.getElementById('as-result');
+  var tickers=document.getElementById('as-tickers').value.split(',').map(function(t){return t.trim().toUpperCase();}).filter(Boolean);
+  var setups=document.getElementById('as-setups').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+  var number=document.getElementById('as-number').value.trim();
+  var intervalo=parseInt(document.getElementById('as-intervalo').value)||60;
+  if(!tickers.length||!number){alert('Preencha tickers e numero');return;}
+  try{
+    var r=await fetch(API+'/api/v1/whatsapp/alerta/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tickers:tickers,setups:setups,number:number,intervalo_min:intervalo})});
+    var d=await r.json();
+    res.textContent='Alerta criado! ID: '+d.alerta_id;res.style.color='var(--green)';
+  }catch(e){res.textContent='Erro: '+e.message;res.style.color='var(--red)';}
+}
+
+async function loadAlertas(){
+  var list=document.getElementById('alertas-list');
+  try{
+    var r=await fetch(API+'/api/v1/whatsapp/alertas');
+    var d=await r.json();
+    if(!d.alertas||!d.alertas.length){list.innerHTML='<div class="empty-msg">Nenhum alerta configurado</div>';return;}
+    list.innerHTML='';
+    d.alertas.forEach(function(a){
+      var row=document.createElement('div');row.className='alerta-row';
+      var info=a.tipo==='preco'
+        ?a.ticker+' '+a.condicao+' R$ '+a.preco_alvo+' -> '+a.number
+        :a.tickers.join(',')+' | '+a.number;
+      row.innerHTML='<span class="alerta-type '+a.tipo+'">'+a.tipo.toUpperCase()+'</span>'
+        +'<span class="alerta-info">#'+a.id+' | '+info+'</span>'
+        +'<button class="alerta-del" onclick="removerAlerta('+a.id+')">&#10005;</button>';
+      list.appendChild(row);
+    });
+  }catch(e){list.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'</div>';}
+}
+
+async function removerAlerta(id){
+  if(!confirm('Remover alerta #'+id+'?'))return;
+  try{
+    await fetch(API+'/api/v1/whatsapp/alertas/'+id,{method:'DELETE'});
+    loadAlertas();
+  }catch(e){alert('Erro: '+e.message);}
+}
+
+checkStatus();
+setInterval(checkStatus,30000);
+</script>
+</body>
+</html>
