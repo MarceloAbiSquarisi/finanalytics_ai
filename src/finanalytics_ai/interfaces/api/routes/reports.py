@@ -1,19 +1,10 @@
 """
 finanalytics_ai.interfaces.api.routes.reports
-──────────────────────────────────────────────
-Rota de exportação de relatórios.
+Rota de exportacao de relatorios.
 
 GET /api/v1/portfolios/{portfolio_id}/report.pdf
-  Gera e retorna o relatório PDF do portfólio em tempo real.
-  O PDF é gerado in-memory (sem escrita em disco) e retornado
-  como StreamingResponse com Content-Disposition: attachment.
-
-Design:
-  - asyncio.to_thread: geração do PDF é CPU-bound (ReportLab).
-    Isola no executor para não bloquear o event loop.
-  - StreamingResponse com BytesIO: evita buffering duplo.
-  - Cache de 60s: PDF do mesmo portfólio não muda em segundos.
-    Reduz carga na BRAPI (que é chamada pelo get_snapshot).
+  Gera e retorna o relatorio PDF do portfolio em tempo real.
+  Enriquece o snapshot com indicadores Fintz dos ativos da carteira.
 """
 
 import asyncio
@@ -31,35 +22,74 @@ logger = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["Reports"])
 
+
 def _snapshot_to_dict(snapshot: Any) -> dict[str, Any]:
-    """Converte PortfolioSnapshot (Pydantic) para dict serialização."""
     if hasattr(snapshot, "model_dump"):
         return snapshot.model_dump()
     if hasattr(snapshot, "dict"):
         return snapshot.dict()
     return dict(snapshot)
 
+
+async def _fetch_fintz_indicators(tickers: list[str]) -> list[dict[str, Any]]:
+    """
+    Busca indicadores Fintz para os tickers da carteira.
+    Usa FintzScreenerService se disponivel, senao retorna lista vazia.
+    """
+    if not tickers:
+        return []
+    try:
+        from finanalytics_ai.application.services.fintz_screener_service import (
+            FintzScreenerService,
+        )
+        from finanalytics_ai.infrastructure.database.connection import get_session_factory
+        from finanalytics_ai.domain.screener.engine import FilterCriteria
+
+        svc = FintzScreenerService(get_session_factory())
+        criteria = FilterCriteria()  # sem filtros -- pega todos
+        result = await svc.screen(criteria=criteria, tickers_filter=tickers)
+
+        indicadores = []
+        for fd in result:
+            indicadores.append({
+                "ticker":       fd.ticker,
+                "pe":           fd.pe,
+                "pvp":          fd.pvp,
+                "dy":           fd.dy,
+                "roe":          fd.roe,
+                "roic":         fd.roic,
+                "ebitda_margin": fd.ebitda_margin,
+                "net_margin":   fd.net_margin,
+                "debt_equity":  fd.debt_equity,
+                "market_cap":   fd.market_cap,
+            })
+        return indicadores
+    except Exception as exc:
+        logger.warning("report.fintz_indicators_failed", error=str(exc))
+        return []
+
+
 @router.get(
     "/api/v1/portfolios/{portfolio_id}/report.pdf",
     response_class=StreamingResponse,
-    summary="Exportar relatório PDF da carteira",
+    summary="Exportar relatorio PDF mensal da carteira",
     description=(
-        "Gera um relatório PDF completo com posições, P&L, "
-        "gráfico de alocação e histórico. Cotações em tempo real via BRAPI."
+        "Gera relatorio PDF com posicoes, P&L, alocacao e "
+        "indicadores fundamentalistas Fintz dos ativos."
     ),
-    include_in_schema=True
 )
 async def export_portfolio_pdf(
     portfolio_id: str,
-    svc: PortfolioService = Depends(get_portfolio_service)
+    svc: PortfolioService = Depends(get_portfolio_service),
 ) -> StreamingResponse:
     """
-    Exporta relatório PDF do portfólio.
+    Exporta relatorio PDF mensal do portfolio.
 
     Fluxo:
-      1. Busca snapshot com cotações em tempo real (get_snapshot)
-      2. Gera PDF em asyncio.to_thread (CPU-bound, não bloqueia loop)
-      3. Retorna StreamingResponse com Content-Disposition: attachment
+      1. Busca snapshot (posicoes, P&L, cotacoes)
+      2. Enriquece com indicadores Fintz dos ativos
+      3. Gera PDF em asyncio.to_thread (CPU-bound)
+      4. Retorna StreamingResponse
     """
     try:
         snapshot = await svc.get_snapshot(portfolio_id)
@@ -67,15 +97,22 @@ async def export_portfolio_pdf(
         logger.warning("report.snapshot_failed", portfolio_id=portfolio_id, error=str(exc))
         raise HTTPException(
             status_code=404,
-            detail={"error": "PORTFOLIO_NOT_FOUND", "message": str(exc)}
+            detail={"error": "PORTFOLIO_NOT_FOUND", "message": str(exc)},
         ) from exc
 
     snap_dict = _snapshot_to_dict(snapshot)
 
+    # Enriquece com indicadores Fintz
+    positions = snap_dict.get("positions", [])
+    tickers = [p.get("ticker", "") for p in positions if p.get("ticker")]
+    if tickers:
+        snap_dict["indicadores_fintz"] = await _fetch_fintz_indicators(tickers)
+
     logger.info(
         "report.pdf.generating",
         portfolio_id=portfolio_id,
-        positions=len(snap_dict.get("positions", []))
+        positions=len(positions),
+        indicadores=len(snap_dict.get("indicadores_fintz", [])),
     )
 
     try:
@@ -86,10 +123,13 @@ async def export_portfolio_pdf(
         logger.error("report.pdf.failed", portfolio_id=portfolio_id, error=str(exc))
         raise HTTPException(
             status_code=500,
-            detail={"error": "REPORT_GENERATION_FAILED", "message": "Erro ao gerar PDF."}
+            detail={"error": "REPORT_GENERATION_FAILED", "message": "Erro ao gerar PDF."},
         ) from exc
 
-    filename = f"carteira_{portfolio_id[:8]}.pdf"
+    from datetime import datetime
+    month_year = datetime.now().strftime("%Y%m")
+    filename = f"relatorio_{portfolio_id[:8]}_{month_year}.pdf"
+
     logger.info("report.pdf.ready", portfolio_id=portfolio_id, size_kb=len(pdf_bytes) // 1024)
 
     return StreamingResponse(
@@ -98,6 +138,6 @@ async def export_portfolio_pdf(
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
             "Content-Length": str(len(pdf_bytes)),
-            "X-Report-Positions": str(len(snap_dict.get("positions", []))),
-        }
+            "X-Report-Positions": str(len(positions)),
+        },
     )
