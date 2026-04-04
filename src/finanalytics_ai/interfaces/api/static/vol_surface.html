@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Superficie de Volatilidade | FinAnalytics AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0A1628;--card:#0e1a2e;--border:#1c2535;--white:#e2eaf4;--muted:#4a6a8a;--blue:#3ABFF8;--gold:#F0B429;--green:#00e676;--red:#ff3d5a;--purple:#a78bfa;--sb-w:220px;--sb-w-collapsed:52px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--navy);color:var(--white);font-family:'Syne',sans-serif;overflow-x:hidden}
+.fa-topbar{position:fixed;top:0;left:0;right:0;height:52px;background:rgba(10,22,40,.97);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:300}
+.fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--gold);font-weight:800;font-size:15px}
+.fa-sidebar{position:fixed;left:0;top:52px;bottom:0;width:var(--sb-w-collapsed);background:#0a0f18;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1);z-index:200}
+.fa-sidebar.open{width:var(--sb-w)}
+.fa-sidebar-toggle{width:100%;padding:10px 14px;background:transparent;border:none;border-bottom:1px solid var(--border);color:#7a95b0;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;white-space:nowrap;overflow:hidden}
+.fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;text-decoration:none;font-size:15px;white-space:nowrap;overflow:hidden;transition:all .15s}
+.fa-sb-link:hover{color:#e2eaf4;background:rgba(0,212,255,.05)}
+.fa-sb-link.active{color:var(--gold);background:rgba(240,180,41,.08);border-right:2px solid var(--gold)}
+.fa-sb-link svg{flex-shrink:0}
+.fa-sb-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-link span{opacity:1}
+.fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1);padding:72px 24px 32px}
+body.sb-open .fa-page-content{margin-left:var(--sb-w)}
+.page-title{font-size:26px;font-weight:800;color:var(--purple);margin-bottom:4px}
+.page-sub{font-size:15px;color:var(--muted);margin-bottom:20px}
+.controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.ctrl-input{background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:13px;padding:8px 10px;outline:none;text-transform:uppercase}
+.ctrl-input-num{text-transform:none}
+.ctrl-select{background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:13px;padding:8px 10px;outline:none}
+.run-btn{background:linear-gradient(135deg,#3a0080,var(--purple));border:none;border-radius:7px;color:var(--white);font-family:'Syne',sans-serif;font-weight:800;font-size:14px;padding:9px 20px;cursor:pointer;transition:all .2s;margin-left:auto}
+.run-btn:hover{transform:translateY(-1px);box-shadow:0 0 16px rgba(167,139,250,.3)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px}
+.card-title{font-size:15px;font-weight:700;color:var(--blue);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+/* Heatmap */
+.heatmap-wrap{overflow-x:auto}
+.heatmap-table{border-collapse:collapse;font-family:'DM Mono',monospace;font-size:12px;min-width:600px}
+.heatmap-table th{padding:6px 10px;color:var(--muted);font-size:11px;text-transform:uppercase;font-weight:400;text-align:center}
+.heatmap-table th.row-header{text-align:right;color:var(--muted);min-width:80px}
+.heatmap-table td{padding:8px 10px;text-align:center;border:1px solid #141f2e;cursor:pointer;transition:all .15s;font-weight:700}
+.heatmap-table td:hover{border-color:var(--purple)!important;z-index:1;position:relative}
+/* Smile chart */
+.smile-canvas-wrap{position:relative;height:240px}
+canvas{display:block}
+/* Term structure */
+.term-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #141f2e}
+.term-row:last-child{border-bottom:none}
+.term-label{font-size:13px;font-family:'DM Mono',monospace;color:var(--muted);width:80px}
+.term-bar-wrap{flex:1;height:10px;background:#1c2535;border-radius:10px;overflow:hidden}
+.term-bar{height:100%;border-radius:10px;transition:width .5s}
+.term-val{font-size:13px;font-weight:700;font-family:'DM Mono',monospace;color:var(--purple);width:60px;text-align:right}
+/* Selected cell info */
+.cell-info{background:#0a1220;border:1px solid rgba(167,139,250,.3);border-radius:8px;padding:12px 16px;margin-top:14px;font-family:'DM Mono',monospace;font-size:13px;display:flex;gap:20px;flex-wrap:wrap}
+.cell-info-item{display:flex;flex-direction:column;gap:2px}
+.cell-info-label{font-size:11px;color:var(--muted);text-transform:uppercase}
+.cell-info-value{font-size:15px;font-weight:700;color:var(--purple)}
+.empty-msg{color:var(--muted);font-size:14px;text-align:center;padding:40px}
+.loading{text-align:center;padding:24px;color:var(--muted)}
+.spin{display:inline-block;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="fa-topbar">
+  <a href="/" class="fa-logo">
+    <svg width="28" height="28" viewBox="0 0 170 170" fill="none"><defs><linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3ABFF8"/><stop offset="100%" stop-color="#F0B429"/></linearGradient></defs><rect width="170" height="170" rx="28" fill="#0A1628"/><polyline points="24,130 60,75 90,100 130,40" stroke="url(#lg1)" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="130" cy="40" r="10" fill="#F0B429"/></svg>
+    FinAnalytics AI
+  </a>
+</div>
+
+<aside class="fa-sidebar" id="fa-sidebar">
+  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <span style="font-weight:700;color:var(--gold);font-size:11px">MENU</span>
+  </button>
+  <div style="overflow-y:auto;flex:1">
+    <a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
+    <a href="/opcoes" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg><span>Opcoes Greeks</span></a>
+    <a href="/vol-surface" class="fa-sb-link active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l18 18M3 21L21 3"/></svg><span>Superficie Vol.</span></a>
+    <a href="/dividendos" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span>Dividendos</span></a>
+    <a href="/var" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>VaR</span></a>
+    <a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
+  </div>
+</aside>
+
+<div class="fa-page-content">
+  <div class="page-title">&#128200; Superficie de Volatilidade</div>
+  <div class="page-sub">Volatilidade Implicita por Strike e Vencimento — Smile e Estrutura a Termo</div>
+
+  <div class="controls">
+    <span style="font-size:13px;color:var(--muted)">Ativo</span>
+    <input class="ctrl-input" id="ticker" value="PETR4" maxlength="8" style="width:90px">
+    <span style="font-size:13px;color:var(--muted)">Preco spot (R$)</span>
+    <input class="ctrl-input ctrl-input-num" id="spot" type="number" value="48.15" step="0.01" style="width:90px">
+    <span style="font-size:13px;color:var(--muted)">Vol base (%)</span>
+    <input class="ctrl-input ctrl-input-num" id="base-vol" type="number" value="35" step="1" style="width:70px">
+    <span style="font-size:13px;color:var(--muted)">Taxa (% a.a.)</span>
+    <input class="ctrl-input ctrl-input-num" id="rate" type="number" value="13.75" step="0.25" style="width:80px">
+    <span style="font-size:13px;color:var(--muted)">Tipo</span>
+    <select class="ctrl-select" id="opt-type">
+      <option value="call">Call</option>
+      <option value="put">Put</option>
+    </select>
+    <button class="run-btn" onclick="buildSurface()">&#128200; Gerar Superficie</button>
+  </div>
+
+  <div id="surface-area">
+    <div class="empty-msg">Configure os parametros e gere a superficie</div>
+  </div>
+</div>
+
+<script>
+function faSidebarToggle(){var s=document.getElementById('fa-sidebar');s.classList.toggle('open');document.body.classList.toggle('sb-open');localStorage.setItem('fa_sidebar_open',s.classList.contains('open')?'1':'0');}
+(function(){if(localStorage.getItem('fa_sidebar_open')==='1'){document.getElementById('fa-sidebar').classList.add('open');document.body.classList.add('sb-open');}})();
+
+var API='';
+var SQRT2PI=Math.sqrt(2*Math.PI);
+var SQRT2=Math.sqrt(2);
+
+function normCDF(x){
+  var sign=x>=0?1:-1;x=Math.abs(x);
+  var t=1/(1+0.2316419*x);
+  var p=t*(0.319381530+t*(-0.356563782+t*(1.781477937+t*(-1.821255978+t*1.330274429))));
+  var cdf=1-Math.exp(-0.5*x*x)/SQRT2PI*p;
+  return 0.5+sign*(cdf-0.5);
+}
+
+function normPDF(x){return Math.exp(-0.5*x*x)/SQRT2PI;}
+
+function bsPrice(S,K,T,r,vol,type){
+  if(T<=0||vol<=0)return Math.max(type==='call'?S-K:K-S,0);
+  var d1=(Math.log(S/K)+(r+0.5*vol*vol)*T)/(vol*Math.sqrt(T));
+  var d2=d1-vol*Math.sqrt(T);
+  if(type==='call')return S*normCDF(d1)-K*Math.exp(-r*T)*normCDF(d2);
+  return K*Math.exp(-r*T)*normCDF(-d2)-S*normCDF(-d1);
+}
+
+function bsVega(S,K,T,r,vol){
+  if(T<=0||vol<=0)return 0;
+  var d1=(Math.log(S/K)+(r+0.5*vol*vol)*T)/(vol*Math.sqrt(T));
+  return S*normPDF(d1)*Math.sqrt(T)/100;
+}
+
+function impliedVol(S,K,T,r,marketPrice,type){
+  // Newton-Raphson
+  var vol=0.3;
+  for(var i=0;i<100;i++){
+    var p=bsPrice(S,K,T,r,vol,type);
+    var diff=p-marketPrice;
+    if(Math.abs(diff)<1e-6)return vol;
+    var vega=bsVega(S,K,T,r,vol)*100;
+    if(Math.abs(vega)<1e-10)break;
+    vol=vol-diff/vega;
+    if(vol<0.001)vol=0.001;
+    if(vol>5)vol=5;
+  }
+  // Bisseccao fallback
+  var lo=0.001,hi=5;
+  for(var j=0;j<200;j++){
+    var mid=(lo+hi)/2;
+    var p2=bsPrice(S,K,T,r,mid,type);
+    if(Math.abs(p2-marketPrice)<1e-6)return mid;
+    if(p2>marketPrice)hi=mid;else lo=mid;
+  }
+  return (lo+hi)/2;
+}
+
+// Smile modelo: volatilidade com skew e curvatura (smile tipico BR)
+// IV(K) = baseVol * (1 + skew*(K/S-1) + smile*(K/S-1)^2 + termFactor)
+function smileVol(K,S,baseVol,days){
+  var moneyness=K/S-1;
+  // Skew negativo (put mais caro que call) tipico de mercados
+  var skew=-0.15;
+  // Curvatura do smile
+  var curvature=0.3;
+  // Estrutura a termo: vol cai com prazo (mean reversion)
+  var T=days/365;
+  var termAdj=Math.exp(-0.4*T)*0.08;
+  var iv=baseVol*(1+skew*moneyness+curvature*moneyness*moneyness+termAdj);
+  return Math.max(iv,baseVol*0.5);
+}
+
+// Mapeia vol para cor (azul=baixo, verde=medio, amarelo=alto, vermelho=muito alto)
+function volToColor(vol,minV,maxV){
+  var t=(vol-minV)/(maxV-minV||1);
+  t=Math.max(0,Math.min(1,t));
+  if(t<0.25){
+    var r=Math.round(58+(45-58)*t/0.25);
+    var g=Math.round(191+(212-191)*t/0.25);
+    var b=Math.round(248+(191-248)*t/0.25);
+    return 'rgb('+r+','+g+','+b+')';
+  }else if(t<0.5){
+    var tt=(t-0.25)/0.25;
+    var r2=Math.round(45+(240-45)*tt);
+    var g2=Math.round(212+(180-212)*tt);
+    var b2=Math.round(191+(41-191)*tt);
+    return 'rgb('+r2+','+g2+','+b2+')';
+  }else if(t<0.75){
+    var tt2=(t-0.5)/0.25;
+    var r3=Math.round(240+(251-240)*tt2);
+    var g3=Math.round(180+(146-180)*tt2);
+    var b3=Math.round(41+(60-41)*tt2);
+    return 'rgb('+r3+','+g3+','+b3+')';
+  }else{
+    var tt3=(t-0.75)/0.25;
+    var r4=Math.round(251+(255-251)*tt3);
+    var g4=Math.round(146+(61-146)*tt3);
+    var b4=Math.round(60+(90-60)*tt3);
+    return 'rgb('+r4+','+g4+','+b4+')';
+  }
+}
+
+function buildSurface(){
+  var S=parseFloat(document.getElementById('spot').value)||48.15;
+  var baseVol=parseFloat(document.getElementById('base-vol').value)/100||0.35;
+  var rate=parseFloat(document.getElementById('rate').value)/100||0.1375;
+  var type=document.getElementById('opt-type').value;
+  var ticker=document.getElementById('ticker').value.trim().toUpperCase()||'ATIVO';
+
+  // Grade de strikes: 80% a 120% do spot em 9 passos
+  var strikeMultipliers=[0.80,0.85,0.90,0.95,1.00,1.05,1.10,1.15,1.20];
+  var strikes=strikeMultipliers.map(function(m){return Math.round(S*m*100)/100;});
+
+  // Vencimentos em dias
+  var expiries=[7,15,21,30,45,60,90,120,180,252];
+
+  // Calcula matriz de IV
+  var matrix=[];
+  var allVols=[];
+  expiries.forEach(function(days){
+    var row=[];
+    strikes.forEach(function(K){
+      var iv=smileVol(K,S,baseVol,days);
+      // Adiciona ruido leve para realismo
+      iv=iv*(1+(Math.random()-0.5)*0.01);
+      row.push(iv);
+      allVols.push(iv);
+    });
+    matrix.push(row);
+  });
+
+  var minV=Math.min.apply(null,allVols);
+  var maxV=Math.max.apply(null,allVols);
+
+  // Monta HTML
+  var html='<div class="card" style="margin-bottom:16px">'
+    +'<div class="card-title">&#127775; Heatmap de Volatilidade Implicita — '+ticker+' ('+type.toUpperCase()+')</div>'
+    +'<div style="font-size:12px;color:var(--muted);margin-bottom:12px">Strike vs Vencimento | Spot: R$ '+S.toFixed(2)+' | Vol base: '+(baseVol*100).toFixed(0)+'%</div>'
+    +'<div class="heatmap-wrap"><table class="heatmap-table"><thead><tr><th class="row-header">Venc\Strike</th>';
+
+  strikes.forEach(function(K){
+    var pct=((K/S-1)*100).toFixed(0);
+    html+='<th>'+(pct>=0?'+':'')+pct+'%<br><span style="color:var(--white);font-size:10px">R$'+K.toFixed(1)+'</span></th>';
+  });
+  html+='</tr></thead><tbody>';
+
+  matrix.forEach(function(row,ri){
+    var days=expiries[ri];
+    html+='<tr><td class="row-header" style="text-align:right;color:var(--muted);font-size:11px">'+days+'d</td>';
+    row.forEach(function(iv,ci){
+      var color=volToColor(iv,minV,maxV);
+      var brightness=iv>=(minV+maxV)/2?'#0a0f18':'#e2eaf4';
+      html+='<td style="background:'+color+';color:'+brightness+';border-color:#0a1220" '
+        +'onclick="showCell('+expiries[ri]+','+strikes[ci]+','+S+','+iv+','+rate+',\''+type+'\')">'
+        +(iv*100).toFixed(1)+'%</td>';
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table></div>';
+
+  // Legenda
+  html+='<div style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:11px;color:var(--muted);font-family:DM Mono,monospace">'
+    +'<span>IV Baixa</span>'
+    +'<div style="flex:1;height:10px;border-radius:10px;background:linear-gradient(90deg,rgb(58,191,248),rgb(45,212,191),rgb(240,180,41),rgb(251,146,60),rgb(255,61,90))"></div>'
+    +'<span>IV Alta</span>'
+    +'</div>';
+
+  html+='<div class="cell-info" id="cell-info" style="display:none"></div></div>';
+
+  // Smile para ATM
+  html+='<div class="grid-2">';
+
+  // Smile chart (vencimento 30d)
+  html+='<div class="card"><div class="card-title">&#128200; Smile de Volatilidade (30 dias)</div>'
+    +'<canvas id="smile-canvas" width="400" height="220"></canvas></div>';
+
+  // Estrutura a termo (ATM)
+  html+='<div class="card"><div class="card-title">&#128347; Estrutura a Termo (ATM)</div>';
+  var atmRow=[];
+  var maxAtm=0;
+  expiries.forEach(function(days,ri){
+    var iv=matrix[ri][4]; // ATM = indice 4 (1.00)
+    atmRow.push({days:days,iv:iv});
+    if(iv>maxAtm)maxAtm=iv;
+  });
+  atmRow.forEach(function(item){
+    var pct=maxAtm>0?item.iv/maxAtm*100:0;
+    var color='linear-gradient(90deg,#3a0080,var(--purple))';
+    html+='<div class="term-row">'
+      +'<span class="term-label">'+item.days+'d</span>'
+      +'<div class="term-bar-wrap"><div class="term-bar" style="width:'+pct+'%;background:'+color+'"></div></div>'
+      +'<span class="term-val">'+(item.iv*100).toFixed(1)+'%</span>'
+      +'</div>';
+  });
+  html+='</div></div>';
+
+  document.getElementById('surface-area').innerHTML=html;
+
+  // Desenha smile canvas
+  setTimeout(function(){
+    drawSmile(strikes,S,matrix,5,minV,maxV);
+  },100);
+}
+
+function drawSmile(strikes,S,matrix,expIdx,minV,maxV){
+  var canvas=document.getElementById('smile-canvas');
+  if(!canvas)return;
+  var ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  var pad={top:20,right:20,bottom:40,left:50};
+
+  ctx.clearRect(0,0,W,H);
+
+  var row=matrix[expIdx]; // 30 dias
+  var maxIV=Math.max.apply(null,row);
+  var minIV=Math.min.apply(null,row);
+  var range=maxIV-minIV||0.01;
+
+  var pts=strikes.map(function(K,i){
+    return {
+      x:pad.left+(K/S-0.8)/(0.4)*(W-pad.left-pad.right),
+      y:H-pad.bottom-(row[i]-minIV)/range*(H-pad.top-pad.bottom)
+    };
+  });
+
+  // Grid
+  ctx.strokeStyle='#1c2535';ctx.lineWidth=1;
+  for(var i=0;i<=4;i++){
+    var y=pad.top+i*(H-pad.top-pad.bottom)/4;
+    ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(W-pad.right,y);ctx.stroke();
+    var iv=maxIV-(i/4)*range;
+    ctx.fillStyle='#4a6a8a';ctx.font='10px DM Mono,monospace';
+    ctx.fillText((iv*100).toFixed(1)+'%',2,y+4);
+  }
+
+  // ATM line
+  var atmX=pad.left+(1-0.8)/0.4*(W-pad.left-pad.right);
+  ctx.strokeStyle='rgba(167,139,250,0.3)';ctx.setLineDash([4,4]);
+  ctx.beginPath();ctx.moveTo(atmX,pad.top);ctx.lineTo(atmX,H-pad.bottom);ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Smile curve
+  var grad=ctx.createLinearGradient(pad.left,0,W-pad.right,0);
+  grad.addColorStop(0,'#ff3d5a');
+  grad.addColorStop(0.5,'#a78bfa');
+  grad.addColorStop(1,'#3abff8');
+  ctx.strokeStyle=grad;ctx.lineWidth=2.5;
+  ctx.beginPath();
+  pts.forEach(function(p,i){i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);});
+  ctx.stroke();
+
+  // Points
+  pts.forEach(function(p){
+    ctx.beginPath();ctx.arc(p.x,p.y,4,0,Math.PI*2);
+    ctx.fillStyle='#a78bfa';ctx.fill();
+  });
+
+  // X axis labels
+  strikes.forEach(function(K,i){
+    var x=pad.left+(K/S-0.8)/0.4*(W-pad.left-pad.right);
+    var pct=((K/S-1)*100).toFixed(0);
+    ctx.fillStyle='#4a6a8a';ctx.font='9px DM Mono,monospace';
+    ctx.textAlign='center';
+    ctx.fillText((pct>=0?'+':'')+pct+'%',x,H-5);
+  });
+  ctx.textAlign='left';
+}
+
+function showCell(days,K,S,iv,rate,type){
+  var T=days/365;
+  var price=bsPrice(S,K,T,rate,iv,type);
+  var delta,gamma,theta,vega;
+  var d1=(Math.log(S/K)+(rate+0.5*iv*iv)*T)/(iv*Math.sqrt(T));
+  var d2=d1-iv*Math.sqrt(T);
+  if(type==='call'){delta=normCDF(d1);}else{delta=-normCDF(-d1);}
+  gamma=normPDF(d1)/(S*iv*Math.sqrt(T));
+  vega=S*normPDF(d1)*Math.sqrt(T)/100;
+  theta=(-(S*normPDF(d1)*iv)/(2*Math.sqrt(T))-rate*K*Math.exp(-rate*T)*(type==='call'?normCDF(d2):-normCDF(-d2)))/365;
+
+  var info=document.getElementById('cell-info');
+  if(!info)return;
+  info.style.display='flex';
+  info.innerHTML=
+    '<div class="cell-info-item"><div class="cell-info-label">Strike</div><div class="cell-info-value">R$ '+K.toFixed(2)+'</div></div>'
+    +'<div class="cell-info-item"><div class="cell-info-label">Vencimento</div><div class="cell-info-value">'+days+' dias</div></div>'
+    +'<div class="cell-info-item"><div class="cell-info-label">IV</div><div class="cell-info-value">'+(iv*100).toFixed(2)+'%</div></div>'
+    +'<div class="cell-info-item"><div class="cell-info-label">Premio</div><div class="cell-info-value">R$ '+price.toFixed(4)+'</div></div>'
+    +'<div class="cell-info-item"><div class="cell-info-label">Delta</div><div class="cell-info-value">'+delta.toFixed(4)+'</div></div>'
+    +'<div class="cell-info-item"><div class="cell-info-label">Gamma</div><div class="cell-info-value">'+gamma.toFixed(4)+'</div></div>'
+    +'<div class="cell-info-item"><div class="cell-info-label">Theta/dia</div><div class="cell-info-value">'+theta.toFixed(4)+'</div></div>'
+    +'<div class="cell-info-item"><div class="cell-info-label">Vega/1%</div><div class="cell-info-value">'+vega.toFixed(4)+'</div></div>';
+}
+
+// Gera automaticamente ao carregar
+buildSurface();
+</script>
+</body>
+</html>

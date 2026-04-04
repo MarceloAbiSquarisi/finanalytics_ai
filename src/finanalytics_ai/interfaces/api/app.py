@@ -788,6 +788,11 @@ def create_app() -> FastAPI:
     
     
     
+    
+    @app.get("/vol-surface", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_vol_surface() -> HTMLResponse:
+        return _html("vol_surface.html")
+
     @app.get("/dividendos", response_class=HTMLResponse, include_in_schema=False)
     async def serve_dividendos() -> HTMLResponse:
         return _html("dividendos.html")
