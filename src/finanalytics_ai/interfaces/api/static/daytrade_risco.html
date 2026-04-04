@@ -103,7 +103,31 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
         <a href="/daytrade/risco" class="fa-sb-sub-link active"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>GestÃ£o de Risco</span></a>
       </div>
     </div>
-    <a href="/forecast" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg><span>Forecast</span></a>
+    <div class="fa-sb-group">
+  <button class="fa-sb-group-toggle" onclick="faOptToggle(this)" id="opt-toggle">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/>
+      <path d="M12 8v4l3 3"/>
+    </svg>
+    <span>Opcoes <span class="fa-sb-group-chevron">&#9660;</span></span>
+  </button>
+  <div class="fa-sb-submenu" id="opt-submenu">
+    <a href="/opcoes" class="fa-sb-sub-link" id="opt-greeks-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+      </svg>
+      <span>Greeks e IV</span>
+    </a>
+    <a href="/opcoes/estrategias" class="fa-sb-sub-link" id="opt-estrategia-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      <span>Estrategias</span>
+    </a>
+  </div>
+</div>
+<a href="/forecast" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg><span>Forecast</span></a>
     <a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
   </div>
 </aside>
@@ -267,3 +291,6 @@ function checkRegras(){
 </script>
 </body>
 </html>
+<script>
+function faOptToggle(btn){var s=document.getElementById('opt-submenu');btn.classList.toggle('open');s.classList.toggle('open');}
+</script>

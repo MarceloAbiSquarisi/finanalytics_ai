@@ -724,6 +724,11 @@ def create_app() -> FastAPI:
         return _html("daytrade_risco.html")
 
     
+    
+    @app.get("/opcoes/estrategias", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_opcoes_estrategias() -> HTMLResponse:
+        return _html("opcoes_estrategias.html")
+
     @app.get("/opcoes", response_class=HTMLResponse, include_in_schema=False)
     async def serve_opcoes() -> HTMLResponse:
         return _html("opcoes.html")

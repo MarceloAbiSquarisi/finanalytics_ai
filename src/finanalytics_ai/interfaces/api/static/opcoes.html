@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Opcoes - Greeks e IV | FinAnalytics AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0A1628;--card:#0e1a2e;--border:#1c2535;--white:#e2eaf4;--muted:#4a6a8a;--blue:#3ABFF8;--gold:#F0B429;--green:#00e676;--red:#ff3d5a;--purple:#a78bfa;--sb-w:220px;--sb-w-collapsed:52px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--navy);color:var(--white);font-family:'Syne',sans-serif;overflow-x:hidden}
+.fa-topbar{position:fixed;top:0;left:0;right:0;height:52px;background:rgba(10,22,40,.97);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:300}
+.fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--gold);font-weight:800;font-size:15px}
+.fa-sidebar{position:fixed;left:0;top:52px;bottom:0;width:var(--sb-w-collapsed);background:#0a0f18;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1);z-index:200}
+.fa-sidebar.open{width:var(--sb-w)}
+.fa-sidebar-toggle{width:100%;padding:10px 14px;background:transparent;border:none;border-bottom:1px solid var(--border);color:#7a95b0;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;white-space:nowrap;overflow:hidden}
+.fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;text-decoration:none;font-size:15px;white-space:nowrap;overflow:hidden;transition:all .15s}
+.fa-sb-link:hover{color:#e2eaf4;background:rgba(0,212,255,.05)}
+.fa-sb-link svg{flex-shrink:0}
+.fa-sb-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-link span{opacity:1}
+.fa-sb-group-toggle{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;cursor:pointer;font-size:15px;white-space:nowrap;overflow:hidden;transition:all .15s;border:none;background:transparent;width:100%}
+.fa-sb-group-toggle.open{color:var(--gold)}
+.fa-sb-group-toggle svg{flex-shrink:0}
+.fa-sb-group-toggle span{opacity:0;transition:opacity .15s;display:flex;align-items:center;gap:6px;flex:1}
+.fa-sidebar.open .fa-sb-group-toggle span{opacity:1}
+.fa-sb-group-chevron{margin-left:auto;transition:transform .2s;font-size:10px;color:#3a5570}
+.fa-sb-group-toggle.open .fa-sb-group-chevron{transform:rotate(180deg);color:var(--gold)}
+.fa-sb-submenu{max-height:0;overflow:hidden;transition:max-height .25s ease}
+.fa-sb-submenu.open{max-height:200px}
+.fa-sb-sub-link{display:flex;align-items:center;gap:8px;padding:6px 14px 6px 40px;color:#4a6a8a;text-decoration:none;font-size:14px;white-space:nowrap;overflow:hidden;transition:all .15s;border-left:2px solid transparent}
+.fa-sb-sub-link:hover{color:#00d4ff;background:rgba(0,212,255,.05);border-left-color:rgba(0,212,255,.3)}
+.fa-sb-sub-link.active{color:var(--gold);border-left-color:var(--gold);background:rgba(240,180,41,.06)}
+.fa-sb-sub-link svg{flex-shrink:0}
+.fa-sb-sub-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-sub-link span{opacity:1}
+.fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1);padding:72px 24px 32px}
+body.sb-open .fa-page-content{margin-left:var(--sb-w)}
+.page-title{font-size:26px;font-weight:800;color:var(--purple);margin-bottom:4px}
+.page-sub{font-size:15px;color:var(--muted);margin-bottom:24px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px}
+.card-title{font-size:17px;font-weight:700;color:var(--blue);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.field-row{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.field-label{font-size:13px;color:var(--muted)}
+.field-input{background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:14px;padding:8px 12px;width:100%;outline:none}
+.field-input:focus{border-color:var(--blue)}
+.field-select{background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:14px;padding:8px 12px;width:100%;outline:none;cursor:pointer}
+.calc-btn{background:linear-gradient(135deg,#3a0080,var(--purple));border:none;border-radius:7px;color:var(--white);font-family:'Syne',sans-serif;font-weight:800;font-size:14px;padding:10px 20px;cursor:pointer;width:100%;margin-top:4px;transition:all .2s;letter-spacing:.3px}
+.calc-btn:hover{transform:translateY(-1px);box-shadow:0 0 18px rgba(167,139,250,.3)}
+.result-box{margin-top:14px}
+.greeks-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.greek-kpi{background:#0a1220;border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center}
+.greek-name{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+.greek-symbol{font-size:20px;font-weight:800;margin-bottom:2px}
+.greek-value{font-size:16px;font-weight:700;font-family:'DM Mono',monospace}
+.greek-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.price-box{background:linear-gradient(135deg,rgba(167,139,250,.1),rgba(58,191,248,.1));border:1px solid rgba(167,139,250,.3);border-radius:10px;padding:16px;text-align:center;margin-bottom:12px}
+.price-label{font-size:13px;color:var(--muted);margin-bottom:4px}
+.price-value{font-size:32px;font-weight:800;color:var(--purple)}
+.price-details{display:flex;justify-content:center;gap:24px;margin-top:8px;font-size:13px;color:var(--muted);font-family:'DM Mono',monospace}
+.moneyness-itm{color:var(--green)}
+.moneyness-otm{color:var(--red)}
+.moneyness-atm{color:var(--gold)}
+.iv-result{background:#0a1220;border:1px solid rgba(167,139,250,.3);border-radius:10px;padding:16px;text-align:center;margin-top:12px}
+.iv-value{font-size:36px;font-weight:800;color:var(--purple)}
+.iv-label{font-size:13px;color:var(--muted);margin-top:4px}
+.iv-details{font-size:12px;color:var(--muted);margin-top:8px;font-family:'DM Mono',monospace}
+.empty-msg{color:var(--muted);font-size:14px;text-align:center;padding:24px}
+.tab-bar{display:flex;gap:2px;margin-bottom:20px;background:#0a1220;border-radius:8px;padding:4px}
+.tab-btn{flex:1;padding:8px;border:none;border-radius:6px;cursor:pointer;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;transition:all .2s;background:transparent;color:var(--muted)}
+.tab-btn.active{background:var(--purple);color:var(--white)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+@media(max-width:900px){.grid-2{grid-template-columns:1fr}.greeks-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="fa-topbar">
+  <a href="/" class="fa-logo">
+    <svg width="28" height="28" viewBox="0 0 170 170" fill="none"><defs><linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3ABFF8"/><stop offset="100%" stop-color="#F0B429"/></linearGradient></defs><rect width="170" height="170" rx="28" fill="#0A1628"/><polyline points="24,130 60,75 90,100 130,40" stroke="url(#lg1)" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="130" cy="40" r="10" fill="#F0B429"/></svg>
+    FinAnalytics AI
+  </a>
+</div>
+
+<aside class="fa-sidebar" id="fa-sidebar">
+  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <span style="font-weight:700;color:var(--gold);font-size:11px">MENU</span>
+  </button>
+  <div style="overflow-y:auto;flex:1">
+    <a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
+    <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
+    <a href="/screener" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Screener</span></a>
+    <div class="fa-sb-group">
+      <button class="fa-sb-group-toggle" onclick="faDTToggle(this)" id="dt-toggle">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 1 18"/><polyline points="16 7 22 7 22 13"/></svg>
+        <span>Day Trade <span class="fa-sb-group-chevron">&#9660;</span></span>
+      </button>
+      <div class="fa-sb-submenu" id="dt-submenu">
+        <a href="/daytrade/setups" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg><span>Setups</span></a>
+        <a href="/diario" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Diario de Trade</span></a>
+        <a href="/daytrade/risco" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Gestao de Risco</span></a>
+      </div>
+    </div>
+    <div class="fa-sb-group">
+      <button class="fa-sb-group-toggle open" onclick="faOptToggle(this)" id="opt-toggle">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        <span>Opcoes <span class="fa-sb-group-chevron">&#9660;</span></span>
+      </button>
+      <div class="fa-sb-submenu open" id="opt-submenu">
+        <a href="/opcoes" class="fa-sb-sub-link active"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg><span>Greeks e IV</span></a>
+        <a href="/opcoes/estrategias" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Estrategias</span></a>
+      </div>
+    </div>
+    <a href="/forecast" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg><span>Forecast</span></a>
+    <a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
+  </div>
+</aside>
+
+<div class="fa-page-content">
+  <div class="page-title">&#9711; Opcoes - Greeks e IV</div>
+  <div class="page-sub">Precificacao Black-Scholes, Greeks e Volatilidade Implicita</div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="showTab('greeks')">Greeks</button>
+    <button class="tab-btn" onclick="showTab('iv')">Vol. Implicita</button>
+  </div>
+
+  <!-- Tab Greeks -->
+  <div class="tab-content active" id="tab-greeks">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+          Parametros da Opcao
+        </div>
+        <div class="field-row">
+          <div class="field-label">Tipo</div>
+          <select class="field-select" id="g-type"><option value="call">Call</option><option value="put">Put</option></select>
+        </div>
+        <div class="field-row">
+          <div class="field-label">Preco do Ativo (R$)</div>
+          <input class="field-input" id="g-spot" type="number" value="48.15" step="0.01">
+        </div>
+        <div class="field-row">
+          <div class="field-label">Strike (R$)</div>
+          <input class="field-input" id="g-strike" type="number" value="48.00" step="0.50">
+        </div>
+        <div class="field-row">
+          <div class="field-label">Dias ate vencimento</div>
+          <input class="field-input" id="g-days" type="number" value="30" min="1" max="1000">
+        </div>
+        <div class="field-row">
+          <div class="field-label">Volatilidade anualizada (%)</div>
+          <input class="field-input" id="g-vol" type="number" value="35" step="0.5" min="1" max="500">
+        </div>
+        <div class="field-row">
+          <div class="field-label">Taxa livre de risco (% a.a.)</div>
+          <input class="field-input" id="g-rate" type="number" value="13.75" step="0.25">
+        </div>
+        <button class="calc-btn" onclick="calcGreeks()">Calcular Greeks</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Resultado
+        </div>
+        <div id="greeks-result">
+          <div class="empty-msg">Preencha os parametros e calcule</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab IV -->
+  <div class="tab-content" id="tab-iv">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+          Parametros
+        </div>
+        <div class="field-row">
+          <div class="field-label">Tipo</div>
+          <select class="field-select" id="iv-type"><option value="call">Call</option><option value="put">Put</option></select>
+        </div>
+        <div class="field-row">
+          <div class="field-label">Premio de mercado (R$)</div>
+          <input class="field-input" id="iv-price" type="number" value="2.50" step="0.01">
+        </div>
+        <div class="field-row">
+          <div class="field-label">Preco do Ativo (R$)</div>
+          <input class="field-input" id="iv-spot" type="number" value="48.15" step="0.01">
+        </div>
+        <div class="field-row">
+          <div class="field-label">Strike (R$)</div>
+          <input class="field-input" id="iv-strike" type="number" value="48.00" step="0.50">
+        </div>
+        <div class="field-row">
+          <div class="field-label">Dias ate vencimento</div>
+          <input class="field-input" id="iv-days" type="number" value="30" min="1">
+        </div>
+        <div class="field-row">
+          <div class="field-label">Taxa livre de risco (% a.a.)</div>
+          <input class="field-input" id="iv-rate" type="number" value="13.75" step="0.25">
+        </div>
+        <button class="calc-btn" onclick="calcIV()">Calcular Vol. Implicita</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Resultado
+        </div>
+        <div id="iv-result">
+          <div class="empty-msg">Preencha os parametros e calcule</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var API='';
+function tok(){return localStorage.getItem('fa_token')||'';}
+function faSidebarToggle(){var s=document.getElementById('fa-sidebar');s.classList.toggle('open');document.body.classList.toggle('sb-open');localStorage.setItem('fa_sidebar_open',s.classList.contains('open')?'1':'0');}
+function faDTToggle(btn){var s=document.getElementById('dt-submenu');btn.classList.toggle('open');s.classList.toggle('open');}
+function faOptToggle(btn){var s=document.getElementById('opt-submenu');btn.classList.toggle('open');s.classList.toggle('open');}
+(function(){if(localStorage.getItem('fa_sidebar_open')==='1'){document.getElementById('fa-sidebar').classList.add('open');document.body.classList.add('sb-open');}})();
+
+function showTab(t){
+  document.querySelectorAll('.tab-btn').forEach(function(b,i){b.classList.toggle('active',['greeks','iv'][i]===t);});
+  document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active');});
+  document.getElementById('tab-'+t).classList.add('active');
+}
+
+function fmt2(v){return parseFloat(v).toFixed(4);}
+
+async function calcGreeks(){
+  var type=document.getElementById('g-type').value;
+  var spot=document.getElementById('g-spot').value;
+  var strike=document.getElementById('g-strike').value;
+  var days=document.getElementById('g-days').value;
+  var vol=parseFloat(document.getElementById('g-vol').value)/100;
+  var rate=parseFloat(document.getElementById('g-rate').value)/100;
+  var area=document.getElementById('greeks-result');
+  area.innerHTML='<div class="empty-msg">Calculando...</div>';
+  try{
+    var url=API+'/api/v1/opcoes/greeks?option_type='+type+'&spot='+spot+'&strike='+strike+'&expiry_days='+days+'&volatility='+vol+'&rate='+rate;
+    var r=await fetch(url,{headers:{Authorization:'Bearer '+tok()}});
+    var d=await r.json();
+    if(d.detail){area.innerHTML='<div class="empty-msg" style="color:var(--red)">'+d.detail+'</div>';return;}
+    var mc=d.moneyness==='ITM'?'moneyness-itm':d.moneyness==='OTM'?'moneyness-otm':'moneyness-atm';
+    area.innerHTML=
+      '<div class="price-box">'+
+        '<div class="price-label">Premio Teorico ('+d.option_type.toUpperCase()+')</div>'+
+        '<div class="price-value">R$ '+fmt2(d.price)+'</div>'+
+        '<div class="price-details">'+
+          '<span>Intrinseco: R$ '+fmt2(d.intrinsic_value)+'</span>'+
+          '<span>Temporal: R$ '+fmt2(d.time_value)+'</span>'+
+          '<span class="'+mc+'">'+d.moneyness+'</span>'+
+        '</div>'+
+      '</div>'+
+      '<div class="greeks-grid">'+
+        '<div class="greek-kpi"><div class="greek-name">Delta</div><div class="greek-symbol" style="color:var(--blue)">&#916;</div><div class="greek-value">'+fmt2(d.delta)+'</div><div class="greek-sub">Sensibilidade ao preco</div></div>'+
+        '<div class="greek-kpi"><div class="greek-name">Gamma</div><div class="greek-symbol" style="color:var(--green)">&#915;</div><div class="greek-value">'+fmt2(d.gamma)+'</div><div class="greek-sub">Variacao do Delta</div></div>'+
+        '<div class="greek-kpi"><div class="greek-name">Theta</div><div class="greek-symbol" style="color:var(--red)">&#920;</div><div class="greek-value">'+fmt2(d.theta)+'</div><div class="greek-sub">Decaimento/dia</div></div>'+
+        '<div class="greek-kpi"><div class="greek-name">Vega</div><div class="greek-symbol" style="color:var(--gold)">&#957;</div><div class="greek-value">'+fmt2(d.vega)+'</div><div class="greek-sub">Por 1% de vol</div></div>'+
+        '<div class="greek-kpi"><div class="greek-name">Rho</div><div class="greek-symbol" style="color:var(--purple)">&#961;</div><div class="greek-value">'+fmt2(d.rho)+'</div><div class="greek-sub">Por 1% de taxa</div></div>'+
+        '<div class="greek-kpi"><div class="greek-name">Vol anual</div><div class="greek-symbol" style="color:var(--muted)">&#963;</div><div class="greek-value">'+d.volatility+'%</div><div class="greek-sub">d1='+fmt2(d.d1)+' d2='+fmt2(d.d2)+'</div></div>'+
+      '</div>';
+  }catch(e){area.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'</div>';}
+}
+
+async function calcIV(){
+  var type=document.getElementById('iv-type').value;
+  var price=document.getElementById('iv-price').value;
+  var spot=document.getElementById('iv-spot').value;
+  var strike=document.getElementById('iv-strike').value;
+  var days=document.getElementById('iv-days').value;
+  var rate=parseFloat(document.getElementById('iv-rate').value)/100;
+  var area=document.getElementById('iv-result');
+  area.innerHTML='<div class="empty-msg">Calculando...</div>';
+  try{
+    var url=API+'/api/v1/opcoes/iv?option_type='+type+'&market_price='+price+'&spot='+spot+'&strike='+strike+'&expiry_days='+days+'&rate='+rate;
+    var r=await fetch(url,{headers:{Authorization:'Bearer '+tok()}});
+    var d=await r.json();
+    if(d.detail){area.innerHTML='<div class="empty-msg" style="color:var(--red)">'+d.detail+'</div>';return;}
+    if(!d.converged||d.implied_vol==null){
+      area.innerHTML='<div class="iv-result"><div class="iv-value" style="color:var(--red)">N/A</div><div class="iv-label">Nao convergiu</div><div class="iv-details">'+d.error+'</div></div>';
+      return;
+    }
+    area.innerHTML=
+      '<div class="iv-result">'+
+        '<div class="iv-value">'+d.implied_vol.toFixed(2)+'%</div>'+
+        '<div class="iv-label">Volatilidade Implicita (anual)</div>'+
+        '<div class="iv-details">Convergiu em '+d.iterations+' iteracao(oes) | Premio: R$ '+parseFloat(d.market_price).toFixed(2)+'</div>'+
+      '</div>';
+  }catch(e){area.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'</div>';}
+}
+</script>
+</body>
+</html>
