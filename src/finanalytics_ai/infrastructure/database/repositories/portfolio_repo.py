@@ -43,9 +43,9 @@ class PortfolioModel(Base):
     is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="BRL")
     cash: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
     )
 
 

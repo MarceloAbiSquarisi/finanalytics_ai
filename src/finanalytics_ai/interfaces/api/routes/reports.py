@@ -28,7 +28,7 @@ def _snapshot_to_dict(snapshot: Any) -> dict[str, Any]:
         return snapshot.model_dump()
     if hasattr(snapshot, "dict"):
         return snapshot.dict()
-    return dict(snapshot)
+    import dataclasses; return dataclasses.asdict(snapshot) if dataclasses.is_dataclass(snapshot) else vars(snapshot)
 
 
 async def _fetch_fintz_indicators(tickers: list[str]) -> list[dict[str, Any]]:
