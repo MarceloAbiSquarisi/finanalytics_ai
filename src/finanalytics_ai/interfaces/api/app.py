@@ -372,6 +372,29 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning("intraday_setup_service.FAILED", error=str(_ise))
         app.state.intraday_setup_service = None
 
+    
+    # -- SentimentService (analise de noticias via Claude Haiku 4.5)
+    try:
+        from finanalytics_ai.application.services.sentiment_service import SentimentService
+        _anthropic_key = getattr(settings, "anthropic_api_key", "") or ""
+        if _anthropic_key:
+            _redis_client = None
+            try:
+                from redis.asyncio import from_url as _redis_from_url
+                _redis_client = _redis_from_url(str(settings.redis_url))
+            except Exception:
+                pass
+            app.state.sentiment_service = SentimentService(
+                api_key=_anthropic_key,
+                redis_client=_redis_client,
+            )
+            logger.info("sentiment_service.ready")
+        else:
+            logger.warning("sentiment_service.SKIPPED", reason="ANTHROPIC_API_KEY nao configurada")
+            app.state.sentiment_service = None
+    except Exception as _sse:
+        logger.warning("sentiment_service.FAILED", error=str(_sse))
+        app.state.sentiment_service = None
     # -- OptionsService (calculadora de opcoes Black-Scholes)
     try:
         from finanalytics_ai.application.services.options_service import OptionsService
@@ -621,6 +644,12 @@ def create_app() -> FastAPI:
     except Exception as _rre:
         logger.warning("ranking.route.FAILED", error=str(_rre))
     try:
+        from finanalytics_ai.interfaces.api.routes import sentiment as sentiment_routes
+        app.include_router(sentiment_routes.router, tags=["Sentimento"])
+        logger.info("sentiment.route.registered")
+    except Exception as _sre:
+        logger.warning("sentiment.route.FAILED", error=str(_sre))
+    try:
         from finanalytics_ai.interfaces.api.routes import opcoes as opcoes_routes
         app.include_router(opcoes_routes.router, tags=["Opcoes"])
         logger.info("opcoes.route.registered")
@@ -728,6 +757,11 @@ def create_app() -> FastAPI:
     @app.get("/opcoes/estrategias", response_class=HTMLResponse, include_in_schema=False)
     async def serve_opcoes_estrategias() -> HTMLResponse:
         return _html("opcoes_estrategias.html")
+
+    
+    @app.get("/sentiment", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_sentiment() -> HTMLResponse:
+        return _html("sentiment.html")
 
     @app.get("/opcoes", response_class=HTMLResponse, include_in_schema=False)
     async def serve_opcoes() -> HTMLResponse:
