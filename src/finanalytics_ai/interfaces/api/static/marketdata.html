@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -9,47 +9,47 @@
 <style>
 :root{--bg:#0a0c10;--panel:#0f1218;--border:#1c2130;--text:#e2e8f0;--muted:#4a5568;--mono:'JetBrains Mono','Fira Code',monospace;--green:#00e676;--red:#ff4444;--yellow:#ffd740;--accent:#6c63ff}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:12px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:16px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
 .header{display:flex;align-items:center;gap:16px;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--panel);flex-shrink:0}
-.header h1{font-size:13px;font-weight:700;letter-spacing:2px}
-.badge{background:var(--accent);color:#fff;font-size:9px;padding:2px 6px;border-radius:2px;font-weight:700;letter-spacing:1px}
+.header h1{font-size:17px;font-weight:700;letter-spacing:2px}
+.badge{background:var(--accent);color:#fff;font-size:13px;padding:2px 6px;border-radius:2px;font-weight:700;letter-spacing:1px}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0}
 .dot.live{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.stext{font-size:10px;color:var(--muted)}
+.stext{font-size:14px;color:var(--muted)}
 .hright{margin-left:auto;display:flex;align-items:center;gap:12px}
-.rbtn{background:var(--border);border:1px solid var(--muted);color:var(--text);padding:4px 10px;border-radius:3px;cursor:pointer;font-family:var(--mono);font-size:11px}
+.rbtn{background:var(--border);border:1px solid var(--muted);color:var(--text);padding:4px 10px;border-radius:3px;cursor:pointer;font-family:var(--mono);font-size:15px}
 .rbtn:hover{border-color:var(--accent);color:var(--accent)}
 .main{display:grid;grid-template-columns:340px 1fr;flex:1;overflow:hidden;gap:1px;background:var(--border)}
 .lcol,.rcol{display:flex;flex-direction:column;gap:1px;background:var(--border);overflow:hidden}
 .panel{background:var(--panel);overflow:hidden;display:flex;flex-direction:column}
 .ph{display:flex;align-items:center;justify-content:space-between;padding:6px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
-.pt{font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase}
+.pt{font-size:14px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase}
 .pb{flex:1;overflow:hidden}
 #quote-board{height:200px;overflow-y:auto}
 .qrow{display:grid;grid-template-columns:70px 80px 60px 60px 70px;align-items:center;padding:5px 12px;border-bottom:1px solid #111827;cursor:pointer;transition:background .1s}
 .qrow:hover{background:#141824}
 .qrow.sel{background:#1a1f2e;border-left:2px solid var(--accent)}
-.qp{font-size:13px;font-weight:700;text-align:right}
-.qc{font-size:11px;text-align:right}
-.qv,.qt{font-size:10px;color:var(--muted);text-align:right}
+.qp{font-size:17px;font-weight:700;text-align:right}
+.qc{font-size:15px;text-align:right}
+.qv,.qt{font-size:14px;color:var(--muted);text-align:right}
 .up{color:var(--green)}.dn{color:var(--red)}.fl{color:var(--muted)}
 #tick-stream{height:180px;overflow-y:auto}
-.trow{display:grid;grid-template-columns:60px 80px 50px 60px;padding:3px 12px;border-bottom:1px solid #0d1117;font-size:11px;animation:fi .2s}
+.trow{display:grid;grid-template-columns:60px 80px 50px 60px;padding:3px 12px;border-bottom:1px solid #0d1117;font-size:15px;animation:fi .2s}
 @keyframes fi{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}
-.tt{color:var(--muted)}.tp{font-weight:700}.tq{color:var(--muted);text-align:right}.ts2{font-size:10px;text-align:right}
+.tt{color:var(--muted)}.tp{font-weight:700}.tq{color:var(--muted);text-align:right}.ts2{font-size:14px;text-align:right}
 #chart-container{flex:1;min-height:0}
 .ctbar{display:flex;gap:2px}
-.rb{background:transparent;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:2px;cursor:pointer;font-family:var(--mono);font-size:10px}
+.rb{background:transparent;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:2px;cursor:pointer;font-family:var(--mono);font-size:14px}
 .rb.act,.rb:hover{border-color:var(--accent);color:var(--accent)}
-#vbar{display:flex;align-items:center;gap:8px;padding:6px 12px;flex-shrink:0;border-top:1px solid var(--border);font-size:11px}
+#vbar{display:flex;align-items:center;gap:8px;padding:6px 12px;flex-shrink:0;border-top:1px solid var(--border);font-size:15px}
 .vi{display:flex;gap:4px}.vl{color:var(--muted)}.vv{color:var(--text);font-weight:700}
 #adx-panel{background:var(--panel);border-top:1px solid var(--border);flex-shrink:0;display:none}
 .adxh{display:flex;align-items:center;justify-content:space-between;padding:5px 12px;border-bottom:1px solid var(--border)}
-.adxn{display:flex;gap:16px;font-size:11px}
+.adxn{display:flex;gap:16px;font-size:15px}
 .adxi{display:flex;gap:4px}.adxl{color:var(--muted)}.adxv{font-weight:700}
 .adxv.y{color:var(--yellow)}.adxv.g{color:var(--green)}.adxv.r{color:var(--red)}
-.trend{font-size:10px;padding:2px 8px;border-radius:2px;font-weight:700;letter-spacing:1px}
+.trend{font-size:14px;padding:2px 8px;border-radius:2px;font-weight:700;letter-spacing:1px}
 .t-alta{background:#0d2b1a;color:var(--green);border:1px solid var(--green)}
 .t-baixa{background:#1f0d0d;color:var(--red);border:1px solid var(--red)}
 .t-lateral{background:#1a1a0d;color:var(--yellow);border:1px solid var(--yellow)}
@@ -75,14 +75,14 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:12
   border-bottom: 1px solid #1c2535;
   color: #7a95b0; cursor: pointer;
   display: flex; align-items: center; gap: 10px;
-  font-size: 13px; white-space: nowrap; overflow: hidden; flex-shrink: 0;
+  font-size: 17px; white-space: nowrap; overflow: hidden; flex-shrink: 0;
 }
 .fa-sidebar-toggle:hover { color: #F0B429; background: rgba(240,180,41,.06); }
 .fa-sidebar-toggle svg { flex-shrink: 0; }
 .fa-sb-link {
   display: flex; align-items: center; gap: 10px;
   padding: 7px 14px; color: #6a8aa8;
-  text-decoration: none; font-size: 12px;
+  text-decoration: none; font-size: 16px;
   white-space: nowrap; overflow: hidden;
   transition: all .15s;
 }
@@ -100,7 +100,7 @@ body.sb-open .fa-sb-push { margin-left: var(--sb-w); }
 </head>
 <body>
 <aside class="fa-sidebar" id="fa-sidebar">
-  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:11px">MENU</span></button>
+  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:15px">MENU</span></button>
   <div class="fa-sb-scroll"><a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
 <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
 <a href="/fundamental" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg><span>Fundamentalista</span></a>
@@ -143,7 +143,7 @@ body.sb-open .fa-sb-push { margin-left: var(--sb-w); }
         <span class="stext" id="qtime">—</span>
       </div>
       <div class="pb">
-        <div class="qrow" style="background:#0d1117;font-size:10px;color:var(--muted)">
+        <div class="qrow" style="background:#0d1117;font-size:14px;color:var(--muted)">
           <span>TICKER</span><span style="text-align:right">ÚLTIMO</span><span style="text-align:right">VAR%</span><span style="text-align:right">VOL</span><span style="text-align:right">TRADES</span>
         </div>
         <div id="quote-board"></div>
@@ -180,7 +180,7 @@ body.sb-open .fa-sb-push { margin-left: var(--sb-w); }
           </div>
           <div style="display:flex;align-items:center;gap:8px">
             <span class="stext">Período</span>
-            <select id="adx-per" onchange="refreshADX()" style="background:var(--border);border:1px solid var(--muted);color:var(--text);padding:2px 4px;font-family:var(--mono);font-size:10px;border-radius:2px">
+            <select id="adx-per" onchange="refreshADX()" style="background:var(--border);border:1px solid var(--muted);color:var(--text);padding:2px 4px;font-family:var(--mono);font-size:14px;border-radius:2px">
               <option value="7">7</option><option value="14" selected>14</option><option value="21">21</option>
             </select>
           </div>

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -30,19 +30,19 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .fa-header{position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:12px;
   padding:0 16px;height:48px;background:rgba(10,22,40,.92);
   backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
-.fa-logo{font-size:15px;font-weight:700;letter-spacing:.5px;white-space:nowrap}
+.fa-logo{font-size:19px;font-weight:700;letter-spacing:.5px;white-space:nowrap}
 .fa-logo em{font-style:normal;color:var(--gold)}
-.badge{font-size:8px;font-weight:800;letter-spacing:2px;
+.badge{font-size:12px;font-weight:800;letter-spacing:2px;
   background:linear-gradient(90deg,var(--gold),var(--gold-dk));
   color:var(--navy);padding:2px 5px;border-radius:3px;margin-left:3px}
 .fa-nav{display:flex;align-items:center;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1}
 .fa-nav::-webkit-scrollbar{display:none}
-.fa-nav a{white-space:nowrap;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;
+.fa-nav a{white-space:nowrap;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:600;
   letter-spacing:.4px;color:#8899aa;text-decoration:none;padding:5px 10px;
   border-radius:5px;transition:.15s}
 .fa-nav a:hover{color:#00c48c;background:rgba(0,196,140,.08)}
 .fa-nav a.active{color:#00c48c;background:rgba(0,196,140,.1)}
-.pill{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);font-family:'DM Mono',monospace}
+.pill{display:flex;align-items:center;gap:5px;font-size:14px;color:var(--muted);font-family:'DM Mono',monospace}
 .dot{width:6px;height:6px;border-radius:50%;background:var(--green);
   box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
@@ -50,7 +50,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 /* ── Page ── */
 .page{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:20px}
 .page-title{font-size:24px;font-weight:700;color:var(--white);margin-bottom:4px;letter-spacing:.5px}
-.page-sub{font-size:12px;color:var(--muted);margin-bottom:20px;font-family:'DM Mono',monospace}
+.page-sub{font-size:16px;color:var(--muted);margin-bottom:20px;font-family:'DM Mono',monospace}
 
 /* ── Snapshot cards ── */
 .snap-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:24px}
@@ -62,24 +62,24 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   box-shadow:0 8px 24px rgba(0,0,0,.3)}
 .snap-card.active{border-color:rgba(58,191,248,.4);background:rgba(58,191,248,.07)}
 .snap-card.active::before{background:linear-gradient(90deg,var(--blue),var(--green))}
-.snap-label{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
-.snap-value{font-size:22px;font-weight:700;color:var(--white);font-family:'DM Mono',monospace;line-height:1}
-.snap-unit{font-size:10px;color:var(--muted);margin-top:2px;font-family:'DM Mono',monospace}
-.snap-change{font-size:11px;font-weight:600;margin-top:6px;font-family:'DM Mono',monospace}
+.snap-label{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.snap-value{font-size:26px;font-weight:700;color:var(--white);font-family:'DM Mono',monospace;line-height:1}
+.snap-unit{font-size:14px;color:var(--muted);margin-top:2px;font-family:'DM Mono',monospace}
+.snap-change{font-size:15px;font-weight:600;margin-top:6px;font-family:'DM Mono',monospace}
 .snap-change.up{color:var(--green)}
 .snap-change.down{color:var(--red)}
-.snap-date{font-size:9px;color:var(--muted);margin-top:3px;font-family:'DM Mono',monospace}
+.snap-date{font-size:13px;color:var(--muted);margin-top:3px;font-family:'DM Mono',monospace}
 .snap-skeleton{background:rgba(58,191,248,.05);border-radius:4px;animation:shimmer 1.5s infinite}
 @keyframes shimmer{0%{opacity:.4}50%{opacity:.8}100%{opacity:.4}}
 
 /* ── Chart section ── */
 .chart-section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px}
 .chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
-.chart-title{font-size:16px;font-weight:700;letter-spacing:.3px}
-.chart-meta{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
+.chart-title{font-size:20px;font-weight:700;letter-spacing:.3px}
+.chart-meta{font-size:15px;color:var(--muted);font-family:'DM Mono',monospace}
 .chart-controls{display:flex;gap:6px;flex-wrap:wrap}
 .period-btn{background:rgba(58,191,248,.07);border:1px solid var(--border);color:var(--muted);
-  font-family:'DM Mono',monospace;font-size:10px;padding:4px 10px;border-radius:5px;cursor:pointer;transition:.15s}
+  font-family:'DM Mono',monospace;font-size:14px;padding:4px 10px;border-radius:5px;cursor:pointer;transition:.15s}
 .period-btn:hover{border-color:rgba(58,191,248,.3);color:var(--blue)}
 .period-btn.active{background:rgba(58,191,248,.15);border-color:var(--blue);color:var(--blue)}
 .chart-area{height:280px;border-radius:6px;overflow:hidden}
@@ -88,7 +88,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .cmp-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
 @media(max-width:768px){.cmp-grid{grid-template-columns:1fr}}
 .cmp-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
-.cmp-title{font-size:12px;font-weight:600;letter-spacing:.5px;color:var(--muted);
+.cmp-title{font-size:16px;font-weight:600;letter-spacing:.5px;color:var(--muted);
   text-transform:uppercase;margin-bottom:12px}
 .mini-chart{height:120px;border-radius:4px;overflow:hidden}
 
@@ -96,19 +96,19 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .stats-bar{display:flex;gap:24px;flex-wrap:wrap;padding:12px 0;
   border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:20px}
 .stat-item{display:flex;flex-direction:column;gap:2px}
-.stat-lbl{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
-.stat-val{font-size:14px;font-weight:700;font-family:'DM Mono',monospace;color:var(--white)}
+.stat-lbl{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+.stat-val{font-size:18px;font-weight:700;font-family:'DM Mono',monospace;color:var(--white)}
 
 /* ── Status ── */
-.status-bar{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;
+.status-bar{font-size:14px;color:var(--muted);font-family:'DM Mono',monospace;
   padding:8px 0;text-align:center}
-.no-data{text-align:center;padding:40px;color:var(--muted);font-size:13px}
-.no-data p{margin-top:8px;font-size:11px;font-family:'DM Mono',monospace}
+.no-data{text-align:center;padding:40px;color:var(--muted);font-size:17px}
+.no-data p{margin-top:8px;font-size:15px;font-family:'DM Mono',monospace}
 
-.fa-logout-btn{display:flex;align-items:center;gap:6px;font-family:'Rajdhani','Arial',sans-serif;font-size:12px;font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;padding:5px 10px;border-radius:5px;border:1px solid transparent;cursor:pointer;background:transparent;white-space:nowrap;transition:.15s;flex-shrink:0}
+.fa-logout-btn{display:flex;align-items:center;gap:6px;font-family:'Rajdhani','Arial',sans-serif;font-size:16px;font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;padding:5px 10px;border-radius:5px;border:1px solid transparent;cursor:pointer;background:transparent;white-space:nowrap;transition:.15s;flex-shrink:0}
 .fa-logout-btn:hover{color:#ff6b6b;background:rgba(255,107,107,.08);border-color:rgba(255,107,107,.2)}
-.fa-user-chip{display:flex;align-items:center;gap:6px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;color:#556677;letter-spacing:.3px;flex-shrink:0}
-.fa-user-chip .fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:10px;color:#8899aa}
+.fa-user-chip{display:flex;align-items:center;gap:6px;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;color:#556677;letter-spacing:.3px;flex-shrink:0}
+.fa-user-chip .fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:14px;color:#8899aa}
 
 
 /* ── Collapsible Sidebar ─────────────────────────────────── */
@@ -130,13 +130,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   border-bottom: 1px solid #1c2535;
   color: #7a95b0; cursor: pointer;
   display: flex; align-items: center; gap: 10px;
-  font-size: 13px; white-space: nowrap; overflow: hidden;
+  font-size: 17px; white-space: nowrap; overflow: hidden;
 }
 .fa-sidebar-toggle:hover { color: #F0B429; background: rgba(240,180,41,.06); }
 .fa-sidebar-toggle svg { flex-shrink: 0; }
 .fa-sb-section { padding: 8px 0; border-bottom: 1px solid #141f2e; }
 .fa-sb-section-label {
-  font-size: 8px; letter-spacing: .12em; color: #3a5570;
+  font-size: 12px; letter-spacing: .12em; color: #3a5570;
   padding: 4px 16px 2px; text-transform: uppercase;
   white-space: nowrap; overflow: hidden;
   opacity: 0; transition: opacity .15s;
@@ -145,7 +145,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .fa-sb-link {
   display: flex; align-items: center; gap: 10px;
   padding: 7px 14px; color: #6a8aa8;
-  text-decoration: none; font-size: 12px;
+  text-decoration: none; font-size: 16px;
   white-space: nowrap; overflow: hidden;
   transition: all .15s;
 }
@@ -165,7 +165,7 @@ body.sb-open .fa-page-content { margin-left: var(--sb-w); }
 </head>
 <body>
 <aside class="fa-sidebar" id="fa-sidebar">
-  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:11px">MENU</span></button>
+  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:15px">MENU</span></button>
   <div style="overflow-y:auto;flex:1"><a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
 <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
 <a href="/fundamental" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg><span>Fundamentalista</span></a>
@@ -197,7 +197,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 
 <header class="fa-header">
   <div class="fa-logo">Fin<em>Analytics</em> <span class="badge">AI</span></div>
-  <nav <span id="fa-page-title" style="font-size:12px;font-weight:600;color:#7a95b0;letter-spacing:.06em;margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Macro</span>
+  <nav <span id="fa-page-title" style="font-size:16px;font-weight:600;color:#7a95b0;letter-spacing:.06em;margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Macro</span>
   class="fa-nav"></nav>
   <div class="pill"><span class="dot"></span>LIVE</div>
 </header>
@@ -314,7 +314,7 @@ async function loadSnapshot() {
         grid.innerHTML += `
           <div class="snap-card" onclick="loadSeries('${key}')">
             <div class="snap-label">${key.replace('_',' ').toUpperCase()}</div>
-            <div class="snap-value" style="font-size:13px;color:var(--muted)">Coletando...</div>
+            <div class="snap-value" style="font-size:17px;color:var(--muted)">Coletando...</div>
             <div class="snap-unit">aguardando coleta</div>
           </div>`;
         return;
@@ -407,7 +407,7 @@ function renderMiniChart(elId, data1, color1, data2, color2) {
   const el = document.getElementById(elId);
   el.innerHTML = '';
   if (!data1.length && !data2.length) {
-    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:11px">Coletando dados...</div>';
+    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:15px">Coletando dados...</div>';
     return;
   }
 

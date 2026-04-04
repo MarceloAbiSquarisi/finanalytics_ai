@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -12,57 +12,57 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
 
 
 
-.nav-links a{font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:.5px;font-weight:600;padding:4px 8px;border-radius:4px;transition:.15s}
+.nav-links a{font-size:15px;color:var(--muted);text-decoration:none;letter-spacing:.5px;font-weight:600;padding:4px 8px;border-radius:4px;transition:.15s}
 .nav-links a:hover{color:var(--accent);background:rgba(0,196,140,.08)}
 .container{max-width:1300px;margin:0 auto;padding:20px}
 .page-title{font-size:24px;font-weight:700;letter-spacing:1px;margin-bottom:4px}
-.page-sub{font-size:12px;color:var(--muted);margin-bottom:20px}
+.page-sub{font-size:16px;color:var(--muted);margin-bottom:20px}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
 .form-group{display:flex;flex-direction:column;gap:4px}
-.form-label{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
-.form-input{background:#0d1e30;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:13px;padding:8px 12px;outline:none;transition:.15s;width:100%}
+.form-label{font-size:14px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
+.form-input{background:#0d1e30;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:17px;padding:8px 12px;outline:none;transition:.15s;width:100%}
 .form-input:focus{border-color:var(--accent)}
-.btn-primary{background:var(--accent);color:#000;border:none;border-radius:6px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:14px;padding:10px 24px;cursor:pointer;letter-spacing:.5px;transition:.15s}
+.btn-primary{background:var(--accent);color:#000;border:none;border-radius:6px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:18px;padding:10px 24px;cursor:pointer;letter-spacing:.5px;transition:.15s}
 .btn-primary:hover{opacity:.9}
 .btn-primary:disabled{opacity:.4;cursor:not-allowed}
-.btn-secondary{background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:6px;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:12px;padding:7px 14px;cursor:pointer;transition:.15s}
+.btn-secondary{background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:6px;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:16px;padding:7px 14px;cursor:pointer;transition:.15s}
 .btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
-.section-title{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin:14px 0 8px}
+.section-title{font-size:15px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin:14px 0 8px}
 .stat-card{background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:14px}
-.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
-.stat-value{font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace}
-.stat-sub{font-size:10px;color:var(--muted);margin-top:3px}
-.badge{border-radius:3px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.3px}
+.stat-label{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.stat-value{font-size:26px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.stat-sub{font-size:14px;color:var(--muted);margin-top:3px}
+.badge{border-radius:3px;padding:2px 8px;font-size:14px;font-weight:700;letter-spacing:.3px}
 .method-card{border:1px solid var(--border);border-radius:10px;padding:16px;transition:.2s;cursor:default}
 .method-card.winner{border-color:var(--accent);box-shadow:0 0 20px rgba(0,196,140,.08)}
-.method-title{font-size:14px;font-weight:700;margin-bottom:10px}
-.method-metric{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(30,58,95,.3);font-size:12px}
+.method-title{font-size:18px;font-weight:700;margin-bottom:10px}
+.method-metric{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(30,58,95,.3);font-size:16px}
 .weight-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.weight-bar-label{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--accent);width:70px;flex-shrink:0}
+.weight-bar-label{font-size:15px;font-family:'JetBrains Mono',monospace;color:var(--accent);width:70px;flex-shrink:0}
 .weight-bar-track{flex:1;height:18px;background:#0d1e30;border-radius:3px;overflow:hidden;position:relative}
 .weight-bar-fill{height:100%;border-radius:3px;transition:width .5s ease}
-.weight-bar-pct{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text);width:44px;text-align:right;flex-shrink:0}
-.weight-bar-risk{font-size:10px;color:var(--muted);width:60px;text-align:right;flex-shrink:0}
+.weight-bar-pct{font-size:15px;font-family:'JetBrains Mono',monospace;color:var(--text);width:44px;text-align:right;flex-shrink:0}
+.weight-bar-risk{font-size:14px;color:var(--muted);width:60px;text-align:right;flex-shrink:0}
 /* Fronteira eficiente */
 .frontier-chart{background:#060d14;border-radius:8px;padding:10px}
 /* Preset chips */
-.preset-chip{background:#0d1e30;border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:11px;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap}
+.preset-chip{background:#0d1e30;border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:15px;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap}
 .preset-chip:hover{border-color:var(--accent);color:var(--accent)}
 /* BL views */
 .bl-view-row{display:grid;grid-template-columns:100px 1fr auto;gap:6px;margin-bottom:6px;align-items:center}
 /* Ticker tags */
-.ticker-tag{display:inline-flex;align-items:center;gap:4px;background:#0d1e30;border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--accent)}
-.ticker-tag button{background:none;border:none;color:#445566;cursor:pointer;font-size:10px;line-height:1;padding:0 2px}
+.ticker-tag{display:inline-flex;align-items:center;gap:4px;background:#0d1e30;border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:15px;font-family:'JetBrains Mono',monospace;color:var(--accent)}
+.ticker-tag button{background:none;border:none;color:#445566;cursor:pointer;font-size:14px;line-height:1;padding:0 2px}
 .ticker-tag button:hover{color:#ff4757}
 /* Spinner */
 .spinner{display:inline-block;width:16px;height:16px;border:2px solid #1e3a5f;border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:8px}
 @keyframes spin{to{transform:rotate(360deg)}}
 /* Compare table */
-.cmp-table{width:100%;border-collapse:collapse;font-size:12px}
-.cmp-table th{padding:8px 10px;color:var(--muted);font-size:10px;text-align:left;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.5px}
+.cmp-table{width:100%;border-collapse:collapse;font-size:16px}
+.cmp-table th{padding:8px 10px;color:var(--muted);font-size:14px;text-align:left;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.5px}
 .cmp-table td{padding:9px 10px;border-bottom:1px solid rgba(30,58,95,.2)}
 .cmp-table .num{text-align:right;font-family:'JetBrains Mono',monospace}
 
@@ -73,16 +73,16 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
   box-shadow:0 2px 12px rgba(0,0,0,.4)}
 .fa-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
 .fa-logo svg{display:block}
-.fa-logo-text{font-family:'Georgia','Times New Roman',serif;font-size:17px;
+.fa-logo-text{font-family:'Georgia','Times New Roman',serif;font-size:21px;
   font-weight:700;color:#e8f4fd;white-space:nowrap;letter-spacing:-.3px}
 .fa-logo-text em{color:#F0B429;font-style:normal}
 .fa-ai-badge{display:inline-block;background:#1B3A6B;color:#fff;
-  font-family:'Arial',sans-serif;font-size:9px;font-weight:800;
+  font-family:'Arial',sans-serif;font-size:13px;font-weight:800;
   letter-spacing:1.5px;padding:2px 5px;border-radius:3px;vertical-align:middle;margin-left:2px}
 .fa-nav{display:flex;align-items:center;gap:2px;overflow-x:auto;
   scrollbar-width:none;-ms-overflow-style:none;flex:1}
 .fa-nav::-webkit-scrollbar{display:none}
-.fa-nav a{white-space:nowrap;font-family:'Rajdhani','Arial',sans-serif;font-size:12px;
+.fa-nav a{white-space:nowrap;font-family:'Rajdhani','Arial',sans-serif;font-size:16px;
   font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;
   padding:5px 10px;border-radius:5px;transition:.15s}
 .fa-nav a:hover{color:#00c48c;background:rgba(0,196,140,.08)}
@@ -93,10 +93,10 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
 .tbl-wrap th,.tbl-wrap td{white-space:normal!important;word-break:break-word}
 
 
-.fa-logout-btn{display:flex;align-items:center;gap:6px;font-family:'Rajdhani','Arial',sans-serif;font-size:12px;font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;padding:5px 10px;border-radius:5px;border:1px solid transparent;cursor:pointer;background:transparent;white-space:nowrap;transition:.15s;flex-shrink:0}
+.fa-logout-btn{display:flex;align-items:center;gap:6px;font-family:'Rajdhani','Arial',sans-serif;font-size:16px;font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;padding:5px 10px;border-radius:5px;border:1px solid transparent;cursor:pointer;background:transparent;white-space:nowrap;transition:.15s;flex-shrink:0}
 .fa-logout-btn:hover{color:#ff6b6b;background:rgba(255,107,107,.08);border-color:rgba(255,107,107,.2)}
-.fa-user-chip{display:flex;align-items:center;gap:6px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;color:#556677;letter-spacing:.3px;flex-shrink:0}
-.fa-user-chip .fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:10px;color:#8899aa}
+.fa-user-chip{display:flex;align-items:center;gap:6px;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;color:#556677;letter-spacing:.3px;flex-shrink:0}
+.fa-user-chip .fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:14px;color:#8899aa}
 
 
 /* ── Collapsible Sidebar ─────────────────────────────────── */
@@ -118,13 +118,13 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
   border-bottom: 1px solid #1c2535;
   color: #7a95b0; cursor: pointer;
   display: flex; align-items: center; gap: 10px;
-  font-size: 13px; white-space: nowrap; overflow: hidden;
+  font-size: 17px; white-space: nowrap; overflow: hidden;
 }
 .fa-sidebar-toggle:hover { color: #F0B429; background: rgba(240,180,41,.06); }
 .fa-sidebar-toggle svg { flex-shrink: 0; }
 .fa-sb-section { padding: 8px 0; border-bottom: 1px solid #141f2e; }
 .fa-sb-section-label {
-  font-size: 8px; letter-spacing: .12em; color: #3a5570;
+  font-size: 12px; letter-spacing: .12em; color: #3a5570;
   padding: 4px 16px 2px; text-transform: uppercase;
   white-space: nowrap; overflow: hidden;
   opacity: 0; transition: opacity .15s;
@@ -133,7 +133,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
 .fa-sb-link {
   display: flex; align-items: center; gap: 10px;
   padding: 7px 14px; color: #6a8aa8;
-  text-decoration: none; font-size: 12px;
+  text-decoration: none; font-size: 16px;
   white-space: nowrap; overflow: hidden;
   transition: all .15s;
 }
@@ -154,7 +154,7 @@ body.sb-open .fa-page-content { margin-left: var(--sb-w); }
 </head>
 <body>
 <aside class="fa-sidebar" id="fa-sidebar">
-  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:11px">MENU</span></button>
+  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:15px">MENU</span></button>
   <div style="overflow-y:auto;flex:1"><a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
 <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
 <a href="/fundamental" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg><span>Fundamentalista</span></a>
@@ -222,9 +222,9 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     <span class="fa-logo-text">Fin<em>Analytics</em> <span class="fa-ai-badge">AI</span></span>
   </a>
 <a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
-  <span id="fa-page-title" style="font-size:12px;font-weight:600;color:#7a95b0;letter-spacing:.06em;margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Otimizador de Carteira</span>
+  <span id="fa-page-title" style="font-size:16px;font-weight:600;color:#7a95b0;letter-spacing:.06em;margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Otimizador de Carteira</span>
   <nav class="fa-nav"></nav>
-  <a href="/marketdata" style="display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.35);border-radius:5px;color:#00e676;font-size:11px;font-weight:700;padding:4px 10px;text-decoration:none;letter-spacing:.5px;transition:.15s;white-space:nowrap" onmouseover="this.style.background='rgba(0,230,118,.2)'" onmouseout="this.style.background='rgba(0,230,118,.1)'">
+  <a href="/marketdata" style="display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.35);border-radius:5px;color:#00e676;font-size:15px;font-weight:700;padding:4px 10px;text-decoration:none;letter-spacing:.5px;transition:.15s;white-space:nowrap" onmouseover="this.style.background='rgba(0,230,118,.2)'" onmouseout="this.style.background='rgba(0,230,118,.1)'">
     <span style="width:7px;height:7px;border-radius:50%;background:#00e676;display:inline-block;animation:livePulse 1.8s ease-in-out infinite"></span>
     MERCADO AO VIVO
   </a>
@@ -282,8 +282,8 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 
     <!-- Coluna direita: Black-Litterman views -->
     <div class="card">
-      <div class="section-title" style="margin-top:0">Visões Black-Litterman <span style="font-size:10px;color:var(--muted);font-weight:400">(opcional)</span></div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5">
+      <div class="section-title" style="margin-top:0">Visões Black-Litterman <span style="font-size:14px;color:var(--muted);font-weight:400">(opcional)</span></div>
+      <div style="font-size:15px;color:var(--muted);margin-bottom:8px;line-height:1.5">
         Informe o retorno anual esperado para ativos específicos.<br>
         Deixe em branco para usar apenas o prior de mercado.
       </div>
@@ -426,14 +426,14 @@ function renderBLViews() {
     <div class="bl-view-row">
       <input class="form-input" value="${v.ticker}" placeholder="Ticker"
         onchange="_blViews[${i}].ticker=this.value.toUpperCase()"
-        style="font-family:'JetBrains Mono',monospace;font-size:12px">
+        style="font-family:'JetBrains Mono',monospace;font-size:16px">
       <div style="display:flex;align-items:center;gap:6px">
         <input class="form-input" type="range" min="0" max="50" step="1" value="${Math.round(v.ret*100)}"
           oninput="_blViews[${i}].ret=this.value/100;document.getElementById('blv-${i}').textContent=this.value+'%'">
-        <span id="blv-${i}" style="font-size:11px;font-family:'JetBrains Mono',monospace;width:36px">${Math.round(v.ret*100)}%</span>
+        <span id="blv-${i}" style="font-size:15px;font-family:'JetBrains Mono',monospace;width:36px">${Math.round(v.ret*100)}%</span>
       </div>
       <button onclick="_blViews.splice(${i},1);renderBLViews()"
-        style="background:none;border:1px solid #ff475733;color:#ff4757;border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer">✕</button>
+        style="background:none;border:1px solid #ff475733;color:#ff4757;border-radius:4px;padding:2px 8px;font-size:14px;cursor:pointer">✕</button>
     </div>`).join('');
 }
 
@@ -500,9 +500,9 @@ function renderResults(d) {
       <td class="num">${fmtPct(md.annual_return_pct)}</td>
       <td class="num"><span style="color:#8899aa">${md.volatility_pct.toFixed(2)}%</span></td>
       <td class="num"><b style="color:${md.sharpe>=1?'#00c48c':md.sharpe>=0.5?'#ffb300':'#ff4757'}">${md.sharpe.toFixed(3)}</b></td>
-      <td><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent)">${topW.ticker}</span>
-          <span style="font-size:10px;color:var(--muted)"> ${topW.weight_pct.toFixed(1)}%</span></td>
-      <td><button class="btn-secondary" style="font-size:10px;padding:3px 8px"
+      <td><span style="font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--accent)">${topW.ticker}</span>
+          <span style="font-size:14px;color:var(--muted)"> ${topW.weight_pct.toFixed(1)}%</span></td>
+      <td><button class="btn-secondary" style="font-size:14px;padding:3px 8px"
           onclick="showWeights('${m}')">Ver pesos</button></td>
     </tr>`;
   }).join('');
@@ -514,20 +514,20 @@ function renderResults(d) {
     const c = METHOD_COLORS[m];
     return `<div class="method-card ${isBest?'winner':''}" style="background:${isBest?'rgba(0,196,140,.03)':'var(--card)'}">
       <div class="method-title" style="color:${c}">${md.method.split('(')[0].trim()}
-        ${isBest?'<span style="font-size:10px;color:var(--accent)">★</span>':''}</div>
+        ${isBest?'<span style="font-size:14px;color:var(--accent)">★</span>':''}</div>
       <div class="method-metric"><span style="color:var(--muted)">Retorno a.a.</span>
         <span style="color:${md.annual_return_pct>=0?'#00c48c':'#ff4757'}">${md.annual_return_pct>=0?'+':''}${md.annual_return_pct.toFixed(2)}%</span></div>
       <div class="method-metric"><span style="color:var(--muted)">Volatilidade</span>
         <span>${md.volatility_pct.toFixed(2)}%</span></div>
       <div class="method-metric" style="border:none"><span style="color:var(--muted)">Sharpe</span>
         <span style="color:${md.sharpe>=1?'#00c48c':md.sharpe>=0.5?'#ffb300':'#ff4757'};font-weight:700">${md.sharpe.toFixed(3)}</span></div>
-      ${(md.notes||[]).length > 0 ? `<div style="margin-top:8px;font-size:10px;color:var(--muted);line-height:1.5">${md.notes[0]}</div>` : ''}
+      ${(md.notes||[]).length > 0 ? `<div style="margin-top:8px;font-size:14px;color:var(--muted);line-height:1.5">${md.notes[0]}</div>` : ''}
     </div>`;
   }).join('');
 
   // Botões de pesos
   document.getElementById('weights-method-btns').innerHTML = methods.map(m =>
-    `<button class="btn-secondary" id="wbtn-${m}" style="font-size:11px;padding:4px 10px"
+    `<button class="btn-secondary" id="wbtn-${m}" style="font-size:15px;padding:4px 10px"
       onclick="showWeights('${m}')">${METHOD_LABELS[m]}</button>`
   ).join('');
 
@@ -565,7 +565,7 @@ function showWeights(method) {
       <div class="weight-bar-label">${w.ticker}</div>
       <div class="weight-bar-track">
         <div class="weight-bar-fill" style="width:${w.weight_pct}%;background:${color}"></div>
-        <span style="position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:9px;color:#fff;font-weight:700;white-space:nowrap">
+        <span style="position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:13px;color:#fff;font-weight:700;white-space:nowrap">
           ret: ${w.ret_contrib>=0?'+':''}${w.ret_contrib.toFixed(1)}%
         </span>
       </div>
@@ -575,11 +575,11 @@ function showWeights(method) {
   }).join('');
 
   document.getElementById('weights-chart').innerHTML = `
-    <div style="font-size:10px;color:var(--muted);margin-bottom:8px;display:flex;justify-content:space-between">
+    <div style="font-size:14px;color:var(--muted);margin-bottom:8px;display:flex;justify-content:space-between">
       <span>Ativo</span><span style="margin-right:44px">Peso</span><span>Risco</span>
     </div>
     ${html}
-    <div style="margin-top:10px;font-size:10px;color:var(--muted)">
+    <div style="margin-top:10px;font-size:14px;color:var(--muted)">
       ${(d.notes||[]).map(n => `<div style="padding:3px 0;border-top:1px solid rgba(30,58,95,.3)">💡 ${n}</div>`).join('')}
     </div>`;
 }
@@ -647,7 +647,7 @@ function drawFrontier(frontier, d, methods) {
 
   // Legenda
   document.getElementById('frontier-legend').innerHTML = methods.map(m =>
-    `<div style="display:flex;align-items:center;gap:5px;font-size:10px">
+    `<div style="display:flex;align-items:center;gap:5px;font-size:14px">
       <div style="width:10px;height:10px;border-radius:50%;background:${METHOD_COLORS[m]}"></div>
       <span style="color:var(--muted)">${METHOD_LABELS[m]}</span>
     </div>`).join('');

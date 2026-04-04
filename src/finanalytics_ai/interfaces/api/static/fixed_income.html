@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -18,29 +18,29 @@ body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);mi
 
 /* NAV */
 nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:46px;position:sticky;top:0;z-index:100;gap:0}
-.nav-brand{color:var(--accent);font-weight:700;font-size:15px;letter-spacing:1px;margin-right:24px;white-space:nowrap}
+.nav-brand{color:var(--accent);font-weight:700;font-size:19px;letter-spacing:1px;margin-right:24px;white-space:nowrap}
 
-.nav-links a{color:var(--muted);text-decoration:none;font-size:12px;font-weight:600;padding:4px 10px;border-radius:4px;letter-spacing:.5px;transition:all .15s}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:16px;font-weight:600;padding:4px 10px;border-radius:4px;letter-spacing:.5px;transition:all .15s}
 .nav-links a:hover,.nav-links a.active{color:var(--accent);background:rgba(0,196,140,.08)}
 
 .page{max-width:1360px;margin:0 auto;padding:20px}
 
 /* HEADER */
 .page-
-.page-title{font-size:22px;font-weight:700;color:var(--white)}
-.page-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.page-title{font-size:26px;font-weight:700;color:var(--white)}
+.page-sub{font-size:16px;color:var(--muted);margin-top:2px}
 
 /* RATES BAR */
 .rates-bar{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 16px;display:flex;gap:24px;align-items:center;flex-wrap:wrap;margin-bottom:20px}
 .rate-item{display:flex;align-items:center;gap:8px}
-.rate-label{font-size:10px;font-weight:700;letter-spacing:.8px;color:var(--muted);text-transform:uppercase}
-.rate-input{background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500;width:72px;padding:4px 8px;text-align:center;outline:none}
+.rate-label{font-size:14px;font-weight:700;letter-spacing:.8px;color:var(--muted);text-transform:uppercase}
+.rate-input{background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:500;width:72px;padding:4px 8px;text-align:center;outline:none}
 .rate-input:focus{border-color:var(--accent)}
-.rate-unit{font-size:11px;color:var(--muted);margin-left:-4px}
+.rate-unit{font-size:15px;color:var(--muted);margin-left:-4px}
 
 /* TABS */
 .tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:0}
-.tab{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;padding:8px 16px;cursor:pointer;letter-spacing:.5px;transition:all .15s;margin-bottom:-1px}
+.tab{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:600;padding:8px 16px;cursor:pointer;letter-spacing:.5px;transition:all .15s;margin-bottom:-1px}
 .tab.active,.tab:hover{color:var(--accent);border-bottom-color:var(--accent)}
 
 /* PANEL */
@@ -48,9 +48,9 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20
 
 /* FILTERS */
 .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
-select,input[type=text],input[type=number]{background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:12px;padding:6px 10px;outline:none;cursor:pointer}
+select,input[type=text],input[type=number]{background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:16px;padding:6px 10px;outline:none;cursor:pointer}
 select:focus,input:focus{border-color:var(--accent)}
-.btn{border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer;background:var(--surface);transition:all .15s;letter-spacing:.3px}
+.btn{border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:600;padding:6px 14px;cursor:pointer;background:var(--surface);transition:all .15s;letter-spacing:.3px}
 .btn:hover{border-color:var(--accent);color:var(--accent)}
 .btn-accent{background:var(--accent);color:#000;border:none;font-weight:700}
 .btn-accent:hover{opacity:.85;color:#000}
@@ -59,14 +59,14 @@ select:focus,input:focus{border-color:var(--accent)}
 
 /* BOND TABLE */
 .table-wrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:12px}
-thead th{padding:8px 10px;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;background:var(--surface);position:sticky;top:0;z-index:2}
-tbody td{padding:8px 10px;border-bottom:1px solid rgba(30,58,95,.35);font-family:'JetBrains Mono',monospace;font-size:11px;vertical-align:middle}
-tbody td:first-child,tbody td.name-cell{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;color:var(--white)}
+table{width:100%;border-collapse:collapse;font-size:16px}
+thead th{padding:8px 10px;color:var(--muted);font-size:14px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;background:var(--surface);position:sticky;top:0;z-index:2}
+tbody td{padding:8px 10px;border-bottom:1px solid rgba(30,58,95,.35);font-family:'JetBrains Mono',monospace;font-size:15px;vertical-align:middle}
+tbody td:first-child,tbody td.name-cell{font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:600;color:var(--white)}
 tbody tr:hover td{background:rgba(255,255,255,.025);cursor:pointer}
 
 /* BADGES */
-.badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:10px;text-transform:uppercase}
+.badge{display:inline-block;font-size:13px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:10px;text-transform:uppercase}
 .badge-td{background:rgba(255,179,0,.12);color:var(--gold)}
 .badge-cdb{background:rgba(41,121,255,.12);color:var(--blue)}
 .badge-lci,.badge-lca{background:rgba(0,196,140,.12);color:var(--accent)}
@@ -78,34 +78,34 @@ tbody tr:hover td{background:rgba(255,255,255,.025);cursor:pointer}
 /* CARD */
 .card{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
 .card-
-.card-title{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+.card-title{font-size:15px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
 .card-body{padding:16px}
 
 /* CALC LAYOUT */
 .calc-grid{display:grid;grid-template-columns:340px 1fr;gap:16px}
 @media(max-width:800px){.calc-grid{grid-template-columns:1fr}}
 .form-group{margin-bottom:12px}
-.form-label{display:block;font-size:10px;font-weight:700;letter-spacing:.8px;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
-.form-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;padding:8px 10px;outline:none}
+.form-label{display:block;font-size:14px;font-weight:700;letter-spacing:.8px;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
+.form-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:17px;padding:8px 10px;outline:none}
 .form-input:focus{border-color:var(--accent)}
 
 /* RESULT GRID */
 .result-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:16px}
 .result-card{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:10px 12px}
-.result-label{font-size:9px;font-weight:700;letter-spacing:.8px;color:var(--muted);text-transform:uppercase;margin-bottom:3px}
-.result-value{font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:700}
-.result-sub{font-size:10px;color:var(--muted);margin-top:2px}
+.result-label{font-size:13px;font-weight:700;letter-spacing:.8px;color:var(--muted);text-transform:uppercase;margin-bottom:3px}
+.result-value{font-family:'JetBrains Mono',monospace;font-size:21px;font-weight:700}
+.result-sub{font-size:14px;color:var(--muted);margin-top:2px}
 .pos{color:var(--accent)}.neg{color:var(--red)}.neu{color:var(--muted)}.gold{color:var(--gold)}
 
 /* COMPARATOR */
 .compare-grid{display:grid;grid-template-columns:280px 1fr;gap:16px}
 @media(max-width:800px){.compare-grid{grid-template-columns:1fr}}
 .bond-select-list{display:flex;flex-direction:column;gap:4px;max-height:400px;overflow-y:auto}
-.bond-check-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:5px;cursor:pointer;transition:background .1s;font-size:12px}
+.bond-check-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:5px;cursor:pointer;transition:background .1s;font-size:16px}
 .bond-check-item:hover{background:rgba(255,255,255,.03)}
 .bond-check-item input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:pointer}
 .bond-check-name{flex:1;font-weight:600;color:var(--text)}
-.bond-check-rate{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)}
+.bond-check-rate{font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--muted)}
 
 /* CHART BODY */
 .chart-body{padding:16px;position:relative}
@@ -113,20 +113,20 @@ canvas{max-height:280px}
 
 /* WINNER BANNER */
 .winner-banner{background:linear-gradient(135deg,rgba(0,196,140,.12),rgba(0,196,140,.04));border:1px solid rgba(0,196,140,.25);border-radius:7px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px}
-.winner-icon{font-size:20px}
-.winner-text{font-size:13px;font-weight:600;color:var(--accent)}
-.winner-sub{font-size:11px;color:var(--muted);margin-top:1px}
+.winner-icon{font-size:24px}
+.winner-text{font-size:17px;font-weight:600;color:var(--accent)}
+.winner-sub{font-size:15px;color:var(--muted);margin-top:1px}
 
 /* CASH FLOW TABLE */
-.cf-table{width:100%;border-collapse:collapse;font-size:11px}
-.cf-table th{padding:6px 10px;color:var(--muted);font-size:10px;font-weight:700;text-align:left;border-bottom:1px solid var(--border);letter-spacing:.5px;text-transform:uppercase}
+.cf-table{width:100%;border-collapse:collapse;font-size:15px}
+.cf-table th{padding:6px 10px;color:var(--muted);font-size:14px;font-weight:700;text-align:left;border-bottom:1px solid var(--border);letter-spacing:.5px;text-transform:uppercase}
 .cf-table td{padding:7px 10px;border-bottom:1px solid rgba(30,58,95,.3);font-family:'JetBrains Mono',monospace}
 .cf-table tr:hover td{background:rgba(255,255,255,.02)}
 
 /* GOAL */
 .goal-result{background:linear-gradient(135deg,var(--card),var(--surface));border:1px solid var(--border);border-radius:8px;padding:24px;text-align:center}
 .goal-amount{font-family:'JetBrains Mono',monospace;font-size:36px;font-weight:700;color:var(--accent);margin-bottom:6px}
-.goal-sub{font-size:13px;color:var(--muted)}
+.goal-sub{font-size:17px;color:var(--muted)}
 
 /* LOADER */
 .loader{display:flex;align-items:center;justify-content:center;padding:40px;gap:6px}
@@ -134,7 +134,7 @@ canvas{max-height:280px}
 .dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
 @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
 
-.empty{text-align:center;padding:40px;color:var(--muted);font-size:13px}
+.empty{text-align:center;padding:40px;color:var(--muted);font-size:17px}
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 
@@ -145,30 +145,30 @@ canvas{max-height:280px}
 .scenario-card{background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:14px}
 .scenario-card-
 .scenario-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.scenario-name{font-size:12px;font-weight:700;color:var(--text);letter-spacing:.3px}
+.scenario-name{font-size:16px;font-weight:700;color:var(--text);letter-spacing:.3px}
 .scenario-rates{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
-.scenario-rate-tag{background:#0d1e30;border-radius:4px;padding:2px 7px;font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace}
-.scenario-return{font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace}
-.scenario-delta{font-size:11px;margin-top:2px}
+.scenario-rate-tag{background:#0d1e30;border-radius:4px;padding:2px 7px;font-size:14px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+.scenario-return{font-size:26px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.scenario-delta{font-size:15px;margin-top:2px}
 .stress-bond-
-.stress-bond-title{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:6px}
+.stress-bond-title{font-size:18px;font-weight:700;color:var(--accent);margin-bottom:6px}
 .stress-meta{display:flex;gap:16px;flex-wrap:wrap}
-.stress-meta-item{font-size:11px;color:var(--muted)}
+.stress-meta-item{font-size:15px;color:var(--muted)}
 .stress-meta-item span{color:var(--text);font-weight:600}
 .bar-chart-wrap{background:#060d14;border-radius:8px;padding:16px;margin-top:8px}
 .bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.bar-label{font-size:10px;color:var(--muted);width:180px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-label{font-size:14px;color:var(--muted);width:180px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bar-track{flex:1;height:18px;background:#0d1e30;border-radius:3px;position:relative;overflow:hidden}
 .bar-fill{height:100%;border-radius:3px;transition:width .4s ease;display:flex;align-items:center;padding-left:6px}
-.bar-value{font-size:10px;font-family:'JetBrains Mono',monospace;color:#000;font-weight:700;white-space:nowrap}
+.bar-value{font-size:14px;font-family:'JetBrains Mono',monospace;color:#000;font-weight:700;white-space:nowrap}
 .curve-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
-.curve-legend-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
+.curve-legend-item{display:flex;align-items:center;gap:5px;font-size:14px;color:var(--muted)}
 .curve-legend-dot{width:8px;height:8px;border-radius:50%}
 .context-box{background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px}
-.context-title{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px}
-.context-text{font-size:12px;color:var(--text);line-height:1.6}
+.context-title{font-size:15px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px}
+.context-text{font-size:16px;color:var(--text);line-height:1.6}
 .tip-list{margin-top:8px;display:flex;flex-direction:column;gap:6px}
-.tip-item{display:flex;align-items:flex-start;gap:8px;font-size:11px;padding:7px 10px;border-radius:5px}
+.tip-item{display:flex;align-items:flex-start;gap:8px;font-size:15px;padding:7px 10px;border-radius:5px}
 .tip-item.opportunity{background:rgba(0,196,140,.08);border:1px solid rgba(0,196,140,.2);color:#00c48c}
 .tip-item.risk{background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.2);color:#ff4757}
 .tip-item.neutral{background:rgba(136,153,170,.08);border:1px solid rgba(136,153,170,.2);color:#8899aa}
@@ -179,45 +179,45 @@ canvas{max-height:280px}
 .pf-
 .pf-select-wrap{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .pf-select{background:#0b1520;border:1px solid var(--border);border-radius:6px;color:var(--text);
-  font-family:'Rajdhani',sans-serif;font-size:12px;padding:6px 10px;min-width:200px;outline:none}
+  font-family:'Rajdhani',sans-serif;font-size:16px;padding:6px 10px;min-width:200px;outline:none}
 .holding-row{background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:12px;
   margin-bottom:8px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start}
 .holding-main{display:flex;flex-direction:column;gap:4px}
-.holding-name{font-size:13px;font-weight:700;color:var(--text)}
+.holding-name{font-size:17px;font-weight:700;color:var(--text)}
 .holding-tags{display:flex;gap:6px;flex-wrap:wrap}
-.holding-tag{border-radius:3px;padding:1px 7px;font-size:10px;font-weight:600;letter-spacing:.3px}
+.holding-tag{border-radius:3px;padding:1px 7px;font-size:14px;font-weight:600;letter-spacing:.3px}
 .holding-numbers{display:flex;gap:16px;margin-top:4px;flex-wrap:wrap}
-.holding-num{font-size:11px;color:var(--muted)}
+.holding-num{font-size:15px;color:var(--muted)}
 .holding-num span{color:var(--text);font-family:'JetBrains Mono',monospace;font-weight:600}
-.holding-return-pos{color:#00c48c;font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700}
-.holding-return-neg{color:#ff4757;font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700}
+.holding-return-pos{color:#00c48c;font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700}
+.holding-return-neg{color:#ff4757;font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700}
 .divScore{font-size:36px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1}
-.divScore-label{font-size:12px;color:var(--muted);margin-top:4px}
+.divScore-label{font-size:16px;color:var(--muted);margin-top:4px}
 .score-bar-wrap{flex:1;height:10px;background:#0d1e30;border-radius:5px;overflow:hidden}
 .score-bar-fill{height:100%;border-radius:5px;transition:width .5s ease}
 .div-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:12px 0}
 .div-cell{background:#060d14;border-radius:6px;padding:10px}
-.div-cell-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.div-cell-title{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
 .div-bar-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}
-.div-bar-label{font-size:10px;color:var(--muted);width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.div-bar-label{font-size:14px;color:var(--muted);width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .div-bar-track{flex:1;height:12px;background:#0d1e30;border-radius:3px;overflow:hidden}
 .div-bar-fill{height:100%;border-radius:3px}
-.div-bar-pct{font-size:10px;font-family:'JetBrains Mono',monospace;color:#8899aa;width:36px;text-align:right}
+.div-bar-pct{font-size:14px;font-family:'JetBrains Mono',monospace;color:#8899aa;width:36px;text-align:right}
 .rec-item{background:#0b1520;border-left:3px solid var(--accent);border-radius:4px;
-  padding:8px 12px;margin-bottom:6px;font-size:11px;color:var(--text)}
-.alert-item{padding:7px 10px;border-radius:5px;font-size:11px;margin-bottom:5px}
+  padding:8px 12px;margin-bottom:6px;font-size:15px;color:var(--text)}
+.alert-item{padding:7px 10px;border-radius:5px;font-size:15px;margin-bottom:5px}
 .alert-item.warning{background:rgba(255,179,0,.08);border:1px solid rgba(255,179,0,.2);color:#ffb300}
 .alert-item.critical{background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.2);color:#ff4757}
 .pf-totals{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
 .pf-total-card{background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:12px}
-.pf-total-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
-.pf-total-value{font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text)}
+.pf-total-label{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.pf-total-value{font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text)}
 .timeline-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(30,58,95,.3)}
 .timeline-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .timeline-meta{flex:1}
-.timeline-name{font-size:12px;font-weight:600;color:var(--text)}
-.timeline-dates{font-size:10px;color:var(--muted);margin-top:2px}
-.timeline-value{font-size:13px;font-family:'JetBrains Mono',monospace;font-weight:700;color:#00c48c;text-align:right}
+.timeline-name{font-size:16px;font-weight:600;color:var(--text)}
+.timeline-dates{font-size:14px;color:var(--muted);margin-top:2px}
+.timeline-value{font-size:17px;font-family:'JetBrains Mono',monospace;font-weight:700;color:#00c48c;text-align:right}
 
 
 /* ── FinAnalytics Unified Topbar ────────────────────────────────── */
@@ -227,16 +227,16 @@ canvas{max-height:280px}
   box-shadow:0 2px 12px rgba(0,0,0,.4)}
 .fa-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
 .fa-logo svg{display:block}
-.fa-logo-text{font-family:'Georgia','Times New Roman',serif;font-size:17px;
+.fa-logo-text{font-family:'Georgia','Times New Roman',serif;font-size:21px;
   font-weight:700;color:#e8f4fd;white-space:nowrap;letter-spacing:-.3px}
 .fa-logo-text em{color:#F0B429;font-style:normal}
 .fa-ai-badge{display:inline-block;background:#1B3A6B;color:#fff;
-  font-family:'Arial',sans-serif;font-size:9px;font-weight:800;
+  font-family:'Arial',sans-serif;font-size:13px;font-weight:800;
   letter-spacing:1.5px;padding:2px 5px;border-radius:3px;vertical-align:middle;margin-left:2px}
 .fa-nav{display:flex;align-items:center;gap:2px;overflow-x:auto;
   scrollbar-width:none;-ms-overflow-style:none;flex:1}
 .fa-nav::-webkit-scrollbar{display:none}
-.fa-nav a{white-space:nowrap;font-family:'Rajdhani','Arial',sans-serif;font-size:12px;
+.fa-nav a{white-space:nowrap;font-family:'Rajdhani','Arial',sans-serif;font-size:16px;
   font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;
   padding:5px 10px;border-radius:5px;transition:.15s}
 .fa-nav a:hover{color:#00c48c;background:rgba(0,196,140,.08)}
@@ -247,10 +247,10 @@ canvas{max-height:280px}
 .tbl-wrap th,.tbl-wrap td{white-space:normal!important;word-break:break-word}
 
 
-.fa-logout-btn{display:flex;align-items:center;gap:6px;font-family:'Rajdhani','Arial',sans-serif;font-size:12px;font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;padding:5px 10px;border-radius:5px;border:1px solid transparent;cursor:pointer;background:transparent;white-space:nowrap;transition:.15s;flex-shrink:0}
+.fa-logout-btn{display:flex;align-items:center;gap:6px;font-family:'Rajdhani','Arial',sans-serif;font-size:16px;font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;padding:5px 10px;border-radius:5px;border:1px solid transparent;cursor:pointer;background:transparent;white-space:nowrap;transition:.15s;flex-shrink:0}
 .fa-logout-btn:hover{color:#ff6b6b;background:rgba(255,107,107,.08);border-color:rgba(255,107,107,.2)}
-.fa-user-chip{display:flex;align-items:center;gap:6px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;color:#556677;letter-spacing:.3px;flex-shrink:0}
-.fa-user-chip .fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:10px;color:#8899aa}
+.fa-user-chip{display:flex;align-items:center;gap:6px;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;color:#556677;letter-spacing:.3px;flex-shrink:0}
+.fa-user-chip .fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:14px;color:#8899aa}
 
 
 /* ── Collapsible Sidebar ─────────────────────────────────── */
@@ -272,13 +272,13 @@ canvas{max-height:280px}
   border-bottom: 1px solid #1c2535;
   color: #7a95b0; cursor: pointer;
   display: flex; align-items: center; gap: 10px;
-  font-size: 13px; white-space: nowrap; overflow: hidden;
+  font-size: 17px; white-space: nowrap; overflow: hidden;
 }
 .fa-sidebar-toggle:hover { color: #F0B429; background: rgba(240,180,41,.06); }
 .fa-sidebar-toggle svg { flex-shrink: 0; }
 .fa-sb-section { padding: 8px 0; border-bottom: 1px solid #141f2e; }
 .fa-sb-section-label {
-  font-size: 8px; letter-spacing: .12em; color: #3a5570;
+  font-size: 12px; letter-spacing: .12em; color: #3a5570;
   padding: 4px 16px 2px; text-transform: uppercase;
   white-space: nowrap; overflow: hidden;
   opacity: 0; transition: opacity .15s;
@@ -287,7 +287,7 @@ canvas{max-height:280px}
 .fa-sb-link {
   display: flex; align-items: center; gap: 10px;
   padding: 7px 14px; color: #6a8aa8;
-  text-decoration: none; font-size: 12px;
+  text-decoration: none; font-size: 16px;
   white-space: nowrap; overflow: hidden;
   transition: all .15s;
 }
@@ -308,7 +308,7 @@ body.sb-open .fa-page-content { margin-left: var(--sb-w); }
 </head>
 <body>
 <aside class="fa-sidebar" id="fa-sidebar">
-  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:11px">MENU</span></button>
+  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:15px">MENU</span></button>
   <div style="overflow-y:auto;flex:1"><a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
 <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
 <a href="/fundamental" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg><span>Fundamentalista</span></a>
@@ -375,9 +375,9 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 </svg>
     <span class="fa-logo-text">Fin<em>Analytics</em> <span class="fa-ai-badge">AI</span></span>
   </a>
-  <span id="fa-page-title" style="font-size:12px;font-weight:600;color:#7a95b0;letter-spacing:.06em;margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Renda Fixa</span>
+  <span id="fa-page-title" style="font-size:16px;font-weight:600;color:#7a95b0;letter-spacing:.06em;margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Renda Fixa</span>
   <nav class="fa-nav"></nav>
-  <a href="/marketdata" style="display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.35);border-radius:5px;color:#00e676;font-size:11px;font-weight:700;padding:4px 10px;text-decoration:none;letter-spacing:.5px;transition:.15s;white-space:nowrap" onmouseover="this.style.background='rgba(0,230,118,.2)'" onmouseout="this.style.background='rgba(0,230,118,.1)'">
+  <a href="/marketdata" style="display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.35);border-radius:5px;color:#00e676;font-size:15px;font-weight:700;padding:4px 10px;text-decoration:none;letter-spacing:.5px;transition:.15s;white-space:nowrap" onmouseover="this.style.background='rgba(0,230,118,.2)'" onmouseout="this.style.background='rgba(0,230,118,.1)'">
     <span style="width:7px;height:7px;border-radius:50%;background:#00e676;display:inline-block;animation:livePulse 1.8s ease-in-out infinite"></span>
     MERCADO AO VIVO
   </a>
@@ -408,10 +408,10 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 
   <!-- RATES BAR -->
   <div class="rates-bar">
-    <div style="font-size:10px;font-weight:700;letter-spacing:.8px;color:var(--muted);text-transform:uppercase">Taxas de referência:</div>
+    <div style="font-size:14px;font-weight:700;letter-spacing:.8px;color:var(--muted);text-transform:uppercase">Taxas de referência:</div>
     <div class="rate-item">
       <span class="rate-label">CDI</span>
-      <div id="rates-status" style="font-size:10px;color:#8899aa;margin-bottom:8px;padding:4px 0">Carregando taxas BCB...</div>
+      <div id="rates-status" style="font-size:14px;color:#8899aa;margin-bottom:8px;padding:4px 0">Carregando taxas BCB...</div>
       <input class="rate-input" id="r-cdi"   type="number" step="0.01" value="10.65" onchange="onRateChange()">
       <span class="rate-unit">% a.a.</span>
     </div>
@@ -430,7 +430,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
       <input class="rate-input" id="r-igpm"  type="number" step="0.01" value="6.20" onchange="onRateChange()">
       <span class="rate-unit">% a.a.</span>
     </div>
-    <div style="margin-left:auto;font-size:10px;color:var(--muted)">Edite as taxas conforme o cenário atual</div>
+    <div style="margin-left:auto;font-size:14px;color:var(--muted)">Edite as taxas conforme o cenário atual</div>
   </div>
 
   <!-- TABS -->
@@ -472,7 +472,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     <div class="card">
       <div class="card-header">
         <span class="card-title">Títulos Disponíveis</span>
-        <span id="bond-count" style="font-size:10px;color:var(--muted)"></span>
+        <span id="bond-count" style="font-size:14px;color:var(--muted)"></span>
       </div>
       <div class="table-wrap">
         <table>
@@ -501,7 +501,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
               <option value="">Selecione...</option>
             </select>
           </div>
-          <div id="calc-bond-info" style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.5"></div>
+          <div id="calc-bond-info" style="font-size:15px;color:var(--muted);margin-bottom:12px;line-height:1.5"></div>
           <div class="form-group">
             <label class="form-label">Valor Investido (R$)</label>
             <input class="form-input" type="number" id="calc-principal" value="10000" min="1" step="100">
@@ -566,7 +566,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
             <input class="form-input" type="number" id="cf-principal" value="10000" min="1" step="100">
           </div>
           <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
-            <div style="font-size:10px;font-weight:700;letter-spacing:.8px;color:var(--muted);text-transform:uppercase;margin-bottom:8px">Simulador de Meta</div>
+            <div style="font-size:14px;font-weight:700;letter-spacing:.8px;color:var(--muted);text-transform:uppercase;margin-bottom:8px">Simulador de Meta</div>
             <div class="form-group">
               <label class="form-label">Quero chegar a (R$)</label>
               <input class="form-input" type="number" id="goal-target" placeholder="Ex: 15000" min="1">
@@ -688,9 +688,9 @@ function renderBondsTable(bonds) {
       <td>${mat}</td>
       <td>${days}</td>
       <td>${min}</td>
-      <td style="font-size:10px;color:var(--muted)">${b.liquidity}</td>
+      <td style="font-size:14px;color:var(--muted)">${b.liquidity}</td>
       <td>${ir}</td>
-      <td><button class="btn" style="padding:3px 8px;font-size:10px" onclick="event.stopPropagation();selectBondForCalc('${b.bond_id}')">Calcular</button></td>
+      <td><button class="btn" style="padding:3px 8px;font-size:14px" onclick="event.stopPropagation();selectBondForCalc('${b.bond_id}')">Calcular</button></td>
     </tr>`;
   }).join('');
 }
@@ -1033,12 +1033,12 @@ async function runGoal() {
     const fmt = v => Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
     el.innerHTML = `
       <div class="goal-result" style="margin-bottom:14px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:6px">
+        <div style="font-size:15px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:6px">
           Para chegar a R$ ${fmt(target)} em ${days} dias
         </div>
         <div class="goal-amount">R$ ${fmt(data.principal_needed)}</div>
         <div class="goal-sub">investimento necessário hoje em <strong style="color:var(--white)">${data.bond.bond_name}</strong></div>
-        <div style="margin-top:12px;font-size:12px;color:var(--muted)">
+        <div style="margin-top:12px;font-size:16px;color:var(--muted)">
           Rendimento líquido estimado: <span style="color:var(--accent)">${fmt(data.bond.net_annual_return_pct)}% a.a.</span>
         </div>
       </div>`;
@@ -1059,9 +1059,9 @@ initPage();
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
       <div>
         <label class="form-label">Títulos para análise</label>
-        <select id="stress-bond-select" multiple style="width:100%;background:#0b1520;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:12px;padding:6px;height:120px;outline:none">
+        <select id="stress-bond-select" multiple style="width:100%;background:#0b1520;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:16px;padding:6px;height:120px;outline:none">
         </select>
-        <div style="font-size:10px;color:var(--muted);margin-top:4px">Segure Ctrl/Cmd para selecionar múltiplos</div>
+        <div style="font-size:14px;color:var(--muted);margin-top:4px">Segure Ctrl/Cmd para selecionar múltiplos</div>
       </div>
       <div>
         <div class="stress-controls" style="grid-template-columns:1fr 1fr">
@@ -1255,12 +1255,12 @@ async function runStressTest() {
 
   if (!bondIds.length) {
     document.getElementById('stress-results').innerHTML =
-      '<div style="color:#ff4757;font-size:12px;padding:10px">Selecione pelo menos um título.</div>';
+      '<div style="color:#ff4757;font-size:16px;padding:10px">Selecione pelo menos um título.</div>';
     return;
   }
 
   document.getElementById('stress-results').innerHTML =
-    '<div style="color:#8899aa;font-size:12px;padding:10px">⏳ Calculando cenários...</div>';
+    '<div style="color:#8899aa;font-size:16px;padding:10px">⏳ Calculando cenários...</div>';
 
   try {
     const r = await fetch('/api/v1/fixed-income/stress', {
@@ -1274,14 +1274,14 @@ async function runStressTest() {
     renderStressResults(data, principal);
   } catch(e) {
     document.getElementById('stress-results').innerHTML =
-      `<div style="color:#ff4757;font-size:12px;padding:10px">Erro: ${e.message}</div>`;
+      `<div style="color:#ff4757;font-size:16px;padding:10px">Erro: ${e.message}</div>`;
   }
 }
 
 function renderStressResults(comparisons, principal) {
   if (!comparisons.length) {
     document.getElementById('stress-results').innerHTML =
-      '<div style="color:#8899aa;font-size:12px">Nenhum resultado.</div>';
+      '<div style="color:#8899aa;font-size:16px">Nenhum resultado.</div>';
     return;
   }
 
@@ -1303,14 +1303,14 @@ function renderStressResults(comparisons, principal) {
               <span class="bar-value">${r.net_return_pct.toFixed(2)}%</span>
             </div>
           </div>
-          <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#8899aa;width:60px;text-align:right">
+          <div style="font-size:14px;font-family:'JetBrains Mono',monospace;color:#8899aa;width:60px;text-align:right">
             R$ ${r.net_amount.toLocaleString('pt-BR', {minimumFractionDigits:0,maximumFractionDigits:0})}
           </div>
         </div>`;
     }).join('');
 
     const exemptBadge = comp.ir_exempt
-      ? '<span style="background:rgba(0,196,140,.15);color:#00c48c;border-radius:3px;padding:1px 6px;font-size:9px;margin-left:6px">ISENTO IR</span>'
+      ? '<span style="background:rgba(0,196,140,.15);color:#00c48c;border-radius:3px;padding:1px 6px;font-size:13px;margin-left:6px">ISENTO IR</span>'
       : '';
 
     return `
@@ -1360,7 +1360,7 @@ window.switchTab = function(tab) {
 
     <!-- Form: nova carteira (hidden by default) -->
     <div id="new-pf-form" style="display:none;background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px">
-      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px">Nova Carteira RF</div>
+      <div style="font-size:16px;font-weight:700;color:var(--accent);margin-bottom:10px">Nova Carteira RF</div>
       <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end">
         <div class="form-group">
           <label class="form-label">User ID</label>
@@ -1376,7 +1376,7 @@ window.switchTab = function(tab) {
 
     <!-- Form: adicionar holding (hidden by default) -->
     <div id="add-holding-form" style="display:none;background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px">
-      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px">Adicionar Título à Carteira</div>
+      <div style="font-size:16px;font-weight:700;color:var(--accent);margin-bottom:10px">Adicionar Título à Carteira</div>
       <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-bottom:8px">
         <div class="form-group">
           <label class="form-label">Título</label>
@@ -1534,7 +1534,7 @@ async function loadPortfolio() {
     renderTimeline(matR);
   } catch(e) {
     document.getElementById('pf-holdings').innerHTML =
-      `<div style="color:#ff4757;font-size:12px;padding:10px">Erro: ${e.message}</div>`;
+      `<div style="color:#ff4757;font-size:16px;padding:10px">Erro: ${e.message}</div>`;
   }
 }
 
@@ -1553,7 +1553,7 @@ function renderPortfolioTotals(pf) {
 function renderHoldings(holdings, portfolioId) {
   if (!holdings.length) {
     document.getElementById('pf-holdings').innerHTML =
-      '<div style="color:#8899aa;font-size:12px;padding:16px;text-align:center">Nenhum título na carteira. Clique em "+ Adicionar Título".</div>';
+      '<div style="color:#8899aa;font-size:16px;padding:16px;text-align:center">Nenhum título na carteira. Clique em "+ Adicionar Título".</div>';
     return;
   }
   const COLORS = {CDI:'#4ecdc4',SELIC:'#ffb300',IPCA:'#e056fd',PREFIXADO:'#ff6b35'};
@@ -1584,9 +1584,9 @@ function renderHoldings(holdings, portfolioId) {
         </div>
         <div style="text-align:right">
           <div class="${retCls}">${ret >= 0 ? '+' : ''}${ret.toFixed(2)}%</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">${h.net_annual_return_pct?.toFixed(2) || '—'}% a.a.</div>
+          <div style="font-size:14px;color:var(--muted);margin-top:2px">${h.net_annual_return_pct?.toFixed(2) || '—'}% a.a.</div>
           <button onclick="deleteHolding('${h.holding_id}','${portfolioId}')"
-            style="margin-top:8px;background:none;border:1px solid #ff475733;color:#ff4757;border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer">
+            style="margin-top:8px;background:none;border:1px solid #ff475733;color:#ff4757;border-radius:4px;padding:2px 8px;font-size:14px;cursor:pointer">
             remover
           </button>
         </div>
@@ -1620,7 +1620,7 @@ function renderDiversification(rep) {
         <div class="score-bar-wrap" style="margin-bottom:8px">
           <div class="score-bar-fill" style="width:${rep.score}%;background:${scoreColor}"></div>
         </div>
-        <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted)">
+        <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:15px;color:var(--muted)">
           <span>Indexadores: <b style="color:var(--text)">${rep.n_indexers}</b></span>
           <span>Emissores: <b style="color:var(--text)">${rep.n_issuers}</b></span>
           <span>Tipos: <b style="color:var(--text)">${rep.n_types}</b></span>
@@ -1655,7 +1655,7 @@ function renderDiversification(rep) {
 function renderTimeline(items) {
   if (!items || !items.length) {
     document.getElementById('pf-timeline').innerHTML =
-      '<div style="color:#8899aa;font-size:12px;padding:10px">Nenhum vencimento mapeado.</div>';
+      '<div style="color:#8899aa;font-size:16px;padding:10px">Nenhum vencimento mapeado.</div>';
     return;
   }
   const fmtBRL = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2});
@@ -1679,7 +1679,7 @@ function renderTimeline(items) {
         </div>
         <div>
           <div class="timeline-value">${fmtBRL(h.current_net_value)}</div>
-          <div style="font-size:10px;color:#8899aa;text-align:right">+${h.net_return_pct.toFixed(2)}%</div>
+          <div style="font-size:14px;color:#8899aa;text-align:right">+${h.net_return_pct.toFixed(2)}%</div>
         </div>
       </div>`;
   }).join('');
@@ -1732,13 +1732,13 @@ function showSubTab(tab) {
 
 async function loadFGC(pid) {
   const el = document.getElementById('fgc-report');
-  el.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:12px"><span class="spinner"></span>Analisando cobertura FGC...</div>';
+  el.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:16px"><span class="spinner"></span>Analisando cobertura FGC...</div>';
   try {
     const r = await fetch(`/api/v1/fixed-income/portfolio/${pid}/fgc`);
     const d = await r.json();
     renderFGC(d);
   } catch(e) {
-    el.innerHTML = `<div style="color:#ff4757;padding:10px;font-size:12px">Erro: ${e.message}</div>`;
+    el.innerHTML = `<div style="color:#ff4757;padding:10px;font-size:16px">Erro: ${e.message}</div>`;
   }
 }
 
@@ -1760,12 +1760,12 @@ function renderFGC(d) {
   const alertsHtml = (d.alerts || []).map(a => `
     <div style="display:flex;gap:10px;padding:10px 12px;background:rgba(${hexRgb(lvlColor[a.level]||'#8899aa')},0.08);
       border-left:3px solid ${lvlColor[a.level]||'#8899aa'};border-radius:0 6px 6px 0;margin-bottom:6px">
-      <span style="font-size:16px;flex-shrink:0">${lvlIcon[a.level]||'•'}</span>
+      <span style="font-size:20px;flex-shrink:0">${lvlIcon[a.level]||'•'}</span>
       <div>
-        <div style="font-size:11px;font-weight:700;color:${lvlColor[a.level]||'#8899aa'};text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">${a.type.replace(/_/g,' ')}</div>
-        <div style="font-size:12px;color:var(--text);line-height:1.5">${a.message}</div>
+        <div style="font-size:15px;font-weight:700;color:${lvlColor[a.level]||'#8899aa'};text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">${a.type.replace(/_/g,' ')}</div>
+        <div style="font-size:16px;color:var(--text);line-height:1.5">${a.message}</div>
       </div>
-    </div>`).join('') || '<div style="color:#00c48c;font-size:12px;padding:8px">✅ Nenhum alerta — carteira dentro dos limites FGC.</div>';
+    </div>`).join('') || '<div style="color:#00c48c;font-size:16px;padding:8px">✅ Nenhum alerta — carteira dentro dos limites FGC.</div>';
 
   // Instituições
   const instHtml = (d.institutions || []).map(i => {
@@ -1775,20 +1775,20 @@ function renderFGC(d) {
     <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;${i.alert_level==='critical'?'border-color:#ff4757;background:rgba(255,71,87,.03)':i.alert_level==='warning'?'border-color:#ffb300':''}">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <div>
-          <span style="font-size:14px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace">${i.issuer}</span>
-          <span style="font-size:10px;color:var(--muted);margin-left:8px">${i.n_holdings} título(s)</span>
+          <span style="font-size:18px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace">${i.issuer}</span>
+          <span style="font-size:14px;color:var(--muted);margin-left:8px">${i.n_holdings} título(s)</span>
         </div>
-        <span style="font-size:11px;font-weight:700;color:${c}">${lvlIcon[i.alert_level]} ${i.alert_level.toUpperCase()}</span>
+        <span style="font-size:15px;font-weight:700;color:${c}">${lvlIcon[i.alert_level]} ${i.alert_level.toUpperCase()}</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
-        <div style="font-size:11px"><span style="color:var(--muted)">Investido</span><br><b>${fmtBRL(i.total_invested)}</b></div>
-        <div style="font-size:11px"><span style="color:var(--muted)">Coberto FGC</span><br><b style="color:#00c48c">${fmtBRL(i.fgc_covered)}</b></div>
-        <div style="font-size:11px"><span style="color:var(--muted)">Acima do limite</span><br><b style="color:${i.fgc_uncovered>0?'#ff4757':'#00c48c'}">${fmtBRL(i.fgc_uncovered)}</b></div>
+        <div style="font-size:15px"><span style="color:var(--muted)">Investido</span><br><b>${fmtBRL(i.total_invested)}</b></div>
+        <div style="font-size:15px"><span style="color:var(--muted)">Coberto FGC</span><br><b style="color:#00c48c">${fmtBRL(i.fgc_covered)}</b></div>
+        <div style="font-size:15px"><span style="color:var(--muted)">Acima do limite</span><br><b style="color:${i.fgc_uncovered>0?'#ff4757':'#00c48c'}">${fmtBRL(i.fgc_uncovered)}</b></div>
       </div>
       <div style="height:8px;background:#0d1e30;border-radius:4px;overflow:hidden">
         <div style="height:100%;width:${pct}%;background:${pct>=100?'#ff4757':'#00c48c'};border-radius:4px;transition:width .5s"></div>
       </div>
-      <div style="font-size:10px;color:var(--muted);margin-top:3px">
+      <div style="font-size:14px;color:var(--muted);margin-top:3px">
         ${fmtBRL(i.fgc_covered)} / ${fmtBRL(250000)} do limite por instituição
         ${i.fgc_uncovered > 0 ? `<span style="color:#ff4757;margin-left:8px">⚠ ${fmtBRL(i.fgc_uncovered)} desprotegidos</span>` : ''}
       </div>
@@ -1800,67 +1800,67 @@ function renderFGC(d) {
   const covColor= {fgc:'#00c48c', sovereign:'#4ecdc4', none:'#ff4757'};
   const holdHtml = (d.holdings || []).map(h => `
     <tr>
-      <td><b style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:12px">${h.bond_name}</b><br>
-          <span style="font-size:10px;color:var(--muted)">${h.bond_type} · ${h.issuer}</span></td>
-      <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:12px">${fmtBRL(h.invested)}</td>
-      <td><span style="font-size:11px">${h.coverage_label}</span></td>
-      <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:12px;color:${h.excess_amount>0?'#ff4757':'#00c48c'}">
+      <td><b style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:16px">${h.bond_name}</b><br>
+          <span style="font-size:14px;color:var(--muted)">${h.bond_type} · ${h.issuer}</span></td>
+      <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:16px">${fmtBRL(h.invested)}</td>
+      <td><span style="font-size:15px">${h.coverage_label}</span></td>
+      <td style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:16px;color:${h.excess_amount>0?'#ff4757':'#00c48c'}">
         ${h.excess_amount > 0 ? fmtBRL(h.excess_amount) : '—'}</td>
-      <td style="font-size:11px;max-width:260px;color:${lvlColor[h.alert_level]||'#8899aa'}">${h.alert_message}</td>
+      <td style="font-size:15px;max-width:260px;color:${lvlColor[h.alert_level]||'#8899aa'}">${h.alert_message}</td>
     </tr>`).join('');
 
   el.innerHTML = `
     <!-- Resumo + Score -->
     <div style="display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;margin-bottom:16px">
       <div style="text-align:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 24px">
-        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Score de Proteção</div>
+        <div style="font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Score de Proteção</div>
         <div style="font-size:52px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${scClr};line-height:1">${sc}</div>
-        <div style="font-size:11px;color:${scClr};margin-top:4px">${scLbl}</div>
+        <div style="font-size:15px;color:${scClr};margin-top:4px">${scLbl}</div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
         <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
-          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Total Investido</div>
-          <div style="font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace">${fmtBRL(s.total_invested||0)}</div>
+          <div style="font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Total Investido</div>
+          <div style="font-size:19px;font-weight:700;font-family:'JetBrains Mono',monospace">${fmtBRL(s.total_invested||0)}</div>
         </div>
         <div style="background:var(--card);border:1px solid rgba(0,196,140,.3);border-radius:8px;padding:12px">
-          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">🛡️ Coberto FGC</div>
-          <div style="font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#00c48c">${fmtBRL(s.total_fgc_covered||0)}</div>
-          <div style="font-size:10px;color:var(--muted)">${s.fgc_coverage_pct||0}% da carteira</div>
+          <div style="font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">🛡️ Coberto FGC</div>
+          <div style="font-size:19px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#00c48c">${fmtBRL(s.total_fgc_covered||0)}</div>
+          <div style="font-size:14px;color:var(--muted)">${s.fgc_coverage_pct||0}% da carteira</div>
         </div>
         <div style="background:var(--card);border:1px solid rgba(78,205,196,.3);border-radius:8px;padding:12px">
-          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">🏛️ Garantia Soberana</div>
-          <div style="font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#4ecdc4">${fmtBRL(s.total_sovereign||0)}</div>
+          <div style="font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">🏛️ Garantia Soberana</div>
+          <div style="font-size:19px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#4ecdc4">${fmtBRL(s.total_sovereign||0)}</div>
         </div>
         <div style="background:var(--card);border:1px solid ${(s.total_uncovered||0)>0?'rgba(255,71,87,.3)':'var(--border)'};border-radius:8px;padding:12px">
-          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">⚠️ Sem Cobertura</div>
-          <div style="font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${(s.total_uncovered||0)>0?'#ff4757':'#00c48c'}">${fmtBRL(s.total_uncovered||0)}</div>
-          <div style="font-size:10px;color:var(--muted)">${s.uncovered_pct||0}% da carteira</div>
+          <div style="font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">⚠️ Sem Cobertura</div>
+          <div style="font-size:19px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${(s.total_uncovered||0)>0?'#ff4757':'#00c48c'}">${fmtBRL(s.total_uncovered||0)}</div>
+          <div style="font-size:14px;color:var(--muted)">${s.uncovered_pct||0}% da carteira</div>
         </div>
       </div>
     </div>
 
     <!-- Alertas -->
-    <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px">Alertas</div>
+    <div style="font-size:15px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px">Alertas</div>
     ${alertsHtml}
 
     <!-- Por Instituição -->
     ${(d.institutions||[]).length > 0 ? `
-    <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin:14px 0 8px">
+    <div style="font-size:15px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin:14px 0 8px">
       Por Instituição (limite: R$ 250.000 / inst.)
     </div>
     ${instHtml}` : ''}
 
     <!-- Por Título -->
-    <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin:14px 0 8px">Status por Título</div>
+    <div style="font-size:15px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin:14px 0 8px">Status por Título</div>
     <div style="overflow-x:auto" class="tbl-wrap">
-      <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <table style="width:100%;border-collapse:collapse;font-size:16px">
         <thead>
           <tr>
-            <th style="padding:7px 10px;color:var(--muted);font-size:10px;text-align:left;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.5px">Título</th>
-            <th style="padding:7px 10px;color:var(--muted);font-size:10px;text-align:right;border-bottom:1px solid var(--border);letter-spacing:.5px">Investido</th>
-            <th style="padding:7px 10px;color:var(--muted);font-size:10px;text-align:left;border-bottom:1px solid var(--border);letter-spacing:.5px">Cobertura</th>
-            <th style="padding:7px 10px;color:var(--muted);font-size:10px;text-align:right;border-bottom:1px solid var(--border);letter-spacing:.5px">Excesso</th>
-            <th style="padding:7px 10px;color:var(--muted);font-size:10px;text-align:left;border-bottom:1px solid var(--border);letter-spacing:.5px">Observação</th>
+            <th style="padding:7px 10px;color:var(--muted);font-size:14px;text-align:left;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.5px">Título</th>
+            <th style="padding:7px 10px;color:var(--muted);font-size:14px;text-align:right;border-bottom:1px solid var(--border);letter-spacing:.5px">Investido</th>
+            <th style="padding:7px 10px;color:var(--muted);font-size:14px;text-align:left;border-bottom:1px solid var(--border);letter-spacing:.5px">Cobertura</th>
+            <th style="padding:7px 10px;color:var(--muted);font-size:14px;text-align:right;border-bottom:1px solid var(--border);letter-spacing:.5px">Excesso</th>
+            <th style="padding:7px 10px;color:var(--muted);font-size:14px;text-align:left;border-bottom:1px solid var(--border);letter-spacing:.5px">Observação</th>
           </tr>
         </thead>
         <tbody>${holdHtml}</tbody>
@@ -1868,7 +1868,7 @@ function renderFGC(d) {
     </div>
 
     <!-- Nota educacional -->
-    <div style="margin-top:14px;background:#070f1a;border:1px solid var(--border);border-radius:8px;padding:12px;font-size:11px;color:var(--muted);line-height:1.7">
+    <div style="margin-top:14px;background:#070f1a;border:1px solid var(--border);border-radius:8px;padding:12px;font-size:15px;color:var(--muted);line-height:1.7">
       <b style="color:var(--text)">📚 Sobre o FGC</b><br>
       O FGC garante até <b style="color:#00c48c">R$ 250.000 por CPF por instituição</b> e
       <b style="color:#00c48c">R$ 1.000.000 no total</b> a cada 4 anos para: CDB, LCI, LCA, RDB e Poupança.<br>

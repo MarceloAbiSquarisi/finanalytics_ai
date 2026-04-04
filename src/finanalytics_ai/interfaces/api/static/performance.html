@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -16,18 +16,18 @@
 }
 body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:46px;position:sticky;top:0;z-index:100;gap:0}
-.nav-brand{color:var(--accent);font-weight:700;font-size:15px;letter-spacing:1px;margin-right:24px;white-space:nowrap}
+.nav-brand{color:var(--accent);font-weight:700;font-size:19px;letter-spacing:1px;margin-right:24px;white-space:nowrap}
 
-.nav-links a{color:var(--muted);text-decoration:none;font-size:12px;font-weight:600;padding:4px 10px;border-radius:4px;letter-spacing:.5px;transition:all .15s}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:16px;font-weight:600;padding:4px 10px;border-radius:4px;letter-spacing:.5px;transition:all .15s}
 .nav-links a:hover,.nav-links a.active{color:var(--accent);background:rgba(0,196,140,.08)}
 .page{max-width:1360px;margin:0 auto;padding:20px}
 
 /* HEADER */
 .page-
-.page-title{font-size:22px;font-weight:700;color:var(--white)}
-.page-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.page-title{font-size:26px;font-weight:700;color:var(--white)}
+.page-sub{font-size:16px;color:var(--muted);margin-top:2px}
 .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-select,button{background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:12px;padding:6px 12px;cursor:pointer;outline:none}
+select,button{background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:16px;padding:6px 12px;cursor:pointer;outline:none}
 select:focus,button:hover{border-color:var(--accent)}
 .btn-run{background:var(--accent);color:#000;font-weight:700;border:none}
 .btn-run:hover{opacity:.85}
@@ -35,16 +35,16 @@ select:focus,button:hover{border-color:var(--accent)}
 /* KPI GRID */
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:20px}
 .kpi-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
-.kpi-label{font-size:9px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
-.kpi-value{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--white)}
-.kpi-sub{font-size:10px;color:var(--muted);margin-top:2px}
+.kpi-label{font-size:13px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
+.kpi-value{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--white)}
+.kpi-sub{font-size:14px;color:var(--muted);margin-top:2px}
 .pos{color:var(--accent)}.neg{color:var(--red)}.neu{color:var(--muted)}
 
 /* CHARTS GRID */
 .charts-grid{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:20px}
 .chart-panel{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
 .chart-
-.chart-title{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+.chart-title{font-size:15px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
 .chart-body{padding:16px;position:relative}
 canvas{max-height:320px}
 
@@ -54,22 +54,22 @@ canvas{max-height:320px}
 
 /* HEATMAP */
 .heatmap-wrap{overflow-x:auto}
-.heatmap{border-collapse:collapse;width:100%;font-size:11px}
-.heatmap th{padding:4px 8px;color:var(--muted);font-weight:600;font-size:10px;text-align:center;border:1px solid var(--border)}
-.heatmap td{padding:5px 8px;text-align:center;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;transition:opacity .15s;cursor:default;border-radius:2px}
+.heatmap{border-collapse:collapse;width:100%;font-size:15px}
+.heatmap th{padding:4px 8px;color:var(--muted);font-weight:600;font-size:14px;text-align:center;border:1px solid var(--border)}
+.heatmap td{padding:5px 8px;text-align:center;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600;transition:opacity .15s;cursor:default;border-radius:2px}
 .heatmap td:hover{opacity:.8}
 .hm-row-label{color:var(--muted);font-weight:700;background:var(--surface);font-family:'Rajdhani',sans-serif}
 
 /* CONTRIBUTIONS TABLE */
-.contrib-table{width:100%;border-collapse:collapse;font-size:12px}
-.contrib-table th{padding:6px 10px;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);text-align:left}
-.contrib-table td{padding:8px 10px;border-bottom:1px solid rgba(30,58,95,.4);font-family:'JetBrains Mono',monospace;font-size:11px}
-.contrib-table td:first-child{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;color:var(--white)}
+.contrib-table{width:100%;border-collapse:collapse;font-size:16px}
+.contrib-table th{padding:6px 10px;color:var(--muted);font-size:14px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);text-align:left}
+.contrib-table td{padding:8px 10px;border-bottom:1px solid rgba(30,58,95,.4);font-family:'JetBrains Mono',monospace;font-size:15px}
+.contrib-table td:first-child{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:17px;color:var(--white)}
 .contrib-table tr:hover td{background:rgba(255,255,255,.02)}
 
 /* METRICS DETAIL */
 .metrics-detail{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.metric-row{display:flex;justify-content:space-between;padding:6px 10px;background:var(--surface);border-radius:5px;font-size:12px}
+.metric-row{display:flex;justify-content:space-between;padding:6px 10px;background:var(--surface);border-radius:5px;font-size:16px}
 .metric-row .ml{color:var(--muted)}
 .metric-row .mv{font-family:'JetBrains Mono',monospace;font-weight:600}
 
@@ -82,7 +82,7 @@ canvas{max-height:320px}
 @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
 
 /* BADGE */
-.badge{font-size:9px;padding:2px 7px;border-radius:10px;font-weight:700;letter-spacing:.5px}
+.badge{font-size:13px;padding:2px 7px;border-radius:10px;font-weight:700;letter-spacing:.5px}
 .badge-green{background:rgba(0,196,140,.12);color:var(--accent)}
 .badge-red{background:rgba(255,71,87,.12);color:var(--red)}
 .badge-blue{background:rgba(41,121,255,.12);color:var(--blue)}
@@ -92,7 +92,7 @@ canvas{max-height:320px}
 
 /* Period tabs */
 .period-tabs{display:flex;gap:4px}
-.ptab{background:var(--surface);border:1px solid var(--border);border-radius:5px;color:var(--muted);font-size:11px;font-weight:600;padding:4px 10px;cursor:pointer;transition:all .15s}
+.ptab{background:var(--surface);border:1px solid var(--border);border-radius:5px;color:var(--muted);font-size:15px;font-weight:600;padding:4px 10px;cursor:pointer;transition:all .15s}
 .ptab.active,.ptab:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,196,140,.06)}
 
 ::-webkit-scrollbar{width:4px;height:4px}
@@ -105,16 +105,16 @@ canvas{max-height:320px}
   box-shadow:0 2px 12px rgba(0,0,0,.4)}
 .fa-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
 .fa-logo svg{display:block}
-.fa-logo-text{font-family:'Georgia','Times New Roman',serif;font-size:17px;
+.fa-logo-text{font-family:'Georgia','Times New Roman',serif;font-size:21px;
   font-weight:700;color:#e8f4fd;white-space:nowrap;letter-spacing:-.3px}
 .fa-logo-text em{color:#F0B429;font-style:normal}
 .fa-ai-badge{display:inline-block;background:#1B3A6B;color:#fff;
-  font-family:'Arial',sans-serif;font-size:9px;font-weight:800;
+  font-family:'Arial',sans-serif;font-size:13px;font-weight:800;
   letter-spacing:1.5px;padding:2px 5px;border-radius:3px;vertical-align:middle;margin-left:2px}
 .fa-nav{display:flex;align-items:center;gap:2px;overflow-x:auto;
   scrollbar-width:none;-ms-overflow-style:none;flex:1}
 .fa-nav::-webkit-scrollbar{display:none}
-.fa-nav a{white-space:nowrap;font-family:'Rajdhani','Arial',sans-serif;font-size:12px;
+.fa-nav a{white-space:nowrap;font-family:'Rajdhani','Arial',sans-serif;font-size:16px;
   font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;
   padding:5px 10px;border-radius:5px;transition:.15s}
 .fa-nav a:hover{color:#00c48c;background:rgba(0,196,140,.08)}
@@ -125,10 +125,10 @@ canvas{max-height:320px}
 .tbl-wrap th,.tbl-wrap td{white-space:normal!important;word-break:break-word}
 
 
-.fa-logout-btn{display:flex;align-items:center;gap:6px;font-family:'Rajdhani','Arial',sans-serif;font-size:12px;font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;padding:5px 10px;border-radius:5px;border:1px solid transparent;cursor:pointer;background:transparent;white-space:nowrap;transition:.15s;flex-shrink:0}
+.fa-logout-btn{display:flex;align-items:center;gap:6px;font-family:'Rajdhani','Arial',sans-serif;font-size:16px;font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;padding:5px 10px;border-radius:5px;border:1px solid transparent;cursor:pointer;background:transparent;white-space:nowrap;transition:.15s;flex-shrink:0}
 .fa-logout-btn:hover{color:#ff6b6b;background:rgba(255,107,107,.08);border-color:rgba(255,107,107,.2)}
-.fa-user-chip{display:flex;align-items:center;gap:6px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;color:#556677;letter-spacing:.3px;flex-shrink:0}
-.fa-user-chip .fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:10px;color:#8899aa}
+.fa-user-chip{display:flex;align-items:center;gap:6px;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;color:#556677;letter-spacing:.3px;flex-shrink:0}
+.fa-user-chip .fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:14px;color:#8899aa}
 
 
 /* ── Collapsible Sidebar ─────────────────────────────────── */
@@ -150,13 +150,13 @@ canvas{max-height:320px}
   border-bottom: 1px solid #1c2535;
   color: #7a95b0; cursor: pointer;
   display: flex; align-items: center; gap: 10px;
-  font-size: 13px; white-space: nowrap; overflow: hidden;
+  font-size: 17px; white-space: nowrap; overflow: hidden;
 }
 .fa-sidebar-toggle:hover { color: #F0B429; background: rgba(240,180,41,.06); }
 .fa-sidebar-toggle svg { flex-shrink: 0; }
 .fa-sb-section { padding: 8px 0; border-bottom: 1px solid #141f2e; }
 .fa-sb-section-label {
-  font-size: 8px; letter-spacing: .12em; color: #3a5570;
+  font-size: 12px; letter-spacing: .12em; color: #3a5570;
   padding: 4px 16px 2px; text-transform: uppercase;
   white-space: nowrap; overflow: hidden;
   opacity: 0; transition: opacity .15s;
@@ -165,7 +165,7 @@ canvas{max-height:320px}
 .fa-sb-link {
   display: flex; align-items: center; gap: 10px;
   padding: 7px 14px; color: #6a8aa8;
-  text-decoration: none; font-size: 12px;
+  text-decoration: none; font-size: 16px;
   white-space: nowrap; overflow: hidden;
   transition: all .15s;
 }
@@ -186,7 +186,7 @@ body.sb-open .fa-page-content { margin-left: var(--sb-w); }
 </head>
 <body>
 <aside class="fa-sidebar" id="fa-sidebar">
-  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:11px">MENU</span></button>
+  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:15px">MENU</span></button>
   <div style="overflow-y:auto;flex:1"><a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
 <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
 <a href="/fundamental" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg><span>Fundamentalista</span></a>
@@ -253,9 +253,9 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 </svg>
     <span class="fa-logo-text">Fin<em>Analytics</em> <span class="fa-ai-badge">AI</span></span>
   </a>
-  <span id="fa-page-title" style="font-size:12px;font-weight:600;color:#7a95b0;letter-spacing:.06em;margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Performance</span>
+  <span id="fa-page-title" style="font-size:16px;font-weight:600;color:#7a95b0;letter-spacing:.06em;margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Performance</span>
   <nav class="fa-nav"></nav>
-  <a href="/marketdata" style="display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.35);border-radius:5px;color:#00e676;font-size:11px;font-weight:700;padding:4px 10px;text-decoration:none;letter-spacing:.5px;transition:.15s;white-space:nowrap" onmouseover="this.style.background='rgba(0,230,118,.2)'" onmouseout="this.style.background='rgba(0,230,118,.1)'">
+  <a href="/marketdata" style="display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.35);border-radius:5px;color:#00e676;font-size:15px;font-weight:700;padding:4px 10px;text-decoration:none;letter-spacing:.5px;transition:.15s;white-space:nowrap" onmouseover="this.style.background='rgba(0,230,118,.2)'" onmouseout="this.style.background='rgba(0,230,118,.1)'">
     <span style="width:7px;height:7px;border-radius:50%;background:#00e676;display:inline-block;animation:livePulse 1.8s ease-in-out infinite"></span>
     MERCADO AO VIVO
   </a>
@@ -303,7 +303,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
   <div id="main-content">
     <div class="empty-state">
       <div class="empty-icon">📈</div>
-      <div style="font-size:14px;color:var(--text);margin-bottom:8px">Selecione um portfólio</div>
+      <div style="font-size:18px;color:var(--text);margin-bottom:8px">Selecione um portfólio</div>
       <div>Escolha o portfólio e o período para ver análise completa de performance.</div>
     </div>
   </div>
@@ -355,7 +355,7 @@ async function loadPerformance() {
 
   document.getElementById('main-content').innerHTML = `
     <div class="loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-    <div style="text-align:center;color:var(--muted);font-size:12px;padding-bottom:20px">
+    <div style="text-align:center;color:var(--muted);font-size:16px;padding-bottom:20px">
       Buscando dados históricos e calculando métricas...</div>`;
 
   // Destrói charts anteriores
@@ -374,7 +374,7 @@ async function loadPerformance() {
     document.getElementById('main-content').innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">⚠</div>
-        <div style="font-size:13px;color:var(--red)">${e.message}</div>
+        <div style="font-size:17px;color:var(--red)">${e.message}</div>
       </div>`;
   }
 }
@@ -395,7 +395,7 @@ function renderAll(d) {
     <div class="chart-panel">
       <div class="chart-header">
         <span class="chart-title">Evolucao do Patrimonio — Carteira vs BOVA11 (base 100)</span>
-        <span style="font-size:10px;color:var(--muted)">${m.start_date} → ${m.end_date} &nbsp;|&nbsp; ${m.period_days} dias uteis</span>
+        <span style="font-size:14px;color:var(--muted)">${m.start_date} → ${m.end_date} &nbsp;|&nbsp; ${m.period_days} dias uteis</span>
       </div>
       <div class="chart-body"><canvas id="equity-chart"></canvas></div>
     </div>
@@ -404,7 +404,7 @@ function renderAll(d) {
     <div class="chart-panel">
       <div class="chart-header">
         <span class="chart-title">Drawdown da Carteira</span>
-        <span style="font-size:10px;color:var(--muted)">Max: <span style="color:var(--red);font-family:'JetBrains Mono',monospace">${fmt(m.max_drawdown_pct)}%</span> &nbsp;(${m.max_drawdown_start} → ${m.max_drawdown_end})</span>
+        <span style="font-size:14px;color:var(--muted)">Max: <span style="color:var(--red);font-family:'JetBrains Mono',monospace">${fmt(m.max_drawdown_pct)}%</span> &nbsp;(${m.max_drawdown_start} → ${m.max_drawdown_end})</span>
       </div>
       <div class="chart-body"><canvas id="dd-chart"></canvas></div>
     </div>

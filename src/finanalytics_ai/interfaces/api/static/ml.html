@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -10,51 +10,51 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh}
 .header{background:var(--s1);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;gap:16px}
-.header h1{font-size:18px;font-weight:600;letter-spacing:.5px}
-.badge{font-family:var(--mono);font-size:10px;background:#0a3a2a;color:var(--green);border:1px solid #00502e;padding:2px 8px;border-radius:3px}
+.header h1{font-size:22px;font-weight:600;letter-spacing:.5px}
+.badge{font-family:var(--mono);font-size:14px;background:#0a3a2a;color:var(--green);border:1px solid #00502e;padding:2px 8px;border-radius:3px}
 .nav{display:flex;gap:4px;padding:12px 24px;background:var(--s1);border-bottom:1px solid var(--border)}
-.nav-btn{font-family:var(--mono);font-size:12px;padding:6px 14px;border:1px solid var(--border2);background:transparent;color:var(--muted);border-radius:4px;cursor:pointer;transition:all .15s}
+.nav-btn{font-family:var(--mono);font-size:16px;padding:6px 14px;border:1px solid var(--border2);background:transparent;color:var(--muted);border-radius:4px;cursor:pointer;transition:all .15s}
 .nav-btn.active,.nav-btn:hover{background:var(--accent);color:#000;border-color:var(--accent)}
 .main{padding:24px;max-width:1400px;margin:0 auto}
 .panel{background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:20px}
-.panel h2{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px}
+.panel h2{font-size:17px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
 .input-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
-.input-row input,.input-row select{background:var(--s2);border:1px solid var(--border2);color:var(--text);padding:7px 12px;border-radius:4px;font-family:var(--mono);font-size:12px;outline:none}
+.input-row input,.input-row select{background:var(--s2);border:1px solid var(--border2);color:var(--text);padding:7px 12px;border-radius:4px;font-family:var(--mono);font-size:16px;outline:none}
 .input-row input:focus,.input-row select:focus{border-color:var(--accent)}
-.btn{padding:8px 18px;border:none;border-radius:4px;font-family:var(--mono);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s}
+.btn{padding:8px 18px;border:none;border-radius:4px;font-family:var(--mono);font-size:16px;font-weight:500;cursor:pointer;transition:all .15s}
 .btn-primary{background:var(--accent);color:#000}
 .btn-primary:hover{opacity:.85}
 .btn-secondary{background:transparent;border:1px solid var(--border2);color:var(--muted)}
 .btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
-.label{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:4px}
-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
-th{text-align:left;color:var(--muted);font-weight:500;padding:8px 10px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.label{font-family:var(--mono);font-size:15px;color:var(--muted);margin-bottom:4px}
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:16px}
+th{text-align:left;color:var(--muted);font-weight:500;padding:8px 10px;border-bottom:1px solid var(--border);font-size:15px;text-transform:uppercase;letter-spacing:.5px}
 td{padding:8px 10px;border-bottom:1px solid var(--border)}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:rgba(255,255,255,.02)}
-.pill{display:inline-block;font-size:10px;font-family:var(--mono);padding:2px 7px;border-radius:3px;font-weight:500}
+.pill{display:inline-block;font-size:14px;font-family:var(--mono);padding:2px 7px;border-radius:3px;font-weight:500}
 .pill-green{background:#0a3a2a;color:var(--green);border:1px solid #00502e}
 .pill-red{background:#3a0a1a;color:var(--red);border:1px solid #6a0030}
 .pill-yellow{background:#3a2e0a;color:var(--yellow);border:1px solid #6a5010}
 .pill-orange{background:#3a1e0a;color:var(--orange);border:1px solid #7a3010}
 .metric-card{background:var(--s2);border:1px solid var(--border);border-radius:6px;padding:14px}
-.metric-val{font-family:var(--mono);font-size:22px;font-weight:600;margin:4px 0}
-.metric-label{font-size:11px;color:var(--muted)}
+.metric-val{font-family:var(--mono);font-size:26px;font-weight:600;margin:4px 0}
+.metric-label{font-size:15px;color:var(--muted)}
 .bar-container{background:var(--s2);border-radius:3px;height:6px;overflow:hidden;margin-top:6px}
 .bar-fill{height:100%;border-radius:3px;transition:width .3s}
 .risk-chart{display:flex;gap:3px;align-items:flex-end;height:80px;margin-top:12px}
 .risk-bar-wrap{display:flex;flex-direction:column;align-items:center;flex:1;gap:4px}
 .risk-bar{width:100%;border-radius:2px 2px 0 0;min-height:4px;transition:height .3s}
-.risk-bar-label{font-size:9px;color:var(--muted);font-family:var(--mono);text-align:center}
-.signal-badge{display:inline-block;padding:2px 8px;border-radius:3px;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.5px}
+.risk-bar-label{font-size:13px;color:var(--muted);font-family:var(--mono);text-align:center}
+.signal-badge{display:inline-block;padding:2px 8px;border-radius:3px;font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:.5px}
 .sig-strong-buy{background:#0d2b1a;color:#00e676;border:1px solid #00e676}
 .sig-buy{background:#0d1f12;color:#69f0ae;border:1px solid #69f0ae}
 .sig-hold{background:#1a1a0d;color:#ffd740;border:1px solid #ffd740}
 .sig-sell{background:#1f0d0d;color:#ff6e6e;border:1px solid #ff6e6e}
 .sig-strong-sell{background:#2b0d0d;color:#ff1744;border:1px solid #ff1744}
-.status{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;padding:32px}
+.status{font-family:var(--mono);font-size:15px;color:var(--muted);text-align:center;padding:32px}
 .tab-content{display:none}.tab-content.active{display:block}
 .prob-bar{width:100%;height:8px;border-radius:4px;background:var(--s2);position:relative;overflow:hidden}
 .prob-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--red),var(--yellow),var(--green))}
@@ -78,14 +78,14 @@ tr:hover td{background:rgba(255,255,255,.02)}
   border-bottom: 1px solid #1c2535;
   color: #7a95b0; cursor: pointer;
   display: flex; align-items: center; gap: 10px;
-  font-size: 13px; white-space: nowrap; overflow: hidden; flex-shrink: 0;
+  font-size: 17px; white-space: nowrap; overflow: hidden; flex-shrink: 0;
 }
 .fa-sidebar-toggle:hover { color: #F0B429; background: rgba(240,180,41,.06); }
 .fa-sidebar-toggle svg { flex-shrink: 0; }
 .fa-sb-link {
   display: flex; align-items: center; gap: 10px;
   padding: 7px 14px; color: #6a8aa8;
-  text-decoration: none; font-size: 12px;
+  text-decoration: none; font-size: 16px;
   white-space: nowrap; overflow: hidden;
   transition: all .15s;
 }
@@ -103,7 +103,7 @@ body.sb-open .fa-sb-push { margin-left: var(--sb-w); }
 </head>
 <body>
 <aside class="fa-sidebar" id="fa-sidebar">
-  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:11px">MENU</span></button>
+  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:15px">MENU</span></button>
   <div class="fa-sb-scroll"><a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
 <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
 <a href="/fundamental" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg><span>Fundamentalista</span></a>
@@ -129,7 +129,7 @@ body.sb-open .fa-sb-push { margin-left: var(--sb-w); }
 <div class="header">
   <h1>ML PROBABILISTICO</h1>
   <span class="badge">BETA</span>
-  <span style="color:var(--muted);font-size:12px;font-family:var(--mono);margin-left:auto">FinAnalytics AI</span>
+  <span style="color:var(--muted);font-size:16px;font-family:var(--mono);margin-left:auto">FinAnalytics AI</span>
 </div>
 <div class="nav">
   <button class="nav-btn active" onclick="showTab('forecast')">PREVISAO</button>
@@ -340,7 +340,7 @@ async function runForecast(retrain = false) {
     document.getElementById('fc-body').innerHTML = rows.map(f => `
       <tr>
         ${signalBadge(f.signal)}
-        <td style="font-family:var(--mono);color:var(--muted);font-size:11px">${f.score != null ? f.score.toFixed(3) : "—"}</td>
+        <td style="font-family:var(--mono);color:var(--muted);font-size:15px">${f.score != null ? f.score.toFixed(3) : "—"}</td>
         <td style="font-family:var(--mono);font-weight:600">${f.ticker}</td>
         ${pctCell(f.p10_pct)}
         ${pctCell(f.p50_pct)}
@@ -355,7 +355,7 @@ async function runForecast(retrain = false) {
             </span>
           </div>
         </td>
-        <td style="font-family:var(--mono);font-size:11px;color:var(--muted)">
+        <td style="font-family:var(--mono);font-size:15px;color:var(--muted)">
           [${f.range_80pct[0]}%, ${f.range_80pct[1]}%]
         </td>
       </tr>
@@ -367,23 +367,23 @@ async function runForecast(retrain = false) {
     document.getElementById('fc-card-grid').innerHTML = top6.map(f => `
       <div class="metric-card">
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-family:var(--mono);font-weight:600;font-size:15px">${f.ticker}</span>
-          <span style="font-family:var(--mono);font-size:11px;color:${probColor(f.prob_positive_pct)};font-weight:600">
+          <span style="font-family:var(--mono);font-weight:600;font-size:19px">${f.ticker}</span>
+          <span style="font-family:var(--mono);font-size:15px;color:${probColor(f.prob_positive_pct)};font-weight:600">
             ${f.prob_positive_pct}% pos
           </span>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:12px">
           <div>
             <div class="label">P10</div>
-            <div style="font-family:var(--mono);color:var(--red);font-size:13px">${f.p10_pct > 0 ? '+' : ''}${f.p10_pct}%</div>
+            <div style="font-family:var(--mono);color:var(--red);font-size:17px">${f.p10_pct > 0 ? '+' : ''}${f.p10_pct}%</div>
           </div>
           <div>
             <div class="label">P50</div>
-            <div style="font-family:var(--mono);color:${f.p50_pct >= 0 ? 'var(--green)' : 'var(--red)'};font-size:13px;font-weight:600">${f.p50_pct > 0 ? '+' : ''}${f.p50_pct}%</div>
+            <div style="font-family:var(--mono);color:${f.p50_pct >= 0 ? 'var(--green)' : 'var(--red)'};font-size:17px;font-weight:600">${f.p50_pct > 0 ? '+' : ''}${f.p50_pct}%</div>
           </div>
           <div>
             <div class="label">P90</div>
-            <div style="font-family:var(--mono);color:var(--green);font-size:13px">${f.p90_pct > 0 ? '+' : ''}${f.p90_pct}%</div>
+            <div style="font-family:var(--mono);color:var(--green);font-size:17px">${f.p90_pct > 0 ? '+' : ''}${f.p90_pct}%</div>
           </div>
         </div>
         <div class="bar-container" style="margin-top:10px">
@@ -428,7 +428,7 @@ async function runRisk() {
         <td style="font-family:var(--mono)">${m.historical.var_95_pct}% / CVaR ${m.historical.cvar_95_pct}%</td>
         <td style="font-family:var(--mono)">
           ${m.parametric_t.var_95_pct}%
-          <span style="font-size:10px;color:var(--muted)">(df=${m.parametric_t.degrees_of_freedom})</span>
+          <span style="font-size:14px;color:var(--muted)">(df=${m.parametric_t.degrees_of_freedom})</span>
         </td>
         <td style="font-family:var(--mono);color:var(--muted)">${m.garch.var_95_pct != null ? m.garch.var_95_pct + '%' : '—'}</td>
         <td style="font-family:var(--mono)">${m.monte_carlo.var_95_pct}%</td>
@@ -463,7 +463,7 @@ async function runScreener() {
     document.getElementById('sc-body').innerHTML = rows.map(f => `
       <tr>
         ${signalBadge(f.signal)}
-        <td style="font-family:var(--mono);color:var(--muted);font-size:11px">${f.score != null ? f.score.toFixed(3) : "—"}</td>
+        <td style="font-family:var(--mono);color:var(--muted);font-size:15px">${f.score != null ? f.score.toFixed(3) : "—"}</td>
         <td style="font-family:var(--mono);font-weight:600">${f.ticker}</td>
         <td>
           <span style="font-family:var(--mono);color:${probColor(f.prob_positive_pct || 50)};font-weight:600">
@@ -507,8 +507,8 @@ async function computeFeatures() {
     if (fi.features) {
       document.getElementById('feat-importance').innerHTML = Object.entries(fi.features)
         .map(([k, v]) => `<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
-          <span style="font-family:var(--mono);font-size:12px">${k}</span>
-          <span style="font-size:11px;color:var(--muted)">${v}</span>
+          <span style="font-family:var(--mono);font-size:16px">${k}</span>
+          <span style="font-size:15px;color:var(--muted)">${v}</span>
         </div>`).join('');
     }
   } catch (err) {

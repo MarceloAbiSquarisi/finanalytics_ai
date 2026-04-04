@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -44,16 +44,16 @@ body::after {
   padding: 0 24px; height: 46px;
   display: flex; align-items: center; justify-content: space-between;
 }
-.hdr-brand { font-family: var(--mono); font-size: 12px; font-weight: 700;
+.hdr-brand { font-family: var(--mono); font-size: 16px; font-weight: 700;
               letter-spacing: .1em; color: var(--text);
               display: flex; align-items: center; gap: 10px; }
 .brand-badge {
   background: linear-gradient(135deg, #ff4060, #ff8800);
-  color: #fff; font-size: 8px; font-weight: 700; padding: 2px 6px;
+  color: #fff; font-size: 12px; font-weight: 700; padding: 2px 6px;
   border-radius: 3px; letter-spacing: .08em;
 }
 .nav { display: flex; gap: 2px; }
-.nav a { font-family: var(--mono); font-size: 10px; color: var(--muted);
+.nav a { font-family: var(--mono); font-size: 14px; color: var(--muted);
           text-decoration: none; padding: 5px 12px; border-radius: 3px;
           border: 1px solid transparent; transition: all .1s; }
 .nav a:hover { color: var(--text); border-color: var(--border); }
@@ -67,7 +67,7 @@ body::after {
                background: linear-gradient(135deg, #ff4060 0%, #ff8800 50%, #ffdd00 100%);
                -webkit-background-clip: text; -webkit-text-fill-color: transparent;
                background-clip: text; margin-bottom: 4px; }
-.page-sub { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: .06em; }
+.page-sub { font-family: var(--mono); font-size: 14px; color: var(--muted); letter-spacing: .06em; }
 
 /* ── Config panel ── */
 .config-panel {
@@ -76,11 +76,11 @@ body::after {
 }
 .config-row { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: end; }
 .config-fields { display: grid; grid-template-columns: 2fr repeat(4, 1fr); gap: 10px; }
-.cfg-item label { display: block; font-family: var(--mono); font-size: 8px; color: var(--muted);
+.cfg-item label { display: block; font-family: var(--mono); font-size: 12px; color: var(--muted);
                    letter-spacing: .1em; text-transform: uppercase; margin-bottom: 4px; }
 .cfg-input, .cfg-select {
   width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
-  color: var(--text); font-family: var(--mono); font-size: 11px; padding: 7px 9px;
+  color: var(--text); font-family: var(--mono); font-size: 15px; padding: 7px 9px;
   outline: none; transition: border-color .12s;
 }
 .cfg-input:focus, .cfg-select:focus { border-color: #ff8800; }
@@ -89,7 +89,7 @@ body::after {
 .btn-scan {
   background: linear-gradient(135deg, #ff4060, #ff8800);
   color: #fff; border: none; border-radius: 7px; padding: 10px 28px;
-  font-family: var(--sans); font-size: 13px; font-weight: 700;
+  font-family: var(--sans); font-size: 17px; font-weight: 700;
   cursor: pointer; letter-spacing: .02em; white-space: nowrap;
   transition: opacity .12s; height: 38px;
 }
@@ -102,7 +102,7 @@ body::after {
   background: var(--s1); border: 1px solid var(--border); border-radius: 8px;
   padding: 14px 16px;
 }
-.kpi-label { font-family: var(--mono); font-size: 8px; color: var(--muted);
+.kpi-label { font-family: var(--mono); font-size: 12px; color: var(--muted);
               letter-spacing: .1em; text-transform: uppercase; margin-bottom: 6px; }
 .kpi-val { font-size: 26px; font-weight: 800; line-height: 1; }
 
@@ -126,10 +126,10 @@ body::after {
   padding: 12px 14px 10px; display: flex; align-items: center;
   justify-content: space-between; border-bottom: 1px solid var(--border);
 }
-.card-ticker { font-family: var(--mono); font-size: 14px; font-weight: 700;
+.card-ticker { font-family: var(--mono); font-size: 18px; font-weight: 700;
                 letter-spacing: .06em; }
 .card-badge {
-  font-family: var(--mono); font-size: 9px; font-weight: 700;
+  font-family: var(--mono); font-size: 13px; font-weight: 700;
   padding: 3px 8px; border-radius: 3px; letter-spacing: .06em;
 }
 .badge-high  { background: rgba(255,64,96,.15);  color: var(--high); border: 1px solid rgba(255,64,96,.3); }
@@ -146,22 +146,22 @@ body::after {
 }
 .anom-row:last-child { border-bottom: none; }
 .anom-icon { width: 28px; height: 28px; border-radius: 5px; flex-shrink: 0;
-              display: flex; align-items: center; justify-content: center; font-size: 13px; }
+              display: flex; align-items: center; justify-content: center; font-size: 17px; }
 .icon-zscore   { background: rgba(255,64,96,.1); }
 .icon-bollinger{ background: rgba(255,200,0,.1); }
 .icon-cusum    { background: rgba(100,200,255,.1); }
 .icon-volume   { background: rgba(150,100,255,.1); }
 .anom-info { flex: 1; min-width: 0; }
-.anom-type { font-family: var(--mono); font-size: 9px; color: var(--muted);
+.anom-type { font-family: var(--mono); font-size: 13px; color: var(--muted);
               letter-spacing: .08em; text-transform: uppercase; }
-.anom-desc { font-size: 11px; color: var(--text); line-height: 1.4; margin-top: 2px;
+.anom-desc { font-size: 15px; color: var(--text); line-height: 1.4; margin-top: 2px;
               overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.anom-score { font-family: var(--mono); font-size: 10px; font-weight: 700; white-space: nowrap; }
+.anom-score { font-family: var(--mono); font-size: 14px; font-weight: 700; white-space: nowrap; }
 
 .dir-up   { color: var(--up); }
 .dir-down { color: var(--down); }
 
-.no-anom-msg { font-family: var(--mono); font-size: 10px; color: var(--muted);
+.no-anom-msg { font-family: var(--mono); font-size: 14px; color: var(--muted);
                 text-align: center; padding: 12px 0; }
 
 /* ── States ── */
@@ -174,17 +174,17 @@ body::after {
   animation: spin .8s linear infinite; margin: 0 auto 16px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.loading-label { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; }
-.empty-label   { font-family: var(--mono); font-size: 12px; letter-spacing: .06em; }
+.loading-label { font-family: var(--mono); font-size: 14px; letter-spacing: .08em; }
+.empty-label   { font-family: var(--mono); font-size: 16px; letter-spacing: .06em; }
 
 .error-box { background: rgba(255,64,96,.07); border: 1px solid rgba(255,64,96,.2);
               border-radius: 7px; padding: 12px 16px; color: #ff8fa0;
-              font-family: var(--mono); font-size: 11px; margin-bottom: 16px; }
+              font-family: var(--mono); font-size: 15px; margin-bottom: 16px; }
 
 /* ── Legend ── */
 .legend { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
 .legend-item { display: flex; align-items: center; gap: 5px;
-                font-family: var(--mono); font-size: 9px; color: var(--muted); }
+                font-family: var(--mono); font-size: 13px; color: var(--muted); }
 .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
 
 /* ── FinAnalytics Unified Topbar ────────────────────────────────── */
@@ -194,16 +194,16 @@ body::after {
   box-shadow:0 2px 12px rgba(0,0,0,.4)}
 .fa-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
 .fa-logo svg{display:block}
-.fa-logo-text{font-family:'Georgia','Times New Roman',serif;font-size:17px;
+.fa-logo-text{font-family:'Georgia','Times New Roman',serif;font-size:21px;
   font-weight:700;color:#e8f4fd;white-space:nowrap;letter-spacing:-.3px}
 .fa-logo-text em{color:#F0B429;font-style:normal}
 .fa-ai-badge{display:inline-block;background:#1B3A6B;color:#fff;
-  font-family:'Arial',sans-serif;font-size:9px;font-weight:800;
+  font-family:'Arial',sans-serif;font-size:13px;font-weight:800;
   letter-spacing:1.5px;padding:2px 5px;border-radius:3px;vertical-align:middle;margin-left:2px}
 .fa-nav{display:flex;align-items:center;gap:2px;overflow-x:auto;
   scrollbar-width:none;-ms-overflow-style:none;flex:1}
 .fa-nav::-webkit-scrollbar{display:none}
-.fa-nav a{white-space:nowrap;font-family:'Rajdhani','Arial',sans-serif;font-size:12px;
+.fa-nav a{white-space:nowrap;font-family:'Rajdhani','Arial',sans-serif;font-size:16px;
   font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;
   padding:5px 10px;border-radius:5px;transition:.15s}
 .fa-nav a:hover{color:#00c48c;background:rgba(0,196,140,.08)}
@@ -214,10 +214,10 @@ body::after {
 .tbl-wrap th,.tbl-wrap td{white-space:normal!important;word-break:break-word}
 
 
-.fa-logout-btn{display:flex;align-items:center;gap:6px;font-family:'Rajdhani','Arial',sans-serif;font-size:12px;font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;padding:5px 10px;border-radius:5px;border:1px solid transparent;cursor:pointer;background:transparent;white-space:nowrap;transition:.15s;flex-shrink:0}
+.fa-logout-btn{display:flex;align-items:center;gap:6px;font-family:'Rajdhani','Arial',sans-serif;font-size:16px;font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;padding:5px 10px;border-radius:5px;border:1px solid transparent;cursor:pointer;background:transparent;white-space:nowrap;transition:.15s;flex-shrink:0}
 .fa-logout-btn:hover{color:#ff6b6b;background:rgba(255,107,107,.08);border-color:rgba(255,107,107,.2)}
-.fa-user-chip{display:flex;align-items:center;gap:6px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;color:#556677;letter-spacing:.3px;flex-shrink:0}
-.fa-user-chip .fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:10px;color:#8899aa}
+.fa-user-chip{display:flex;align-items:center;gap:6px;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;color:#556677;letter-spacing:.3px;flex-shrink:0}
+.fa-user-chip .fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:14px;color:#8899aa}
 
 
 /* ── Collapsible Sidebar ─────────────────────────────────── */
@@ -239,13 +239,13 @@ body::after {
   border-bottom: 1px solid #1c2535;
   color: #7a95b0; cursor: pointer;
   display: flex; align-items: center; gap: 10px;
-  font-size: 13px; white-space: nowrap; overflow: hidden;
+  font-size: 17px; white-space: nowrap; overflow: hidden;
 }
 .fa-sidebar-toggle:hover { color: #F0B429; background: rgba(240,180,41,.06); }
 .fa-sidebar-toggle svg { flex-shrink: 0; }
 .fa-sb-section { padding: 8px 0; border-bottom: 1px solid #141f2e; }
 .fa-sb-section-label {
-  font-size: 8px; letter-spacing: .12em; color: #3a5570;
+  font-size: 12px; letter-spacing: .12em; color: #3a5570;
   padding: 4px 16px 2px; text-transform: uppercase;
   white-space: nowrap; overflow: hidden;
   opacity: 0; transition: opacity .15s;
@@ -254,7 +254,7 @@ body::after {
 .fa-sb-link {
   display: flex; align-items: center; gap: 10px;
   padding: 7px 14px; color: #6a8aa8;
-  text-decoration: none; font-size: 12px;
+  text-decoration: none; font-size: 16px;
   white-space: nowrap; overflow: hidden;
   transition: all .15s;
 }
@@ -275,7 +275,7 @@ body.sb-open .fa-page-content { margin-left: var(--sb-w); }
 </head>
 <body>
 <aside class="fa-sidebar" id="fa-sidebar">
-  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:11px">MENU</span></button>
+  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:15px">MENU</span></button>
   <div style="overflow-y:auto;flex:1"><a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
 <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
 <a href="/fundamental" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg><span>Fundamentalista</span></a>
@@ -343,9 +343,9 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     <span class="fa-logo-text">Fin<em>Analytics</em> <span class="fa-ai-badge">AI</span></span>
   </a>
 <a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
-  <span id="fa-page-title" style="font-size:12px;font-weight:600;color:#7a95b0;letter-spacing:.06em;margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Anomalias</span>
+  <span id="fa-page-title" style="font-size:16px;font-weight:600;color:#7a95b0;letter-spacing:.06em;margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Anomalias</span>
   <nav class="fa-nav"></nav>
-  <a href="/marketdata" style="display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.35);border-radius:5px;color:#00e676;font-size:11px;font-weight:700;padding:4px 10px;text-decoration:none;letter-spacing:.5px;transition:.15s;white-space:nowrap" onmouseover="this.style.background='rgba(0,230,118,.2)'" onmouseout="this.style.background='rgba(0,230,118,.1)'">
+  <a href="/marketdata" style="display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.35);border-radius:5px;color:#00e676;font-size:15px;font-weight:700;padding:4px 10px;text-decoration:none;letter-spacing:.5px;transition:.15s;white-space:nowrap" onmouseover="this.style.background='rgba(0,230,118,.2)'" onmouseout="this.style.background='rgba(0,230,118,.1)'">
     <span style="width:7px;height:7px;border-radius:50%;background:#00e676;display:inline-block;animation:livePulse 1.8s ease-in-out infinite"></span>
     MERCADO AO VIVO
   </a>
@@ -440,7 +440,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     <div class="legend-item"><div class="legend-dot" style="background:var(--med)"></div> MEDIUM</div>
     <div class="legend-item"><div class="legend-dot" style="background:var(--low)"></div> LOW</div>
     <div class="legend-item" style="margin-left:12px">
-      <span style="color:#aaa;font-size:9px">
+      <span style="color:#aaa;font-size:13px">
         Z-SCORE: spike de retorno &nbsp;|&nbsp;
         BOLLINGER: rompimento de banda &nbsp;|&nbsp;
         CUSUM: mudanca de tendencia &nbsp;|&nbsp;
@@ -459,7 +459,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
   <div class="empty-state" id="empty-state">
     <div style="font-size:32px;margin-bottom:12px">&#9888;</div>
     <div class="empty-label">Configure os tickers e execute o scan</div>
-    <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:6px">
+    <div style="font-family:var(--mono);font-size:13px;color:var(--muted);margin-top:6px">
       Detecta anomalias nos ultimos dados de mercado usando 4 algoritmos
     </div>
   </div>
@@ -578,7 +578,7 @@ function buildCard(r, idx) {
       bodyHtml += buildAnomalyRow(a);
     });
     if (anomalies.length > 4) {
-      bodyHtml += '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);'
+      bodyHtml += '<div style="font-family:var(--mono);font-size:13px;color:var(--muted);'
         + 'padding:6px 0;text-align:center">+ ' + (anomalies.length - 4) + ' mais anomalias</div>';
     }
   }
@@ -587,7 +587,7 @@ function buildCard(r, idx) {
     + '<div class="card-head">'
     +   '<span class="card-ticker">' + r.ticker + '</span>'
     +   '<div style="display:flex;align-items:center;gap:6px">'
-    +     '<span style="font-family:var(--mono);font-size:8px;color:var(--muted)">'
+    +     '<span style="font-family:var(--mono);font-size:12px;color:var(--muted)">'
     +       r.bars_analyzed + ' barras</span>'
     +     badgeHtml
     +   '</div>'

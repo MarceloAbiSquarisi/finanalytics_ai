@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -10,23 +10,23 @@
   --gold:#F0B429;--purple:#a855f7;--orange:#fb923c;
   --sb-w:220px;--sb-w-collapsed:52px}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:system-ui,'IBM Plex Sans',sans-serif;font-size:13px;min-height:100vh}
+body{background:var(--bg);color:var(--text);font-family:system-ui,'IBM Plex Sans',sans-serif;font-size:17px;min-height:100vh}
 .fa-topbar{height:52px;background:var(--s1);border-bottom:1px solid var(--border);
   display:flex;align-items:center;gap:12px;padding:0 16px;position:sticky;top:0;z-index:300}
 .fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none}
-.fa-logo-text{font-family:monospace;font-size:13px;font-weight:600;color:#e2eaf4}
+.fa-logo-text{font-family:monospace;font-size:17px;font-weight:600;color:#e2eaf4}
 .fa-logo-text em{color:var(--gold);font-style:normal}
-.fa-ai-badge{background:var(--gold);color:#0a1628;font-size:8px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.08em;vertical-align:middle;margin-left:2px}
+.fa-ai-badge{background:var(--gold);color:#0a1628;font-size:12px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.08em;vertical-align:middle;margin-left:2px}
 .fa-user-chip{display:flex;align-items:center;gap:6px;margin-left:auto}
-.fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:10px;color:#8899aa}
-.fa-logout-btn{background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-size:11px;padding:4px 10px;cursor:pointer;display:flex;align-items:center;gap:5px;transition:.15s}
+.fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:14px;color:#8899aa}
+.fa-logout-btn{background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-size:15px;padding:4px 10px;cursor:pointer;display:flex;align-items:center;gap:5px;transition:.15s}
 .fa-logout-btn:hover{color:var(--red);border-color:var(--red)}
 .fa-sidebar{position:fixed;left:0;top:52px;bottom:0;width:var(--sb-w-collapsed);background:#0a0f18;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1);z-index:200}
 .fa-sidebar.open{width:var(--sb-w)}
-.fa-sidebar-toggle{width:100%;padding:10px 14px;background:transparent;border:none;border-bottom:1px solid var(--border);color:#7a95b0;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;white-space:nowrap;overflow:hidden}
+.fa-sidebar-toggle{width:100%;padding:10px 14px;background:transparent;border:none;border-bottom:1px solid var(--border);color:#7a95b0;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:17px;white-space:nowrap;overflow:hidden}
 .fa-sidebar-toggle:hover{color:var(--gold);background:rgba(240,180,41,.06)}
 .fa-sidebar-toggle svg{flex-shrink:0}
-.fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;text-decoration:none;font-size:12px;white-space:nowrap;overflow:hidden;transition:all .15s}
+.fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;text-decoration:none;font-size:16px;white-space:nowrap;overflow:hidden;transition:all .15s}
 .fa-sb-link:hover{color:#e2eaf4;background:rgba(0,212,255,.05)}
 .fa-sb-link.active{color:var(--accent);background:rgba(0,212,255,.08);border-right:2px solid var(--accent)}
 .fa-sb-link svg{flex-shrink:0}
@@ -35,22 +35,22 @@ body{background:var(--bg);color:var(--text);font-family:system-ui,'IBM Plex Sans
 .fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1)}
 body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 .main{padding:20px 24px;max-width:1400px}
-.page-title{font-size:22px;font-weight:700;color:#e2eaf4;margin-bottom:2px;display:flex;align-items:center;gap:10px}
-.page-sub{font-size:11px;color:var(--muted);margin-bottom:20px}
-.master-badge{background:linear-gradient(135deg,var(--gold),#e09000);color:#0a0f18;font-size:9px;font-weight:800;padding:3px 8px;border-radius:4px;letter-spacing:.08em}
+.page-title{font-size:26px;font-weight:700;color:#e2eaf4;margin-bottom:2px;display:flex;align-items:center;gap:10px}
+.page-sub{font-size:15px;color:var(--muted);margin-bottom:20px}
+.master-badge{background:linear-gradient(135deg,var(--gold),#e09000);color:#0a0f18;font-size:13px;font-weight:800;padding:3px 8px;border-radius:4px;letter-spacing:.08em}
 .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:20px;flex-wrap:wrap}
-.tab{padding:8px 16px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:.15s;white-space:nowrap}
+.tab{padding:8px 16px;font-size:16px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:.15s;white-space:nowrap}
 .tab:hover{color:var(--text)}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
 .tab-panel{display:none}
 .tab-panel.active{display:block}
 .sec-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
-.sec-title{font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.06em}
-.btn{border:none;border-radius:6px;font-weight:600;font-size:11px;padding:7px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:.15s}
+.sec-title{font-size:16px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.06em}
+.btn{border:none;border-radius:6px;font-weight:600;font-size:15px;padding:7px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:.15s}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .btn-primary{background:linear-gradient(135deg,#00a8cc,var(--accent));color:#0a1628}
 .btn-primary:hover:not(:disabled){opacity:.85}
-.btn-sm{padding:5px 10px;font-size:10px}
+.btn-sm{padding:5px 10px;font-size:14px}
 .btn-danger{background:rgba(255,61,90,.12);border:1px solid rgba(255,61,90,.3);color:var(--red)}
 .btn-danger:hover{background:rgba(255,61,90,.2)}
 .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
@@ -59,38 +59,38 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 .btn-warn:hover{background:rgba(240,180,41,.2)}
 .tbl-wrap{overflow-x:auto;border-radius:7px;border:1px solid var(--border)}
 table{width:100%;border-collapse:collapse;min-width:500px}
-th{background:var(--s1);color:var(--muted);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)}
-td{padding:8px 12px;font-size:11px;color:var(--text);border-bottom:1px solid #111822}
+th{background:var(--s1);color:var(--muted);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:8px 12px;font-size:15px;color:var(--text);border-bottom:1px solid #111822}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:rgba(0,212,255,.02)}
-.badge{display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.05em}
+.badge{display:inline-block;font-size:13px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.05em}
 .badge-master{background:linear-gradient(135deg,rgba(240,180,41,.25),rgba(240,180,41,.15));color:var(--gold);border:1px solid rgba(240,180,41,.3)}
 .badge-admin{background:rgba(168,85,247,.15);color:var(--purple);border:1px solid rgba(168,85,247,.3)}
 .badge-user{background:rgba(0,212,255,.1);color:var(--accent)}
 .badge-on{background:rgba(0,230,118,.1);color:var(--green)}
 .badge-off{background:rgba(255,61,90,.1);color:var(--red)}
-.badge-type{background:rgba(0,212,255,.08);color:var(--accent);font-size:9px;padding:2px 6px;border-radius:3px}
+.badge-type{background:rgba(0,212,255,.08);color:var(--accent);font-size:13px;padding:2px 6px;border-radius:3px}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;display:none;align-items:center;justify-content:center}
 .modal-overlay.open{display:flex}
 .modal{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:24px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto}
-.modal-title{font-size:14px;font-weight:700;color:#e2eaf4;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between}
-.modal-close{background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1}
+.modal-title{font-size:18px;font-weight:700;color:#e2eaf4;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between}
+.modal-close{background:transparent;border:none;color:var(--muted);font-size:24px;cursor:pointer;line-height:1}
 .modal-close:hover{color:var(--red)}
 .form-grid{display:grid;gap:12px}
 .form-2{grid-template-columns:1fr 1fr}
 .form-group{display:flex;flex-direction:column;gap:4px}
-.form-group label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
-.form-group input,.form-group select,.form-group textarea{background:var(--s2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;padding:8px 10px;outline:none;font-family:monospace;transition:.15s;width:100%}
+.form-group label{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.form-group input,.form-group select,.form-group textarea{background:var(--s2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:16px;padding:8px 10px;outline:none;font-family:monospace;transition:.15s;width:100%}
 .form-group input:focus,.form-group select:focus{border-color:var(--accent)}
 .form-group textarea{resize:vertical;min-height:60px}
 .form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
-.msg{padding:8px 12px;border-radius:6px;font-size:11px;font-family:monospace;display:none;margin-top:10px}
+.msg{padding:8px 12px;border-radius:6px;font-size:15px;font-family:monospace;display:none;margin-top:10px}
 .msg.error{background:rgba(255,61,90,.08);border:1px solid rgba(255,61,90,.3);color:var(--red);display:block}
 .msg.success{background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.3);color:var(--green);display:block}
-.empty{text-align:center;padding:40px;color:var(--muted);font-size:12px}
+.empty{text-align:center;padding:40px;color:var(--muted);font-size:16px}
 .actions-cell{display:flex;gap:6px;flex-wrap:wrap}
-select.role-sel{background:var(--s2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:10px;padding:3px 7px;cursor:pointer}
-.search-bar{background:var(--s2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;padding:7px 12px;outline:none;width:260px;font-family:monospace}
+select.role-sel{background:var(--s2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:14px;padding:3px 7px;cursor:pointer}
+.search-bar{background:var(--s2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:16px;padding:7px 12px;outline:none;width:260px;font-family:monospace}
 .search-bar:focus{border-color:var(--accent)}
 @keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
 </style>
@@ -101,13 +101,13 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
   <a href="/" class="fa-logo">
     <span class="fa-logo-text">Fin<em>Analytics</em><span class="fa-ai-badge">AI</span></span>
   </a>
-  <a href="/marketdata" style="display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.35);border-radius:5px;color:#00e676;font-size:11px;font-weight:700;padding:4px 10px;text-decoration:none;letter-spacing:.5px;transition:.15s;white-space:nowrap" onmouseover="this.style.background='rgba(0,230,118,.2)'" onmouseout="this.style.background='rgba(0,230,118,.1)'">
+  <a href="/marketdata" style="display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.35);border-radius:5px;color:#00e676;font-size:15px;font-weight:700;padding:4px 10px;text-decoration:none;letter-spacing:.5px;transition:.15s;white-space:nowrap" onmouseover="this.style.background='rgba(0,230,118,.2)'" onmouseout="this.style.background='rgba(0,230,118,.1)'">
     <span style="width:7px;height:7px;border-radius:50%;background:#00e676;display:inline-block;animation:livePulse 1.8s ease-in-out infinite"></span>
     MERCADO AO VIVO
   </a>
   <div class="fa-user-chip">
     <div class="fa-avatar" id="avatarInitial">?</div>
-    <span id="topbarEmail" style="font-size:11px;color:var(--muted)"></span>
+    <span id="topbarEmail" style="font-size:15px;color:var(--muted)"></span>
     <button class="fa-logout-btn" onclick="logout()">
       <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
       Sair
@@ -238,7 +238,7 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
       Redefinir Senha
       <button class="modal-close" onclick="closeModal('modalResetPwd')">×</button>
     </div>
-    <p style="font-size:11px;color:var(--muted);margin-bottom:14px">Defina uma nova senha para <strong id="rp-name" style="color:var(--text)"></strong></p>
+    <p style="font-size:15px;color:var(--muted);margin-bottom:14px">Defina uma nova senha para <strong id="rp-name" style="color:var(--text)"></strong></p>
     <input type="hidden" id="rp-id">
     <div class="form-group"><label>Nova senha</label><input id="rp-pass" type="password" placeholder="mínimo 8 caracteres"></div>
     <div class="form-actions">
@@ -312,7 +312,7 @@ async function init() {
     const me = await fetch('/api/v1/auth/me', {headers: H()}).then(r => r.json());
     if (!me.user_id) { location.href='/'; return; }
     if (me.role !== 'master' && me.role !== 'admin') {
-      document.querySelector('.main').innerHTML = '<div class="empty" style="padding:80px"><p style="font-size:20px;margin-bottom:8px">🔒 Acesso Restrito</p><p style="color:var(--muted)">Esta página é exclusiva para administradores.</p></div>';
+      document.querySelector('.main').innerHTML = '<div class="empty" style="padding:80px"><p style="font-size:24px;margin-bottom:8px">🔒 Acesso Restrito</p><p style="color:var(--muted)">Esta página é exclusiva para administradores.</p></div>';
       return;
     }
     document.getElementById('topbarEmail').textContent = me.email;
@@ -389,7 +389,7 @@ function renderUsers(users) {
       <td>${roleBadge(u.role)}</td>
       <td><span class="badge ${u.is_active?'badge-on':'badge-off'}">${u.is_active?'Ativo':'Inativo'}</span></td>
       <td style="color:var(--muted)">${u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('pt-BR') : '—'}</td>
-      <td>${u.totp_enabled ? '<span class="badge badge-on">ON</span>' : '<span style="color:var(--muted);font-size:10px">OFF</span>'}</td>
+      <td>${u.totp_enabled ? '<span class="badge badge-on">ON</span>' : '<span style="color:var(--muted);font-size:14px">OFF</span>'}</td>
       <td>
         <div class="actions-cell">
           <select class="role-sel" onchange="changeRole('${u.user_id}',this.value,this)" title="Alterar role">
@@ -499,7 +499,7 @@ async function loadAgents() {
       <td><span class="badge-type">${typeLabel[a.agent_type]||a.agent_type}</span></td>
       <td style="font-family:monospace;color:var(--muted)">${a.code||'—'}</td>
       <td>${a.country}</td>
-      <td>${a.website ? `<a href="${a.website}" target="_blank" style="color:var(--accent);font-size:10px">${a.website.replace('https://','')}</a>` : '—'}</td>
+      <td>${a.website ? `<a href="${a.website}" target="_blank" style="color:var(--accent);font-size:14px">${a.website.replace('https://','')}</a>` : '—'}</td>
       <td><span class="badge ${a.is_active?'badge-on':'badge-off'}">${a.is_active?'Ativo':'Inativo'}</span></td>
       <td>
         <div class="actions-cell">
@@ -615,7 +615,7 @@ init();
       Redefinir Senha
       <button class="modal-close" onclick="closeModal('modalResetPwd')">×</button>
     </div>
-    <p style="font-size:11px;color:var(--muted);margin-bottom:14px">Defina uma nova senha para <strong id="rp-name" style="color:var(--text)"></strong></p>
+    <p style="font-size:15px;color:var(--muted);margin-bottom:14px">Defina uma nova senha para <strong id="rp-name" style="color:var(--text)"></strong></p>
     <input type="hidden" id="rp-id">
     <div class="form-group"><label>Nova senha</label><input id="rp-pass" type="password" placeholder="mínimo 8 caracteres"></div>
     <div class="form-actions">
@@ -689,7 +689,7 @@ async function init() {
     const me = await fetch('/api/v1/auth/me', {headers: H()}).then(r => r.json());
     if (!me.user_id) { location.href='/'; return; }
     if (me.role !== 'master' && me.role !== 'admin') {
-      document.querySelector('.main').innerHTML = '<div class="empty" style="padding:80px"><p style="font-size:20px;margin-bottom:8px">🔒 Acesso Restrito</p><p style="color:var(--muted)">Esta página é exclusiva para administradores.</p></div>';
+      document.querySelector('.main').innerHTML = '<div class="empty" style="padding:80px"><p style="font-size:24px;margin-bottom:8px">🔒 Acesso Restrito</p><p style="color:var(--muted)">Esta página é exclusiva para administradores.</p></div>';
       return;
     }
     document.getElementById('topbarEmail').textContent = me.email;
@@ -766,7 +766,7 @@ function renderUsers(users) {
       <td>${roleBadge(u.role)}</td>
       <td><span class="badge ${u.is_active?'badge-on':'badge-off'}">${u.is_active?'Ativo':'Inativo'}</span></td>
       <td style="color:var(--muted)">${u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('pt-BR') : '—'}</td>
-      <td>${u.totp_enabled ? '<span class="badge badge-on">ON</span>' : '<span style="color:var(--muted);font-size:10px">OFF</span>'}</td>
+      <td>${u.totp_enabled ? '<span class="badge badge-on">ON</span>' : '<span style="color:var(--muted);font-size:14px">OFF</span>'}</td>
       <td>
         <div class="actions-cell">
           <select class="role-sel" onchange="changeRole('${u.user_id}',this.value,this)" title="Alterar role">
@@ -876,7 +876,7 @@ async function loadAgents() {
       <td><span class="badge-type">${typeLabel[a.agent_type]||a.agent_type}</span></td>
       <td style="font-family:monospace;color:var(--muted)">${a.code||'—'}</td>
       <td>${a.country}</td>
-      <td>${a.website ? `<a href="${a.website}" target="_blank" style="color:var(--accent);font-size:10px">${a.website.replace('https://','')}</a>` : '—'}</td>
+      <td>${a.website ? `<a href="${a.website}" target="_blank" style="color:var(--accent);font-size:14px">${a.website.replace('https://','')}</a>` : '—'}</td>
       <td><span class="badge ${a.is_active?'badge-on':'badge-off'}">${a.is_active?'Ativo':'Inativo'}</span></td>
       <td>
         <div class="actions-cell">

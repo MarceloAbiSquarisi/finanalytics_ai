@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -17,16 +17,16 @@
 }
 .fa-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
 .fa-logo svg{display:block}
-.fa-logo-text{font-family:'Georgia','Times New Roman',serif;font-size:17px;
+.fa-logo-text{font-family:'Georgia','Times New Roman',serif;font-size:21px;
   font-weight:700;color:#e8f4fd;white-space:nowrap;letter-spacing:-.3px}
 .fa-logo-text em{color:#F0B429;font-style:normal}
 .fa-ai-badge{display:inline-block;background:#1B3A6B;color:#fff;
-  font-family:'Arial',sans-serif;font-size:9px;font-weight:800;
+  font-family:'Arial',sans-serif;font-size:13px;font-weight:800;
   letter-spacing:1.5px;padding:2px 5px;border-radius:3px;vertical-align:middle;margin-left:2px}
 .fa-nav{display:flex;align-items:center;gap:2px;overflow-x:auto;
   scrollbar-width:none;-ms-overflow-style:none;flex:1}
 .fa-nav::-webkit-scrollbar{display:none}
-.fa-nav a{white-space:nowrap;font-family:'Rajdhani','Arial',sans-serif;font-size:12px;
+.fa-nav a{white-space:nowrap;font-family:'Rajdhani','Arial',sans-serif;font-size:16px;
   font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;
   padding:5px 10px;border-radius:5px;transition:.15s}
 .fa-nav a:hover{color:#00c48c;background:rgba(0,196,140,.08)}
@@ -61,22 +61,22 @@ body{
   padding:36px 32px;backdrop-filter:blur(10px)}
 
 .logo{text-align:center;margin-bottom:24px}
-.logo-text{font-size:20px;font-weight:700;letter-spacing:2px;color:#e8eaf6}
-.logo-sub{font-size:11px;color:#556677;letter-spacing:1px;text-transform:uppercase;margin-top:4px}
+.logo-text{font-size:24px;font-weight:700;letter-spacing:2px;color:#e8eaf6}
+.logo-sub{font-size:15px;color:#556677;letter-spacing:1px;text-transform:uppercase;margin-top:4px}
 
 /* TABS */
 .tabs{display:flex;background:#0b1118;border-radius:7px;padding:3px;margin-bottom:24px;gap:3px}
 .tab{flex:1;background:transparent;border:none;color:#8899aa;
-  font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;
+  font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:600;
   padding:8px;border-radius:5px;cursor:pointer;transition:all .2s;letter-spacing:.5px}
 .tab.active{background:#00c48c;color:#000}
 
 /* FORM */
 .form-group{margin-bottom:16px}
-.form-label{display:block;font-size:10px;font-weight:700;letter-spacing:.8px;
+.form-label{display:block;font-size:14px;font-weight:700;letter-spacing:.8px;
   color:#8899aa;text-transform:uppercase;margin-bottom:5px}
 .form-input{width:100%;background:#0b1118;border:1px solid #1e3a5f;border-radius:6px;
-  color:#e8eaf6;font-family:'JetBrains Mono',monospace;font-size:13px;
+  color:#e8eaf6;font-family:'JetBrains Mono',monospace;font-size:17px;
   padding:10px 12px;outline:none;transition:border .15s}
 .form-input:focus{border-color:#00c48c}
 .form-input::placeholder{color:#445566}
@@ -92,26 +92,26 @@ body{
 .remember input[type=checkbox]:checked{background:#00c48c;border-color:#00c48c}
 .remember input[type=checkbox]:checked::after{
   content:'✓';position:absolute;top:-1px;left:2px;
-  font-size:11px;color:#000;font-weight:700
+  font-size:15px;color:#000;font-weight:700
 }
-.remember span{font-size:11px;color:#8899aa}
-.forgot-link{font-size:11px;color:#00c48c;text-decoration:none;opacity:.8}
+.remember span{font-size:15px;color:#8899aa}
+.forgot-link{font-size:15px;color:#00c48c;text-decoration:none;opacity:.8}
 .forgot-link:hover{opacity:1}
 
 .btn-submit{width:100%;background:#00c48c;border:none;border-radius:7px;
-  color:#000;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;
+  color:#000;font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;
   padding:12px;cursor:pointer;letter-spacing:.5px;transition:all .15s;margin-top:4px}
 .btn-submit:hover{opacity:.88}
 .btn-submit:disabled{opacity:.4;cursor:not-allowed}
 
 .error-msg{background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.3);
-  border-radius:6px;color:#ff4757;font-size:12px;padding:8px 12px;margin-bottom:12px;display:none}
+  border-radius:6px;color:#ff4757;font-size:16px;padding:8px 12px;margin-bottom:12px;display:none}
 .error-msg.show{display:block}
 .success-msg{background:rgba(0,196,140,.08);border:1px solid rgba(0,196,140,.3);
-  border-radius:6px;color:#00c48c;font-size:12px;padding:8px 12px;margin-bottom:12px;display:none}
+  border-radius:6px;color:#00c48c;font-size:16px;padding:8px 12px;margin-bottom:12px;display:none}
 .success-msg.show{display:block}
 
-.footer-note{text-align:center;font-size:11px;color:#556677;margin-top:20px}
+.footer-note{text-align:center;font-size:15px;color:#556677;margin-top:20px}
 .footer-note a{color:#00c48c;text-decoration:none}
 
 /* PASSWORD STRENGTH */
@@ -224,7 +224,7 @@ body{
         <input class="form-input" type="email" id="reg-email" placeholder="seu@email.com" autocomplete="email">
       </div>
       <div class="form-group">
-        <label class="form-label">Senha <span style="color:#556677;font-size:9px">(mín. 8 caracteres)</span></label>
+        <label class="form-label">Senha <span style="color:#556677;font-size:13px">(mín. 8 caracteres)</span></label>
         <input class="form-input" type="password" id="reg-password" placeholder="••••••••"
           autocomplete="new-password" oninput="checkPwStrength()">
         <div class="pw-bar" id="pw-bar"></div>

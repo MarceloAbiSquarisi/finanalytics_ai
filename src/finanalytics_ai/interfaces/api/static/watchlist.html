@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -16,95 +16,95 @@
 body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
 /* NAV */
 nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:0;height:46px;position:sticky;top:0;z-index:100}
-.nav-brand{color:var(--accent);font-weight:700;font-size:15px;letter-spacing:1px;margin-right:24px;white-space:nowrap}
+.nav-brand{color:var(--accent);font-weight:700;font-size:19px;letter-spacing:1px;margin-right:24px;white-space:nowrap}
 
-.nav-links a{color:var(--muted);text-decoration:none;font-size:12px;font-weight:600;padding:4px 10px;border-radius:4px;letter-spacing:.5px;transition:all .15s}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:16px;font-weight:600;padding:4px 10px;border-radius:4px;letter-spacing:.5px;transition:all .15s}
 .nav-links a:hover,.nav-links a.active{color:var(--accent);background:rgba(0,196,140,.08)}
 /* LAYOUT */
 .page{max-width:1280px;margin:0 auto;padding:20px;flex:1;width:100%}
-h1{font-size:22px;font-weight:700;color:var(--white);letter-spacing:.5px;margin-bottom:4px}
-.subtitle{color:var(--muted);font-size:12px;margin-bottom:20px}
+h1{font-size:26px;font-weight:700;color:var(--white);letter-spacing:.5px;margin-bottom:4px}
+.subtitle{color:var(--muted);font-size:16px;margin-bottom:20px}
 .grid{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
 @media(max-width:900px){.grid{grid-template-columns:1fr}}
 /* PANEL */
 .panel{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
 .panel-
-.panel-title{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+.panel-title{font-size:15px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
 .panel-body{padding:14px}
 /* ADD FORM */
 .add-row{display:flex;gap:8px;margin-bottom:14px}
-.add-row input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:13px;padding:7px 10px;outline:none;transition:border .15s}
+.add-row input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:17px;padding:7px 10px;outline:none;transition:border .15s}
 .add-row input:focus{border-color:var(--accent)}
-.btn{background:var(--accent);border:none;border-radius:6px;color:#000;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;padding:7px 14px;transition:opacity .15s;white-space:nowrap}
+.btn{background:var(--accent);border:none;border-radius:6px;color:#000;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;letter-spacing:.5px;padding:7px 14px;transition:opacity .15s;white-space:nowrap}
 .btn:hover{opacity:.85}
 .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
 .btn-ghost:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,196,140,.06)}
 .btn-danger{background:var(--red);color:#fff}
-.btn-sm{padding:4px 10px;font-size:11px}
+.btn-sm{padding:4px 10px;font-size:15px}
 /* WATCHLIST ITEMS */
 .wl-list{display:flex;flex-direction:column;gap:4px}
 .wl-item{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 12px;cursor:pointer;transition:border .15s;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .wl-item:hover{border-color:var(--accent)}
 .wl-item.selected{border-color:var(--accent);background:rgba(0,196,140,.05)}
-.wl-ticker{font-size:14px;font-weight:700;color:var(--white);min-width:60px}
-.wl-price{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text)}
-.wl-chg{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;padding:2px 6px;border-radius:4px}
+.wl-ticker{font-size:18px;font-weight:700;color:var(--white);min-width:60px}
+.wl-price{font-family:'JetBrains Mono',monospace;font-size:16px;color:var(--text)}
+.wl-chg{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600;padding:2px 6px;border-radius:4px}
 .chg-pos{background:rgba(0,196,140,.12);color:var(--accent)}
 .chg-neg{background:rgba(255,71,87,.12);color:var(--red)}
 .chg-neu{background:rgba(136,153,170,.1);color:var(--muted)}
-.wl-alert-badge{font-size:9px;background:rgba(255,179,0,.15);color:var(--gold);border:1px solid rgba(255,179,0,.3);border-radius:10px;padding:1px 6px;white-space:nowrap}
-.wl-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 4px;line-height:1;opacity:.6;transition:opacity .15s}
+.wl-alert-badge{font-size:13px;background:rgba(255,179,0,.15);color:var(--gold);border:1px solid rgba(255,179,0,.3);border-radius:10px;padding:1px 6px;white-space:nowrap}
+.wl-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;padding:2px 4px;line-height:1;opacity:.6;transition:opacity .15s}
 .wl-del:hover{opacity:1;color:var(--red)}
 /* DETAIL PANEL */
 .detail-ticker{font-size:28px;font-weight:700;color:var(--white);letter-spacing:.5px}
-.detail-price{font-family:'JetBrains Mono',monospace;font-size:22px;color:var(--accent)}
+.detail-price{font-family:'JetBrains Mono',monospace;font-size:26px;color:var(--accent)}
 .detail-meta{display:flex;gap:16px;margin-top:8px;flex-wrap:wrap}
-.meta-item{font-size:11px;color:var(--muted)}
-.meta-item b{color:var(--text);font-size:12px}
-.section-label{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin:18px 0 8px}
+.meta-item{font-size:15px;color:var(--muted)}
+.meta-item b{color:var(--text);font-size:16px}
+.section-label{font-size:14px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin:18px 0 8px}
 /* ALERTS */
 .alert-list{display:flex;flex-direction:column;gap:6px}
 .alert-card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 12px;display:flex;align-items:center;gap:10px}
-.alert-icon{font-size:16px;width:24px;text-align:center}
+.alert-icon{font-size:20px;width:24px;text-align:center}
 .alert-info{flex:1;min-width:0}
-.alert-type{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px}
-.alert-note{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.alert-status{font-size:9px;padding:2px 7px;border-radius:10px}
+.alert-type{font-size:15px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px}
+.alert-note{font-size:15px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alert-status{font-size:13px;padding:2px 7px;border-radius:10px}
 .status-active{background:rgba(0,196,140,.12);color:var(--accent)}
 .status-cooldown{background:rgba(255,179,0,.12);color:var(--gold)}
 .status-paused{background:rgba(136,153,170,.1);color:var(--muted)}
 /* ADD ALERT FORM */
 .add-alert-form{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:12px;margin-top:10px}
 .form-row{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
-.form-row label{font-size:10px;color:var(--muted);display:block;margin-bottom:3px;letter-spacing:.5px;text-transform:uppercase}
-.form-row select,.form-row input{background:var(--card);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:12px;padding:6px 9px;outline:none;width:100%}
+.form-row label{font-size:14px;color:var(--muted);display:block;margin-bottom:3px;letter-spacing:.5px;text-transform:uppercase}
+.form-row select,.form-row input{background:var(--card);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:16px;padding:6px 9px;outline:none;width:100%}
 .form-row select:focus,.form-row input:focus{border-color:var(--accent)}
 .form-col{flex:1;min-width:140px}
 /* TRIGGERED ALERTS */
 .triggered-panel{background:rgba(255,179,0,.04);border:1px solid rgba(255,179,0,.2);border-radius:6px;padding:12px;margin-bottom:16px}
 .triggered-
-.triggered-header::before{content:'⚡';font-size:13px}
-.triggered-item{background:rgba(255,179,0,.06);border:1px solid rgba(255,179,0,.15);border-radius:5px;padding:8px 10px;margin-bottom:5px;font-size:12px}
+.triggered-header::before{content:'⚡';font-size:17px}
+.triggered-item{background:rgba(255,179,0,.06);border:1px solid rgba(255,179,0,.15);border-radius:5px;padding:8px 10px;margin-bottom:5px;font-size:16px}
 .triggered-item .t-ticker{font-weight:700;color:var(--white)}
-.triggered-item .t-msg{color:var(--muted);font-size:11px;margin-top:2px}
+.triggered-item .t-msg{color:var(--muted);font-size:15px;margin-top:2px}
 .severity-warning{border-color:rgba(255,179,0,.3)!important}
 .severity-critical{border-color:rgba(255,71,87,.4)!important;background:rgba(255,71,87,.05)!important}
 .severity-info{border-color:rgba(41,121,255,.3)!important;background:rgba(41,121,255,.04)!important}
 /* EMPTY STATES */
-.empty{text-align:center;padding:32px;color:var(--muted);font-size:12px}
+.empty{text-align:center;padding:32px;color:var(--muted);font-size:16px}
 .empty-icon{font-size:32px;margin-bottom:8px;opacity:.4}
 /* LOADING */
-.loading{color:var(--muted);font-size:12px;padding:12px;text-align:center}
+.loading{color:var(--muted);font-size:16px;padding:12px;text-align:center}
 .dot{display:inline-block;width:6px;height:6px;background:var(--accent);border-radius:50%;margin:0 2px;animation:bounce .9s infinite}
 .dot:nth-child(2){animation-delay:.2s}
 .dot:nth-child(3){animation-delay:.4s}
 @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
 /* EVALUATE BTN */
 .evaluate-bar{display:flex;align-items:center;gap:8px;margin-bottom:16px}
-.evaluate-status{font-size:11px;color:var(--muted);flex:1}
+.evaluate-status{font-size:15px;color:var(--muted);flex:1}
 /* TOAST */
 .toast-container{position:fixed;top:56px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:6px}
-.toast{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:12px;max-width:320px;animation:slideIn .25s ease;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.toast{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:16px;max-width:320px;animation:slideIn .25s ease;box-shadow:0 4px 20px rgba(0,0,0,.5)}
 .toast.success{border-color:var(--accent)}
 .toast.warning{border-color:var(--gold)}
 .toast.error{border-color:var(--red)}
@@ -120,16 +120,16 @@ h1{font-size:22px;font-weight:700;color:var(--white);letter-spacing:.5px;margin-
   box-shadow:0 2px 12px rgba(0,0,0,.4)}
 .fa-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
 .fa-logo svg{display:block}
-.fa-logo-text{font-family:'Georgia','Times New Roman',serif;font-size:17px;
+.fa-logo-text{font-family:'Georgia','Times New Roman',serif;font-size:21px;
   font-weight:700;color:#e8f4fd;white-space:nowrap;letter-spacing:-.3px}
 .fa-logo-text em{color:#F0B429;font-style:normal}
 .fa-ai-badge{display:inline-block;background:#1B3A6B;color:#fff;
-  font-family:'Arial',sans-serif;font-size:9px;font-weight:800;
+  font-family:'Arial',sans-serif;font-size:13px;font-weight:800;
   letter-spacing:1.5px;padding:2px 5px;border-radius:3px;vertical-align:middle;margin-left:2px}
 .fa-nav{display:flex;align-items:center;gap:2px;overflow-x:auto;
   scrollbar-width:none;-ms-overflow-style:none;flex:1}
 .fa-nav::-webkit-scrollbar{display:none}
-.fa-nav a{white-space:nowrap;font-family:'Rajdhani','Arial',sans-serif;font-size:12px;
+.fa-nav a{white-space:nowrap;font-family:'Rajdhani','Arial',sans-serif;font-size:16px;
   font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;
   padding:5px 10px;border-radius:5px;transition:.15s}
 .fa-nav a:hover{color:#00c48c;background:rgba(0,196,140,.08)}
@@ -140,10 +140,10 @@ h1{font-size:22px;font-weight:700;color:var(--white);letter-spacing:.5px;margin-
 .tbl-wrap th,.tbl-wrap td{white-space:normal!important;word-break:break-word}
 
 
-.fa-logout-btn{display:flex;align-items:center;gap:6px;font-family:'Rajdhani','Arial',sans-serif;font-size:12px;font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;padding:5px 10px;border-radius:5px;border:1px solid transparent;cursor:pointer;background:transparent;white-space:nowrap;transition:.15s;flex-shrink:0}
+.fa-logout-btn{display:flex;align-items:center;gap:6px;font-family:'Rajdhani','Arial',sans-serif;font-size:16px;font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;padding:5px 10px;border-radius:5px;border:1px solid transparent;cursor:pointer;background:transparent;white-space:nowrap;transition:.15s;flex-shrink:0}
 .fa-logout-btn:hover{color:#ff6b6b;background:rgba(255,107,107,.08);border-color:rgba(255,107,107,.2)}
-.fa-user-chip{display:flex;align-items:center;gap:6px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;color:#556677;letter-spacing:.3px;flex-shrink:0}
-.fa-user-chip .fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:10px;color:#8899aa}
+.fa-user-chip{display:flex;align-items:center;gap:6px;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;color:#556677;letter-spacing:.3px;flex-shrink:0}
+.fa-user-chip .fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:14px;color:#8899aa}
 
 
 /* ── Collapsible Sidebar ─────────────────────────────────── */
@@ -165,13 +165,13 @@ h1{font-size:22px;font-weight:700;color:var(--white);letter-spacing:.5px;margin-
   border-bottom: 1px solid #1c2535;
   color: #7a95b0; cursor: pointer;
   display: flex; align-items: center; gap: 10px;
-  font-size: 13px; white-space: nowrap; overflow: hidden;
+  font-size: 17px; white-space: nowrap; overflow: hidden;
 }
 .fa-sidebar-toggle:hover { color: #F0B429; background: rgba(240,180,41,.06); }
 .fa-sidebar-toggle svg { flex-shrink: 0; }
 .fa-sb-section { padding: 8px 0; border-bottom: 1px solid #141f2e; }
 .fa-sb-section-label {
-  font-size: 8px; letter-spacing: .12em; color: #3a5570;
+  font-size: 12px; letter-spacing: .12em; color: #3a5570;
   padding: 4px 16px 2px; text-transform: uppercase;
   white-space: nowrap; overflow: hidden;
   opacity: 0; transition: opacity .15s;
@@ -180,7 +180,7 @@ h1{font-size:22px;font-weight:700;color:var(--white);letter-spacing:.5px;margin-
 .fa-sb-link {
   display: flex; align-items: center; gap: 10px;
   padding: 7px 14px; color: #6a8aa8;
-  text-decoration: none; font-size: 12px;
+  text-decoration: none; font-size: 16px;
   white-space: nowrap; overflow: hidden;
   transition: all .15s;
 }
@@ -201,7 +201,7 @@ body.sb-open .fa-page-content { margin-left: var(--sb-w); }
 </head>
 <body>
 <aside class="fa-sidebar" id="fa-sidebar">
-  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:11px">MENU</span></button>
+  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:15px">MENU</span></button>
   <div style="overflow-y:auto;flex:1"><a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
 <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
 <a href="/fundamental" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg><span>Fundamentalista</span></a>
@@ -268,9 +268,9 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 </svg>
     <span class="fa-logo-text">Fin<em>Analytics</em> <span class="fa-ai-badge">AI</span></span>
   </a>
-  <span id="fa-page-title" style="font-size:12px;font-weight:600;color:#7a95b0;letter-spacing:.06em;margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Watchlist</span>
+  <span id="fa-page-title" style="font-size:16px;font-weight:600;color:#7a95b0;letter-spacing:.06em;margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Watchlist</span>
   <nav class="fa-nav"></nav>
-  <a href="/marketdata" style="display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.35);border-radius:5px;color:#00e676;font-size:11px;font-weight:700;padding:4px 10px;text-decoration:none;letter-spacing:.5px;transition:.15s;white-space:nowrap" onmouseover="this.style.background='rgba(0,230,118,.2)'" onmouseout="this.style.background='rgba(0,230,118,.1)'">
+  <a href="/marketdata" style="display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.35);border-radius:5px;color:#00e676;font-size:15px;font-weight:700;padding:4px 10px;text-decoration:none;letter-spacing:.5px;transition:.15s;white-space:nowrap" onmouseover="this.style.background='rgba(0,230,118,.2)'" onmouseout="this.style.background='rgba(0,230,118,.1)'">
     <span style="width:7px;height:7px;border-radius:50%;background:#00e676;display:inline-block;animation:livePulse 1.8s ease-in-out infinite"></span>
     MERCADO AO VIVO
   </a>
@@ -305,7 +305,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
         <div class="panel-header">
           <span class="panel-title">Minha Lista</span>
           <div style="display:flex;gap:6px;align-items:center">
-            <span id="wl-count" style="font-size:10px;color:var(--muted)"></span>
+            <span id="wl-count" style="font-size:14px;color:var(--muted)"></span>
             <button class="btn btn-sm" onclick="evaluateAll()">Avaliar Alertas</button>
           </div>
         </div>
@@ -313,7 +313,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
           <div class="add-row">
             <div id="add-search-wrap" style="position:relative;flex:1">
               <input id="add-ticker" autocomplete="off" placeholder="Buscar ticker para adicionar..."
-                     style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:13px;padding:7px 10px;outline:none;transition:border .15s"
+                     style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:17px;padding:7px 10px;outline:none;transition:border .15s"
                      oninput="this.value=this.value.toUpperCase();wlSearchInput(this.value)"
                      onkeydown="wlSearchKey(event)"
                      onfocus="wlSearchInput(this.value)" />
@@ -416,7 +416,7 @@ function renderList() {
             <span class="wl-chg ${chgCls}">${chgTxt}</span>
           </div>
           ${alertCount ? `<span class="wl-alert-badge">&#9888; ${alertCount} alerta${alertCount>1?'s':''}</span>` : ''}
-          ${item.note ? `<span style="font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.note}</span>` : ''}
+          ${item.note ? `<span style="font-size:14px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.note}</span>` : ''}
         </div>
         <button class="wl-del" onclick="event.stopPropagation();removeItem('${item.item_id}','${item.ticker}')" title="Remover">✕</button>
       </div>`;
@@ -452,7 +452,7 @@ function renderDetail(item) {
         <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
           <span class="detail-ticker">${item.ticker}</span>
           <span class="detail-price">${price}</span>
-          ${chgTxt ? `<span style="font-size:16px;font-weight:700;${chgCls}">${chgTxt}</span>` : ''}
+          ${chgTxt ? `<span style="font-size:20px;font-weight:700;${chgCls}">${chgTxt}</span>` : ''}
         </div>
         <div class="detail-meta">
           <div class="meta-item">Volume<br><b>${vol}</b></div>
@@ -487,7 +487,7 @@ function renderDetail(item) {
           </div>
           <div style="margin-top:10px;display:flex;gap:8px">
             <button class="btn btn-sm" onclick="addAlert('${item.item_id}')">+ Adicionar Alerta</button>
-            <span id="alert-type-desc" style="font-size:10px;color:var(--muted);align-self:center"></span>
+            <span id="alert-type-desc" style="font-size:14px;color:var(--muted);align-self:center"></span>
           </div>
         </div>
       </div>
@@ -568,8 +568,8 @@ function wlSearchInput(val) {
         d.results.forEach(item => {
           const el = document.createElement('div');
           el.setAttribute('data-ticker', item.ticker);
-          el.style.cssText = 'padding:8px 14px;font-size:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.05);color:#e2e8f0';
-          el.innerHTML = `<b>${item.ticker}</b><span style="font-size:10px;background:rgba(255,255,255,0.07);padding:2px 6px;border-radius:4px;color:#94a3b8">${item.type || ''}</span>`;
+          el.style.cssText = 'padding:8px 14px;font-size:16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.05);color:#e2e8f0';
+          el.innerHTML = `<b>${item.ticker}</b><span style="font-size:14px;background:rgba(255,255,255,0.07);padding:2px 6px;border-radius:4px;color:#94a3b8">${item.type || ''}</span>`;
           el.onmouseenter = function() { this.style.background = 'rgba(0,196,140,0.15)'; };
           el.onmouseleave = function() { this.style.background = ''; };
           el.onclick = function() {
@@ -690,7 +690,7 @@ function renderTriggered(alerts) {
       ${alerts.map(a => `
         <div class="triggered-item severity-${a.severity}">
           <div><span class="t-ticker">${a.ticker}</span> &nbsp;
-            <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${a.alert_type.replace(/_/g,' ')}</span>
+            <span style="font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${a.alert_type.replace(/_/g,' ')}</span>
           </div>
           <div class="t-msg">${a.message}</div>
         </div>`).join('')}

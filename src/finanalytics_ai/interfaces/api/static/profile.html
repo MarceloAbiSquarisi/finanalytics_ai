@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -11,20 +11,20 @@
   --gold:#F0B429;--sb-w:220px;--sb-w-collapsed:52px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif,system-ui;font-size:13px;min-height:100vh}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif,system-ui;font-size:17px;min-height:100vh}
 .fa-topbar{height:52px;background:var(--s1);border-bottom:1px solid var(--border);
   display:flex;align-items:center;gap:12px;padding:0 16px;position:sticky;top:0;z-index:300}
 .fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none}
-.fa-logo-text{font-family:monospace;font-size:13px;font-weight:600;color:#e2eaf4}
+.fa-logo-text{font-family:monospace;font-size:17px;font-weight:600;color:#e2eaf4}
 .fa-logo-text em{color:var(--gold);font-style:normal}
-.fa-ai-badge{background:var(--gold);color:#0a1628;font-size:8px;font-weight:800;
+.fa-ai-badge{background:var(--gold);color:#0a1628;font-size:12px;font-weight:800;
   padding:1px 5px;border-radius:3px;letter-spacing:.08em;vertical-align:middle;margin-left:2px}
 .fa-nav{flex:1}
 .fa-user-chip{display:flex;align-items:center;gap:6px;margin-left:auto}
 .fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);
-  border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:10px;color:#8899aa}
+  border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:14px;color:#8899aa}
 .fa-logout-btn{background:transparent;border:1px solid var(--border);border-radius:5px;
-  color:var(--muted);font-size:11px;padding:4px 10px;cursor:pointer;display:flex;
+  color:var(--muted);font-size:15px;padding:4px 10px;cursor:pointer;display:flex;
   align-items:center;gap:5px;transition:.15s}
 .fa-logout-btn:hover{color:var(--red);border-color:var(--red)}
 /* Sidebar */
@@ -34,11 +34,11 @@ body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-ser
 .fa-sidebar.open{width:var(--sb-w)}
 .fa-sidebar-toggle{width:100%;padding:10px 14px;background:transparent;border:none;
   border-bottom:1px solid var(--border);color:#7a95b0;cursor:pointer;display:flex;
-  align-items:center;gap:10px;font-size:13px;white-space:nowrap;overflow:hidden}
+  align-items:center;gap:10px;font-size:17px;white-space:nowrap;overflow:hidden}
 .fa-sidebar-toggle:hover{color:var(--gold);background:rgba(240,180,41,.06)}
 .fa-sidebar-toggle svg{flex-shrink:0}
 .fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;
-  text-decoration:none;font-size:12px;white-space:nowrap;overflow:hidden;transition:all .15s}
+  text-decoration:none;font-size:16px;white-space:nowrap;overflow:hidden;transition:all .15s}
 .fa-sb-link:hover{color:#e2eaf4;background:rgba(0,212,255,.05)}
 .fa-sb-link.active{color:#F0B429;background:rgba(240,180,41,.08);border-right:2px solid #F0B429}
 .fa-sb-link svg{flex-shrink:0}
@@ -48,17 +48,17 @@ body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-ser
 .fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1)}
 body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 .main{padding:24px;max-width:720px}
-.page-title{font-size:22px;font-weight:700;color:#e2eaf4;margin-bottom:4px}
-.page-sub{font-size:11px;color:var(--muted);margin-bottom:24px}
+.page-title{font-size:26px;font-weight:700;color:#e2eaf4;margin-bottom:4px}
+.page-sub{font-size:15px;color:var(--muted);margin-bottom:24px}
 .card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px}
-.card-title{font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.08em;
+.card-title{font-size:15px;font-weight:700;color:var(--gold);letter-spacing:.08em;
   text-transform:uppercase;display:flex;align-items:center;gap:8px;margin-bottom:16px}
 .form-group{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
-.form-group label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.form-group label{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 .form-group input{background:var(--s2);border:1px solid var(--border);border-radius:6px;
-  color:var(--text);font-size:12px;padding:9px 12px;outline:none;font-family:monospace;transition:.15s}
+  color:var(--text);font-size:16px;padding:9px 12px;outline:none;font-family:monospace;transition:.15s}
 .form-group input:focus{border-color:var(--accent)}
-.btn{border:none;border-radius:7px;font-weight:700;font-size:12px;padding:9px 20px;
+.btn{border:none;border-radius:7px;font-weight:700;font-size:16px;padding:9px 20px;
   cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.15s}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .btn-primary{background:linear-gradient(135deg,#00a8cc,var(--accent));color:#0a1628}
@@ -67,7 +67,7 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 .btn-danger:hover:not(:disabled){opacity:.85}
 .btn-gold{background:linear-gradient(135deg,#c87b00,var(--gold));color:#0a1628}
 .btn-gold:hover:not(:disabled){opacity:.85}
-.msg{padding:10px 14px;border-radius:7px;font-size:11px;font-family:monospace;margin-top:12px;display:none}
+.msg{padding:10px 14px;border-radius:7px;font-size:15px;font-family:monospace;margin-top:12px;display:none}
 .msg.success{background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.3);color:var(--green)}
 .msg.error{background:rgba(255,61,90,.08);border:1px solid rgba(255,61,90,.3);color:var(--red)}
 .msg.info{background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.2);color:var(--accent)}
@@ -75,8 +75,8 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 .info-row{display:flex;align-items:center;justify-content:space-between;
   padding:10px 0;border-bottom:1px solid var(--border)}
 .info-row:last-child{border-bottom:none}
-.info-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
-.info-value{font-size:12px;color:var(--text);font-family:monospace}
+.info-label{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.info-value{font-size:16px;color:var(--text);font-family:monospace}
 /* 2FA */
 .twofa-status{display:flex;align-items:center;gap:10px;padding:12px 16px;
   border-radius:8px;margin-bottom:16px}
@@ -85,17 +85,17 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 .twofa-status-dot{width:8px;height:8px;border-radius:50%}
 .twofa-status.active .twofa-status-dot{background:var(--green)}
 .twofa-status.inactive .twofa-status-dot{background:var(--red)}
-.twofa-status-text{font-size:12px;font-weight:600}
+.twofa-status-text{font-size:16px;font-weight:600}
 .twofa-status.active .twofa-status-text{color:var(--green)}
 .twofa-status.inactive .twofa-status-text{color:var(--red)}
 .qr-area{display:none;text-align:center;padding:16px;background:var(--s2);
   border-radius:8px;border:1px solid var(--border);margin-bottom:14px}
 .qr-area img{width:180px;height:180px;border-radius:6px;background:#fff;padding:4px}
-.qr-desc{font-size:10px;color:var(--muted);margin-top:8px;line-height:1.5}
-.secret-box{font-family:monospace;font-size:11px;color:var(--accent);background:rgba(0,212,255,.06);
+.qr-desc{font-size:14px;color:var(--muted);margin-top:8px;line-height:1.5}
+.secret-box{font-family:monospace;font-size:15px;color:var(--accent);background:rgba(0,212,255,.06);
   border:1px solid rgba(0,212,255,.2);border-radius:5px;padding:6px 10px;margin-top:6px;
   word-break:break-all;letter-spacing:.1em}
-.step-label{font-size:10px;font-weight:700;color:var(--gold);text-transform:uppercase;
+.step-label{font-size:14px;font-weight:700;color:var(--gold);text-transform:uppercase;
   letter-spacing:.08em;margin-bottom:8px}
 .btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 @keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
@@ -108,9 +108,9 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
     <span class="fa-logo-text">Fin<em>Analytics</em><span class="fa-ai-badge">AI</span></span>
   </a>
 
-  <span id="fa-page-title" style="font-size:12px;font-weight:600;color:#7a95b0;letter-spacing:.06em;margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Perfil</span>
+  <span id="fa-page-title" style="font-size:16px;font-weight:600;color:#7a95b0;letter-spacing:.06em;margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Perfil</span>
   <nav class="fa-nav"></nav>
-  <a href="/marketdata" style="display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.35);border-radius:5px;color:#00e676;font-size:11px;font-weight:700;padding:4px 10px;text-decoration:none;letter-spacing:.5px;transition:.15s;white-space:nowrap" onmouseover="this.style.background='rgba(0,230,118,.2)'" onmouseout="this.style.background='rgba(0,230,118,.1)'">
+  <a href="/marketdata" style="display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.35);border-radius:5px;color:#00e676;font-size:15px;font-weight:700;padding:4px 10px;text-decoration:none;letter-spacing:.5px;transition:.15s;white-space:nowrap" onmouseover="this.style.background='rgba(0,230,118,.2)'" onmouseout="this.style.background='rgba(0,230,118,.1)'">
     <span style="width:7px;height:7px;border-radius:50%;background:#00e676;display:inline-block;animation:livePulse 1.8s ease-in-out infinite"></span>
     MERCADO AO VIVO
   </a>
@@ -125,7 +125,7 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 </div>
 
 <aside class="fa-sidebar" id="fa-sidebar">
-  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:11px">MENU</span></button>
+  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:15px">MENU</span></button>
   <div style="overflow-y:auto;flex:1"><a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
 <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
 <a href="/fundamental" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg><span>Fundamentalista</span></a>
@@ -167,7 +167,7 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
     </div>
     <div class="info-row">
       <div class="info-label">ID do Usuário</div>
-      <div class="info-value" id="info-id" style="font-size:10px">—</div>
+      <div class="info-value" id="info-id" style="font-size:14px">—</div>
     </div>
     <div class="info-row">
       <div class="info-label">Autenticação 2 Fatores</div>
@@ -215,7 +215,7 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 
     <!-- Seção ATIVAR -->
     <div id="section-enable">
-      <p style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+      <p style="font-size:15px;color:var(--muted);margin-bottom:14px;line-height:1.6">
         Adicione uma camada extra de segurança à sua conta. Use o Google Authenticator, Authy ou qualquer app compatível com TOTP.
       </p>
       <button class="btn btn-gold" onclick="iniciarSetup2FA()" id="btn-setup">
@@ -236,7 +236,7 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
       <div style="margin-top:16px" class="step-label">Passo 2 — Confirme o código do app</div>
       <div style="display:flex;gap:8px;justify-content:center;margin-top:8px">
         <input type="text" id="totp-confirm-code" placeholder="000000" maxlength="6"
-          style="width:120px;text-align:center;font-size:18px;letter-spacing:.2em;
+          style="width:120px;text-align:center;font-size:22px;letter-spacing:.2em;
           background:var(--s1);border:1px solid var(--border);border-radius:6px;
           color:var(--text);padding:8px;outline:none;font-family:monospace">
         <button class="btn btn-primary" onclick="confirmarSetup2FA()" id="btn-confirm-2fa">
@@ -248,14 +248,14 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 
     <!-- Seção DESATIVAR -->
     <div id="section-disable" style="display:none">
-      <p style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+      <p style="font-size:15px;color:var(--muted);margin-bottom:14px;line-height:1.6">
         Para desativar o 2FA, informe o código atual do seu app autenticador.
       </p>
       <div style="display:flex;gap:8px;align-items:flex-end">
         <div class="form-group" style="margin-bottom:0;flex:1;max-width:200px">
           <label>Código TOTP Atual</label>
           <input type="text" id="totp-disable-code" placeholder="000000" maxlength="6"
-            style="text-align:center;font-size:16px;letter-spacing:.15em;font-family:monospace">
+            style="text-align:center;font-size:20px;letter-spacing:.15em;font-family:monospace">
         </div>
         <button class="btn btn-danger" onclick="desativar2FA()" id="btn-disable-2fa">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
@@ -369,7 +369,7 @@ async function iniciarSetup2FA() {
       // Fallback: mostra URI
       document.getElementById('qr-img').style.display = 'none';
       const uri = document.createElement('div');
-      uri.style.cssText = 'font-size:9px;color:var(--muted);word-break:break-all;margin-top:8px';
+      uri.style.cssText = 'font-size:13px;color:var(--muted);word-break:break-all;margin-top:8px';
       uri.textContent = data.uri;
       document.getElementById('qr-area').appendChild(uri);
     }
