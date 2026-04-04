@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VaR - Value at Risk | FinAnalytics AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0A1628;--card:#0e1a2e;--border:#1c2535;--white:#e2eaf4;--muted:#4a6a8a;--blue:#3ABFF8;--gold:#F0B429;--green:#00e676;--red:#ff3d5a;--purple:#a78bfa;--orange:#fb923c;--sb-w:220px;--sb-w-collapsed:52px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--navy);color:var(--white);font-family:'Syne',sans-serif;overflow-x:hidden}
+.fa-topbar{position:fixed;top:0;left:0;right:0;height:52px;background:rgba(10,22,40,.97);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:300}
+.fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--gold);font-weight:800;font-size:15px}
+.fa-sidebar{position:fixed;left:0;top:52px;bottom:0;width:var(--sb-w-collapsed);background:#0a0f18;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1);z-index:200}
+.fa-sidebar.open{width:var(--sb-w)}
+.fa-sidebar-toggle{width:100%;padding:10px 14px;background:transparent;border:none;border-bottom:1px solid var(--border);color:#7a95b0;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;white-space:nowrap;overflow:hidden}
+.fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;text-decoration:none;font-size:15px;white-space:nowrap;overflow:hidden;transition:all .15s}
+.fa-sb-link:hover{color:#e2eaf4;background:rgba(0,212,255,.05)}
+.fa-sb-link.active{color:var(--gold);background:rgba(240,180,41,.08);border-right:2px solid var(--gold)}
+.fa-sb-link svg{flex-shrink:0}
+.fa-sb-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-link span{opacity:1}
+.fa-sb-group-toggle{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;cursor:pointer;font-size:15px;white-space:nowrap;overflow:hidden;transition:all .15s;border:none;background:transparent;width:100%}
+.fa-sb-group-toggle.open{color:var(--gold)}
+.fa-sb-group-toggle svg{flex-shrink:0}
+.fa-sb-group-toggle span{opacity:0;transition:opacity .15s;display:flex;align-items:center;gap:6px;flex:1}
+.fa-sidebar.open .fa-sb-group-toggle span{opacity:1}
+.fa-sb-group-chevron{margin-left:auto;transition:transform .2s;font-size:10px;color:#3a5570}
+.fa-sb-group-toggle.open .fa-sb-group-chevron{transform:rotate(180deg);color:var(--gold)}
+.fa-sb-submenu{max-height:0;overflow:hidden;transition:max-height .25s ease}
+.fa-sb-submenu.open{max-height:200px}
+.fa-sb-sub-link{display:flex;align-items:center;gap:8px;padding:6px 14px 6px 40px;color:#4a6a8a;text-decoration:none;font-size:14px;white-space:nowrap;overflow:hidden;transition:all .15s;border-left:2px solid transparent}
+.fa-sb-sub-link:hover{color:#00d4ff;background:rgba(0,212,255,.05);border-left-color:rgba(0,212,255,.3)}
+.fa-sb-sub-link.active{color:var(--gold);border-left-color:var(--gold);background:rgba(240,180,41,.06)}
+.fa-sb-sub-link svg{flex-shrink:0}
+.fa-sb-sub-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-sub-link span{opacity:1}
+.fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1);padding:72px 24px 32px}
+body.sb-open .fa-page-content{margin-left:var(--sb-w)}
+.page-title{font-size:26px;font-weight:800;color:var(--purple);margin-bottom:4px}
+.page-sub{font-size:15px;color:var(--muted);margin-bottom:20px}
+/* Controls */
+.controls{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.ctrl-label{font-size:13px;color:var(--muted)}
+.ctrl-select{background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:13px;padding:7px 10px;outline:none}
+.calc-btn{background:linear-gradient(135deg,#3a0080,var(--purple));border:none;border-radius:7px;color:var(--white);font-family:'Syne',sans-serif;font-weight:800;font-size:14px;padding:9px 20px;cursor:pointer;transition:all .2s;margin-left:auto}
+.calc-btn:hover{transform:translateY(-1px);box-shadow:0 0 16px rgba(167,139,250,.3)}
+.calc-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+/* KPI row */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+.kpi-card.highlight{border-color:rgba(167,139,250,.4);background:linear-gradient(135deg,rgba(167,139,250,.08),rgba(58,191,248,.05))}
+.kpi-label{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:4px;font-family:'DM Mono',monospace}
+.kpi-value{font-size:22px;font-weight:800;font-family:'DM Mono',monospace}
+.kv-purple{color:var(--purple)}
+.kv-red{color:var(--red)}
+.kv-orange{color:var(--orange)}
+.kv-green{color:var(--green)}
+.kv-blue{color:var(--blue)}
+/* Interpretacao */
+.interp-box{background:linear-gradient(135deg,rgba(167,139,250,.08),rgba(58,191,248,.05));border:1px solid rgba(167,139,250,.25);border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:14px;color:var(--muted);line-height:1.6}
+.interp-box strong{color:var(--purple)}
+/* Grid */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px}
+.card-title{font-size:16px;font-weight:700;color:var(--blue);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+/* VaR comparison */
+.var-compare{display:flex;flex-direction:column;gap:10px}
+.var-row{display:flex;align-items:center;gap:12px}
+.var-method{font-size:13px;color:var(--muted);width:130px;font-family:'DM Mono',monospace}
+.var-bar-wrap{flex:1;height:10px;background:#1c2535;border-radius:10px;overflow:hidden}
+.var-bar-fill{height:100%;border-radius:10px;transition:width .6s ease}
+.var-brl{font-size:13px;font-weight:700;font-family:'DM Mono',monospace;width:90px;text-align:right}
+.var-pct{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;width:50px;text-align:right}
+/* Asset table */
+.asset-table{width:100%;border-collapse:collapse;font-size:13px}
+.asset-table th{text-align:left;padding:7px 10px;color:var(--muted);font-size:11px;font-family:'DM Mono',monospace;text-transform:uppercase;border-bottom:1px solid var(--border);font-weight:400}
+.asset-table td{padding:8px 10px;border-bottom:1px solid #141f2e;font-family:'DM Mono',monospace}
+.asset-table tr:last-child td{border-bottom:none}
+.asset-table tr:hover td{background:rgba(255,255,255,.02)}
+.ticker-cell{color:var(--blue);font-weight:800}
+.risk-high{color:var(--red)}
+.risk-med{color:var(--orange)}
+.risk-low{color:var(--green)}
+/* Vol gauge */
+.vol-gauge{display:flex;align-items:center;gap:8px;margin-top:12px}
+.gauge-bar{flex:1;height:12px;background:#1c2535;border-radius:10px;overflow:hidden}
+.gauge-fill{height:100%;border-radius:10px;transition:width .6s}
+.empty-msg{color:var(--muted);font-size:14px;text-align:center;padding:40px}
+.loading{text-align:center;padding:32px;color:var(--muted)}
+.spin{display:inline-block;animation:spin 1s linear infinite;font-size:20px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:900px){.grid-2{grid-template-columns:1fr}.kpi-row{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="fa-topbar">
+  <a href="/" class="fa-logo">
+    <svg width="28" height="28" viewBox="0 0 170 170" fill="none"><defs><linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3ABFF8"/><stop offset="100%" stop-color="#F0B429"/></linearGradient></defs><rect width="170" height="170" rx="28" fill="#0A1628"/><polyline points="24,130 60,75 90,100 130,40" stroke="url(#lg1)" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="130" cy="40" r="10" fill="#F0B429"/></svg>
+    FinAnalytics AI
+  </a>
+</div>
+
+<aside class="fa-sidebar" id="fa-sidebar">
+  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <span style="font-weight:700;color:var(--gold);font-size:11px">MENU</span>
+  </button>
+  <div style="overflow-y:auto;flex:1">
+    <a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
+    <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
+    <a href="/screener" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Screener</span></a>
+    <div class="fa-sb-group">
+      <button class="fa-sb-group-toggle" onclick="faDTToggle(this)" id="dt-toggle">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 1 18"/><polyline points="16 7 22 7 22 13"/></svg>
+        <span>Day Trade <span class="fa-sb-group-chevron">&#9660;</span></span>
+      </button>
+      <div class="fa-sb-submenu" id="dt-submenu">
+        <a href="/daytrade/setups" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg><span>Setups</span></a>
+        <a href="/diario" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg><span>Diario</span></a>
+        <a href="/daytrade/risco" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Gestao de Risco</span></a>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+      </div>
+    </div>
+    <div class="fa-sb-group">
+      <button class="fa-sb-group-toggle" onclick="faOptToggle(this)" id="opt-toggle">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        <span>Opcoes <span class="fa-sb-group-chevron">&#9660;</span></span>
+      </button>
+      <div class="fa-sb-submenu" id="opt-submenu">
+        <a href="/opcoes" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/></svg><span>Greeks e IV</span></a>
+        <a href="/opcoes/estrategias" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Estrategias</span></a>
+      </div>
+    </div>
+    <a href="/sentiment" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Sentimento</span></a>
+    <a href="/var" class="fa-sb-link active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>VaR</span></a>
+    <a href="/anomaly" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg><span>Anomalias</span></a>
+    <a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
+  </div>
+</aside>
+
+<div class="fa-page-content">
+  <div class="page-title">&#128737; Value at Risk (VaR)</div>
+  <div class="page-sub">Risco de mercado da carteira — VaR Historico, Parametrico e CVaR</div>
+
+  <!-- Controles -->
+  <div class="controls">
+    <div class="ctrl-label">Confianca</div>
+    <select class="ctrl-select" id="confidence">
+      <option value="0.90">90%</option>
+      <option value="0.95" selected>95%</option>
+      <option value="0.99">99%</option>
+    </select>
+    <div class="ctrl-label" style="margin-left:8px">Historico</div>
+    <select class="ctrl-select" id="lookback">
+      <option value="63">3 meses</option>
+      <option value="126">6 meses</option>
+      <option value="252" selected>1 ano</option>
+      <option value="504">2 anos</option>
+    </select>
+    <div class="ctrl-label" style="margin-left:8px">Carteira</div>
+    <select class="ctrl-select" id="portfolio-sel">
+      <option value="manual">Manual (tickers)</option>
+    </select>
+    <button class="calc-btn" id="calc-btn" onclick="calcVaR()">&#128737; Calcular VaR</button>
+  </div>
+
+  <!-- Tickers manuais -->
+  <div id="manual-tickers" style="margin-bottom:16px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
+    <div style="font-size:13px;color:var(--muted);margin-bottom:10px">Posicoes (ticker | quantidade | preco medio)</div>
+    <div id="pos-list"></div>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <input id="add-ticker" placeholder="PETR4" maxlength="6" style="background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:13px;padding:7px 10px;width:90px;outline:none;text-transform:uppercase">
+      <input id="add-qty" placeholder="Qtd" type="number" style="background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:13px;padding:7px 10px;width:80px;outline:none">
+      <input id="add-price" placeholder="Preco" type="number" step="0.01" style="background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:13px;padding:7px 10px;width:90px;outline:none">
+      <button onclick="addPos()" style="background:rgba(58,191,248,.15);border:1px solid rgba(58,191,248,.3);border-radius:6px;color:var(--blue);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;padding:7px 14px;cursor:pointer">+ Adicionar</button>
+    </div>
+  </div>
+
+  <!-- Resultados -->
+  <div id="results" style="display:none">
+    <div class="kpi-row">
+      <div class="kpi-card highlight"><div class="kpi-label">VaR Historico (1 dia)</div><div class="kpi-value kv-purple" id="r-var-hist">-</div><div class="kpi-sub" id="r-var-hist-pct">-</div></div>
+      <div class="kpi-card"><div class="kpi-label">VaR Parametrico</div><div class="kpi-value kv-orange" id="r-var-param">-</div><div class="kpi-sub" id="r-var-param-pct">-</div></div>
+      <div class="kpi-card"><div class="kpi-label">CVaR (Expected Shortfall)</div><div class="kpi-value kv-red" id="r-cvar">-</div><div class="kpi-sub" id="r-cvar-pct">-</div></div>
+      <div class="kpi-card"><div class="kpi-label">Beneficio Diversificacao</div><div class="kpi-value kv-green" id="r-div">-</div><div class="kpi-sub">vs soma individual</div></div>
+    </div>
+
+    <div class="interp-box" id="r-interp"></div>
+
+    <div class="grid-2">
+      <!-- VaR comparativo -->
+      <div class="card">
+        <div class="card-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          Comparativo de Metodos
+        </div>
+        <div class="var-compare" id="var-compare"></div>
+        <div style="margin-top:16px">
+          <div class="card-title" style="font-size:14px;margin-bottom:8px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Volatilidade da Carteira
+          </div>
+          <div class="vol-gauge">
+            <span style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;width:60px" id="vol-daily-txt">-</span>
+            <div class="gauge-bar"><div class="gauge-fill" id="vol-gauge" style="background:linear-gradient(90deg,var(--green),var(--orange),var(--red));width:0%"></div></div>
+            <span style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;width:70px;text-align:right" id="vol-annual-txt">-</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">
+            <span>Diario</span><span>Anual</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- VaR por ativo -->
+      <div class="card">
+        <div class="card-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+          VaR por Ativo
+        </div>
+        <table class="asset-table" id="asset-table">
+          <thead><tr><th>Ticker</th><th>Peso</th><th>VaR</th><th>Vol/Ano</th><th>Risco</th></tr></thead>
+          <tbody id="asset-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="loading" style="display:none" class="loading"><span class="spin">&#9696;</span><br><br>Calculando VaR com dados historicos Fintz...</div>
+  <div id="empty" class="empty-msg">Adicione posicoes e clique em Calcular VaR</div>
+</div>
+
+<script>
+var API='';
+var positions=[
+  {ticker:'PETR4',quantity:100,average_price:29.50},
+  {ticker:'VALE3',quantity:50,average_price:62.00},
+  {ticker:'ITUB4',quantity:200,average_price:35.80},
+  {ticker:'WEGE3',quantity:80,average_price:48.20}
+];
+
+function tok(){return localStorage.getItem('fa_token')||'';}
+function faSidebarToggle(){var s=document.getElementById('fa-sidebar');s.classList.toggle('open');document.body.classList.toggle('sb-open');localStorage.setItem('fa_sidebar_open',s.classList.contains('open')?'1':'0');}
+function faDTToggle(btn){var s=document.getElementById('dt-submenu');btn.classList.toggle('open');s.classList.toggle('open');}
+function faOptToggle(btn){var s=document.getElementById('opt-submenu');btn.classList.toggle('open');s.classList.toggle('open');}
+(function(){if(localStorage.getItem('fa_sidebar_open')==='1'){document.getElementById('fa-sidebar').classList.add('open');document.body.classList.add('sb-open');}})();
+
+function fmtR(v){return 'R$ '+parseFloat(v).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');}
+function fmtPct(v){return parseFloat(v).toFixed(2).replace('.',',')+'%';}
+
+function renderPositions(){
+  var c=document.getElementById('pos-list');c.innerHTML='';
+  positions.forEach(function(p,i){
+    var d=document.createElement('div');
+    d.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:6px;font-family:DM Mono,monospace;font-size:13px';
+    d.innerHTML='<span style="color:var(--blue);font-weight:700;width:60px">'+p.ticker+'</span>'
+      +'<span style="color:var(--muted)">'+p.quantity+' x R$ '+parseFloat(p.average_price).toFixed(2).replace('.',',')+'</span>'
+      +'<span style="color:var(--muted)">= '+fmtR(p.quantity*p.average_price)+'</span>'
+      +'<button onclick="removePos('+i+')" style="background:transparent;border:none;color:var(--red);cursor:pointer;font-size:13px;margin-left:auto">x</button>';
+    c.appendChild(d);
+  });
+}
+
+function addPos(){
+  var t=document.getElementById('add-ticker').value.trim().toUpperCase();
+  var q=parseFloat(document.getElementById('add-qty').value)||0;
+  var p=parseFloat(document.getElementById('add-price').value)||0;
+  if(!t||q<=0||p<=0){alert('Preencha ticker, quantidade e preco');return;}
+  positions.push({ticker:t,quantity:q,average_price:p});
+  renderPositions();
+  document.getElementById('add-ticker').value='';
+  document.getElementById('add-qty').value='';
+  document.getElementById('add-price').value='';
+}
+
+function removePos(i){positions.splice(i,1);renderPositions();}
+
+async function calcVaR(){
+  if(!positions.length){alert('Adicione pelo menos 1 posicao');return;}
+  var btn=document.getElementById('calc-btn');
+  btn.disabled=true;btn.textContent='Calculando...';
+  document.getElementById('results').style.display='none';
+  document.getElementById('empty').style.display='none';
+  document.getElementById('loading').style.display='block';
+
+  var confidence=parseFloat(document.getElementById('confidence').value);
+  var lookback=parseInt(document.getElementById('lookback').value);
+
+  try{
+    var r=await fetch(API+'/api/v1/var/calculate',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok()},
+      body:JSON.stringify({positions:positions,confidence_level:confidence,lookback_days:lookback})
+    });
+    var d=await r.json();
+    if(d.detail){alert('Erro: '+d.detail);return;}
+    renderResults(d);
+    document.getElementById('results').style.display='block';
+  }catch(e){
+    alert('Erro: '+e.message);
+    document.getElementById('empty').style.display='block';
+  }finally{
+    btn.disabled=false;btn.textContent='\u{1F6E1}\uFE0F Calcular VaR';
+    document.getElementById('loading').style.display='none';
+  }
+}
+
+function renderResults(d){
+  document.getElementById('r-var-hist').textContent=fmtR(d.var_hist_brl);
+  document.getElementById('r-var-hist-pct').textContent=fmtPct(d.var_hist_pct)+' da carteira';
+  document.getElementById('r-var-param').textContent=fmtR(d.var_param_brl);
+  document.getElementById('r-var-param-pct').textContent=fmtPct(d.var_param_pct)+' da carteira';
+  document.getElementById('r-cvar').textContent=fmtR(d.cvar_brl);
+  document.getElementById('r-cvar-pct').textContent=fmtPct(d.cvar_pct)+' da carteira';
+  document.getElementById('r-div').textContent=fmtR(d.diversification_benefit_brl);
+  document.getElementById('r-interp').innerHTML='<strong>&#128161; Interpretacao:</strong> '+d.interpretation;
+
+  // Comparativo visual
+  var maxVar=Math.max(d.var_hist_brl,d.var_param_brl,d.cvar_brl);
+  var comp=document.getElementById('var-compare');
+  comp.innerHTML=[
+    {label:'VaR Historico',val:d.var_hist_brl,cls:'kv-purple',color:'var(--purple)'},
+    {label:'VaR Parametrico',val:d.var_param_brl,cls:'kv-orange',color:'var(--orange)'},
+    {label:'CVaR (ES)',val:d.cvar_brl,cls:'kv-red',color:'var(--red)'}
+  ].map(function(m){
+    var pct=maxVar>0?m.val/maxVar*100:0;
+    return '<div class="var-row">'
+      +'<span class="var-method">'+m.label+'</span>'
+      +'<div class="var-bar-wrap"><div class="var-bar-fill" style="width:'+pct+'%;background:'+m.color+';opacity:.8"></div></div>'
+      +'<span class="var-brl '+m.cls+'">'+fmtR(m.val)+'</span>'
+      +'</div>';
+  }).join('');
+
+  // Volatilidade
+  var volD=parseFloat(d.portfolio_volatility_daily)||0;
+  var volA=parseFloat(d.portfolio_volatility_annual)||0;
+  document.getElementById('vol-daily-txt').textContent=fmtPct(volD)+'/dia';
+  document.getElementById('vol-annual-txt').textContent=fmtPct(volA)+'/ano';
+  // Gauge: 0%=verde, 20%=amarelo, 40%+=vermelho (vol anual)
+  document.getElementById('vol-gauge').style.width=Math.min(volA/50*100,100)+'%';
+
+  // Tabela por ativo
+  var tbody=document.getElementById('asset-tbody');
+  tbody.innerHTML='';
+  (d.assets||[]).sort(function(a,b){return b.var_hist_brl-a.var_hist_brl;}).forEach(function(a){
+    var riskCls=a.volatility_annual>30?'risk-high':a.volatility_annual>15?'risk-med':'risk-low';
+    var riskLbl=a.volatility_annual>30?'ALTO':a.volatility_annual>15?'MEDIO':'BAIXO';
+    tbody.innerHTML+='<tr>'
+      +'<td class="ticker-cell">'+a.ticker+'</td>'
+      +'<td>'+fmtPct(a.weight_pct)+'</td>'
+      +'<td style="color:var(--purple);font-weight:700">'+fmtR(a.var_hist_brl)+'</td>'
+      +'<td>'+fmtPct(a.volatility_annual)+'</td>'
+      +'<td class="'+riskCls+'">'+riskLbl+'</td>'
+      +'</tr>';
+  });
+}
+
+renderPositions();
+</script>
+</body>
+</html>
