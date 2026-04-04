@@ -658,6 +658,12 @@ def create_app() -> FastAPI:
     except Exception as _rre:
         logger.warning("ranking.route.FAILED", error=str(_rre))
     try:
+        from finanalytics_ai.interfaces.api.routes import dividendos as dividendos_routes
+        app.include_router(dividendos_routes.router, tags=["Dividendos"])
+        logger.info("dividendos.route.registered")
+    except Exception as _dre:
+        logger.warning("dividendos.route.FAILED", error=str(_dre))
+    try:
         from finanalytics_ai.interfaces.api.routes import var as var_routes
         app.include_router(var_routes.router, tags=["VaR"])
         logger.info("var.route.registered")
@@ -781,6 +787,11 @@ def create_app() -> FastAPI:
     
     
     
+    
+    @app.get("/dividendos", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_dividendos() -> HTMLResponse:
+        return _html("dividendos.html")
+
     @app.get("/var", response_class=HTMLResponse, include_in_schema=False)
     async def serve_var() -> HTMLResponse:
         return _html("var.html")

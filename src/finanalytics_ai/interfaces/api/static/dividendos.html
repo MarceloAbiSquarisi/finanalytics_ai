@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel de Dividendos | FinAnalytics AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0A1628;--card:#0e1a2e;--border:#1c2535;--white:#e2eaf4;--muted:#4a6a8a;--blue:#3ABFF8;--gold:#F0B429;--green:#00e676;--red:#ff3d5a;--purple:#a78bfa;--teal:#2dd4bf;--sb-w:220px;--sb-w-collapsed:52px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--navy);color:var(--white);font-family:'Syne',sans-serif;overflow-x:hidden}
+.fa-topbar{position:fixed;top:0;left:0;right:0;height:52px;background:rgba(10,22,40,.97);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:300}
+.fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--gold);font-weight:800;font-size:15px}
+.fa-sidebar{position:fixed;left:0;top:52px;bottom:0;width:var(--sb-w-collapsed);background:#0a0f18;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1);z-index:200}
+.fa-sidebar.open{width:var(--sb-w)}
+.fa-sidebar-toggle{width:100%;padding:10px 14px;background:transparent;border:none;border-bottom:1px solid var(--border);color:#7a95b0;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;white-space:nowrap;overflow:hidden}
+.fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;text-decoration:none;font-size:15px;white-space:nowrap;overflow:hidden;transition:all .15s}
+.fa-sb-link:hover{color:#e2eaf4;background:rgba(0,212,255,.05)}
+.fa-sb-link.active{color:var(--gold);background:rgba(240,180,41,.08);border-right:2px solid var(--gold)}
+.fa-sb-link svg{flex-shrink:0}
+.fa-sb-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-link span{opacity:1}
+.fa-sb-group-toggle{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;cursor:pointer;font-size:15px;white-space:nowrap;overflow:hidden;transition:all .15s;border:none;background:transparent;width:100%}
+.fa-sb-group-toggle.open{color:var(--gold)}
+.fa-sb-group-toggle svg{flex-shrink:0}
+.fa-sb-group-toggle span{opacity:0;transition:opacity .15s;display:flex;align-items:center;gap:6px;flex:1}
+.fa-sidebar.open .fa-sb-group-toggle span{opacity:1}
+.fa-sb-group-chevron{margin-left:auto;transition:transform .2s;font-size:10px;color:#3a5570}
+.fa-sb-group-toggle.open .fa-sb-group-chevron{transform:rotate(180deg);color:var(--gold)}
+.fa-sb-submenu{max-height:0;overflow:hidden;transition:max-height .25s ease}
+.fa-sb-submenu.open{max-height:200px}
+.fa-sb-sub-link{display:flex;align-items:center;gap:8px;padding:6px 14px 6px 40px;color:#4a6a8a;text-decoration:none;font-size:14px;white-space:nowrap;overflow:hidden;transition:all .15s;border-left:2px solid transparent}
+.fa-sb-sub-link:hover{color:#00d4ff;background:rgba(0,212,255,.05);border-left-color:rgba(0,212,255,.3)}
+.fa-sb-sub-link.active{color:var(--gold);border-left-color:var(--gold);background:rgba(240,180,41,.06)}
+.fa-sb-sub-link svg{flex-shrink:0}
+.fa-sb-sub-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-sub-link span{opacity:1}
+.fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1);padding:72px 24px 32px}
+body.sb-open .fa-page-content{margin-left:var(--sb-w)}
+.page-title{font-size:26px;font-weight:800;color:var(--gold);margin-bottom:4px}
+.page-sub{font-size:15px;color:var(--muted);margin-bottom:20px}
+/* tabs */
+.tab-bar{display:flex;gap:4px;margin-bottom:20px;background:#0a1220;border-radius:10px;padding:4px}
+.tab-btn{flex:1;padding:9px;border:none;border-radius:8px;cursor:pointer;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;background:transparent;color:var(--muted);transition:all .2s}
+.tab-btn.active{background:var(--gold);color:var(--navy)}
+/* controls */
+.controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.ctrl-input{background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:13px;padding:8px 10px;outline:none;text-transform:uppercase}
+.ctrl-input:focus{border-color:var(--gold)}
+.ctrl-select{background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:13px;padding:8px 10px;outline:none}
+.run-btn{background:linear-gradient(135deg,#7c5200,var(--gold));border:none;border-radius:7px;color:var(--navy);font-family:'Syne',sans-serif;font-weight:800;font-size:14px;padding:9px 20px;cursor:pointer;transition:all .2s}
+.run-btn:hover{transform:translateY(-1px);box-shadow:0 0 16px rgba(240,180,41,.3)}
+/* cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:16px}
+.card-title{font-size:16px;font-weight:700;color:var(--blue);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+/* ranking */
+.rank-table{width:100%;border-collapse:collapse;font-size:14px}
+.rank-table th{padding:8px 12px;color:var(--muted);font-size:11px;font-family:'DM Mono',monospace;text-transform:uppercase;border-bottom:1px solid var(--border);font-weight:400;text-align:left}
+.rank-table td{padding:9px 12px;border-bottom:1px solid #141f2e;font-family:'DM Mono',monospace}
+.rank-table tr:last-child td{border-bottom:none}
+.rank-table tr:hover td{background:rgba(255,255,255,.02);cursor:pointer}
+.rank-num{color:var(--muted);font-size:12px}
+.rank-ticker{color:var(--blue);font-weight:800}
+.rank-dy{color:var(--gold);font-weight:700}
+.dy-bar-wrap{width:120px;height:8px;background:#1c2535;border-radius:8px;overflow:hidden;display:inline-block;vertical-align:middle;margin-left:8px}
+.dy-bar{height:100%;border-radius:8px;background:linear-gradient(90deg,#7c5200,var(--gold))}
+/* historico */
+.hist-header{display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+.hist-kpi{background:#0a1220;border:1px solid var(--border);border-radius:8px;padding:12px 16px;text-align:center;min-width:120px}
+.hist-kpi-label{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;margin-bottom:4px}
+.hist-kpi-value{font-size:20px;font-weight:800;font-family:'DM Mono',monospace;color:var(--gold)}
+.hist-year-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #141f2e}
+.hist-year-row:last-child{border-bottom:none}
+.hist-year{font-size:14px;font-weight:700;font-family:'DM Mono',monospace;color:var(--muted);width:50px}
+.hist-bar-wrap{flex:1;height:10px;background:#1c2535;border-radius:10px;overflow:hidden}
+.hist-bar{height:100%;border-radius:10px;background:linear-gradient(90deg,#7c5200,var(--gold));transition:width .5s ease}
+.hist-dy{font-size:14px;font-weight:700;font-family:'DM Mono',monospace;color:var(--gold);width:70px;text-align:right}
+.hist-range{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;width:120px;text-align:right}
+/* carteira */
+.cart-card{display:flex;align-items:center;gap:12px;padding:12px 14px;background:#0a1220;border:1px solid var(--border);border-radius:8px;margin-bottom:8px}
+.cart-ticker{font-size:15px;font-weight:800;color:var(--blue);font-family:'DM Mono',monospace;width:60px}
+.cart-dy-bar-wrap{flex:1;height:8px;background:#1c2535;border-radius:8px;overflow:hidden}
+.cart-dy-bar{height:100%;border-radius:8px;background:linear-gradient(90deg,#7c5200,var(--gold))}
+.cart-dy-val{font-size:14px;font-weight:700;font-family:'DM Mono',monospace;color:var(--gold);width:60px;text-align:right}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.empty-msg{color:var(--muted);font-size:14px;text-align:center;padding:32px;background:var(--card);border:1px solid var(--border);border-radius:10px}
+.loading{text-align:center;padding:24px;color:var(--muted)}
+.spin{display:inline-block;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.tag{background:#111e33;border:1px solid var(--border);border-radius:5px;padding:4px 10px;font-size:13px;color:var(--gold);font-family:'DM Mono',monospace;display:inline-flex;align-items:center;gap:5px;margin:2px}
+.tag .rm{color:var(--red);cursor:pointer}
+</style>
+</head>
+<body>
+<div class="fa-topbar">
+  <a href="/" class="fa-logo">
+    <svg width="28" height="28" viewBox="0 0 170 170" fill="none"><defs><linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3ABFF8"/><stop offset="100%" stop-color="#F0B429"/></linearGradient></defs><rect width="170" height="170" rx="28" fill="#0A1628"/><polyline points="24,130 60,75 90,100 130,40" stroke="url(#lg1)" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="130" cy="40" r="10" fill="#F0B429"/></svg>
+    FinAnalytics AI
+  </a>
+</div>
+
+<aside class="fa-sidebar" id="fa-sidebar">
+  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <span style="font-weight:700;color:var(--gold);font-size:11px">MENU</span>
+  </button>
+  <div style="overflow-y:auto;flex:1">
+    <a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
+    <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
+    <a href="/screener" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Screener</span></a>
+    <a href="/dividendos" class="fa-sb-link active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span>Dividendos</span></a>
+    <a href="/optimizer" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg><span>Otimizador</span></a>
+    <a href="/var" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>VaR</span></a>
+    <a href="/sentiment" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Sentimento</span></a>
+    <a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
+  </div>
+</aside>
+
+<div class="fa-page-content">
+  <div class="page-title">&#128184; Painel de Dividendos</div>
+  <div class="page-sub">Dividend Yield historico e ranking com dados do Fintz</div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="showTab('ranking',this)">&#127942; Ranking DY</button>
+    <button class="tab-btn" onclick="showTab('historico',this)">&#128200; Historico</button>
+    <button class="tab-btn" onclick="showTab('carteira',this)">&#128196; Minha Carteira</button>
+  </div>
+
+  <!-- TAB: Ranking -->
+  <div class="tab-content active" id="tab-ranking">
+    <div class="controls">
+      <span style="font-size:13px;color:var(--muted)">DY minimo</span>
+      <select class="ctrl-select" id="min-dy">
+        <option value="3">3%+</option>
+        <option value="5" selected>5%+</option>
+        <option value="8">8%+</option>
+        <option value="10">10%+</option>
+      </select>
+      <span style="font-size:13px;color:var(--muted)">Limite</span>
+      <select class="ctrl-select" id="rank-limit">
+        <option value="20" selected>20</option>
+        <option value="30">30</option>
+        <option value="50">50</option>
+      </select>
+      <button class="run-btn" onclick="loadRanking()">&#128184; Carregar Ranking</button>
+    </div>
+    <div id="ranking-area"><div class="empty-msg">Clique em Carregar Ranking</div></div>
+  </div>
+
+  <!-- TAB: Historico -->
+  <div class="tab-content" id="tab-historico">
+    <div class="controls">
+      <input class="ctrl-input" id="hist-ticker" placeholder="PETR4" maxlength="8" style="width:100px" onkeydown="if(event.key==='Enter')loadHistorico()">
+      <button class="run-btn" onclick="loadHistorico()">Ver Historico</button>
+    </div>
+    <div id="historico-area"><div class="empty-msg">Digite um ticker e clique em Ver Historico</div></div>
+  </div>
+
+  <!-- TAB: Carteira -->
+  <div class="tab-content" id="tab-carteira">
+    <div class="controls" style="flex-wrap:wrap;gap:8px">
+      <div id="cart-tags" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+      <input class="ctrl-input" id="cart-ticker" placeholder="PETR4" maxlength="8" style="width:100px" onkeydown="if(event.key==='Enter')addCartTicker()">
+      <button onclick="addCartTicker()" style="background:rgba(240,180,41,.15);border:1px solid rgba(240,180,41,.3);border-radius:6px;color:var(--gold);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;padding:7px 12px;cursor:pointer">+</button>
+      <button class="run-btn" onclick="loadCarteira()">Analisar Carteira</button>
+    </div>
+    <div id="carteira-area"><div class="empty-msg">Adicione tickers e clique em Analisar Carteira</div></div>
+  </div>
+</div>
+
+<script>
+var API='';
+var cartTickers=['PETR4','VALE3','ITUB4','WEGE3','BBDC4'];
+
+function tok(){return localStorage.getItem('fa_token')||'';}
+function faSidebarToggle(){var s=document.getElementById('fa-sidebar');s.classList.toggle('open');document.body.classList.toggle('sb-open');localStorage.setItem('fa_sidebar_open',s.classList.contains('open')?'1':'0');}
+function faDTToggle(btn){var s=document.getElementById('dt-submenu');if(s){btn.classList.toggle('open');s.classList.toggle('open');}}
+(function(){if(localStorage.getItem('fa_sidebar_open')==='1'){document.getElementById('fa-sidebar').classList.add('open');document.body.classList.add('sb-open');}})();
+
+function showTab(t,btn){
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active');});
+  btn.classList.add('active');
+  document.getElementById('tab-'+t).classList.add('active');
+}
+
+function fmt1(v){return parseFloat(v||0).toFixed(1).replace('.',',');}
+
+// ── Ranking ──────────────────────────────────────────────────────────────────
+async function loadRanking(){
+  var area=document.getElementById('ranking-area');
+  area.innerHTML='<div class="loading"><span class="spin">&#9696;</span> Carregando ranking...</div>';
+  var minDy=document.getElementById('min-dy').value;
+  var limit=document.getElementById('rank-limit').value;
+  try{
+    var r=await fetch(API+'/api/v1/dividendos/ranking?limit='+limit+'&min_dy='+minDy);
+    var d=await r.json();
+    var items=d.ranking||[];
+    // Filtra valores absurdos (DY > 80% provavelmente dado ruim)
+    var clean=items.filter(function(x){return x.dy_pct<=80;});
+    if(!clean.length){area.innerHTML='<div class="empty-msg">Nenhum dado encontrado com os filtros selecionados</div>';return;}
+    var maxDy=Math.max.apply(null,clean.map(function(x){return x.dy_pct;}));
+    var html='<div class="card"><table class="rank-table"><thead><tr><th>#</th><th>Ticker</th><th>DY Atual</th><th>Barra</th><th>Referencia</th></tr></thead><tbody>';
+    clean.forEach(function(item,i){
+      var pct=maxDy>0?item.dy_pct/maxDy*100:0;
+      html+='<tr onclick="showHistTicker(\''+item.ticker+'\')">'
+        +'<td class="rank-num">'+(i+1)+'</td>'
+        +'<td class="rank-ticker">'+item.ticker+'</td>'
+        +'<td class="rank-dy">'+fmt1(item.dy_pct)+'%</td>'
+        +'<td><div class="dy-bar-wrap"><div class="dy-bar" style="width:'+pct+'%"></div></div></td>'
+        +'<td style="font-size:12px;color:var(--muted)">'+item.data+'</td>'
+        +'</tr>';
+    });
+    html+='</tbody></table></div>';
+    area.innerHTML=html;
+  }catch(e){area.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'</div>';}
+}
+
+function showHistTicker(ticker){
+  document.getElementById('hist-ticker').value=ticker;
+  document.querySelectorAll('.tab-btn')[1].click();
+  loadHistorico();
+}
+
+// ── Historico ──────────────────────────────────────────────────────────────
+async function loadHistorico(){
+  var ticker=document.getElementById('hist-ticker').value.trim().toUpperCase();
+  if(!ticker){alert('Digite um ticker');return;}
+  var area=document.getElementById('historico-area');
+  area.innerHTML='<div class="loading"><span class="spin">&#9696;</span> Carregando historico de '+ticker+'...</div>';
+  try{
+    var r=await fetch(API+'/api/v1/dividendos/historico?ticker='+ticker);
+    if(r.status===404){area.innerHTML='<div class="empty-msg">Sem dados de DY para '+ticker+'</div>';return;}
+    var d=await r.json();
+    var hist=d.historico||[];
+    // Filtra anos com DY absurdo
+    var clean=hist.filter(function(h){return h.dy_medio_pct<=80;});
+    var maxDy=clean.length?Math.max.apply(null,clean.map(function(h){return h.dy_medio_pct;})):1;
+    var dyAtual=d.dy_atual<=80?d.dy_atual:null;
+    var media5a=d.media_5a<=80?d.media_5a:null;
+
+    var html='<div class="card">'
+      +'<div class="card-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>'+ticker+' - Dividend Yield Historico</div>'
+      +'<div class="hist-header">'
+      +(dyAtual?'<div class="hist-kpi"><div class="hist-kpi-label">DY Atual</div><div class="hist-kpi-value">'+fmt1(dyAtual)+'%</div></div>':'')
+      +(media5a?'<div class="hist-kpi"><div class="hist-kpi-label">Media 5 anos</div><div class="hist-kpi-value">'+fmt1(media5a)+'%</div></div>':'')
+      +'<div class="hist-kpi"><div class="hist-kpi-label">Anos disponíveis</div><div class="hist-kpi-value" style="color:var(--blue)">'+clean.length+'</div></div>'
+      +'</div>';
+
+    clean.forEach(function(h){
+      var pct=maxDy>0?h.dy_medio_pct/maxDy*100:0;
+      html+='<div class="hist-year-row">'
+        +'<span class="hist-year">'+h.ano+'</span>'
+        +'<div class="hist-bar-wrap"><div class="hist-bar" style="width:'+pct+'%"></div></div>'
+        +'<span class="hist-dy">'+fmt1(h.dy_medio_pct)+'%</span>'
+        +'<span class="hist-range">'+fmt1(h.dy_min_pct)+' - '+fmt1(h.dy_max_pct)+'%</span>'
+        +'</div>';
+    });
+    html+='</div>';
+    area.innerHTML=html;
+  }catch(e){area.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'</div>';}
+}
+
+// ── Carteira ──────────────────────────────────────────────────────────────
+function renderCartTags(){
+  var c=document.getElementById('cart-tags');c.innerHTML='';
+  cartTickers.forEach(function(t,i){
+    var span=document.createElement('span');span.className='tag';
+    span.innerHTML=t+' <span class="rm" onclick="rmCartTicker('+i+')">x</span>';
+    c.appendChild(span);
+  });
+}
+function addCartTicker(){var v=document.getElementById('cart-ticker').value.trim().toUpperCase();if(v&&!cartTickers.includes(v)){cartTickers.push(v);renderCartTags();}document.getElementById('cart-ticker').value='';}
+function rmCartTicker(i){cartTickers.splice(i,1);renderCartTags();}
+
+async function loadCarteira(){
+  if(!cartTickers.length){alert('Adicione tickers');return;}
+  var area=document.getElementById('carteira-area');
+  area.innerHTML='<div class="loading"><span class="spin">&#9696;</span> Carregando DY da carteira...</div>';
+  try{
+    var r=await fetch(API+'/api/v1/dividendos/carteira?tickers='+cartTickers.join(','));
+    var d=await r.json();
+    var ativos=d.ativos||[];
+    var clean=ativos.filter(function(a){return a.dy_pct!==null&&a.dy_pct<=80;});
+    var maxDy=clean.length?Math.max.apply(null,clean.map(function(a){return a.dy_pct;})):1;
+    var dyMedio=d.dy_medio_carteira<=80?d.dy_medio_carteira:0;
+
+    var html='<div class="card">'
+      +'<div class="card-title">DY Medio da Carteira: <span style="color:var(--gold);margin-left:8px">'+fmt1(dyMedio)+'%</span></div>';
+
+    clean.sort(function(a,b){return b.dy_pct-a.dy_pct;}).forEach(function(a){
+      var pct=maxDy>0?a.dy_pct/maxDy*100:0;
+      html+='<div class="cart-card">'
+        +'<span class="cart-ticker">'+a.ticker+'</span>'
+        +'<div class="cart-dy-bar-wrap"><div class="cart-dy-bar" style="width:'+pct+'%"></div></div>'
+        +'<span class="cart-dy-val">'+fmt1(a.dy_pct)+'%</span>'
+        +'<span style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace;margin-left:8px">'+a.data+'</span>'
+        +'</div>';
+    });
+
+    var semDados=ativos.filter(function(a){return a.dy_pct===null||a.dy_pct>80;});
+    if(semDados.length){
+      html+='<div style="margin-top:10px;font-size:12px;color:var(--muted)">Sem dados: '+semDados.map(function(a){return a.ticker;}).join(', ')+'</div>';
+    }
+    html+='</div>';
+    area.innerHTML=html;
+  }catch(e){area.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'</div>';}
+}
+
+renderCartTags();
+loadRanking();
+</script>
+</body>
+</html>
