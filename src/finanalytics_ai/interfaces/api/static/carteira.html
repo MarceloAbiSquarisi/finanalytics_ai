@@ -114,6 +114,37 @@ tr:hover td{background:rgba(0,212,255,.02)}
 .acc-chip:hover{border-color:var(--accent);color:var(--accent)}
 .acc-chip.active{background:rgba(0,212,255,.08);border-color:var(--accent);color:var(--accent)}
 @keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
+/* Day Trade submenu */
+.fa-sb-group { position: relative; }
+.fa-sb-group-toggle {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 14px; color: #6a8aa8;
+  cursor: pointer; font-size: 12px;
+  white-space: nowrap; overflow: hidden;
+  transition: all .15s; user-select: none;
+  border: none; background: transparent; width: 100%;
+}
+.fa-sb-group-toggle:hover { color: #e2eaf4; background: rgba(240,180,41,.07); }
+.fa-sb-group-toggle.open { color: #F0B429; }
+.fa-sb-group-toggle svg { flex-shrink: 0; }
+.fa-sb-group-toggle span { opacity: 0; transition: opacity .15s; display: flex; align-items: center; gap: 6px; flex: 1; }
+.fa-sidebar.open .fa-sb-group-toggle span { opacity: 1; }
+.fa-sb-group-chevron { margin-left: auto; transition: transform .2s; font-size: 10px; color: #3a5570; }
+.fa-sb-group-toggle.open .fa-sb-group-chevron { transform: rotate(180deg); color: #F0B429; }
+.fa-sb-submenu { max-height: 0; overflow: hidden; transition: max-height .25s ease; }
+.fa-sb-submenu.open { max-height: 200px; }
+.fa-sb-sub-link {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 14px 6px 40px; color: #4a6a8a;
+  text-decoration: none; font-size: 11px;
+  white-space: nowrap; overflow: hidden;
+  transition: all .15s; border-left: 2px solid transparent;
+}
+.fa-sb-sub-link:hover { color: #00d4ff; background: rgba(0,212,255,.05); border-left-color: rgba(0,212,255,.3); }
+.fa-sb-sub-link.active { color: #F0B429; border-left-color: #F0B429; background: rgba(240,180,41,.06); }
+.fa-sb-sub-link svg { flex-shrink: 0; }
+.fa-sb-sub-link span { opacity: 0; transition: opacity .15s; }
+.fa-sidebar.open .fa-sb-sub-link span { opacity: 1; }
 </style>
 </head>
 <body>
@@ -146,7 +177,40 @@ tr:hover td{background:rgba(0,212,255,.02)}
 <a href="/screener" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Screener</span></a>
 <a href="/watchlist" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span>Watchlist</span></a>
 <a href="/backtest" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Backtest</span></a>
-<a href="/diario" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg><span>Diário</span></a>
+<div class="fa-sb-group">
+  <button class="fa-sb-group-toggle" onclick="faDTToggle(this)" id="dt-toggle">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="22 7 13.5 15.5 8.5 10.5 1 18"/>
+      <polyline points="16 7 22 7 22 13"/>
+    </svg>
+    <span>Day Trade <span class="fa-sb-group-chevron">&#9660;</span></span>
+  </button>
+  <div class="fa-sb-submenu" id="dt-submenu">
+    <a href="/daytrade/setups" class="fa-sb-sub-link" id="dt-setups-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+      </svg>
+      <span>Setups</span>
+    </a>
+    <a href="/diario" class="fa-sb-sub-link" id="dt-diario-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+      </svg>
+      <span>DiÃ¡rio de Trade</span>
+    </a>
+    <a href="/daytrade/risco" class="fa-sb-sub-link" id="dt-risco-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      <span>GestÃ£o de Risco</span>
+    </a>
+  </div>
+</div>
+
 
 <a href="/correlation" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></svg><span>Correlacao</span></a>
 <a href="/anomaly" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg><span>Anomalias</span></a>
@@ -786,3 +850,7 @@ loadSummary();
 </body>
 </html>
 
+
+<script>
+function faDTToggle(btn){var s=document.getElementById('dt-submenu');btn.classList.toggle('open');s.classList.toggle('open');}
+</script>
