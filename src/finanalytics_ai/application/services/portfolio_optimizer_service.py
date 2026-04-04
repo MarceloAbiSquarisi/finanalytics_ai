@@ -67,7 +67,7 @@ class PortfolioOptimizerService:
         rf_tickers: tickers que representam renda fixa — modelados como ativo
                     com retorno = CDI e volatilidade mínima (~0.5% a.a.)
         """
-        from finanalytics_ai.domain.value_objects.ticker import Ticker
+        from finanalytics_ai.domain.value_objects.money import Ticker
 
         tickers = [t.upper().strip() for t in tickers if t.strip()]
         if len(tickers) < 2:
@@ -190,7 +190,7 @@ def _extract_prices(bars: list[dict]) -> tuple[list[str], list[float]]:
     dates, prices = [], []
     for b in bars:
         close = b.get("close") or b.get("adjclose") or b.get("regularMarketPrice")
-        date = b.get("date") or b.get("datetime") or b.get("timestamp")
+        date = b.get("date") or b.get("datetime") or b.get("timestamp") or b.get("time")
         if close and date and float(close) > 0:
             dates.append(str(date)[:10])
             prices.append(float(close))
