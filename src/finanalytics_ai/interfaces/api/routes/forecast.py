@@ -20,7 +20,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 
 from finanalytics_ai.config import get_settings
 from finanalytics_ai.domain.value_objects.money import Ticker
-from finanalytics_ai.interfaces.api.dependencies import get_brapi_client
+# get_brapi_client substituido por market_client do app.state
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/forecast", tags=["Forecast"])
@@ -79,7 +79,7 @@ async def run_forecast(
             logger.info("forecast.cache_hit", ticker=ticker)
             return {**data, "cached": True}
 
-    market_data = get_brapi_client()
+    market_data = getattr(request.app.state, 'market_client', None)
 
     # Fetch historical bars — use 2y for enough training data
     try:
