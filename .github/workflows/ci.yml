@@ -99,11 +99,11 @@ jobs:
           restore-keys: uv-mypy-
 
       - name: Install dependencies
-        run: uv pip install --system -e ".[dev]"
+        run: uv sync --dev
 
       - name: mypy
         run: |
-          python -m mypy src/finanalytics_ai/ \
+          uv run python -m mypy src/finanalytics_ai/ \
             --no-error-summary \
             --config-file pyproject.toml
 
@@ -130,11 +130,11 @@ jobs:
           restore-keys: uv-test-
 
       - name: Install dependencies
-        run: uv pip install --system -e ".[dev]"
+        run: uv sync --dev
 
       - name: pytest (unit)
         run: |
-          python -m pytest tests/unit/ \
+          uv run python -m pytest tests/unit/ \
             -q \
             --tb=short \
             --cov=src/finanalytics_ai \

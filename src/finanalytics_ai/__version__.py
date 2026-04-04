@@ -1,1 +1,2 @@
-02/04/2026 07:21:42
+__version__ = "0.1.0"
+__author__ = "FinAnalytics AI"
