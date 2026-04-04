@@ -372,6 +372,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning("intraday_setup_service.FAILED", error=str(_ise))
         app.state.intraday_setup_service = None
 
+    # -- OptionsService (calculadora de opcoes Black-Scholes)
+    try:
+        from finanalytics_ai.application.services.options_service import OptionsService
+        app.state.options_service = OptionsService()
+        logger.info("options_service.ready")
+    except Exception as _ose:
+        logger.warning("options_service.FAILED", error=str(_ose))
+        app.state.options_service = None
+
     # -- RankingService (ranking de acoes por metodologia)
     try:
         from finanalytics_ai.application.services.ranking_service import RankingService
@@ -612,6 +621,15 @@ def create_app() -> FastAPI:
     except Exception as _rre:
         logger.warning("ranking.route.FAILED", error=str(_rre))
     try:
+        from finanalytics_ai.interfaces.api.routes import opcoes as opcoes_routes
+        app.include_router(opcoes_routes.router, tags=["Opcoes"])
+        logger.info("opcoes.route.registered")
+    except Exception as _ore:
+        logger.warning("opcoes.route.FAILED", error=str(_ore))
+        logger.info("ranking.route.registered")
+    except Exception as _rre:
+        logger.warning("ranking.route.FAILED", error=str(_rre))
+    try:
         from finanalytics_ai.interfaces.api.routes import setups as setups_routes
         app.include_router(setups_routes.router, tags=["Setups Intraday"])
         logger.info("setups.route.registered")
@@ -704,6 +722,11 @@ def create_app() -> FastAPI:
     @app.get("/daytrade/risco", response_class=HTMLResponse, include_in_schema=False)
     async def serve_daytrade_risco() -> HTMLResponse:
         return _html("daytrade_risco.html")
+
+    
+    @app.get("/opcoes", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_opcoes() -> HTMLResponse:
+        return _html("opcoes.html")
 
     @app.get("/profile", response_class=HTMLResponse, include_in_schema=False)
     async def serve_profile() -> HTMLResponse:
