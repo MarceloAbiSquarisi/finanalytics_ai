@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P&L Intraday | FinAnalytics AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0A1628;--card:#0e1a2e;--border:#1c2535;--white:#e2eaf4;--muted:#4a6a8a;--blue:#3ABFF8;--gold:#F0B429;--green:#00e676;--red:#ff3d5a;--purple:#a78bfa;--sb-w:220px;--sb-w-collapsed:52px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--navy);color:var(--white);font-family:'Syne',sans-serif;overflow-x:hidden}
+.fa-topbar{position:fixed;top:0;left:0;right:0;height:52px;background:rgba(10,22,40,.97);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:300}
+.fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--gold);font-weight:800;font-size:15px}
+.fa-sidebar{position:fixed;left:0;top:52px;bottom:0;width:var(--sb-w-collapsed);background:#0a0f18;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1);z-index:200}
+.fa-sidebar.open{width:var(--sb-w)}
+.fa-sidebar-toggle{width:100%;padding:10px 14px;background:transparent;border:none;border-bottom:1px solid var(--border);color:#7a95b0;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;white-space:nowrap;overflow:hidden}
+.fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;text-decoration:none;font-size:15px;white-space:nowrap;overflow:hidden;transition:all .15s}
+.fa-sb-link:hover{color:#e2eaf4;background:rgba(0,212,255,.05)}
+.fa-sb-link.active{color:var(--gold);background:rgba(240,180,41,.08);border-right:2px solid var(--gold)}
+.fa-sb-link svg{flex-shrink:0}
+.fa-sb-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-link span{opacity:1}
+.fa-sb-group-toggle{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;cursor:pointer;font-size:15px;white-space:nowrap;overflow:hidden;transition:all .15s;border:none;background:transparent;width:100%}
+.fa-sb-group-toggle.open{color:var(--gold)}
+.fa-sb-group-toggle svg{flex-shrink:0}
+.fa-sb-group-toggle span{opacity:0;transition:opacity .15s;display:flex;align-items:center;gap:6px;flex:1}
+.fa-sidebar.open .fa-sb-group-toggle span{opacity:1}
+.fa-sb-group-chevron{margin-left:auto;transition:transform .2s;font-size:10px;color:#3a5570}
+.fa-sb-group-toggle.open .fa-sb-group-chevron{transform:rotate(180deg);color:var(--gold)}
+.fa-sb-submenu{max-height:0;overflow:hidden;transition:max-height .25s ease}
+.fa-sb-submenu.open{max-height:200px}
+.fa-sb-sub-link{display:flex;align-items:center;gap:8px;padding:6px 14px 6px 40px;color:#4a6a8a;text-decoration:none;font-size:14px;white-space:nowrap;overflow:hidden;transition:all .15s;border-left:2px solid transparent}
+.fa-sb-sub-link:hover{color:#00d4ff;background:rgba(0,212,255,.05);border-left-color:rgba(0,212,255,.3)}
+.fa-sb-sub-link.active{color:var(--gold);border-left-color:var(--gold);background:rgba(240,180,41,.06)}
+.fa-sb-sub-link svg{flex-shrink:0}
+.fa-sb-sub-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-sub-link span{opacity:1}
+.fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1);padding:72px 24px 32px}
+body.sb-open .fa-page-content{margin-left:var(--sb-w)}
+.page-title{font-size:26px;font-weight:800;color:var(--green);margin-bottom:4px}
+.page-sub{font-size:15px;color:var(--muted);margin-bottom:24px}
+/* KPI row */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+.kpi-label{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.kpi-value{font-size:22px;font-weight:800;font-family:'DM Mono',monospace}
+.kv-pos{color:var(--green)}
+.kv-neg{color:var(--red)}
+.kv-neu{color:var(--muted)}
+.kv-blue{color:var(--blue)}
+.kv-gold{color:var(--gold)}
+/* Cards de operacao */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px}
+.card-title{font-size:16px;font-weight:700;color:var(--blue);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.field-row{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.field-label{font-size:13px;color:var(--muted)}
+.field-input{background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:14px;padding:8px 12px;width:100%;outline:none;text-transform:uppercase}
+.field-input:focus{border-color:var(--green)}
+.field-select{background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:14px;padding:8px 12px;width:100%;outline:none}
+.add-btn{border:none;border-radius:7px;font-family:'Syne',sans-serif;font-weight:800;font-size:14px;padding:10px;cursor:pointer;width:100%;transition:all .2s;margin-top:4px}
+.add-buy{background:linear-gradient(135deg,#005530,var(--green));color:var(--navy)}
+.add-sell{background:linear-gradient(135deg,#550011,var(--red));color:var(--white)}
+.add-btn:hover{transform:translateY(-1px)}
+/* Tabela de operacoes */
+.ops-table{width:100%;border-collapse:collapse;font-size:14px}
+.ops-table th{text-align:left;padding:8px 10px;color:var(--muted);font-size:12px;font-family:'DM Mono',monospace;text-transform:uppercase;border-bottom:1px solid var(--border);font-weight:400}
+.ops-table td{padding:9px 10px;border-bottom:1px solid #141f2e;font-family:'DM Mono',monospace}
+.ops-table tr:last-child td{border-bottom:none}
+.ops-table tr:hover td{background:rgba(255,255,255,.02)}
+.type-buy{color:var(--green);font-weight:700}
+.type-sell{color:var(--red);font-weight:700}
+.pnl-pos{color:var(--green)}
+.pnl-neg{color:var(--red)}
+.del-btn{background:transparent;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px;opacity:.5}
+.del-btn:hover{opacity:1;background:rgba(255,61,90,.1)}
+/* Custo B3 */
+.custo-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #141f2e;font-size:13px}
+.custo-row:last-child{border-bottom:none}
+.custo-label{color:var(--muted)}
+.custo-value{font-family:'DM Mono',monospace;color:var(--white)}
+.custo-total{font-weight:700;color:var(--red)}
+.empty-ops{color:var(--muted);font-size:14px;text-align:center;padding:24px}
+@media(max-width:900px){.grid-2{grid-template-columns:1fr}.kpi-row{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<div class="fa-topbar">
+  <a href="/" class="fa-logo">
+    <svg width="28" height="28" viewBox="0 0 170 170" fill="none"><defs><linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3ABFF8"/><stop offset="100%" stop-color="#F0B429"/></linearGradient></defs><rect width="170" height="170" rx="28" fill="#0A1628"/><polyline points="24,130 60,75 90,100 130,40" stroke="url(#lg1)" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="130" cy="40" r="10" fill="#F0B429"/></svg>
+    FinAnalytics AI
+  </a>
+</div>
+
+<aside class="fa-sidebar" id="fa-sidebar">
+  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <span style="font-weight:700;color:var(--gold);font-size:11px">MENU</span>
+  </button>
+  <div style="overflow-y:auto;flex:1">
+    <a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
+    <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
+    <div class="fa-sb-group">
+      <button class="fa-sb-group-toggle open" onclick="faDTToggle(this)" id="dt-toggle">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 1 18"/><polyline points="16 7 22 7 22 13"/></svg>
+        <span>Day Trade <span class="fa-sb-group-chevron">&#9660;</span></span>
+      </button>
+      <div class="fa-sb-submenu open" id="dt-submenu">
+        <a href="/daytrade/setups" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg><span>Setups</span></a>
+        <a href="/diario" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg><span>Diario</span></a>
+        <a href="/daytrade/risco" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Gestao de Risco</span></a>
+        <a href="/pnl" class="fa-sb-sub-link active"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&L Intraday</span></a>
+      </div>
+    </div>
+    <div class="fa-sb-group">
+      <button class="fa-sb-group-toggle" onclick="faOptToggle(this)" id="opt-toggle">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        <span>Opcoes <span class="fa-sb-group-chevron">&#9660;</span></span>
+      </button>
+      <div class="fa-sb-submenu" id="opt-submenu">
+        <a href="/opcoes" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/></svg><span>Greeks e IV</span></a>
+        <a href="/opcoes/estrategias" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Estrategias</span></a>
+      </div>
+    </div>
+    <a href="/sentiment" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Sentimento</span></a>
+    <a href="/anomaly" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg><span>Anomalias</span></a>
+    <a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
+  </div>
+</aside>
+
+<div class="fa-page-content">
+  <div class="page-title">&#128200; P&L Intraday</div>
+  <div class="page-sub">Resultado do dia por operacao com custo operacional B3</div>
+
+  <!-- KPIs -->
+  <div class="kpi-row">
+    <div class="kpi-card"><div class="kpi-label">Resultado Bruto</div><div class="kpi-value" id="kv-bruto">R$ 0,00</div></div>
+    <div class="kpi-card"><div class="kpi-label">Custo Total</div><div class="kpi-value kv-neg" id="kv-custo">R$ 0,00</div></div>
+    <div class="kpi-card"><div class="kpi-label">Resultado Liq.</div><div class="kpi-value" id="kv-liq">R$ 0,00</div></div>
+    <div class="kpi-card"><div class="kpi-label">Vol. Operado</div><div class="kpi-value kv-blue" id="kv-vol">R$ 0,00</div></div>
+    <div class="kpi-card"><div class="kpi-label">Operacoes</div><div class="kpi-value kv-gold" id="kv-ops">0</div></div>
+  </div>
+
+  <div class="grid-2">
+    <!-- Lancamento de operacoes -->
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Lancar Operacao
+      </div>
+      <div class="field-row">
+        <div class="field-label">Tipo</div>
+        <select class="field-select" id="op-tipo">
+          <option value="compra">Compra</option>
+          <option value="venda">Venda</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field-label">Ticker</div>
+        <input class="field-input" id="op-ticker" placeholder="PETR4" maxlength="10">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Quantidade</div>
+        <input class="field-input" id="op-qty" type="number" placeholder="100" min="1" style="text-transform:none">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Preco (R$)</div>
+        <input class="field-input" id="op-price" type="number" placeholder="48.50" step="0.01" style="text-transform:none">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Horario</div>
+        <input class="field-input" id="op-hora" type="time" value="10:00" style="text-transform:none">
+      </div>
+      <button class="add-btn add-buy" onclick="addOp('compra')">+ Compra</button>
+      <button class="add-btn add-sell" style="margin-top:6px" onclick="addOp('venda')">- Venda</button>
+    </div>
+
+    <!-- Custos B3 -->
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        Custos Operacionais B3
+      </div>
+      <div class="field-row">
+        <div class="field-label">Corretagem por ordem (R$)</div>
+        <input class="field-input" id="c-corretagem" type="number" value="0" step="0.01" style="text-transform:none" onchange="recalc()">
+      </div>
+      <div style="margin-top:10px">
+        <div class="custo-row"><span class="custo-label">Emolumentos B3 (0,0230%)</span><span class="custo-value" id="c-emol">R$ 0,00</span></div>
+        <div class="custo-row"><span class="custo-label">Liquidacao (0,0275%)</span><span class="custo-value" id="c-liq-taxa">R$ 0,00</span></div>
+        <div class="custo-row"><span class="custo-label">ISS (5% sobre corretagem)</span><span class="custo-value" id="c-iss">R$ 0,00</span></div>
+        <div class="custo-row"><span class="custo-label">Corretagem total</span><span class="custo-value" id="c-corr-total">R$ 0,00</span></div>
+        <div class="custo-row" style="border-top:1px solid var(--border);margin-top:6px;padding-top:10px">
+          <span class="custo-label custo-total">Custo total</span>
+          <span class="custo-value custo-total" id="c-total">R$ 0,00</span>
+        </div>
+      </div>
+      <div style="margin-top:14px;padding:10px;background:#0a1220;border-radius:6px;font-size:12px;color:var(--muted);line-height:1.6">
+        <strong style="color:var(--gold)">Day trade B3:</strong><br>
+        Emolumentos: 0,0230% do volume<br>
+        Liquidacao: 0,0275% do volume<br>
+        IRRF: 1% do lucro liquido (recolhido pela corretora)<br>
+        DARF: 20% sobre lucro mensal (responsabilidade do trader)
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabela de operacoes -->
+  <div class="card">
+    <div class="card-title" style="justify-content:space-between">
+      <span style="display:flex;align-items:center;gap:8px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Operacoes do Dia
+      </span>
+      <button onclick="clearOps()" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-size:12px;padding:4px 10px;cursor:pointer">Limpar</button>
+    </div>
+    <div id="ops-area">
+      <div class="empty-ops">Nenhuma operacao lancada hoje</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function tok(){return localStorage.getItem('fa_token')||'';}
+function faSidebarToggle(){var s=document.getElementById('fa-sidebar');s.classList.toggle('open');document.body.classList.toggle('sb-open');localStorage.setItem('fa_sidebar_open',s.classList.contains('open')?'1':'0');}
+function faDTToggle(btn){var s=document.getElementById('dt-submenu');btn.classList.toggle('open');s.classList.toggle('open');}
+function faOptToggle(btn){var s=document.getElementById('opt-submenu');btn.classList.toggle('open');s.classList.toggle('open');}
+(function(){if(localStorage.getItem('fa_sidebar_open')==='1'){document.getElementById('fa-sidebar').classList.add('open');document.body.classList.add('sb-open');}})();
+
+var ops = JSON.parse(localStorage.getItem('pnl_ops_dia') || '[]');
+var today = new Date().toDateString();
+if (localStorage.getItem('pnl_date') !== today) {
+  ops = [];
+  localStorage.setItem('pnl_date', today);
+}
+
+function fmtR(v){return 'R$ '+parseFloat(v).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');}
+
+function addOp(tipo){
+  var ticker = document.getElementById('op-ticker').value.trim().toUpperCase();
+  var qty    = parseFloat(document.getElementById('op-qty').value)||0;
+  var price  = parseFloat(document.getElementById('op-price').value)||0;
+  var hora   = document.getElementById('op-hora').value||'--:--';
+  if(!ticker||qty<=0||price<=0){alert('Preencha ticker, quantidade e preco');return;}
+  ops.push({id:Date.now(),tipo:tipo,ticker:ticker,qty:qty,price:price,hora:hora,vol:qty*price});
+  localStorage.setItem('pnl_ops_dia',JSON.stringify(ops));
+  recalc();
+  document.getElementById('op-ticker').value='';
+  document.getElementById('op-qty').value='';
+  document.getElementById('op-price').value='';
+}
+
+function removeOp(id){
+  ops=ops.filter(function(o){return o.id!==id;});
+  localStorage.setItem('pnl_ops_dia',JSON.stringify(ops));
+  recalc();
+}
+
+function clearOps(){
+  if(!confirm('Limpar todas as operacoes?'))return;
+  ops=[];
+  localStorage.setItem('pnl_ops_dia',JSON.stringify(ops));
+  recalc();
+}
+
+function recalc(){
+  var corr  = parseFloat(document.getElementById('c-corretagem').value)||0;
+  var totalVol = ops.reduce(function(s,o){return s+o.vol;},0);
+  var emol  = totalVol * 0.000230;
+  var liqT  = totalVol * 0.000275;
+  var numOps= ops.length;
+  var corrT = corr * numOps;
+  var iss   = corrT * 0.05;
+  var custoTotal = emol + liqT + corrT + iss;
+
+  document.getElementById('c-emol').textContent      = fmtR(emol);
+  document.getElementById('c-liq-taxa').textContent  = fmtR(liqT);
+  document.getElementById('c-iss').textContent       = fmtR(iss);
+  document.getElementById('c-corr-total').textContent= fmtR(corrT);
+  document.getElementById('c-total').textContent     = fmtR(custoTotal);
+
+  // Calcula P&L por ticker (FIFO simples)
+  var pnlMap = {};
+  var buyQ={}, buyV={};
+  ops.sort(function(a,b){return a.hora>b.hora?1:-1;}).forEach(function(o){
+    if(!pnlMap[o.ticker]){pnlMap[o.ticker]=0;buyQ[o.ticker]=0;buyV[o.ticker]=0;}
+    if(o.tipo==='compra'){
+      buyQ[o.ticker]+=o.qty;
+      buyV[o.ticker]+=o.vol;
+    } else {
+      var avgCost = buyQ[o.ticker]>0?buyV[o.ticker]/buyQ[o.ticker]:0;
+      pnlMap[o.ticker]+=(o.price-avgCost)*o.qty;
+      buyQ[o.ticker]=Math.max(0,buyQ[o.ticker]-o.qty);
+      buyV[o.ticker]=buyQ[o.ticker]*avgCost;
+    }
+  });
+
+  var pnlBruto = Object.values(pnlMap).reduce(function(s,v){return s+v;},0);
+  var pnlLiq   = pnlBruto - custoTotal;
+
+  var bEl=document.getElementById('kv-bruto');
+  bEl.textContent=fmtR(pnlBruto);
+  bEl.className='kpi-value '+(pnlBruto>=0?'kv-pos':'kv-neg');
+
+  document.getElementById('kv-custo').textContent=fmtR(custoTotal);
+
+  var lEl=document.getElementById('kv-liq');
+  lEl.textContent=fmtR(pnlLiq);
+  lEl.className='kpi-value '+(pnlLiq>=0?'kv-pos':'kv-neg');
+
+  document.getElementById('kv-vol').textContent=fmtR(totalVol);
+  document.getElementById('kv-ops').textContent=numOps;
+
+  // Tabela de operacoes
+  var area=document.getElementById('ops-area');
+  if(!ops.length){area.innerHTML='<div class="empty-ops">Nenhuma operacao lancada hoje</div>';return;}
+
+  var html='<table class="ops-table"><thead><tr>'
+    +'<th>Hora</th><th>Tipo</th><th>Ticker</th><th>Qtd</th><th>Preco</th><th>Volume</th><th>P&L</th><th></th>'
+    +'</tr></thead><tbody>';
+
+  ops.forEach(function(o){
+    var pnlTk = pnlMap[o.ticker]||0;
+    var pnlCls= o.tipo==='venda'?(pnlTk>=0?'pnl-pos':'pnl-neg'):'kv-neu';
+    var pnlTxt= o.tipo==='venda'?(pnlTk>=0?'+':'')+fmtR(pnlTk):'—';
+    html+='<tr>'
+      +'<td>'+o.hora+'</td>'
+      +'<td class="type-'+(o.tipo==='compra'?'buy':'sell')+'">'+(o.tipo==='compra'?'C':'V')+'</td>'
+      +'<td style="color:var(--blue);font-weight:700">'+o.ticker+'</td>'
+      +'<td>'+o.qty+'</td>'
+      +'<td>R$ '+o.price.toFixed(2).replace('.',',')+'</td>'
+      +'<td>'+fmtR(o.vol)+'</td>'
+      +'<td class="'+pnlCls+'">'+pnlTxt+'</td>'
+      +'<td><button class="del-btn" onclick="removeOp('+o.id+')">&#10005;</button></td>'
+      +'</tr>';
+  });
+  html+='</tbody></table>';
+  area.innerHTML=html;
+}
+
+recalc();
+</script>
+</body>
+</html>

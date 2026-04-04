@@ -114,6 +114,7 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
     <svg width="28" height="28" viewBox="0 0 170 170" fill="none"><defs><linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3ABFF8"/><stop offset="100%" stop-color="#F0B429"/></linearGradient></defs><rect width="170" height="170" rx="28" fill="#0A1628"/><polyline points="24,130 60,75 90,100 130,40" stroke="url(#lg1)" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="130" cy="40" r="10" fill="#F0B429"/></svg>
     FinAnalytics AI
   </a>
+<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
 <aside class="fa-sidebar" id="fa-sidebar">
@@ -134,8 +135,10 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
         <a href="/daytrade/setups" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg><span>Setups</span></a>
         <a href="/diario" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg><span>Diario</span></a>
         <a href="/daytrade/risco" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Gestao de Risco</span></a>
-      </div>
-    </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
     <div class="fa-sb-group">
       <button class="fa-sb-group-toggle" onclick="faOptToggle(this)" id="opt-toggle">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
@@ -144,60 +147,93 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
       <div class="fa-sb-submenu" id="opt-submenu">
         <a href="/opcoes" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/></svg><span>Greeks e IV</span></a>
         <a href="/opcoes/estrategias" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Estrategias</span></a>
-      </div>
-    </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
     <a href="/sentiment" class="fa-sb-link active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Sentimento</span></a>
     <a href="/anomaly" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg><span>Anomalias</span></a>
     <a href="/forecast" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg><span>Forecast</span></a>
     <a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
-  </div>
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
 </aside>
 
 <div class="fa-page-content">
-  <div class="page-title">&#128172; Sentimento de Noticias</div>
-  <div class="page-sub">Analise de noticias financeiras via Claude Haiku 4.5 (~$0.001/noticia)</div>
+  <div class="page-title">&#128172; Sentimento de Noticias<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
+  <div class="page-sub">Analise de noticias financeiras via Claude Haiku 4.5 (~$0.001/noticia)<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
 
   <!-- Controles -->
   <div class="controls">
     <input class="ticker-input" id="ticker-input" placeholder="PETR4" maxlength="6" onkeydown="if(event.key==='Enter')addTicker()">
     <button class="scan-btn" onclick="addTicker()" style="padding:8px 14px;font-size:13px">+ Ticker</button>
-    <div class="tag-tickers" id="tag-tickers"></div>
+    <div class="tag-tickers" id="tag-tickers"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
     <select id="max-items" style="background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:13px;padding:8px 10px;outline:none">
       <option value="5">5 noticias</option>
       <option value="10" selected>10 noticias</option>
       <option value="20">20 noticias</option>
     </select>
     <button class="scan-btn" id="scan-btn" onclick="runScan()">&#128172; Analisar Agora</button>
-  </div>
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
 
   <!-- KPIs -->
   <div class="kpi-row" id="kpi-row" style="display:none">
-    <div class="kpi-card"><div class="kpi-label">Total</div><div class="kpi-value kv-total" id="kv-total">0</div></div>
-    <div class="kpi-card"><div class="kpi-label">Positivas</div><div class="kpi-value kv-pos" id="kv-pos">0</div></div>
-    <div class="kpi-card"><div class="kpi-label">Negativas</div><div class="kpi-value kv-neg" id="kv-neg">0</div></div>
-    <div class="kpi-card"><div class="kpi-label">Neutras</div><div class="kpi-value kv-neu" id="kv-neu">0</div></div>
-    <div class="kpi-card"><div class="kpi-label">Score Medio</div><div class="kpi-value kv-score" id="kv-score">0.00</div></div>
-  </div>
+    <div class="kpi-card"><div class="kpi-label">Total<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div><div class="kpi-value kv-total" id="kv-total">0<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
+    <div class="kpi-card"><div class="kpi-label">Positivas<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div><div class="kpi-value kv-pos" id="kv-pos">0<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
+    <div class="kpi-card"><div class="kpi-label">Negativas<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div><div class="kpi-value kv-neg" id="kv-neg">0<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
+    <div class="kpi-card"><div class="kpi-label">Neutras<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div><div class="kpi-value kv-neu" id="kv-neu">0<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
+    <div class="kpi-card"><div class="kpi-label">Score Medio<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div><div class="kpi-value kv-score" id="kv-score">0.00<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
 
   <!-- Barra de score -->
   <div class="score-bar-wrap" id="score-bar-wrap" style="display:none">
-    <div class="score-bar-title">Termometro de Sentimento (media geral)</div>
+    <div class="score-bar-title">Termometro de Sentimento (media geral)<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
     <div class="score-bar">
-      <div class="score-fill" id="score-fill" style="width:50%;background:linear-gradient(90deg,var(--red),var(--muted),var(--green))"></div>
-      <div class="score-marker" id="score-marker" style="left:50%"></div>
-    </div>
+      <div class="score-fill" id="score-fill" style="width:50%;background:linear-gradient(90deg,var(--red),var(--muted),var(--green))"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
+      <div class="score-marker" id="score-marker" style="left:50%"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
     <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">
       <span>-1.0 Negativo</span><span>0 Neutro</span><span>+1.0 Positivo</span>
-    </div>
-  </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
 
   <!-- Tickers impactados -->
-  <div class="ticker-impact" id="ticker-impact"></div>
+  <div class="ticker-impact" id="ticker-impact"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
 
   <!-- Noticias -->
   <div class="news-grid" id="news-grid">
-    <div class="empty-msg">Configure os tickers e clique em Analisar Agora</div>
-  </div>
+    <div class="empty-msg">Configure os tickers e clique em Analisar Agora<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
+<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
 <script>
@@ -232,7 +268,8 @@ async function runScan(){
   btn.disabled=true;btn.textContent='Analisando...';
 
   var grid=document.getElementById('news-grid');
-  grid.innerHTML='<div class="loading"><span class="spin">&#9696;</span><br><br>Buscando noticias e analisando sentimento...<br><small style="color:var(--muted)">Claude Haiku 4.5 esta trabalhando</small></div>';
+  grid.innerHTML='<div class="loading"><span class="spin">&#9696;</span><br><br>Buscando noticias e analisando sentimento...<br><small style="color:var(--muted)">Claude Haiku 4.5 esta trabalhando</small><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>';
 
   document.getElementById('kpi-row').style.display='none';
   document.getElementById('score-bar-wrap').style.display='none';
@@ -245,8 +282,10 @@ async function runScan(){
     var r=await fetch(url,{headers:{Authorization:'Bearer '+tok()}});
     var d=await r.json();
 
-    if(d.detail){grid.innerHTML='<div class="empty-msg" style="color:var(--red)">'+d.detail+'</div>';return;}
-    if(!d.total){grid.innerHTML='<div class="empty-msg">Nenhuma noticia encontrada para os tickers selecionados</div>';return;}
+    if(d.detail){grid.innerHTML='<div class="empty-msg" style="color:var(--red)">'+d.detail+'<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>';return;}
+    if(!d.total){grid.innerHTML='<div class="empty-msg">Nenhuma noticia encontrada para os tickers selecionados<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>';return;}
 
     // KPIs
     document.getElementById('kv-total').textContent=d.total;
@@ -291,22 +330,30 @@ async function runScan(){
         '<div class="sentiment-badge badge-'+cls+'">'+
           '<span class="badge-icon">'+icon+'</span>'+
           '<span class="badge-score '+scoreCls+'">'+(sc>=0?'+':'')+fmt2(sc)+'</span>'+
-        '</div>'+
+        '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>'+
         '<div class="news-body">'+
-          '<div class="news-title">'+(n.url?'<a href="'+n.url+'" target="_blank" style="color:inherit;text-decoration:none">':'')+n.title+(n.url?'</a>':'')+'</div>'+
-          (n.resumo&&n.resumo!=='Erro na analise'?'<div class="news-resumo">'+n.resumo+'</div>':'')+
+          '<div class="news-title">'+(n.url?'<a href="'+n.url+'" target="_blank" style="color:inherit;text-decoration:none">':'')+n.title+(n.url?'</a>':'')+'<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>'+
+          (n.resumo&&n.resumo!=='Erro na analise'?'<div class="news-resumo">'+n.resumo+'<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>':'')+
           '<div class="news-meta">'+
             '<span class="news-source">'+n.source+'</span>'+
-            (tickerTags?'<div class="news-tickers">'+tickerTags+'</div>':'')+
-            (catTags?'<div class="news-cats">'+catTags+'</div>':'')+
+            (tickerTags?'<div class="news-tickers">'+tickerTags+'<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>':'')+
+            (catTags?'<div class="news-cats">'+catTags+'<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>':'')+
             '<span class="impact-badge '+impCls+'">'+n.impacto+'</span>'+
-          '</div>'+
-        '</div>';
+          '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>'+
+        '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>';
       grid.appendChild(card);
     });
 
   }catch(e){
-    grid.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'</div>';
+    grid.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>';
   }finally{
     btn.disabled=false;btn.textContent='\u{1F4AC} Analisar Agora';
   }

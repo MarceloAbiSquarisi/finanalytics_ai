@@ -759,6 +759,11 @@ def create_app() -> FastAPI:
         return _html("opcoes_estrategias.html")
 
     
+    
+    @app.get("/pnl", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_pnl() -> HTMLResponse:
+        return _html("pnl.html")
+
     @app.get("/sentiment", response_class=HTMLResponse, include_in_schema=False)
     async def serve_sentiment() -> HTMLResponse:
         return _html("sentiment.html")
