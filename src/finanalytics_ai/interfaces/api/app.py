@@ -373,6 +373,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.intraday_setup_service = None
 
     
+    
+    # -- VaRService (Value at Risk)
+    try:
+        from finanalytics_ai.application.services.var_service import VaRService
+        _var_market = getattr(app.state, "market_client", None)
+        if _var_market:
+            app.state.var_service = VaRService(_var_market)
+            logger.info("var_service.ready")
+        else:
+            app.state.var_service = None
+            logger.warning("var_service.SKIPPED", reason="market_client nao disponivel")
+    except Exception as _vse:
+        logger.warning("var_service.FAILED", error=str(_vse))
+        app.state.var_service = None
     # -- SentimentService (analise de noticias via Claude Haiku 4.5)
     try:
         from finanalytics_ai.application.services.sentiment_service import SentimentService
@@ -644,6 +658,12 @@ def create_app() -> FastAPI:
     except Exception as _rre:
         logger.warning("ranking.route.FAILED", error=str(_rre))
     try:
+        from finanalytics_ai.interfaces.api.routes import var as var_routes
+        app.include_router(var_routes.router, tags=["VaR"])
+        logger.info("var.route.registered")
+    except Exception as _vre:
+        logger.warning("var.route.FAILED", error=str(_vre))
+    try:
         from finanalytics_ai.interfaces.api.routes import sentiment as sentiment_routes
         app.include_router(sentiment_routes.router, tags=["Sentimento"])
         logger.info("sentiment.route.registered")
@@ -760,6 +780,11 @@ def create_app() -> FastAPI:
 
     
     
+    
+    @app.get("/var", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_var() -> HTMLResponse:
+        return _html("var.html")
+
     @app.get("/pnl", response_class=HTMLResponse, include_in_schema=False)
     async def serve_pnl() -> HTMLResponse:
         return _html("pnl.html")
