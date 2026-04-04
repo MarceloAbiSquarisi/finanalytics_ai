@@ -134,3 +134,44 @@ class AnomalyService:
             if result.results
             else AnomalyResult(ticker=ticker, bars_analyzed=0, anomalies=[], error="Sem resultado")
         )
+
+    async def scan_bars(
+        self,
+        ticker_bars: dict,
+    ) -> object:
+        """
+        Detecta anomalias a partir de barras pre-carregadas.
+        Usado pelo TickAnomalyBridge (dados do ProfitDLL + Fintz).
+
+        ticker_bars: {ticker: [{"time": int, "open": float, ...}]}
+        """
+        import asyncio
+        from finanalytics_ai.domain.anomaly.engine import (
+            build_multi_anomaly_result,
+            DetectorConfig,
+        )
+
+        config = DetectorConfig()
+        ticker_results = {}
+
+        async def _detect(ticker: str, bars: list) -> None:
+            try:
+                result = await asyncio.to_thread(
+                    self._run_detectors, ticker, bars, config
+                )
+                ticker_results[ticker] = result
+            except Exception as exc:
+                logger.warning("anomaly.scan_bars.failed", ticker=ticker, error=str(exc))
+
+        await asyncio.gather(*[_detect(t, b) for t, b in ticker_bars.items()])
+        return build_multi_anomaly_result(ticker_results)
+
+    def _run_detectors(
+        self,
+        ticker: str,
+        bars: list,
+        config: object,
+    ) -> object:
+        """Executa os 4 detectores de anomalia em uma serie de barras."""
+        from finanalytics_ai.domain.anomaly.engine import detect_anomalies
+        return detect_anomalies(ticker, bars, config)

@@ -1,4 +1,4 @@
-﻿"""
+"""
 profit_market_worker.py — Worker de mercado via ProfitDLL (Nelogica).
 
 Arquitetura:
@@ -53,6 +53,7 @@ from finanalytics_ai.infrastructure.market_data.profit_dll.message_source import
     ProfitDLLMessageSource,
 )
 from finanalytics_ai.observability.logging import get_logger
+from finanalytics_ai.infrastructure.market_data.tick_anomaly_bridge import TickAnomalyBridge
 
 log = get_logger(__name__)
 
