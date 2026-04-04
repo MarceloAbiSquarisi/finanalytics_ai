@@ -696,6 +696,15 @@ def create_app() -> FastAPI:
     async def serve_carteira() -> HTMLResponse:
         return _html("carteira.html")
 
+    
+    @app.get("/daytrade/setups", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_daytrade_setups() -> HTMLResponse:
+        return _html("daytrade_setups.html")
+
+    @app.get("/daytrade/risco", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_daytrade_risco() -> HTMLResponse:
+        return _html("daytrade_risco.html")
+
     @app.get("/profile", response_class=HTMLResponse, include_in_schema=False)
     async def serve_profile() -> HTMLResponse:
         return _html("profile.html")

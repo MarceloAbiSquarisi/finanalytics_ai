@@ -75,6 +75,10 @@ class SetupAlert:
     last_high: float
     last_low: float
     bar_index: int
+    stop_loss: float | None = None    # preco de stop loss
+    take_profit: float | None = None  # preco de take profit
+    risk_reward: float | None = None  # ratio risco/retorno
+    stop_pct: float | None = None     # distancia do stop em %
     context: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -89,6 +93,10 @@ class SetupAlert:
             "last_high":    self.last_high,
             "last_low":     self.last_low,
             "bar_index":    self.bar_index,
+            "stop_loss":   self.stop_loss,
+            "take_profit": self.take_profit,
+            "risk_reward": self.risk_reward,
+            "stop_pct":    self.stop_pct,
             **self.context,
         }
 
@@ -259,6 +267,114 @@ class IntradaySetupService:
 # Deteccao pura (sem I/O)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
+
+def _calc_stops(
+    setup_key: str,
+    signal: str,
+    bars: list[dict],
+    close: float,
+    high: float,
+    low: float,
+) -> tuple[float | None, float | None, float | None, float | None]:
+    """
+    Calcula stop_loss, take_profit, risk_reward e stop_pct para cada setup.
+
+    Logica por setup:
+      setup_91:       Stop abaixo/acima da minima/maxima do candle de sinal
+                      Alvo: 2x o risco
+      larry_williams: Stop abaixo da minima do dia anterior
+                      Alvo: maxima do dia anterior
+      ema_cross:      Stop abaixo/acima da EMA21 (aprox: media 21 barras)
+                      Alvo: 2x o risco
+      inside_bar:     Stop abaixo/acima da minima/maxima do candle mae
+                      Alvo: maxima/minima do candle mae
+      pin_bar:        Stop na ponta da sombra longa
+                      Alvo: 2x o risco
+      default:        Stop 1 ATR abaixo/acima do close
+                      Alvo: 2x o risco (RR = 2.0)
+
+    Retorna: (stop_loss, take_profit, risk_reward, stop_pct)
+    """
+    if not bars or close <= 0:
+        return None, None, None, None
+
+    prev = bars[-2] if len(bars) >= 2 else bars[-1]
+    prev_low  = float(prev.get("low",  close) or close)
+    prev_high = float(prev.get("high", close) or close)
+
+    # ATR simples (media dos ranges das ultimas 14 barras)
+    atr_bars = bars[-14:] if len(bars) >= 14 else bars
+    atr = sum(
+        abs(float(b.get("high", 0) or 0) - float(b.get("low", 0) or 0))
+        for b in atr_bars
+    ) / len(atr_bars) if atr_bars else close * 0.02
+
+    stop = None
+    target = None
+
+    if setup_key == "setup_91":
+        if signal == "BUY":
+            stop  = low - atr * 0.5
+            target = close + (close - stop) * 2
+        else:
+            stop  = high + atr * 0.5
+            target = close - (stop - close) * 2
+
+    elif setup_key == "larry_williams":
+        if signal == "BUY":
+            stop  = prev_low - atr * 0.1
+            target = prev_high
+        else:
+            stop  = prev_high + atr * 0.1
+            target = prev_low
+
+    elif setup_key == "ema_cross":
+        # EMA21 aproximada pela media das ultimas 21 barras
+        ema21_bars = bars[-21:] if len(bars) >= 21 else bars
+        ema21 = sum(float(b.get("close", close) or close) for b in ema21_bars) / len(ema21_bars)
+        if signal == "BUY":
+            stop  = ema21 - atr * 0.2
+            target = close + (close - stop) * 2
+        else:
+            stop  = ema21 + atr * 0.2
+            target = close - (stop - close) * 2
+
+    elif setup_key == "inside_bar":
+        # Candle mae = bars[-2]
+        if signal == "BUY":
+            stop  = prev_low - atr * 0.1
+            target = prev_high
+        else:
+            stop  = prev_high + atr * 0.1
+            target = prev_low
+
+    elif setup_key == "pin_bar":
+        if signal == "BUY":
+            stop  = low - atr * 0.1
+            target = close + (close - stop) * 2
+        else:
+            stop  = high + atr * 0.1
+            target = close - (stop - close) * 2
+
+    else:
+        # Default: 1 ATR de stop, alvo 2x
+        if signal == "BUY":
+            stop  = close - atr
+            target = close + atr * 2
+        else:
+            stop  = close + atr
+            target = close - atr * 2
+
+    if stop is None or target is None or stop <= 0:
+        return None, None, None, None
+
+    risk = abs(close - stop)
+    reward = abs(target - close)
+    rr = round(reward / risk, 2) if risk > 0 else None
+    stop_pct = round(abs(close - stop) / close * 100, 2) if close > 0 else None
+
+    return round(stop, 4), round(target, 4), rr, stop_pct
 def _detect_setups(
     ticker: str,
     bars: list[dict[str, Any]],
@@ -301,6 +417,8 @@ def _detect_setups(
             else:
                 continue  # HOLD - sem setup
 
+
+            sl, tp, rr, sp = _calc_stops(setup_key, signal_str, bars, close, high, low)
             alerts.append(SetupAlert(
                 ticker=ticker,
                 setup_name=AVAILABLE_SETUPS.get(setup_key, setup_key),
@@ -312,6 +430,10 @@ def _detect_setups(
                 last_high=high,
                 last_low=low,
                 bar_index=len(bars) - 1,
+                stop_loss=sl,
+                take_profit=tp,
+                risk_reward=rr,
+                stop_pct=sp,
                 context={"bars_analyzed": len(bars)},
             ))
 
