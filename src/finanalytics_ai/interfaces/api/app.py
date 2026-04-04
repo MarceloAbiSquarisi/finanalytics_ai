@@ -357,6 +357,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning("ticker_service.FAILED", error=str(exc))
 
 
+    # -- IntradaySetupService (deteccao de setups em tempo real)
+    try:
+        from finanalytics_ai.application.services.intraday_setup_service import IntradaySetupService
+        _market = getattr(app.state, 'market_client', None)
+        _bus = getattr(app.state, 'notification_bus', None)
+        if _market:
+            app.state.intraday_setup_service = IntradaySetupService(_market, _bus)
+            logger.info("intraday_setup_service.ready")
+        else:
+            app.state.intraday_setup_service = None
+            logger.warning("intraday_setup_service.skipped", reason="market_client ausente")
+    except Exception as _ise:
+        logger.warning("intraday_setup_service.FAILED", error=str(_ise))
+        app.state.intraday_setup_service = None
+
     # -- RankingService (ranking de acoes por metodologia)
     try:
         from finanalytics_ai.application.services.ranking_service import RankingService
@@ -593,6 +608,15 @@ def create_app() -> FastAPI:
     try:
         from finanalytics_ai.interfaces.api.routes import ranking as ranking_routes
         app.include_router(ranking_routes.router, tags=["Ranking"])
+        logger.info("ranking.route.registered")
+    except Exception as _rre:
+        logger.warning("ranking.route.FAILED", error=str(_rre))
+    try:
+        from finanalytics_ai.interfaces.api.routes import setups as setups_routes
+        app.include_router(setups_routes.router, tags=["Setups Intraday"])
+        logger.info("setups.route.registered")
+    except Exception as _stre:
+        logger.warning("setups.route.FAILED", error=str(_stre))
         logger.info("ranking.route.registered")
     except Exception as _rre:
         logger.warning("ranking.route.FAILED", error=str(_rre))
