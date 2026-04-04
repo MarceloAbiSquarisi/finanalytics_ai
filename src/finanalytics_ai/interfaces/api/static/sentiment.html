@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentimento de Noticias | FinAnalytics AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0A1628;--card:#0e1a2e;--border:#1c2535;--white:#e2eaf4;--muted:#4a6a8a;--blue:#3ABFF8;--gold:#F0B429;--green:#00e676;--red:#ff3d5a;--purple:#a78bfa;--orange:#fb923c;--sb-w:220px;--sb-w-collapsed:52px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--navy);color:var(--white);font-family:'Syne',sans-serif;overflow-x:hidden}
+.fa-topbar{position:fixed;top:0;left:0;right:0;height:52px;background:rgba(10,22,40,.97);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:300}
+.fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--gold);font-weight:800;font-size:15px}
+.fa-sidebar{position:fixed;left:0;top:52px;bottom:0;width:var(--sb-w-collapsed);background:#0a0f18;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1);z-index:200}
+.fa-sidebar.open{width:var(--sb-w)}
+.fa-sidebar-toggle{width:100%;padding:10px 14px;background:transparent;border:none;border-bottom:1px solid var(--border);color:#7a95b0;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;white-space:nowrap;overflow:hidden}
+.fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;text-decoration:none;font-size:15px;white-space:nowrap;overflow:hidden;transition:all .15s}
+.fa-sb-link:hover{color:#e2eaf4;background:rgba(0,212,255,.05)}
+.fa-sb-link.active{color:var(--gold);background:rgba(240,180,41,.08);border-right:2px solid var(--gold)}
+.fa-sb-link svg{flex-shrink:0}
+.fa-sb-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-link span{opacity:1}
+.fa-sb-group-toggle{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;cursor:pointer;font-size:15px;white-space:nowrap;overflow:hidden;transition:all .15s;border:none;background:transparent;width:100%}
+.fa-sb-group-toggle.open{color:var(--gold)}
+.fa-sb-group-toggle svg{flex-shrink:0}
+.fa-sb-group-toggle span{opacity:0;transition:opacity .15s;display:flex;align-items:center;gap:6px;flex:1}
+.fa-sidebar.open .fa-sb-group-toggle span{opacity:1}
+.fa-sb-group-chevron{margin-left:auto;transition:transform .2s;font-size:10px;color:#3a5570}
+.fa-sb-group-toggle.open .fa-sb-group-chevron{transform:rotate(180deg);color:var(--gold)}
+.fa-sb-submenu{max-height:0;overflow:hidden;transition:max-height .25s ease}
+.fa-sb-submenu.open{max-height:200px}
+.fa-sb-sub-link{display:flex;align-items:center;gap:8px;padding:6px 14px 6px 40px;color:#4a6a8a;text-decoration:none;font-size:14px;white-space:nowrap;overflow:hidden;transition:all .15s;border-left:2px solid transparent}
+.fa-sb-sub-link:hover{color:#00d4ff;background:rgba(0,212,255,.05);border-left-color:rgba(0,212,255,.3)}
+.fa-sb-sub-link.active{color:var(--gold);border-left-color:var(--gold);background:rgba(240,180,41,.06)}
+.fa-sb-sub-link svg{flex-shrink:0}
+.fa-sb-sub-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-sub-link span{opacity:1}
+.fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1);padding:72px 24px 32px}
+body.sb-open .fa-page-content{margin-left:var(--sb-w)}
+.page-title{font-size:26px;font-weight:800;color:var(--orange);margin-bottom:4px}
+.page-sub{font-size:15px;color:var(--muted);margin-bottom:24px}
+/* Controls */
+.controls{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.ticker-input{background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:13px;padding:8px 12px;width:110px;outline:none;text-transform:uppercase}
+.ticker-input:focus{border-color:var(--orange)}
+.scan-btn{background:linear-gradient(135deg,#7c2d00,var(--orange));border:none;border-radius:7px;color:var(--white);font-family:'Syne',sans-serif;font-weight:800;font-size:14px;padding:9px 20px;cursor:pointer;transition:all .2s}
+.scan-btn:hover{transform:translateY(-1px);box-shadow:0 0 16px rgba(251,146,60,.3)}
+.scan-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.tag-tickers{display:flex;flex-wrap:wrap;gap:6px}
+.tag{background:#111e33;border:1px solid var(--border);border-radius:5px;padding:4px 10px;font-size:13px;color:var(--orange);font-family:'DM Mono',monospace;display:flex;align-items:center;gap:5px}
+.tag .rm{color:var(--red);font-weight:700;cursor:pointer}
+/* KPI row */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+.kpi-label{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.kpi-value{font-size:24px;font-weight:800;font-family:'DM Mono',monospace}
+.kv-pos{color:var(--green)}
+.kv-neg{color:var(--red)}
+.kv-neu{color:var(--muted)}
+.kv-score{color:var(--orange)}
+.kv-total{color:var(--blue)}
+/* Score bar */
+.score-bar-wrap{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px}
+.score-bar-title{font-size:14px;color:var(--muted);margin-bottom:10px;font-family:'DM Mono',monospace}
+.score-bar{height:12px;background:#1c2535;border-radius:10px;overflow:hidden;position:relative}
+.score-fill{height:100%;border-radius:10px;transition:width .6s ease;position:absolute}
+.score-marker{position:absolute;top:-4px;width:2px;height:20px;background:var(--white);border-radius:2px;transition:left .6s ease}
+/* Ticker impact */
+.ticker-impact{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.ticker-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:8px}
+.ticker-name{font-size:14px;font-weight:800;font-family:'DM Mono',monospace;color:var(--blue)}
+.ticker-score{font-size:13px;font-weight:700;font-family:'DM Mono',monospace}
+/* News cards */
+.news-grid{display:flex;flex-direction:column;gap:10px}
+.news-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;gap:14px;align-items:flex-start;transition:border-color .2s}
+.news-card:hover{border-color:rgba(251,146,60,.3)}
+.news-card.pos{border-left:3px solid var(--green)}
+.news-card.neg{border-left:3px solid var(--red)}
+.news-card.neu{border-left:3px solid #1c2535}
+.sentiment-badge{flex-shrink:0;width:52px;height:52px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.badge-pos{background:rgba(0,230,118,.12);border:1px solid rgba(0,230,118,.3)}
+.badge-neg{background:rgba(255,61,90,.12);border:1px solid rgba(255,61,90,.3)}
+.badge-neu{background:rgba(74,106,138,.12);border:1px solid rgba(74,106,138,.3)}
+.badge-icon{font-size:18px}
+.badge-score{font-size:11px;font-weight:700;font-family:'DM Mono',monospace}
+.score-pos{color:var(--green)}
+.score-neg{color:var(--red)}
+.score-neu{color:var(--muted)}
+.news-body{flex:1;min-width:0}
+.news-title{font-size:15px;font-weight:700;color:var(--white);margin-bottom:4px;line-height:1.3}
+.news-resumo{font-size:13px;color:var(--muted);margin-bottom:6px}
+.news-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.news-source{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace}
+.news-tickers{display:flex;gap:4px}
+.news-ticker-tag{background:rgba(58,191,248,.1);border:1px solid rgba(58,191,248,.25);border-radius:4px;padding:2px 6px;font-size:11px;color:var(--blue);font-family:'DM Mono',monospace}
+.news-cats{display:flex;gap:4px;flex-wrap:wrap}
+.news-cat{background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.2);border-radius:4px;padding:2px 6px;font-size:11px;color:var(--purple)}
+.impact-badge{font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px}
+.impact-alto{background:rgba(251,146,60,.15);color:var(--orange)}
+.impact-medio{background:rgba(240,180,41,.12);color:var(--gold)}
+.impact-baixo{background:rgba(74,106,138,.12);color:var(--muted)}
+.empty-msg{color:var(--muted);font-size:14px;text-align:center;padding:40px;background:var(--card);border:1px solid var(--border);border-radius:10px}
+.loading{text-align:center;padding:32px;color:var(--muted);font-size:14px}
+.spin{display:inline-block;animation:spin 1s linear infinite;font-size:20px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:900px){.kpi-row{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.kpi-row{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="fa-topbar">
+  <a href="/" class="fa-logo">
+    <svg width="28" height="28" viewBox="0 0 170 170" fill="none"><defs><linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3ABFF8"/><stop offset="100%" stop-color="#F0B429"/></linearGradient></defs><rect width="170" height="170" rx="28" fill="#0A1628"/><polyline points="24,130 60,75 90,100 130,40" stroke="url(#lg1)" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="130" cy="40" r="10" fill="#F0B429"/></svg>
+    FinAnalytics AI
+  </a>
+</div>
+
+<aside class="fa-sidebar" id="fa-sidebar">
+  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <span style="font-weight:700;color:var(--gold);font-size:11px">MENU</span>
+  </button>
+  <div style="overflow-y:auto;flex:1">
+    <a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
+    <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
+    <a href="/screener" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Screener</span></a>
+    <div class="fa-sb-group">
+      <button class="fa-sb-group-toggle" onclick="faDTToggle(this)" id="dt-toggle">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 1 18"/><polyline points="16 7 22 7 22 13"/></svg>
+        <span>Day Trade <span class="fa-sb-group-chevron">&#9660;</span></span>
+      </button>
+      <div class="fa-sb-submenu" id="dt-submenu">
+        <a href="/daytrade/setups" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg><span>Setups</span></a>
+        <a href="/diario" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg><span>Diario</span></a>
+        <a href="/daytrade/risco" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Gestao de Risco</span></a>
+      </div>
+    </div>
+    <div class="fa-sb-group">
+      <button class="fa-sb-group-toggle" onclick="faOptToggle(this)" id="opt-toggle">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        <span>Opcoes <span class="fa-sb-group-chevron">&#9660;</span></span>
+      </button>
+      <div class="fa-sb-submenu" id="opt-submenu">
+        <a href="/opcoes" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/></svg><span>Greeks e IV</span></a>
+        <a href="/opcoes/estrategias" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Estrategias</span></a>
+      </div>
+    </div>
+    <a href="/sentiment" class="fa-sb-link active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Sentimento</span></a>
+    <a href="/anomaly" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg><span>Anomalias</span></a>
+    <a href="/forecast" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg><span>Forecast</span></a>
+    <a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
+  </div>
+</aside>
+
+<div class="fa-page-content">
+  <div class="page-title">&#128172; Sentimento de Noticias</div>
+  <div class="page-sub">Analise de noticias financeiras via Claude Haiku 4.5 (~$0.001/noticia)</div>
+
+  <!-- Controles -->
+  <div class="controls">
+    <input class="ticker-input" id="ticker-input" placeholder="PETR4" maxlength="6" onkeydown="if(event.key==='Enter')addTicker()">
+    <button class="scan-btn" onclick="addTicker()" style="padding:8px 14px;font-size:13px">+ Ticker</button>
+    <div class="tag-tickers" id="tag-tickers"></div>
+    <select id="max-items" style="background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:13px;padding:8px 10px;outline:none">
+      <option value="5">5 noticias</option>
+      <option value="10" selected>10 noticias</option>
+      <option value="20">20 noticias</option>
+    </select>
+    <button class="scan-btn" id="scan-btn" onclick="runScan()">&#128172; Analisar Agora</button>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-row" id="kpi-row" style="display:none">
+    <div class="kpi-card"><div class="kpi-label">Total</div><div class="kpi-value kv-total" id="kv-total">0</div></div>
+    <div class="kpi-card"><div class="kpi-label">Positivas</div><div class="kpi-value kv-pos" id="kv-pos">0</div></div>
+    <div class="kpi-card"><div class="kpi-label">Negativas</div><div class="kpi-value kv-neg" id="kv-neg">0</div></div>
+    <div class="kpi-card"><div class="kpi-label">Neutras</div><div class="kpi-value kv-neu" id="kv-neu">0</div></div>
+    <div class="kpi-card"><div class="kpi-label">Score Medio</div><div class="kpi-value kv-score" id="kv-score">0.00</div></div>
+  </div>
+
+  <!-- Barra de score -->
+  <div class="score-bar-wrap" id="score-bar-wrap" style="display:none">
+    <div class="score-bar-title">Termometro de Sentimento (media geral)</div>
+    <div class="score-bar">
+      <div class="score-fill" id="score-fill" style="width:50%;background:linear-gradient(90deg,var(--red),var(--muted),var(--green))"></div>
+      <div class="score-marker" id="score-marker" style="left:50%"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">
+      <span>-1.0 Negativo</span><span>0 Neutro</span><span>+1.0 Positivo</span>
+    </div>
+  </div>
+
+  <!-- Tickers impactados -->
+  <div class="ticker-impact" id="ticker-impact"></div>
+
+  <!-- Noticias -->
+  <div class="news-grid" id="news-grid">
+    <div class="empty-msg">Configure os tickers e clique em Analisar Agora</div>
+  </div>
+</div>
+
+<script>
+var API='';
+var tickers=['PETR4','VALE3','ITUB4'];
+function tok(){return localStorage.getItem('fa_token')||'';}
+function faSidebarToggle(){var s=document.getElementById('fa-sidebar');s.classList.toggle('open');document.body.classList.toggle('sb-open');localStorage.setItem('fa_sidebar_open',s.classList.contains('open')?'1':'0');}
+function faDTToggle(btn){var s=document.getElementById('dt-submenu');btn.classList.toggle('open');s.classList.toggle('open');}
+function faOptToggle(btn){var s=document.getElementById('opt-submenu');btn.classList.toggle('open');s.classList.toggle('open');}
+(function(){if(localStorage.getItem('fa_sidebar_open')==='1'){document.getElementById('fa-sidebar').classList.add('open');document.body.classList.add('sb-open');}})();
+
+function renderTickers(){
+  var c=document.getElementById('tag-tickers');c.innerHTML='';
+  tickers.forEach(function(t){
+    var d=document.createElement('div');d.className='tag';
+    d.innerHTML=t+' <span class="rm" onclick="removeTicker(\''+t+'\')">x</span>';
+    c.appendChild(d);
+  });
+}
+function addTicker(){var inp=document.getElementById('ticker-input');var t=inp.value.trim().toUpperCase();if(t&&!tickers.includes(t)){tickers.push(t);renderTickers();}inp.value='';}
+function removeTicker(t){tickers=tickers.filter(function(x){return x!==t;});renderTickers();}
+
+function sentClass(s){return s==='positivo'?'pos':s==='negativo'?'neg':'neu';}
+function sentIcon(s){return s==='positivo'?'&#128994;':s==='negativo'?'&#128308;':'&#9899;';}
+function sentColor(sc){return sc>0.1?'score-pos':sc<-0.1?'score-neg':'score-neu';}
+function impactClass(i){return 'impact-'+(i||'baixo');}
+function fmt2(v){return parseFloat(v||0).toFixed(2);}
+
+async function runScan(){
+  if(!tickers.length){alert('Adicione pelo menos 1 ticker');return;}
+  var btn=document.getElementById('scan-btn');
+  btn.disabled=true;btn.textContent='Analisando...';
+
+  var grid=document.getElementById('news-grid');
+  grid.innerHTML='<div class="loading"><span class="spin">&#9696;</span><br><br>Buscando noticias e analisando sentimento...<br><small style="color:var(--muted)">Claude Haiku 4.5 esta trabalhando</small></div>';
+
+  document.getElementById('kpi-row').style.display='none';
+  document.getElementById('score-bar-wrap').style.display='none';
+  document.getElementById('ticker-impact').innerHTML='';
+
+  var maxItems=document.getElementById('max-items').value;
+  var url=API+'/api/v1/sentiment/scan?tickers='+tickers.join(',')+'&max_items='+maxItems;
+
+  try{
+    var r=await fetch(url,{headers:{Authorization:'Bearer '+tok()}});
+    var d=await r.json();
+
+    if(d.detail){grid.innerHTML='<div class="empty-msg" style="color:var(--red)">'+d.detail+'</div>';return;}
+    if(!d.total){grid.innerHTML='<div class="empty-msg">Nenhuma noticia encontrada para os tickers selecionados</div>';return;}
+
+    // KPIs
+    document.getElementById('kv-total').textContent=d.total;
+    document.getElementById('kv-pos').textContent=d.positivas;
+    document.getElementById('kv-neg').textContent=d.negativas;
+    document.getElementById('kv-neu').textContent=d.neutras;
+    document.getElementById('kv-score').textContent=(d.score_medio>=0?'+':'')+fmt2(d.score_medio);
+    document.getElementById('kpi-row').style.display='grid';
+
+    // Barra de score
+    var pct=((parseFloat(d.score_medio)+1)/2*100).toFixed(1);
+    document.getElementById('score-marker').style.left=pct+'%';
+    document.getElementById('score-bar-wrap').style.display='block';
+
+    // Tickers impactados
+    var ti=document.getElementById('ticker-impact');
+    ti.innerHTML='';
+    var imp=d.tickers_impactados||{};
+    Object.keys(imp).sort(function(a,b){return Math.abs(imp[b])-Math.abs(imp[a]);}).forEach(function(tk){
+      var sc=imp[tk];
+      var cls=sc>0.1?'score-pos':sc<-0.1?'score-neg':'score-neu';
+      var tc=document.createElement('div');tc.className='ticker-card';
+      tc.innerHTML='<span class="ticker-name">'+tk+'</span><span class="ticker-score '+cls+'">'+(sc>=0?'+':'')+fmt2(sc)+'</span>';
+      ti.appendChild(tc);
+    });
+
+    // Noticias
+    grid.innerHTML='';
+    (d.results||[]).forEach(function(n){
+      var sc=parseFloat(n.score||0);
+      var cls=sentClass(n.sentimento);
+      var icon=sentIcon(n.sentimento);
+      var scoreCls=sentColor(sc);
+      var impCls=impactClass(n.impacto);
+      var card=document.createElement('div');
+      card.className='news-card '+cls;
+
+      var tickerTags=(n.tickers_mencionados||[]).map(function(t){return '<span class="news-ticker-tag">'+t+'</span>';}).join('');
+      var catTags=(n.categorias||[]).slice(0,3).map(function(c){return '<span class="news-cat">'+c+'</span>';}).join('');
+
+      card.innerHTML=
+        '<div class="sentiment-badge badge-'+cls+'">'+
+          '<span class="badge-icon">'+icon+'</span>'+
+          '<span class="badge-score '+scoreCls+'">'+(sc>=0?'+':'')+fmt2(sc)+'</span>'+
+        '</div>'+
+        '<div class="news-body">'+
+          '<div class="news-title">'+(n.url?'<a href="'+n.url+'" target="_blank" style="color:inherit;text-decoration:none">':'')+n.title+(n.url?'</a>':'')+'</div>'+
+          (n.resumo&&n.resumo!=='Erro na analise'?'<div class="news-resumo">'+n.resumo+'</div>':'')+
+          '<div class="news-meta">'+
+            '<span class="news-source">'+n.source+'</span>'+
+            (tickerTags?'<div class="news-tickers">'+tickerTags+'</div>':'')+
+            (catTags?'<div class="news-cats">'+catTags+'</div>':'')+
+            '<span class="impact-badge '+impCls+'">'+n.impacto+'</span>'+
+          '</div>'+
+        '</div>';
+      grid.appendChild(card);
+    });
+
+  }catch(e){
+    grid.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'</div>';
+  }finally{
+    btn.disabled=false;btn.textContent='\u{1F4AC} Analisar Agora';
+  }
+}
+
+renderTickers();
+</script>
+</body>
+</html>
