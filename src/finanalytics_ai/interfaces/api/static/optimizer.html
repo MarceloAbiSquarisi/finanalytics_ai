@@ -2,845 +2,385 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Otimizador de Portfólio — FinAnalytics AI</title>
-<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Otimizador de Carteira | FinAnalytics AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#060d14;--card:#0b1520;--border:#1e3a5f;--accent:#00c48c;--text:#e8f4fd;--muted:#8899aa}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh}
-
-
-
-.nav-links a{font-size:15px;color:var(--muted);text-decoration:none;letter-spacing:.5px;font-weight:600;padding:4px 8px;border-radius:4px;transition:.15s}
-.nav-links a:hover{color:var(--accent);background:rgba(0,196,140,.08)}
-.container{max-width:1300px;margin:0 auto;padding:20px}
-.page-title{font-size:24px;font-weight:700;letter-spacing:1px;margin-bottom:4px}
-.page-sub{font-size:16px;color:var(--muted);margin-bottom:20px}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px}
-.form-group{display:flex;flex-direction:column;gap:4px}
-.form-label{font-size:14px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
-.form-input{background:#0d1e30;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:17px;padding:8px 12px;outline:none;transition:.15s;width:100%}
-.form-input:focus{border-color:var(--accent)}
-.btn-primary{background:var(--accent);color:#000;border:none;border-radius:6px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:18px;padding:10px 24px;cursor:pointer;letter-spacing:.5px;transition:.15s}
-.btn-primary:hover{opacity:.9}
-.btn-primary:disabled{opacity:.4;cursor:not-allowed}
-.btn-secondary{background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:6px;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:16px;padding:7px 14px;cursor:pointer;transition:.15s}
-.btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
-.section-title{font-size:15px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin:14px 0 8px}
-.stat-card{background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:14px}
-.stat-label{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
-.stat-value{font-size:26px;font-weight:700;font-family:'JetBrains Mono',monospace}
-.stat-sub{font-size:14px;color:var(--muted);margin-top:3px}
-.badge{border-radius:3px;padding:2px 8px;font-size:14px;font-weight:700;letter-spacing:.3px}
-.method-card{border:1px solid var(--border);border-radius:10px;padding:16px;transition:.2s;cursor:default}
-.method-card.winner{border-color:var(--accent);box-shadow:0 0 20px rgba(0,196,140,.08)}
-.method-title{font-size:18px;font-weight:700;margin-bottom:10px}
-.method-metric{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(30,58,95,.3);font-size:16px}
-.weight-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.weight-bar-label{font-size:15px;font-family:'JetBrains Mono',monospace;color:var(--accent);width:70px;flex-shrink:0}
-.weight-bar-track{flex:1;height:18px;background:#0d1e30;border-radius:3px;overflow:hidden;position:relative}
-.weight-bar-fill{height:100%;border-radius:3px;transition:width .5s ease}
-.weight-bar-pct{font-size:15px;font-family:'JetBrains Mono',monospace;color:var(--text);width:44px;text-align:right;flex-shrink:0}
-.weight-bar-risk{font-size:14px;color:var(--muted);width:60px;text-align:right;flex-shrink:0}
-/* Fronteira eficiente */
-.frontier-chart{background:#060d14;border-radius:8px;padding:10px}
-/* Preset chips */
-.preset-chip{background:#0d1e30;border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:15px;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap}
-.preset-chip:hover{border-color:var(--accent);color:var(--accent)}
+:root{--navy:#0A1628;--card:#0e1a2e;--border:#1c2535;--white:#e2eaf4;--muted:#4a6a8a;--blue:#3ABFF8;--gold:#F0B429;--green:#00e676;--red:#ff3d5a;--purple:#a78bfa;--teal:#2dd4bf;--sb-w:220px;--sb-w-collapsed:52px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--navy);color:var(--white);font-family:'Syne',sans-serif;overflow-x:hidden}
+.fa-topbar{position:fixed;top:0;left:0;right:0;height:52px;background:rgba(10,22,40,.97);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:300}
+.fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--gold);font-weight:800;font-size:15px}
+.fa-sidebar{position:fixed;left:0;top:52px;bottom:0;width:var(--sb-w-collapsed);background:#0a0f18;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1);z-index:200}
+.fa-sidebar.open{width:var(--sb-w)}
+.fa-sidebar-toggle{width:100%;padding:10px 14px;background:transparent;border:none;border-bottom:1px solid var(--border);color:#7a95b0;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;white-space:nowrap;overflow:hidden}
+.fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;text-decoration:none;font-size:15px;white-space:nowrap;overflow:hidden;transition:all .15s}
+.fa-sb-link:hover{color:#e2eaf4;background:rgba(0,212,255,.05)}
+.fa-sb-link.active{color:var(--gold);background:rgba(240,180,41,.08);border-right:2px solid var(--gold)}
+.fa-sb-link svg,.fa-sb-link span{flex-shrink:0}
+.fa-sb-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-link span{opacity:1}
+.fa-sb-group-toggle{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;cursor:pointer;font-size:15px;white-space:nowrap;overflow:hidden;transition:all .15s;border:none;background:transparent;width:100%}
+.fa-sb-group-toggle.open{color:var(--gold)}
+.fa-sb-group-toggle svg{flex-shrink:0}
+.fa-sb-group-toggle span{opacity:0;transition:opacity .15s;display:flex;align-items:center;gap:6px;flex:1}
+.fa-sidebar.open .fa-sb-group-toggle span{opacity:1}
+.fa-sb-group-chevron{margin-left:auto;transition:transform .2s;font-size:10px;color:#3a5570}
+.fa-sb-group-toggle.open .fa-sb-group-chevron{transform:rotate(180deg);color:var(--gold)}
+.fa-sb-submenu{max-height:0;overflow:hidden;transition:max-height .25s ease}
+.fa-sb-submenu.open{max-height:200px}
+.fa-sb-sub-link{display:flex;align-items:center;gap:8px;padding:6px 14px 6px 40px;color:#4a6a8a;text-decoration:none;font-size:14px;white-space:nowrap;overflow:hidden;transition:all .15s;border-left:2px solid transparent}
+.fa-sb-sub-link:hover{color:#00d4ff;background:rgba(0,212,255,.05);border-left-color:rgba(0,212,255,.3)}
+.fa-sb-sub-link.active{color:var(--gold);border-left-color:var(--gold);background:rgba(240,180,41,.06)}
+.fa-sb-sub-link svg{flex-shrink:0}
+.fa-sb-sub-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-sub-link span{opacity:1}
+.fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1);padding:72px 24px 32px}
+body.sb-open .fa-page-content{margin-left:var(--sb-w)}
+.page-title{font-size:26px;font-weight:800;color:var(--teal);margin-bottom:4px}
+.page-sub{font-size:15px;color:var(--muted);margin-bottom:20px}
+/* Method tabs */
+.method-tabs{display:flex;gap:4px;margin-bottom:20px;background:#0a1220;border-radius:10px;padding:4px}
+.method-tab{flex:1;padding:10px;border:none;border-radius:8px;cursor:pointer;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;transition:all .2s;background:transparent;color:var(--muted);text-align:center}
+.method-tab.active{background:var(--teal);color:var(--navy)}
+.method-tab:hover:not(.active){color:var(--teal)}
+/* Grid */
+.grid-2{display:grid;grid-template-columns:360px 1fr;gap:16px;align-items:start}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:14px}
+.card-title{font-size:15px;font-weight:700;color:var(--blue);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.field-row{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.field-label{font-size:13px;color:var(--muted)}
+.field-input{background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:13px;padding:8px 10px;width:100%;outline:none;text-transform:uppercase}
+.field-input:focus{border-color:var(--teal)}
+.field-input-num{text-transform:none}
+.field-select{background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:13px;padding:8px 10px;width:100%;outline:none}
+.run-btn{background:linear-gradient(135deg,#005555,var(--teal));border:none;border-radius:7px;color:var(--navy);font-family:'Syne',sans-serif;font-weight:800;font-size:14px;padding:11px;cursor:pointer;width:100%;transition:all .2s;letter-spacing:.3px}
+.run-btn:hover{transform:translateY(-1px);box-shadow:0 0 16px rgba(45,212,191,.3)}
+.run-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+/* Tickers */
+.ticker-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.ticker-tag{background:#111e33;border:1px solid var(--border);border-radius:5px;padding:4px 10px;font-size:13px;color:var(--teal);font-family:'DM Mono',monospace;display:flex;align-items:center;gap:5px}
+.ticker-tag .rm{color:var(--red);cursor:pointer}
 /* BL views */
-.bl-view-row{display:grid;grid-template-columns:100px 1fr auto;gap:6px;margin-bottom:6px;align-items:center}
-/* Ticker tags */
-.ticker-tag{display:inline-flex;align-items:center;gap:4px;background:#0d1e30;border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:15px;font-family:'JetBrains Mono',monospace;color:var(--accent)}
-.ticker-tag button{background:none;border:none;color:#445566;cursor:pointer;font-size:14px;line-height:1;padding:0 2px}
-.ticker-tag button:hover{color:#ff4757}
-/* Spinner */
-.spinner{display:inline-block;width:16px;height:16px;border:2px solid #1e3a5f;border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:8px}
-@keyframes spin{to{transform:rotate(360deg)}}
+.view-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;background:#0a1220;border-radius:6px;padding:8px 10px}
+.view-ticker{font-size:13px;font-weight:700;color:var(--teal);font-family:'DM Mono',monospace;width:60px}
+.view-ret{font-size:13px;color:var(--green);font-family:'DM Mono',monospace;flex:1}
+.view-rm{background:transparent;border:none;color:var(--red);cursor:pointer;font-size:13px}
+/* Results */
+.kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.kpi-card{background:#0a1220;border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center}
+.kpi-label{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;margin-bottom:4px}
+.kpi-value{font-size:20px;font-weight:800;font-family:'DM Mono',monospace}
+.kv-ret{color:var(--green)}
+.kv-vol{color:var(--orange,#fb923c)}
+.kv-sharpe{color:var(--teal)}
+/* Weights chart */
+.weights-list{display:flex;flex-direction:column;gap:8px}
+.weight-row{display:flex;align-items:center;gap:10px}
+.weight-ticker{font-size:13px;font-weight:700;color:var(--teal);font-family:'DM Mono',monospace;width:60px}
+.weight-bar-wrap{flex:1;height:10px;background:#1c2535;border-radius:10px;overflow:hidden}
+.weight-bar{height:100%;border-radius:10px;transition:width .6s ease}
+.weight-pct{font-size:13px;font-weight:700;font-family:'DM Mono',monospace;color:var(--white);width:50px;text-align:right}
 /* Compare table */
-.cmp-table{width:100%;border-collapse:collapse;font-size:16px}
-.cmp-table th{padding:8px 10px;color:var(--muted);font-size:14px;text-align:left;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.5px}
-.cmp-table td{padding:9px 10px;border-bottom:1px solid rgba(30,58,95,.2)}
-.cmp-table .num{text-align:right;font-family:'JetBrains Mono',monospace}
-
-/* ── FinAnalytics Unified Topbar ────────────────────────────────── */
-.fa-topbar{position:sticky;top:0;z-index:200;display:flex;align-items:center;
-  gap:16px;padding:0 20px;height:52px;
-  background:#070f1a;border-bottom:1px solid #1e3a5f;
-  box-shadow:0 2px 12px rgba(0,0,0,.4)}
-.fa-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
-.fa-logo svg{display:block}
-.fa-logo-text{font-family:'Georgia','Times New Roman',serif;font-size:21px;
-  font-weight:700;color:#e8f4fd;white-space:nowrap;letter-spacing:-.3px}
-.fa-logo-text em{color:#F0B429;font-style:normal}
-.fa-ai-badge{display:inline-block;background:#1B3A6B;color:#fff;
-  font-family:'Arial',sans-serif;font-size:13px;font-weight:800;
-  letter-spacing:1.5px;padding:2px 5px;border-radius:3px;vertical-align:middle;margin-left:2px}
-.fa-nav{display:flex;align-items:center;gap:2px;overflow-x:auto;
-  scrollbar-width:none;-ms-overflow-style:none;flex:1}
-.fa-nav::-webkit-scrollbar{display:none}
-.fa-nav a{white-space:nowrap;font-family:'Rajdhani','Arial',sans-serif;font-size:16px;
-  font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;
-  padding:5px 10px;border-radius:5px;transition:.15s}
-.fa-nav a:hover{color:#00c48c;background:rgba(0,196,140,.08)}
-.fa-nav a.active{color:#00c48c;background:rgba(0,196,140,.1)}
-/* ── Table overflow fix ────────────────────────────────────────── */
-.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:6px}
-.tbl-wrap table{min-width:600px;border-collapse:collapse;width:100%}
-.tbl-wrap th,.tbl-wrap td{white-space:normal!important;word-break:break-word}
-
-
-.fa-logout-btn{display:flex;align-items:center;gap:6px;font-family:'Rajdhani','Arial',sans-serif;font-size:16px;font-weight:600;letter-spacing:.4px;color:#8899aa;text-decoration:none;padding:5px 10px;border-radius:5px;border:1px solid transparent;cursor:pointer;background:transparent;white-space:nowrap;transition:.15s;flex-shrink:0}
-.fa-logout-btn:hover{color:#ff6b6b;background:rgba(255,107,107,.08);border-color:rgba(255,107,107,.2)}
-.fa-user-chip{display:flex;align-items:center;gap:6px;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;color:#556677;letter-spacing:.3px;flex-shrink:0}
-.fa-user-chip .fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:14px;color:#8899aa}
-
-
-/* ── Collapsible Sidebar ─────────────────────────────────── */
-:root { --sb-w: 220px; --sb-w-collapsed: 52px; }
-.fa-sidebar {
-  position: fixed; left: 0; top: 52px; bottom: 0;
-  width: var(--sb-w-collapsed);
-  background: #0a0f18;
-  border-right: 1px solid #1c2535;
-  display: flex; flex-direction: column;
-  overflow: hidden;
-  transition: width .22s cubic-bezier(.4,0,.2,1);
-  z-index: 200;
-}
-.fa-sidebar.open { width: var(--sb-w); }
-.fa-sidebar-toggle {
-  width: 100%; padding: 10px 14px;
-  background: transparent; border: none;
-  border-bottom: 1px solid #1c2535;
-  color: #7a95b0; cursor: pointer;
-  display: flex; align-items: center; gap: 10px;
-  font-size: 17px; white-space: nowrap; overflow: hidden;
-}
-.fa-sidebar-toggle:hover { color: #F0B429; background: rgba(240,180,41,.06); }
-.fa-sidebar-toggle svg { flex-shrink: 0; }
-.fa-sb-section { padding: 8px 0; border-bottom: 1px solid #141f2e; }
-.fa-sb-section-label {
-  font-size: 12px; letter-spacing: .12em; color: #3a5570;
-  padding: 4px 16px 2px; text-transform: uppercase;
-  white-space: nowrap; overflow: hidden;
-  opacity: 0; transition: opacity .15s;
-}
-.fa-sidebar.open .fa-sb-section-label { opacity: 1; }
-.fa-sb-link {
-  display: flex; align-items: center; gap: 10px;
-  padding: 7px 14px; color: #6a8aa8;
-  text-decoration: none; font-size: 16px;
-  white-space: nowrap; overflow: hidden;
-  transition: all .15s;
-}
-.fa-sb-link:hover { color: #e2eaf4; background: rgba(0,212,255,.05); }
-.fa-sb-link.active{color:#F0B429;background:rgba(240,180,41,.08);border-right:2px solid #F0B429}
-.fa-sb-link svg { flex-shrink: 0; }
-.fa-sb-link span { opacity: 0; transition: opacity .15s; }
-.fa-sidebar.open .fa-sb-link span { opacity: 1; }
-/* Push content right */
-.fa-page-content {
-  margin-left: var(--sb-w-collapsed);
-  transition: margin-left .22s cubic-bezier(.4,0,.2,1);
-}
-body.sb-open .fa-page-content { margin-left: var(--sb-w); }
-
-@keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
-/* Day Trade submenu */
-.fa-sb-group { position: relative; }
-.fa-sb-group-toggle {
-  display: flex; align-items: center; gap: 10px;
-  padding: 7px 14px; color: #6a8aa8;
-  cursor: pointer; font-size: 12px;
-  white-space: nowrap; overflow: hidden;
-  transition: all .15s; user-select: none;
-  border: none; background: transparent; width: 100%;
-}
-.fa-sb-group-toggle:hover { color: #e2eaf4; background: rgba(240,180,41,.07); }
-.fa-sb-group-toggle.open { color: #F0B429; }
-.fa-sb-group-toggle svg { flex-shrink: 0; }
-.fa-sb-group-toggle span { opacity: 0; transition: opacity .15s; display: flex; align-items: center; gap: 6px; flex: 1; }
-.fa-sidebar.open .fa-sb-group-toggle span { opacity: 1; }
-.fa-sb-group-chevron { margin-left: auto; transition: transform .2s; font-size: 10px; color: #3a5570; }
-.fa-sb-group-toggle.open .fa-sb-group-chevron { transform: rotate(180deg); color: #F0B429; }
-.fa-sb-submenu { max-height: 0; overflow: hidden; transition: max-height .25s ease; }
-.fa-sb-submenu.open { max-height: 200px; }
-.fa-sb-sub-link {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 14px 6px 40px; color: #4a6a8a;
-  text-decoration: none; font-size: 11px;
-  white-space: nowrap; overflow: hidden;
-  transition: all .15s; border-left: 2px solid transparent;
-}
-.fa-sb-sub-link:hover { color: #00d4ff; background: rgba(0,212,255,.05); border-left-color: rgba(0,212,255,.3); }
-.fa-sb-sub-link.active { color: #F0B429; border-left-color: #F0B429; background: rgba(240,180,41,.06); }
-.fa-sb-sub-link svg { flex-shrink: 0; }
-.fa-sb-sub-link span { opacity: 0; transition: opacity .15s; }
-.fa-sidebar.open .fa-sb-sub-link span { opacity: 1; }
+.compare-table{width:100%;border-collapse:collapse;font-size:13px}
+.compare-table th{padding:8px 10px;color:var(--muted);font-size:11px;font-family:'DM Mono',monospace;text-transform:uppercase;border-bottom:1px solid var(--border);font-weight:400;text-align:left}
+.compare-table td{padding:8px 10px;border-bottom:1px solid #141f2e;font-family:'DM Mono',monospace}
+.compare-table tr:last-child td{border-bottom:none}
+.compare-table tr:hover td{background:rgba(255,255,255,.02)}
+.best-val{color:var(--green);font-weight:700}
+/* Notes */
+.notes-list{margin-top:10px}
+.note-item{font-size:12px;color:var(--muted);padding:4px 0;border-bottom:1px solid #141f2e;line-height:1.4}
+.note-item:last-child{border-bottom:none}
+.empty-msg{color:var(--muted);font-size:14px;text-align:center;padding:40px}
+.loading{text-align:center;padding:32px;color:var(--muted)}
+.spin{display:inline-block;animation:spin 1s linear infinite;font-size:20px}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* presets */
+.preset-btn{background:#111e33;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--muted);cursor:pointer;transition:all .15s;font-family:'Syne',sans-serif}
+.preset-btn:hover{border-color:var(--teal);color:var(--teal)}
 </style>
 </head>
 <body>
-<aside class="fa-sidebar" id="fa-sidebar">
-  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span style="font-weight:700;color:#F0B429;font-size:15px">MENU</span></button>
-  <div style="overflow-y:auto;flex:1"><a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
-<a href="/carteira" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
-<a href="/fundamental" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg><span>Fundamentalista</span></a>
-<a href="/screener" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Screener</span></a>
-<a href="/watchlist" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span>Watchlist</span></a>
-<a href="/backtest" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Backtest</span></a>
-<div class="fa-sb-group">
-  <button class="fa-sb-group-toggle" onclick="faDTToggle(this)" id="dt-toggle">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <polyline points="22 7 13.5 15.5 8.5 10.5 1 18"/>
-      <polyline points="16 7 22 7 22 13"/>
-    </svg>
-    <span>Day Trade <span class="fa-sb-group-chevron">&#9660;</span></span>
-  </button>
-  <div class="fa-sb-submenu" id="dt-submenu">
-    <a href="/daytrade/setups" class="fa-sb-sub-link" id="dt-setups-link">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
-      </svg>
-      <span>Setups</span>
-    </a>
-    <a href="/diario" class="fa-sb-sub-link" id="dt-diario-link">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-        <line x1="16" y1="13" x2="8" y2="13"/>
-        <line x1="16" y1="17" x2="8" y2="17"/>
-      </svg>
-      <span>DiÃ¡rio de Trade</span>
-    </a>
-    <a href="/daytrade/risco" class="fa-sb-sub-link" id="dt-risco-link">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-      </svg>
-      <span>GestÃ£o de Risco</span>
-    </a>
-  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-
-
-<a href="/correlation" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></svg><span>Correlacao</span></a>
-<a href="/sentiment" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Sentimento</span></a>
-<a href="/anomaly" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg><span>Anomalias</span></a>
-<div class="fa-sb-group">
-  <button class="fa-sb-group-toggle" onclick="faOptToggle(this)" id="opt-toggle">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="12" cy="12" r="10"/>
-      <path d="M12 8v4l3 3"/>
-    </svg>
-    <span>Opcoes <span class="fa-sb-group-chevron">&#9660;</span></span>
-  </button>
-  <div class="fa-sb-submenu" id="opt-submenu">
-    <a href="/opcoes" class="fa-sb-sub-link" id="opt-greeks-link">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-      </svg>
-      <span>Greeks e IV</span>
-    </a>
-    <a href="/opcoes/estrategias" class="fa-sb-sub-link" id="opt-estrategia-link">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-      </svg>
-      <span>Estrategias</span>
-    </a>
-  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-<a href="/forecast" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg><span>Forecast</span></a>
-<a href="/performance" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Performance</span></a>
-<a href="/optimizer" class="fa-sb-link active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg><span>Otimizador</span></a>
-<a href="/fintz" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><span>Fintz</span></a>
-<a href="/fixed-income" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><span>Renda Fixa</span></a>
-<a href="/etf" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-4"/></svg><span>ETFs</span></a>
-<a href="/marketdata" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Market Data</span></a>
-<a href="/ml" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span>ML Probabilístico</span></a>
-<a href="/subscriptions" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span>Subscricoes Profit</span></a>
-<a href="/hub" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Hub</span></a>
-<a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
-  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-</aside>
-<script>
-function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.classList.toggle("open");document.body.classList.toggle("sb-open");localStorage.setItem("fa_sidebar_open",sb.classList.contains("open")?"1":"0");}
-(function(){if(localStorage.getItem("fa_sidebar_open")==="1"){document.getElementById("fa-sidebar").classList.add("open");document.body.classList.add("sb-open");}})();
-</script>
-
-
 <div class="fa-topbar">
-  <a href="/" class="fa-logo" title="FinAnalytics AI">
-    <svg width="34" height="34" viewBox="0 0 170 170" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="lg_gold" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#F0B429"/><stop offset="100%" stop-color="#E08C00"/>
-    </linearGradient>
-    <linearGradient id="lg_neural" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#3ABFF8" stop-opacity="0"/>
-      <stop offset="40%" stop-color="#3ABFF8"/><stop offset="100%" stop-color="#F0B429"/>
-    </linearGradient>
-  </defs>
-  <circle cx="85" cy="85" r="82" fill="#0D2144"/>
-  <circle cx="85" cy="85" r="80" fill="#0D2144" stroke="#1e3a5f" stroke-width="1"/>
-  <rect x="38" y="98" width="14" height="36" rx="2.5" fill="#E05555" opacity=".9"/>
-  <line x1="45" y1="89" x2="45" y2="98" stroke="#E05555" stroke-width="2.5" opacity=".9"/>
-  <line x1="45" y1="134" x2="45" y2="142" stroke="#E05555" stroke-width="2.5" opacity=".9"/>
-  <rect x="60" y="72" width="14" height="44" rx="2.5" fill="#2ED47A" opacity=".9"/>
-  <line x1="67" y1="62" x2="67" y2="72" stroke="#2ED47A" stroke-width="2.5"/>
-  <line x1="67" y1="116" x2="67" y2="126" stroke="#2ED47A" stroke-width="2.5"/>
-  <rect x="82" y="50" width="14" height="58" rx="2.5" fill="#2ED47A"/>
-  <line x1="89" y1="38" x2="89" y2="50" stroke="#2ED47A" stroke-width="2.5"/>
-  <line x1="89" y1="108" x2="89" y2="120" stroke="#2ED47A" stroke-width="2.5"/>
-  <rect x="104" y="66" width="14" height="32" rx="2.5" fill="#E05555" opacity=".8"/>
-  <line x1="111" y1="55" x2="111" y2="66" stroke="#E05555" stroke-width="2.5"/>
-  <line x1="111" y1="98" x2="111" y2="108" stroke="#E05555" stroke-width="2.5"/>
-  <rect x="126" y="44" width="14" height="68" rx="2.5" fill="url(#lg_gold)"/>
-  <line x1="133" y1="30" x2="133" y2="44" stroke="#E08C00" stroke-width="2.5"/>
-  <line x1="133" y1="112" x2="133" y2="126" stroke="#E08C00" stroke-width="2.5"/>
-  <circle cx="45" cy="82" r="5" fill="#3ABFF8" opacity=".8"/>
-  <circle cx="89" cy="38" r="5.5" fill="#3ABFF8"/>
-  <circle cx="133" cy="30" r="4.5" fill="#F0B429"/>
-  <circle cx="150" cy="54" r="4" fill="#3ABFF8" opacity=".6"/>
-  <polyline points="45,82 89,38 133,30 150,54" fill="none" stroke="url(#lg_neural)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".8"/>
-</svg>
-    <span class="fa-logo-text">Fin<em>Analytics</em> <span class="fa-ai-badge">AI</span></span>
+  <a href="/" class="fa-logo">
+    <svg width="28" height="28" viewBox="0 0 170 170" fill="none"><defs><linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3ABFF8"/><stop offset="100%" stop-color="#F0B429"/></linearGradient></defs><rect width="170" height="170" rx="28" fill="#0A1628"/><polyline points="24,130 60,75 90,100 130,40" stroke="url(#lg1)" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="130" cy="40" r="10" fill="#F0B429"/></svg>
+    FinAnalytics AI
   </a>
-<a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
-  <span id="fa-page-title" style="font-size:16px;font-weight:600;color:#7a95b0;letter-spacing:.06em;margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Otimizador de Carteira</span>
-  <nav class="fa-nav"></nav>
-  <a href="/marketdata" style="display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.35);border-radius:5px;color:#00e676;font-size:15px;font-weight:700;padding:4px 10px;text-decoration:none;letter-spacing:.5px;transition:.15s;white-space:nowrap" onmouseover="this.style.background='rgba(0,230,118,.2)'" onmouseout="this.style.background='rgba(0,230,118,.1)'">
-    <span style="width:7px;height:7px;border-radius:50%;background:#00e676;display:inline-block;animation:livePulse 1.8s ease-in-out infinite"></span>
-    MERCADO AO VIVO
-  </a>
-  <div class="fa-user-chip" id="fa-user-chip" style="display:none">
-    <div class="fa-avatar" id="fa-avatar">U<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-    <span id="fa-username" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
-  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-  <button class="fa-logout-btn" onclick="faLogout()" title="Sair">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-    Sair
+
+<aside class="fa-sidebar" id="fa-sidebar">
+  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <span style="font-weight:700;color:var(--gold);font-size:11px">MENU</span>
   </button>
-<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
+  <div style="overflow-y:auto;flex:1">
+    <a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
+    <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
+    <a href="/optimizer" class="fa-sb-link active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg><span>Otimizador</span></a>
+    <a href="/var" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>VaR</span></a>
+    <div class="fa-sb-group">
+      <button class="fa-sb-group-toggle" onclick="faDTToggle(this)" id="dt-toggle">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 1 18"/><polyline points="16 7 22 7 22 13"/></svg>
+        <span>Day Trade <span class="fa-sb-group-chevron">&#9660;</span></span>
+      </button>
+      <div class="fa-sb-submenu" id="dt-submenu">
+        <a href="/daytrade/setups" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg><span>Setups</span></a>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+      </div>
+    </div>
+    <div class="fa-sb-group">
+      <button class="fa-sb-group-toggle" onclick="faOptToggle(this)" id="opt-toggle">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+        <span>Opcoes <span class="fa-sb-group-chevron">&#9660;</span></span>
+      </button>
+      <div class="fa-sb-submenu" id="opt-submenu">
+        <a href="/opcoes" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/></svg><span>Greeks e IV</span></a>
+        <a href="/opcoes/estrategias" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Estrategias</span></a>
+      </div>
+    </div>
+    <a href="/sentiment" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Sentimento</span></a>
+    <a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
+  </div>
+</aside>
 
+<div class="fa-page-content">
+  <div class="page-title">&#9881; Otimizador de Carteira</div>
+  <div class="page-sub">Markowitz, Risk Parity e Black-Litterman com dados reais do Fintz</div>
 
-<div class="container">
-  <div class="page-title">⚙️ Otimizador de Portfólio<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-  <div class="page-sub">Markowitz · Risk Parity · Black-Litterman — comparativo lado a lado<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
+  <!-- Method selector -->
+  <div class="method-tabs">
+    <button class="method-tab active" onclick="setMethod('markowitz',this)">Markowitz (Sharpe Max)</button>
+    <button class="method-tab" onclick="setMethod('risk_parity',this)">Risk Parity</button>
+    <button class="method-tab" onclick="setMethod('black_litterman',this)">Black-Litterman</button>
+    <button class="method-tab" onclick="setMethod('compare',this)">Comparar Todos</button>
+  </div>
 
-  <!-- ═══ CONFIGURAÇÃO ══════════════════════════════════════════════════════ -->
-  <div class="grid-2" style="align-items:start;margin-bottom:16px">
+  <div class="grid-2">
+    <!-- Left: inputs -->
+    <div>
+      <!-- Tickers -->
+      <div class="card">
+        <div class="card-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Ativos
+        </div>
+        <div class="ticker-tags" id="ticker-tags"></div>
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <input id="add-ticker" class="field-input" placeholder="PETR4" maxlength="8" style="width:100px" onkeydown="if(event.key==='Enter')addTicker()">
+          <button onclick="addTicker()" style="background:rgba(45,212,191,.15);border:1px solid rgba(45,212,191,.3);border-radius:6px;color:var(--teal);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;padding:7px 12px;cursor:pointer">+</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="preset-btn" onclick="setPreset(['PETR4','VALE3','ITUB4','WEGE3','BBDC4'])">Blue Chips</button>
+          <button class="preset-btn" onclick="setPreset(['BOVA11','IVVB11','NTNB11','SMAL11','GOLD11'])">ETFs</button>
+          <button class="preset-btn" onclick="setPreset(['PETR4','VALE3','ITUB4','WEGE3','ABEV3','RENT3'])">Ibov Top</button>
+        </div>
+      </div>
 
-    <!-- Coluna esquerda: ativos + parâmetros -->
-    <div class="card">
-      <div class="section-title" style="margin-top:0">Ativos<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-
-      <!-- Presets -->
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="preset-chips"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-
-      <!-- Ticker input -->
-      <div style="display:flex;gap:6px;margin-bottom:8px">
-        <input class="form-input" id="ticker-input" placeholder="ex: BOVA11" style="flex:1"
-          onkeydown="if(event.key==='Enter'||event.key===',')addTicker()">
-        <button class="btn-secondary" onclick="addTicker()">+ Adicionar</button>
-      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-      <div id="ticker-tags" style="display:flex;flex-wrap:wrap;gap:5px;min-height:28px;margin-bottom:12px"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-
-      <!-- Parâmetros básicos -->
-      <div class="grid-2" style="gap:8px">
-        <div class="form-group">
-          <label class="form-label">Período</label>
-          <select class="form-input" id="period">
+      <!-- Parametros -->
+      <div class="card">
+        <div class="card-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          Parametros
+        </div>
+        <div class="field-row">
+          <div class="field-label">Periodo historico</div>
+          <select class="field-select" id="period">
             <option value="3mo">3 meses</option>
             <option value="6mo">6 meses</option>
             <option value="1y" selected>1 ano</option>
             <option value="2y">2 anos</option>
-            <option value="5y">5 anos</option>
           </select>
-        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-        <div class="form-group">
-          <label class="form-label">Taxa Livre de Risco (CDI % a.a.)</label>
-          <input class="form-input" id="risk-free" type="number" value="10.65" step="0.01">
-        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
+        </div>
+        <div class="field-row">
+          <div class="field-label">Taxa livre de risco (% a.a.)</div>
+          <input id="risk-free" class="field-input field-input-num" type="number" value="13.75" step="0.25">
+        </div>
+      </div>
 
-    <!-- Coluna direita: Black-Litterman views -->
-    <div class="card">
-      <div class="section-title" style="margin-top:0">Visões Black-Litterman <span style="font-size:14px;color:var(--muted);font-weight:400">(opcional)</span><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-      <div style="font-size:15px;color:var(--muted);margin-bottom:8px;line-height:1.5">
-        Informe o retorno anual esperado para ativos específicos.<br>
-        Deixe em branco para usar apenas o prior de mercado.
-      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-      <div id="bl-views-list"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-      <div style="display:flex;gap:8px;margin-top:6px">
-        <button class="btn-secondary" onclick="addBLView()">+ Adicionar visão</button>
-        <div class="form-group" style="flex:1">
-          <label class="form-label">τ (incerteza prior)</label>
-          <input class="form-input" id="bl-tau" type="number" value="0.05" step="0.01" min="0.01" max="0.5">
-        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-        <div class="form-group" style="flex:1">
-          <label class="form-label">λ (aversão ao risco)</label>
-          <input class="form-input" id="bl-lambda" type="number" value="3.0" step="0.5" min="0.5" max="10">
-        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
+      <!-- Black-Litterman views -->
+      <div class="card" id="bl-card" style="display:none">
+        <div class="card-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          Visoes do Investidor
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Informe retornos esperados para ativos especificos. O modelo combina com o equilibrio de mercado.</div>
+        <div id="views-list"></div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <input id="view-ticker" class="field-input" placeholder="PETR4" maxlength="8" style="width:90px">
+          <input id="view-ret" class="field-input field-input-num" placeholder="20" type="number" step="1" style="width:80px">
+          <span style="font-size:13px;color:var(--muted);align-self:center">% a.a.</span>
+          <button onclick="addView()" style="background:rgba(45,212,191,.15);border:1px solid rgba(45,212,191,.3);border-radius:6px;color:var(--teal);font-size:13px;font-weight:700;padding:7px 12px;cursor:pointer;font-family:'Syne',sans-serif">+</button>
+        </div>
+        <div class="field-row" style="margin-top:10px">
+          <div class="field-label">Aversao ao risco (lambda)</div>
+          <input id="bl-lambda" class="field-input field-input-num" type="number" value="3.0" step="0.5" min="0.5" max="10">
+        </div>
+      </div>
 
-  <!-- Botão de otimizar -->
-  <div style="display:flex;justify-content:center;margin-bottom:20px">
-    <button class="btn-primary" id="btn-optimize" onclick="runOptimize()">
-      ⚙️ Otimizar Portfólio
-    </button>
-  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
+      <button class="run-btn" id="run-btn" onclick="runOptimizer()">&#9881; Otimizar Carteira</button>
+    </div>
 
-  <!-- Loading -->
-  <div id="loading" style="display:none;text-align:center;padding:30px;color:var(--muted)">
-    <span class="spinner"></span>
-    Buscando dados e executando otimizações (Markowitz · Risk Parity · Black-Litterman)…
-  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-
-  <!-- ═══ RESULTADOS ══════════════════════════════════════════════════════ -->
-  <div id="results" style="display:none">
-
-    <!-- Comparativo resumido -->
-    <div class="section-title">Comparativo dos Métodos<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-    <div style="overflow-x:auto;margin-bottom:16px" class="tbl-wrap">
-      <table class="cmp-table" id="cmp-table">
-        <thead>
-          <tr>
-            <th>Método</th>
-            <th class="num">Retorno a.a.</th>
-            <th class="num">Volatilidade</th>
-            <th class="num">Sharpe</th>
-            <th>Maior posição</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="cmp-tbody"></tbody>
-      </table>
-    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-
-    <!-- Cards dos métodos -->
-    <div class="grid-4" id="method-cards" style="margin-bottom:16px"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-
-    <!-- Fronteira eficiente + pesos -->
-    <div class="grid-2" style="align-items:start">
-      <div>
-        <div class="section-title">Fronteira Eficiente (Markowitz)<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-        <div class="frontier-chart">
-          <svg id="frontier-svg" viewBox="0 0 520 300" style="width:100%;height:300px"></svg>
-          <div id="frontier-legend" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-      <div>
-        <div class="section-title">Pesos por Método — <span id="weights-method-label" style="color:var(--accent)">Markowitz</span><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-        <div style="display:flex;gap:6px;margin-bottom:10px" id="weights-method-btns"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-        <div id="weights-chart"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+    <!-- Right: results -->
+    <div>
+      <div id="results-area">
+        <div class="empty-msg">Configure os parametros e execute a otimizacao</div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
-(function authGuard(){var t=localStorage.getItem("access_token"),e=parseInt(localStorage.getItem("token_expires_at")||"0");if(!t||e<Date.now()+60000)window.location.replace("/login");})();
-// ── Estado ────────────────────────────────────────────────────────────────────
-let _tickers = ["BOVA11","IVVB11","SMAL11","NTNB11","GOLD11"];
-let _blViews = [];
-let _lastResult = null;
+var API='';
+var tickers=['PETR4','VALE3','ITUB4','WEGE3'];
+var views=[];
+var currentMethod='markowitz';
 
-const METHOD_COLORS = {
-  markowitz:       "#00c48c",
-  risk_parity:     "#4ecdc4",
-  black_litterman: "#e056fd",
-  equal_weight:    "#8899aa",
-};
-const METHOD_LABELS = {
-  markowitz:       "Markowitz",
-  risk_parity:     "Risk Parity",
-  black_litterman: "Black-Litterman",
-  equal_weight:    "Equal Weight",
-};
-const ASSET_COLORS = ["#00c48c","#4ecdc4","#ffb300","#e056fd","#ff6b35","#45b7d1","#26de81","#ff4757","#a29bfe","#fd9644","#2bcbba","#fd79a8","#6c5ce7","#00b894","#e17055"];
+function tok(){return localStorage.getItem('fa_token')||'';}
+function faSidebarToggle(){var s=document.getElementById('fa-sidebar');s.classList.toggle('open');document.body.classList.toggle('sb-open');localStorage.setItem('fa_sidebar_open',s.classList.contains('open')?'1':'0');}
+function faDTToggle(btn){var s=document.getElementById('dt-submenu');btn.classList.toggle('open');s.classList.toggle('open');}
+function faOptToggle(btn){var s=document.getElementById('opt-submenu');btn.classList.toggle('open');s.classList.toggle('open');}
+(function(){if(localStorage.getItem('fa_sidebar_open')==='1'){document.getElementById('fa-sidebar').classList.add('open');document.body.classList.add('sb-open');}})();
 
-// ── Init ──────────────────────────────────────────────────────────────────────
-(async function init() {
-  renderTickerTags();
-  await loadPresets();
-})();
-
-async function loadPresets() {
-  try {
-    const r = await fetch('/api/v1/optimizer/presets');
-    const presets = await r.json();
-    document.getElementById('preset-chips').innerHTML = presets.map(p =>
-      `<div class="preset-chip" title="${p.description}" onclick="applyPreset(${JSON.stringify(p.tickers)})">${p.name}<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>`
-    ).join('');
-  } catch(e) {}
+function setMethod(m,btn){
+  currentMethod=m;
+  document.querySelectorAll('.method-tab').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  document.getElementById('bl-card').style.display=(m==='black_litterman')?'block':'none';
 }
 
-function applyPreset(tickers) {
-  _tickers = [...tickers];
-  renderTickerTags();
+function renderTickers(){
+  var c=document.getElementById('ticker-tags');c.innerHTML='';
+  tickers.forEach(function(t,i){
+    var d=document.createElement('span');d.className='ticker-tag';
+    d.innerHTML=t+' <span class="rm" onclick="rmTicker('+i+')">x</span>';
+    c.appendChild(d);
+  });
+}
+function addTicker(){var v=document.getElementById('add-ticker').value.trim().toUpperCase();if(v&&!tickers.includes(v)){tickers.push(v);renderTickers();}document.getElementById('add-ticker').value='';}
+function rmTicker(i){tickers.splice(i,1);renderTickers();}
+function setPreset(t){tickers=t.slice();renderTickers();}
+
+function renderViews(){
+  var c=document.getElementById('views-list');c.innerHTML='';
+  views.forEach(function(v,i){
+    var d=document.createElement('div');d.className='view-row';
+    d.innerHTML='<span class="view-ticker">'+v.ticker+'</span><span class="view-ret">+'+v.returns+'% a.a.</span><button class="view-rm" onclick="rmView('+i+')">x</button>';
+    c.appendChild(d);
+  });
+}
+function addView(){
+  var t=document.getElementById('view-ticker').value.trim().toUpperCase();
+  var r=parseFloat(document.getElementById('view-ret').value)||0;
+  if(!t||!r){alert('Preencha ticker e retorno esperado');return;}
+  views.push({ticker:t,returns:r/100});
+  renderViews();
+  document.getElementById('view-ticker').value='';
+  document.getElementById('view-ret').value='';
+}
+function rmView(i){views.splice(i,1);renderViews();}
+
+function fmt1(v){return parseFloat(v||0).toFixed(1).replace('.',',');}
+function fmt2(v){return parseFloat(v||0).toFixed(2).replace('.',',');}
+function fmtPct(v){return fmt1(v)+'%';}
+
+var COLORS=['#2dd4bf','#3abff8','#a78bfa','#f0b429','#00e676','#fb923c','#ff3d5a'];
+
+function renderMethod(d){
+  var w=d.weights||[];
+  var maxW=Math.max.apply(null,w.map(function(x){return x.weight_pct;}));
+  var weightsHtml=w.filter(function(x){return x.weight_pct>0.1;}).map(function(x,i){
+    return '<div class="weight-row">'
+      +'<span class="weight-ticker">'+x.ticker+'</span>'
+      +'<div class="weight-bar-wrap"><div class="weight-bar" style="width:'+(maxW>0?x.weight_pct/maxW*100:0)+'%;background:'+COLORS[i%COLORS.length]+'"></div></div>'
+      +'<span class="weight-pct">'+fmt1(x.weight_pct)+'%</span>'
+      +'</div>';
+  }).join('');
+
+  var notesHtml=(d.notes||[]).map(function(n){return '<div class="note-item">'+n+'</div>';}).join('');
+
+  return '<div class="kpi-row">'
+    +'<div class="kpi-card"><div class="kpi-label">Retorno Anual</div><div class="kpi-value kv-ret">'+fmtPct(d.annual_return_pct)+'</div></div>'
+    +'<div class="kpi-card"><div class="kpi-label">Volatilidade</div><div class="kpi-value kv-vol">'+fmtPct(d.volatility_pct)+'</div></div>'
+    +'<div class="kpi-card"><div class="kpi-label">Sharpe</div><div class="kpi-value kv-sharpe">'+fmt2(d.sharpe)+'</div></div>'
+    +'</div>'
+    +'<div class="card-title" style="font-size:14px;margin-bottom:10px;margin-top:4px">Alocacao Otima</div>'
+    +'<div class="weights-list">'+weightsHtml+'</div>'
+    +(notesHtml?'<div class="notes-list" style="margin-top:12px">'+notesHtml+'</div>':'');
 }
 
-function renderTickerTags() {
-  document.getElementById('ticker-tags').innerHTML = _tickers.map((t, i) =>
-    `<span class="ticker-tag">${t}<button onclick="_tickers.splice(${i},1);renderTickerTags()">✕</button></span>`
-  ).join('');
+function renderCompare(d){
+  var methods=['markowitz','risk_parity','black_litterman'];
+  var labels={'markowitz':'Markowitz','risk_parity':'Risk Parity','black_litterman':'Black-Litterman'};
+  var rows=methods.map(function(m){
+    var r=d[m];
+    if(!r)return '';
+    return '<tr>'
+      +'<td style="color:var(--teal);font-weight:700">'+labels[m]+'</td>'
+      +'<td class="kv-ret">'+fmtPct(r.annual_return_pct)+'</td>'
+      +'<td class="kv-vol">'+fmtPct(r.volatility_pct)+'</td>'
+      +'<td class="kv-sharpe">'+fmt2(r.sharpe)+'</td>'
+      +'</tr>';
+  }).join('');
+
+  // Pesos consolidados
+  var allTickers={};
+  methods.forEach(function(m){
+    if(d[m])(d[m].weights||[]).forEach(function(w){allTickers[w.ticker]=(allTickers[w.ticker]||{});allTickers[w.ticker][m]=w.weight_pct;});
+  });
+  var tickerRows=Object.keys(allTickers).map(function(tk){
+    var r='<tr><td style="color:var(--teal);font-weight:700">'+tk+'</td>';
+    methods.forEach(function(m){r+='<td>'+(allTickers[tk][m]?fmt1(allTickers[tk][m])+'%':'—')+'</td>';});
+    return r+'</tr>';
+  }).join('');
+
+  return '<div class="card"><div class="card-title">Metricas Comparativas</div>'
+    +'<table class="compare-table"><thead><tr><th>Metodo</th><th>Retorno</th><th>Vol.</th><th>Sharpe</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    +'<div class="card" style="margin-top:0"><div class="card-title">Pesos por Metodo</div>'
+    +'<table class="compare-table"><thead><tr><th>Ticker</th><th>Markowitz</th><th>Risk Parity</th><th>Black-Litt.</th></tr></thead><tbody>'+tickerRows+'</tbody></table></div>';
 }
 
-function addTicker() {
-  const inp = document.getElementById('ticker-input');
-  const val = inp.value.trim().toUpperCase().replace(/,/g,'');
-  if (val && !_tickers.includes(val) && _tickers.length < 15) {
-    _tickers.push(val);
-    renderTickerTags();
-  }
-  inp.value = '';
-  inp.focus();
-}
+async function runOptimizer(){
+  if(tickers.length<2){alert('Adicione pelo menos 2 tickers');return;}
+  var btn=document.getElementById('run-btn');
+  btn.disabled=true;btn.textContent='Otimizando...';
+  var area=document.getElementById('results-area');
+  area.innerHTML='<div class="loading"><span class="spin">&#9696;</span><br><br>Monte Carlo + Gradiente Ascendente em execucao...</div>';
 
-function addBLView() {
-  _blViews.push({ticker: '', ret: 0.15});
-  renderBLViews();
-}
-
-function renderBLViews() {
-  document.getElementById('bl-views-list').innerHTML = _blViews.map((v, i) => `
-    <div class="bl-view-row">
-      <input class="form-input" value="${v.ticker}" placeholder="Ticker"
-        onchange="_blViews[${i}].ticker=this.value.toUpperCase()"
-        style="font-family:'JetBrains Mono',monospace;font-size:16px">
-      <div style="display:flex;align-items:center;gap:6px">
-        <input class="form-input" type="range" min="0" max="50" step="1" value="${Math.round(v.ret*100)}"
-          oninput="_blViews[${i}].ret=this.value/100;document.getElementById('blv-${i}').textContent=this.value+'%'">
-        <span id="blv-${i}" style="font-size:15px;font-family:'JetBrains Mono',monospace;width:36px">${Math.round(v.ret*100)}%</span>
-      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-      <button onclick="_blViews.splice(${i},1);renderBLViews()"
-        style="background:none;border:1px solid #ff475733;color:#ff4757;border-radius:4px;padding:2px 8px;font-size:14px;cursor:pointer">✕</button>
-    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>`).join('');
-}
-
-// ── Otimização ────────────────────────────────────────────────────────────────
-async function runOptimize() {
-  if (_tickers.length < 2) { alert('Adicione pelo menos 2 ativos.'); return; }
-
-  document.getElementById('loading').style.display  = 'block';
-  document.getElementById('results').style.display  = 'none';
-  document.getElementById('btn-optimize').disabled  = true;
-
-  const body = {
-    tickers:          _tickers,
-    period:           document.getElementById('period').value,
-    risk_free:        parseFloat(document.getElementById('risk-free').value) || 10.65,
-    views:            _blViews.filter(v => v.ticker).map(v => ({ticker: v.ticker, returns: v.ret})),
-    bl_tau:           parseFloat(document.getElementById('bl-tau').value)    || 0.05,
-    bl_risk_aversion: parseFloat(document.getElementById('bl-lambda').value) || 3.0,
+  var body={
+    tickers:tickers,
+    period:document.getElementById('period').value,
+    risk_free:parseFloat(document.getElementById('risk-free').value)||13.75,
+    views:views,
+    bl_risk_aversion:parseFloat(document.getElementById('bl-lambda').value)||3.0,
   };
 
-  try {
-    const r    = await fetch('/api/v1/optimizer/optimize', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(body),
+  try{
+    var r=await fetch(API+'/api/v1/optimizer/optimize',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok()},
+      body:JSON.stringify(body)
     });
-    if (!r.ok) {
-      const err = await r.json();
-      throw new Error(err.detail || 'Erro na otimização');
+    var d=await r.json();
+    if(d.detail){area.innerHTML='<div class="empty-msg" style="color:var(--red)">'+d.detail+'</div>';return;}
+
+    if(currentMethod==='compare'){
+      area.innerHTML=renderCompare(d);
+    } else {
+      var m=d[currentMethod];
+      if(!m){area.innerHTML='<div class="empty-msg">Metodo nao disponivel</div>';return;}
+      area.innerHTML='<div class="card"><div class="card-title">'+m.method+'</div>'+renderMethod(m)+'</div>';
     }
-    _lastResult = await r.json();
-    renderResults(_lastResult);
-  } catch(e) {
-    alert('Erro: ' + e.message);
-  } finally {
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('btn-optimize').disabled = false;
+  }catch(e){
+    area.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'</div>';
+  }finally{
+    btn.disabled=false;btn.textContent='\u2699\uFE0F Otimizar Carteira';
   }
 }
 
-// ── Render ────────────────────────────────────────────────────────────────────
-function renderResults(d) {
-  document.getElementById('results').style.display = 'block';
-
-  const methods = ['markowitz','risk_parity','black_litterman','equal_weight'];
-  const best    = d.best_sharpe_method;
-
-  // Tabela comparativa
-  const fmtPct = (v, inv) => {
-    const c = inv ? (v<=0?'#00c48c':'#ff4757') : (v>=0?'#00c48c':'#ff4757');
-    return `<span style="color:${c}">${v>=0?'+':''}${v.toFixed(2)}%</span>`;
-  };
-  document.getElementById('cmp-tbody').innerHTML = methods.map(m => {
-    const md = d[m];
-    const isBest = m === best;
-    const topW = md.weights.reduce((a,b) => a.weight_pct > b.weight_pct ? a : b, {ticker:'—',weight_pct:0});
-    return `<tr style="${isBest?'background:rgba(0,196,140,.04)':''}">
-      <td>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div style="width:10px;height:10px;border-radius:50%;background:${METHOD_COLORS[m]};flex-shrink:0"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-          <b>${md.method}</b>
-          ${isBest ? '<span class="badge" style="background:rgba(0,196,140,.15);color:#00c48c">Melhor Sharpe</span>' : ''}
-        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-      </td>
-      <td class="num">${fmtPct(md.annual_return_pct)}</td>
-      <td class="num"><span style="color:#8899aa">${md.volatility_pct.toFixed(2)}%</span></td>
-      <td class="num"><b style="color:${md.sharpe>=1?'#00c48c':md.sharpe>=0.5?'#ffb300':'#ff4757'}">${md.sharpe.toFixed(3)}</b></td>
-      <td><span style="font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--accent)">${topW.ticker}</span>
-          <span style="font-size:14px;color:var(--muted)"> ${topW.weight_pct.toFixed(1)}%</span></td>
-      <td><button class="btn-secondary" style="font-size:14px;padding:3px 8px"
-          onclick="showWeights('${m}')">Ver pesos</button></td>
-    </tr>`;
-  }).join('');
-
-  // Cards dos métodos
-  document.getElementById('method-cards').innerHTML = methods.map(m => {
-    const md = d[m];
-    const isBest = m === best;
-    const c = METHOD_COLORS[m];
-    return `<div class="method-card ${isBest?'winner':''}" style="background:${isBest?'rgba(0,196,140,.03)':'var(--card)'}">
-      <div class="method-title" style="color:${c}">${md.method.split('(')[0].trim()}
-        ${isBest?'<span style="font-size:14px;color:var(--accent)">★</span>':''}<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-      <div class="method-metric"><span style="color:var(--muted)">Retorno a.a.</span>
-        <span style="color:${md.annual_return_pct>=0?'#00c48c':'#ff4757'}">${md.annual_return_pct>=0?'+':''}${md.annual_return_pct.toFixed(2)}%</span><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-      <div class="method-metric"><span style="color:var(--muted)">Volatilidade</span>
-        <span>${md.volatility_pct.toFixed(2)}%</span><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-      <div class="method-metric" style="border:none"><span style="color:var(--muted)">Sharpe</span>
-        <span style="color:${md.sharpe>=1?'#00c48c':md.sharpe>=0.5?'#ffb300':'#ff4757'};font-weight:700">${md.sharpe.toFixed(3)}</span><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-      ${(md.notes||[]).length > 0 ? `<div style="margin-top:8px;font-size:14px;color:var(--muted);line-height:1.5">${md.notes[0]}<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>` : ''}
-    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>`;
-  }).join('');
-
-  // Botões de pesos
-  document.getElementById('weights-method-btns').innerHTML = methods.map(m =>
-    `<button class="btn-secondary" id="wbtn-${m}" style="font-size:15px;padding:4px 10px"
-      onclick="showWeights('${m}')">${METHOD_LABELS[m]}</button>`
-  ).join('');
-
-  // Fronteira eficiente
-  drawFrontier(d.frontier, d, methods);
-
-  // Pesos: mostra o melhor por padrão
-  showWeights(best || 'markowitz');
-
-  if (d.errors?.length) {
-    console.warn('Erros:', d.errors);
-  }
-}
-
-function showWeights(method) {
-  if (!_lastResult) return;
-  const d  = _lastResult[method];
-  const c  = METHOD_COLORS[method];
-
-  document.getElementById('weights-method-label').textContent = d.method.split('(')[0].trim();
-
-  // Atualiza botões ativos
-  ['markowitz','risk_parity','black_litterman','equal_weight'].forEach(m => {
-    const btn = document.getElementById(`wbtn-${m}`);
-    if (btn) {
-      btn.style.borderColor = m === method ? METHOD_COLORS[m] : '';
-      btn.style.color       = m === method ? METHOD_COLORS[m] : '';
-    }
-  });
-
-  const tickers = d.weights.map(w => w.ticker);
-  const html = d.weights.map((w, i) => {
-    const color = ASSET_COLORS[i % ASSET_COLORS.length];
-    return `<div class="weight-bar-row">
-      <div class="weight-bar-label">${w.ticker}<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-      <div class="weight-bar-track">
-        <div class="weight-bar-fill" style="width:${w.weight_pct}%;background:${color}"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-        <span style="position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:13px;color:#fff;font-weight:700;white-space:nowrap">
-          ret: ${w.ret_contrib>=0?'+':''}${w.ret_contrib.toFixed(1)}%
-        </span>
-      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-      <div class="weight-bar-pct">${w.weight_pct.toFixed(1)}%<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-      <div class="weight-bar-risk" title="Contribuição ao risco">risco: ${w.risk_contrib.toFixed(1)}%<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>`;
-  }).join('');
-
-  document.getElementById('weights-chart').innerHTML = `
-    <div style="font-size:14px;color:var(--muted);margin-bottom:8px;display:flex;justify-content:space-between">
-      <span>Ativo</span><span style="margin-right:44px">Peso</span><span>Risco</span>
-    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-    ${html}
-    <div style="margin-top:10px;font-size:14px;color:var(--muted)">
-      ${(d.notes||[]).map(n => `<div style="padding:3px 0;border-top:1px solid rgba(30,58,95,.3)">💡 ${n}<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>`).join('')}
-    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>`;
-}
-
-function drawFrontier(frontier, d, methods) {
-  const svg = document.getElementById('frontier-svg');
-  if (!frontier || !frontier.length) { svg.innerHTML = '<text x="260" y="150" text-anchor="middle" fill="#445566" font-size="12">Sem dados de fronteira</text>'; return; }
-
-  const W=520, H=300, PL=48, PR=20, PT=20, PB=35;
-  const cW=W-PL-PR, cH=H-PT-PB;
-
-  const allVols = frontier.map(p=>p.vol);
-  const allRets = frontier.map(p=>p.ret);
-  const allShs  = frontier.map(p=>p.sharpe);
-  const minV=Math.min(...allVols)*0.95, maxV=Math.max(...allVols)*1.02;
-  const minR=Math.min(...allRets)*0.95, maxR=Math.max(...allRets)*1.05;
-
-  const sx = v => PL + (v-minV)/(maxV-minV)*cW;
-  const sy = r => PT + cH - (r-minR)/(maxR-minR)*cH;
-
-  // Grid
-  let grid = '';
-  for (let i=0;i<=4;i++) {
-    const r = minR + (maxR-minR)*i/4;
-    const y = sy(r);
-    grid += `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="#0d1e30" stroke-width="1"/>`;
-    grid += `<text x="${PL-4}" y="${y+4}" text-anchor="end" fill="#445566" font-size="9">${r.toFixed(1)}%</text>`;
-  }
-  for (let i=0;i<=4;i++) {
-    const v = minV + (maxV-minV)*i/4;
-    const x = sx(v);
-    grid += `<line x1="${x}" y1="${PT}" x2="${x}" y2="${H-PB}" stroke="#0d1e30" stroke-width="1"/>`;
-    grid += `<text x="${x}" y="${H-PB+14}" text-anchor="middle" fill="#445566" font-size="9">${v.toFixed(1)}%</text>`;
-  }
-  grid += `<text x="${W/2}" y="${H-2}" text-anchor="middle" fill="#445566" font-size="9">Volatilidade (%)</text>`;
-  grid += `<text x="10" y="${H/2}" text-anchor="middle" fill="#445566" font-size="9" transform="rotate(-90,10,${H/2})">Retorno (%)</text>`;
-
-  // Pontos MC — coloridos por Sharpe
-  const maxSh = Math.max(...allShs);
-  const minSh = Math.min(...allShs);
-  let pts = '';
-  // Amostra 500 pontos para performance do SVG
-  const step = Math.max(1, Math.floor(frontier.length / 500));
-  for (let i=0; i<frontier.length; i+=step) {
-    const p = frontier[i];
-    const t = (p.sharpe - minSh) / (maxSh - minSh || 1);
-    const r2 = Math.round(t*0 + (1-t)*30);
-    const g2 = Math.round(t*196 + (1-t)*50);
-    const b2 = Math.round(t*140 + (1-t)*80);
-    pts += `<circle cx="${sx(p.vol).toFixed(1)}" cy="${sy(p.ret).toFixed(1)}" r="2" fill="rgba(${r2},${g2},${b2},0.5)"/>`;
-  }
-
-  // Pontos dos 4 métodos
-  let methodPts = '';
-  methods.forEach(m => {
-    const md = d[m];
-    if (!md) return;
-    const x = sx(md.volatility_pct), y = sy(md.annual_return_pct);
-    const c = METHOD_COLORS[m];
-    methodPts += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7" fill="${c}" stroke="#060d14" stroke-width="2"/>`;
-    methodPts += `<text x="${(x+9).toFixed(1)}" y="${(y+4).toFixed(1)}" fill="${c}" font-size="9" font-weight="700">${METHOD_LABELS[m].split(' ')[0]}</text>`;
-  });
-
-  svg.innerHTML = grid + pts + methodPts;
-
-  // Legenda
-  document.getElementById('frontier-legend').innerHTML = methods.map(m =>
-    `<div style="display:flex;align-items:center;gap:5px;font-size:14px">
-      <div style="width:10px;height:10px;border-radius:50%;background:${METHOD_COLORS[m]}"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>
-      <span style="color:var(--muted)">${METHOD_LABELS[m]}</span>
-    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div>`).join('');
-}
+renderTickers();
+renderViews();
 </script>
-<script>
-(function faAuth(){
-  var token = localStorage.getItem('access_token');
-  if (!token) return;
-  var chip = document.getElementById('fa-user-chip');
-  var nameEl = document.getElementById('fa-username');
-  var avatarEl = document.getElementById('fa-avatar');
-  if (chip) chip.style.display = 'flex';
-  try {
-    var b64 = token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
-    var payload = JSON.parse(atob(b64));
-    var email = payload.email || payload.sub || '';
-    var name = email.split('@')[0];
-    if (nameEl) nameEl.textContent = name;
-    if (avatarEl) avatarEl.textContent = name.charAt(0).toUpperCase();
-  } catch(e) {}
-})();
-function faLogout() {
-  if (!confirm('Deseja sair?')) return;
-  localStorage.removeItem('access_token');
-  localStorage.removeItem('refresh_token');
-  localStorage.removeItem('token_expires_at');
-  sessionStorage.clear();
-  window.location.replace('/login');
-}
-</script>
-<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
-</div><!-- /fa-page-content -->
 </body>
 </html>
-
-
-<script>
-function faDTToggle(btn){var s=document.getElementById('dt-submenu');btn.classList.toggle('open');s.classList.toggle('open');}
-</script>
-<script>
-function faOptToggle(btn){var s=document.getElementById('opt-submenu');btn.classList.toggle('open');s.classList.toggle('open');}
-</script>
