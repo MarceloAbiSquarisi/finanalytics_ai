@@ -221,20 +221,10 @@ class ProfitDLLClient:
         self._cb_state = _state_cb  # evita GC
 
         # Chamada identica ao diagnostico
-        self._dll.DLLInitializeMarketLogin(
-            _wstr(self._activation_key),
-            _wstr(self._username),
-            _wstr(self._password),
-            _state_cb,
-            None, None, None, None, None, None, None,
-        )
-
-        log.info("profit_dll.started", dll_path=self._dll_path)
-
-        # ── Registra SetTradeCallbackV2 apos o init ───────────────────────────
-        # Motivo: DLLInitializeMarketLogin recebe None para o trade callback
-        # (callbacks diretos corrompem a ConnectorThread).
-        # SetTradeCallbackV2 e chamado APOS a init para registrar o handler.
+        # DLLInitializeLogin ativa o servidor de roteamento (conn_type=1)
+        # que por sua vez ativa o stream de market data (conn_type=2).
+        # DLLInitializeMarketLogin pulava o roteamento e exigia Profit Pro.
+        # Referencia: exemplo oficial Delphi Nelogica (frmClientU.pas:362)
         from ctypes import WINFUNCTYPE as _WFT2, c_size_t as _csz
         from ctypes import cast as _cast2, POINTER as _PTR2, byref as _byref2
 
@@ -384,7 +374,30 @@ class ProfitDLLClient:
         dll.DLLFinalize.restype = c_int32
         dll.SubscribeTicker.restype = c_int32
         dll.UnsubscribeTicker.restype = c_int32
-        dll.SetTradeCallbackV2.restype = c_int32
+
+        self._dll.DLLInitializeLogin(
+            _wstr(self._activation_key),
+            _wstr(self._username),
+            _wstr(self._password),
+            _state_cb,      # StateCallback
+            None,           # HistoryCallback
+            None,           # OrderChangeCallback
+            None,           # AccountCallback
+            None,           # TradeCallback
+            None,           # DailyCallback
+            None,           # PriceBookCallback
+            None,           # OfferBookCallback
+            None,           # HistoryTradeCallback
+            None,           # ProgressCallback
+            None,           # TinyBookCallback
+        )
+
+        log.info("profit_dll.started", dll_path=self._dll_path)
+
+        # ── Registra SetTradeCallbackV2 apos o init ───────────────────────────
+        # Motivo: DLLInitializeMarketLogin recebe None para o trade callback
+        # (callbacks diretos corrompem a ConnectorThread).
+        # SetTradeCallbackV2 e chamado APOS a init para registrar o handler.
         dll.SetDailyCallback.restype = c_int32
         dll.SetStateCallback.restype = c_int32
         dll.SetTheoreticalPriceCallback.restype = c_int32
@@ -633,3 +646,7 @@ class ProfitDLLClient:
                 self._tick_queue.task_done()
 
         log.info("profit_dll.consumer_stopped")
+
+
+
+
