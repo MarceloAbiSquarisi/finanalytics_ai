@@ -25,7 +25,7 @@ from typing import Any
 
 import pdfplumber
 import structlog
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/import", tags=["Import"])
@@ -473,6 +473,139 @@ def _parse_csv(content: bytes, filename: str, corretora: str = "CSV") -> dict[st
 
 # ── Rotas ─────────────────────────────────────────────────────────────────────
 
+def _parse_extrato_btg_br(content: bytes, filename: str) -> dict[str, Any]:
+    """Parser do Extrato Mensal BTG Pactual Brasil (PDF)."""
+    import calendar as _cal
+    from datetime import date as _date
+
+    ref_date = str(_date.today())
+    client = ""
+    conta = ""
+    positions: list[dict] = []
+    movimentos: list[dict] = []
+
+    text_all = _pdf_text(content)
+
+    # Data de referencia
+    meses_pt = {
+        "janeiro": 1, "fevereiro": 2, "marco": 3, "marco": 3,
+        "abril": 4, "maio": 5, "junho": 6, "julho": 7, "agosto": 8,
+        "setembro": 9, "outubro": 10, "novembro": 11, "dezembro": 12,
+    }
+    m_mes = re.search(
+        r"(janeiro|fevereiro|mar[co]o|abril|maio|junho|julho|agosto"
+        r"|setembro|outubro|novembro|dezembro)[/\s]*(de\s*)?(\d{4})",
+        text_all, re.I
+    )
+    if m_mes:
+        mes_str = m_mes.group(1).lower().replace("c", "c")
+        mes = meses_pt.get(mes_str, 1)
+        ano = int(m_mes.group(3))
+        ultimo_dia = _cal.monthrange(ano, mes)[1]
+        ref_date = f"{ano:04d}-{mes:02d}-{ultimo_dia:02d}"
+
+    # Fallback DD/MM/YYYY
+    if ref_date == str(_date.today()):
+        m_dt = re.search(r"(\d{2})/(\d{2})/(\d{4})", text_all)
+        if m_dt:
+            ref_date = f"{m_dt.group(3)}-{m_dt.group(2)}-{m_dt.group(1)}"
+
+    # Cliente e conta
+    m_client = re.search(r"(?:cliente|nome)[:\s]+([A-Z][A-Za-z\s]{5,50})", text_all, re.I)
+    if m_client:
+        client = m_client.group(1).strip()
+
+    m_conta = re.search(r"(?:conta|account)[:\s#]*(\d[\d.\-]{3,20})", text_all, re.I)
+    if m_conta:
+        conta = m_conta.group(1).strip()
+
+    # Extrai posicoes por pagina
+    raw_pages = 0
+    full_text = ""
+    with pdfplumber.open(io.BytesIO(content)) as pdf:
+        raw_pages = len(pdf.pages)
+        for page in pdf.pages:
+            full_text += (page.extract_text() or "") + "\n"
+
+    # Ticker + qtd + preco + valor
+    pat_ativo = re.compile(
+        r"([A-Z]{3,6}\d{0,2}[BF]?)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)",
+        re.M
+    )
+    SKIP = {"CPF", "CNPJ", "BTG", "PDF", "SAO", "RIO", "BRL", "USD", "EUR"}
+
+    tipo_atual = "acao"
+    for linha in full_text.splitlines():
+        l_lower = linha.lower()
+        if "etf" in l_lower or "fundo de indice" in l_lower:
+            tipo_atual = "etf"
+        elif "fundo" in l_lower and "investimento" in l_lower:
+            tipo_atual = "fundo"
+        elif any(k in l_lower for k in ["renda fixa", "cdb", "cri", "cra", "debenture"]):
+            tipo_atual = "renda_fixa"
+        elif any(k in l_lower for k in ["cripto", "bitcoin", "ethereum"]):
+            tipo_atual = "cripto"
+        elif any(k in l_lower for k in ["acoes", "acao"]):
+            tipo_atual = "acao"
+
+        m = pat_ativo.search(linha)
+        if m:
+            ticker = m.group(1)
+            if ticker in SKIP:
+                continue
+            try:
+                qtd   = float(_dec(m.group(2)))
+                preco = float(_dec(m.group(3)))
+                valor = float(_dec(m.group(4)))
+                if qtd > 0 and valor > 0:
+                    positions.append({
+                        "ticker":    ticker,
+                        "tipo":      tipo_atual,
+                        "qtd":       qtd,
+                        "preco":     preco,
+                        "valor":     valor,
+                        "moeda":     "BRL",
+                        "corretora": "BTG",
+                        "ref_date":  ref_date,
+                    })
+            except Exception:
+                pass
+
+    # Movimentos conta corrente
+    pat_mov = re.compile(r"(\d{2}/\d{2}/\d{4})\s+(.{5,60}?)\s+([DC])\s+([\d.,]+)", re.M)
+    for m_mov in pat_mov.finditer(full_text):
+        try:
+            movimentos.append({
+                "data":      m_mov.group(1),
+                "descricao": m_mov.group(2).strip(),
+                "tipo":      "debito" if m_mov.group(3) == "D" else "credito",
+                "valor":     float(_dec(m_mov.group(4))),
+            })
+        except Exception:
+            pass
+
+    # Remove duplicatas
+    seen: set = set()
+    unique: list[dict] = []
+    for p in positions:
+        key = (p["ticker"], p["qtd"])
+        if key not in seen:
+            seen.add(key)
+            unique.append(p)
+
+    return {
+        "source":     "btg-br",
+        "filename":   filename,
+        "ref_date":   ref_date,
+        "client":     client,
+        "conta":      conta,
+        "positions":  unique,
+        "movimentos": movimentos,
+        "total":      len(unique),
+        "raw_pages":  raw_pages,
+    }
+
+
 def _save_to_history(result: dict) -> None:
     _import_history.insert(0, {
         "id":           len(_import_history) + 1,
@@ -580,6 +713,22 @@ async def import_auto(file: UploadFile = File(...)) -> dict[str, Any]:
         raise HTTPException(500, str(exc)) from exc
 
 
+@router.post("/extrato-btg-br", summary="Importar Extrato Mensal BTG BR (PDF)")
+async def import_extrato_btg_br(
+    file: UploadFile = File(...),
+) -> dict:
+    """
+    Importa extrato mensal do BTG Pactual Brasil (PDF).
+    Extrai: posicoes em acoes, ETFs, fundos, renda fixa, cripto e movimentos.
+    """
+    content = await file.read()
+    try:
+        result = _parse_extrato_btg_br(content, file.filename)
+        return {"ok": True, "source": "btg-br", "filename": file.filename, "data": result}
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Erro ao processar extrato BTG BR: {e}")
+
+
 @router.get("/history", summary="Historico de importacoes")
 async def get_history() -> dict[str, Any]:
     return {"total": len(_import_history), "items": _import_history}
@@ -596,3 +745,5 @@ async def get_positions(
     if tipo:
         pos = [p for p in pos if p.get("tipo", "").lower() == tipo.lower()]
     return {"total": len(pos), "positions": pos}
+
+
