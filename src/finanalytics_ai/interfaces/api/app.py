@@ -374,6 +374,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     
     
+    
+    # -- TapeService (Tape Reading via ProfitDLL)
+    try:
+        from finanalytics_ai.application.services.tape_service import TapeService
+        tape_svc = TapeService()
+        app.state.tape_service = tape_svc
+        logger.info("tape_service.ready")
+        # Inicia consumer Redis (recebe ticks do profit_market_worker)
+        import asyncio as _asyncio
+        from finanalytics_ai.config import get_settings as _gs
+        _redis_url = _gs().redis_url if hasattr(_gs(), "redis_url") else "redis://redis:6379/0"
+        _tape_task = _asyncio.create_task(tape_svc.start_redis_consumer(_redis_url))
+        app.state.tape_redis_task = _tape_task
+        logger.info("tape_service.redis_consumer_launched", redis_url=_redis_url)
+    except Exception as _tse:
+        logger.warning("tape_service.FAILED", error=str(_tse))
+        app.state.tape_service = None
     # -- VaRService (Value at Risk)
     try:
         from finanalytics_ai.application.services.var_service import VaRService
@@ -618,6 +635,12 @@ def create_app() -> FastAPI:
     app.include_router(auth_routes.router, tags=["Autenticação"])
     app.include_router(admin_routes.router, tags=["Admin"])
     try:
+        from finanalytics_ai.interfaces.api.routes import import_route
+        app.include_router(import_route.router, tags=["Import"])
+        logger.info("import.router.ok")
+    except Exception as _e:
+        logger.warning("import.router.SKIP", error=str(_e))
+    try:
         from finanalytics_ai.interfaces.api.routes import system_status as sys_routes
         app.include_router(sys_routes.router, tags=["System"])
     except Exception as _sse:
@@ -632,6 +655,12 @@ def create_app() -> FastAPI:
     app.include_router(backtest.router, tags=["Backtest"])
 
     try:
+        from finanalytics_ai.interfaces.api.routes import import_route
+        app.include_router(import_route.router, tags=["Import"])
+        logger.info("import.router.ok")
+    except Exception as _e:
+        logger.warning("import.router.SKIP", error=str(_e))
+    try:
         from finanalytics_ai.interfaces.api.routes import diario as diario_routes
         app.include_router(diario_routes.router, tags=["Diário"])
     except Exception as _de:
@@ -640,11 +669,23 @@ def create_app() -> FastAPI:
     app.include_router(correlation.router, tags=["Correlation"])
     app.include_router(screener.router, tags=["Screener"])
     try:
+        from finanalytics_ai.interfaces.api.routes import import_route
+        app.include_router(import_route.router, tags=["Import"])
+        logger.info("import.router.ok")
+    except Exception as _e:
+        logger.warning("import.router.SKIP", error=str(_e))
+    try:
         from finanalytics_ai.interfaces.api.routes import screener_fintz
         app.include_router(screener_fintz.router, tags=["Screener Fintz"])
         logger.info("screener_fintz.route.registered")
     except Exception as _sfe:
         logger.warning("screener_fintz.route.FAILED", error=str(_sfe))
+    try:
+        from finanalytics_ai.interfaces.api.routes import import_route
+        app.include_router(import_route.router, tags=["Import"])
+        logger.info("import.router.ok")
+    except Exception as _e:
+        logger.warning("import.router.SKIP", error=str(_e))
     try:
         from finanalytics_ai.interfaces.api.routes import alerts_indicator
         app.include_router(alerts_indicator.router, tags=["Alertas Indicadores"])
@@ -652,11 +693,48 @@ def create_app() -> FastAPI:
     except Exception as _aire:
         logger.warning("alerts_indicator.route.FAILED", error=str(_aire))
     try:
+        from finanalytics_ai.interfaces.api.routes import import_route
+        app.include_router(import_route.router, tags=["Import"])
+        logger.info("import.router.ok")
+    except Exception as _e:
+        logger.warning("import.router.SKIP", error=str(_e))
+    try:
         from finanalytics_ai.interfaces.api.routes import ranking as ranking_routes
         app.include_router(ranking_routes.router, tags=["Ranking"])
         logger.info("ranking.route.registered")
     except Exception as _rre:
         logger.warning("ranking.route.FAILED", error=str(_rre))
+    try:
+        from finanalytics_ai.interfaces.api.routes import import_route
+        app.include_router(import_route.router, tags=["Import"])
+        logger.info("import.router.ok")
+    except Exception as _e:
+        logger.warning("import.router.SKIP", error=str(_e))
+    try:
+        from finanalytics_ai.interfaces.api.routes import crypto as crypto_routes
+        app.include_router(crypto_routes.router, tags=["Crypto"])
+        logger.info("crypto.route.registered")
+    except Exception as _cre:
+        logger.warning("crypto.route.FAILED", error=str(_cre))
+
+    try:
+        from finanalytics_ai.interfaces.api.routes import import_route
+        app.include_router(import_route.router, tags=["Import"])
+        logger.info("import.router.ok")
+    except Exception as _e:
+        logger.warning("import.router.SKIP", error=str(_e))
+    try:
+        from finanalytics_ai.interfaces.api.routes import tape as tape_routes
+        app.include_router(tape_routes.router, tags=["Tape Reading"])
+        logger.info("tape.route.registered")
+    except Exception as _tre:
+        logger.warning("tape.route.FAILED", error=str(_tre))
+    try:
+        from finanalytics_ai.interfaces.api.routes import import_route
+        app.include_router(import_route.router, tags=["Import"])
+        logger.info("import.router.ok")
+    except Exception as _e:
+        logger.warning("import.router.SKIP", error=str(_e))
     try:
         from finanalytics_ai.interfaces.api.routes import whatsapp as whatsapp_routes
         app.include_router(whatsapp_routes.router, tags=["WhatsApp"])
@@ -665,11 +743,23 @@ def create_app() -> FastAPI:
         logger.warning("whatsapp.route.FAILED", error=str(_ware))
 
     try:
+        from finanalytics_ai.interfaces.api.routes import import_route
+        app.include_router(import_route.router, tags=["Import"])
+        logger.info("import.router.ok")
+    except Exception as _e:
+        logger.warning("import.router.SKIP", error=str(_e))
+    try:
         from finanalytics_ai.interfaces.api.routes import dividendos as dividendos_routes
         app.include_router(dividendos_routes.router, tags=["Dividendos"])
         logger.info("dividendos.route.registered")
     except Exception as _dre:
         logger.warning("dividendos.route.FAILED", error=str(_dre))
+    try:
+        from finanalytics_ai.interfaces.api.routes import import_route
+        app.include_router(import_route.router, tags=["Import"])
+        logger.info("import.router.ok")
+    except Exception as _e:
+        logger.warning("import.router.SKIP", error=str(_e))
     try:
         from finanalytics_ai.interfaces.api.routes import var as var_routes
         app.include_router(var_routes.router, tags=["VaR"])
@@ -677,11 +767,23 @@ def create_app() -> FastAPI:
     except Exception as _vre:
         logger.warning("var.route.FAILED", error=str(_vre))
     try:
+        from finanalytics_ai.interfaces.api.routes import import_route
+        app.include_router(import_route.router, tags=["Import"])
+        logger.info("import.router.ok")
+    except Exception as _e:
+        logger.warning("import.router.SKIP", error=str(_e))
+    try:
         from finanalytics_ai.interfaces.api.routes import sentiment as sentiment_routes
         app.include_router(sentiment_routes.router, tags=["Sentimento"])
         logger.info("sentiment.route.registered")
     except Exception as _sre:
         logger.warning("sentiment.route.FAILED", error=str(_sre))
+    try:
+        from finanalytics_ai.interfaces.api.routes import import_route
+        app.include_router(import_route.router, tags=["Import"])
+        logger.info("import.router.ok")
+    except Exception as _e:
+        logger.warning("import.router.SKIP", error=str(_e))
     try:
         from finanalytics_ai.interfaces.api.routes import opcoes as opcoes_routes
         app.include_router(opcoes_routes.router, tags=["Opcoes"])
@@ -691,6 +793,12 @@ def create_app() -> FastAPI:
         logger.info("ranking.route.registered")
     except Exception as _rre:
         logger.warning("ranking.route.FAILED", error=str(_rre))
+    try:
+        from finanalytics_ai.interfaces.api.routes import import_route
+        app.include_router(import_route.router, tags=["Import"])
+        logger.info("import.router.ok")
+    except Exception as _e:
+        logger.warning("import.router.SKIP", error=str(_e))
     try:
         from finanalytics_ai.interfaces.api.routes import setups as setups_routes
         app.include_router(setups_routes.router, tags=["Setups Intraday"])
@@ -714,11 +822,23 @@ def create_app() -> FastAPI:
     app.include_router(performance.router, tags=["Performance"])
 
     try:
+        from finanalytics_ai.interfaces.api.routes import import_route
+        app.include_router(import_route.router, tags=["Import"])
+        logger.info("import.router.ok")
+    except Exception as _e:
+        logger.warning("import.router.SKIP", error=str(_e))
+    try:
         from finanalytics_ai.interfaces.api.routes import fintz_sync_status
         app.include_router(fintz_sync_status.router, prefix="/api/v1/fintz", tags=["Fintz Sync"])
     except Exception as _fss:
         import structlog as _sl3
         _sl3.get_logger(__name__).warning("fintz_sync_status.router.FAILED", error=str(_fss))
+    try:
+        from finanalytics_ai.interfaces.api.routes import import_route
+        app.include_router(import_route.router, tags=["Import"])
+        logger.info("import.router.ok")
+    except Exception as _e:
+        logger.warning("import.router.SKIP", error=str(_e))
     try:
         from finanalytics_ai.interfaces.api.routes import fintz_data as fintz_data_routes
         app.include_router(fintz_data_routes.router, prefix="/api/v1/fintz", tags=["Fintz Histórico"])
@@ -728,17 +848,35 @@ def create_app() -> FastAPI:
     app.include_router(fixed_income.router, tags=["Renda Fixa"])
 
     try:
+        from finanalytics_ai.interfaces.api.routes import import_route
+        app.include_router(import_route.router, tags=["Import"])
+        logger.info("import.router.ok")
+    except Exception as _e:
+        logger.warning("import.router.SKIP", error=str(_e))
+    try:
         from finanalytics_ai.interfaces.api.routes import forecast as forecast_routes
         app.include_router(forecast_routes.router, tags=["Forecast"])
     except Exception as _e:
         import structlog as _sl
         _sl.get_logger(__name__).warning("forecast.router.FAILED", error=str(_e))
     try:
+        from finanalytics_ai.interfaces.api.routes import import_route
+        app.include_router(import_route.router, tags=["Import"])
+        logger.info("import.router.ok")
+    except Exception as _e:
+        logger.warning("import.router.SKIP", error=str(_e))
+    try:
         from finanalytics_ai.interfaces.api.routes import macro as macro_routes
         app.include_router(macro_routes.router, tags=["Macro"])
     except ImportError:
         pass
 
+    try:
+        from finanalytics_ai.interfaces.api.routes import import_route
+        app.include_router(import_route.router, tags=["Import"])
+        logger.info("import.router.ok")
+    except Exception as _e:
+        logger.warning("import.router.SKIP", error=str(_e))
     try:
         from finanalytics_ai.interfaces.api.routes import storage_admin
         app.include_router(storage_admin.router, tags=["Storage Admin"])
@@ -801,6 +939,20 @@ def create_app() -> FastAPI:
         return _html("vol_surface.html")
 
     
+    
+    
+    @app.get("/crypto", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_crypto() -> HTMLResponse:
+        return _html("crypto.html")
+
+    @app.get("/import", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_import() -> HTMLResponse:
+        return _html("import.html")
+
+    @app.get("/tape", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_tape() -> HTMLResponse:
+        return _html("tape.html")
+
     @app.get("/whatsapp", response_class=HTMLResponse, include_in_schema=False)
     async def serve_whatsapp() -> HTMLResponse:
         return _html("whatsapp.html")

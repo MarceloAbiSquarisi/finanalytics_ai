@@ -34,6 +34,12 @@ import asyncio
 import os
 import signal
 import sys
+import json as _json
+try:
+    import redis as _redis_sync_mod
+except ImportError:
+    _redis_sync_mod = None
+_REDIS_PUB = None
 from typing import Any
 
 from finanalytics_ai.application.event_processor.factory import (
@@ -220,6 +226,49 @@ async def run_profit_worker() -> None:
             log.error("profit_market_worker.connect_failed")
             return
 
+    # Aguarda market_connected=True antes de subscrever (result=4 da DLL)
+    # Timeout de 120s: DLLInitializeMarketLogin sem Profit Pro pode levar ate 60-90s
+    _market_timeout = int(os.getenv("PROFIT_MARKET_TIMEOUT", "240"))
+    for _i in range(_market_timeout):
+        if profit_client.state.market_connected:
+            log.info("profit_market_worker.market_connected", attempts=_i)
+            break
+        if _i % 20 == 0 and _i > 0:
+            log.info("profit_market_worker.waiting_market", seconds=_i // 2)
+        await asyncio.sleep(0.5)
+    if not profit_client.state.market_connected:
+        log.warning("profit_market_worker.market_not_connected_using_login_valid")
+
+    # Redis publisher para TapeService
+    global _REDIS_PUB
+    _redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    if _redis_sync_mod is not None:
+        try:
+            _REDIS_PUB = _redis_sync_mod.from_url(_redis_url, decode_responses=True)
+            log.info("profit_worker.redis_publisher_ready", url=_redis_url)
+        except Exception as _re:
+            log.warning("profit_worker.redis_publisher_failed", error=str(_re))
+
+    async def _publish_tick(tick: object) -> None:
+        if _REDIS_PUB is None:
+            return
+        try:
+            _REDIS_PUB.publish("tape:ticks", _json.dumps({
+                "ticker":     getattr(tick, "ticker", ""),
+                "price":      getattr(tick, "price", 0.0),
+                "volume":     getattr(tick, "volume", 0.0),
+                "quantity":   getattr(tick, "quantity", 0),
+                "trade_type": getattr(tick, "trade_type", 0),
+                "buy_agent":  getattr(tick, "buy_agent", 0),
+                "sell_agent": getattr(tick, "sell_agent", 0),
+                "ts": str(getattr(tick, "timestamp", "")),
+            }))
+        except Exception:
+            pass
+
+    profit_client.add_tick_handler(_publish_tick)
+    log.info("profit_worker.tape_bridge_registered")
+
     if hasattr(profit_client, "subscribe_tickers"):
         await profit_client.subscribe_tickers(tickers)
         log.info("profit_market_worker.subscribed", tickers=tickers)
@@ -259,5 +308,8 @@ if __name__ == "__main__":
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     asyncio.run(run_profit_worker())
+
+
+
 
 

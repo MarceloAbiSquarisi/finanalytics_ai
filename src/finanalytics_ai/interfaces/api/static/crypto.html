@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Criptoativos | FinAnalytics AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0A1628;--card:#0e1a2e;--border:#1c2535;--white:#e2eaf4;--muted:#4a6a8a;--blue:#3ABFF8;--gold:#F0B429;--green:#00e676;--red:#ff3d5a;--purple:#a78bfa;--orange:#fb923c;--btc:#f7931a;--eth:#627eea;--sb-w:220px;--sb-w-collapsed:52px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--navy);color:var(--white);font-family:'Syne',sans-serif;overflow-x:hidden}
+.fa-topbar{position:fixed;top:0;left:0;right:0;height:52px;background:rgba(10,22,40,.97);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:300}
+.fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--gold);font-weight:800;font-size:15px}
+.fa-sidebar{position:fixed;left:0;top:52px;bottom:0;width:var(--sb-w-collapsed);background:#0a0f18;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1);z-index:200}
+.fa-sidebar.open{width:var(--sb-w)}
+.fa-sidebar-toggle{width:100%;padding:10px 14px;background:transparent;border:none;border-bottom:1px solid var(--border);color:#7a95b0;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;white-space:nowrap;overflow:hidden}
+.fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;text-decoration:none;font-size:15px;white-space:nowrap;overflow:hidden;transition:all .15s}
+.fa-sb-link:hover{color:#e2eaf4;background:rgba(0,212,255,.05)}
+.fa-sb-link.active{color:var(--gold);background:rgba(240,180,41,.08);border-right:2px solid var(--gold)}
+.fa-sb-link svg{flex-shrink:0}
+.fa-sb-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-link span{opacity:1}
+.fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1);padding:72px 24px 32px}
+body.sb-open .fa-page-content{margin-left:var(--sb-w)}
+.page-title{font-size:26px;font-weight:800;color:var(--btc);margin-bottom:4px}
+.page-sub{font-size:15px;color:var(--muted);margin-bottom:20px}
+/* Tabs */
+.tab-bar{display:flex;gap:4px;margin-bottom:20px;background:#0a1220;border-radius:10px;padding:4px}
+.tab-btn{flex:1;padding:9px;border:none;border-radius:8px;cursor:pointer;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;background:transparent;color:var(--muted);transition:all .2s}
+.tab-btn.active{background:var(--btc);color:var(--white)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+/* KPI row */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+.kpi-label{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.kpi-value{font-size:20px;font-weight:800;font-family:'DM Mono',monospace}
+/* Coin cards grid */
+.coins-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:20px}
+.coin-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;cursor:pointer;transition:all .2s}
+.coin-card:hover{border-color:rgba(247,147,26,.4);transform:translateY(-2px)}
+.coin-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.coin-img{width:36px;height:36px;border-radius:50%;background:#1c2535}
+.coin-name{font-size:15px;font-weight:800}
+.coin-symbol{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace}
+.coin-price{font-size:18px;font-weight:800;font-family:'DM Mono',monospace;color:var(--white);margin-bottom:6px}
+.coin-changes{display:flex;gap:8px;flex-wrap:wrap}
+.chg-badge{font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;font-family:'DM Mono',monospace}
+.chg-pos{background:rgba(0,230,118,.15);color:var(--green)}
+.chg-neg{background:rgba(255,61,90,.15);color:var(--red)}
+.chg-neu{background:rgba(74,106,138,.15);color:var(--muted)}
+.coin-mcap{font-size:11px;color:var(--muted);margin-top:6px;font-family:'DM Mono',monospace}
+/* Fear & Greed */
+.fng-wrap{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:20px}
+.fng-gauge{position:relative;text-align:center;margin:20px 0}
+.fng-score{font-size:64px;font-weight:800;font-family:'DM Mono',monospace}
+.fng-label{font-size:20px;font-weight:700;margin-top:4px}
+.fng-bar{height:16px;border-radius:10px;background:linear-gradient(90deg,var(--red),var(--orange),var(--gold),var(--green));margin:16px 0;position:relative}
+.fng-marker{position:absolute;top:-4px;width:4px;height:24px;background:var(--white);border-radius:2px;transition:left .5s}
+.fng-history{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+.fng-day{background:#0a1220;border-radius:6px;padding:8px 12px;text-align:center}
+.fng-day-val{font-size:18px;font-weight:800;font-family:'DM Mono',monospace}
+.fng-day-lbl{font-size:10px;color:var(--muted)}
+/* Technical */
+.tech-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px}
+.card-title{font-size:15px;font-weight:700;color:var(--blue);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.indicator-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #141f2e;font-family:'DM Mono',monospace}
+.indicator-row:last-child{border-bottom:none}
+.ind-name{font-size:13px;color:var(--muted)}
+.ind-value{font-size:14px;font-weight:700}
+.signal-badge{font-size:11px;padding:3px 8px;border-radius:4px;font-family:'DM Mono',monospace;font-weight:700}
+.sig-bull{background:rgba(0,230,118,.15);color:var(--green)}
+.sig-bear{background:rgba(255,61,90,.15);color:var(--red)}
+.sig-neu{background:rgba(74,106,138,.15);color:var(--muted)}
+/* Portfolio */
+.portfolio-table{width:100%;border-collapse:collapse;font-size:14px}
+.portfolio-table th{padding:9px 12px;color:var(--muted);font-size:11px;font-family:'DM Mono',monospace;text-transform:uppercase;border-bottom:1px solid var(--border);font-weight:400;text-align:left}
+.portfolio-table td{padding:10px 12px;border-bottom:1px solid #141f2e;font-family:'DM Mono',monospace}
+.portfolio-table tr:last-child td{border-bottom:none}
+.portfolio-table tr:hover td{background:rgba(255,255,255,.02)}
+.coin-cell{display:flex;align-items:center;gap:8px}
+.coin-cell img{width:24px;height:24px;border-radius:50%}
+.pnl-pos{color:var(--green);font-weight:700}
+.pnl-neg{color:var(--red);font-weight:700}
+/* Import */
+.import-zone{border:2px dashed var(--border);border-radius:10px;padding:40px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:16px}
+.import-zone:hover{border-color:var(--btc)}
+.import-zone.dragover{border-color:var(--btc);background:rgba(247,147,26,.05)}
+.field-input{background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:13px;padding:8px 12px;width:100%;outline:none}
+.field-input:focus{border-color:var(--btc)}
+.import-btn{background:linear-gradient(135deg,#7c3a00,var(--btc));border:none;border-radius:7px;color:var(--white);font-family:'Syne',sans-serif;font-weight:800;font-size:14px;padding:10px 24px;cursor:pointer;transition:all .2s;margin-top:8px}
+.import-btn:hover{box-shadow:0 0 16px rgba(247,147,26,.3)}
+.ctrl-select{background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:13px;padding:8px 10px;outline:none}
+/* Global stats */
+.global-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+.global-stat{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;flex:1;min-width:160px}
+.global-stat-label{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;margin-bottom:4px}
+.global-stat-value{font-size:16px;font-weight:800;font-family:'DM Mono',monospace;color:var(--btc)}
+.dom-bar{height:8px;border-radius:8px;background:#1c2535;overflow:hidden;margin-top:6px;display:flex}
+.dom-btc{height:100%;background:var(--btc)}
+.dom-eth{height:100%;background:var(--eth)}
+.dom-rest{height:100%;background:#1c2535}
+.empty-msg{color:var(--muted);font-size:14px;text-align:center;padding:32px}
+.loading{text-align:center;padding:24px;color:var(--muted)}
+.spin{display:inline-block;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:900px){.kpi-row{grid-template-columns:repeat(3,1fr)}.tech-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="fa-topbar">
+  <a href="/" class="fa-logo">
+    <svg width="28" height="28" viewBox="0 0 170 170" fill="none"><defs><linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3ABFF8"/><stop offset="100%" stop-color="#F0B429"/></linearGradient></defs><rect width="170" height="170" rx="28" fill="#0A1628"/><polyline points="24,130 60,75 90,100 130,40" stroke="url(#lg1)" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="130" cy="40" r="10" fill="#F0B429"/></svg>
+    FinAnalytics AI
+  </a>
+</div>
+
+<aside class="fa-sidebar" id="fa-sidebar">
+  <button class="fa-sidebar-toggle" onclick="faSidebarToggle()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <span style="font-weight:700;color:var(--gold);font-size:11px">MENU</span>
+  </button>
+  <div style="overflow-y:auto;flex:1">
+    <a href="/" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
+    <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
+    <a href="/crypto" class="fa-sb-link active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.5 8h3a2 2 0 0 1 0 4h-3"/><path d="M9.5 12h3.5a2 2 0 0 1 0 4H9.5"/><line x1="9.5" y1="8" x2="9.5" y2="16"/></svg><span>Cripto</span></a>
+    <a href="/dividendos" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span>Dividendos</span></a>
+    <a href="/optimizer" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg><span>Otimizador</span></a>
+    <a href="/var" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>VaR</span></a>
+    <a href="/sentiment" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Sentimento</span></a>
+    <a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
+  </div>
+</aside>
+
+<div class="fa-page-content">
+  <div class="page-title">&#8383; Criptoativos</div>
+  <div class="page-sub">Precos em tempo real, analise tecnica, Fear & Greed e carteira — CoinGecko API</div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="showTab('mercado',this)">&#127758; Mercado</button>
+    <button class="tab-btn" onclick="showTab('tecnico',this)">&#128200; Tecnico</button>
+    <button class="tab-btn" onclick="showTab('sentimento',this)">&#129368; Fear & Greed</button>
+    <button class="tab-btn" onclick="showTab('carteira',this)">&#128203; Carteira</button>
+    <button class="tab-btn" onclick="showTab('importar',this)">&#128229; Importar CSV</button>
+  </div>
+
+  <!-- TAB: Mercado -->
+  <div class="tab-content active" id="tab-mercado">
+    <div id="global-bar" class="global-bar"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+      <select class="ctrl-select" id="currency-sel" onchange="loadMarket()">
+        <option value="brl">BRL (R$)</option>
+        <option value="usd">USD ($)</option>
+      </select>
+      <button onclick="loadMarket()" style="background:rgba(247,147,26,.15);border:1px solid rgba(247,147,26,.3);border-radius:6px;color:var(--btc);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;padding:8px 14px;cursor:pointer">&#8635; Atualizar</button>
+      <span style="font-size:12px;color:var(--muted)" id="last-update"></span>
+    </div>
+    <div id="coins-area" class="coins-grid"><div class="loading"><span class="spin">&#9696;</span> Carregando...</div></div>
+  </div>
+
+  <!-- TAB: Tecnico -->
+  <div class="tab-content" id="tab-tecnico">
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+      <select class="ctrl-select" id="tech-symbol">
+        <option value="BTC">Bitcoin (BTC)</option>
+        <option value="ETH">Ethereum (ETH)</option>
+        <option value="SOL">Solana (SOL)</option>
+        <option value="BNB">BNB</option>
+        <option value="ADA">Cardano (ADA)</option>
+        <option value="AVAX">Avalanche (AVAX)</option>
+        <option value="LINK">Chainlink (LINK)</option>
+        <option value="DOT">Polkadot (DOT)</option>
+      </select>
+      <select class="ctrl-select" id="tech-days">
+        <option value="30">30 dias</option>
+        <option value="90" selected>90 dias</option>
+        <option value="180">180 dias</option>
+        <option value="365">1 ano</option>
+      </select>
+      <button onclick="loadTechnical()" style="background:rgba(247,147,26,.15);border:1px solid rgba(247,147,26,.3);border-radius:6px;color:var(--btc);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;padding:8px 14px;cursor:pointer">Analisar</button>
+    </div>
+    <div id="tech-area"><div class="empty-msg">Selecione uma cripto e clique em Analisar</div></div>
+  </div>
+
+  <!-- TAB: Fear & Greed -->
+  <div class="tab-content" id="tab-sentimento">
+    <div id="fng-area"><div class="loading"><span class="spin">&#9696;</span> Carregando...</div></div>
+  </div>
+
+  <!-- TAB: Carteira -->
+  <div class="tab-content" id="tab-carteira">
+    <div id="portfolio-area">
+      <div class="empty-msg">Importe um CSV ou adicione posicoes manualmente na aba Importar</div>
+    </div>
+  </div>
+
+  <!-- TAB: Importar CSV -->
+  <div class="tab-content" id="tab-importar">
+    <div class="card" style="max-width:600px">
+      <div class="card-title">&#128229; Importar Posicoes de Cripto (CSV)</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.6">
+        Formato: <code style="color:var(--btc)">symbol,quantity,avg_price[,currency]</code><br>
+        Exemplo: <code style="color:var(--muted)">BTC,0.5,280000,brl</code>
+      </div>
+
+      <div class="import-zone" id="import-zone" onclick="document.getElementById('csv-file').click()"
+           ondragover="event.preventDefault();this.classList.add('dragover')"
+           ondragleave="this.classList.remove('dragover')"
+           ondrop="handleDrop(event)">
+        <div style="font-size:32px;margin-bottom:8px">&#128229;</div>
+        <div style="font-size:15px;font-weight:700;color:var(--btc)">Clique ou arraste o CSV aqui</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:4px">Suporte: Binance, Coinbase, Kraken ou formato proprio</div>
+        <input type="file" id="csv-file" accept=".csv" style="display:none" onchange="handleFileSelect(event)">
+      </div>
+
+      <div style="text-align:center;margin:12px 0;color:var(--muted);font-size:13px">— ou cole o conteudo —</div>
+
+      <textarea class="field-input" id="csv-text" rows="6" placeholder="BTC,0.5,280000,brl&#10;ETH,2.0,9500,brl&#10;SOL,10,350,brl" style="resize:vertical;margin-bottom:10px"></textarea>
+
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <select class="ctrl-select" id="import-currency">
+          <option value="brl">Cotacao em BRL</option>
+          <option value="usd">Cotacao em USD</option>
+        </select>
+        <button class="import-btn" onclick="importCSV()">&#128229; Importar e Calcular P&L</button>
+      </div>
+      <div id="import-result" style="margin-top:10px;font-size:13px;font-family:'DM Mono',monospace"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+var API='';
+var portfolioData=null;
+
+function faSidebarToggle(){var s=document.getElementById('fa-sidebar');s.classList.toggle('open');document.body.classList.toggle('sb-open');localStorage.setItem('fa_sidebar_open',s.classList.contains('open')?'1':'0');}
+(function(){if(localStorage.getItem('fa_sidebar_open')==='1'){document.getElementById('fa-sidebar').classList.add('open');document.body.classList.add('sb-open');}})();
+
+function showTab(t,btn){
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active');});
+  btn.classList.add('active');
+  document.getElementById('tab-'+t).classList.add('active');
+  if(t==='sentimento')loadFNG();
+  if(t==='tecnico')loadTechnical();
+}
+
+function fmtR(v,cur){
+  var s=parseFloat(v||0);
+  var prefix=cur==='usd'?'$ ':'R$ ';
+  if(s>=1e9)return prefix+(s/1e9).toFixed(2)+'B';
+  if(s>=1e6)return prefix+(s/1e6).toFixed(2)+'M';
+  if(s>=1e3)return prefix+(s/1e3).toFixed(1)+'K';
+  return prefix+s.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function chgClass(v){return v>0?'chg-pos':v<0?'chg-neg':'chg-neu';}
+function chgStr(v){return (v>=0?'+':'')+parseFloat(v||0).toFixed(2).replace('.',',')+'%';}
+
+// ── Mercado ──────────────────────────────────────────────────────────────────
+async function loadMarket(){
+  var cur=document.getElementById('currency-sel').value;
+  var area=document.getElementById('coins-area');
+  area.innerHTML='<div class="loading"><span class="spin">&#9696;</span> Carregando precos...</div>';
+
+  try{
+    // Global
+    var gr=await fetch(API+'/api/v1/crypto/global');
+    var gd=await gr.json();
+    renderGlobal(gd,cur);
+
+    // Precos
+    var symbols='BTC,ETH,SOL,BNB,XRP,ADA,DOGE,AVAX,LINK,DOT,MATIC,ATOM';
+    var r=await fetch(API+'/api/v1/crypto/prices?symbols='+symbols+'&vs_currency='+cur);
+    var d=await r.json();
+    renderCoins(d.coins||[],cur);
+    document.getElementById('last-update').textContent='Atualizado '+new Date().toLocaleTimeString('pt-BR');
+  }catch(e){
+    area.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'</div>';
+  }
+}
+
+function renderGlobal(d,cur){
+  var bar=document.getElementById('global-bar');
+  var mc=cur==='usd'?d.total_market_cap_usd:d.total_market_cap_brl;
+  var btcD=d.btc_dominance||0;
+  var ethD=d.eth_dominance||0;
+  var chg=parseFloat(d.chg_24h_pct||0);
+  bar.innerHTML=
+    '<div class="global-stat"><div class="global-stat-label">Market Cap Total</div><div class="global-stat-value">'+fmtR(mc,cur)+'</div></div>'
+    +'<div class="global-stat"><div class="global-stat-label">Volume 24h</div><div class="global-stat-value">'+fmtR(d.total_volume_24h_usd,'usd')+'</div></div>'
+    +'<div class="global-stat"><div class="global-stat-label">Variacao 24h</div><div class="global-stat-value" style="color:'+(chg>=0?'var(--green)':'var(--red)')+'">'+chgStr(chg)+'</div></div>'
+    +'<div class="global-stat"><div class="global-stat-label">Dominancia</div><div class="global-stat-value" style="font-size:13px">BTC '+btcD+'% · ETH '+ethD+'%</div>'
+    +'<div class="dom-bar"><div class="dom-btc" style="width:'+btcD+'%"></div><div class="dom-eth" style="width:'+ethD+'%"></div></div></div>'
+    +'<div class="global-stat"><div class="global-stat-label">Criptos Ativas</div><div class="global-stat-value">'+parseInt(d.active_coins||0).toLocaleString('pt-BR')+'</div></div>';
+}
+
+function renderCoins(coins,cur){
+  var area=document.getElementById('coins-area');
+  if(!coins.length){area.innerHTML='<div class="empty-msg">Nenhuma cripto encontrada</div>';return;}
+  area.innerHTML='';
+  coins.forEach(function(c){
+    var div=document.createElement('div');div.className='coin-card';
+    div.onclick=function(){
+      document.getElementById('tech-symbol').value=c.symbol;
+      document.querySelectorAll('.tab-btn')[1].click();
+    };
+    div.innerHTML=
+      '<div class="coin-header">'
+      +'<img class="coin-img" src="'+c.image+'" onerror="this.src=\'\'"/>'
+      +'<div><div class="coin-name">'+c.name+'</div><div class="coin-symbol">'+c.symbol+' #'+c.rank+'</div></div>'
+      +'</div>'
+      +'<div class="coin-price">'+fmtR(c.price,cur)+'</div>'
+      +'<div class="coin-changes">'
+      +'<span class="chg-badge '+chgClass(c.chg_1h)+'">1h '+chgStr(c.chg_1h)+'</span>'
+      +'<span class="chg-badge '+chgClass(c.chg_24h)+'">24h '+chgStr(c.chg_24h)+'</span>'
+      +'<span class="chg-badge '+chgClass(c.chg_7d)+'">7d '+chgStr(c.chg_7d)+'</span>'
+      +'</div>'
+      +'<div class="coin-mcap">MCap: '+fmtR(c.market_cap,cur)+'</div>';
+    area.appendChild(div);
+  });
+}
+
+// ── Tecnico ───────────────────────────────────────────────────────────────────
+async function loadTechnical(){
+  var sym=document.getElementById('tech-symbol').value;
+  var days=document.getElementById('tech-days').value;
+  var area=document.getElementById('tech-area');
+  area.innerHTML='<div class="loading"><span class="spin">&#9696;</span> Calculando indicadores para '+sym+'...</div>';
+
+  try{
+    var r=await fetch(API+'/api/v1/crypto/technical/'+sym+'?days='+days+'&vs_currency=usd');
+    var d=await r.json();
+    if(!d.technical){area.innerHTML='<div class="empty-msg">Sem dados tecnicos para '+sym+'</div>';return;}
+    renderTechnical(d);
+  }catch(e){
+    area.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'</div>';
+  }
+}
+
+function renderTechnical(d){
+  var t=d.technical;
+  var price=d.last_price;
+  var sym=d.symbol;
+
+  function rsiColor(v){if(!v)return'var(--muted)';if(v>70)return'var(--red)';if(v<30)return'var(--green)';return'var(--white)';}
+  function sigBadge(txt){
+    var cls=txt.includes('bullish')||txt.includes('alta')||txt.includes('sobrevendido')?'sig-bull':txt.includes('bearish')||txt.includes('baixa')||txt.includes('sobrecomprado')?'sig-bear':'sig-neu';
+    return '<span class="signal-badge '+cls+'">'+txt+'</span>';
+  }
+
+  var biasColor=t.bias==='ALTA'?'var(--green)':'var(--red)';
+
+  var html='<div class="tech-grid">'
+    +'<div class="card"><div class="card-title">&#128200; Indicadores — '+sym+'</div>'
+    +'<div class="indicator-row"><span class="ind-name">Preco atual</span><span class="ind-value" style="color:var(--btc)">$'+parseFloat(price).toFixed(2)+'</span></div>'
+    +'<div class="indicator-row"><span class="ind-name">RSI (14)</span><span class="ind-value" style="color:'+rsiColor(t.rsi)+'">'+t.rsi+'</span></div>'
+    +'<div class="indicator-row"><span class="ind-name">MACD</span><span class="ind-value" style="color:'+(t.macd>0?'var(--green)':'var(--red)')+'">'+t.macd+'</span></div>'
+    +'<div class="indicator-row"><span class="ind-name">MACD Signal</span><span class="ind-value">'+t.macd_signal+'</span></div>'
+    +'<div class="indicator-row"><span class="ind-name">MACD Hist.</span><span class="ind-value" style="color:'+(t.macd_hist>0?'var(--green)':'var(--red)')+'">'+t.macd_hist+'</span></div>'
+    +'<div class="indicator-row"><span class="ind-name">EMA 9</span><span class="ind-value">$'+t.ema9+'</span></div>'
+    +'<div class="indicator-row"><span class="ind-name">EMA 21</span><span class="ind-value">$'+t.ema21+'</span></div>'
+    +'<div class="indicator-row"><span class="ind-name">EMA 50</span><span class="ind-value">$'+t.ema50+'</span></div>'
+    +'</div>'
+    +'<div class="card"><div class="card-title">&#127922; Bollinger Bands e Sinais</div>'
+    +'<div class="indicator-row"><span class="ind-name">BB Superior</span><span class="ind-value" style="color:var(--red)">$'+t.bb_upper+'</span></div>'
+    +'<div class="indicator-row"><span class="ind-name">BB Media</span><span class="ind-value">$'+t.bb_mid+'</span></div>'
+    +'<div class="indicator-row"><span class="ind-name">BB Inferior</span><span class="ind-value" style="color:var(--green)">$'+t.bb_lower+'</span></div>'
+    +'<div style="margin-top:16px"><div class="card-title" style="font-size:13px;margin-bottom:10px">Sinais detectados</div>'
+    +(t.signals||[]).map(sigBadge).join(' ')
+    +'</div>'
+    +'<div style="margin-top:16px;padding:12px;background:#0a1220;border-radius:8px;text-align:center">'
+    +'<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Bias geral</div>'
+    +'<div style="font-size:22px;font-weight:800;color:'+biasColor+'">'+t.bias+'</div>'
+    +'</div>'
+    +'</div></div>';
+
+  document.getElementById('tech-area').innerHTML=html;
+}
+
+// ── Fear & Greed ──────────────────────────────────────────────────────────────
+async function loadFNG(){
+  var area=document.getElementById('fng-area');
+  try{
+    var r=await fetch(API+'/api/v1/crypto/fear-greed');
+    var d=await r.json();
+    renderFNG(d);
+  }catch(e){
+    area.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'</div>';
+  }
+}
+
+function fngColor(v){
+  if(v<=25)return'var(--red)';
+  if(v<=45)return'var(--orange)';
+  if(v<=55)return'var(--gold)';
+  if(v<=75)return'var(--green)';
+  return'#00ff88';
+}
+
+function renderFNG(d){
+  var cur=d.current||{};
+  var val=parseInt(cur.value||50);
+  var label=cur.classification||'Neutral';
+  var color=fngColor(val);
+  var pct=val+'%';
+
+  var histHtml=(d.history||[]).slice(0,7).map(function(h){
+    return '<div class="fng-day">'
+      +'<div class="fng-day-val" style="color:'+fngColor(h.value)+'">'+h.value+'</div>'
+      +'<div class="fng-day-lbl">'+h.date.slice(5)+'</div>'
+      +'</div>';
+  }).join('');
+
+  var html='<div class="fng-wrap">'
+    +'<div class="card-title" style="justify-content:center;margin-bottom:0">&#129368; Fear & Greed Index</div>'
+    +'<div class="fng-gauge">'
+    +'<div class="fng-score" style="color:'+color+'">'+val+'</div>'
+    +'<div class="fng-label" style="color:'+color+'">'+label+'</div>'
+    +'</div>'
+    +'<div class="fng-bar"><div class="fng-marker" style="left:calc('+pct+' - 2px)"></div></div>'
+    +'<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-family:DM Mono,monospace">'
+    +'<span>0 Extreme Fear</span><span>50 Neutral</span><span>100 Extreme Greed</span>'
+    +'</div>'
+    +'<div style="margin-top:20px;text-align:center"><div style="font-size:13px;color:var(--muted);margin-bottom:10px">Ultimos 7 dias</div>'
+    +'<div class="fng-history">'+histHtml+'</div></div>'
+    +'<div style="margin-top:16px;padding:12px;background:#0a1220;border-radius:8px;font-size:13px;color:var(--muted);line-height:1.6">'
+    +'<strong style="color:var(--gold)">Interpretacao historica:</strong> '
+    +(val<=25?'Extreme Fear: investidores com medo — historicamente bom momento para acumular.'
+      :val<=45?'Fear: mercado negativo — cautela mas monitorar oportunidades.'
+      :val<=55?'Neutral: mercado sem direcao clara — aguarde confirmacao.'
+      :val<=75?'Greed: mercado otimista — cuidado com sobrecompra.'
+      :'Extreme Greed: euforia — historicamente precede correcoes.')
+    +'</div></div>';
+
+  document.getElementById('fng-area').innerHTML=html;
+}
+
+// ── Portfolio ─────────────────────────────────────────────────────────────────
+function renderPortfolio(d){
+  var area=document.getElementById('portfolio-area');
+  if(!d||!d.positions||!d.positions.length){
+    area.innerHTML='<div class="empty-msg">Nenhuma posicao encontrada</div>';return;
+  }
+  var pnlClass=d.pnl>=0?'pnl-pos':'pnl-neg';
+  var cur=d.vs_currency||'brl';
+
+  var html='<div class="card" style="margin-bottom:16px">'
+    +'<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px">'
+    +'<div style="flex:1;min-width:140px;background:#0a1220;border-radius:8px;padding:12px;text-align:center"><div style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace;text-transform:uppercase;margin-bottom:4px">Investido</div><div style="font-size:18px;font-weight:800;font-family:DM Mono,monospace">'+fmtR(d.total_invested,cur)+'</div></div>'
+    +'<div style="flex:1;min-width:140px;background:#0a1220;border-radius:8px;padding:12px;text-align:center"><div style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace;text-transform:uppercase;margin-bottom:4px">Valor Atual</div><div style="font-size:18px;font-weight:800;font-family:DM Mono,monospace;color:var(--btc)">'+fmtR(d.total_current,cur)+'</div></div>'
+    +'<div style="flex:1;min-width:140px;background:#0a1220;border-radius:8px;padding:12px;text-align:center"><div style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace;text-transform:uppercase;margin-bottom:4px">P&L Total</div><div style="font-size:18px;font-weight:800;font-family:DM Mono,monospace" class="'+pnlClass+'">'+fmtR(d.pnl,cur)+' ('+parseFloat(d.pnl_pct).toFixed(2).replace('.',',')+'%)</div></div>'
+    +'</div>'
+    +'<table class="portfolio-table"><thead><tr><th>Ativo</th><th>Qtd</th><th>Preco Medio</th><th>Preco Atual</th><th>Valor</th><th>P&L</th><th>24h</th><th>Peso</th></tr></thead><tbody>';
+
+  d.positions.forEach(function(p){
+    var pCls=p.pnl>=0?'pnl-pos':'pnl-neg';
+    var chgCls=p.chg_24h>=0?'pnl-pos':'pnl-neg';
+    html+='<tr>'
+      +'<td><div class="coin-cell"><img src="'+p.image+'" onerror="this.src=\'\'" width=24 height=24 style="border-radius:50%"><div><strong style="color:var(--btc)">'+p.symbol+'</strong><br><span style="font-size:11px;color:var(--muted)">'+p.name+'</span></div></div></td>'
+      +'<td>'+parseFloat(p.quantity).toFixed(6)+'</td>'
+      +'<td>'+fmtR(p.avg_price,cur)+'</td>'
+      +'<td>'+fmtR(p.current_price,cur)+'</td>'
+      +'<td>'+fmtR(p.current_value,cur)+'</td>'
+      +'<td class="'+pCls+'">'+fmtR(p.pnl,cur)+'<br><span style="font-size:11px">'+(p.pnl_pct>=0?'+':'')+parseFloat(p.pnl_pct).toFixed(2).replace('.',',')+'%</span></td>'
+      +'<td class="'+chgCls+'">'+(p.chg_24h>=0?'+':'')+parseFloat(p.chg_24h).toFixed(2).replace('.',',')+'%</td>'
+      +'<td>'+p.weight_pct+'%</td>'
+      +'</tr>';
+  });
+  html+='</tbody></table></div>';
+  area.innerHTML=html;
+}
+
+// ── Import CSV ────────────────────────────────────────────────────────────────
+function handleFileSelect(event){
+  var file=event.target.files[0];
+  if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){document.getElementById('csv-text').value=e.target.result;};
+  reader.readAsText(file);
+}
+
+function handleDrop(event){
+  event.preventDefault();
+  document.getElementById('import-zone').classList.remove('dragover');
+  var file=event.dataTransfer.files[0];
+  if(!file||!file.name.endsWith('.csv')){alert('Apenas arquivos .csv');return;}
+  var reader=new FileReader();
+  reader.onload=function(e){document.getElementById('csv-text').value=e.target.result;};
+  reader.readAsText(file);
+}
+
+async function importCSV(){
+  var text=document.getElementById('csv-text').value.trim();
+  var cur=document.getElementById('import-currency').value;
+  var res=document.getElementById('import-result');
+  if(!text){alert('Adicione conteudo CSV ou faca upload do arquivo');return;}
+  res.textContent='Calculando P&L...';res.style.color='var(--muted)';
+
+  try{
+    // Cria blob e faz upload
+    var blob=new Blob([text],{type:'text/csv'});
+    var form=new FormData();
+    form.append('file',blob,'posicoes.csv');
+
+    var r=await fetch(API+'/api/v1/crypto/import?vs_currency='+cur,{method:'POST',body:form});
+    var d=await r.json();
+    if(d.detail){res.textContent='Erro: '+d.detail;res.style.color='var(--red)';return;}
+
+    res.textContent=d.rows_parsed+' posicoes importadas com sucesso!';
+    res.style.color='var(--green)';
+    portfolioData=d;
+
+    // Muda para aba carteira
+    document.querySelectorAll('.tab-btn')[3].click();
+    renderPortfolio(d);
+  }catch(e){
+    res.textContent='Erro: '+e.message;
+    res.style.color='var(--red)';
+  }
+}
+
+// Carrega mercado automaticamente
+loadMarket();
+loadFNG();
+</script>
+</body>
+</html>

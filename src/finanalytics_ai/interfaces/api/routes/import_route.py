@@ -557,12 +557,14 @@ async def import_auto(file: UploadFile = File(...)) -> dict[str, Any]:
         elif fn.endswith(".csv"):
             result = _parse_csv(content, file.filename)
         elif fn.endswith(".pdf"):
-            preview = _pdf_text(content[:20000]).lower()
+            preview = _pdf_text(content).lower().replace("\x00", "a")
             if "nota de negociação" in preview or "xp investimentos" in preview:
                 result = _parse_nota_xp(content, file.filename)
                 result["total"] = len(result.get("items", []))
             elif "drivewealth" in preview or "account statement" in preview:
                 result = _parse_extrato_btg_us(content, file.filename)
+            elif "conta investimento" in preview and "btg" in preview:
+                result = _parse_extrato_btg_br(content, file.filename)
             else:
                 raise HTTPException(400, "Formato PDF nao reconhecido. Use o endpoint especifico.")
         else:

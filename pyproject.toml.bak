@@ -4,8 +4,6 @@ version = "0.1.0"
 description = "Financial analytics platform with async event processing"
 requires-python = ">=3.12"
 dependencies = [
-    "pdfplumber>=0.10.0",
-    "openpyxl>=3.1.0",
     "fastapi>=0.111.0",
     "uvicorn[standard]>=0.29.0",
     "sqlalchemy[asyncio]>=2.0.0",
@@ -180,4 +178,3 @@ fail_under = 80
 exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:"
-]

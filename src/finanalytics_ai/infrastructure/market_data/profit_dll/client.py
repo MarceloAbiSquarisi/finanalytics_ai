@@ -187,14 +187,34 @@ class ProfitDLLClient:
         _state = self._state
         _event = self._connected_event
 
+        # Mapa de estados do manual Nelogica para logging
+        _MARKET_STATES = {
+            0: "MARKET_DISCONNECTED",
+            1: "MARKET_CONNECTING",
+            2: "MARKET_WAITING",
+            3: "MARKET_NOT_LOGGED",
+            4: "MARKET_CONNECTED",
+        }
+
         @_WFTYPE(None, _cint, _cint)
         def _state_cb(t, r):
+            import structlog as _sl
+            _cb_log = _sl.get_logger("profit_dll.state")
             if t == 0:
                 _state.login_connected = (r == 0)
+                _cb_log.info("dll_state.login", conn_type=t, result=r,
+                             connected=_state.login_connected)
             elif t == 2:
                 _state.market_connected = (r == 4)
+                state_name = _MARKET_STATES.get(r, f"UNKNOWN_{r}")
+                _cb_log.info("dll_state.market_data", conn_type=t, result=r,
+                             state=state_name, connected=_state.market_connected)
             elif t == 3:
                 _state.market_login_valid = (r == 0)
+                _cb_log.info("dll_state.market_login", conn_type=t, result=r,
+                             valid=_state.market_login_valid)
+            else:
+                _cb_log.info("dll_state.other", conn_type=t, result=r)
             if _state.ready and _loop:
                 _loop.call_soon_threadsafe(_event.set)
 
@@ -210,6 +230,69 @@ class ProfitDLLClient:
         )
 
         log.info("profit_dll.started", dll_path=self._dll_path)
+
+        # ── Registra SetTradeCallbackV2 apos o init ───────────────────────────
+        # Motivo: DLLInitializeMarketLogin recebe None para o trade callback
+        # (callbacks diretos corrompem a ConnectorThread).
+        # SetTradeCallbackV2 e chamado APOS a init para registrar o handler.
+        from ctypes import WINFUNCTYPE as _WFT2, c_size_t as _csz
+        from ctypes import cast as _cast2, POINTER as _PTR2, byref as _byref2
+
+        _loop_t  = self._loop
+        _queue_t = self._tick_queue
+        _dll_t   = self._dll
+
+        @_WFT2(None, _csz, _csz, _cint)
+        def _trade_cb(asset_id_raw, trade_ptr, flags):
+            """Callback chamado pela ConnectorThread a cada trade em tempo real."""
+            if _dll_t is None or _loop_t is None:
+                return
+
+            # Decodifica AssetIdentifier para obter Ticker e Exchange
+            try:
+                from finanalytics_ai.infrastructure.market_data.profit_dll.types import (
+                    TConnectorAssetIdentifier as _AI,
+                )
+                ai       = _cast2(asset_id_raw, _PTR2(_AI)).contents
+                ticker   = ai.Ticker   or ""
+                exchange = ai.Exchange or "B"
+            except Exception:
+                ticker, exchange = "", "B"
+
+            # Decodifica TConnectorTrade via TranslateTrade
+            from finanalytics_ai.infrastructure.market_data.profit_dll.types import (
+                TConnectorTrade as _CT,
+            )
+            from ctypes import c_size_t as _csz2
+            from datetime import datetime, timezone
+
+            trade = _CT()
+            ret = _dll_t.TranslateTrade(_csz2(trade_ptr), _byref2(trade))
+            if ret != 0:
+                return
+
+            tick = PriceTick(
+                ticker       = ticker,
+                exchange     = exchange,
+                price        = trade.Price,
+                volume       = trade.Volume,
+                quantity     = int(trade.Quantity),
+                trade_number = int(trade.TradeNumber),
+                trade_type   = int(trade.TradeType),
+                buy_agent    = int(trade.BuyAgent),
+                sell_agent   = int(trade.SellAgent),
+                timestamp    = datetime.now(tz=timezone.utc),
+                is_edit      = bool(flags & 1),
+            )
+            try:
+                _loop_t.call_soon_threadsafe(_queue_t.put_nowait, tick)
+            except Exception:
+                pass
+
+        self._cb_trade = _trade_cb           # mantém referência (evita GC ctypes)
+        self._dll.SetTradeCallbackV2(_trade_cb)
+        log.info("profit_dll.trade_callback_registered")
+        # ─────────────────────────────────────────────────────────────────────
 
     async def wait_connected(self, timeout: float = 30.0) -> bool:
         """Aguarda até a conexão estar pronta (Market Data + Login válido)."""
