@@ -2535,7 +2535,8 @@ async function loadPos(id) {
   const el=document.getElementById('pos-list');
   try {
     const snap=await api(`/api/v1/portfolios/${id}`);
-    if(!snap.positions.length){el.innerHTML='<div style="font-size:14px;color:var(--muted);font-family:\'DM Mono\',monospace">Sem posicoes</div>';return;}
+    if(!snap.positions.length){el.innerHTML='<div style="font-size:14px;color:var(--muted);font-family:\'DM Mono\',monospace">Sem posicoes
+</div>';return;}
     el.innerHTML=snap.positions.map(p=>{
       const pl=parseFloat(p.profit_loss);
       return `<div class="pos-item" onclick="selectTicker('${p.ticker}')">
@@ -2550,7 +2551,8 @@ async function loadPos(id) {
 </div>
 </div>`;
     }).join('');
-  } catch { el.innerHTML='<div style="font-size:14px;color:var(--muted)">Erro</div>'; }
+  } catch { el.innerHTML='<div style="font-size:14px;color:var(--muted)">Erro
+</div>'; }
 }
 
 // -- TRADE ---------------------------------------------------------------------
@@ -2604,7 +2606,8 @@ async function createPf(){
 // -- HELPERS -------------------------------------------------------------------
 function setLoading(on){
   document.getElementById('ov-price').classList.toggle('hide',!on);
-  if(on){document.getElementById('ov-price').innerHTML='<div class="spin"></div><span>Carregando indicadores...</span>';}
+  if(on){document.getElementById('ov-price').innerHTML='<div class="spin">
+</div><span>Carregando indicadores...</span>';}
 }
 async function api(url){
   const r=await fetch(API+url);
@@ -2693,7 +2696,8 @@ async function loadAlerts() {
 function renderAlertList() {
   const list = document.getElementById('alert-list');
   if (!alertsCache.length) {
-    list.innerHTML = '<div style="font-size:13px;color:var(--muted);font-family:\'DM Mono\',monospace;padding:3px 0">Sem alertas ativos</div>';
+    list.innerHTML = '<div style="font-size:13px;color:var(--muted);font-family:\'DM Mono\',monospace;padding:3px 0">Sem alertas ativos
+</div>';
     return;
   }
   list.innerHTML = alertsCache.map(a => {
@@ -2914,7 +2918,8 @@ function renderBacktestResult(d) {
   // Trades
   var tl = document.getElementById('bt-trades-list');
   if (!d.trades || !d.trades.length) {
-    tl.innerHTML = '<div style="font-size:13px;color:var(--muted);font-family:DM Mono,monospace">Nenhum trade executado no periodo</div>';
+    tl.innerHTML = '<div style="font-size:13px;color:var(--muted);font-family:DM Mono,monospace">Nenhum trade executado no periodo
+</div>';
   } else {
     var tradesHtml = '';
     for (var k = 0; k < d.trades.length; k++) {
@@ -3019,9 +3024,6 @@ document.addEventListener('click', function(e) {
 </script>
 
 <script>
-var currentTicker = window.currentTicker || null;
-var currentInterval = window.currentInterval || '5m';
-var priceSeries = window.priceSeries || null;
 (function faAuth(){
   var token = localStorage.getItem('access_token');
   if (!token) return;
