@@ -54,3 +54,5 @@ worker_error.txt
 test_result.txt
 result.txt
 count.txt
+
+.env.local
