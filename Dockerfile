@@ -51,13 +51,17 @@ RUN uv pip install --system -e . \
         "httptools>=0.6.0" \
         "pyarrow>=16.0.0"         "reportlab>=4.0.0"         "matplotlib>=3.7.0"         "seaborn>=0.13.0"         "Pillow>=10.0.0"
 
-# ── Dependências de Forecast (Prophet + PyTorch + PyTorch-Forecasting) ────────
-# Instaladas em camada separada para melhor cache — só rebuildam se esta linha mudar
+# ── Dependências de Forecast (Prophet + PyTorch CPU + PyTorch-Forecasting) ────
+# torch CPU-only: ~500MB vs ~2GB da versão CUDA — suficiente para inferência.
+# Instalado via index dedicado ANTES das outras deps para evitar conflito de resolução.
+# pytorch-forecasting>=1.1.0 corrige bug do TFT com LightningModule (< 1.1 quebra).
+# Sem "|| echo" — falha real deve parar o build, não ser silenciada.
 RUN uv pip install --system \
-        "prophet>=1.1.5" \
+        --index-url https://download.pytorch.org/whl/cpu \
         "torch>=2.2.0" \
-        "pytorch-forecasting>=1.0.0" \
-    || echo "[WARN] forecast deps parcialmente instaladas — modelos degradarao graciosamente" # rebuild-202603231812 — modelos degradarão graciosamente"
+ && uv pip install --system \
+        "prophet>=1.1.5" \
+        "pytorch-forecasting>=1.1.0"
 
 # Copiar código-fonte depois das deps (preserva cache de deps no rebuild)
 COPY src/ ./src/
