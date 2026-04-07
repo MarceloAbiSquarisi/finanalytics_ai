@@ -127,11 +127,13 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
     <span style="width:6px;height:6px;border-radius:50%;background:#00e676;display:inline-block;animation:livePulse 1.8s infinite"></span>AO VIVO
   </a>
   <div id="fa-user-chip" style="display:none;margin-left:10px;display:flex;align-items:center;gap:6px;font-size:15px;color:#556677">
-    <div id="fa-avatar" style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:14px;color:#8899aa">U
+    <div id="fa-avatar" style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:14px;color:#8899aa">U<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
     <span id="fa-username"></span>
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
   <button class="fa-logout-btn" onclick="faLogout()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sair</button>
+<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
 <!-- Sidebar -->
@@ -234,25 +236,29 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 
   <div class="page-header">
     <div>
-      <div class="page-title">📊 ETFs
+      <div class="page-title">📊 ETFs<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-      <div class="page-sub" id="overview-status">Carregando...
+      <div class="page-sub" id="overview-status">Carregando...<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
     <button onclick="syncETFs()" style="background:rgba(0,196,140,.1);border:1px solid rgba(0,196,140,.3);border-radius:6px;color:var(--accent);font-size:15px;font-weight:700;padding:6px 14px;cursor:pointer;font-family:'Rajdhani',sans-serif">↻ Atualizar</button>
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
   <div class="tabs">
     <button class="tab active" onclick="switchTab('overview')">📈 Overview</button>
     <button class="tab" onclick="switchTab('compare')">⚖️ Comparativo</button>
     <button class="tab" onclick="switchTab('catalog')">📚 Catálogo</button>
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
   <!-- Overview -->
   <div id="tab-overview" class="tab-panel active">
     <div class="etf-grid" id="etf-cards">
-      <div style="color:var(--muted);font-size:16px;padding:20px"><span class="spinner"></span>Carregando ETFs...
+      <div style="color:var(--muted);font-size:16px;padding:20px"><span class="spinner"></span>Carregando ETFs...<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
     <!-- Detalhe do ETF selecionado -->
     <div id="etf-detail" style="display:none">
@@ -261,6 +267,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
           <div>
             <span id="detail-ticker" style="font-size:24px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace"></span>
             <span id="detail-nome" style="font-size:17px;color:var(--muted);margin-left:10px"></span>
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <div style="display:flex;gap:8px">
             <select id="detail-days" onchange="loadHistory()" style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:5px;color:var(--muted);font-size:15px;padding:4px 8px">
@@ -270,14 +277,19 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
               <option value="756">3 anos</option>
             </select>
             <button onclick="addToCompare()" style="background:rgba(58,191,248,.1);border:1px solid rgba(58,191,248,.3);border-radius:5px;color:var(--blue);font-size:15px;font-weight:700;padding:4px 12px;cursor:pointer;font-family:'Rajdhani',sans-serif">+ Comparar</button>
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-        <div id="etf-chart" style="height:280px">
+        <div id="etf-chart" style="height:280px"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-        <div id="detail-metrics" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:12px">
+        <div id="detail-metrics" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:12px"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
   <!-- Comparativo -->
@@ -297,18 +309,20 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
         <label class="form-label">CDI % a.a.</label>
         <input id="cmp-cdi" class="form-input" type="number" step="0.1" value="14.65">
         <button class="btn-primary" onclick="runCompare()">Comparar ETFs</button>
-        <div id="cmp-status" style="font-size:14px;color:var(--muted);margin-top:8px;text-align:center">
+        <div id="cmp-status" style="font-size:14px;color:var(--muted);margin-top:8px;text-align:center"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div>
-        <div id="cmp-winners" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
+        <div id="cmp-winners" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <div id="cmp-chart-wrap" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px">
-          <div style="font-size:15px;color:var(--muted);margin-bottom:8px">Performance base 100
+          <div style="font-size:15px;color:var(--muted);margin-bottom:8px">Performance base 100<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <canvas id="cmp-chart" height="280"></canvas>
-          <div id="cmp-legend" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px">
+          <div id="cmp-legend" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <div id="cmp-table-wrap" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden">
           <table class="metrics-table" id="cmp-table">
@@ -318,19 +332,28 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
             </tr></thead>
             <tbody id="cmp-tbody"></tbody>
           </table>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
   <!-- Catálogo -->
   <div id="tab-catalog" class="tab-panel">
     <div class="catalog-grid" id="catalog-grid">
-      <div style="color:var(--muted);font-size:16px"><span class="spinner"></span>Carregando...
+      <div style="color:var(--muted);font-size:16px"><span class="spinner"></span>Carregando...<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+
+<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
 <script>
@@ -363,7 +386,7 @@ async function loadOverview() {
     const data = await r.json();
     if(!data.length) {
       document.getElementById('etf-cards').innerHTML =
-        '<div style="color:var(--muted);font-size:16px;padding:20px">Sem dados. <button onclick="syncETFs()" style="color:var(--blue);background:transparent;border:none;cursor:pointer;font-family:inherit;font-size:16px">Clique para sincronizar via BRAPI</button>
+        '<div style="color:var(--muted);font-size:16px;padding:20px">Sem dados. <button onclick="syncETFs()" style="color:var(--blue);background:transparent;border:none;cursor:pointer;font-family:inherit;font-size:16px">Clique para sincronizar via BRAPI</button><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
       document.getElementById('overview-status').textContent = 'Sem dados de preço';
       return;
@@ -372,7 +395,7 @@ async function loadOverview() {
     const dt = data[0]?.data || '';
     document.getElementById('overview-status').textContent = `${data.length} ETFs · Preços de ${dt}`;
   } catch(e) {
-    document.getElementById('etf-cards').innerHTML = '<div style="color:var(--red);font-size:16px">Erro ao carregar overview
+    document.getElementById('etf-cards').innerHTML = '<div style="color:var(--red);font-size:16px">Erro ao carregar overview<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
   }
 }
@@ -381,18 +404,21 @@ function renderCards(etfs) {
   document.getElementById('etf-cards').innerHTML = etfs.map(e => `
     <div class="etf-card${e.ticker===_selTicker?' selected':''}" onclick="selectETF('${e.ticker}','${(e.nome||'').replace(/'/g,"\\'")}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div class="etf-ticker">${e.ticker}
+        <div class="etf-ticker">${e.ticker}<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         ${e.var_dia!==null ? `<span class="etf-var ${e.var_dia>=0?'pos':'neg'}">${e.var_dia>=0?'+':''}${(e.var_dia||0).toFixed(2)}%</span>` : ''}
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-      <div class="etf-nome">${e.nome||e.ticker}
+      <div class="etf-nome">${e.nome||e.ticker}<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:8px">
-        <div class="etf-price">R$ ${e.preco ? e.preco.toFixed(2) : '--'}
+        <div class="etf-price">R$ ${e.preco ? e.preco.toFixed(2) : '--'}<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-        ${e.rent_12m!==null ? `<div style="font-size:14px;color:${e.rent_12m>=0?'var(--accent)':'var(--red)'}">12m: ${e.rent_12m>=0?'+':''}${(e.rent_12m||0).toFixed(1)}%
+        ${e.rent_12m!==null ? `<div style="font-size:14px;color:${e.rent_12m>=0?'var(--accent)':'var(--red)'}">12m: ${e.rent_12m>=0?'+':''}${(e.rent_12m||0).toFixed(1)}%<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>` : ''}
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
   `).join('');
 }
@@ -404,7 +430,7 @@ async function selectETF(ticker, nome) {
   document.getElementById('detail-nome').textContent = nome;
   document.getElementById('detail-metrics').innerHTML = '';
   if(_etfChart) { _etfChart.remove(); _etfChart = null; }
-  document.getElementById('etf-chart').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted)"><span class="spinner"></span>Carregando...
+  document.getElementById('etf-chart').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted)"><span class="spinner"></span>Carregando...<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
   // Remarca card
   document.querySelectorAll('.etf-card').forEach(c => c.classList.remove('selected'));
@@ -421,14 +447,14 @@ async function loadHistory() {
     const r = await fetch(`/api/v1/etf/history/${_selTicker}?days=${days}`, {headers:H()});
     const d = await r.json();
     if(!d.candles?.length) {
-      document.getElementById('etf-chart').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted)">Sem dados históricos. Sincronize via BRAPI primeiro.
+      document.getElementById('etf-chart').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted)">Sem dados históricos. Sincronize via BRAPI primeiro.<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
       return;
     }
     renderHistChart(d.candles, _selTicker);
     renderDetailMetrics(d.candles);
   } catch(e) {
-    document.getElementById('etf-chart').innerHTML = '<div style="color:var(--red);padding:20px">Erro ao carregar histórico
+    document.getElementById('etf-chart').innerHTML = '<div style="color:var(--red);padding:20px">Erro ao carregar histórico<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
   }
 }
@@ -477,10 +503,11 @@ function renderDetailMetrics(candles) {
     ['Variação abs.', `R$ ${(last-first).toFixed(2)}`, last>=first?'#00c48c':'#E05555'],
   ].map(([l,v,c]) => `
     <div style="background:rgba(11,21,32,.8);border:1px solid var(--border);border-radius:6px;padding:10px 12px">
-      <div style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">${l}
+      <div style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">${l}<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-      <div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${c}">${v}
+      <div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${c}">${v}<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
   `).join('');
 }
@@ -550,12 +577,13 @@ function renderCompare(data) {
     ['🧘 Menor Volatilidade', s.lowest_vol, find(s.lowest_vol), m=>m?`${m.volatility_pct?.toFixed(2)}% a.a.`:''],
   ].map(([l,t,m,sub]) => `
     <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
-      <div style="font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${l}
+      <div style="font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${l}<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-      <div style="font-size:24px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace">${t||'—'}
+      <div style="font-size:24px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace">${t||'—'}<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-      <div style="font-size:14px;color:var(--muted);margin-top:2px">${sub(m)}
+      <div style="font-size:14px;color:var(--muted);margin-top:2px">${sub(m)}<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
   `).join('');
 
@@ -587,9 +615,10 @@ function renderCompare(data) {
     });
     document.getElementById('cmp-legend').innerHTML = tickers.map((t,i)=>`
       <div style="display:flex;align-items:center;gap:5px;font-size:15px">
-        <div style="width:10px;height:10px;border-radius:50%;background:${COLORS[i%COLORS.length]}">
+        <div style="width:10px;height:10px;border-radius:50%;background:${COLORS[i%COLORS.length]}"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <span style="color:var(--muted)">${t}</span>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>`).join('');
   }
 
@@ -617,24 +646,25 @@ async function loadCatalog() {
     const etfs = await r.json();
     grid.innerHTML = etfs.map(e => `
       <div class="catalog-card">
-        <div class="catalog-ticker">${e.ticker}
+        <div class="catalog-ticker">${e.ticker}<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-        <div class="catalog-name">${e.name}
+        <div class="catalog-name">${e.name}<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-        <div class="catalog-row"><span>Benchmark</span><span style="color:var(--text)">${e.benchmark}</span>
+        <div class="catalog-row"><span>Benchmark</span><span style="color:var(--text)">${e.benchmark}</span><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-        <div class="catalog-row"><span>TER</span><span style="color:var(--gold)">${e.ter}% a.a.</span>
+        <div class="catalog-row"><span>TER</span><span style="color:var(--gold)">${e.ter}% a.a.</span><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-        <div class="catalog-row"><span>Categoria</span><span style="color:var(--blue)">${e.category}</span>
+        <div class="catalog-row"><span>Categoria</span><span style="color:var(--blue)">${e.category}</span><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-        <div class="catalog-row"><span>Moeda</span><span>${e.currency}</span>
+        <div class="catalog-row"><span>Moeda</span><span>${e.currency}</span><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-        ${e.description?`<div style="font-size:14px;color:#556677;margin-top:6px">${e.description}
+        ${e.description?`<div style="font-size:14px;color:#556677;margin-top:6px">${e.description}<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>`:''}
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
     `).join('');
   } catch(e) {
-    grid.innerHTML = '<div style="color:var(--red)">Erro ao carregar catálogo
+    grid.innerHTML = '<div style="color:var(--red)">Erro ao carregar catálogo<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
   }
 }

@@ -81,6 +81,7 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
     <svg width="28" height="28" viewBox="0 0 170 170" fill="none"><defs><linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3ABFF8"/><stop offset="100%" stop-color="#F0B429"/></linearGradient></defs><rect width="170" height="170" rx="28" fill="#0A1628"/><polyline points="24,130 60,75 90,100 130,40" stroke="url(#lg1)" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="130" cy="40" r="10" fill="#F0B429"/></svg>
     FinAnalytics AI
   </a>
+<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
 <aside class="fa-sidebar" id="fa-sidebar">
@@ -140,9 +141,9 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 </aside>
 
 <div class="fa-page-content">
-  <div class="page-title">&#128737; Day Trade â€” GestÃ£o de Risco
+  <div class="page-title">&#128737; Day Trade â€” GestÃ£o de Risco<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-  <div class="page-sub">Calcule tamanho de posiÃ§Ã£o, stop e alvo com base no seu capital
+  <div class="page-sub">Calcule tamanho de posiÃ§Ã£o, stop e alvo com base no seu capital<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
   <div class="grid">
@@ -151,35 +152,42 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
       <div class="card-title">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="11" y2="14"/></svg>
         Calculadora de PosiÃ§Ã£o
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div class="field-row">
-        <div class="field-label">Capital total (R$)
+        <div class="field-label">Capital total (R$)<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <input class="field-input" id="capital" type="number" value="50000" min="1000">
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div class="field-row">
-        <div class="field-label">Risco por operaÃ§Ã£o (%)
+        <div class="field-label">Risco por operaÃ§Ã£o (%)<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <input class="field-input" id="risco-pct" type="number" value="1" min="0.1" max="5" step="0.1">
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div class="field-row">
-        <div class="field-label">PreÃ§o de entrada (R$)
+        <div class="field-label">PreÃ§o de entrada (R$)<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <input class="field-input" id="preco-entrada" type="number" value="48.50" step="0.01">
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div class="field-row">
-        <div class="field-label">PreÃ§o de stop (R$)
+        <div class="field-label">PreÃ§o de stop (R$)<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <input class="field-input" id="preco-stop" type="number" value="47.00" step="0.01">
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div class="field-row">
-        <div class="field-label">PreÃ§o alvo (R$)
+        <div class="field-label">PreÃ§o alvo (R$)<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <input class="field-input" id="preco-alvo" type="number" value="51.00" step="0.01">
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <button class="calc-btn" onclick="calcPosicao()">Calcular</button>
-      <div class="result-box" id="result-posicao" style="display:none">
+      <div class="result-box" id="result-posicao" style="display:none"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
     <!-- Regras do dia -->
@@ -187,36 +195,44 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
       <div class="card-title">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         Regras de ProteÃ§Ã£o
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div class="field-row">
-        <div class="field-label">Loss mÃ¡ximo do dia (R$)
+        <div class="field-label">Loss mÃ¡ximo do dia (R$)<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <input class="field-input" id="loss-max" type="number" value="500">
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div class="field-row">
-        <div class="field-label">Gain alvo do dia (R$)
+        <div class="field-label">Gain alvo do dia (R$)<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <input class="field-input" id="gain-alvo" type="number" value="1500">
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div class="field-row">
-        <div class="field-label">MÃ¡x. operaÃ§Ãµes por dia
+        <div class="field-label">MÃ¡x. operaÃ§Ãµes por dia<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <input class="field-input" id="max-ops" type="number" value="5" min="1" max="20">
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div class="field-row">
-        <div class="field-label">P&L do dia (R$) â€” atual
+        <div class="field-label">P&L do dia (R$) â€” atual<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <input class="field-input" id="pnl-dia" type="number" value="0" step="10">
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div class="field-row">
-        <div class="field-label">OperaÃ§Ãµes realizadas hoje
+        <div class="field-label">OperaÃ§Ãµes realizadas hoje<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <input class="field-input" id="ops-hoje" type="number" value="0" min="0">
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <button class="calc-btn" onclick="checkRegras()">Verificar Status</button>
-      <div id="regras-result" style="margin-top:12px">
+      <div id="regras-result" style="margin-top:12px"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
   <!-- Medidor de risco geral -->
@@ -224,15 +240,19 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
     <div class="card-title">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       ExposiÃ§Ã£o de Risco
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
     <div class="meter-wrap">
-      <div class="meter-label" id="meter-label">Configure os parÃ¢metros acima e calcule
+      <div class="meter-label" id="meter-label">Configure os parÃ¢metros acima e calcule<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-      <div class="meter-bar"><div class="meter-fill green" id="meter-fill" style="width:0%">
+      <div class="meter-bar"><div class="meter-fill green" id="meter-fill" style="width:0%"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-</div>
+<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
 <script>
@@ -260,18 +280,18 @@ function calcPosicao(){
   var pctCap=valorPos/cap*100;
 
   var html='';
-  html+='<div class="result-row"><span class="result-label">Quantidade</span><span class="result-value val-blue">'+qtd+' aÃ§Ãµes</span>
+  html+='<div class="result-row"><span class="result-label">Quantidade</span><span class="result-value val-blue">'+qtd+' aÃ§Ãµes</span><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
-  html+='<div class="result-row"><span class="result-label">Valor da posiÃ§Ã£o</span><span class="result-value val-gold">R$ '+valorPos.toFixed(2)+'</span>
+  html+='<div class="result-row"><span class="result-label">Valor da posiÃ§Ã£o</span><span class="result-value val-gold">R$ '+valorPos.toFixed(2)+'</span><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
-  html+='<div class="result-row"><span class="result-label">% do capital</span><span class="result-value '+(pctCap>20?'val-red':'val-green')+'">'+pctCap.toFixed(1)+'%</span>
+  html+='<div class="result-row"><span class="result-label">% do capital</span><span class="result-value '+(pctCap>20?'val-red':'val-green')+'">'+pctCap.toFixed(1)+'%</span><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
-  html+='<div class="result-row"><span class="result-label">Risco mÃ¡x. (stop)</span><span class="result-value val-red">-R$ '+stopLoss.toFixed(2)+'</span>
+  html+='<div class="result-row"><span class="result-label">Risco mÃ¡x. (stop)</span><span class="result-value val-red">-R$ '+stopLoss.toFixed(2)+'</span><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
   if(gainAlvo!==null){
-    html+='<div class="result-row"><span class="result-label">Ganho potencial</span><span class="result-value val-green">+R$ '+gainAlvo.toFixed(2)+'</span>
+    html+='<div class="result-row"><span class="result-label">Ganho potencial</span><span class="result-value val-green">+R$ '+gainAlvo.toFixed(2)+'</span><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
-    html+='<div class="result-row"><span class="result-label">Risco/Retorno</span><span class="result-value '+(rr>=2?'val-green':rr>=1?'val-gold':'val-red')+'">1:'+rr.toFixed(2)+'</span>
+    html+='<div class="result-row"><span class="result-label">Risco/Retorno</span><span class="result-value '+(rr>=2?'val-green':rr>=1?'val-gold':'val-red')+'">1:'+rr.toFixed(2)+'</span><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
   }
 
@@ -313,15 +333,15 @@ function checkRegras(){
 
   var html='';
   regras.forEach(function(r){
-    html+='<div class="regra-row"><div class="regra-icon '+r.cls+'">'+r.icon+'
+    html+='<div class="regra-row"><div class="regra-icon '+r.cls+'">'+r.icon+'<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>'
-      +'<div class="regra-text"><div class="regra-name">'+r.name+'
-</div><div class="regra-desc">'+r.desc+'
-</div>
-</div>
+      +'<div class="regra-text"><div class="regra-name">'+r.name+'<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div><div class="regra-desc">'+r.desc+'<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
   });
-  document.getElementById('regras-result').innerHTML='<div class="result-box">'+html+'
+  document.getElementById('regras-result').innerHTML='<div class="result-box">'+html+'<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
 }
 </script>

@@ -469,33 +469,36 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     MERCADO AO VIVO
   </a>
   <div class="fa-user-chip" id="fa-user-chip" style="display:none">
-    <div class="fa-avatar" id="fa-avatar">U
+    <div class="fa-avatar" id="fa-avatar">U<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
     <span id="fa-username" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
   <button class="fa-logout-btn" onclick="faLogout()" title="Sair">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
     Sair
   </button>
+<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
 
 
 <main>
-  <div class="page-title">Backtesting de Estrategias
+  <div class="page-title">Backtesting de Estrategias<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-  <div class="page-sub">Simule estrategias tecnicas em dados historicos reais
+  <div class="page-sub">Simule estrategias tecnicas em dados historicos reais<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
   <!-- FORM -->
   <div class="form-card">
-    <div class="form-title">Configuracao
+    <div class="form-title">Configuracao<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
     <div class="form-grid">
       <div class="fld">
         <label>Ticker</label>
         <input id="f-ticker" placeholder="PETR4" maxlength="10"
                style="text-transform:uppercase">
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div class="fld">
         <label>Estrategia</label>
@@ -532,6 +535,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
             <option value="bollinger_squeeze">Bollinger Squeeze</option>
           </optgroup>
         </select>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <!-- Painel de parâmetros dinâmico por estratégia -->
       <div id="strategy-params-panel" style="grid-column:1/-1;display:none;
@@ -540,9 +544,11 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
         <div style="font-size:13px;color:#4a8bb0;font-family:monospace;
              text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">
           Parâmetros da Estratégia
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-        <div id="strategy-params-fields" style="display:flex;flex-wrap:wrap;gap:10px">
+        <div id="strategy-params-fields" style="display:flex;flex-wrap:wrap;gap:10px"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
       <div class="fld">
@@ -557,10 +563,12 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
           <option value="10y">10 anos *</option>
           <option value="max">Maximo *</option>
         </select>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div class="fld">
         <label>Capital (R$)</label>
         <input id="f-capital" type="number" value="10000" min="100" step="1000">
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div class="fld">
         <label>Pos. Size</label>
@@ -569,6 +577,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
           <option value="0.5">50%</option>
           <option value="0.25">25%</option>
         </select>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div class="fld">
         <label>Comissao</label>
@@ -578,21 +587,26 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
           <option value="0.005">0.5%</option>
           <option value="0">Zero</option>
         </select>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div class="fld" style="display:flex;gap:8px;align-items:flex-end">
         <button class="btn-run" id="btn-run" onclick="runSingle()">Run</button>
         <button class="btn-compare" id="btn-compare" onclick="runCompare()">vs All</button>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
   <!-- ERROR -->
-  <div class="error-box" id="error-box">
+  <div class="error-box" id="error-box"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
   <!-- LOADING -->
   <div class="loading" id="loading">
     <span class="spinner"></span>Executando backtest...
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
 
@@ -601,16 +615,19 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     <div class="opt-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
         <div>
-          <div class="form-title" style="margin:0">Otimizacao de Parametros
+          <div class="form-title" style="margin:0">Otimizacao de Parametros<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <div style="font-size:13px;color:var(--muted);font-family:monospace;margin-top:3px">
             Grid search sobre o espaco de parametros da estrategia selecionada acima
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <button class="run-btn-opt" id="btn-opt" onclick="runOptimize()">Otimizar</button>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div style="margin-bottom:10px">
-        <div class="form-title" style="margin-bottom:8px;font-size:13px">Objetivo
+        <div class="form-title" style="margin-bottom:8px;font-size:13px">Objetivo<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <div class="obj-grid">
           <button class="obj-btn active" data-obj="sharpe" onclick="selectObj(this)">Sharpe</button>
@@ -618,14 +635,18 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
           <button class="obj-btn" data-obj="calmar" onclick="selectObj(this)">Calmar</button>
           <button class="obj-btn" data-obj="win_rate" onclick="selectObj(this)">Win Rate</button>
           <button class="obj-btn" data-obj="profit_factor" onclick="selectObj(this)">Profit F.</button>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div class="progress-bar-wrap" id="opt-progress-wrap">
-        <div class="progress-bar" id="opt-progress-bar">
+        <div class="progress-bar" id="opt-progress-bar"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-      <div class="error-box" id="opt-error" style="display:none;margin:0">
+      <div class="error-box" id="opt-error" style="display:none;margin:0"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
     <!-- OPTIMIZER RESULTS -->
@@ -635,10 +656,11 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
         <!-- Rankings table -->
         <div class="opt-card" style="margin:0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-            <div class="form-title" style="margin:0">Rankings
+            <div class="form-title" style="margin:0">Rankings<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-            <div id="opt-summary" style="font-size:13px;color:var(--muted);font-family:monospace">
+            <div id="opt-summary" style="font-size:13px;color:var(--muted);font-family:monospace"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <div style="overflow-x:auto" class="tbl-wrap">
             <table class="rank-table" id="rank-table">
@@ -647,29 +669,38 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
               </tr></thead>
               <tbody id="rank-body"></tbody>
             </table>
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <div style="margin-top:12px;font-size:13px;color:var(--muted);font-family:monospace">
             * Clique em qualquer linha para rodar backtest com esses parametros
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
         <!-- Heatmap -->
         <div class="opt-card" style="margin:0">
-          <div class="form-title" style="margin-bottom:10px">Heatmap de Score
+          <div class="form-title" style="margin-bottom:10px">Heatmap de Score<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-          <div id="heatmap-container">
+          <div id="heatmap-container"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <div id="heatmap-legend" style="display:flex;gap:8px;margin-top:10px;align-items:center">
-            <div style="font-size:12px;color:var(--muted);font-family:monospace">Baixo
+            <div style="font-size:12px;color:var(--muted);font-family:monospace">Baixo<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-            <div style="flex:1;height:6px;border-radius:3px;background:linear-gradient(90deg,#E05555,#F0B429,#2ED47A)">
+            <div style="flex:1;height:6px;border-radius:3px;background:linear-gradient(90deg,#E05555,#F0B429,#2ED47A)"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-            <div style="font-size:12px;color:var(--muted);font-family:monospace">Alto
+            <div style="font-size:12px;color:var(--muted);font-family:monospace">Alto<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
 
@@ -678,19 +709,22 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     <div class="opt-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
         <div>
-          <div class="form-title" style="margin:0">Walk-Forward Validation
+          <div class="form-title" style="margin:0">Walk-Forward Validation<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <div style="font-size:13px;color:var(--muted);font-family:monospace;margin-top:3px">
             Detecta overfitting dividindo os dados em janelas IS (otimizacao) e OOS (validacao)
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <button class="run-btn-wf" id="btn-wf" onclick="runWalkForward()">Validar</button>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
       <!-- WF Config Row -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
         <div>
-          <div class="form-title" style="margin-bottom:4px;font-size:13px">Splits (folds)
+          <div class="form-title" style="margin-bottom:4px;font-size:13px">Splits (folds)<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <select id="wf-splits" class="form-select">
             <option value="2">2 folds</option>
@@ -698,18 +732,20 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
             <option value="4">4 folds</option>
             <option value="5">5 folds</option>
           </select>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <div>
-          <div class="form-title" style="margin-bottom:4px;font-size:13px">% OOS por fold
+          <div class="form-title" style="margin-bottom:4px;font-size:13px">% OOS por fold<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <select id="wf-oos-pct" class="form-select">
             <option value="0.2">20%</option>
             <option value="0.3" selected>30%</option>
             <option value="0.4">40%</option>
           </select>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <div>
-          <div class="form-title" style="margin-bottom:4px;font-size:13px">Objetivo
+          <div class="form-title" style="margin-bottom:4px;font-size:13px">Objetivo<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <select id="wf-obj" class="form-select">
             <option value="sharpe" selected>Sharpe</option>
@@ -718,6 +754,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
             <option value="win_rate">Win Rate</option>
             <option value="profit_factor">Profit Factor</option>
           </select>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <div style="display:flex;flex-direction:column;justify-content:flex-end">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding-bottom:6px">
@@ -726,15 +763,19 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
               Anchored (expanding)
             </span>
           </label>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
       <div class="progress-bar-wrap" id="wf-progress-wrap">
-        <div class="progress-bar" id="wf-progress-bar">
+        <div class="progress-bar" id="wf-progress-bar"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-      <div class="error-box" id="wf-error" style="display:none;margin:0">
+      <div class="error-box" id="wf-error" style="display:none;margin:0"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
     <!-- WF RESULTS -->
@@ -754,45 +795,54 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
               <text id="wf-eff-txt" x="40" y="44" text-anchor="middle"
                 fill="#E8F4FD" font-size="14" font-family="Syne,sans-serif" font-weight="700">0%</text>
             </svg>
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-          <div style="font-size:12px;color:var(--muted);font-family:monospace;text-transform:uppercase;letter-spacing:.5px">Efficiency
+          <div style="font-size:12px;color:var(--muted);font-family:monospace;text-transform:uppercase;letter-spacing:.5px">Efficiency<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">OOS / IS score
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">OOS / IS score<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-</div>
-
-        <div class="opt-card" style="margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
-          <div class="wf-stat">
-            <div class="val" id="wf-consistency-val" style="color:var(--green)">--%
-</div>
-            <div class="lbl">Consistency
-</div>
-            <div style="font-size:12px;color:var(--muted);margin-top:4px">folds OOS lucrativos
-</div>
-</div>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
         <div class="opt-card" style="margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
           <div class="wf-stat">
-            <div class="val" id="wf-degradation-val" style="color:var(--gold)">--
+            <div class="val" id="wf-consistency-val" style="color:var(--green)">--%<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-            <div class="lbl">Degradation
+            <div class="lbl">Consistency<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-            <div style="font-size:12px;color:var(--muted);margin-top:4px">IS score - OOS score
+            <div style="font-size:12px;color:var(--muted);margin-top:4px">folds OOS lucrativos<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
         <div class="opt-card" style="margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
           <div class="wf-stat">
-            <div class="val" id="wf-return-val">--%
+            <div class="val" id="wf-degradation-val" style="color:var(--gold)">--<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-            <div class="lbl">Retorno OOS
+            <div class="lbl">Degradation<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-            <div style="font-size:12px;color:var(--muted);margin-top:4px">capital composto
+            <div style="font-size:12px;color:var(--muted);margin-top:4px">IS score - OOS score<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+
+        <div class="opt-card" style="margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+          <div class="wf-stat">
+            <div class="val" id="wf-return-val">--%<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
+            <div class="lbl">Retorno OOS<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px">capital composto<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
       <!-- Fold timeline + table -->
@@ -800,48 +850,61 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 
         <!-- Timeline visual -->
         <div class="opt-card" style="margin:0">
-          <div class="form-title" style="margin-bottom:12px">Estrutura dos Folds
+          <div class="form-title" style="margin-bottom:12px">Estrutura dos Folds<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-          <div id="wf-timeline">
+          <div id="wf-timeline"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
         <!-- Per-fold metrics -->
         <div class="opt-card" style="margin:0">
-          <div class="form-title" style="margin-bottom:10px">Resultados por Fold
+          <div class="form-title" style="margin-bottom:10px">Resultados por Fold<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-          <div id="wf-folds-table">
+          <div id="wf-folds-table"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
       <!-- Combined OOS equity chart -->
       <div class="opt-card" style="margin:0;margin-bottom:16px">
-        <div class="form-title" style="margin-bottom:12px">Equity OOS Concatenada (capital composto entre folds)
+        <div class="form-title" style="margin-bottom:12px">Equity OOS Concatenada (capital composto entre folds)<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <div style="height:220px">
           <canvas id="wf-equity-chart"></canvas>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
       <!-- Interpretation guide -->
       <div class="opt-card" style="margin:0;background:rgba(167,139,250,.03)">
-        <div class="form-title" style="margin-bottom:8px;color:#A78BFA">Como Interpretar
+        <div class="form-title" style="margin-bottom:8px;color:#A78BFA">Como Interpretar<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div style="font-size:13px;color:var(--muted);font-family:monospace;line-height:1.7">
             <b style="color:#A78BFA">Efficiency &gt; 50%:</b> Bom — parametros generalizam bem<br>
             <b style="color:#A78BFA">Consistency &gt; 66%:</b> Maioria dos folds OOS lucrativos<br>
             <b style="color:#A78BFA">Degradation baixo:</b> Pouco overfitting<br>
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <div style="font-size:13px;color:var(--muted);font-family:monospace;line-height:1.7">
             <b style="color:var(--red)">Efficiency &lt; 20%:</b> Overfitting provavel<br>
             <b style="color:var(--red)">Consistency &lt; 33%:</b> Estrategia nao e robusta<br>
             <b style="color:var(--gold)">IS score alto + OOS baixo:</b> Parametros nao generalizam<br>
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
   <!-- MULTI-TICKER COMPARATIVO -->
@@ -849,32 +912,36 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     <div class="opt-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
         <div>
-          <div class="form-title" style="margin:0">Comparativo Multi-Ticker
+          <div class="form-title" style="margin:0">Comparativo Multi-Ticker<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <div style="font-size:13px;color:var(--muted);font-family:monospace;margin-top:3px">
             Otimiza a mesma estrategia em varios ativos e ranqueia por performance
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <button class="run-btn" id="btn-multi" onclick="runMultiTicker()" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)">Comparar</button>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
       <!-- Tickers input -->
       <div style="margin-bottom:12px">
-        <div class="form-title" style="margin-bottom:4px;font-size:13px">Tickers (max 10, separados por virgula)
+        <div class="form-title" style="margin-bottom:4px;font-size:13px">Tickers (max 10, separados por virgula)<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <input id="multi-tickers" class="form-input" type="text"
           value="PETR4,VALE3,ITUB4,BBDC4,WEGE3"
           placeholder="PETR4,VALE3,ITUB4,BBDC4,WEGE3"
           style="width:100%;box-sizing:border-box;font-family:monospace;letter-spacing:0.04em">
         <!-- Tag pills -->
-        <div id="multi-ticker-pills" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px">
+        <div id="multi-ticker-pills" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
       <!-- Config row -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
         <div>
-          <div class="form-title" style="margin-bottom:4px;font-size:13px">Estrategia
+          <div class="form-title" style="margin-bottom:4px;font-size:13px">Estrategia<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <select id="multi-strategy" class="form-select">
             <option value="rsi">RSI Reversal</option>
@@ -884,9 +951,10 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
             <option value="ema_cross">EMA Cross</option>
             <option value="momentum">Momentum (ROC)</option>
           </select>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <div>
-          <div class="form-title" style="margin-bottom:4px;font-size:13px">Periodo
+          <div class="form-title" style="margin-bottom:4px;font-size:13px">Periodo<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <select id="multi-range" class="form-select">
             <option value="6mo">6 meses</option>
@@ -895,9 +963,10 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
             <option value="5y">5 anos *</option>
             <option value="10y">10 anos *</option>
           </select>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <div>
-          <div class="form-title" style="margin-bottom:4px;font-size:13px">Objetivo
+          <div class="form-title" style="margin-bottom:4px;font-size:13px">Objetivo<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <select id="multi-objective" class="form-select">
             <option value="sharpe" selected>Sharpe Ratio</option>
@@ -906,40 +975,45 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
             <option value="win_rate">Win Rate</option>
             <option value="profit_factor">Profit Factor</option>
           </select>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <div>
-          <div class="form-title" style="margin-bottom:4px;font-size:13px">Capital Inicial
+          <div class="form-title" style="margin-bottom:4px;font-size:13px">Capital Inicial<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <input id="multi-capital" class="form-input" type="number" value="10000" step="1000" min="1000">
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
       <!-- Result: loading -->
       <div id="multi-loading" style="display:none;text-align:center;padding:24px 0">
         <div style="color:var(--muted);font-size:15px;font-family:monospace">
           Otimizando <span id="multi-loading-count">0</span> tickers em paralelo...
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-        <div style="margin-top:10px;display:flex;gap:4px;justify-content:center" id="multi-dots">
+        <div style="margin-top:10px;display:flex;gap:4px;justify-content:center" id="multi-dots"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
       <!-- Result: error -->
-      <div id="multi-error" style="display:none;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:6px;padding:10px 14px;color:#f87171;font-size:15px;margin-top:10px">
+      <div id="multi-error" style="display:none;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:6px;padding:10px 14px;color:#f87171;font-size:15px;margin-top:10px"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
       <!-- Result: content -->
       <div id="multi-result" style="display:none">
 
         <!-- Summary KPIs -->
-        <div id="multi-summary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
+        <div id="multi-summary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
         <!-- Errors (failed tickers) -->
-        <div id="multi-errors-banner" style="display:none;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:6px;padding:8px 12px;font-size:14px;color:#fbbf24;margin-bottom:12px">
+        <div id="multi-errors-banner" style="display:none;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:6px;padding:8px 12px;font-size:14px;color:#fbbf24;margin-bottom:12px"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
         <!-- Ranking table -->
-        <div style="font-size:13px;color:var(--muted);font-family:monospace;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Ranking por Score
+        <div style="font-size:13px;color:var(--muted);font-family:monospace;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Ranking por Score<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <div style="overflow-x:auto;margin-bottom:16px" class="tbl-wrap">
           <table id="multi-table" style="width:100%;border-collapse:collapse;font-size:15px">
@@ -958,64 +1032,77 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
             </thead>
             <tbody id="multi-tbody"></tbody>
           </table>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
         <!-- Score bar chart -->
-        <div style="font-size:13px;color:var(--muted);font-family:monospace;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Score Relativo (%)
+        <div style="font-size:13px;color:var(--muted);font-family:monospace;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Score Relativo (%)<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-        <div id="multi-bars" style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
+        <div id="multi-bars" style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
         <!-- Consensus params -->
         <div id="multi-consensus" style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);border-radius:8px;padding:12px 14px">
-          <div style="font-size:13px;color:#a78bfa;font-family:monospace;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Parametros Consenso
+          <div style="font-size:13px;color:#a78bfa;font-family:monospace;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">Parametros Consenso<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <div style="font-size:14px;color:var(--muted);margin-bottom:6px">
             Combinacao de parametros mais frequente entre os melhores runs de cada ativo:
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-          <div id="multi-consensus-params" style="display:flex;flex-wrap:wrap;gap:8px">
+          <div id="multi-consensus-params" style="display:flex;flex-wrap:wrap;gap:8px"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <div style="margin-top:8px;font-size:14px;color:var(--muted)">
             Use estes parametros como ponto de partida para backtests futuros neste grupo de ativos.
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
   <!-- RESULT TABS -->
   <div id="result-area" style="display:none">
     <div class="tabs">
-      <div class="tab active" onclick="showTab('metrics')">Metricas
+      <div class="tab active" onclick="showTab('metrics')">Metricas<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-      <div class="tab" onclick="showTab('equity')">Equity Curve
+      <div class="tab" onclick="showTab('equity')">Equity Curve<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-      <div class="tab" onclick="showTab('trades')">Trades
+      <div class="tab" onclick="showTab('trades')">Trades<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-      <div class="tab" onclick="showTab('signals')">Sinais
+      <div class="tab" onclick="showTab('signals')">Sinais<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
     <!-- METRICS TAB -->
     <div class="tab-content active" id="tab-metrics">
-      <div class="metrics-grid" id="metrics-grid">
+      <div class="metrics-grid" id="metrics-grid"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
     <!-- EQUITY TAB -->
     <div class="tab-content" id="tab-equity">
       <div class="chart-card">
-        <div class="chart-title">Equity Curve vs Buy &amp; Hold
+        <div class="chart-title">Equity Curve vs Buy &amp; Hold<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-        <div class="chart-wrap"><canvas id="equity-chart"></canvas>
+        <div class="chart-wrap"><canvas id="equity-chart"></canvas><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div class="chart-card">
-        <div class="chart-title">Drawdown (%)
+        <div class="chart-title">Drawdown (%)<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-        <div class="chart-wrap"><canvas id="dd-chart"></canvas>
+        <div class="chart-wrap"><canvas id="dd-chart"></canvas><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
     <!-- ADX PANEL -->
@@ -1026,19 +1113,24 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
           <div class="adx-item-bt">
             <span class="adx-label-bt">ADX</span>
             <span class="adx-val-bt" id="bt-adx" style="color:#ffd740">—</span>
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <div class="adx-item-bt">
             <span class="adx-label-bt">DI+</span>
             <span class="adx-val-bt" id="bt-dip" style="color:#00e676">—</span>
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <div class="adx-item-bt">
             <span class="adx-label-bt">DI-</span>
             <span class="adx-val-bt" id="bt-din" style="color:#ff4444">—</span>
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
           <div class="adx-item-bt">
             <span class="adx-label-bt">TENDENCIA</span>
             <span class="adx-trend-bt" id="bt-trend" style="background:#1a1a0d;color:#ffd740;border:1px solid #ffd740">LATERAL</span>
+          <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <div style="display:flex;align-items:center;gap:6px;font-family:monospace;font-size:14px;color:#7a95b0">
           Periodo
@@ -1047,72 +1139,88 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
             <option value="14" selected>14</option>
             <option value="21">21</option>
           </select>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <div class="adx-wrap">
         <canvas id="bt-adx-canvas"></canvas>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
     <!-- TRADES TAB -->
     <div class="tab-content" id="tab-trades">
       <div class="trades-card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <div class="form-title" style="margin:0">Lista de Trades
+          <div class="form-title" style="margin:0">Lista de Trades<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-          <div id="trades-summary" style="font-size:14px;color:var(--muted);font-family:monospace">
+          <div id="trades-summary" style="font-size:14px;color:var(--muted);font-family:monospace"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
         <div class="trades-header">
           <span>#</span><span>Entrada</span><span>Saida</span>
           <span>Preco Ent./Sai.</span><span>P&amp;L</span><span>Status</span>
+        <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-        <div id="trades-list">
+        <div id="trades-list"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
     <!-- SIGNALS TAB -->
     <div class="tab-content" id="tab-signals">
       <div class="chart-card">
-        <div class="chart-title">Sinais Gerados
+        <div class="chart-title">Sinais Gerados<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-        <div id="signals-wrap">
+        <div id="signals-wrap"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
   <!-- COMPARE AREA -->
   <div id="compare-area" style="display:none">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div>
-        <div class="page-title" style="font-size:20px" id="compare-title">Comparando estrategias
+        <div class="page-title" style="font-size:20px" id="compare-title">Comparando estrategias<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-        <div class="page-sub" style="margin:0" id="compare-sub">
+        <div class="page-sub" style="margin:0" id="compare-sub"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+      <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
       <button onclick="hideCompare()" style="background:transparent;border:1px solid var(--border);
         color:var(--muted);border-radius:6px;padding:5px 12px;font-size:14px;
         font-family:monospace;cursor:pointer">Fechar</button>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
     <!-- Loading individual -->
     <div id="compare-loading" style="display:none">
-      <div class="loading" style="display:block"><span class="spinner"></span>Buscando dados...
+      <div class="loading" style="display:block"><span class="spinner"></span>Buscando dados...<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
-    <div class="compare-grid" id="compare-grid">
+    <div class="compare-grid" id="compare-grid"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
     <!-- Compare equity overlay -->
     <div class="chart-card" id="compare-chart-card" style="display:none;margin-top:16px">
-      <div class="chart-title">Equity Curve - Comparacao
+      <div class="chart-title">Equity Curve - Comparacao<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
-      <div class="chart-wrap" style="height:280px"><canvas id="compare-chart"></canvas>
+      <div class="chart-wrap" style="height:280px"><canvas id="compare-chart"></canvas><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+    <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
+  <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
 
 </main>
@@ -1227,7 +1335,7 @@ function renderOptResults(d) {
 function renderHeatmap(hm, objective) {
   var container = document.getElementById('heatmap-container');
   if (!hm || !hm.matrix || !hm.matrix.length) {
-    container.innerHTML = '<div style="font-size:13px;color:var(--muted);font-family:monospace;padding:16px">Heatmap nao disponivel para esta estrategia
+    container.innerHTML = '<div style="font-size:13px;color:var(--muted);font-family:monospace;padding:16px">Heatmap nao disponivel para esta estrategia<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
     return;
   }
@@ -1267,32 +1375,32 @@ function renderHeatmap(hm, objective) {
 
   var cols = xVals.length + 1;
   var html = '<div style="font-size:12px;color:var(--muted);font-family:monospace;margin-bottom:6px">' +
-    hm.y_label + ' \ ' + hm.x_label + '
+    hm.y_label + ' \ ' + hm.x_label + '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>' +
     '<div style="display:grid;grid-template-columns:50px repeat(' + xVals.length + ',38px);gap:3px">';
 
   // Header row
-  html += '<div class="hm-axis-label">
+  html += '<div class="hm-axis-label"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
   for (var xi = 0; xi < xVals.length; xi++) {
-    html += '<div class="hm-axis-label" style="color:var(--blue)">' + xVals[xi] + '
+    html += '<div class="hm-axis-label" style="color:var(--blue)">' + xVals[xi] + '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
   }
 
   // Data rows
   for (var yi = 0; yi < yVals.length; yi++) {
-    html += '<div class="hm-axis-label" style="color:var(--gold)">' + yVals[yi] + '
+    html += '<div class="hm-axis-label" style="color:var(--gold)">' + yVals[yi] + '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
     for (var xi2 = 0; xi2 < xVals.length; xi2++) {
       var s = lookup[xVals[xi2] + '_' + yVals[yi]];
       var col = scoreToColor(s);
       var txt = s !== null ? s.toFixed(2) : '--';
       var txtcol = s !== null && (s - minS) / (maxS - minS || 1) > 0.5 ? '#0A1628' : '#E8F4FD';
-      html += '<div class="hm-cell" style="background:' + col + ';color:' + txtcol + '">' + txt + '
+      html += '<div class="hm-cell" style="background:' + col + ';color:' + txtcol + '">' + txt + '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
     }
   }
-  html += '
+  html += '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
   container.innerHTML = html;
 }
@@ -1438,30 +1546,30 @@ function renderWalkForward(d) {
     var oosW = (f.oos_bars / total * 100).toFixed(1);
     var col  = FOLD_COLORS[i % FOLD_COLORS.length];
     tlHtml += '<div style="margin-bottom:8px">';
-    tlHtml += '<div style="font-size:12px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:3px">Fold ' + f.fold + '
+    tlHtml += '<div style="font-size:12px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:3px">Fold ' + f.fold + '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
     tlHtml += '<div style="display:flex;gap:2px;height:16px;border-radius:3px;overflow:hidden">';
     if (f.is_start_bar > 0) {
-      tlHtml += '<div style="width:' + (f.is_start_bar/total*100).toFixed(1) + '%;background:transparent">
+      tlHtml += '<div style="width:' + (f.is_start_bar/total*100).toFixed(1) + '%;background:transparent"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
     }
-    tlHtml += '<div class="wf-seg" style="width:' + isW + '%;background:' + col + '22;border:1px solid ' + col + '44" title="IS: ' + f.is_bars + ' barras">
+    tlHtml += '<div class="wf-seg" style="width:' + isW + '%;background:' + col + '22;border:1px solid ' + col + '44" title="IS: ' + f.is_bars + ' barras"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
-    tlHtml += '<div class="wf-seg" style="width:' + oosW + '%;background:' + col + '99" title="OOS: ' + f.oos_bars + ' barras">
+    tlHtml += '<div class="wf-seg" style="width:' + oosW + '%;background:' + col + '99" title="OOS: ' + f.oos_bars + ' barras"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
-    tlHtml += '
+    tlHtml += '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
     tlHtml += '<div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:2px">';
     tlHtml += '<span style="color:' + col + '66">IS: ' + f.is_bars + 'b</span>  ';
     tlHtml += '<span style="color:' + col + '">OOS: ' + f.oos_bars + 'b</span>';
-    tlHtml += '
+    tlHtml += '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
-    tlHtml += '
+    tlHtml += '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
   });
   tlHtml += '<div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:8px">';
   tlHtml += 'Claro = IS (otimizacao) &nbsp; Solido = OOS (validacao)';
-  tlHtml += '
+  tlHtml += '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
   document.getElementById('wf-timeline').innerHTML = tlHtml;
 
@@ -1470,9 +1578,9 @@ function renderWalkForward(d) {
            'padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:4px">';
   var HD = ['Fold','IS score','OOS score','Melhores Params'];
   th += HD.map(function(h) {
-    return '<div style="font-size:12px;color:var(--muted);font-family:\'DM Mono\',monospace;text-transform:uppercase;letter-spacing:.4px">' + h + '
+    return '<div style="font-size:12px;color:var(--muted);font-family:\'DM Mono\',monospace;text-transform:uppercase;letter-spacing:.4px">' + h + '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
-  }).join('') + '
+  }).join('') + '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
 
   var rows = d.folds.map(function(f, i) {
@@ -1483,16 +1591,16 @@ function renderWalkForward(d) {
     }).join(' ');
     return '<div style="display:grid;grid-template-columns:40px 70px 70px 1fr;gap:4px;' +
            'padding:5px 0;border-bottom:1px solid rgba(58,191,248,.04);align-items:center">' +
-      '<div style="font-size:14px;font-family:\'DM Mono\',monospace;color:' + col + '">#' + f.fold + '
+      '<div style="font-size:14px;font-family:\'DM Mono\',monospace;color:' + col + '">#' + f.fold + '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>' +
-      '<div style="font-size:14px;font-family:\'DM Mono\',monospace;color:var(--blue)">' + f.best_is_score.toFixed(3) + '
+      '<div style="font-size:14px;font-family:\'DM Mono\',monospace;color:var(--blue)">' + f.best_is_score.toFixed(3) + '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>' +
       '<div style="font-size:14px;font-family:\'DM Mono\',monospace;color:' + (isUp?'var(--green)':'var(--red)') + '">' +
-        (f.oos_valid ? f.oos_score.toFixed(3) : '(poucos trades)') + '
+        (f.oos_valid ? f.oos_score.toFixed(3) : '(poucos trades)') + '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>' +
-      '<div style="font-size:12px;font-family:\'DM Mono\',monospace;color:var(--muted)">' + paramStr + '
+      '<div style="font-size:12px;font-family:\'DM Mono\',monospace;color:var(--muted)">' + paramStr + '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>' +
-    '
+    '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
   }).join('');
 
@@ -1505,7 +1613,7 @@ function renderWalkForward(d) {
 
   if (!eq || !eq.length) {
     document.getElementById('wf-equity-chart').parentElement.innerHTML =
-      '<div style="font-size:13px;color:var(--muted);font-family:\'DM Mono\',monospace;padding:20px">Sem dados de equity OOS
+      '<div style="font-size:13px;color:var(--muted);font-family:\'DM Mono\',monospace;padding:20px">Sem dados de equity OOS<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
   } else {
     var labels  = eq.map(function(p) {
@@ -1698,7 +1806,7 @@ function onStrategyChange() {
   }
 
   var desc = STRATEGY_DESC[s] || '';
-  fields.innerHTML = (desc ? '<div style="font-size:14px;color:#6a8aa8;width:100%;margin-bottom:6px">' + desc + '
+  fields.innerHTML = (desc ? '<div style="font-size:14px;color:#6a8aa8;width:100%;margin-bottom:6px">' + desc + '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>' : '') +
     defs.map(function(d) {
       return '<div style="display:flex;flex-direction:column;gap:3px">' +
@@ -1707,7 +1815,7 @@ function onStrategyChange() {
         'min="' + (d.min||0) + '" max="' + (d.max||9999) + '" step="' + (d.step||1) + '" ' +
         'style="width:90px;background:rgba(10,22,40,.8);border:1px solid #1c2535;' +
         'border-radius:4px;color:#e2e8f0;padding:4px 7px;font-family:monospace;font-size:15px">' +
-        '
+        '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
     }).join('');
   panel.style.display = 'block';
@@ -1775,13 +1883,13 @@ function renderResult(d) {
   ];
   grid.innerHTML = items.map(function(it) {
     return '<div class="metric-card">' +
-      '<div class="metric-label">'+it.label+'
+      '<div class="metric-label">'+it.label+'<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>' +
-      '<div class="metric-value '+it.cls+'">'+it.value+'
+      '<div class="metric-value '+it.cls+'">'+it.value+'<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>' +
-      '<div class="metric-sub">'+it.sub+'
+      '<div class="metric-sub">'+it.sub+'<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>' +
-    '
+    '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
   }).join('');
 
@@ -1918,7 +2026,7 @@ function renderTrades(d) {
 
   var list = document.getElementById('trades-list');
   if (!d.trades || !d.trades.length) {
-    list.innerHTML = '<div class="empty">Nenhum trade executado no periodo
+    list.innerHTML = '<div class="empty">Nenhum trade executado no periodo<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
     return;
   }
@@ -1937,7 +2045,7 @@ function renderTrades(d) {
         '<span style="font-size:13px">' + sign + 'R$' + f2(Math.abs(t.pnl)) + '</span></span>' +
       '<span><span class="trade-badge ' + (win?'badge-win':'badge-loss') + '">' +
         (win ? 'WIN' : 'LOSS') + '</span></span>' +
-    '
+    '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
   }).join('');
 }
@@ -1945,7 +2053,7 @@ function renderTrades(d) {
 function renderSignals(d) {
   var wrap = document.getElementById('signals-wrap');
   if (!d.signals || !d.signals.length) {
-    wrap.innerHTML = '<div class="empty">Nenhum sinal gerado
+    wrap.innerHTML = '<div class="empty">Nenhum sinal gerado<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
     return;
   }
@@ -1956,7 +2064,7 @@ function renderSignals(d) {
       var lbl = s.signal === 'buy' ? 'BUY' : 'SELL';
       return '<span class="sig-pill ' + cls + '">' + lbl + ' ' + dt + ' R$' + f2(s.price) + '</span>';
     }).join('') +
-  '
+  '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
 }
 
@@ -2036,8 +2144,8 @@ function renderCompare(results, ticker, range) {
 
   var grid = document.getElementById('compare-grid');
   grid.innerHTML = ['rsi','macd','combined','bollinger','ema_cross','momentum'].map(function(s) {
-    if (!results[s]) return '<div class="compare-card"><div class="compare-name" style="color:var(--red)">'+STRATEGY_NAMES[s]+' - erro
-</div>
+    if (!results[s]) return '<div class="compare-card"><div class="compare-name" style="color:var(--red)">'+STRATEGY_NAMES[s]+' - erro<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
     var d  = results[s];
     var m  = d.metrics;
@@ -2049,7 +2157,7 @@ function renderCompare(results, ticker, range) {
         '<span style="width:10px;height:10px;border-radius:50%;background:'+STRATEGY_COLORS[s]+';display:inline-block"></span>' +
         STRATEGY_NAMES[s] +
         (isBest ? '<span class="best-badge">melhor Sharpe</span>' : '') +
-      '
+      '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>' +
       '<div class="compare-metrics">' +
         cmItem('Retorno', (pos?'+':'')+m.total_return_pct.toFixed(2)+'%', pos?'green':'red') +
@@ -2058,11 +2166,11 @@ function renderCompare(results, ticker, range) {
         cmItem('Win Rate', m.win_rate_pct.toFixed(1)+'%', m.win_rate_pct>=50?'green':'gold') +
         cmItem('Trades', String(m.total_trades), 'blue') +
         cmItem('Profit F.', m.profit_factor.toFixed(2), m.profit_factor>=1?'green':'red') +
-      '
+      '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>' +
-      '<div class="compare-chart-wrap"><canvas id="cc-'+s+'"></canvas>
+      '<div class="compare-chart-wrap"><canvas id="cc-'+s+'"></canvas><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>' +
-    '
+    '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
   }).join('');
 
@@ -2105,11 +2213,11 @@ function renderCompare(results, ticker, range) {
 
 function cmItem(label, value, cls) {
   return '<div class="cm-item">' +
-    '<div class="cm-label">'+label+'
+    '<div class="cm-label">'+label+'<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>' +
-    '<div class="cm-value '+cls+'">'+value+'
+    '<div class="cm-value '+cls+'">'+value+'<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>' +
-  '
+  '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
 }
 
@@ -2275,10 +2383,10 @@ function renderMultiResult(data) {
     return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;' +
       'padding:10px 12px;border-top:2px solid ' + k.accent + '">' +
       '<div style="font-size:13px;color:var(--muted);font-family:\'DM Mono\',monospace;' +
-      'text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">' + k.label + '
+      'text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">' + k.label + '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>' +
-      '<div style="font-size:20px;font-weight:700;color:var(--text)">' + k.value + '
-</div>
+      '<div style="font-size:20px;font-weight:700;color:var(--text)">' + k.value + '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
+</div><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
   }).join('');
 
@@ -2339,16 +2447,16 @@ function renderMultiResult(data) {
     var barColor = row.rank === 1 ? '#7c3aed' : row.rank <= 3 ? '#4f46e5' : '#6b7280';
     barsEl.innerHTML +=
       '<div style="display:grid;grid-template-columns:60px 1fr 50px;gap:8px;align-items:center">' +
-      '<div style="font-family:\'DM Mono\',monospace;font-size:14px;color:var(--text);text-align:right">' + row.ticker + '
+      '<div style="font-family:\'DM Mono\',monospace;font-size:14px;color:var(--text);text-align:right">' + row.ticker + '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>' +
       '<div style="background:var(--surface);border-radius:3px;height:12px;overflow:hidden;border:1px solid var(--border)">' +
-        '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';transition:width .6s;border-radius:2px">
+        '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';transition:width .6s;border-radius:2px"><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>' +
-      '
+      '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>' +
-      '<div style="font-family:\'DM Mono\',monospace;font-size:14px;color:var(--muted)">' + fmt1(pct) + '%
+      '<div style="font-family:\'DM Mono\',monospace;font-size:14px;color:var(--muted)">' + fmt1(pct) + '%<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>' +
-      '
+      '<a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
   });
 
@@ -2361,7 +2469,7 @@ function renderMultiResult(data) {
       '<span style="color:var(--muted)">' + kv[0] + ':</span> ' +
       '<span style="color:#c4b5fd;font-weight:600">' +
         (typeof kv[1]==='number' ? +kv[1].toFixed(2) : kv[1]) +
-      '</span>
+      '</span><a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>';
   }).join('');
 
