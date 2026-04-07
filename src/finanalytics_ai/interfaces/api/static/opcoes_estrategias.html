@@ -237,13 +237,10 @@ function selectStrategy(key,btn){
   var fields=strategyFields[key]||[];
   var html='';
   fields.forEach(function(f){
-    html+='<div class="field-row"><div class="field-label">'+f.label+'
-</div><input class="field-input" id="'+f.id+'" type="number" value="'+f.value+'" step="0.50">
-</div>';
+    html+='<div class="field-row"><div class="field-label">'+f.label+'</div><input class="field-input" id="'+f.id+'" type="number" value="'+f.value+'" step="0.50"></div>';
   });
   document.getElementById('dynamic-fields').innerHTML=html;
-  document.getElementById('strat-result').innerHTML='<div class="empty-msg">Calcule a estrategia
-</div>';
+  document.getElementById('strat-result').innerHTML='<div class="empty-msg">Calcule a estrategia</div>';
 }
 
 function getVal(id){var el=document.getElementById(id);return el?parseFloat(el.value):null;}
@@ -270,8 +267,7 @@ function fmtR(v){if(v==null)return 'Ilimitado';return 'R$ '+parseFloat(v).toFixe
 
 async function calcStrategy(){
   var area=document.getElementById('strat-result');
-  area.innerHTML='<div class="empty-msg">Calculando...
-</div>';
+  area.innerHTML='<div class="empty-msg">Calculando...</div>';
   try{
     var body=buildBody();
     var r=await fetch(API+'/api/v1/opcoes/estrategia',{
@@ -280,49 +276,29 @@ async function calcStrategy(){
       body:JSON.stringify(body)
     });
     var d=await r.json();
-    if(d.detail){area.innerHTML='<div class="empty-msg" style="color:var(--red)">'+d.detail+'
-</div>';return;}
+    if(d.detail){area.innerHTML='<div class="empty-msg" style="color:var(--red)">'+d.detail+'</div>';return;}
 
     var premiumColor=d.total_premium>0?'red':'green';
     var premiumLabel=d.total_premium>0?'Debito (pago)':'Credito (recebido)';
 
     var html=
       '<div class="result-summary">'+
-        '<div class="summary-name">'+d.name+'
-</div>'+
-        '<div class="summary-desc">'+d.description+'
-</div>'+
+        '<div class="summary-name">'+d.name+'</div>'+
+        '<div class="summary-desc">'+d.description+'</div>'+
         '<div class="kpi-row">'+
-          '<div class="kpi"><div class="kpi-label">Premio
-</div><div class="kpi-value '+premiumColor+'">R$ '+fmt2(Math.abs(d.total_premium))+'
-</div><div style="font-size:10px;color:var(--muted);margin-top:2px">'+premiumLabel+'
-</div>
-</div>'+
-          '<div class="kpi"><div class="kpi-label">Max Lucro
-</div><div class="kpi-value green">'+fmtR(d.max_profit)+'
-</div>
-</div>'+
-          '<div class="kpi"><div class="kpi-label">Max Perda
-</div><div class="kpi-value red">'+fmtR(d.max_loss)+'
-</div>
-</div>'+
-          '<div class="kpi"><div class="kpi-label">Breakevens
-</div><div class="kpi-value gold" style="font-size:12px">'+(d.breakevens.length?d.breakevens.map(function(b){return 'R$'+fmt2(b);}).join('<br>'):'—')+'
-</div>
-</div>'+
-        '
-</div>'+
+          '<div class="kpi"><div class="kpi-label">Premio</div><div class="kpi-value '+premiumColor+'">R$ '+fmt2(Math.abs(d.total_premium))+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px">'+premiumLabel+'</div></div>'+
+          '<div class="kpi"><div class="kpi-label">Max Lucro</div><div class="kpi-value green">'+fmtR(d.max_profit)+'</div></div>'+
+          '<div class="kpi"><div class="kpi-label">Max Perda</div><div class="kpi-value red">'+fmtR(d.max_loss)+'</div></div>'+
+          '<div class="kpi"><div class="kpi-label">Breakevens</div><div class="kpi-value gold" style="font-size:12px">'+(d.breakevens.length?d.breakevens.map(function(b){return 'R$'+fmt2(b);}).join('<br>'):'—')+'</div></div>'+
+        '</div>'+
         '<div class="greeks-mini">'+
           '<span>&#916; '+fmt2(d.delta)+'</span>'+
           '<span>&#915; '+fmt2(d.gamma)+'</span>'+
           '<span>&#920; '+fmt2(d.theta)+'/dia</span>'+
           '<span>&#957; '+fmt2(d.vega)+'/1%vol</span>'+
-        '
-</div>'+
-      '
-</div>'+
-      '<div class="legs-title">Pernas da Estrategia
-</div>';
+        '</div>'+
+      '</div>'+
+      '<div class="legs-title">Pernas da Estrategia</div>';
 
     d.legs.forEach(function(leg){
       var typeCls=leg.option_type==='call'?'leg-call':'leg-put';
@@ -332,18 +308,14 @@ async function calcStrategy(){
           '<div>'+
             '<span class="leg-type '+typeCls+'">'+leg.option_type.toUpperCase()+'</span>'+
             '<span class="leg-qty" style="margin-left:8px">Strike R$ '+fmt2(leg.strike)+' | '+qtyLabel+'</span>'+
-          '
-</div>'+
-          '<div class="leg-price">R$ '+fmt2(leg.price)+'
-</div>'+
-        '
-</div>';
+          '</div>'+
+          '<div class="leg-price">R$ '+fmt2(leg.price)+'</div>'+
+        '</div>';
     });
 
     area.innerHTML=html;
   }catch(e){
-    area.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'
-</div>';
+    area.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'</div>';
   }
 }
 

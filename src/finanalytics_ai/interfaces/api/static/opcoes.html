@@ -270,70 +270,32 @@ async function calcGreeks(){
   var vol=parseFloat(document.getElementById('g-vol').value)/100;
   var rate=parseFloat(document.getElementById('g-rate').value)/100;
   var area=document.getElementById('greeks-result');
-  area.innerHTML='<div class="empty-msg">Calculando...
-</div>';
+  area.innerHTML='<div class="empty-msg">Calculando...</div>';
   try{
     var url=API+'/api/v1/opcoes/greeks?option_type='+type+'&spot='+spot+'&strike='+strike+'&expiry_days='+days+'&volatility='+vol+'&rate='+rate;
     var r=await fetch(url,{headers:{Authorization:'Bearer '+tok()}});
     var d=await r.json();
-    if(d.detail){area.innerHTML='<div class="empty-msg" style="color:var(--red)">'+d.detail+'
-</div>';return;}
+    if(d.detail){area.innerHTML='<div class="empty-msg" style="color:var(--red)">'+d.detail+'</div>';return;}
     var mc=d.moneyness==='ITM'?'moneyness-itm':d.moneyness==='OTM'?'moneyness-otm':'moneyness-atm';
     area.innerHTML=
       '<div class="price-box">'+
-        '<div class="price-label">Premio Teorico ('+d.option_type.toUpperCase()+')
-</div>'+
-        '<div class="price-value">R$ '+fmt2(d.price)+'
-</div>'+
+        '<div class="price-label">Premio Teorico ('+d.option_type.toUpperCase()+')</div>'+
+        '<div class="price-value">R$ '+fmt2(d.price)+'</div>'+
         '<div class="price-details">'+
           '<span>Intrinseco: R$ '+fmt2(d.intrinsic_value)+'</span>'+
           '<span>Temporal: R$ '+fmt2(d.time_value)+'</span>'+
           '<span class="'+mc+'">'+d.moneyness+'</span>'+
-        '
-</div>'+
-      '
-</div>'+
+        '</div>'+
+      '</div>'+
       '<div class="greeks-grid">'+
-        '<div class="greek-kpi"><div class="greek-name">Delta
-</div><div class="greek-symbol" style="color:var(--blue)">&#916;
-</div><div class="greek-value">'+fmt2(d.delta)+'
-</div><div class="greek-sub">Sensibilidade ao preco
-</div>
-</div>'+
-        '<div class="greek-kpi"><div class="greek-name">Gamma
-</div><div class="greek-symbol" style="color:var(--green)">&#915;
-</div><div class="greek-value">'+fmt2(d.gamma)+'
-</div><div class="greek-sub">Variacao do Delta
-</div>
-</div>'+
-        '<div class="greek-kpi"><div class="greek-name">Theta
-</div><div class="greek-symbol" style="color:var(--red)">&#920;
-</div><div class="greek-value">'+fmt2(d.theta)+'
-</div><div class="greek-sub">Decaimento/dia
-</div>
-</div>'+
-        '<div class="greek-kpi"><div class="greek-name">Vega
-</div><div class="greek-symbol" style="color:var(--gold)">&#957;
-</div><div class="greek-value">'+fmt2(d.vega)+'
-</div><div class="greek-sub">Por 1% de vol
-</div>
-</div>'+
-        '<div class="greek-kpi"><div class="greek-name">Rho
-</div><div class="greek-symbol" style="color:var(--purple)">&#961;
-</div><div class="greek-value">'+fmt2(d.rho)+'
-</div><div class="greek-sub">Por 1% de taxa
-</div>
-</div>'+
-        '<div class="greek-kpi"><div class="greek-name">Vol anual
-</div><div class="greek-symbol" style="color:var(--muted)">&#963;
-</div><div class="greek-value">'+d.volatility+'%
-</div><div class="greek-sub">d1='+fmt2(d.d1)+' d2='+fmt2(d.d2)+'
-</div>
-</div>'+
-      '
-</div>';
-  }catch(e){area.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'
-</div>';}
+        '<div class="greek-kpi"><div class="greek-name">Delta</div><div class="greek-symbol" style="color:var(--blue)">&#916;</div><div class="greek-value">'+fmt2(d.delta)+'</div><div class="greek-sub">Sensibilidade ao preco</div></div>'+
+        '<div class="greek-kpi"><div class="greek-name">Gamma</div><div class="greek-symbol" style="color:var(--green)">&#915;</div><div class="greek-value">'+fmt2(d.gamma)+'</div><div class="greek-sub">Variacao do Delta</div></div>'+
+        '<div class="greek-kpi"><div class="greek-name">Theta</div><div class="greek-symbol" style="color:var(--red)">&#920;</div><div class="greek-value">'+fmt2(d.theta)+'</div><div class="greek-sub">Decaimento/dia</div></div>'+
+        '<div class="greek-kpi"><div class="greek-name">Vega</div><div class="greek-symbol" style="color:var(--gold)">&#957;</div><div class="greek-value">'+fmt2(d.vega)+'</div><div class="greek-sub">Por 1% de vol</div></div>'+
+        '<div class="greek-kpi"><div class="greek-name">Rho</div><div class="greek-symbol" style="color:var(--purple)">&#961;</div><div class="greek-value">'+fmt2(d.rho)+'</div><div class="greek-sub">Por 1% de taxa</div></div>'+
+        '<div class="greek-kpi"><div class="greek-name">Vol anual</div><div class="greek-symbol" style="color:var(--muted)">&#963;</div><div class="greek-value">'+d.volatility+'%</div><div class="greek-sub">d1='+fmt2(d.d1)+' d2='+fmt2(d.d2)+'</div></div>'+
+      '</div>';
+  }catch(e){area.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'</div>';}
 }
 
 async function calcIV(){
@@ -344,34 +306,23 @@ async function calcIV(){
   var days=document.getElementById('iv-days').value;
   var rate=parseFloat(document.getElementById('iv-rate').value)/100;
   var area=document.getElementById('iv-result');
-  area.innerHTML='<div class="empty-msg">Calculando...
-</div>';
+  area.innerHTML='<div class="empty-msg">Calculando...</div>';
   try{
     var url=API+'/api/v1/opcoes/iv?option_type='+type+'&market_price='+price+'&spot='+spot+'&strike='+strike+'&expiry_days='+days+'&rate='+rate;
     var r=await fetch(url,{headers:{Authorization:'Bearer '+tok()}});
     var d=await r.json();
-    if(d.detail){area.innerHTML='<div class="empty-msg" style="color:var(--red)">'+d.detail+'
-</div>';return;}
+    if(d.detail){area.innerHTML='<div class="empty-msg" style="color:var(--red)">'+d.detail+'</div>';return;}
     if(!d.converged||d.implied_vol==null){
-      area.innerHTML='<div class="iv-result"><div class="iv-value" style="color:var(--red)">N/A
-</div><div class="iv-label">Nao convergiu
-</div><div class="iv-details">'+d.error+'
-</div>
-</div>';
+      area.innerHTML='<div class="iv-result"><div class="iv-value" style="color:var(--red)">N/A</div><div class="iv-label">Nao convergiu</div><div class="iv-details">'+d.error+'</div></div>';
       return;
     }
     area.innerHTML=
       '<div class="iv-result">'+
-        '<div class="iv-value">'+d.implied_vol.toFixed(2)+'%
-</div>'+
-        '<div class="iv-label">Volatilidade Implicita (anual)
-</div>'+
-        '<div class="iv-details">Convergiu em '+d.iterations+' iteracao(oes) | Premio: R$ '+parseFloat(d.market_price).toFixed(2)+'
-</div>'+
-      '
-</div>';
-  }catch(e){area.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'
-</div>';}
+        '<div class="iv-value">'+d.implied_vol.toFixed(2)+'%</div>'+
+        '<div class="iv-label">Volatilidade Implicita (anual)</div>'+
+        '<div class="iv-details">Convergiu em '+d.iterations+' iteracao(oes) | Premio: R$ '+parseFloat(d.market_price).toFixed(2)+'</div>'+
+      '</div>';
+  }catch(e){area.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'</div>';}
 }
 </script>
 </body>
