@@ -56,3 +56,5 @@ result.txt
 count.txt
 
 .env.local
+
+test_*.txt
