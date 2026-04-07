@@ -1,4 +1,30 @@
 <!DOCTYPE html>
+</script>
+// -- END PROFIT AGENT STATUS --------------------------------------------------
+<script>
+function faDTToggle(btn){
+  var s=document.getElementById('dt-submenu');
+  btn.classList.toggle('open');
+  s.classList.toggle('open');
+  localStorage.setItem('fa_dt_open',s.classList.contains('open')?'1':'0');
+}
+(function(){
+  var p=window.location.pathname;
+  if(p.startsWith('/daytrade')||p==='/diario'){
+    var t=document.getElementById('dt-toggle');
+    var s=document.getElementById('dt-submenu');
+    if(t)t.classList.add('open');
+    if(s)s.classList.add('open');
+  } else if(localStorage.getItem('fa_dt_open')==='1'){
+    var t2=document.getElementById('dt-toggle');
+    var s2=document.getElementById('dt-submenu');
+    if(t2)t2.classList.add('open');
+    if(s2)s2.classList.add('open');
+  }
+})();
+</script>
+</script>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -1652,7 +1678,7 @@ function renderPriceChart(bars, bb) {
     lastValueVisible:false, priceLineVisible:false,
   });
   priceChart.priceScale('vol').applyOptions({ scaleMargins:{top:.82, bottom:0} });
-  volSeries.setData(_bars2.map(b => ({
+  volSeries.setData(bars.map(b => ({
     time:b.time, value:b.volume||0,
     color: b.close>=b.open ? 'rgba(46,212,122,.22)' : 'rgba(224,85,85,.22)',
   })));
@@ -1688,7 +1714,8 @@ function renderPriceChart(bars, bb) {
   else { patternMarkers = []; if(priceSeries) priceSeries.setMarkers([]); }
 
   priceChart.timeScale().fitContent();
-  // Separadores de dia: drawDaySeparators(chart,bars,container) chamado abaixo
+  // Separadores de dia apos render
+  setTimeout(function(){if(typeof initDaySeparators==='function'&&typeof bars!=='undefined')initDaySeparators(bars);},250);
   // Exibe ultimo preco imediatamente apos carregar
   if (bars && bars.length) {
     const last = bars[bars.length-1];
