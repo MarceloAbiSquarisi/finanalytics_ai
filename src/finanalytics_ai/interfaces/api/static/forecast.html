@@ -402,12 +402,9 @@ async function runForecast() {
   document.getElementById('signal-row').style.display = 'none';
   document.getElementById('main-content').innerHTML = `
     <div class="loading">
-      <div style="font-size:18px;margin-bottom:12px;color:#3abff8">Rodando ensemble de modelos
-</div>
-      <div style="font-size:15px;color:var(--muted);margin-bottom:16px">Prophet + LSTM + TFT • isso pode levar 30-60s na primeira execução
-</div>
-      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-</div>`;
+      <div style="font-size:18px;margin-bottom:12px;color:#3abff8">Rodando ensemble de modelos</div>
+      <div style="font-size:15px;color:var(--muted);margin-bottom:16px">Prophet + LSTM + TFT • isso pode levar 30-60s na primeira execução</div>
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span></div>`;
 
   try {
     const url = `/api/v1/forecast/${ticker}?horizon=${horizon}&range_period=${range}&models=${models}`;
@@ -421,9 +418,7 @@ async function runForecast() {
   } catch(e) {
     toast(e.message, 'error');
     document.getElementById('main-content').innerHTML = `
-      <div class="empty"><div class="empty-icon">⚠️
-</div>${e.message}
-</div>`;
+      <div class="empty"><div class="empty-icon">⚠️</div>${e.message}</div>`;
   } finally {
     btn.disabled = false;
     btn.textContent = '▶ Executar Forecast';
@@ -437,41 +432,25 @@ function renderResult(d) {
       <div class="panel">
         <div class="panel-hdr">
           <span class="panel-title">Histórico + Forecast — ${d.ticker}</span>
-          <span style="font-size:14px;color:var(--muted);font-family:'JetBrains Mono',monospace">${d.horizon_days}d horizonte</span>
-</div>
-        <div id="forecast-chart">
-</div>
-</div>
+          <span style="font-size:14px;color:var(--muted);font-family:'JetBrains Mono',monospace">${d.horizon_days}d horizonte</span></div>
+        <div id="forecast-chart"></div></div>
       <div style="display:flex;flex-direction:column;gap:14px">
         <div class="panel">
-          <div class="panel-hdr"><span class="panel-title">Modelos do Ensemble</span>
-</div>
-          <div class="panel-body"><div class="model-grid" id="model-cards">
-</div>
-</div>
-</div>
+          <div class="panel-hdr"><span class="panel-title">Modelos do Ensemble</span></div>
+          <div class="panel-body"><div class="model-grid" id="model-cards"></div></div></div>
         <div class="panel">
           <div class="panel-hdr">
             <span class="panel-title">Análise de IA</span>
-            <span class="provider-badge" id="provider-badge">${d.narrative_provider || 'N/A'}</span>
-</div>
-          <div class="analysis-body" id="analysis-text">
-</div>
-</div>
-</div>
-</div>
+            <span class="provider-badge" id="provider-badge">${d.narrative_provider || 'N/A'}</span></div>
+          <div class="analysis-body" id="analysis-text"></div></div></div></div>
     <div class="panel" style="margin-bottom:14px">
-      <div class="panel-hdr"><span class="panel-title">Valores Projetados por Data</span>
-</div>
+      <div class="panel-hdr"><span class="panel-title">Valores Projetados por Data</span></div>
       <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
-        <table class="fc-table" id="fc-table"></table>
-</div>
-</div>
+        <table class="fc-table" id="fc-table"></table></div></div>
     <div class="disclaimer">
       ⚠️ <strong>Aviso:</strong> Este forecast é gerado por modelos estatísticos e não constitui recomendação de investimento.
       Modelos de séries temporais não incorporam eventos macroeconômicos, notícias ou mudanças fundamentais nas empresas.
-      Use como ferramenta auxiliar de análise, nunca como única base para decisões financeiras.
-</div>`;
+      Use como ferramenta auxiliar de análise, nunca como única base para decisões financeiras.</div>`;
 
   renderChart(d);
   renderModelCards(d.models);
@@ -488,45 +467,25 @@ function renderSignalRow(d) {
 
   sr.innerHTML = `
     <div class="sig-card ${sigClass}">
-      <div class="sig-label">Sinal
-</div>
-      <div class="sig-value ${sigClass}">${d.signal}
-</div>
-      <div class="sig-sub" style="color:${confColor}">Confiança ${d.confidence}
-</div>
-</div>
+      <div class="sig-label">Sinal</div>
+      <div class="sig-value ${sigClass}">${d.signal}</div>
+      <div class="sig-sub" style="color:${confColor}">Confiança ${d.confidence}</div></div>
     <div class="sig-card">
-      <div class="sig-label">Preço Atual
-</div>
-      <div class="sig-value">R$ ${f2(d.last_price)}
-</div>
-      <div class="sig-sub">${d.ticker}
-</div>
-</div>
+      <div class="sig-label">Preço Atual</div>
+      <div class="sig-value">R$ ${f2(d.last_price)}</div>
+      <div class="sig-sub">${d.ticker}</div></div>
     <div class="sig-card">
-      <div class="sig-label">Preço Alvo (${d.horizon_days}d)
-</div>
-      <div class="sig-value" style="color:${chgColor}">R$ ${f2(d.target_price)}
-</div>
-      <div class="sig-sub" style="color:${chgColor}">${d.change_pct >= 0 ? '+' : ''}${d.change_pct.toFixed(2)}%
-</div>
-</div>
+      <div class="sig-label">Preço Alvo (${d.horizon_days}d)</div>
+      <div class="sig-value" style="color:${chgColor}">R$ ${f2(d.target_price)}</div>
+      <div class="sig-sub" style="color:${chgColor}">${d.change_pct >= 0 ? '+' : ''}${d.change_pct.toFixed(2)}%</div></div>
     <div class="sig-card">
-      <div class="sig-label">IC 80% — Mínimo
-</div>
-      <div class="sig-value" style="font-size:22px">R$ ${f2(d.ci_lower)}
-</div>
-      <div class="sig-sub">Limite inferior do intervalo
-</div>
-</div>
+      <div class="sig-label">IC 80% — Mínimo</div>
+      <div class="sig-value" style="font-size:22px">R$ ${f2(d.ci_lower)}</div>
+      <div class="sig-sub">Limite inferior do intervalo</div></div>
     <div class="sig-card">
-      <div class="sig-label">IC 80% — Máximo
-</div>
-      <div class="sig-value" style="font-size:22px">R$ ${f2(d.ci_upper)}
-</div>
-      <div class="sig-sub">Limite superior do intervalo
-</div>
-</div>`;
+      <div class="sig-label">IC 80% — Máximo</div>
+      <div class="sig-value" style="font-size:22px">R$ ${f2(d.ci_upper)}</div>
+      <div class="sig-sub">Limite superior do intervalo</div></div>`;
 }
 
 function renderChart(d) {
@@ -604,26 +563,16 @@ function renderModelCards(models) {
   el.innerHTML = Object.entries(models).map(([k, v]) => {
     if (!v.available) return `
       <div class="model-card">
-        <div class="model-name" style="color:${colors[k]||'#fff'}">${labels[k]||k}
-</div>
-        <div class="model-unavail">Não disponível
-</div>
-        <div style="font-size:13px;color:var(--muted);margin-top:4px">${v.error || 'Instale a dependência'}
-</div>
-</div>`;
+        <div class="model-name" style="color:${colors[k]||'#fff'}">${labels[k]||k}</div>
+        <div class="model-unavail">Não disponível</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:4px">${v.error || 'Instale a dependência'}</div></div>`;
     const weightPct = Math.round((v.weight || 0) * 100);
     return `
       <div class="model-card">
-        <div class="model-name" style="color:${colors[k]||'#3abff8'}">${labels[k]||k}
-</div>
-        <div class="model-stat"><span>MAPE holdout</span><b>${(v.mape||0).toFixed(2)}%</b>
-</div>
-        <div class="model-stat"><span>Peso ensemble</span><b>${weightPct}%</b>
-</div>
-        <div class="weight-bar-bg"><div class="weight-bar" style="width:${weightPct}%;background:${colors[k]}">
-</div>
-</div>
-</div>`;
+        <div class="model-name" style="color:${colors[k]||'#3abff8'}">${labels[k]||k}</div>
+        <div class="model-stat"><span>MAPE holdout</span><b>${(v.mape||0).toFixed(2)}%</b></div>
+        <div class="model-stat"><span>Peso ensemble</span><b>${weightPct}%</b></div>
+        <div class="weight-bar-bg"><div class="weight-bar" style="width:${weightPct}%;background:${colors[k]}"></div></div></div>`;
   }).join('');
 }
 
@@ -639,8 +588,7 @@ function renderTable(forecast, lastPrice) {
   if (!el || !forecast) return;
   el.innerHTML = `
     <thead><tr>
-      <th>Data</th><th>Projetado</th><th>Variação</th><th>IC Mín.</th><th>IC Máx.</th><th>Amplitude IC</th>
-    </tr></thead>
+      <th>Data</th><th>Projetado</th><th>Variação</th><th>IC Mín.</th><th>IC Máx.</th><th>Amplitude IC</th></tr></thead>
     <tbody>${forecast.map(p => {
       const chg = ((p.yhat - lastPrice) / lastPrice * 100);
       const cls = chg >= 0 ? 'up' : 'dn';
@@ -651,8 +599,7 @@ function renderTable(forecast, lastPrice) {
         <td class="${cls}">${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%</td>
         <td>R$ ${f2(p.yhat_lower)}</td>
         <td>R$ ${f2(p.yhat_upper)}</td>
-        <td style="color:var(--muted)">R$ ${f2(amp)}</td>
-      </tr>`;
+        <td style="color:var(--muted)">R$ ${f2(amp)}</td></tr>`;
     }).join('')}</tbody>`;
 }
 

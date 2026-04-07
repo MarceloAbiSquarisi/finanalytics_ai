@@ -260,19 +260,13 @@ function calcPosicao(){
   var pctCap=valorPos/cap*100;
 
   var html='';
-  html+='<div class="result-row"><span class="result-label">Quantidade</span><span class="result-value val-blue">'+qtd+' aÃ§Ãµes</span>
-</div>';
-  html+='<div class="result-row"><span class="result-label">Valor da posiÃ§Ã£o</span><span class="result-value val-gold">R$ '+valorPos.toFixed(2)+'</span>
-</div>';
-  html+='<div class="result-row"><span class="result-label">% do capital</span><span class="result-value '+(pctCap>20?'val-red':'val-green')+'">'+pctCap.toFixed(1)+'%</span>
-</div>';
-  html+='<div class="result-row"><span class="result-label">Risco mÃ¡x. (stop)</span><span class="result-value val-red">-R$ '+stopLoss.toFixed(2)+'</span>
-</div>';
+  html+='<div class="result-row"><span class="result-label">Quantidade</span><span class="result-value val-blue">'+qtd+' aÃ§Ãµes</span></div>';
+  html+='<div class="result-row"><span class="result-label">Valor da posiÃ§Ã£o</span><span class="result-value val-gold">R$ '+valorPos.toFixed(2)+'</span></div>';
+  html+='<div class="result-row"><span class="result-label">% do capital</span><span class="result-value '+(pctCap>20?'val-red':'val-green')+'">'+pctCap.toFixed(1)+'%</span></div>';
+  html+='<div class="result-row"><span class="result-label">Risco mÃ¡x. (stop)</span><span class="result-value val-red">-R$ '+stopLoss.toFixed(2)+'</span></div>';
   if(gainAlvo!==null){
-    html+='<div class="result-row"><span class="result-label">Ganho potencial</span><span class="result-value val-green">+R$ '+gainAlvo.toFixed(2)+'</span>
-</div>';
-    html+='<div class="result-row"><span class="result-label">Risco/Retorno</span><span class="result-value '+(rr>=2?'val-green':rr>=1?'val-gold':'val-red')+'">1:'+rr.toFixed(2)+'</span>
-</div>';
+    html+='<div class="result-row"><span class="result-label">Ganho potencial</span><span class="result-value val-green">+R$ '+gainAlvo.toFixed(2)+'</span></div>';
+    html+='<div class="result-row"><span class="result-label">Risco/Retorno</span><span class="result-value '+(rr>=2?'val-green':rr>=1?'val-gold':'val-red')+'">1:'+rr.toFixed(2)+'</span></div>';
   }
 
   var box=document.getElementById('result-posicao');
@@ -313,16 +307,10 @@ function checkRegras(){
 
   var html='';
   regras.forEach(function(r){
-    html+='<div class="regra-row"><div class="regra-icon '+r.cls+'">'+r.icon+'
-</div>'
-      +'<div class="regra-text"><div class="regra-name">'+r.name+'
-</div><div class="regra-desc">'+r.desc+'
-</div>
-</div>
-</div>';
+    html+='<div class="regra-row"><div class="regra-icon '+r.cls+'">'+r.icon+'</div>'
+      +'<div class="regra-text"><div class="regra-name">'+r.name+'</div><div class="regra-desc">'+r.desc+'</div></div></div>';
   });
-  document.getElementById('regras-result').innerHTML='<div class="result-box">'+html+'
-</div>';
+  document.getElementById('regras-result').innerHTML='<div class="result-box">'+html+'</div>';
 }
 </script>
 </body>

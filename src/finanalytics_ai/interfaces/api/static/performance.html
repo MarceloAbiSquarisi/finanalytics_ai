@@ -455,14 +455,9 @@ async function loadPerformance() {
   if (!portfolioId) { alert('Selecione um portfólio'); return; }
 
   document.getElementById('main-content').innerHTML = `
-    <div class="loader"><div class="dot">
-</div><div class="dot">
-</div><div class="dot">
-</div>
-</div>
+    <div class="loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
     <div style="text-align:center;color:var(--muted);font-size:16px;padding-bottom:20px">
-      Buscando dados históricos e calculando métricas...
-</div>`;
+      Buscando dados históricos e calculando métricas...</div>`;
 
   // Destrói charts anteriores
   Object.values(charts).forEach(c => c.destroy && c.destroy());
@@ -479,11 +474,8 @@ async function loadPerformance() {
   } catch(e) {
     document.getElementById('main-content').innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">⚠
-</div>
-        <div style="font-size:17px;color:var(--red)">${e.message}
-</div>
-</div>`;
+        <div class="empty-icon">⚠</div>
+        <div style="font-size:17px;color:var(--red)">${e.message}</div></div>`;
   }
 }
 
@@ -497,55 +489,36 @@ function renderAll(d) {
   const mc = document.getElementById('main-content');
   mc.innerHTML = `
     <!-- KPIs -->
-    <div class="kpi-grid" id="kpi-grid">
-</div>
+    <div class="kpi-grid" id="kpi-grid"></div>
 
     <!-- Equity Curve -->
     <div class="chart-panel">
       <div class="chart-header">
         <span class="chart-title">Evolucao do Patrimonio — Carteira vs BOVA11 (base 100)</span>
-        <span style="font-size:14px;color:var(--muted)">${m.start_date} → ${m.end_date} &nbsp;|&nbsp; ${m.period_days} dias uteis</span>
-</div>
-      <div class="chart-body"><canvas id="equity-chart"></canvas>
-</div>
-</div>
+        <span style="font-size:14px;color:var(--muted)">${m.start_date} → ${m.end_date} &nbsp;|&nbsp; ${m.period_days} dias uteis</span></div>
+      <div class="chart-body"><canvas id="equity-chart"></canvas></div></div>
 
     <!-- Drawdown -->
     <div class="chart-panel">
       <div class="chart-header">
         <span class="chart-title">Drawdown da Carteira</span>
-        <span style="font-size:14px;color:var(--muted)">Max: <span style="color:var(--red);font-family:'JetBrains Mono',monospace">${fmt(m.max_drawdown_pct)}%</span> &nbsp;(${m.max_drawdown_start} → ${m.max_drawdown_end})</span>
-</div>
-      <div class="chart-body"><canvas id="dd-chart"></canvas>
-</div>
-</div>
+        <span style="font-size:14px;color:var(--muted)">Max: <span style="color:var(--red);font-family:'JetBrains Mono',monospace">${fmt(m.max_drawdown_pct)}%</span> &nbsp;(${m.max_drawdown_start} → ${m.max_drawdown_end})</span></div>
+      <div class="chart-body"><canvas id="dd-chart"></canvas></div></div>
 
     <!-- Bottom: Heatmap + Contributions -->
     <div class="bottom-grid">
       <div class="chart-panel">
-        <div class="chart-header"><span class="chart-title">Retornos Mensais — Carteira</span>
-</div>
-        <div class="chart-body"><div class="heatmap-wrap" id="heatmap-container">
-</div>
-</div>
-</div>
+        <div class="chart-header"><span class="chart-title">Retornos Mensais — Carteira</span></div>
+        <div class="chart-body"><div class="heatmap-wrap" id="heatmap-container"></div></div></div>
       <div class="chart-panel">
-        <div class="chart-header"><span class="chart-title">Contribuicao por Ativo</span>
-</div>
+        <div class="chart-header"><span class="chart-title">Contribuicao por Ativo</span></div>
         <div class="chart-body" style="padding:0 0 8px 0">
-          <table class="contrib-table" id="contrib-table"></table>
-</div>
-</div>
-</div>
+          <table class="contrib-table" id="contrib-table"></table></div></div></div>
 
     <!-- Metrics detail -->
     <div class="chart-panel">
-      <div class="chart-header"><span class="chart-title">Metricas Detalhadas</span>
-</div>
-      <div class="chart-body"><div class="metrics-detail" id="metrics-detail">
-</div>
-</div>
-</div>
+      <div class="chart-header"><span class="chart-title">Metricas Detalhadas</span></div>
+      <div class="chart-body"><div class="metrics-detail" id="metrics-detail"></div></div></div>
   `;
 
   renderKPIs(m, d, sign, cls, fmt);
@@ -572,13 +545,9 @@ function renderKPIs(m, d, sign, cls, fmt) {
   ];
   document.getElementById('kpi-grid').innerHTML = kpis.map(k => `
     <div class="kpi-card">
-      <div class="kpi-label">${k.label}
-</div>
-      <div class="kpi-value ${k.cls}">${k.value}
-</div>
-      <div class="kpi-sub">${k.sub}
-</div>
-</div>`).join('');
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value ${k.cls}">${k.value}</div>
+      <div class="kpi-sub">${k.sub}</div></div>`).join('');
 }
 
 // ── Equity Chart ──────────────────────────────────────────────────────────────
@@ -651,9 +620,7 @@ function renderDrawdownChart(curve) {
 function renderHeatmap(monthly) {
   if (!monthly.length) {
     document.getElementById('heatmap-container').innerHTML =
-      '<div class="empty-state" style="padding:20px"><div>Dados insuficientes para heatmap
-</div>
-</div>';
+      '<div class="empty-state" style="padding:20px"><div>Dados insuficientes para heatmap</div></div>';
     return;
   }
   const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -706,8 +673,7 @@ function renderContrib(contribs, fmt) {
   }
   const maxContrib = Math.max(...contribs.map(c => Math.abs(c.contribution_pct)));
   let html = `<thead><tr>
-    <th>Ativo</th><th>Peso</th><th>Retorno</th><th>Contribuicao</th><th>Volatil.</th>
-  </tr></thead><tbody>`;
+    <th>Ativo</th><th>Peso</th><th>Retorno</th><th>Contribuicao</th><th>Volatil.</th></tr></thead><tbody>`;
   contribs.forEach(c => {
     const cc = c.contribution_pct >= 0 ? 'pos' : 'neg';
     const rc = c.total_return_pct >= 0 ? 'pos' : 'neg';
@@ -720,14 +686,9 @@ function renderContrib(contribs, fmt) {
       <td class="${cc}">
         <div style="display:flex;align-items:center;gap:6px">
           <div style="width:60px;height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden">
-            <div style="width:${barW}%;height:100%;background:${barCol};border-radius:3px">
-</div>
-</div>
-          <span>${c.contribution_pct >= 0 ? '+' : ''}${fmt(c.contribution_pct)}%</span>
-</div>
-      </td>
-      <td class="neu">${fmt(c.volatility_pct)}%</td>
-    </tr>`;
+            <div style="width:${barW}%;height:100%;background:${barCol};border-radius:3px"></div></div>
+          <span>${c.contribution_pct >= 0 ? '+' : ''}${fmt(c.contribution_pct)}%</span></div></td>
+      <td class="neu">${fmt(c.volatility_pct)}%</td></tr>`;
   });
   html += '</tbody>';
   document.getElementById('contrib-table').innerHTML = html;
@@ -756,8 +717,7 @@ function renderMetrics(m, sign, cls, fmt) {
   document.getElementById('metrics-detail').innerHTML = rows.map(([l,v]) => `
     <div class="metric-row">
       <span class="ml">${l}</span>
-      <span class="mv">${v}</span>
-</div>`).join('');
+      <span class="mv">${v}</span></div>`).join('');
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────

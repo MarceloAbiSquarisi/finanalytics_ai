@@ -1217,26 +1217,18 @@ function buildWL() {
       <button onclick="addToWL()"
         style="background:var(--blue);border:none;border-radius:5px;color:var(--navy);
                font-weight:700;font-size:17px;padding:4px 10px;cursor:pointer;flex-shrink:0"
-        title="Adicionar ativo">+</button>
-</div>` +
+        title="Adicionar ativo">+</button></div>` +
     (tickers.length === 0
       ? `<div style="font-size:13px;color:var(--muted);font-family:DM Mono,monospace;padding:4px 14px">
-           Nenhum ativo — digite um ticker acima
-</div>`
+           Nenhum ativo — digite um ticker acima</div>`
       : tickers.map(t => `
     <div class="wi" id="wi-${t}" onclick="selectTicker('${t}')">
-      <div><div class="wt">${t}
-</div><div class="wp" id="wp-${t}">--
-</div>
-</div>
+      <div><div class="wt">${t}</div><div class="wp" id="wp-${t}">--</div></div>
       <div style="display:flex;align-items:center;gap:5px">
-        <div class="wc" id="wc-${t}">--
-</div>
+        <div class="wc" id="wc-${t}">--</div>
         <span onclick="event.stopPropagation();removeFromWL('${t}')"
           style="color:var(--muted);font-size:17px;cursor:pointer;padding:0 3px;
-                 line-height:1;opacity:.55" title="Remover">×</span>
-</div>
-</div>`).join(''));
+                 line-height:1;opacity:.55" title="Remover">×</span></div></div>`).join(''));
 }
 
 function addToWL() {
@@ -2034,14 +2026,12 @@ function renderMAList() {
     if (!items.length) { el.innerHTML = ''; return; }
     el.innerHTML = items.map(m => `
       <div class="ma-item">
-        <div class="ma-item-swatch" style="background:${m.color}">
-</div>
+        <div class="ma-item-swatch" style="background:${m.color}"></div>
         <span class="ma-item-label">${m.type.toUpperCase()} ${m.period}</span>
         <input type="color" value="${m.color}"
           style="width:22px;height:18px;border:none;border-radius:3px;cursor:pointer;background:none;padding:0"
           onchange="changeMAColor(${m.id}, this.value)">
-        <button class="ma-item-del" onclick="removeMAOverlay(${m.id})">✕</button>
-</div>`).join('');
+        <button class="ma-item-del" onclick="removeMAOverlay(${m.id})">✕</button></div>`).join('');
   });
 }
 
@@ -2514,10 +2504,7 @@ async function loadPfs() {
       sel.insertAdjacentHTML('beforeend',`<option value="${p.portfolio_id}">${p.name}</option>`);
       pl.insertAdjacentHTML('beforeend',`
         <div class="pf-item" id="pf-${p.portfolio_id}" onclick="selectPf('${p.portfolio_id}')">
-          <div class="pn">${p.name}
-</div><div class="pv">${p.positions} posicoes
-</div>
-</div>`);
+          <div class="pn">${p.name}</div><div class="pv">${p.positions} posicoes</div></div>`);
     });
     selectPf(list[0].portfolio_id); sel.value=list[0].portfolio_id;
   } catch {}
@@ -2539,16 +2526,9 @@ async function loadPos(id) {
     el.innerHTML=snap.positions.map(p=>{
       const pl=parseFloat(p.profit_loss);
       return `<div class="pos-item" onclick="selectTicker('${p.ticker}')">
-        <div><div class="pos-t">${p.ticker}
-</div><div class="pos-q">${p.quantity} . R$${f2(parseFloat(p.average_price))}
-</div>
-</div>
-        <div><div class="pos-v">R$ ${f2(parseFloat(p.current_value))}
-</div>
-             <div class="pos-pl ${pl>=0?'up':'dn'}">${pl>=0?'+':''}${f2(pl)}
-</div>
-</div>
-</div>`;
+        <div><div class="pos-t">${p.ticker}</div><div class="pos-q">${p.quantity} . R$${f2(parseFloat(p.average_price))}</div></div>
+        <div><div class="pos-v">R$ ${f2(parseFloat(p.current_value))}</div>
+             <div class="pos-pl ${pl>=0?'up':'dn'}">${pl>=0?'+':''}${f2(pl)}</div></div></div>`;
     }).join('');
   } catch { el.innerHTML='<div style="font-size:14px;color:var(--muted)">Erro</div>'; }
 }
@@ -2592,10 +2572,7 @@ async function createPf(){
     document.getElementById('pf-sel').insertAdjacentHTML('beforeend',`<option value="${p.portfolio_id}">${name}</option>`);
     document.getElementById('pf-list').insertAdjacentHTML('beforeend',`
       <div class="pf-item" id="pf-${p.portfolio_id}" onclick="selectPf('${p.portfolio_id}')">
-        <div class="pn">${name}
-</div><div class="pv">0 posicoes
-</div>
-</div>`);
+        <div class="pn">${name}</div><div class="pv">0 posicoes</div></div>`);
     selectPf(p.portfolio_id);
     document.getElementById('m-name').value=document.getElementById('m-cash').value='';
   }catch(e){toast(`Erro: ${e.message}`,'err');}
@@ -2636,8 +2613,7 @@ async function refreshProducerStatus() {
     if (!d.running) {
       dot.className   = 'prod-dot';
       label.textContent = d.reason ? 'BRAPI_TOKEN ausente' : 'inativo';
-      grid.innerHTML  = `<div style="font-size:13px;color:var(--muted);font-family:DM Mono,monospace;grid-column:1/-1">${d.reason || 'Producer desabilitado'}
-</div>`;
+      grid.innerHTML  = `<div style="font-size:13px;color:var(--muted);font-family:DM Mono,monospace;grid-column:1/-1">${d.reason || 'Producer desabilitado'}</div>`;
       return;
     }
 
@@ -2650,16 +2626,12 @@ async function refreshProducerStatus() {
         const chg    = t.change_pct != null ? parseFloat(t.change_pct).toFixed(2) : null;
         const cls    = t.last_error ? 'err' : 'ok';
         const chgHtml = chg != null
-          ? `<div class="pc ${parseFloat(chg)>=0?'up':'dn'}">${parseFloat(chg)>=0?'+':''}${chg}%
-</div>`
+          ? `<div class="pc ${parseFloat(chg)>=0?'up':'dn'}">${parseFloat(chg)>=0?'+':''}${chg}%</div>`
           : '';
         return `<div class="prod-tick ${cls}">
-          <div class="pt">${t.ticker}
-</div>
-          <div class="pp">${price}
-</div>
-          ${chgHtml}
-</div>`;
+          <div class="pt">${t.ticker}</div>
+          <div class="pp">${price}</div>
+          ${chgHtml}</div>`;
       }).join('');
 
       // Atualiza precos no feed de cotacoes em tempo real
@@ -2705,8 +2677,7 @@ function renderAlertList() {
       <span style="color:var(--muted)">${typeLabel}</span>
       <span>R$ ${parseFloat(a.threshold).toFixed(2)}</span>
       <span style="color:${a.status==='triggered'?'var(--gold)':a.status==='active'?'var(--green)':'var(--muted)'}">${statusIcon}</span>
-      ${a.status==='active'?`<span class="alert-del" onclick="deleteAlert('${a.alert_id}')">x</span>`:'<span style="width:14px"></span>'}
-</div>`;
+      ${a.status==='active'?`<span class="alert-del" onclick="deleteAlert('${a.alert_id}')">x</span>`:'<span style="width:14px"></span>'}</div>`;
   }).join('');
 }
 
@@ -2768,12 +2739,9 @@ function showAlertToast(data) {
   const toast = document.createElement('div');
   toast.className = `n-toast ${cls}`;
   toast.innerHTML = `
-    <div style="font-weight:700;font-size:15px">${data.ticker} -- ${data.alert_type.replace('_',' ').toUpperCase()}
-</div>
-    <div class="n-msg">${data.message}
-</div>
-    <div style="font-size:12px;color:var(--muted);margin-top:4px">R$ ${parseFloat(data.current_price).toFixed(2)} -> alvo R$ ${parseFloat(data.threshold).toFixed(2)}
-</div>`;
+    <div style="font-weight:700;font-size:15px">${data.ticker} -- ${data.alert_type.replace('_',' ').toUpperCase()}</div>
+    <div class="n-msg">${data.message}</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:4px">R$ ${parseFloat(data.current_price).toFixed(2)} -> alvo R$ ${parseFloat(data.threshold).toFixed(2)}</div>`;
   toast.onclick = () => toast.remove();
   wrap.appendChild(toast);
 
@@ -2861,12 +2829,9 @@ function renderBacktestResult(d) {
     var value = metrics[i][1];
     var color = metrics[i][2];
     gridHtml += '<div style="background:var(--bg);border-radius:5px;padding:5px 7px">' +
-      '<div style="font-size:12px;color:var(--muted);font-family:DM Mono,monospace">' + label + '
-</div>' +
-      '<div style="font-size:16px;font-weight:700;color:' + color + ';font-family:DM Mono,monospace">' + value + '
-</div>' +
-      '
-</div>';
+      '<div style="font-size:12px;color:var(--muted);font-family:DM Mono,monospace">' + label + '</div>' +
+      '<div style="font-size:16px;font-weight:700;color:' + color + ';font-family:DM Mono,monospace">' + value + '</div>' +
+      '</div>';
   }
   grid.innerHTML = gridHtml;
 
@@ -2925,12 +2890,10 @@ function renderBacktestResult(d) {
         '<div>' +
           '<span style="font-size:12px;color:var(--muted)">#' + (k+1) + ' ' + t.entry_date.slice(0,10) + '</span>' +
           '<span style="font-size:12px;color:var(--muted)"> to ' + t.exit_date.slice(0,10) + '</span>' +
-        '
-</div>' +
+        '</div>' +
         '<span style="font-size:14px;color:' + winColor + ';font-weight:600">' + sign + t.pnl_pct.toFixed(2) + '%</span>' +
         '<span style="font-size:13px;color:' + winColor + '">' + sign + 'R$' + f2(Math.abs(t.pnl)) + '</span>' +
-      '
-</div>';
+      '</div>';
     }
     tl.innerHTML = tradesHtml;
   }

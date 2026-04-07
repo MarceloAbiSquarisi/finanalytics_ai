@@ -408,23 +408,17 @@ function saveHistory(item) {
 function renderHistory() {
   const el = document.getElementById('history-list');
   if (!history_items.length) {
-    el.innerHTML = '<div class="empty-msg">Nenhum relatório gerado ainda.
-</div>';
+    el.innerHTML = '<div class="empty-msg">Nenhum relatório gerado ainda.</div>';
     return;
   }
   el.innerHTML = history_items.map(h => `
     <div class="history-item">
       <div class="history-info">
-        <div class="hi-ticker">${h.titulo}
-</div>
-        <div class="hi-meta">${h.tipo} · ${h.anos} anos · ${h.data}
-</div>
-</div>
+        <div class="hi-ticker">${h.titulo}</div>
+        <div class="hi-meta">${h.tipo} · ${h.anos} anos · ${h.data}</div></div>
       <a href="${h.url}" download="${h.filename}" class="btn-download">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Baixar
-      </a>
-</div>
+        Baixar</a></div>
   `).join('');
 }
 renderHistory();
@@ -467,15 +461,11 @@ function setResult(prefix, blob, filename, titulo, tipo, anos) {
     <div class="result-card" style="flex:1">
       <div class="result-info">
         <strong>${titulo}</strong> — PDF gerado com sucesso
-        <div style="color:var(--muted);font-size:14px;margin-top:2px">${(blob.size/1024).toFixed(1)} KB
-</div>
-</div>
+        <div style="color:var(--muted);font-size:14px;margin-top:2px">${(blob.size/1024).toFixed(1)} KB</div></div>
       <a href="${url}" download="${filename}" class="btn-download">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Baixar PDF
-      </a>
-<a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
-</div>
+        Baixar PDF</a>
+<a href="/profile" class="fa-sb-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a></div>
   `;
   saveHistory({
     titulo, tipo, anos, filename,

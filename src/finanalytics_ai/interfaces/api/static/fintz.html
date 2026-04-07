@@ -635,8 +635,7 @@ function renderCompareChips(){
     const color=PALETTE[i+1]||PALETTE[i%PALETTE.length];
     return `<div class="compare-chip" style="color:${color};border-color:${color}40;background:${color}10">
       <span>${t}</span>
-      <span class="rm" onclick="removeCompareTicker('${t}')">✕</span>
-</div>`;
+      <span class="rm" onclick="removeCompareTicker('${t}')">✕</span></div>`;
   }).join('');
 }
 
@@ -803,10 +802,8 @@ function renderChartLegend(tickers){
   leg.style.display='flex';
   leg.innerHTML=tickers.map((t,i)=>`
     <div class="legend-item">
-      <div class="legend-dot" style="background:${PALETTE[i%PALETTE.length]}">
-</div>
-      <span>${t}${normalize?' (base 100)':''}</span>
-</div>`).join('');
+      <div class="legend-dot" style="background:${PALETTE[i%PALETTE.length]}"></div>
+      <span>${t}${normalize?' (base 100)':''}</span></div>`).join('');
 }
 
 function renderAggChart(rows){
@@ -910,21 +907,16 @@ async function loadIndicadores(){
 function renderIndicadores(ind){
   const grid=document.getElementById('indGrid');
   const entries=Object.entries(ind);
-  if(!entries.length){grid.innerHTML='<div class="empty-msg">Sem dados para este grupo
-</div>';return;}
+  if(!entries.length){grid.innerHTML='<div class="empty-msg">Sem dados para este grupo</div>';return;}
   const needsPct=['ROE','ROIC','ROA','Margem Líquida','Margem EBITDA','DY','Payout'];
   grid.innerHTML=entries.map(([k,v])=>{
     const val=v?.valor;const date=v?.data_ref;const color=IND_COLORS[k]||'blue';
     let display='—';
     if(val!=null)display=needsPct.includes(k)?fmtPct(val):fmtNum(val);
     return `<div class="ind-cell">
-      <div class="ind-name" title="${k}">${k}
-</div>
-      <div class="ind-val ${color}">${display}
-</div>
-      <div class="ind-date">${fmtDate(date)}
-</div>
-</div>`;
+      <div class="ind-name" title="${k}">${k}</div>
+      <div class="ind-val ${color}">${display}</div>
+      <div class="ind-date">${fmtDate(date)}</div></div>`;
   }).join('');
   const dates=entries.map(([,v])=>v?.data_ref).filter(Boolean);
   if(dates.length)document.getElementById('indDate').textContent=`ref: ${fmtDate(dates[0])}`;
@@ -989,13 +981,9 @@ function renderDerivedIndicators(){
   document.getElementById('derivedSection').style.display='';
   document.getElementById('derivedGrid').innerHTML=derivados.map(d=>`
     <div class="derived-cell">
-      <div class="derived-name">${d.nome}
-</div>
-      <div class="derived-formula">${d.formula}
-</div>
-      <div class="derived-val">${d.pct?fmtPct(d.val):fmtNum(d.val)}
-</div>
-</div>`).join('');
+      <div class="derived-name">${d.nome}</div>
+      <div class="derived-formula">${d.formula}</div>
+      <div class="derived-val">${d.pct?fmtPct(d.val):fmtNum(d.val)}</div></div>`).join('');
 }
 
 /* ── Itens Contábeis ─────────────────────────────────────────────── */
@@ -1012,8 +1000,7 @@ async function loadItens(){
 function renderItens(itens){
   const container=document.getElementById('itensContent');
   const entries=Object.entries(itens);
-  if(!entries.length){container.innerHTML='<div class="empty-msg">Sem dados contábeis disponíveis
-</div>';return;}
+  if(!entries.length){container.innerHTML='<div class="empty-msg">Sem dados contábeis disponíveis</div>';return;}
   const rows=entries
     .sort((a,b)=>(Math.abs(b[1]?.valor||0))-(Math.abs(a[1]?.valor||0)))
     .slice(0,30)
@@ -1023,8 +1010,7 @@ function renderItens(itens){
     }).join('');
   container.innerHTML=`<table class="itens-table">
     <thead><tr><th>Item</th><th style="text-align:right">Valor</th><th>Ref</th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+    <tbody>${rows}</tbody></table>`;
 }
 
 /* ── Série de indicador ───────────────────────────────────────────── */

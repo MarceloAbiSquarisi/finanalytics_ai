@@ -348,8 +348,7 @@ async function loadQuotes(){
         '<span class="qc '+cls+'">'+(chg>=0?'+':'')+chg.toFixed(2)+'%</span>'+
         '<span class="qv">'+fv(q.volume_day)+'</span>'+
         '<span class="qt">'+fv(q.trades_day)+'</span>'+
-        '
-</div>';
+        '</div>';
     }).join('');
     document.getElementById('qtime').textContent=new Date().toLocaleTimeString('pt-BR');
   }catch(e){}
@@ -390,8 +389,7 @@ async function loadTicks(){
     if(!r.ok||!d.ticks)return;
     document.getElementById('tick-stream').innerHTML=d.ticks.slice(-50).reverse().map(function(t){
       var side=t.buy_agent>t.sell_agent?'<span class="up">C</span>':'<span class="dn">V</span>';
-      return '<div class="trow"><span class="tt">'+ft(t.time)+'</span><span class="tp">'+fp(t.price)+'</span><span class="tq">'+t.quantity+'</span><span class="ts2">'+side+'</span>
-</div>';
+      return '<div class="trow"><span class="tt">'+ft(t.time)+'</span><span class="tp">'+fp(t.price)+'</span><span class="tq">'+t.quantity+'</span><span class="ts2">'+side+'</span></div>';
     }).join('');
   }catch(e){}
 }

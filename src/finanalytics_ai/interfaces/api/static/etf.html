@@ -363,8 +363,7 @@ async function loadOverview() {
     const data = await r.json();
     if(!data.length) {
       document.getElementById('etf-cards').innerHTML =
-        '<div style="color:var(--muted);font-size:16px;padding:20px">Sem dados. <button onclick="syncETFs()" style="color:var(--blue);background:transparent;border:none;cursor:pointer;font-family:inherit;font-size:16px">Clique para sincronizar via BRAPI</button>
-</div>';
+        '<div style="color:var(--muted);font-size:16px;padding:20px">Sem dados. <button onclick="syncETFs()" style="color:var(--blue);background:transparent;border:none;cursor:pointer;font-family:inherit;font-size:16px">Clique para sincronizar via BRAPI</button></div>';
       document.getElementById('overview-status').textContent = 'Sem dados de preço';
       return;
     }
@@ -372,8 +371,7 @@ async function loadOverview() {
     const dt = data[0]?.data || '';
     document.getElementById('overview-status').textContent = `${data.length} ETFs · Preços de ${dt}`;
   } catch(e) {
-    document.getElementById('etf-cards').innerHTML = '<div style="color:var(--red);font-size:16px">Erro ao carregar overview
-</div>';
+    document.getElementById('etf-cards').innerHTML = '<div style="color:var(--red);font-size:16px">Erro ao carregar overview</div>';
   }
 }
 
@@ -381,19 +379,12 @@ function renderCards(etfs) {
   document.getElementById('etf-cards').innerHTML = etfs.map(e => `
     <div class="etf-card${e.ticker===_selTicker?' selected':''}" onclick="selectETF('${e.ticker}','${(e.nome||'').replace(/'/g,"\\'")}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div class="etf-ticker">${e.ticker}
-</div>
-        ${e.var_dia!==null ? `<span class="etf-var ${e.var_dia>=0?'pos':'neg'}">${e.var_dia>=0?'+':''}${(e.var_dia||0).toFixed(2)}%</span>` : ''}
-</div>
-      <div class="etf-nome">${e.nome||e.ticker}
-</div>
+        <div class="etf-ticker">${e.ticker}</div>
+        ${e.var_dia!==null ? `<span class="etf-var ${e.var_dia>=0?'pos':'neg'}">${e.var_dia>=0?'+':''}${(e.var_dia||0).toFixed(2)}%</span>` : ''}</div>
+      <div class="etf-nome">${e.nome||e.ticker}</div>
       <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:8px">
-        <div class="etf-price">R$ ${e.preco ? e.preco.toFixed(2) : '--'}
-</div>
-        ${e.rent_12m!==null ? `<div style="font-size:14px;color:${e.rent_12m>=0?'var(--accent)':'var(--red)'}">12m: ${e.rent_12m>=0?'+':''}${(e.rent_12m||0).toFixed(1)}%
-</div>` : ''}
-</div>
-</div>
+        <div class="etf-price">R$ ${e.preco ? e.preco.toFixed(2) : '--'}</div>
+        ${e.rent_12m!==null ? `<div style="font-size:14px;color:${e.rent_12m>=0?'var(--accent)':'var(--red)'}">12m: ${e.rent_12m>=0?'+':''}${(e.rent_12m||0).toFixed(1)}%</div>` : ''}</div></div>
   `).join('');
 }
 
@@ -404,8 +395,7 @@ async function selectETF(ticker, nome) {
   document.getElementById('detail-nome').textContent = nome;
   document.getElementById('detail-metrics').innerHTML = '';
   if(_etfChart) { _etfChart.remove(); _etfChart = null; }
-  document.getElementById('etf-chart').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted)"><span class="spinner"></span>Carregando...
-</div>';
+  document.getElementById('etf-chart').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted)"><span class="spinner"></span>Carregando...</div>';
   // Remarca card
   document.querySelectorAll('.etf-card').forEach(c => c.classList.remove('selected'));
   document.querySelectorAll('.etf-card').forEach(c => {
@@ -421,15 +411,13 @@ async function loadHistory() {
     const r = await fetch(`/api/v1/etf/history/${_selTicker}?days=${days}`, {headers:H()});
     const d = await r.json();
     if(!d.candles?.length) {
-      document.getElementById('etf-chart').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted)">Sem dados históricos. Sincronize via BRAPI primeiro.
-</div>';
+      document.getElementById('etf-chart').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted)">Sem dados históricos. Sincronize via BRAPI primeiro.</div>';
       return;
     }
     renderHistChart(d.candles, _selTicker);
     renderDetailMetrics(d.candles);
   } catch(e) {
-    document.getElementById('etf-chart').innerHTML = '<div style="color:var(--red);padding:20px">Erro ao carregar histórico
-</div>';
+    document.getElementById('etf-chart').innerHTML = '<div style="color:var(--red);padding:20px">Erro ao carregar histórico</div>';
   }
 }
 
@@ -477,11 +465,8 @@ function renderDetailMetrics(candles) {
     ['Variação abs.', `R$ ${(last-first).toFixed(2)}`, last>=first?'#00c48c':'#E05555'],
   ].map(([l,v,c]) => `
     <div style="background:rgba(11,21,32,.8);border:1px solid var(--border);border-radius:6px;padding:10px 12px">
-      <div style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">${l}
-</div>
-      <div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${c}">${v}
-</div>
-</div>
+      <div style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">${l}</div>
+      <div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${c}">${v}</div></div>
   `).join('');
 }
 
@@ -550,13 +535,9 @@ function renderCompare(data) {
     ['🧘 Menor Volatilidade', s.lowest_vol, find(s.lowest_vol), m=>m?`${m.volatility_pct?.toFixed(2)}% a.a.`:''],
   ].map(([l,t,m,sub]) => `
     <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
-      <div style="font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${l}
-</div>
-      <div style="font-size:24px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace">${t||'—'}
-</div>
-      <div style="font-size:14px;color:var(--muted);margin-top:2px">${sub(m)}
-</div>
-</div>
+      <div style="font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${l}</div>
+      <div style="font-size:24px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace">${t||'—'}</div>
+      <div style="font-size:14px;color:var(--muted);margin-top:2px">${sub(m)}</div></div>
   `).join('');
 
   // Chart base 100
@@ -587,10 +568,8 @@ function renderCompare(data) {
     });
     document.getElementById('cmp-legend').innerHTML = tickers.map((t,i)=>`
       <div style="display:flex;align-items:center;gap:5px;font-size:15px">
-        <div style="width:10px;height:10px;border-radius:50%;background:${COLORS[i%COLORS.length]}">
-</div>
-        <span style="color:var(--muted)">${t}</span>
-</div>`).join('');
+        <div style="width:10px;height:10px;border-radius:50%;background:${COLORS[i%COLORS.length]}"></div>
+        <span style="color:var(--muted)">${t}</span></div>`).join('');
   }
 
   // Tabela métricas
@@ -604,8 +583,7 @@ function renderCompare(data) {
       <td>${m.volatility_pct?.toFixed(2)||'—'}%</td>
       <td style="color:${(m.sharpe||0)>1?'#00c48c':(m.sharpe||0)>0?'#F0B429':'#E05555'}">${m.sharpe?.toFixed(2)||'—'}</td>
       <td style="color:#E05555">${m.max_drawdown_pct!=null?'-'+m.max_drawdown_pct.toFixed(2)+'%':'—'}</td>
-      <td style="color:#E05555">${m.var_95_pct!=null?m.var_95_pct.toFixed(2)+'%':'—'}</td>
-    </tr>
+      <td style="color:#E05555">${m.var_95_pct!=null?m.var_95_pct.toFixed(2)+'%':'—'}</td></tr>
   `).join('');
 }
 
@@ -617,25 +595,16 @@ async function loadCatalog() {
     const etfs = await r.json();
     grid.innerHTML = etfs.map(e => `
       <div class="catalog-card">
-        <div class="catalog-ticker">${e.ticker}
-</div>
-        <div class="catalog-name">${e.name}
-</div>
-        <div class="catalog-row"><span>Benchmark</span><span style="color:var(--text)">${e.benchmark}</span>
-</div>
-        <div class="catalog-row"><span>TER</span><span style="color:var(--gold)">${e.ter}% a.a.</span>
-</div>
-        <div class="catalog-row"><span>Categoria</span><span style="color:var(--blue)">${e.category}</span>
-</div>
-        <div class="catalog-row"><span>Moeda</span><span>${e.currency}</span>
-</div>
-        ${e.description?`<div style="font-size:14px;color:#556677;margin-top:6px">${e.description}
-</div>`:''}
-</div>
+        <div class="catalog-ticker">${e.ticker}</div>
+        <div class="catalog-name">${e.name}</div>
+        <div class="catalog-row"><span>Benchmark</span><span style="color:var(--text)">${e.benchmark}</span></div>
+        <div class="catalog-row"><span>TER</span><span style="color:var(--gold)">${e.ter}% a.a.</span></div>
+        <div class="catalog-row"><span>Categoria</span><span style="color:var(--blue)">${e.category}</span></div>
+        <div class="catalog-row"><span>Moeda</span><span>${e.currency}</span></div>
+        ${e.description?`<div style="font-size:14px;color:#556677;margin-top:6px">${e.description}</div>`:''}</div>
     `).join('');
   } catch(e) {
-    grid.innerHTML = '<div style="color:var(--red)">Erro ao carregar catálogo
-</div>';
+    grid.innerHTML = '<div style="color:var(--red)">Erro ao carregar catálogo</div>';
   }
 }
 

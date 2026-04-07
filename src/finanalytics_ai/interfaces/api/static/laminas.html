@@ -399,8 +399,7 @@ async function buscarFundos(reset) {
   _sit = document.getElementById('filter-sit').value;
 
   if(!_q && !_tipo && !_sit) {
-    document.getElementById('fund-list').innerHTML = '<div class="fund-empty">Digite para buscar fundos
-</div>';
+    document.getElementById('fund-list').innerHTML = '<div class="fund-empty">Digite para buscar fundos</div>';
     document.getElementById('fund-pagination').innerHTML = '';
     return;
   }
@@ -417,8 +416,7 @@ async function buscarFundos(reset) {
 
   const list = document.getElementById('fund-list');
   if(!d.fundos || !d.fundos.length) {
-    list.innerHTML = '<div class="fund-empty">Nenhum fundo encontrado
-</div>';
+    list.innerHTML = '<div class="fund-empty">Nenhum fundo encontrado</div>';
     document.getElementById('fund-pagination').innerHTML = '';
     return;
   }
@@ -426,19 +424,14 @@ async function buscarFundos(reset) {
   list.innerHTML = d.fundos.map(f => `
     <div class="fund-item${f.cnpj===_selCnpj?' selected':''}" onclick="selectFund(this.dataset.cnpj)" data-cnpj="${f.cnpj}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
-        <div class="fund-name">${f.denominacao||f.cnpj}
-</div>
-        <span class="badge ${badgeClass(f.tipo)}">${f.tipo||'?'}</span>
-</div>
+        <div class="fund-name">${f.denominacao||f.cnpj}</div>
+        <span class="badge ${badgeClass(f.tipo)}">${f.tipo||'?'}</span></div>
       <div class="fund-meta">
         <span>${f.cnpj}</span>
-        ${f.gestor ? `<span>· ${f.gestor.substring(0,30)}${f.gestor.length>30?'...':''}</span>` : ''}
-</div>
+        ${f.gestor ? `<span>· ${f.gestor.substring(0,30)}${f.gestor.length>30?'...':''}</span>` : ''}</div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
         <span style="font-size:13px;color:${f.situacao==='EM FUNCIONAMENTO NORMAL'?'var(--accent)':'var(--muted)'}">${f.situacao||''}</span>
-        ${f.pl_atual ? `<span class="fund-pl">R$ ${fmtBi(f.pl_atual)}</span>` : ''}
-</div>
-</div>
+        ${f.pl_atual ? `<span class="fund-pl">R$ ${fmtBi(f.pl_atual)}</span>` : ''}</div></div>
   `).join('');
 
   const pg = document.getElementById('fund-pagination');
@@ -446,8 +439,7 @@ async function buscarFundos(reset) {
     <div style="display:flex;gap:6px">
       ${_offset>0?`<button onclick="changePage(-1)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:14px">←</button>`:''}
       <span>${Math.floor(_offset/30)+1}/${Math.ceil(_total/30)}</span>
-      ${_offset+30<_total?`<button onclick="changePage(1)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:14px">→</button>`:''}
-</div>`;
+      ${_offset+30<_total?`<button onclick="changePage(1)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:14px">→</button>`:''}</div>`;
 }
 
 function changePage(dir) { _offset = Math.max(0, _offset + dir*30); buscarFundos(); }
@@ -482,8 +474,7 @@ async function selectFund(cnpj) {
   document.getElementById('ia-result').style.display = 'none';
   const fd = document.getElementById('fund-detail');
   fd.style.display = 'flex';
-  document.getElementById('detail-content').innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted)"><span class="spinner"></span>Carregando...
-</div>';
+  document.getElementById('detail-content').innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted)"><span class="spinner"></span>Carregando...</div>';
 
   // Marca item selecionado
   document.querySelectorAll('.fund-item').forEach(el => {
@@ -513,78 +504,45 @@ function renderVisaoTab() {
   document.getElementById('detail-content').innerHTML = `
     <div class="detail-header">
       <div>
-        <div class="detail-name">${f.denominacao||f.cnpj}
-</div>
-        <div class="detail-cnpj">${f.cnpj} · ${f.tipo||'—'} · ${f.classe||'—'}
-</div>
-</div>
-      <span class="badge ${badgeClass(f.tipo)}" style="font-size:15px;padding:3px 8px">${f.tipo||'?'}</span>
-</div>
+        <div class="detail-name">${f.denominacao||f.cnpj}</div>
+        <div class="detail-cnpj">${f.cnpj} · ${f.tipo||'—'} · ${f.classe||'—'}</div></div>
+      <span class="badge ${badgeClass(f.tipo)}" style="font-size:15px;padding:3px 8px">${f.tipo||'?'}</span></div>
 
     <div class="metrics-grid">
       <div class="metric-card">
-        <div class="metric-label">PL Atual
-</div>
-        <div class="metric-val neu">${plAtual?'R$ '+fmtBi(plAtual):'--'}
-</div>
-</div>
+        <div class="metric-label">PL Atual</div>
+        <div class="metric-val neu">${plAtual?'R$ '+fmtBi(plAtual):'--'}</div></div>
       <div class="metric-card">
-        <div class="metric-label">Cota Atual
-</div>
-        <div class="metric-val neu">${cotaAtual?cotaAtual.toFixed(6):'--'}
-</div>
-</div>
+        <div class="metric-label">Cota Atual</div>
+        <div class="metric-val neu">${cotaAtual?cotaAtual.toFixed(6):'--'}</div></div>
       <div class="metric-card">
-        <div class="metric-label">Cotistas
-</div>
-        <div class="metric-val neu">${lastHist?.cotistas?lastHist.cotistas.toLocaleString('pt-BR'):(f.cotistas||'--')}
-</div>
-</div>
+        <div class="metric-label">Cotistas</div>
+        <div class="metric-val neu">${lastHist?.cotistas?lastHist.cotistas.toLocaleString('pt-BR'):(f.cotistas||'--')}</div></div>
       <div class="metric-card">
-        <div class="metric-label">Taxa Adm
-</div>
-        <div class="metric-val neu">${f.taxa_adm?f.taxa_adm+'% a.a.':'--'}
-</div>
-</div>
+        <div class="metric-label">Taxa Adm</div>
+        <div class="metric-val neu">${f.taxa_adm?f.taxa_adm+'% a.a.':'--'}</div></div>
       <div class="metric-card">
-        <div class="metric-label">Rent. 12m
-</div>
-        <div class="metric-val ${rent.rent_12m>0?'pos':rent.rent_12m<0?'neg':'neu'}">${rent.rent_12m?fmtPct(rent.rent_12m):'--'}
-</div>
-</div>
+        <div class="metric-label">Rent. 12m</div>
+        <div class="metric-val ${rent.rent_12m>0?'pos':rent.rent_12m<0?'neg':'neu'}">${rent.rent_12m?fmtPct(rent.rent_12m):'--'}</div></div>
       <div class="metric-card">
-        <div class="metric-label">Volatilidade
-</div>
-        <div class="metric-val neu">${rent.volatilidade_12m?parseFloat(rent.volatilidade_12m).toFixed(2)+'%':'--'}
-</div>
-</div>
-</div>
+        <div class="metric-label">Volatilidade</div>
+        <div class="metric-val neu">${rent.volatilidade_12m?parseFloat(rent.volatilidade_12m).toFixed(2)+'%':'--'}</div></div></div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:15px;color:var(--muted);margin-bottom:16px">
-      <div><b style="color:var(--text)">Gestor</b><br>${f.gestor||'—'}
-</div>
-      <div><b style="color:var(--text)">Administrador</b><br>${f.administrador||'—'}
-</div>
-      <div><b style="color:var(--text)">Custodiante</b><br>${f.custodiante||'—'}
-</div>
-      <div><b style="color:var(--text)">Situação</b><br><span style="color:${f.situacao==='EM FUNCIONAMENTO NORMAL'?'var(--accent)':'var(--muted)'}">${f.situacao||'—'}</span>
-</div>
-      <div><b style="color:var(--text)">Público-alvo</b><br>${f.publico_alvo||'—'}
-</div>
-      <div><b style="color:var(--text)">Registro</b><br>${f.data_registro||'—'}
-</div>
-</div>
+      <div><b style="color:var(--text)">Gestor</b><br>${f.gestor||'—'}</div>
+      <div><b style="color:var(--text)">Administrador</b><br>${f.administrador||'—'}</div>
+      <div><b style="color:var(--text)">Custodiante</b><br>${f.custodiante||'—'}</div>
+      <div><b style="color:var(--text)">Situação</b><br><span style="color:${f.situacao==='EM FUNCIONAMENTO NORMAL'?'var(--accent)':'var(--muted)'}">${f.situacao||'—'}</span></div>
+      <div><b style="color:var(--text)">Público-alvo</b><br>${f.publico_alvo||'—'}</div>
+      <div><b style="color:var(--text)">Registro</b><br>${f.data_registro||'—'}</div></div>
 
     ${hist.length ? `
-    <div style="font-size:14px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Histórico de cotas (${hist.length} dias)
-</div>
-    <div id="mini-chart" style="height:120px;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:12px">
-</div>
+    <div style="font-size:14px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Histórico de cotas (${hist.length} dias)</div>
+    <div id="mini-chart" style="height:120px;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:12px"></div>
     ` : ''}
 
     <button onclick="switchDetailTab('lamina')" style="width:100%;padding:10px;background:rgba(58,191,248,.08);border:1px solid rgba(58,191,248,.25);border-radius:7px;color:var(--blue);font-size:16px;font-weight:700;cursor:pointer;font-family:'Rajdhani',sans-serif;letter-spacing:.5px">
-      📄 Analisar Lâmina deste Fundo com IA →
-    </button>
+      📄 Analisar Lâmina deste Fundo com IA →</button>
   `;
 
   // Mini chart
@@ -609,12 +567,9 @@ async function renderCotasTab() {
   if(!_fundData) return;
   const cnpj = _fundData.fundo?.cnpj;
   document.getElementById('detail-content').innerHTML = `
-    <div style="font-size:15px;color:var(--muted);margin-bottom:10px">Histórico de cotas — ${cnpj}
-</div>
-    <div id="cotas-chart">
-</div>
-    <div id="cotas-loading" style="text-align:center;padding:20px;color:var(--muted)"><span class="spinner"></span>Carregando cotas...
-</div>
+    <div style="font-size:15px;color:var(--muted);margin-bottom:10px">Histórico de cotas — ${cnpj}</div>
+    <div id="cotas-chart"></div>
+    <div id="cotas-loading" style="text-align:center;padding:20px;color:var(--muted)"><span class="spinner"></span>Carregando cotas...</div>
   `;
 
   const r = await fetch(`/api/v1/fundos/`+encodeURIComponent(cnpj)+`/cotas?days=252`, {headers:H()});
@@ -623,8 +578,7 @@ async function renderCotasTab() {
   document.getElementById('cotas-loading').style.display = 'none';
 
   if(!d.candles || !d.candles.length) {
-    document.getElementById('detail-content').innerHTML += '<div style="color:var(--muted);font-size:16px;padding:16px">Sem dados de cotas disponíveis.
-</div>';
+    document.getElementById('detail-content').innerHTML += '<div style="color:var(--muted);font-size:16px;padding:16px">Sem dados de cotas disponíveis.</div>';
     return;
   }
 
@@ -647,26 +601,16 @@ async function renderCotasTab() {
 function renderLaminaTab() {
   document.getElementById('detail-content').innerHTML = `
     <div style="font-size:16px;color:var(--muted);margin-bottom:14px;line-height:1.7">
-      Faça upload da lâmina PDF de <b style="color:var(--text)">${_fundData?.fundo?.denominacao||'este fundo'}</b> para análise completa com IA.
-</div>
+      Faça upload da lâmina PDF de <b style="color:var(--text)">${_fundData?.fundo?.denominacao||'este fundo'}</b> para análise completa com IA.</div>
     <div class="upload-zone" id="drop-zone2" ondragover="onDrag2(event,true)" ondragleave="onDrag2(event,false)" ondrop="onDrop2(event)">
       <input type="file" accept=".pdf" onchange="onFileSelect2(event)">
-      <div style="font-size:28px;margin-bottom:8px">📄
-</div>
-      <div style="font-size:17px;font-weight:700;margin-bottom:4px">Arraste ou clique
-</div>
-      <div style="font-size:15px;color:var(--muted)">PDF · até 20MB · 30–90s
-</div>
-</div>
+      <div style="font-size:28px;margin-bottom:8px">📄</div>
+      <div style="font-size:17px;font-weight:700;margin-bottom:4px">Arraste ou clique</div>
+      <div style="font-size:15px;color:var(--muted)">PDF · até 20MB · 30–90s</div></div>
     <div id="upload-status2" style="display:none;margin-top:12px">
-      <div id="upload-filename2" style="font-size:16px;font-weight:700;margin-bottom:6px">
-</div>
-      <div class="progress-bar"><div class="progress-fill" id="progress-fill2" style="width:0%">
-</div>
-</div>
-      <div id="upload-msg2" style="font-size:15px;color:var(--muted)">
-</div>
-</div>
+      <div id="upload-filename2" style="font-size:16px;font-weight:700;margin-bottom:6px"></div>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill2" style="width:0%"></div></div>
+      <div id="upload-msg2" style="font-size:15px;color:var(--muted)"></div></div>
   `;
 }
 
@@ -676,10 +620,8 @@ async function checkApiStatus() {
     const r = await fetch('/api/v1/fund-analysis/status');
     const d = await r.json();
     document.getElementById('api-status').innerHTML = d.available
-      ? '<div style="font-size:14px;color:var(--accent)">✓ Análise IA disponível
-</div>'
-      : '<div style="font-size:14px;color:var(--red)">⚠ ANTHROPIC_API_KEY não configurada
-</div>';
+      ? '<div style="font-size:14px;color:var(--accent)">✓ Análise IA disponível</div>'
+      : '<div style="font-size:14px;color:var(--red)">⚠ ANTHROPIC_API_KEY não configurada</div>';
   } catch {}
 }
 
@@ -759,60 +701,38 @@ function showIAResult(d, fname) {
   ir.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <div>
-        <div style="font-size:18px;font-weight:700">${fname}
-</div>
-        <div style="font-size:14px;color:var(--muted);margin-top:2px">${d.fund_name||''}
-</div>
-</div>
-      <button onclick="closeIAResult()" style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--muted);padding:4px 10px;cursor:pointer;font-size:15px">✕ Fechar</button>
-</div>
+        <div style="font-size:18px;font-weight:700">${fname}</div>
+        <div style="font-size:14px;color:var(--muted);margin-top:2px">${d.fund_name||''}</div></div>
+      <button onclick="closeIAResult()" style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--muted);padding:4px 10px;cursor:pointer;font-size:15px">✕ Fechar</button></div>
 
     <div class="rec-banner" style="background:${recColor}15;border:1px solid ${recColor}30">
-      <div class="score-ring" style="border-color:${recColor};color:${recColor}">${d.score||'?'}
-</div>
-      <div class="rec-badge" style="color:${recColor}">${rec}
-</div>
-      <div style="font-size:16px;color:var(--muted);margin-top:6px;line-height:1.6;max-width:500px;margin-left:auto;margin-right:auto">${d.summary||''}
-</div>
-</div>
+      <div class="score-ring" style="border-color:${recColor};color:${recColor}">${d.score||'?'}</div>
+      <div class="rec-badge" style="color:${recColor}">${rec}</div>
+      <div style="font-size:16px;color:var(--muted);margin-top:6px;line-height:1.6;max-width:500px;margin-left:auto;margin-right:auto">${d.summary||''}</div></div>
 
     <div class="metrics-grid" style="margin-bottom:16px">
       ${[['Retorno 12m',m.return_12m,'%'],['Volatilidade',m.volatility,'%'],['Sharpe',m.sharpe,''],['Max Drawdown',m.max_drawdown,'%'],['PL',m.aum,''],['Taxa Adm',m.management_fee,'% a.a.']].map(([l,v,u])=>`
         <div class="metric-card">
-          <div class="metric-label">${l}
-</div>
-          <div class="metric-val neu">${v!=null?v+u:'--'}
-</div>
-</div>`).join('')}
-</div>
+          <div class="metric-label">${l}</div>
+          <div class="metric-val neu">${v!=null?v+u:'--'}</div></div>`).join('')}</div>
 
     ${dims.length ? `
-    <div style="font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Dimensões de análise
-</div>
+    <div style="font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Dimensões de análise</div>
     <div class="dim-grid">
       ${dims.map(dim=>{
         const score = parseFloat(dim.score)||0;
         const pct = Math.min(100,Math.max(0,(score/10)*100));
         const c = score>=7?'var(--accent)':score>=4?'var(--gold)':'var(--red)';
         return `<div class="dim-card">
-          <div class="dim-label">${dim.name}
-</div>
-          <div class="dim-bar-bg"><div class="dim-bar-fill" style="width:${pct}%;background:${c}">
-</div>
-</div>
+          <div class="dim-label">${dim.name}</div>
+          <div class="dim-bar-bg"><div class="dim-bar-fill" style="width:${pct}%;background:${c}"></div></div>
           <div style="display:flex;justify-content:space-between;font-size:14px">
             <span style="color:var(--muted)">${dim.comment||''}</span>
-            <span style="color:${c};font-weight:700">${dim.score}/10</span>
-</div>
-</div>`;}).join('')}
-</div>` : ''}
+            <span style="color:${c};font-weight:700">${dim.score}/10</span></div></div>`;}).join('')}</div>` : ''}
 
     ${d.risks ? `<div style="margin-top:14px;font-size:15px;background:rgba(224,85,85,.06);border:1px solid rgba(224,85,85,.2);border-radius:7px;padding:12px">
-      <div style="font-weight:700;color:var(--red);margin-bottom:6px">⚠ Riscos identificados
-</div>
-      <div style="color:var(--muted);line-height:1.7">${d.risks}
-</div>
-</div>` : ''}
+      <div style="font-weight:700;color:var(--red);margin-bottom:6px">⚠ Riscos identificados</div>
+      <div style="color:var(--muted);line-height:1.7">${d.risks}</div></div>` : ''}
   `;
 }
 

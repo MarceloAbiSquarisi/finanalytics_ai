@@ -689,16 +689,14 @@ function buildCard(r, idx) {
 
   var bodyHtml = '';
   if (!anomalies.length) {
-    bodyHtml = '<div class="no-anom-msg">Nenhuma anomalia detectada
-</div>';
+    bodyHtml = '<div class="no-anom-msg">Nenhuma anomalia detectada</div>';
   } else {
     anomalies.slice(0, 4).forEach(function(a) {
       bodyHtml += buildAnomalyRow(a);
     });
     if (anomalies.length > 4) {
       bodyHtml += '<div style="font-family:var(--mono);font-size:13px;color:var(--muted);'
-        + 'padding:6px 0;text-align:center">+ ' + (anomalies.length - 4) + ' mais anomalias
-</div>';
+        + 'padding:6px 0;text-align:center">+ ' + (anomalies.length - 4) + ' mais anomalias</div>';
     }
   }
 
@@ -709,14 +707,10 @@ function buildCard(r, idx) {
     +     '<span style="font-family:var(--mono);font-size:12px;color:var(--muted)">'
     +       r.bars_analyzed + ' barras</span>'
     +     badgeHtml
-    +   '
-</div>'
-    + '
-</div>'
-    + '<div class="card-body">' + bodyHtml + '
-</div>'
-    + '
-</div>';
+    +   '</div>'
+    + '</div>'
+    + '<div class="card-body">' + bodyHtml + '</div>'
+    + '</div>';
 }
 
 function buildAnomalyRow(a) {
@@ -737,21 +731,15 @@ function buildAnomalyRow(a) {
   var sevColor = a.severity === 'high' ? 'var(--high)' : a.severity === 'medium' ? 'var(--med)' : 'var(--low)';
 
   return '<div class="anom-row">'
-    + '<div class="anom-icon ' + icon.cls + '">' + icon.emoji + '
-</div>'
+    + '<div class="anom-icon ' + icon.cls + '">' + icon.emoji + '</div>'
     + '<div class="anom-info">'
-    +   '<div class="anom-type">' + icon.label + '
-</div>'
-    +   '<div class="anom-desc">' + a.description + '
-</div>'
-    + '
-</div>'
+    +   '<div class="anom-type">' + icon.label + '</div>'
+    +   '<div class="anom-desc">' + a.description + '</div>'
+    + '</div>'
     + '<div class="anom-score ' + dirCls + '" style="color:' + sevColor + '">'
     +   scoreStr + dirArrow
-    + '
-</div>'
-    + '
-</div>';
+    + '</div>'
+    + '</div>';
 }
 </script>
 

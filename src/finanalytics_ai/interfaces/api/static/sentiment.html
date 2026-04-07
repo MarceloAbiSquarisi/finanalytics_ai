@@ -261,8 +261,7 @@ async function runScan(){
   btn.disabled=true;btn.textContent='Analisando...';
 
   var grid=document.getElementById('news-grid');
-  grid.innerHTML='<div class="loading"><span class="spin">&#9696;</span><br><br>Buscando noticias e analisando sentimento...<br><small style="color:var(--muted)">Claude Haiku 4.5 esta trabalhando</small>
-</div>';
+  grid.innerHTML='<div class="loading"><span class="spin">&#9696;</span><br><br>Buscando noticias e analisando sentimento...<br><small style="color:var(--muted)">Claude Haiku 4.5 esta trabalhando</small></div>';
 
   document.getElementById('kpi-row').style.display='none';
   document.getElementById('score-bar-wrap').style.display='none';
@@ -275,10 +274,8 @@ async function runScan(){
     var r=await fetch(url,{headers:{Authorization:'Bearer '+tok()}});
     var d=await r.json();
 
-    if(d.detail){grid.innerHTML='<div class="empty-msg" style="color:var(--red)">'+d.detail+'
-</div>';return;}
-    if(!d.total){grid.innerHTML='<div class="empty-msg">Nenhuma noticia encontrada para os tickers selecionados
-</div>';return;}
+    if(d.detail){grid.innerHTML='<div class="empty-msg" style="color:var(--red)">'+d.detail+'</div>';return;}
+    if(!d.total){grid.innerHTML='<div class="empty-msg">Nenhuma noticia encontrada para os tickers selecionados</div>';return;}
 
     // KPIs
     document.getElementById('kv-total').textContent=d.total;
@@ -323,30 +320,22 @@ async function runScan(){
         '<div class="sentiment-badge badge-'+cls+'">'+
           '<span class="badge-icon">'+icon+'</span>'+
           '<span class="badge-score '+scoreCls+'">'+(sc>=0?'+':'')+fmt2(sc)+'</span>'+
-        '
-</div>'+
+        '</div>'+
         '<div class="news-body">'+
-          '<div class="news-title">'+(n.url?'<a href="'+n.url+'" target="_blank" style="color:inherit;text-decoration:none">':'')+n.title+(n.url?'</a>':'')+'
-</div>'+
-          (n.resumo&&n.resumo!=='Erro na analise'?'<div class="news-resumo">'+n.resumo+'
-</div>':'')+
+          '<div class="news-title">'+(n.url?'<a href="'+n.url+'" target="_blank" style="color:inherit;text-decoration:none">':'')+n.title+(n.url?'</a>':'')+'</div>'+
+          (n.resumo&&n.resumo!=='Erro na analise'?'<div class="news-resumo">'+n.resumo+'</div>':'')+
           '<div class="news-meta">'+
             '<span class="news-source">'+n.source+'</span>'+
-            (tickerTags?'<div class="news-tickers">'+tickerTags+'
-</div>':'')+
-            (catTags?'<div class="news-cats">'+catTags+'
-</div>':'')+
+            (tickerTags?'<div class="news-tickers">'+tickerTags+'</div>':'')+
+            (catTags?'<div class="news-cats">'+catTags+'</div>':'')+
             '<span class="impact-badge '+impCls+'">'+n.impacto+'</span>'+
-          '
-</div>'+
-        '
-</div>';
+          '</div>'+
+        '</div>';
       grid.appendChild(card);
     });
 
   }catch(e){
-    grid.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'
-</div>';
+    grid.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'</div>';
   }finally{
     btn.disabled=false;btn.textContent='\u{1F4AC} Analisar Agora';
   }

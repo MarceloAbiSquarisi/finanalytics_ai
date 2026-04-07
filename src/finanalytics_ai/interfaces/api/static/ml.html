@@ -455,18 +455,11 @@ async function runForecast(retrain = false) {
         <td>
           <div style="display:flex;align-items:center;gap:8px">
             <div class="prob-bar" style="width:80px">
-              <div class="prob-fill" style="width:${f.prob_positive_pct}%">
-</div>
-</div>
+              <div class="prob-fill" style="width:${f.prob_positive_pct}%"></div></div>
             <span style="font-family:var(--mono);color:${probColor(f.prob_positive_pct)};font-weight:600">
-              ${f.prob_positive_pct}%
-            </span>
-</div>
-        </td>
+              ${f.prob_positive_pct}%</span></div></td>
         <td style="font-family:var(--mono);font-size:15px;color:var(--muted)">
-          [${f.range_80pct[0]}%, ${f.range_80pct[1]}%]
-        </td>
-      </tr>
+          [${f.range_80pct[0]}%, ${f.range_80pct[1]}%]</td></tr>
     `).join('');
 
     // Cards top 6
@@ -477,34 +470,19 @@ async function runForecast(retrain = false) {
         <div style="display:flex;justify-content:space-between;align-items:center">
           <span style="font-family:var(--mono);font-weight:600;font-size:19px">${f.ticker}</span>
           <span style="font-family:var(--mono);font-size:15px;color:${probColor(f.prob_positive_pct)};font-weight:600">
-            ${f.prob_positive_pct}% pos
-          </span>
-</div>
+            ${f.prob_positive_pct}% pos</span></div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:12px">
           <div>
-            <div class="label">P10
-</div>
-            <div style="font-family:var(--mono);color:var(--red);font-size:17px">${f.p10_pct > 0 ? '+' : ''}${f.p10_pct}%
-</div>
-</div>
+            <div class="label">P10</div>
+            <div style="font-family:var(--mono);color:var(--red);font-size:17px">${f.p10_pct > 0 ? '+' : ''}${f.p10_pct}%</div></div>
           <div>
-            <div class="label">P50
-</div>
-            <div style="font-family:var(--mono);color:${f.p50_pct >= 0 ? 'var(--green)' : 'var(--red)'};font-size:17px;font-weight:600">${f.p50_pct > 0 ? '+' : ''}${f.p50_pct}%
-</div>
-</div>
+            <div class="label">P50</div>
+            <div style="font-family:var(--mono);color:${f.p50_pct >= 0 ? 'var(--green)' : 'var(--red)'};font-size:17px;font-weight:600">${f.p50_pct > 0 ? '+' : ''}${f.p50_pct}%</div></div>
           <div>
-            <div class="label">P90
-</div>
-            <div style="font-family:var(--mono);color:var(--green);font-size:17px">${f.p90_pct > 0 ? '+' : ''}${f.p90_pct}%
-</div>
-</div>
-</div>
+            <div class="label">P90</div>
+            <div style="font-family:var(--mono);color:var(--green);font-size:17px">${f.p90_pct > 0 ? '+' : ''}${f.p90_pct}%</div></div></div>
         <div class="bar-container" style="margin-top:10px">
-          <div class="bar-fill" style="width:${f.prob_positive_pct}%;background:${probColor(f.prob_positive_pct)}">
-</div>
-</div>
-</div>
+          <div class="bar-fill" style="width:${f.prob_positive_pct}%;background:${probColor(f.prob_positive_pct)}"></div></div></div>
     `).join('');
 
   } catch (err) {
@@ -543,12 +521,10 @@ async function runRisk() {
         <td style="font-family:var(--mono)">${m.historical.var_95_pct}% / CVaR ${m.historical.cvar_95_pct}%</td>
         <td style="font-family:var(--mono)">
           ${m.parametric_t.var_95_pct}%
-          <span style="font-size:14px;color:var(--muted)">(df=${m.parametric_t.degrees_of_freedom})</span>
-        </td>
+          <span style="font-size:14px;color:var(--muted)">(df=${m.parametric_t.degrees_of_freedom})</span></td>
         <td style="font-family:var(--mono);color:var(--muted)">${m.garch.var_95_pct != null ? m.garch.var_95_pct + '%' : '—'}</td>
         <td style="font-family:var(--mono)">${m.monte_carlo.var_95_pct}%</td>
-        <td style="font-family:var(--mono);color:var(--muted)">${m.volatility_annual_pct}%</td>
-      </tr>
+        <td style="font-family:var(--mono);color:var(--muted)">${m.volatility_annual_pct}%</td></tr>
     `).join('');
   } catch (err) {
     document.getElementById('risk-status').textContent = 'Erro: ' + err.message;
@@ -582,9 +558,7 @@ async function runScreener() {
         <td style="font-family:var(--mono);font-weight:600">${f.ticker}</td>
         <td>
           <span style="font-family:var(--mono);color:${probColor(f.prob_positive_pct || 50)};font-weight:600">
-            ${f.prob_positive_pct != null ? f.prob_positive_pct + '%' : '—'}
-          </span>
-        </td>
+            ${f.prob_positive_pct != null ? f.prob_positive_pct + '%' : '—'}</span></td>
         ${pctCell(f.p50_pct)}
         ${pctCell(f.p10_pct)}
         ${pctCell(f.p90_pct)}
@@ -593,9 +567,7 @@ async function runScreener() {
         <td style="font-family:var(--mono)">${f.roic_pct != null ? f.roic_pct.toFixed(1) + '%' : '—'}</td>
         <td style="font-family:var(--mono);color:var(--muted)">${f.vol_pct != null ? f.vol_pct.toFixed(1) + '%' : '—'}</td>
         <td style="font-family:var(--mono);color:${f.rsi_14 > 70 ? 'var(--red)' : f.rsi_14 < 30 ? 'var(--green)' : 'var(--text)'}">
-          ${f.rsi_14 != null ? f.rsi_14.toFixed(0) : '—'}
-        </td>
-      </tr>
+          ${f.rsi_14 != null ? f.rsi_14.toFixed(0) : '—'}</td></tr>
     `).join('');
   } catch (err) {
     document.getElementById('sc-status').textContent = 'Erro: ' + err.message;
@@ -623,8 +595,7 @@ async function computeFeatures() {
       document.getElementById('feat-importance').innerHTML = Object.entries(fi.features)
         .map(([k, v]) => `<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
           <span style="font-family:var(--mono);font-size:16px">${k}</span>
-          <span style="font-size:15px;color:var(--muted)">${v}</span>
-</div>`).join('');
+          <span style="font-size:15px;color:var(--muted)">${v}</span></div>`).join('');
     }
   } catch (err) {
     document.getElementById('feat-status').textContent = 'Erro: ' + err.message;

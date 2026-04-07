@@ -427,30 +427,20 @@ async function loadSnapshot() {
         // Série ainda não coletada
         grid.innerHTML += `
           <div class="snap-card" onclick="loadSeries('${key}')">
-            <div class="snap-label">${key.replace('_',' ').toUpperCase()}
-</div>
-            <div class="snap-value" style="font-size:17px;color:var(--muted)">Coletando...
-</div>
-            <div class="snap-unit">aguardando coleta
-</div>
-</div>`;
+            <div class="snap-label">${key.replace('_',' ').toUpperCase()}</div>
+            <div class="snap-value" style="font-size:17px;color:var(--muted)">Coletando...</div>
+            <div class="snap-unit">aguardando coleta</div></div>`;
         return;
       }
       const up = s.change_pct >= 0;
       const arrow = up ? '▲' : '▼';
       grid.innerHTML += `
         <div class="snap-card${key===activeSeries?' active':''}" id="card-${key}" onclick="loadSeries('${key}')">
-          <div class="snap-label">${s.label}
-</div>
-          <div class="snap-value">${fmt(s.value, s.unit)}
-</div>
-          <div class="snap-unit">${s.unit} · ${s.freq}
-</div>
-          <div class="snap-change ${up?'up':'down'}">${arrow} ${Math.abs(s.change_pct).toFixed(2)}%
-</div>
-          <div class="snap-date">${s.date}
-</div>
-</div>`;
+          <div class="snap-label">${s.label}</div>
+          <div class="snap-value">${fmt(s.value, s.unit)}</div>
+          <div class="snap-unit">${s.unit} · ${s.freq}</div>
+          <div class="snap-change ${up?'up':'down'}">${arrow} ${Math.abs(s.change_pct).toFixed(2)}%</div>
+          <div class="snap-date">${s.date}</div></div>`;
     });
 
     const now = new Date().toLocaleString('pt-BR');
@@ -458,8 +448,7 @@ async function loadSnapshot() {
 
   } catch(e) {
     document.getElementById('snapGrid').innerHTML =
-      '<div class="no-data">Erro ao carregar snapshot<p>Verifique se a coleta macro foi iniciada</p>
-</div>';
+      '<div class="no-data">Erro ao carregar snapshot<p>Verifique se a coleta macro foi iniciada</p></div>';
   }
 }
 
@@ -469,14 +458,12 @@ function renderMainChart(series, data, meta) {
   el.innerHTML = '';
 
   if (!data.length) {
-    el.innerHTML = '<div class="no-data">Dados não disponíveis<p>Execute: POST /api/v1/storage/collect/macro</p>
-</div>';
+    el.innerHTML = '<div class="no-data">Dados não disponíveis<p>Execute: POST /api/v1/storage/collect/macro</p></div>';
     return;
   }
 
   const filtered = filterByPeriod(data, periodDays);
-  if (!filtered.length) { el.innerHTML = '<div class="no-data">Sem dados no período
-</div>'; return; }
+  if (!filtered.length) { el.innerHTML = '<div class="no-data">Sem dados no período</div>'; return; }
 
   const chart = LightweightCharts.createChart(el, {
     layout: { background: { color: 'transparent' }, textColor: '#6A9EBF' },
@@ -511,32 +498,14 @@ function renderMainChart(series, data, meta) {
   const unit = meta.unit;
   document.getElementById('statsBar').style.display = 'flex';
   document.getElementById('statsBar').innerHTML = `
-    <div class="stat-item"><div class="stat-lbl">Atual
-</div><div class="stat-val">${fmt(stats.last,unit)}
-</div>
-</div>
-    <div class="stat-item"><div class="stat-lbl">Mínimo
-</div><div class="stat-val">${fmt(stats.min,unit)}
-</div>
-</div>
-    <div class="stat-item"><div class="stat-lbl">Máximo
-</div><div class="stat-val">${fmt(stats.max,unit)}
-</div>
-</div>
-    <div class="stat-item"><div class="stat-lbl">Média
-</div><div class="stat-val">${fmt(stats.avg,unit)}
-</div>
-</div>
-    <div class="stat-item"><div class="stat-lbl">Variação
-</div>
+    <div class="stat-item"><div class="stat-lbl">Atual</div><div class="stat-val">${fmt(stats.last,unit)}</div></div>
+    <div class="stat-item"><div class="stat-lbl">Mínimo</div><div class="stat-val">${fmt(stats.min,unit)}</div></div>
+    <div class="stat-item"><div class="stat-lbl">Máximo</div><div class="stat-val">${fmt(stats.max,unit)}</div></div>
+    <div class="stat-item"><div class="stat-lbl">Média</div><div class="stat-val">${fmt(stats.avg,unit)}</div></div>
+    <div class="stat-item"><div class="stat-lbl">Variação</div>
       <div class="stat-val" style="color:${stats.last>=stats.first?'var(--green)':'var(--red)'}">
-        ${stats.first ? ((stats.last-stats.first)/Math.abs(stats.first)*100).toFixed(1)+'%' : '--'}
-</div>
-</div>
-    <div class="stat-item"><div class="stat-lbl">Pontos
-</div><div class="stat-val">${filtered.length}
-</div>
-</div>
+        ${stats.first ? ((stats.last-stats.first)/Math.abs(stats.first)*100).toFixed(1)+'%' : '--'}</div></div>
+    <div class="stat-item"><div class="stat-lbl">Pontos</div><div class="stat-val">${filtered.length}</div></div>
   `;
 
   document.getElementById('statusBar').textContent =
@@ -548,8 +517,7 @@ function renderMiniChart(elId, data1, color1, data2, color2) {
   const el = document.getElementById(elId);
   el.innerHTML = '';
   if (!data1.length && !data2.length) {
-    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:15px">Coletando dados...
-</div>';
+    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:15px">Coletando dados...</div>';
     return;
   }
 

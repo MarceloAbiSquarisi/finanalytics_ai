@@ -82,13 +82,10 @@ function cardHTML(t) {
     <div class="ticker-info">
       <span class="ticker-name">${t.ticker}</span>
       <span class="ticker-type">${t.ticker_type||''}</span>
-      <span class="ticker-exch">Exchange: ${exch}</span>
-    </div>
+      <span class="ticker-exch">Exchange: ${exch}</span>    </div>
     <span class="${on?'badge-on':'badge-off'}" onclick="toggle('${t.ticker}','${exch}',${!on})">
       <span class="dot ${on?'on':'off'}"></span>
-      ${on?'ATIVO':'INATIVO'}
-    </span>
-  </div>`;
+      ${on?'ATIVO':'INATIVO'}</span>  </div>`;
 }
 
 async function toggle(ticker, exchange, subscribe) {

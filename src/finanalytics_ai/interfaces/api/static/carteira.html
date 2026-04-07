@@ -705,8 +705,7 @@ async function loadAccounts() {
         <td>${a.country}</td>
         <td>${a.currency}</td>
         <td><span style="color:${a.is_active?'var(--green)':'var(--muted)'}">${a.is_active?'✓ Ativa':'✗ Inativa'}</span></td>
-        <td><button class="btn btn-danger btn-sm" onclick="deleteAccount('${a.id}')">Desativar</button></td>
-      </tr>`).join('');
+        <td><button class="btn btn-danger btn-sm" onclick="deleteAccount('${a.id}')">Desativar</button></td></tr>`).join('');
     // summary
     document.getElementById('s-accounts').textContent = accounts.filter(a=>a.is_active).length;
   } catch(e) { console.error(e); }
@@ -761,8 +760,7 @@ async function loadTrades() {
         <td class="td-right">${fmt(t.total_cost)}</td>
         <td class="td-right">${t.fees>0?fmt(t.fees):'—'}</td>
         <td>${acc?acc.institution_name:'—'}</td>
-        <td><button class="btn btn-danger btn-sm" onclick="deleteTrade('${t.id}')">✕</button></td>
-      </tr>`;
+        <td><button class="btn btn-danger btn-sm" onclick="deleteTrade('${t.id}')">✕</button></td></tr>`;
     }).join('');
   } catch(e) { console.error(e); }
 }
@@ -817,8 +815,7 @@ async function loadPositions() {
         <td class="td-right">${fmtQty(p.quantity)}</td>
         <td class="td-right">${fmt(p.average_price)}</td>
         <td class="td-right">${fmt(p.total_invested)}</td>
-        <td class="td-right">${p.trade_count}</td>
-      </tr>`;
+        <td class="td-right">${p.trade_count}</td></tr>`;
     }).join('');
     document.getElementById('s-tickers').textContent = positions.length;
     document.getElementById('s-invested').textContent = fmt(total).replace('R$ ','R$\u00A0');
@@ -841,8 +838,7 @@ async function loadCrypto() {
         <td class="td-right">${c.average_price_usd?fmt(c.average_price_usd,'$ '):'—'}</td>
         <td>${c.exchange||'—'}</td>
         <td>${acc?acc.institution_name:'—'}</td>
-        <td><button class="btn btn-danger btn-sm" onclick="deleteCrypto('${c.id}')">✕</button></td>
-      </tr>`;
+        <td><button class="btn btn-danger btn-sm" onclick="deleteCrypto('${c.id}')">✕</button></td></tr>`;
     }).join('');
   } catch(e) { console.error(e); }
 }
@@ -888,8 +884,7 @@ async function loadOther() {
         <td>${o.currency}</td>
         <td style="color:${o.ir_exempt?'var(--green)':'var(--muted)'}">${o.ir_exempt?'Sim':'Não'}</td>
         <td>${acc?acc.institution_name:'—'}</td>
-        <td><button class="btn btn-danger btn-sm" onclick="deleteOther('${o.id}')">✕</button></td>
-      </tr>`;
+        <td><button class="btn btn-danger btn-sm" onclick="deleteOther('${o.id}')">✕</button></td></tr>`;
     }).join('');
   } catch(e) { console.error(e); }
 }

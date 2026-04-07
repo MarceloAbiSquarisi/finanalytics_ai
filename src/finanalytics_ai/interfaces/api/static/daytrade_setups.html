@@ -276,15 +276,12 @@ function loadSetups(){var saved=localStorage.getItem('fa_setup_state');if(!saved
 async function runScan(){
   if(!tickers.length){alert('Adicione pelo menos 1 ticker');return;}
   var area=document.getElementById('results-area');
-  area.innerHTML='<div class="empty-msg">Escaneando...
-</div>';
+  area.innerHTML='<div class="empty-msg">Escaneando...</div>';
   try{
     var r=await fetch(API+'/api/v1/setups/scan?tickers='+tickers.join(','),{headers:{Authorization:'Bearer '+tok()}});
     var d=await r.json();
-    if(!d.alerts||!d.alerts.length){area.innerHTML='<div class="empty-msg">Nenhum setup detectado nos tickers selecionados
-</div>';return;}
-    area.innerHTML='<div class="results-header">'+d.setups_found+' setup(s) em '+d.tickers_scanned+' ticker(s)
-</div>';
+    if(!d.alerts||!d.alerts.length){area.innerHTML='<div class="empty-msg">Nenhum setup detectado nos tickers selecionados</div>';return;}
+    area.innerHTML='<div class="results-header">'+d.setups_found+' setup(s) em '+d.tickers_scanned+' ticker(s)</div>';
     d.alerts.forEach(function(a){
       var isBuy=a.signal==='BUY';
       var cls=isBuy?'buy':'sell';
@@ -294,37 +291,18 @@ async function runScan(){
       rc.className='result-card '+cls;
       rc.innerHTML=
         '<div class="result-top">'+
-          '<div><div class="result-ticker">'+a.ticker+'
-</div><div class="result-setup">'+a.setup_name+' &middot; '+a.timeframe+'
-</div>
-</div>'+
+          '<div><div class="result-ticker">'+a.ticker+'</div><div class="result-setup">'+a.setup_name+' &middot; '+a.timeframe+'</div></div>'+
           '<span class="result-signal '+sigCls+'">'+lbl+'</span>'+
-        '
-</div>'+
+        '</div>'+
         '<div class="result-grid">'+
-          '<div class="result-kpi"><div class="result-kpi-label">Entrada
-</div><div class="result-kpi-value val-entry">'+fmt(a.last_close)+'
-</div>
-</div>'+
-          '<div class="result-kpi"><div class="result-kpi-label">Stop Loss
-</div><div class="result-kpi-value val-stop">'+fmt(a.stop_loss)+'
-</div>'+(a.stop_pct?'<div class="result-kpi-sub">'+fmtPct(a.stop_pct)+'
-</div>':'')+'
-</div>'+
-          '<div class="result-kpi"><div class="result-kpi-label">Take Profit
-</div><div class="result-kpi-value val-target">'+fmt(a.take_profit)+'
-</div>
-</div>'+
-          '<div class="result-kpi"><div class="result-kpi-label">Risco/Retorno
-</div><div class="result-kpi-value '+rrCls(a.risk_reward)+'">'+fmtRR(a.risk_reward)+'
-</div>
-</div>'+
-        '
-</div>';
+          '<div class="result-kpi"><div class="result-kpi-label">Entrada</div><div class="result-kpi-value val-entry">'+fmt(a.last_close)+'</div></div>'+
+          '<div class="result-kpi"><div class="result-kpi-label">Stop Loss</div><div class="result-kpi-value val-stop">'+fmt(a.stop_loss)+'</div>'+(a.stop_pct?'<div class="result-kpi-sub">'+fmtPct(a.stop_pct)+'</div>':'')+'</div>'+
+          '<div class="result-kpi"><div class="result-kpi-label">Take Profit</div><div class="result-kpi-value val-target">'+fmt(a.take_profit)+'</div></div>'+
+          '<div class="result-kpi"><div class="result-kpi-label">Risco/Retorno</div><div class="result-kpi-value '+rrCls(a.risk_reward)+'">'+fmtRR(a.risk_reward)+'</div></div>'+
+        '</div>';
       area.appendChild(rc);
     });
-  }catch(e){area.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'
-</div>';}
+  }catch(e){area.innerHTML='<div class="empty-msg" style="color:var(--red)">Erro: '+e.message+'</div>';}
 }
 
 renderTickers();

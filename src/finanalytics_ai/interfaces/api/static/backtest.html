@@ -1227,8 +1227,7 @@ function renderOptResults(d) {
 function renderHeatmap(hm, objective) {
   var container = document.getElementById('heatmap-container');
   if (!hm || !hm.matrix || !hm.matrix.length) {
-    container.innerHTML = '<div style="font-size:13px;color:var(--muted);font-family:monospace;padding:16px">Heatmap nao disponivel para esta estrategia
-</div>';
+    container.innerHTML = '<div style="font-size:13px;color:var(--muted);font-family:monospace;padding:16px">Heatmap nao disponivel para esta estrategia</div>';
     return;
   }
 
@@ -1267,33 +1266,27 @@ function renderHeatmap(hm, objective) {
 
   var cols = xVals.length + 1;
   var html = '<div style="font-size:12px;color:var(--muted);font-family:monospace;margin-bottom:6px">' +
-    hm.y_label + ' \ ' + hm.x_label + '
-</div>' +
+    hm.y_label + ' \ ' + hm.x_label + '</div>' +
     '<div style="display:grid;grid-template-columns:50px repeat(' + xVals.length + ',38px);gap:3px">';
 
   // Header row
-  html += '<div class="hm-axis-label">
-</div>';
+  html += '<div class="hm-axis-label"></div>';
   for (var xi = 0; xi < xVals.length; xi++) {
-    html += '<div class="hm-axis-label" style="color:var(--blue)">' + xVals[xi] + '
-</div>';
+    html += '<div class="hm-axis-label" style="color:var(--blue)">' + xVals[xi] + '</div>';
   }
 
   // Data rows
   for (var yi = 0; yi < yVals.length; yi++) {
-    html += '<div class="hm-axis-label" style="color:var(--gold)">' + yVals[yi] + '
-</div>';
+    html += '<div class="hm-axis-label" style="color:var(--gold)">' + yVals[yi] + '</div>';
     for (var xi2 = 0; xi2 < xVals.length; xi2++) {
       var s = lookup[xVals[xi2] + '_' + yVals[yi]];
       var col = scoreToColor(s);
       var txt = s !== null ? s.toFixed(2) : '--';
       var txtcol = s !== null && (s - minS) / (maxS - minS || 1) > 0.5 ? '#0A1628' : '#E8F4FD';
-      html += '<div class="hm-cell" style="background:' + col + ';color:' + txtcol + '">' + txt + '
-</div>';
+      html += '<div class="hm-cell" style="background:' + col + ';color:' + txtcol + '">' + txt + '</div>';
     }
   }
-  html += '
-</div>';
+  html += '</div>';
   container.innerHTML = html;
 }
 
@@ -1438,31 +1431,23 @@ function renderWalkForward(d) {
     var oosW = (f.oos_bars / total * 100).toFixed(1);
     var col  = FOLD_COLORS[i % FOLD_COLORS.length];
     tlHtml += '<div style="margin-bottom:8px">';
-    tlHtml += '<div style="font-size:12px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:3px">Fold ' + f.fold + '
-</div>';
+    tlHtml += '<div style="font-size:12px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-bottom:3px">Fold ' + f.fold + '</div>';
     tlHtml += '<div style="display:flex;gap:2px;height:16px;border-radius:3px;overflow:hidden">';
     if (f.is_start_bar > 0) {
-      tlHtml += '<div style="width:' + (f.is_start_bar/total*100).toFixed(1) + '%;background:transparent">
-</div>';
+      tlHtml += '<div style="width:' + (f.is_start_bar/total*100).toFixed(1) + '%;background:transparent"></div>';
     }
-    tlHtml += '<div class="wf-seg" style="width:' + isW + '%;background:' + col + '22;border:1px solid ' + col + '44" title="IS: ' + f.is_bars + ' barras">
-</div>';
-    tlHtml += '<div class="wf-seg" style="width:' + oosW + '%;background:' + col + '99" title="OOS: ' + f.oos_bars + ' barras">
-</div>';
-    tlHtml += '
-</div>';
+    tlHtml += '<div class="wf-seg" style="width:' + isW + '%;background:' + col + '22;border:1px solid ' + col + '44" title="IS: ' + f.is_bars + ' barras"></div>';
+    tlHtml += '<div class="wf-seg" style="width:' + oosW + '%;background:' + col + '99" title="OOS: ' + f.oos_bars + ' barras"></div>';
+    tlHtml += '</div>';
     tlHtml += '<div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:2px">';
     tlHtml += '<span style="color:' + col + '66">IS: ' + f.is_bars + 'b</span>  ';
     tlHtml += '<span style="color:' + col + '">OOS: ' + f.oos_bars + 'b</span>';
-    tlHtml += '
-</div>';
-    tlHtml += '
-</div>';
+    tlHtml += '</div>';
+    tlHtml += '</div>';
   });
   tlHtml += '<div style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:8px">';
   tlHtml += 'Claro = IS (otimizacao) &nbsp; Solido = OOS (validacao)';
-  tlHtml += '
-</div>';
+  tlHtml += '</div>';
   document.getElementById('wf-timeline').innerHTML = tlHtml;
 
   //    Per-fold table                                                          
@@ -1470,10 +1455,8 @@ function renderWalkForward(d) {
            'padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:4px">';
   var HD = ['Fold','IS score','OOS score','Melhores Params'];
   th += HD.map(function(h) {
-    return '<div style="font-size:12px;color:var(--muted);font-family:\'DM Mono\',monospace;text-transform:uppercase;letter-spacing:.4px">' + h + '
-</div>';
-  }).join('') + '
-</div>';
+    return '<div style="font-size:12px;color:var(--muted);font-family:\'DM Mono\',monospace;text-transform:uppercase;letter-spacing:.4px">' + h + '</div>';
+  }).join('') + '</div>';
 
   var rows = d.folds.map(function(f, i) {
     var col = FOLD_COLORS[i % FOLD_COLORS.length];
@@ -1483,17 +1466,12 @@ function renderWalkForward(d) {
     }).join(' ');
     return '<div style="display:grid;grid-template-columns:40px 70px 70px 1fr;gap:4px;' +
            'padding:5px 0;border-bottom:1px solid rgba(58,191,248,.04);align-items:center">' +
-      '<div style="font-size:14px;font-family:\'DM Mono\',monospace;color:' + col + '">#' + f.fold + '
-</div>' +
-      '<div style="font-size:14px;font-family:\'DM Mono\',monospace;color:var(--blue)">' + f.best_is_score.toFixed(3) + '
-</div>' +
+      '<div style="font-size:14px;font-family:\'DM Mono\',monospace;color:' + col + '">#' + f.fold + '</div>' +
+      '<div style="font-size:14px;font-family:\'DM Mono\',monospace;color:var(--blue)">' + f.best_is_score.toFixed(3) + '</div>' +
       '<div style="font-size:14px;font-family:\'DM Mono\',monospace;color:' + (isUp?'var(--green)':'var(--red)') + '">' +
-        (f.oos_valid ? f.oos_score.toFixed(3) : '(poucos trades)') + '
-</div>' +
-      '<div style="font-size:12px;font-family:\'DM Mono\',monospace;color:var(--muted)">' + paramStr + '
-</div>' +
-    '
-</div>';
+        (f.oos_valid ? f.oos_score.toFixed(3) : '(poucos trades)') + '</div>' +
+      '<div style="font-size:12px;font-family:\'DM Mono\',monospace;color:var(--muted)">' + paramStr + '</div>' +
+    '</div>';
   }).join('');
 
   document.getElementById('wf-folds-table').innerHTML = th + rows;
@@ -1505,8 +1483,7 @@ function renderWalkForward(d) {
 
   if (!eq || !eq.length) {
     document.getElementById('wf-equity-chart').parentElement.innerHTML =
-      '<div style="font-size:13px;color:var(--muted);font-family:\'DM Mono\',monospace;padding:20px">Sem dados de equity OOS
-</div>';
+      '<div style="font-size:13px;color:var(--muted);font-family:\'DM Mono\',monospace;padding:20px">Sem dados de equity OOS</div>';
   } else {
     var labels  = eq.map(function(p) {
       return new Date(p.time * 1000).toLocaleDateString('pt-BR', {month:'short',day:'numeric'});
@@ -1698,8 +1675,7 @@ function onStrategyChange() {
   }
 
   var desc = STRATEGY_DESC[s] || '';
-  fields.innerHTML = (desc ? '<div style="font-size:14px;color:#6a8aa8;width:100%;margin-bottom:6px">' + desc + '
-</div>' : '') +
+  fields.innerHTML = (desc ? '<div style="font-size:14px;color:#6a8aa8;width:100%;margin-bottom:6px">' + desc + '</div>' : '') +
     defs.map(function(d) {
       return '<div style="display:flex;flex-direction:column;gap:3px">' +
         '<label style="font-size:13px;color:#6a8aa8;font-family:monospace">' + d.label + '</label>' +
@@ -1707,8 +1683,7 @@ function onStrategyChange() {
         'min="' + (d.min||0) + '" max="' + (d.max||9999) + '" step="' + (d.step||1) + '" ' +
         'style="width:90px;background:rgba(10,22,40,.8);border:1px solid #1c2535;' +
         'border-radius:4px;color:#e2e8f0;padding:4px 7px;font-family:monospace;font-size:15px">' +
-        '
-</div>';
+        '</div>';
     }).join('');
   panel.style.display = 'block';
 }
@@ -1775,14 +1750,10 @@ function renderResult(d) {
   ];
   grid.innerHTML = items.map(function(it) {
     return '<div class="metric-card">' +
-      '<div class="metric-label">'+it.label+'
-</div>' +
-      '<div class="metric-value '+it.cls+'">'+it.value+'
-</div>' +
-      '<div class="metric-sub">'+it.sub+'
-</div>' +
-    '
-</div>';
+      '<div class="metric-label">'+it.label+'</div>' +
+      '<div class="metric-value '+it.cls+'">'+it.value+'</div>' +
+      '<div class="metric-sub">'+it.sub+'</div>' +
+    '</div>';
   }).join('');
 
   // Equity chart
@@ -1918,8 +1889,7 @@ function renderTrades(d) {
 
   var list = document.getElementById('trades-list');
   if (!d.trades || !d.trades.length) {
-    list.innerHTML = '<div class="empty">Nenhum trade executado no periodo
-</div>';
+    list.innerHTML = '<div class="empty">Nenhum trade executado no periodo</div>';
     return;
   }
 
@@ -1937,16 +1907,14 @@ function renderTrades(d) {
         '<span style="font-size:13px">' + sign + 'R$' + f2(Math.abs(t.pnl)) + '</span></span>' +
       '<span><span class="trade-badge ' + (win?'badge-win':'badge-loss') + '">' +
         (win ? 'WIN' : 'LOSS') + '</span></span>' +
-    '
-</div>';
+    '</div>';
   }).join('');
 }
 
 function renderSignals(d) {
   var wrap = document.getElementById('signals-wrap');
   if (!d.signals || !d.signals.length) {
-    wrap.innerHTML = '<div class="empty">Nenhum sinal gerado
-</div>';
+    wrap.innerHTML = '<div class="empty">Nenhum sinal gerado</div>';
     return;
   }
   wrap.innerHTML = '<div class="signals-wrap">' +
@@ -1956,8 +1924,7 @@ function renderSignals(d) {
       var lbl = s.signal === 'buy' ? 'BUY' : 'SELL';
       return '<span class="sig-pill ' + cls + '">' + lbl + ' ' + dt + ' R$' + f2(s.price) + '</span>';
     }).join('') +
-  '
-</div>';
+  '</div>';
 }
 
 // ERROR / HIDE ----
@@ -2036,9 +2003,7 @@ function renderCompare(results, ticker, range) {
 
   var grid = document.getElementById('compare-grid');
   grid.innerHTML = ['rsi','macd','combined','bollinger','ema_cross','momentum'].map(function(s) {
-    if (!results[s]) return '<div class="compare-card"><div class="compare-name" style="color:var(--red)">'+STRATEGY_NAMES[s]+' - erro
-</div>
-</div>';
+    if (!results[s]) return '<div class="compare-card"><div class="compare-name" style="color:var(--red)">'+STRATEGY_NAMES[s]+' - erro</div></div>';
     var d  = results[s];
     var m  = d.metrics;
     var pos = m.total_return_pct >= 0;
@@ -2049,8 +2014,7 @@ function renderCompare(results, ticker, range) {
         '<span style="width:10px;height:10px;border-radius:50%;background:'+STRATEGY_COLORS[s]+';display:inline-block"></span>' +
         STRATEGY_NAMES[s] +
         (isBest ? '<span class="best-badge">melhor Sharpe</span>' : '') +
-      '
-</div>' +
+      '</div>' +
       '<div class="compare-metrics">' +
         cmItem('Retorno', (pos?'+':'')+m.total_return_pct.toFixed(2)+'%', pos?'green':'red') +
         cmItem('Sharpe', m.sharpe_ratio.toFixed(3), m.sharpe_ratio>1?'green':m.sharpe_ratio>0?'gold':'red') +
@@ -2058,12 +2022,9 @@ function renderCompare(results, ticker, range) {
         cmItem('Win Rate', m.win_rate_pct.toFixed(1)+'%', m.win_rate_pct>=50?'green':'gold') +
         cmItem('Trades', String(m.total_trades), 'blue') +
         cmItem('Profit F.', m.profit_factor.toFixed(2), m.profit_factor>=1?'green':'red') +
-      '
-</div>' +
-      '<div class="compare-chart-wrap"><canvas id="cc-'+s+'"></canvas>
-</div>' +
-    '
-</div>';
+      '</div>' +
+      '<div class="compare-chart-wrap"><canvas id="cc-'+s+'"></canvas></div>' +
+    '</div>';
   }).join('');
 
   // Mini equity charts
@@ -2105,12 +2066,9 @@ function renderCompare(results, ticker, range) {
 
 function cmItem(label, value, cls) {
   return '<div class="cm-item">' +
-    '<div class="cm-label">'+label+'
-</div>' +
-    '<div class="cm-value '+cls+'">'+value+'
-</div>' +
-  '
-</div>';
+    '<div class="cm-label">'+label+'</div>' +
+    '<div class="cm-value '+cls+'">'+value+'</div>' +
+  '</div>';
 }
 
 function renderCompareOverlay(results) {
@@ -2275,11 +2233,8 @@ function renderMultiResult(data) {
     return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;' +
       'padding:10px 12px;border-top:2px solid ' + k.accent + '">' +
       '<div style="font-size:13px;color:var(--muted);font-family:\'DM Mono\',monospace;' +
-      'text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">' + k.label + '
-</div>' +
-      '<div style="font-size:20px;font-weight:700;color:var(--text)">' + k.value + '
-</div>
-</div>';
+      'text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">' + k.label + '</div>' +
+      '<div style="font-size:20px;font-weight:700;color:var(--text)">' + k.value + '</div></div>';
   }).join('');
 
   // Errors banner
@@ -2339,17 +2294,12 @@ function renderMultiResult(data) {
     var barColor = row.rank === 1 ? '#7c3aed' : row.rank <= 3 ? '#4f46e5' : '#6b7280';
     barsEl.innerHTML +=
       '<div style="display:grid;grid-template-columns:60px 1fr 50px;gap:8px;align-items:center">' +
-      '<div style="font-family:\'DM Mono\',monospace;font-size:14px;color:var(--text);text-align:right">' + row.ticker + '
-</div>' +
+      '<div style="font-family:\'DM Mono\',monospace;font-size:14px;color:var(--text);text-align:right">' + row.ticker + '</div>' +
       '<div style="background:var(--surface);border-radius:3px;height:12px;overflow:hidden;border:1px solid var(--border)">' +
-        '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';transition:width .6s;border-radius:2px">
-</div>' +
-      '
-</div>' +
-      '<div style="font-family:\'DM Mono\',monospace;font-size:14px;color:var(--muted)">' + fmt1(pct) + '%
-</div>' +
-      '
-</div>';
+        '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';transition:width .6s;border-radius:2px"></div>' +
+      '</div>' +
+      '<div style="font-family:\'DM Mono\',monospace;font-size:14px;color:var(--muted)">' + fmt1(pct) + '%</div>' +
+      '</div>';
   });
 
   // Consensus params
@@ -2361,8 +2311,7 @@ function renderMultiResult(data) {
       '<span style="color:var(--muted)">' + kv[0] + ':</span> ' +
       '<span style="color:#c4b5fd;font-weight:600">' +
         (typeof kv[1]==='number' ? +kv[1].toFixed(2) : kv[1]) +
-      '</span>
-</div>';
+      '</span></div>';
   }).join('');
 
   // Dot colors done

@@ -747,8 +747,7 @@ function updateHeaderStats(s) {
 function renderList(entries) {
   var el = document.getElementById('entry-list');
   if (!entries.length) {
-    el.innerHTML = '<div class="empty-state"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>Nenhum trade registrado ainda.<br><br>Clique em <strong style="color:var(--green)">+ Novo Trade</strong> para começar.</p>
-</div>';
+    el.innerHTML = '<div class="empty-state"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>Nenhum trade registrado ainda.<br><br>Clique em <strong style="color:var(--green)">+ Novo Trade</strong> para começar.</p></div>';
     return;
   }
   el.innerHTML = entries.map(function(e) {
@@ -770,20 +769,15 @@ function renderList(entries) {
         '<span class="ec-dir '+e.direction+'">'+e.direction+'</span>' +
         (e.setup ? '<span class="ec-setup">'+SETUP_LABELS[e.setup]||e.setup+'</span>' : '') +
         pnlHtml +
-      '
-</div>' +
+      '</div>' +
       '<div class="ec-bottom">' +
         '<span>'+entryDate+'</span>' +
         (e.timeframe ? '<span>'+e.timeframe+'</span>' : '') +
         (e.emotional_state ? '<span class="ec-emotion" style="background:'+emotionColor+'22;color:'+emotionColor+'">'+EMOTION_LABELS[e.emotional_state]||e.emotional_state+'</span>' : '') +
-        '<div class="ec-rating">'+stars+'
-</div>' +
-      '
-</div>' +
-      (tags ? '<div class="ec-tags">'+tags+'
-</div>' : '') +
-    '
-</div>';
+        '<div class="ec-rating">'+stars+'</div>' +
+      '</div>' +
+      (tags ? '<div class="ec-tags">'+tags+'</div>' : '') +
+    '</div>';
   }).join('');
 }
 
@@ -827,8 +821,7 @@ function renderDetail(e) {
       (pnl ? '<span style="margin-left:auto;font-size:22px;font-weight:700;color:var(--'+(pnlPos?'green':'red')+')">'+
         (pnlPos?'+':'')+'R$ '+f2(e.pnl)+'<span style="font-size:15px;margin-left:6px">('+
         (pnlPos?'+':'')+f2(e.pnl_pct)+'%)</span></span>' : '') +
-    '
-</div>' +
+    '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">' +
       mkDet('Entrada',f2(e.entry_price)) +
       mkDet('Saída',e.exit_price?f2(e.exit_price):'Em aberto') +
@@ -836,8 +829,7 @@ function renderDetail(e) {
       mkDet('Data entrada',e.entry_date?new Date(e.entry_date).toLocaleString('pt-BR'):'—') +
       mkDet('Data saída',e.exit_date?new Date(e.exit_date).toLocaleString('pt-BR'):'—') +
       mkDet('Timeframe',e.timeframe||'—') +
-    '
-</div>' +
+    '</div>' +
     (e.reason_entry ? mkTxt('Por que entrou',e.reason_entry) : '') +
     (e.expectation  ? mkTxt('O que esperava',e.expectation) : '') +
     (e.what_happened? mkTxt('O que aconteceu',e.what_happened) : '') +
@@ -846,33 +838,24 @@ function renderDetail(e) {
     '<div style="display:flex;align-items:center;gap:16px;padding-top:8px;border-top:1px solid var(--border)">' +
       (e.emotional_state ? '<span style="background:'+(EMOTION_COLORS[e.emotional_state]||'#4a5568')+'22;color:'+(EMOTION_COLORS[e.emotional_state]||'#4a5568')+';padding:3px 10px;border-radius:4px;font-size:14px">'+EMOTION_LABELS[e.emotional_state]||e.emotional_state+'</span>' : '') +
       '<span>'+stars+'</span>' +
-      ((e.tags||[]).length ? '<div style="display:flex;gap:4px">'+(e.tags||[]).map(function(t){return '<span class="ec-tag">#'+t+'</span>';}).join('')+'
-</div>' : '') +
+      ((e.tags||[]).length ? '<div style="display:flex;gap:4px">'+(e.tags||[]).map(function(t){return '<span class="ec-tag">#'+t+'</span>';}).join('')+'</div>' : '') +
       '<button onclick="openEditModal(\''+e.id+'\')" style="margin-left:auto;background:none;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:4px;cursor:pointer;font-family:var(--mono);font-size:14px">Editar</button>' +
-    '
-</div>' +
-  '
-</div>';
+    '</div>' +
+  '</div>';
 }
 
 function mkDet(label, val) {
   return '<div style="background:var(--card);border:1px solid var(--border);border-radius:5px;padding:8px">' +
-    '<div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px">'+label+'
-</div>' +
-    '<div style="font-size:16px;font-weight:600">'+val+'
-</div>' +
-  '
-</div>';
+    '<div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px">'+label+'</div>' +
+    '<div style="font-size:16px;font-weight:600">'+val+'</div>' +
+  '</div>';
 }
 
 function mkTxt(label, val) {
   return '<div style="background:var(--card);border:1px solid var(--border);border-radius:5px;padding:10px">' +
-    '<div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">'+label+'
-</div>' +
-    '<div style="font-size:15px;line-height:1.5;color:#b0c4d8">'+val+'
-</div>' +
-  '
-</div>';
+    '<div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">'+label+'</div>' +
+    '<div style="font-size:15px;line-height:1.5;color:#b0c4d8">'+val+'</div>' +
+  '</div>';
 }
 
 // ── Charts ───────────────────────────────────────────────────────────────────
@@ -1022,8 +1005,7 @@ function renderPsychInsights(s) {
 
   el.innerHTML = insights.map(function(ins){
     return '<div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-left:3px solid '+ins.color+';border-radius:5px;padding:10px 14px;font-size:15px;line-height:1.5">' +
-      ins.icon + '  ' + ins.text + '
-</div>';
+      ins.icon + '  ' + ins.text + '</div>';
   }).join('');
 }
 

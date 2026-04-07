@@ -452,15 +452,10 @@ function renderUsers(users) {
           <select class="role-sel" onchange="changeRole('${u.user_id}',this.value,this)" title="Alterar role">
             <option value="user" ${u.role==='user'?'selected':''}>Usuário</option>
             <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
-            <option value="master" ${u.role==='master'?'selected':''}>Master</option>
-          </select>
+            <option value="master" ${u.role==='master'?'selected':''}>Master</option></select>
           <button class="btn btn-sm btn-ghost" onclick="toggleActive('${u.user_id}','${u.is_active}')" title="${u.is_active?'Desativar':'Ativar'}">
-            ${u.is_active ? '⏸' : '▶'}
-          </button>
-          <button class="btn btn-sm btn-warn" onclick="openResetPwd('${u.user_id}','${u.full_name||u.email}')" title="Redefinir senha">🔑</button>
-        </div>
-      </td>
-    </tr>`).join('');
+            ${u.is_active ? '⏸' : '▶'}</button>
+          <button class="btn btn-sm btn-warn" onclick="openResetPwd('${u.user_id}','${u.full_name||u.email}')" title="Redefinir senha">🔑</button>        </div></td></tr>`).join('');
 }
 
 function filterUsers(q) {
@@ -561,10 +556,7 @@ async function loadAgents() {
       <td>
         <div class="actions-cell">
           <button class="btn btn-sm btn-ghost" onclick='openEditAgent(${JSON.stringify(a)})'>✏️</button>
-          <button class="btn btn-sm btn-danger" onclick="deleteAgent('${a.id}','${a.name}')">🗑</button>
-        </div>
-      </td>
-    </tr>`).join('');
+          <button class="btn btn-sm btn-danger" onclick="deleteAgent('${a.id}','${a.name}')">🗑</button>        </div></td></tr>`).join('');
 }
 
 function openCreateAgent() {
@@ -829,15 +821,10 @@ function renderUsers(users) {
           <select class="role-sel" onchange="changeRole('${u.user_id}',this.value,this)" title="Alterar role">
             <option value="user" ${u.role==='user'?'selected':''}>Usuário</option>
             <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
-            <option value="master" ${u.role==='master'?'selected':''}>Master</option>
-          </select>
+            <option value="master" ${u.role==='master'?'selected':''}>Master</option></select>
           <button class="btn btn-sm btn-ghost" onclick="toggleActive('${u.user_id}','${u.is_active}')" title="${u.is_active?'Desativar':'Ativar'}">
-            ${u.is_active ? '⏸' : '▶'}
-          </button>
-          <button class="btn btn-sm btn-warn" onclick="openResetPwd('${u.user_id}','${u.full_name||u.email}')" title="Redefinir senha">🔑</button>
-        </div>
-      </td>
-    </tr>`).join('');
+            ${u.is_active ? '⏸' : '▶'}</button>
+          <button class="btn btn-sm btn-warn" onclick="openResetPwd('${u.user_id}','${u.full_name||u.email}')" title="Redefinir senha">🔑</button>        </div></td></tr>`).join('');
 }
 
 function filterUsers(q) {
@@ -938,10 +925,7 @@ async function loadAgents() {
       <td>
         <div class="actions-cell">
           <button class="btn btn-sm btn-ghost" onclick='openEditAgent(${JSON.stringify(a)})'>✏️</button>
-          <button class="btn btn-sm btn-danger" onclick="deleteAgent('${a.id}','${a.name}')">🗑</button>
-        </div>
-      </td>
-    </tr>`).join('');
+          <button class="btn btn-sm btn-danger" onclick="deleteAgent('${a.id}','${a.name}')">🗑</button>        </div></td></tr>`).join('');
 }
 
 function openCreateAgent() {

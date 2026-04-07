@@ -1031,12 +1031,9 @@ function renderKPIs(stocks) {
 
   document.getElementById('kpi-strip').innerHTML = kpis.map(function(k) {
     return '<div class="kpi-cell">' +
-      '<div class="kpi-cell-label">' + k.label + '
-</div>' +
-      '<div class="kpi-cell-val" style="color:' + k.color + '">' + k.val + '
-</div>' +
-      '
-</div>';
+      '<div class="kpi-cell-label">' + k.label + '</div>' +
+      '<div class="kpi-cell-val" style="color:' + k.color + '">' + k.val + '</div>' +
+      '</div>';
   }).join('');
 }
 
@@ -1083,11 +1080,8 @@ function formatCell(s, col, maxScore) {
     var col2 = sc > 5 ? 'var(--green)' : sc > 0 ? 'var(--accent)' : 'var(--muted)';
     return '<div class="score-wrap">' +
       '<span class="score-num" style="color:' + col2 + '">' + sc.toFixed(1) + '</span>' +
-      '<div class="score-bar-bg"><div class="score-bar" style="width:' + pct + '%">
-</div>
-</div>' +
-      '
-</div>';
+      '<div class="score-bar-bg"><div class="score-bar" style="width:' + pct + '%"></div></div>' +
+      '</div>';
   }
 
   var v = s[col.key];

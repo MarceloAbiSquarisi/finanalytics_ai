@@ -489,9 +489,7 @@ async function loadWatchlist() {
     }
   } catch (e) {
     document.getElementById('wl-list').innerHTML =
-      `<div class="empty"><div class="empty-icon">⚠
-</div>${e.message}
-</div>`;
+      `<div class="empty"><div class="empty-icon">⚠</div>${e.message}</div>`;
   }
 }
 
@@ -500,9 +498,7 @@ function renderList() {
   document.getElementById('wl-count').textContent = `${watchlistData.length}/50`;
 
   if (!watchlistData.length) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">📋
-</div>Lista vazia. Adicione um ticker acima.
-</div>`;
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📋</div>Lista vazia. Adicione um ticker acima.</div>`;
     return;
   }
 
@@ -519,13 +515,10 @@ function renderList() {
           <div style="display:flex;align-items:center;gap:8px">
             <span class="wl-ticker">${item.ticker}</span>
             <span class="wl-price">${price}</span>
-            <span class="wl-chg ${chgCls}">${chgTxt}</span>
-</div>
+            <span class="wl-chg ${chgCls}">${chgTxt}</span></div>
           ${alertCount ? `<span class="wl-alert-badge">&#9888; ${alertCount} alerta${alertCount>1?'s':''}</span>` : ''}
-          ${item.note ? `<span style="font-size:14px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.note}</span>` : ''}
-</div>
-        <button class="wl-del" onclick="event.stopPropagation();removeItem('${item.item_id}','${item.ticker}')" title="Remover">✕</button>
-</div>`;
+          ${item.note ? `<span style="font-size:14px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.note}</span>` : ''}</div>
+        <button class="wl-del" onclick="event.stopPropagation();removeItem('${item.item_id}','${item.ticker}')" title="Remover">✕</button></div>`;
   }).join('');
 }
 
@@ -552,61 +545,39 @@ function renderDetail(item) {
     <div class="panel">
       <div class="panel-header">
         <span class="panel-title">${item.ticker}</span>
-        <button class="btn btn-ghost btn-sm" onclick="editNote('${item.item_id}')">&#9998; Nota</button>
-</div>
+        <button class="btn btn-ghost btn-sm" onclick="editNote('${item.item_id}')">&#9998; Nota</button></div>
       <div class="panel-body">
         <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
           <span class="detail-ticker">${item.ticker}</span>
           <span class="detail-price">${price}</span>
-          ${chgTxt ? `<span style="font-size:20px;font-weight:700;${chgCls}">${chgTxt}</span>` : ''}
-</div>
+          ${chgTxt ? `<span style="font-size:20px;font-weight:700;${chgCls}">${chgTxt}</span>` : ''}</div>
         <div class="detail-meta">
-          <div class="meta-item">Volume<br><b>${vol}</b>
-</div>
-          <div class="meta-item">Max 52s<br><b>${h52}</b>
-</div>
-          <div class="meta-item">Min 52s<br><b>${l52}</b>
-</div>
-          ${item.note ? `<div class="meta-item">Nota<br><b>${item.note}</b>
-</div>` : ''}
-</div>
+          <div class="meta-item">Volume<br><b>${vol}</b></div>
+          <div class="meta-item">Max 52s<br><b>${h52}</b></div>
+          <div class="meta-item">Min 52s<br><b>${l52}</b></div>
+          ${item.note ? `<div class="meta-item">Nota<br><b>${item.note}</b></div>` : ''}</div>
 
-        <div class="section-label">Alertas Inteligentes (${activeAlerts.length}/8)
-</div>
+        <div class="section-label">Alertas Inteligentes (${activeAlerts.length}/8)</div>
 
         <div class="alert-list" id="alert-list-${item.item_id}">
           ${activeAlerts.length ? activeAlerts.map(a => renderAlertCard(a, item.item_id)).join('') :
-            '<div class="empty" style="padding:16px"><div class="empty-icon">🔔
-</div>Nenhum alerta. Adicione abaixo.
-</div>'}
-</div>
+            '<div class="empty" style="padding:16px"><div class="empty-icon">🔔</div>Nenhum alerta. Adicione abaixo.</div>'}</div>
 
-        <div class="section-label">Adicionar Alerta
-</div>
+        <div class="section-label">Adicionar Alerta</div>
         <div class="add-alert-form">
           <div class="form-row">
             <div class="form-col">
               <label>Tipo</label>
               <select id="alert-type-sel" onchange="renderAlertConfig()">
-                ${ALERT_TYPES.map(t => `<option value="${t.value}">${t.icon} ${t.label}</option>`).join('')}
-              </select>
-</div>
-</div>
-          <div id="alert-config-area">
-</div>
+                ${ALERT_TYPES.map(t => `<option value="${t.value}">${t.icon} ${t.label}</option>`).join('')}</select></div></div>
+          <div id="alert-config-area"></div>
           <div class="form-row" style="margin-bottom:0">
             <div class="form-col">
               <label>Nota (opcional)</label>
-              <input id="alert-note-inp" placeholder="Ex: zona de suporte, stop estrategico...">
-</div>
-</div>
+              <input id="alert-note-inp" placeholder="Ex: zona de suporte, stop estrategico..."></div></div>
           <div style="margin-top:10px;display:flex;gap:8px">
             <button class="btn btn-sm" onclick="addAlert('${item.item_id}')">+ Adicionar Alerta</button>
-            <span id="alert-type-desc" style="font-size:14px;color:var(--muted);align-self:center"></span>
-</div>
-</div>
-</div>
-</div>`;
+            <span id="alert-type-desc" style="font-size:14px;color:var(--muted);align-self:center"></span></div></div></div></div>`;
 
   renderAlertConfig();
 }
@@ -617,17 +588,12 @@ function renderAlertCard(alert, itemId) {
   const statusLabel = { active: 'Ativo', cooldown: 'Cooldown', paused: 'Pausado' }[alert.status] || alert.status;
   return `
     <div class="alert-card" id="alc-${alert.alert_id}">
-      <div class="alert-icon">${t.icon}
-</div>
+      <div class="alert-icon">${t.icon}</div>
       <div class="alert-info">
-        <div class="alert-type">${t.label}
-</div>
-        ${alert.note ? `<div class="alert-note">${alert.note}
-</div>` : ''}
-</div>
+        <div class="alert-type">${t.label}</div>
+        ${alert.note ? `<div class="alert-note">${alert.note}</div>` : ''}</div>
       <span class="alert-status ${statusClass}">${statusLabel}</span>
-      <button class="wl-del" onclick="removeAlert('${alert.alert_id}')" title="Remover">✕</button>
-</div>`;
+      <button class="wl-del" onclick="removeAlert('${alert.alert_id}')" title="Remover">✕</button></div>`;
 }
 
 function renderAlertConfig() {
@@ -641,27 +607,15 @@ function renderAlertConfig() {
 
   let html = '';
   if (type === 'rsi_oversold') {
-    html = `<div class="form-row"><div class="form-col"><label>RSI Threshold</label><input id="cfg-rsi-os" type="number" value="30" min="10" max="45" step="1">
-</div><div class="form-col"><label>Periodo RSI</label><input id="cfg-rsi-p" type="number" value="14" min="5" max="21" step="1">
-</div>
-</div>`;
+    html = `<div class="form-row"><div class="form-col"><label>RSI Threshold</label><input id="cfg-rsi-os" type="number" value="30" min="10" max="45" step="1"></div><div class="form-col"><label>Periodo RSI</label><input id="cfg-rsi-p" type="number" value="14" min="5" max="21" step="1"></div></div>`;
   } else if (type === 'rsi_overbought') {
-    html = `<div class="form-row"><div class="form-col"><label>RSI Threshold</label><input id="cfg-rsi-ob" type="number" value="70" min="55" max="90" step="1">
-</div><div class="form-col"><label>Periodo RSI</label><input id="cfg-rsi-p" type="number" value="14" min="5" max="21" step="1">
-</div>
-</div>`;
+    html = `<div class="form-row"><div class="form-col"><label>RSI Threshold</label><input id="cfg-rsi-ob" type="number" value="70" min="55" max="90" step="1"></div><div class="form-col"><label>Periodo RSI</label><input id="cfg-rsi-p" type="number" value="14" min="5" max="21" step="1"></div></div>`;
   } else if (type === 'ma_cross_up' || type === 'ma_cross_down') {
-    html = `<div class="form-row"><div class="form-col"><label>Periodo MM</label><input id="cfg-ma-p" type="number" value="20" min="5" max="200" step="1">
-</div>
-</div>`;
+    html = `<div class="form-row"><div class="form-col"><label>Periodo MM</label><input id="cfg-ma-p" type="number" value="20" min="5" max="200" step="1"></div></div>`;
   } else if (type === 'volume_spike') {
-    html = `<div class="form-row"><div class="form-col"><label>Multiplicador</label><input id="cfg-vol-m" type="number" value="2.5" min="1.5" max="10" step="0.5">
-</div>
-</div>`;
+    html = `<div class="form-row"><div class="form-col"><label>Multiplicador</label><input id="cfg-vol-m" type="number" value="2.5" min="1.5" max="10" step="0.5"></div></div>`;
   } else if (type === 'price_above' || type === 'price_below') {
-    html = `<div class="form-row"><div class="form-col"><label>Preco (R$)</label><input id="cfg-price-t" type="number" placeholder="0.00" min="0" step="0.01">
-</div>
-</div>`;
+    html = `<div class="form-row"><div class="form-col"><label>Preco (R$)</label><input id="cfg-price-t" type="number" placeholder="0.00" min="0" step="0.01"></div></div>`;
   }
   area.innerHTML = html;
 }
@@ -816,17 +770,12 @@ function renderTriggered(alerts) {
   if (!alerts.length) { document.getElementById('triggered-section').innerHTML = ''; return; }
   const html = `
     <div class="triggered-panel">
-      <div class="triggered-header">${alerts.length} alerta${alerts.length>1?'s':''} disparado${alerts.length>1?'s':''}
-</div>
+      <div class="triggered-header">${alerts.length} alerta${alerts.length>1?'s':''} disparado${alerts.length>1?'s':''}</div>
       ${alerts.map(a => `
         <div class="triggered-item severity-${a.severity}">
           <div><span class="t-ticker">${a.ticker}</span> &nbsp;
-            <span style="font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${a.alert_type.replace(/_/g,' ')}</span>
-</div>
-          <div class="t-msg">${a.message}
-</div>
-</div>`).join('')}
-</div>`;
+            <span style="font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${a.alert_type.replace(/_/g,' ')}</span></div>
+          <div class="t-msg">${a.message}</div></div>`).join('')}</div>`;
   document.getElementById('triggered-section').innerHTML = html;
 }
 
@@ -846,14 +795,9 @@ async function editNote(itemId) {
 function resetDetail() {
   document.getElementById('detail-col').innerHTML = `
     <div class="panel">
-      <div class="panel-header"><span class="panel-title">Selecione um ativo</span>
-</div>
+      <div class="panel-header"><span class="panel-title">Selecione um ativo</span></div>
       <div class="panel-body">
-        <div class="empty"><div class="empty-icon">👁
-</div>Clique em um ativo para ver detalhes e configurar alertas inteligentes.
-</div>
-</div>
-</div>`;
+        <div class="empty"><div class="empty-icon">👁</div>Clique em um ativo para ver detalhes e configurar alertas inteligentes.</div></div></div>`;
 }
 
 // ── SSE ──────────────────────────────────────────────────────────────────────

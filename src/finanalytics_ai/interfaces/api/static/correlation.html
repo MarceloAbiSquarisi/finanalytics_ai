@@ -635,14 +635,10 @@ function renderKPIs(d) {
 
   document.getElementById('kpi-grid').innerHTML = kpis.map(function(k) {
     return '<div class="kpi" style="border-top: 2px solid ' + k.accent + '">' +
-      '<div class="kpi-label">' + k.label + '
-</div>' +
-      '<div class="kpi-value" style="color:' + k.accent + '">' + k.value + '
-</div>' +
-      '<div style="font-size:13px;color:var(--muted);margin-top:3px;font-family:\'DM Mono\',monospace">' + (k.sub || '') + '
-</div>' +
-      '
-</div>';
+      '<div class="kpi-label">' + k.label + '</div>' +
+      '<div class="kpi-value" style="color:' + k.accent + '">' + k.value + '</div>' +
+      '<div style="font-size:13px;color:var(--muted);margin-top:3px;font-family:\'DM Mono\',monospace">' + (k.sub || '') + '</div>' +
+      '</div>';
   }).join('');
 }
 
@@ -709,14 +705,10 @@ function renderPairRow(pair, container) {
   var row = document.createElement('div');
   row.className = 'pair-row';
   row.innerHTML =
-    '<div style="min-width:110px;font-family:\'DM Mono\',monospace;font-size:14px;color:var(--text)">' + pair.label + '
-</div>' +
-    '<div class="pair-bar-wrap"><div class="pair-bar" style="width:' + barW + '%;background:' + barColor + '">
-</div>
-</div>' +
+    '<div style="min-width:110px;font-family:\'DM Mono\',monospace;font-size:14px;color:var(--text)">' + pair.label + '</div>' +
+    '<div class="pair-bar-wrap"><div class="pair-bar" style="width:' + barW + '%;background:' + barColor + '"></div></div>' +
     '<div style="min-width:42px;text-align:right;font-family:\'DM Mono\',monospace;font-size:15px;font-weight:700;color:' + barColor + '">' +
-      prefix + c.toFixed(3) + '
-</div>';
+      prefix + c.toFixed(3) + '</div>';
   container.appendChild(row);
 }
 
@@ -726,10 +718,8 @@ function renderPairLists(d) {
   most.innerHTML = ''; least.innerHTML = '';
   (d.most_correlated  || []).forEach(function(p) { renderPairRow(p, most); });
   (d.least_correlated || []).forEach(function(p) { renderPairRow(p, least); });
-  if (!most.children.length)  most.innerHTML  = '<div class="loading-text">—
-</div>';
-  if (!least.children.length) least.innerHTML = '<div class="loading-text">—
-</div>';
+  if (!most.children.length)  most.innerHTML  = '<div class="loading-text">—</div>';
+  if (!least.children.length) least.innerHTML = '<div class="loading-text">—</div>';
 }
 
 function renderPairButtons(d) {
