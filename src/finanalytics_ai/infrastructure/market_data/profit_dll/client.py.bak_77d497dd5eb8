@@ -196,21 +196,32 @@ class ProfitDLLClient:
             4: "MARKET_CONNECTED",
         }
 
-        # state_cb com latch para market_connected + file log para conn_type=2.
-        import builtins as _bi2
-        _log2 = r'C:\\Temp\\market_cb.log'
         @_WFTYPE(None, _cint, _cint)
         def _state_cb(t, r):
-            if t == 0:   _state.login_connected    = (r == 0)
-            elif t == 1: _state.routing_connected  = (r >= 4)
+            import structlog as _sl
+            _cb_log = _sl.get_logger("profit_dll.state")
+            if t == 0:
+                _state.login_connected = (r == 0)
+                _cb_log.info("dll_state.login", conn_type=t, result=r,
+                             connected=_state.login_connected)
             elif t == 2:
-                if r >= 4:   _state.market_connected = True
-                elif r == 0: _state.market_connected = False
-                try:
-                    with _bi2.open(_log2, 'a') as _f2:
-                        _f2.write(f'conn_type=2 r={r} market_connected={_state.market_connected}\n')
-                except Exception: pass
-            elif t == 3: _state.market_login_valid = (r == 0)
+                _state.market_connected = (r == 4)
+                state_name = _MARKET_STATES.get(r, f"UNKNOWN_{r}")
+                _cb_log.info("dll_state.market_data", conn_type=t, result=r,
+                             state=state_name, connected=_state.market_connected)
+            elif t == 3:
+                _state.market_login_valid = (r == 0)
+                _cb_log.info("dll_state.market_login", conn_type=t, result=r,
+                             valid=_state.market_login_valid)
+            elif t == 1:
+                # conn_type=1: roteamento. result=4 ou 5 = conectado/autenticado
+                _state.routing_connected = (r >= 4)
+                _cb_log.info("dll_state.other", conn_type=t, result=r,
+                             routing_connected=_state.routing_connected)
+            else:
+                _cb_log.info("dll_state.other", conn_type=t, result=r)
+            if _state.ready and _loop:
+                _loop.call_soon_threadsafe(_event.set)
 
         self._cb_state = _state_cb  # evita GC
 
@@ -275,9 +286,8 @@ class ProfitDLLClient:
                 pass
 
         self._cb_trade = _trade_cb           # mantém referência (evita GC ctypes)
-        # SetTradeCallbackV2 NAO chamado aqui — sera registrado uma unica vez
-        # no worker APOS routing, igual ao diagnostico que funciona.
-        log.info("profit_dll.trade_callback_stored")
+        self._dll.SetTradeCallbackV2(_trade_cb)
+        log.info("profit_dll.trade_callback_registered")
 
 
         # Inicializa via DLLInitializeLogin (login completo).
@@ -307,16 +317,16 @@ class ProfitDLLClient:
         # ─────────────────────────────────────────────────────────────────────
 
     async def wait_connected(self, timeout: float = 30.0) -> bool:
-        """Aguarda market_login_valid via polling — sem threading primitives no callback."""
-        steps = int(timeout * 2)
-        for _ in range(steps):
-            if self._state.market_login_valid:
-                if self._consumer_task is None:
-                    self._consumer_task = asyncio.create_task(self._consume_loop())
-                return True
-            await asyncio.sleep(0.5)
-        log.warning("profit_dll.connect_timeout", timeout=timeout, state=self._state)
-        return False
+        """Aguarda até a conexão estar pronta (Market Data + Login válido)."""
+        try:
+            await asyncio.wait_for(self._connected_event.wait(), timeout=timeout)
+            # Inicia consumer apenas apos conexao confirmada
+            if self._consumer_task is None:
+                self._consumer_task = asyncio.create_task(self._consume_loop())
+            return True
+        except asyncio.TimeoutError:
+            log.warning("profit_dll.connect_timeout", timeout=timeout, state=self._state)
+            return False
 
     async def subscribe_tickers(
         self, tickers: list[str], exchange: str = DEFAULT_EXCHANGE

@@ -196,20 +196,13 @@ class ProfitDLLClient:
             4: "MARKET_CONNECTED",
         }
 
-        # state_cb com latch para market_connected + file log para conn_type=2.
-        import builtins as _bi2
-        _log2 = r'C:\\Temp\\market_cb.log'
+        # state_cb ultra-minimo: APENAS atualizacoes de atributo.
+        # Nenhuma chamada threading — atribuicao de bool e atomica no CPython (GIL).
         @_WFTYPE(None, _cint, _cint)
         def _state_cb(t, r):
             if t == 0:   _state.login_connected    = (r == 0)
             elif t == 1: _state.routing_connected  = (r >= 4)
-            elif t == 2:
-                if r >= 4:   _state.market_connected = True
-                elif r == 0: _state.market_connected = False
-                try:
-                    with _bi2.open(_log2, 'a') as _f2:
-                        _f2.write(f'conn_type=2 r={r} market_connected={_state.market_connected}\n')
-                except Exception: pass
+            elif t == 2: _state.market_connected   = (r == 4)
             elif t == 3: _state.market_login_valid = (r == 0)
 
         self._cb_state = _state_cb  # evita GC

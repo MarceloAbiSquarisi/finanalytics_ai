@@ -226,32 +226,34 @@ async def run_profit_worker() -> None:
             log.error("profit_market_worker.connect_failed")
             return
 
-    # Espera routing + broker (crBrokerConnected) antes de registrar callback.
-    # Delphi mostra: cstMarketData so fica cmdConnectedLogged APOS crBrokerConnected.
-    for _ri in range(60):  # max 30s
-        if getattr(profit_client.state, 'routing_connected', False):
+    # Espera roteamento (conn_type=1 result>=4) antes de subscrever.
+    # SubscribeTicker retorna -2147483647 se chamado antes do routing conectar.
+    # conn_type=1 result=4 = ROUTING_CONNECTED (manual Nelogica).
+    # Timeout curto (10s) — routing tipicamente conecta em <2s apos login.
+    _routing_timeout = int(os.getenv("PROFIT_ROUTING_TIMEOUT", "20"))
+    for _ri in range(_routing_timeout * 2):
+        if getattr(profit_client.state, "routing_connected", False):
             log.info("profit_market_worker.routing_connected", attempts=_ri)
             break
         await asyncio.sleep(0.5)
     else:
         log.warning("profit_market_worker.routing_timeout_proceeding")
 
-    # Registra SetTradeCallbackV2 UMA UNICA VEZ apos routing — igual ao diagnostico.
-    # Dupla chamada (antes do init + apos routing) corrompia estado interno da DLL.
+    # Re-registra SetTradeCallbackV2 APOS routing — DLL reseta callbacks durante init.
     if hasattr(profit_client, '_cb_trade') and profit_client._cb_trade is not None:
         if hasattr(profit_client, '_dll') and profit_client._dll is not None:
             profit_client._dll.SetTradeCallbackV2(profit_client._cb_trade)
-            log.info("profit_market_worker.trade_callback_registered_post_routing")
+            log.info("profit_market_worker.trade_callback_reregistered")
 
-    # Aguarda market data — diagnostico recebeu conn_type=2 result=4 em 0.5s apos callback
-    for _mi in range(60):  # max 30s
+    # Aguarda market data conectar (conn_type=2 result=4) antes de subscrever.
+    # Diagnostico: conn_type=2 result=4 dispara ANTES do subscribe com DLLInitializeLogin.
+    for _mi in range(30):  # max 15s
         if profit_client.state.market_connected:
             log.info("profit_market_worker.market_data_connected", attempts=_mi)
             break
         await asyncio.sleep(0.5)
     else:
         log.warning("profit_market_worker.market_data_timeout_proceeding")
-    log.info("profit_market_worker.market_connected_status", connected=profit_client.state.market_connected)
 
     # Redis publisher para TapeService
     global _REDIS_PUB

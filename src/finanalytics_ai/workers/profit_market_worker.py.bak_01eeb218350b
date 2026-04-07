@@ -226,15 +226,8 @@ async def run_profit_worker() -> None:
             log.error("profit_market_worker.connect_failed")
             return
 
-    # Espera routing + broker (crBrokerConnected) antes de registrar callback.
-    # Delphi mostra: cstMarketData so fica cmdConnectedLogged APOS crBrokerConnected.
-    for _ri in range(60):  # max 30s
-        if getattr(profit_client.state, 'routing_connected', False):
-            log.info("profit_market_worker.routing_connected", attempts=_ri)
-            break
-        await asyncio.sleep(0.5)
-    else:
-        log.warning("profit_market_worker.routing_timeout_proceeding")
+    # HasRoteamento=False: sem routing. Espera diretamente market_connected.
+    log.info("profit_market_worker.no_routing_account")
 
     # Registra SetTradeCallbackV2 UMA UNICA VEZ apos routing — igual ao diagnostico.
     # Dupla chamada (antes do init + apos routing) corrompia estado interno da DLL.
