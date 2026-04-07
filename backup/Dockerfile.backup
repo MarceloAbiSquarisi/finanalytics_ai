@@ -1,0 +1,16 @@
+FROM postgres:16-alpine
+
+# Instalar apenas o necessário — cliente pg já vem na imagem base
+RUN apk add --no-cache dcron
+
+# Copiar script de backup
+COPY docker-backup.sh /usr/local/bin/docker-backup.sh
+RUN chmod +x /usr/local/bin/docker-backup.sh
+
+# Cron: todo dia às 05:00 UTC (02:00 BRT)
+# Redireciona stdout/stderr para /proc/1/fd/1 para aparecer em docker logs
+RUN echo "0 5 * * * /usr/local/bin/docker-backup.sh >> /proc/1/fd/1 2>&1" \
+    > /etc/crontabs/root
+
+# Entrypoint: inicia cron em foreground
+CMD ["crond", "-f", "-l", "2"]

@@ -350,6 +350,35 @@ services:
     networks:
       - finanalytics_net
 
+  # ── Backup diário PostgreSQL + TimescaleDB ────────────────────────────────
+  backup:
+    build:
+      context: ./backup
+      dockerfile: Dockerfile.backup
+    container_name: finanalytics_backup
+    restart: always
+    environment:
+      # PostgreSQL (OLTP)
+      PG_HOST:     postgres
+      PG_USER:     finanalytics
+      PG_PASSWORD: ${POSTGRES_PASSWORD:-secret}
+      PG_DB:       finanalytics
+      # TimescaleDB (séries temporais)
+      TS_HOST:     timescale
+      TS_USER:     finanalytics
+      TS_PASSWORD: ${TIMESCALE_PASSWORD:-timescale_secret}
+      TS_DB:       market_data
+    volumes:
+      - E:/finanalytics_data/docker/backups:/backups
+    networks:
+      - finanalytics_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      timescale:
+        condition: service_healthy
+
+
 networks:
   finanalytics_net:
     name: finanalytics_net
