@@ -35,11 +35,10 @@ import os
 import signal
 import sys
 import json as _json
-try:
-    import redis as _redis_sync_mod
-except ImportError:
-    _redis_sync_mod = None
-_REDIS_PUB = None
+# Publisher Redis para TapeService — inicializado dentro de run_profit_worker()
+# como cliente ASSÍNCRONO (redis.asyncio) para não bloquear o event loop.
+# Declarado no módulo para ser acessível dentro da closure _publish_tick.
+_REDIS_PUB_ASYNC: Any = None
 from typing import Any
 
 from finanalytics_ai.application.event_processor.factory import (
@@ -117,10 +116,15 @@ async def _build_processor(settings: Any, session_factory: Any) -> Any:
     ts_pool: Any = None
     try:
         import asyncpg
+        import re as _re
         ts_url = str(getattr(settings, "timescale_url", "") or "")
         if ts_url:
-            ts_pool = await asyncpg.create_pool(ts_url, min_size=2, max_size=10)
-            log.info("profit_worker.timescale_connected")
+            # asyncpg.create_pool aceita apenas "postgresql://" ou "postgres://".
+            # Settings.timescale_url é PostgresDsn que aceita "postgresql+asyncpg://"
+            # (sintaxe SQLAlchemy). Strip do dialeto antes de passar ao asyncpg nativo.
+            ts_url_native = _re.sub(r"^postgresql\+\w+://", "postgresql://", ts_url)
+            ts_pool = await asyncpg.create_pool(ts_url_native, min_size=2, max_size=10)
+            log.info("profit_worker.timescale_connected", dsn_host=ts_url_native.split("@")[-1])
     except Exception as exc:
         log.warning("profit_worker.timescale_unavailable", error=str(exc))
 
@@ -172,7 +176,18 @@ async def run_profit_worker() -> None:
     from finanalytics_ai.observability.logging import configure_logging
 
     from dotenv import load_dotenv
-    load_dotenv(override=False)
+    # .env.local (localhost, dev) tem prioridade sobre .env (Docker hostnames).
+    # load_dotenv com override=True sobrescreve variáveis já carregadas.
+    # Ordem: .env.local → .env → variáveis do sistema operacional (maior prioridade).
+    import pathlib as _pl
+    _root = _pl.Path(__file__).resolve().parents[3]
+    _env_local = _root / ".env.local"
+    _env_main  = _root / ".env"
+    if _env_local.exists():
+        load_dotenv(_env_local, override=True)
+        log.debug("profit_market_worker.env_loaded", file=str(_env_local))
+    if _env_main.exists():
+        load_dotenv(_env_main, override=False)  # não sobrescreve o que .env.local já definiu
     settings = get_settings()
     configure_logging(settings)
 
@@ -219,13 +234,6 @@ async def run_profit_worker() -> None:
         max_retries=int(os.getenv("PROFIT_MAX_RETRIES", "3")),
     )
 
-    if hasattr(profit_client, "start"):
-        _ = None  # start ja foi chamado acima
-        connected = await profit_client.wait_connected(timeout=connect_timeout)
-        if not connected:
-            log.error("profit_market_worker.connect_failed")
-            return
-
     # Espera routing + broker (crBrokerConnected) antes de registrar callback.
     # Delphi mostra: cstMarketData so fica cmdConnectedLogged APOS crBrokerConnected.
     for _ri in range(60):  # max 30s
@@ -253,21 +261,24 @@ async def run_profit_worker() -> None:
         log.warning("profit_market_worker.market_data_timeout_proceeding")
     log.info("profit_market_worker.market_connected_status", connected=profit_client.state.market_connected)
 
-    # Redis publisher para TapeService
-    global _REDIS_PUB
+    # Redis publisher para TapeService — cliente ASSÍNCRONO obrigatório aqui.
+    # O handler _publish_tick é chamado via "await handler(item)" no _consume_loop,
+    # portanto qualquer I/O dentro dele deve ser não-bloqueante.
+    # Usar redis síncrono (redis.publish) travaria o event loop por tick.
+    global _REDIS_PUB_ASYNC
     _redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    if _redis_sync_mod is not None:
-        try:
-            _REDIS_PUB = _redis_sync_mod.from_url(_redis_url, decode_responses=True)
-            log.info("profit_worker.redis_publisher_ready", url=_redis_url)
-        except Exception as _re:
-            log.warning("profit_worker.redis_publisher_failed", error=str(_re))
+    try:
+        from redis.asyncio import from_url as _aio_redis_from_url
+        _REDIS_PUB_ASYNC = _aio_redis_from_url(_redis_url, decode_responses=True)
+        log.info("profit_worker.redis_publisher_ready", url=_redis_url)
+    except Exception as _re:
+        log.warning("profit_worker.redis_publisher_failed", error=str(_re))
 
     async def _publish_tick(tick: object) -> None:
-        if _REDIS_PUB is None:
+        if _REDIS_PUB_ASYNC is None:
             return
         try:
-            _REDIS_PUB.publish("tape:ticks", _json.dumps({
+            await _REDIS_PUB_ASYNC.publish("tape:ticks", _json.dumps({
                 "ticker":     getattr(tick, "ticker", ""),
                 "price":      getattr(tick, "price", 0.0),
                 "volume":     getattr(tick, "volume", 0.0),
@@ -307,8 +318,10 @@ async def run_profit_worker() -> None:
         except asyncio.CancelledError:
             pass
 
-    # Cleanup
+    # Cleanup — fechar todas as conexões async
     await redis_client.aclose()
+    if _REDIS_PUB_ASYNC is not None:
+        await _REDIS_PUB_ASYNC.aclose()
     if ts_pool is not None:
         await ts_pool.close()
 

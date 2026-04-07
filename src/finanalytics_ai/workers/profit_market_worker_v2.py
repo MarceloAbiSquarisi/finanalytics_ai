@@ -6,10 +6,24 @@ IMPORTANTE: Redis inicializado APOS routing — Winsock conflict.
 from __future__ import annotations
 import asyncio, ctypes, json, os, signal, sys
 from ctypes import WINFUNCTYPE, c_int, c_size_t, c_uint, c_wchar_p
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+from pathlib import Path
+
+# sys.path: garante que 'src/' da raiz do projeto está no path quando o arquivo
+# é executado diretamente (python profit_market_worker_v2.py).
+# Quando executado como módulo (python -m finanalytics_ai.workers.profit_market_worker_v2),
+# o pacote instalável já resolve — a inserção é no-op se o path já existir.
+_src_root = Path(__file__).resolve().parents[3] / "src"
+if str(_src_root) not in sys.path and _src_root.exists():
+    sys.path.insert(0, str(_src_root))
 
 from dotenv import load_dotenv
-load_dotenv(override=False)
+# .env.local (localhost, dev) tem prioridade sobre .env (Docker hostnames).
+_env_local = _src_root.parent / ".env.local"
+_env_main  = _src_root.parent / ".env"
+if _env_local.exists():
+    load_dotenv(_env_local, override=True)
+if _env_main.exists():
+    load_dotenv(_env_main, override=False)
 
 from finanalytics_ai.observability.logging import get_logger, configure_logging
 from finanalytics_ai.config import get_settings
@@ -35,6 +49,37 @@ async def run() -> None:
     dll_path = os.getenv("PROFIT_DLL_PATH", r"C:\Nelogica\profitdll.dll")
     if not os.path.exists(dll_path):
         log.error("profit_worker_v2.dll_not_found", path=dll_path); return
+
+    # Guard de rate limiting Nelogica.
+    # A Nelogica faz throttling por credencial quando detecta muitas reconexões
+    # no mesmo dia (observado: >10 tentativas → market_connected começa a timeout).
+    # Usamos Redis síncrono aqui (antes de carregar a DLL) — não há conflito
+    # Winsock ainda, pois a DLL ainda não foi inicializada.
+    _MAX_DAILY_CONNECTS = int(os.getenv("PROFIT_MAX_DAILY_CONNECTS", "8"))
+    _redis_url_guard = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    try:
+        import redis as _rguard
+        from datetime import date as _date
+        _rg = _rguard.from_url(_redis_url_guard, socket_connect_timeout=2)
+        _key = f"profit_dll:connects:{_date.today().isoformat()}"
+        _count = int(_rg.get(_key) or 0)
+        if _count >= _MAX_DAILY_CONNECTS:
+            log.error(
+                "profit_worker_v2.daily_connect_limit_reached",
+                count=_count,
+                limit=_MAX_DAILY_CONNECTS,
+                key=_key,
+                hint="Aguarde até amanhã ou aumente PROFIT_MAX_DAILY_CONNECTS",
+            )
+            _rg.close()
+            return
+        _rg.incr(_key)
+        _rg.expire(_key, 86400)  # TTL de 24h — zera automaticamente no dia seguinte
+        log.info("profit_worker_v2.connect_attempt_registered", count=_count + 1, limit=_MAX_DAILY_CONNECTS)
+        _rg.close()
+    except Exception as _rge:
+        log.warning("profit_worker_v2.rate_guard_unavailable", error=str(_rge))
+        # Redis indisponível → não bloqueia o worker, apenas loga
 
     # Carrega DLL primeiro, antes de qualquer network
     dll = ctypes.WinDLL(dll_path)
