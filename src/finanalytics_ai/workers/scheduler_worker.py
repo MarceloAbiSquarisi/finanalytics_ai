@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Scheduler Worker — Coleta diária automática de dados de mercado.
 
@@ -31,6 +31,21 @@ MACRO_HOUR = int(os.environ.get("SCHEDULER_MACRO_HOUR", "6"))   # 06:00 local
 OHLCV_HOUR = int(os.environ.get("SCHEDULER_OHLCV_HOUR", "7"))   # 07:00 local
 TZ_OFFSET = int(os.environ.get("SCHEDULER_TZ_OFFSET", "-3"))    # UTC-3 Brasília
 RUN_ONCE = os.environ.get("RUN_ONCE", "false").lower() == "true"
+BRAPI_SYNC_ENABLED = os.environ.get("SCHEDULER_BRAPI_SYNC_ENABLED", "true").lower() == "true"
+# DSN aceita DATABASE_URL (asyncpg) ou DATABASE_DSN (psycopg2-style)
+_raw_dsn = os.environ.get("DATABASE_DSN") or os.environ.get("DATABASE_URL", "")
+PG_DSN_SYNC = (
+    _raw_dsn
+    .replace("postgresql+asyncpg://", "postgresql://")
+    .replace("postgresql+psycopg2://", "postgresql://")
+)
+
+FINTZ_API_KEY = os.environ.get("FINTZ_API_KEY", "")
+FINTZ_BASE_URL = os.environ.get("FINTZ_BASE_URL", "https://api.fintz.com.br")
+FINTZ_BULK_HOUR = int(os.environ.get("SCHEDULER_FINTZ_BULK_HOUR", "8"))   # 08:00 local
+FINTZ_BULK_ENABLED = os.environ.get("SCHEDULER_FINTZ_BULK_ENABLED", "true").lower() == "true"
+PG_DSN = os.environ.get("DATABASE_DSN", os.environ.get("DATABASE_URL", ""))
+
 OHLCV_ENABLED = os.environ.get("SCHEDULER_OHLCV_ENABLED", "true").lower() == "true"
 MACRO_ENABLED = os.environ.get("SCHEDULER_MACRO_ENABLED", "true").lower() == "true"
 
@@ -130,13 +145,286 @@ async def ohlcv_job() -> dict[str, Any]:
 
 # ── Run-once (first-run / CI) ─────────────────────────────────────────────────
 
+async def fintz_bulk_job() -> dict:
+    """
+    Atualiza ohlc_prices via download bulk Fintz.
+
+    Fluxo (1 chamada de API):
+      1. GET /bolsa/b3/avista/cotacoes/historico/arquivos  → {"link": "<url>"}
+      2. Baixa o .parquet completo (todos tickers, desde 2010)
+      3. Upsert incremental em ohlc_prices (apenas linhas mais novas que o MAX(date) por ticker)
+
+    Vantagens vs fintz_sync_worker (N chamadas por ticker):
+      - 1 chamada de API total → nunca atinge rate limit
+      - Parquet contém precoFechamentoAjustado → adj_close disponível
+      - Idempotente: ON CONFLICT DO UPDATE
+    """
+    if not _is_weekday():
+        logger.info("scheduler.fintz_bulk_job.skip", reason="weekend")
+        return {"status": "skip", "reason": "weekend"}
+
+    if not FINTZ_API_KEY:
+        logger.warning("scheduler.fintz_bulk_job.skip", reason="FINTZ_API_KEY not set")
+        return {"status": "skip", "reason": "no_fintz_key"}
+
+    if not PG_DSN:
+        logger.error("scheduler.fintz_bulk_job.skip", reason="DATABASE_DSN not set")
+        return {"status": "skip", "reason": "no_pg_dsn"}
+
+    logger.info("scheduler.fintz_bulk_job.start")
+    t0 = asyncio.get_event_loop().time()
+
+    try:
+        import io
+        import aiohttp
+        import asyncpg
+        import pandas as pd
+
+        # ── 1. Obter link de download ────────────────────────────────────────
+        async with aiohttp.ClientSession(
+            headers={"X-API-Key": FINTZ_API_KEY},
+            timeout=aiohttp.ClientTimeout(total=30),
+        ) as session:
+            async with session.get(
+                f"{FINTZ_BASE_URL}/bolsa/b3/avista/cotacoes/historico/arquivos"
+            ) as resp:
+                resp.raise_for_status()
+                data = await resp.json()
+                download_url = data["link"]
+
+            logger.info("scheduler.fintz_bulk_job.download_url_ok")
+
+            # ── 2. Baixar o arquivo Parquet ──────────────────────────────────
+            async with session.get(
+                download_url,
+                timeout=aiohttp.ClientTimeout(total=600),  # arquivo pode ser grande
+            ) as resp:
+                resp.raise_for_status()
+                content = await resp.read()
+
+        logger.info(
+            "scheduler.fintz_bulk_job.downloaded",
+            size_mb=round(len(content) / 1_048_576, 1),
+        )
+
+        # ── 3. Ler Parquet ───────────────────────────────────────────────────
+        df = pd.read_parquet(io.BytesIO(content))
+        logger.info("scheduler.fintz_bulk_job.parquet_read", rows=len(df), cols=df.columns.tolist())
+
+        # Normalizar nomes de colunas (Fintz usa camelCase)
+        col_map = {
+            "ticker": "ticker",
+            "data": "date",
+            "precoAbertura": "open",
+            "precoMaximo": "high",
+            "precoMinimo": "low",
+            "precoFechamento": "close",
+            "precoFechamentoAjustado": "adj_close",
+            "volumeNegociado": "volume",
+            "preco_abertura": "open",
+            "preco_maximo": "high",
+            "preco_minimo": "low",
+            "preco_fechamento": "close",
+            "preco_fechamento_ajustado": "adj_close",
+            "volume_negociado": "volume",
+        }
+        df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
+
+        required = {"ticker", "date", "open", "high", "low", "close"}
+        if not required.issubset(df.columns):
+            missing = required - set(df.columns)
+            raise ValueError(f"Colunas ausentes no Parquet: {missing}")
+
+        df["date"] = pd.to_datetime(df["date"]).dt.date
+        df = df[df["close"] > 0]
+
+        if "adj_close" not in df.columns:
+            df["adj_close"] = None
+        if "volume" not in df.columns:
+            df["volume"] = None
+
+        # ── 4. Upsert incremental em ohlc_prices via asyncpg ────────────────
+        dsn = (
+            PG_DSN
+            .replace("postgresql+asyncpg://", "postgresql://")
+            .replace("postgresql+psycopg2://", "postgresql://")
+        )
+        conn = await asyncpg.connect(dsn)
+
+        # MAX(date) por ticker — inserir apenas delta
+        rows_max = await conn.fetch("SELECT ticker, MAX(date) FROM ohlc_prices GROUP BY ticker")
+        max_dates: dict = {row[0]: row[1] for row in rows_max}
+
+        BATCH = 2000
+        total_rows = 0
+        tickers_updated = 0
+
+        for ticker, grp in df.groupby("ticker"):
+            max_date = max_dates.get(ticker)
+            if max_date:
+                grp = grp[grp["date"] > max_date]
+            if grp.empty:
+                continue
+
+            records = [
+                (
+                    ticker,
+                    row["date"],
+                    float(row["open"])      if pd.notna(row["open"])      else None,
+                    float(row["high"])      if pd.notna(row["high"])      else None,
+                    float(row["low"])       if pd.notna(row["low"])       else None,
+                    float(row["close"])     if pd.notna(row["close"])     else None,
+                    float(row["adj_close"]) if pd.notna(row.get("adj_close")) else None,
+                    float(row["volume"])    if pd.notna(row.get("volume")) else None,
+                )
+                for _, row in grp.iterrows()
+            ]
+
+            sql = """
+                INSERT INTO ohlc_prices (ticker, date, open, high, low, close, adj_close, volume)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                ON CONFLICT (ticker, date) DO UPDATE SET
+                    open      = EXCLUDED.open,
+                    high      = EXCLUDED.high,
+                    low       = EXCLUDED.low,
+                    close     = EXCLUDED.close,
+                    adj_close = EXCLUDED.adj_close,
+                    volume    = EXCLUDED.volume
+            """
+            for i in range(0, len(records), BATCH):
+                await conn.executemany(sql, records[i:i+BATCH])
+
+            total_rows += len(records)
+            tickers_updated += 1
+
+        await conn.close()
+
+        elapsed = round(asyncio.get_event_loop().time() - t0)
+        logger.info(
+            "scheduler.fintz_bulk_job.done",
+            tickers_updated=tickers_updated,
+            rows_inserted=total_rows,
+            elapsed_s=elapsed,
+        )
+        return {"status": "ok", "tickers": tickers_updated, "rows": total_rows}
+
+    except Exception as exc:
+        logger.error("scheduler.fintz_bulk_job.failed", error=str(exc), exc_info=True)
+        return {"status": "error", "error": str(exc)}
+
+
+async def brapi_sync_job() -> dict:
+    """
+    Sincroniza Parquets BRAPI (/data/ohlcv) → ohlc_prices.
+
+    Roda após ohlcv_job: os Parquets já estão frescos (coletados às 07:00).
+    1 chamada de API zero — lê apenas arquivos locais.
+    Idempotente: insere apenas linhas com date > MAX(date) por ticker.
+    """
+    if not _is_weekday():
+        logger.info("scheduler.brapi_sync_job.skip", reason="weekend")
+        return {"status": "skip", "reason": "weekend"}
+
+    if not PG_DSN_SYNC:
+        logger.error("scheduler.brapi_sync_job.skip", reason="DATABASE_URL not set")
+        return {"status": "skip", "reason": "no_db_dsn"}
+
+    logger.info("scheduler.brapi_sync_job.start")
+    t0 = asyncio.get_event_loop().time()
+
+    try:
+        import glob
+        import asyncpg
+        import pandas as pd
+
+        ohlcv_dir = DATA_DIR + "/ohlcv"
+        conn = await asyncpg.connect(PG_DSN_SYNC)
+
+        rows_max = await conn.fetch("SELECT ticker, MAX(date) FROM ohlc_prices GROUP BY ticker")
+        max_dates: dict = {r[0]: r[1] for r in rows_max}
+
+        tickers = sorted(
+            d for d in os.listdir(ohlcv_dir)
+            if os.path.isdir(os.path.join(ohlcv_dir, d))
+        )
+
+        sql = """
+            INSERT INTO ohlc_prices (ticker, date, open, high, low, close, adj_close, volume)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ON CONFLICT (ticker, date) DO UPDATE SET
+                open      = EXCLUDED.open,
+                high      = EXCLUDED.high,
+                low       = EXCLUDED.low,
+                close     = EXCLUDED.close,
+                adj_close = EXCLUDED.adj_close,
+                volume    = EXCLUDED.volume
+        """
+
+        BATCH = 2000
+        total_rows = total_tickers = total_errors = 0
+
+        for ticker in tickers:
+            files = glob.glob(f"{ohlcv_dir}/{ticker}/*.parquet")
+            if not files:
+                continue
+            try:
+                df = pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
+                df["date"] = pd.to_datetime(df["date"]).dt.date
+                max_date = max_dates.get(ticker)
+                if max_date:
+                    df = df[df["date"] > max_date]
+                df = df[df["close"] > 0]
+                if df.empty:
+                    continue
+
+                records = [
+                    (
+                        ticker,
+                        row["date"],
+                        float(row["open"])   if pd.notna(row["open"])   else None,
+                        float(row["high"])   if pd.notna(row["high"])   else None,
+                        float(row["low"])    if pd.notna(row["low"])    else None,
+                        float(row["close"])  if pd.notna(row["close"])  else None,
+                        None,
+                        float(row["volume"]) if pd.notna(row["volume"]) else None,
+                    )
+                    for _, row in df.iterrows()
+                ]
+                for i in range(0, len(records), BATCH):
+                    await conn.executemany(sql, records[i:i + BATCH])
+                total_rows += len(records)
+                total_tickers += 1
+            except Exception as e:
+                logger.warning("scheduler.brapi_sync_job.ticker_error", ticker=ticker, error=str(e))
+                total_errors += 1
+
+        await conn.close()
+        elapsed = round(asyncio.get_event_loop().time() - t0)
+        logger.info(
+            "scheduler.brapi_sync_job.done",
+            tickers_updated=total_tickers,
+            rows_inserted=total_rows,
+            errors=total_errors,
+            elapsed_s=elapsed,
+        )
+        return {"status": "ok", "tickers": total_tickers, "rows": total_rows, "errors": total_errors}
+
+    except Exception as exc:
+        logger.error("scheduler.brapi_sync_job.failed", error=str(exc), exc_info=True)
+        return {"status": "error", "error": str(exc)}
+
+
 async def run_once() -> None:
     """Executa ambos os jobs uma única vez e sai."""
-    logger.info("scheduler.run_once.start", macro=MACRO_ENABLED, ohlcv=OHLCV_ENABLED)
+    logger.info("scheduler.run_once.start", macro=MACRO_ENABLED, ohlcv=OHLCV_ENABLED, fintz_bulk=FINTZ_BULK_ENABLED, brapi_sync=BRAPI_SYNC_ENABLED)
     if MACRO_ENABLED:
         await macro_job()
     if OHLCV_ENABLED:
         await ohlcv_job()
+    if FINTZ_BULK_ENABLED:
+        await fintz_bulk_job()
+    if BRAPI_SYNC_ENABLED:
+        await brapi_sync_job()
     logger.info("scheduler.run_once.done")
 
 
@@ -187,6 +475,8 @@ async def schedule_loop() -> None:
             )
             await asyncio.sleep(wait)
             await ohlcv_job()
+            if BRAPI_SYNC_ENABLED:
+                await brapi_sync_job()
 
     tasks: list[asyncio.Task[None]] = []
     if MACRO_ENABLED:
