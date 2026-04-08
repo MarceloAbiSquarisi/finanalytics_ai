@@ -606,6 +606,91 @@ async def sync_macro_data(report: MaintenanceReport) -> None:
 
 # ── Orquestrador principal ────────────────────────────────────────────────────
 
+
+def compute_derived_indicators(report: "MaintenanceReport") -> None:
+    """
+    Calcula indicadores derivados localmente quando a Fintz não os atualiza.
+
+    Indicadores calculados:
+      P_L  = close / LPA  (Preço / Lucro por Ação)
+      P_VP = close / VPA  (Preço / Valor Patrimonial por Ação)
+      L_P  = LPA / close  (inverso do P/L)
+
+    Lógica:
+      - Insere apenas para datas sem dados em fintz_indicadores (idempotente)
+      - Usa o LPA/VPA mais recente disponível até a data do pregão (LATERAL JOIN)
+      - ON CONFLICT DO UPDATE garante idempotência
+    """
+    t0 = time.perf_counter()
+    step = StepResult(name="derived_indicators")
+    try:
+        conn = _pg_conn()
+
+        sql_base = """
+            INSERT INTO fintz_indicadores (ticker, indicador, data_publicacao, valor)
+            SELECT
+                o.ticker,
+                '{indicador}',
+                o.date,
+                ROUND({formula}, 6)
+            FROM ohlc_prices o
+            CROSS JOIN LATERAL (
+                SELECT valor FROM fintz_indicadores
+                WHERE ticker = o.ticker
+                  AND indicador = '{base}'
+                  AND data_publicacao <= o.date
+                  AND valor != 0
+                ORDER BY data_publicacao DESC
+                LIMIT 1
+            ) base_val
+            WHERE o.close > 0
+              AND NOT EXISTS (
+                  SELECT 1 FROM fintz_indicadores ex
+                  WHERE ex.ticker = o.ticker
+                    AND ex.indicador = '{indicador}'
+                    AND ex.data_publicacao = o.date
+              )
+            ON CONFLICT (ticker, indicador, data_publicacao)
+            DO UPDATE SET valor = EXCLUDED.valor
+        """
+
+        indicators = [
+            {"indicador": "P_L",  "base": "LPA", "formula": "o.close / base_val.valor"},
+            {"indicador": "P_VP", "base": "VPA", "formula": "o.close / base_val.valor"},
+            {"indicador": "L_P",  "base": "LPA", "formula": "base_val.valor / o.close"},
+        ]
+
+        total_rows = 0
+        if not DRY_RUN:
+            for ind in indicators:
+                sql = sql_base.format(**ind)
+                rows = _execute(conn, sql)
+                total_rows += rows
+                log.info(
+                    "maintenance.derived_indicator.ok",
+                    indicador=ind["indicador"],
+                    rows=rows,
+                )
+            conn.commit()
+
+        step.rows_affected = total_rows
+        step.ok = True
+        step.message = f"Derivados: {total_rows} registros calculados (P_L, P_VP, L_P)"
+        log.info(
+            "maintenance.step.derived_indicators",
+            duration_s=round(time.perf_counter() - t0, 2),
+            rows=total_rows,
+            message=step.message,
+            ok=True,
+        )
+    except Exception as exc:
+        step.ok = False
+        step.message = str(exc)
+        log.error("maintenance.step.derived_indicators.error", error=str(exc))
+    finally:
+        report.steps.append(step)
+
+
 async def run_maintenance(skip_ml: bool = False) -> MaintenanceReport:
     """
     Executa todas as etapas de manutencao em sequencia.
@@ -619,6 +704,8 @@ async def run_maintenance(skip_ml: bool = False) -> MaintenanceReport:
 
     # 2. ohlc_prices (sync — SQL puro)
     sync_ohlc_prices(report)
+    # 2b. Indicadores derivados (P_L, P_VP, L_P)
+    compute_derived_indicators(report)
 
     # 3. Refresh dedup view (sync — SQL)
     refresh_dedup_view(report)
