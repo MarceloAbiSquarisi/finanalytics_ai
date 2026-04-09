@@ -152,6 +152,7 @@ class TapeService:
         self._subscribers: dict[str, list[asyncio.Queue]] = defaultdict(list)
         # Tickers ativos
         self._active_tickers: set[str] = set()
+        self._confluence_engine: ConflunceEngine = ConflunceEngine()
 
 
 
@@ -305,7 +306,19 @@ class TapeService:
         dead = []
         for q in self._subscribers.get(ticker, []):
             try:
-                q.put_nowait({"trade": trade.to_dict(), "metrics": metrics.to_dict()})
+                q.put_nowait({
+                "trade":      trade.to_dict(),
+                "metrics":    metrics.to_dict(),
+                "confluence": self._confluence_engine.evaluate(
+                    ticker=ticker,
+                    ratio_cv=metrics.ratio_cv,
+                    saldo_fluxo=metrics.saldo_fluxo,
+                    trades_por_min=metrics.trades_por_min,
+                    total_trades=metrics.total_trades,
+                    vol_compra=metrics.vol_compra,
+                    vol_venda=metrics.vol_venda,
+                ).to_dict(),
+            })
             except asyncio.QueueFull:
                 dead.append(q)
         for q in dead:
@@ -387,3 +400,4 @@ class TapeService:
                 self.on_tick(tick)
 
             await asyncio.sleep(interval)
+from finanalytics_ai.domain.tape.confluence import ConflunceEngine, ConflunceSignal
