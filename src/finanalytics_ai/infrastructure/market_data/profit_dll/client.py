@@ -143,13 +143,14 @@ class ProfitDLLClient:
         username: str,
         password: str,
         tick_queue_size: int = 10_000,
+        preloaded_dll: Any = None,
     ) -> None:
         self._dll_path = dll_path
         self._activation_key = activation_key
         self._username = username
         self._password = password
 
-        self._dll: WinDLL | None = None
+        self._dll: WinDLL | None = preloaded_dll  # DLL ja conectada ou None
         self._loop: asyncio.AbstractEventLoop | None = None
         self._tick_queue: asyncio.Queue[PriceTick | DailyBar] = asyncio.Queue(
             maxsize=tick_queue_size
@@ -175,13 +176,22 @@ class ProfitDLLClient:
     # ── Public API ────────────────────────────────────────────────────────────
 
     async def start(self, loop: asyncio.AbstractEventLoop | None = None) -> None:
-        """Inicializa a DLL — padrao identico ao script de diagnostico que funciona."""
+        """Inicializa a DLL — usa preloaded_dll se disponivel, senao conecta do zero."""
         self._loop = loop or asyncio.get_running_loop()
         # Recria o Event dentro do loop ativo (Python 3.12 requer isso)
         self._connected_event = asyncio.Event()
 
-        # Carrega DLL sem configurar restype (igual ao diagnostico)
         from ctypes import WinDLL as _WinDLL, WINFUNCTYPE as _WFTYPE, c_int as _cint, c_wchar_p as _wstr
+
+        # Se DLL ja foi pre-conectada (evita conflito ProactorEventLoop vs ConnectorThread)
+        if self._dll is not None:
+            log.info("profit_dll.using_preloaded_dll")
+            self._state.market_connected = True
+            self._subscribe_event.set()
+            self._consumer_task = asyncio.create_task(self._consume_loop())
+            return
+
+        # Carrega DLL sem configurar restype (igual ao diagnostico)
         self._dll = _WinDLL(self._dll_path)
 
         # Callback MINIMAL identico ao diagnostico — sem Structures, sem c_int32

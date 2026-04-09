@@ -89,11 +89,14 @@ def _get_profit_client() -> Any:
 
     from finanalytics_ai.infrastructure.market_data.profit_dll.client import ProfitDLLClient
 
+    import finanalytics_ai.workers.profit_market_worker as _wmod
+    _preloaded = getattr(_wmod, '_GLOBAL_PRELOADED_DLL', None)
     return ProfitDLLClient(
         dll_path=dll_path,
         activation_key=os.getenv("PROFIT_ACTIVATION_KEY", ""),
         username=os.getenv("PROFIT_USERNAME", ""),
         password=os.getenv("PROFIT_PASSWORD", ""),
+        preloaded_dll=_preloaded,
     )
 
 
@@ -345,7 +348,7 @@ if __name__ == "__main__":
     # SelectorEventLoop dentro do asyncio tambem interfere.
     # Unica solucao: DLL conectada (t=2 r=4) antes de qualquer event loop.
     import sys, threading, os
-    from ctypes import WinDLL, WINFUNCTYPE, c_int, c_wchar_p
+    from ctypes import WinDLL, WINFUNCTYPE as _WFT, c_int, c_wchar_p
     from pathlib import Path
     from dotenv import load_dotenv
 
@@ -358,26 +361,29 @@ if __name__ == "__main__":
     _pwd      = os.getenv("PROFIT_PASSWORD", "")
 
     _market_ready = threading.Event()
-    _pre_dll = WinDLL(_dll_path)
+    _PRELOADED_DLL = WinDLL(_dll_path)
 
-    @WINFUNCTYPE(None, c_int, c_int)
+    @_WFT(None, c_int, c_int)
     def _pre_state_cb(t, r):
         if t == 2 and r == 4:
             _market_ready.set()
 
-    _pre_dll.SetTradeCallback(_pre_state_cb)
-    _pre_dll.SetChangeCotationCallback(_pre_state_cb)
-    _pre_dll.DLLInitializeLogin(
+    _PRELOADED_DLL.SetTradeCallback(_pre_state_cb)
+    _PRELOADED_DLL.SetChangeCotationCallback(_pre_state_cb)
+    _PRELOADED_DLL.DLLInitializeLogin(
         c_wchar_p(_key), c_wchar_p(_usr), c_wchar_p(_pwd),
         _pre_state_cb, None, None, None, None, None, None, None, None, None, None,
     )
     print("DLL pre-init: aguardando market connected (t=2 r=4)...", flush=True)
     connected = _market_ready.wait(timeout=90)
     if connected:
-        print("DLL pre-init: market connected! Subindo asyncio...", flush=True)
+        print("DLL pre-init: market connected! Passando para worker...", flush=True)
     else:
-        print("DLL pre-init: timeout — subindo asyncio sem market connected", flush=True)
-    _pre_dll.DLLFinalize()
+        print("DLL pre-init: timeout - subindo sem market connected", flush=True)
+        _PRELOADED_DLL = None
+
+    # Injeta no modulo atual sem duplo import
+    globals()['_GLOBAL_PRELOADED_DLL'] = _PRELOADED_DLL
 
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
