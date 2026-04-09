@@ -1383,62 +1383,6 @@ async function changeRange(range) {
 
 
 // ── Separadores de dia ────────────────────────────────────────────────────────
-var _daySepTimes = [];
-var _daySepSvg = null;
-
-function initDaySeparators(bars) {
-  _daySepTimes = [];
-  for (var i = 1; i < bars.length; i++) {
-    var dPrev = Math.floor(bars[i-1].time/86400);
-    var dCurr = Math.floor(bars[i].time/86400);
-    if (dPrev !== dCurr) _daySepTimes.push(bars[i].time);
-  }
-  // Cria/recria SVG overlay no container do gráfico
-  var container = document.getElementById('chart-price');
-  var old = container.querySelector('.day-sep-svg');
-  if (old) old.remove();
-  _daySepSvg = document.createElementNS('http://www.w3.org/2000/svg','svg');
-  _daySepSvg.classList.add('day-sep-svg');
-  _daySepSvg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2';
-  container.style.position = 'relative';
-  container.appendChild(_daySepSvg);
-  drawDaySeparators();
-  priceChart.timeScale().subscribeVisibleLogicalRangeChange(function() {
-    setTimeout(drawDaySeparators, 16);
-  });
-}
-
-function drawDaySeparators() {
-  if (!_daySepSvg || !priceChart || !_daySepTimes.length) return;
-  var h = _daySepSvg.clientHeight || _daySepSvg.parentElement.clientHeight;
-  while (_daySepSvg.firstChild) _daySepSvg.removeChild(_daySepSvg.firstChild);
-  _daySepTimes.forEach(function(t) {
-    var x = priceChart.timeScale().timeToCoordinate(t);
-    if (x === null || x < 0) return;
-    var line = document.createElementNS('http://www.w3.org/2000/svg','line');
-    line.setAttribute('x1', x); line.setAttribute('x2', x);
-    line.setAttribute('y1', 0); line.setAttribute('y2', h);
-    line.setAttribute('stroke', 'rgba(255,255,255,0.12)');
-    line.setAttribute('stroke-width', '1');
-    line.setAttribute('stroke-dasharray', '3,3');
-    _daySepSvg.appendChild(line);
-  });
-}
-
-var _daySepTimes=[];var _daySepSvg=null;function drawDaySeparators(){
-  if(!_daySepSvg||!priceChart||!_daySepTimes.length)return;
-  var h=_daySepSvg.parentElement.clientHeight||400;
-  while(_daySepSvg.firstChild)_daySepSvg.removeChild(_daySepSvg.firstChild);
-  _daySepTimes.forEach(function(t){
-    var x=priceChart.timeScale().timeToCoordinate(t);
-    if(x===null||x<0)return;
-    var l=document.createElementNS('http://www.w3.org/2000/svg','line');
-    l.setAttribute('x1',x);l.setAttribute('x2',x);l.setAttribute('y1',0);l.setAttribute('y2',h);
-    l.setAttribute('stroke','rgba(255,255,255,0.15)');l.setAttribute('stroke-width','1');l.setAttribute('stroke-dasharray','4,4');
-    _daySepSvg.appendChild(l);
-  });
-}
-
 async function loadChartAndIndicators(ticker, range, interval) {
   interval = interval || currentInterval || '1wk';
   setLoading(true);
