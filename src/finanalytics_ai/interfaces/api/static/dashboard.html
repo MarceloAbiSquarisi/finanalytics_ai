@@ -433,7 +433,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 body.sb-open .fa-page-content { margin-left: var(--sb-w); }
 
 @keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
-.refresh-sel{background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:4px;font-family:DM Mono,monospace;font-size:14px;padding:3px 6px;cursor:pointer;outline:none}
 
 /* Day Trade submenu */
 .fa-sb-group { position: relative; }
@@ -3063,9 +3062,9 @@ async function _doRefresh() {
 }
 var _refreshTimer = null;
 function setRefreshInterval(ms) {
+  // Nota: #refresh-sel foi removido da UI — sincronização via localStorage apenas
   ms = parseInt(ms);
   if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; }
-  var sel = document.getElementById('refresh-sel'); if (sel) sel.value = String(ms);
   localStorage.setItem('fa_refresh_ms', ms);
   if (ms === -1 || ms > 0) { _refreshTimer = setInterval(_doRefresh, ms === -1 ? 500 : ms); }
 }
