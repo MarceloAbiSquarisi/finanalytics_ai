@@ -1,0 +1,198 @@
+=== FINANALYTICS AI — SESSAO 5 ===
+Data: 2026-04-04
+Duracao: ~4h
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FEATURES ENTREGUES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+A. ANALISE DE SENTIMENTO (/sentiment) ✅
+   - SentimentService com Claude Haiku 4.5 (~$0.001/noticia)
+   - Cache Redis 1h, scan RSS InfoMoney + Investing.com BR
+   - Dashboard: termometro visual, KPIs, cards de noticias por ticker
+   - Fix: ANTHROPIC_API_KEY sem creditos → nova chave
+   - Fix: model string claude-haiku-4-5-20251001
+   - Testado: "Petrobras anuncia dividendos" → positivo score=0.85
+
+B. P&L INTRADAY (/pnl) ✅
+   - Lancamento de operacoes C/V com horario
+   - Calculo FIFO por ticker
+   - Custos B3: emolumentos 0.023%, liquidacao 0.0275%, ISS, corretagem
+   - Persistencia localStorage (reseta meia-noite)
+
+C. VAR - VALUE AT RISK (/var) ✅
+   - 3 metodos em stdlib puro (sem numpy/scipy)
+   - VaR Historico: percentil real dos retornos (fintz_cotacoes)
+   - VaR Parametrico: z-score x volatilidade (z=1.645 para 95%)
+   - CVaR/Expected Shortfall: media dos piores dias (Basel III)
+   - Beneficio de diversificacao calculado
+   - Testado: PETR4/VALE3/ITUB4 VaR=R$179 vol=14% diversif.=R$117
+   - Pagina: dashboard com comparativo de metodos e tabela por ativo
+
+D. OTIMIZADOR DE CARTEIRA (/optimizer) ✅
+   - Fix critico: import Ticker corrigido (value_objects.ticker → money)
+   - Fix critico: _extract_prices aceita campo 'time' (Unix timestamp Fintz)
+   - Markowitz: Monte Carlo 5000 portfolios + gradiente ascendente
+   - Risk Parity: pesos equalizando contribuicao de risco
+   - Black-Litterman: visoes do investidor com tau e lambda ajustaveis
+   - Testado: PETR4/VALE3/ITUB4/WEGE3 Sharpe=2.16 retorno=46.8%
+   - Nova interface: 4 abas (Markowitz, Risk Parity, BL, Comparar Todos)
+   - Presets: Blue Chips, ETFs Diversificados, Ibov Top
+
+E. PAINEL DE DIVIDENDOS (/dividendos) ✅
+   - Fonte: fintz_indicadores (DividendYield)
+   - Colunas: ticker, indicador, valor, data_publicacao
+   - Filtro de valores absurdos (DY > 80%)
+   - Testado: PETR4 DY=17.31% media5a=24.63%
+   - 3 abas: Ranking DY, Historico por ano, Minha Carteira
+
+F. SUPERFICIE DE VOLATILIDADE (/vol-surface) ✅
+   - Heatmap 10x9: 10 vencimentos (7d-252d) x 9 strikes (-20% a +20%)
+   - Modelo sintetico: smile com skew negativo, estrutura a termo
+   - Smile chart canvas por moneyness (30 dias)
+   - Estrutura a Termo ATM por vencimento
+   - Click em celula: Greeks instantaneos (Delta, Gamma, Theta, Vega)
+   - Black-Scholes Newton-Raphson + bisseccao em JS puro
+
+G. WHATSAPP ALERTAS (/whatsapp) ⚠️ PENDENTE QR CODE
+   - Evolution API v1.8.2 no docker-compose (porta 8081)
+   - Endpoints: status, qrcode, send, alerta/preco, alerta/setup, CRUD
+   - disparar_alerta_preco() e disparar_alerta_setup() prontos
+   - Pagina: 4 abas (Enviar, Alerta Preco, Alerta Setup, Meus Alertas)
+   - Pendente: configurar conexao QR code com WhatsApp
+
+H. TAPE READING (/tape) ✅ (simulador) / ⏳ (ProfitDLL segunda)
+   - TapeService: buffer deslizante 500 trades por ticker
+   - Trade types DLL: 0=direto, 1=agressor_compra, 2=agressor_venda, 3=cross
+   - Metricas: Ratio C/V, Saldo de Fluxo, % Agressao, Trades/min
+   - Volume Profile por nivel de preco
+   - SSE streaming por ticker via EventSource
+   - Simulador: random walk + pressao compradora ciclica
+   - Endpoints: /tickers, /metrics, /trades, /stream, /simulate
+   - Pagina: Time&Sales scroll, metricas ao vivo, volume profile
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BUGS CORRIGIDOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. ANTHROPIC_API_KEY sem creditos (400 Bad Request)
+   → Nova chave criada + docker-compose up --force-recreate api
+   → docker restart nao recarrega .env, apenas --force-recreate
+
+2. Model string incorreto
+   → claude-haiku-4-5 → claude-haiku-4-5-20251001
+
+3. PortfolioOptimizerService: import inexistente
+   → from finanalytics_ai.domain.value_objects.ticker import Ticker
+   → from finanalytics_ai.domain.value_objects.money import Ticker
+
+4. PortfolioOptimizerService: _extract_prices nao aceitava campo Fintz
+   → bars retornam {'time': Unix, 'open', 'high', 'low', 'close', 'volume'}
+   → adicionado b.get("time") como fallback em _extract_prices
+
+5. Evolution API v2.2.3: exige DATABASE_PROVIDER e banco configurado
+   → downgrade para v1.8.2 (arquivo local, sem banco obrigatorio)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INFRAESTRUTURA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Docker containers ativos:
+  finanalytics_postgres    5432  ✅
+  finanalytics_timescale   5433  ✅
+  finanalytics_redis       6379  ✅
+  finanalytics_api         8000  ✅
+  finanalytics_evolution   8081  ⚠️ pendente QR code
+
+.env adicionado:
+  ANTHROPIC_API_KEY=sk-ant-api03-zAbRbFcq9LLU... (com creditos)
+  EVOLUTION_API_KEY=finanalytics-evolution-key
+  EVOLUTION_URL=http://evolution-api:8080
+
+Fintz (dados em producao):
+  fintz_cotacoes:        1.320.059 linhas
+  fintz_itens_contabeis: 121.971.684 linhas
+  fintz_indicadores:     46.301.031 linhas
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ROTAS DISPONIVEIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/                   Dashboard principal
+/carteira           Gestao de carteira
+/screener           Screener fundamentalista
+/backtest           Backtesting estrategias
+/forecast           Forecast (Prophet)
+/anomaly            Deteccao de anomalias
+/daytrade/setups    Setups intraday com Stop/Alvo
+/daytrade/risco     Gestao de risco intraday
+/diario             Diario de trades
+/pnl                P&L Intraday + custos B3
+/opcoes             Greeks e Volatilidade Implicita
+/opcoes/estrategias 7 estrategias de opcoes
+/vol-surface        Superficie de volatilidade
+/sentiment          Sentimento de noticias (Claude)
+/var                Value at Risk
+/optimizer          Otimizador (Markowitz/RP/BL)
+/dividendos         Painel de dividendos
+/whatsapp           Alertas WhatsApp (pendente)
+/tape               Tape Reading em tempo real
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PENDENCIAS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PRIORIDADE ALTA:
+1. [IMPORTACAO] Importacao de extrato/historico do banco (XLS/CSV/OFX)
+   - Preencher portfolio automaticamente a partir de extrato bancario
+   - Parsear: data, ticker, quantidade, preco, tipo (C/V)
+   - Suporte: XLS (B3/corretoras), CSV, OFX
+   - Criar endpoint POST /api/v1/portfolio/import/extrato
+
+2. [IMPORTACAO] Parser de notas de corretagem (PDF/XLS)
+   - Extrair operacoes de notas B3 (formato padrao)
+   - Suporte: XP Investimentos, Clear, Rico, BTG, Inter
+   - PDF parsing com PyPDF2/pdfplumber
+   - Criar endpoint POST /api/v1/portfolio/import/nota-corretagem
+   - Reconciliar com portfolio existente (evitar duplicatas)
+
+PRIORIDADE MEDIA:
+3. [WHATSAPP] Configurar conexao QR code Evolution API
+   - Testar com celular fisico
+   - Validar envio de alertas de preco e setup
+
+4. [TAPE] ProfitDLL ao vivo — testar segunda com mercado aberto
+   - Conectar TapeService ao ProfitDLL via on_tick()
+   - Validar metricas com dados reais
+
+PRIORIDADE BAIXA:
+5. [PDF] Relatorio PDF avancado
+   - Logo, benchmark IBOV, graficos de pizza/barras
+   - Comparativo historico de rentabilidade
+   - Export de carteira completa
+
+6. [TAPE] Sistema de alertas automaticos por confluencia de sinais
+   - Dispara quando C/V + velocidade + nivel grafico se alinham
+   - Logica de confluencia:
+       Setup grafico detectado (Setup 9.1, Larry Williams, Pin Bar, etc.)
+       + C/V > 1.3 (compra) ou < 0.7 (venda)
+       + Saldo de Fluxo na direcao do setup
+       + Velocidade (trades/min) acima da media do dia
+       → Alerta visual na tela + som + WhatsApp (Evolution API)
+   - Painel dedicado mostrando score de confluencia (0-100)
+   - Regras de negocio:
+       Absorção: preço parado + volume V alto + C/V virando > 1.2
+       Rompimento: trades/min acelera + C/V > 1.5 + preco rompe nivel
+       Exaustao: C/V cai para < 1.1 apos tendencia → sinal de saida
+   - Integracao com Volume Profile para identificar niveis relevantes
+   - Filtro de horario: 10h-12h e 13h30-17h (evita abertura e almoco)
+   - Combinacao sugerida: Setup grafico diz ONDE, Tape diz SE entrar
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STACK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Python 3.12 · FastAPI · PostgreSQL 16 · TimescaleDB · Redis
+SQLAlchemy 2.x async · uv · Docker Compose · Alembic
+Anthropic Claude Haiku 4.5 · Evolution API (WhatsApp)
+ProfitDLL (B3 market data) · Fintz (dados fundamentalistas)

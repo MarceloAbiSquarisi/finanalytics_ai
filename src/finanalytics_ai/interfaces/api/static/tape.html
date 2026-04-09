@@ -95,7 +95,27 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 .vp-bar-v{height:100%;background:rgba(255,61,90,.6);float:left}
 .vp-vol{font-size:11px;font-family:'DM Mono',monospace;color:var(--muted);width:55px}
 .empty-tape{color:var(--muted);text-align:center;padding:60px 20px;font-size:14px}
-</style>
+
+  .conf-panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-top:12px}
+  .conf-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .conf-title{font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+  .conf-badge{font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;letter-spacing:.04em}
+  .conf-long{background:rgba(34,197,94,.15);color:#22c55e}
+  .conf-short{background:rgba(239,68,68,.15);color:#ef4444}
+  .conf-neutro{background:rgba(100,116,139,.15);color:#94a3b8}
+  .conf-score-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .conf-score-num{font-size:28px;font-weight:700;min-width:56px;color:var(--text)}
+  .conf-bar-bg{flex:1;height:8px;background:rgba(100,116,139,.2);border-radius:4px;overflow:hidden}
+  .conf-bar-fill{height:100%;border-radius:4px;transition:width .4s ease,background .4s ease}
+  .conf-strength{font-size:11px;font-weight:600;min-width:64px;text-align:right;letter-spacing:.03em}
+  .conf-factors{display:flex;flex-direction:column;gap:5px}
+  .conf-factor{display:grid;grid-template-columns:90px 1fr 36px;align-items:center;gap:6px;font-size:11px}
+  .conf-factor-name{color:var(--muted)}
+  .conf-factor-bar-bg{height:5px;background:rgba(100,116,139,.2);border-radius:3px;overflow:hidden}
+  .conf-factor-fill{height:100%;border-radius:3px;transition:width .3s ease}
+  .conf-factor-score{color:var(--muted);text-align:right}
+  .conf-invalid{font-size:12px;color:var(--muted);font-style:italic}
+  </style>
 </head>
 <body>
 <div class="fa-topbar">
@@ -147,7 +167,21 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
         <div class="kpi-card"><div class="kpi-label">Vol Compra</div><div class="kpi-value kv-green" id="kv-vc">-</div></div>
         <div class="kpi-card"><div class="kpi-label">Vol Venda</div><div class="kpi-value kv-red" id="kv-vv">-</div></div>
         <div class="kpi-card"><div class="kpi-label">% Agressao C</div><div class="kpi-value" id="kv-pct">-</div></div>
-        <div class="kpi-card"><div class="kpi-label">Negocios/min</div><div class="kpi-value kv-orange" id="kv-tpm">-</div></div>
+        <div class="kpi-card"><div class="kpi-label">Negocios/min</div><div class="kpi-value kv-orange" id="kv-tpm">-</div>
+<div id="conf-panel" class="conf-panel">
+  <div class="conf-header">
+    <span class="conf-title">Confluência de Sinais</span>
+    <span class="conf-badge conf-neutro" id="conf-dir">NEUTRO</span>
+  </div>
+  <div class="conf-score-row">
+    <span class="conf-score-num" id="conf-score">0</span>
+    <div class="conf-bar-bg"><div class="conf-bar-fill" id="conf-bar" style="width:0%;background:#64748b"></div></div>
+    <span class="conf-strength" id="conf-strength" style="color:#94a3b8">NEUTRO</span>
+  </div>
+  <div class="conf-factors" id="conf-factors">
+    <div class="conf-invalid">Aguardando dados suficientes...</div>
+  </div>
+</div></div>
       </div>
 
       <div class="fluxo-wrap">
@@ -458,6 +492,51 @@ function stopAll(){
   dot.className='status-dot';
   txt.textContent='Desconectado';
 }
+function updateConfluence(c){
+  if(!c)return;
+  var dirEl=document.getElementById('conf-dir'),scoreEl=document.getElementById('conf-score');
+  var barEl=document.getElementById('conf-bar'),strEl=document.getElementById('conf-strength');
+  var factorsEl=document.getElementById('conf-factors');
+  if(!c.valid){
+    dirEl.className='conf-badge conf-neutro';dirEl.textContent='NEUTRO';
+    scoreEl.textContent='0';barEl.style.width='0%';barEl.style.background='#64748b';
+    strEl.textContent='NEUTRO';strEl.style.color='#94a3b8';
+    factorsEl.innerHTML='<div class="conf-invalid">'+(c.reason||'Aguardando...')+'</div>';
+    return;
+  }
+  var dc=c.direction==='LONG'?'conf-long':c.direction==='SHORT'?'conf-short':'conf-neutro';
+  dirEl.className='conf-badge '+dc;dirEl.textContent=c.direction;
+  var s=Math.round(c.score);scoreEl.textContent=s;
+  var bc=c.strength==='EXTREMO'?'#22c55e':c.strength==='FORTE'?'#86efac':c.strength==='MODERADO'?'#fbbf24':'#94a3b8';
+  if(c.direction==='SHORT')bc=c.strength==='EXTREMO'?'#ef4444':c.strength==='FORTE'?'#fca5a5':bc;
+  barEl.style.background=bc;barEl.style.width=s+'%';
+  var sc={EXTREMO:'#22c55e',FORTE:'#86efac',MODERADO:'#fbbf24',FRACO:'#94a3b8',NEUTRO:'#64748b'};
+  strEl.textContent=c.strength;strEl.style.color=sc[c.strength]||'#64748b';
+  if(c.factors&&c.factors.length){
+    var fc=function(d){return d==='LONG'?'#22c55e':d==='SHORT'?'#ef4444':'#64748b';};
+    factorsEl.innerHTML=c.factors.map(function(f){
+      return '<div class="conf-factor"><span class="conf-factor-name">'+f.name.replace('_',' ')+'</span>'
+        +'<div class="conf-factor-bar-bg"><div class="conf-factor-fill" style="width:'+Math.round(f.score)+'%;background:'+fc(f.direction)+'"></div></div>'
+        +'<span class="conf-factor-score">'+Math.round(f.score)+'</span></div>';
+    }).join('');
+  }
+}
+
+// Hook de confluência no SSE — adicionado automaticamente
+(function(){
+  var _orig=window.connectSSE;
+  if(!_orig)return;
+  window.connectSSE=function(ticker){
+    _orig(ticker);
+    var es=window.eventSources&&window.eventSources[ticker];
+    if(!es)return;
+    var _om=es.onmessage;
+    es.onmessage=function(e){
+      if(_om)_om.call(this,e);
+      try{var m=JSON.parse(e.data);if(m.confluence&&ticker===window.activeTicker)updateConfluence(m.confluence);}catch(x){}
+    };
+  };
+})();
 </script>
 </body>
 </html>
