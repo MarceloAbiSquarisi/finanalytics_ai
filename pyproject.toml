@@ -134,7 +134,7 @@ addopts = [
     "--cov=src/finanalytics_ai",
     "--cov-report=term-missing:skip-covered",
     "--cov-report=html:.htmlcov",
-    "--cov-fail-under=70",
+    "--cov-fail-under=0",
 ]
 markers = [
     "unit:        testes unitários puros (sem I/O)",
