@@ -201,15 +201,15 @@ class ProfitDLLClient:
         _log2 = r'C:\\Temp\\market_cb.log'
         @_WFTYPE(None, _cint, _cint)
         def _state_cb(t, r):
+            try:
+                with _bi2.open(_log2, 'a') as _f2:
+                    _f2.write('t=%d r=%d\n' % (t, r))
+            except Exception: pass
             if t == 0:   _state.login_connected    = (r == 0)
             elif t == 1: _state.routing_connected  = (r >= 4)
             elif t == 2:
                 if r >= 4:   _state.market_connected = True
                 elif r == 0: _state.market_connected = False
-                try:
-                    with _bi2.open(_log2, 'a') as _f2:
-                        _f2.write(f'conn_type=2 r={r} market_connected={_state.market_connected}\n')
-                except Exception: pass
             elif t == 3: _state.market_login_valid = (r == 0)
 
         self._cb_state = _state_cb  # evita GC
@@ -293,7 +293,7 @@ class ProfitDLLClient:
             None,       # HistoryCallback
             None,       # OrderChangeCallback
             None,       # AccountCallback
-            None,       # TradeCallback (via SetTradeCallbackV2 acima)
+            None,       # TradeCallback (via SetTradeCallbackV2 apos routing)
             None,       # DailyCallback
             None,       # PriceBookCallback
             None,       # OfferBookCallback
@@ -302,7 +302,7 @@ class ProfitDLLClient:
             None,       # TinyBookCallback
         )
         if ret != 0:
-            raise RuntimeError(f"DLLInitializeLogin falhou: {ret}")
+            raise RuntimeError(f"DLLInitializeMarketLogin falhou: {ret}")
         log.info("profit_dll.initialized", mode="full_login")
         # ─────────────────────────────────────────────────────────────────────
 
@@ -444,6 +444,10 @@ class ProfitDLLClient:
                 _state_ref.login_connected = (result == 0)
             elif conn_type == 2:
                 _state_ref.market_connected = (result == 4)
+                try:
+                    open(r"C:\\Temp\\market_cb2.log", "a").write(f"t={conn_type} r={result}\n")
+                except:
+                    pass
             elif conn_type == 3:
                 _state_ref.market_login_valid = (result == 0)
             if _state_ref.ready and _loop_ref:
@@ -532,12 +536,15 @@ class ProfitDLLClient:
         assert self._dll is not None
 
         from ctypes import c_wchar_p as _wstr
-        ret = self._dll.DLLInitializeMarketLogin(
+        ret = self._dll.DLLInitializeLogin(
             _wstr(self._activation_key),
             _wstr(self._username),
             _wstr(self._password),
-            self._cb_state,  # unico callback na init — igual ao diagnostico
-            None,  # NewTradeCallback
+            self._cb_state,  # StateCallback
+            None,  # HistoryCallback
+            None,  # OrderChangeCallback
+            None,  # AccountCallback
+            None,  # TradeCallback
             None,  # NewDailyCallback
             None,  # PriceBookCallback
             None,  # OfferBookCallback
@@ -668,6 +675,10 @@ class ProfitDLLClient:
                 self._tick_queue.task_done()
 
         log.info("profit_dll.consumer_stopped")
+
+
+
+
 
 
 

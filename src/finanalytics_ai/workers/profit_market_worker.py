@@ -223,20 +223,16 @@ async def run_profit_worker() -> None:
 
     log.info("profit_market_worker.dll_connected")
 
-    # Somente apos DLL conectada: inicializa DB/Redis
-    session_factory = get_session_factory()
-    service, redis_client, ts_pool = await _build_processor(settings, session_factory)
-
+    # source criado ANTES do build_processor — sem IO de rede
     source = ProfitDLLMessageSource(profit_client, poll_timeout=0.5)
-    worker = EventConsumerWorker(
-        service,
-        concurrency=int(os.getenv("PROFIT_CONCURRENCY", "5")),
-        max_retries=int(os.getenv("PROFIT_MAX_RETRIES", "3")),
-    )
+
+    # worker placeholder — sera recriado apos market connected
+    _worker_concurrency = int(os.getenv("PROFIT_CONCURRENCY", "5"))
+    _worker_max_retries = int(os.getenv("PROFIT_MAX_RETRIES", "3"))
 
     # Espera routing + broker (crBrokerConnected) antes de registrar callback.
     # Delphi mostra: cstMarketData so fica cmdConnectedLogged APOS crBrokerConnected.
-    for _ri in range(60):  # max 30s
+    for _ri in range(20):  # max 10s nao-bloqueante
         if getattr(profit_client.state, 'routing_connected', False):
             log.info("profit_market_worker.routing_connected", attempts=_ri)
             break
@@ -244,21 +240,28 @@ async def run_profit_worker() -> None:
     else:
         log.warning("profit_market_worker.routing_timeout_proceeding")
 
-    # Registra SetTradeCallbackV2 UMA UNICA VEZ apos routing — igual ao diagnostico.
-    # Dupla chamada (antes do init + apos routing) corrompia estado interno da DLL.
+    # Registra SetTradeCallbackV2 imediatamente apos init (nao espera routing).
     if hasattr(profit_client, '_cb_trade') and profit_client._cb_trade is not None:
         if hasattr(profit_client, '_dll') and profit_client._dll is not None:
             profit_client._dll.SetTradeCallbackV2(profit_client._cb_trade)
             log.info("profit_market_worker.trade_callback_registered_post_routing")
 
     # Aguarda market data — diagnostico recebeu conn_type=2 result=4 em 0.5s apos callback
-    for _mi in range(60):  # max 30s
+    for _mi in range(600):  # max 300s
         if profit_client.state.market_connected:
             log.info("profit_market_worker.market_data_connected", attempts=_mi)
             break
         await asyncio.sleep(0.5)
     else:
         log.warning("profit_market_worker.market_data_timeout_proceeding")
+    # Inicializa DB/Redis APOS market connected — sem bloquear callbacks
+    session_factory = get_session_factory()
+    service, redis_client, ts_pool = await _build_processor(settings, session_factory)
+    worker = EventConsumerWorker(
+        service,
+        concurrency=_worker_concurrency,
+        max_retries=_worker_max_retries,
+    )
     log.info("profit_market_worker.market_connected_status", connected=profit_client.state.market_connected)
 
     # Redis publisher para TapeService — cliente ASSÍNCRONO obrigatório aqui.
@@ -335,6 +338,7 @@ if __name__ == "__main__":
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     asyncio.run(run_profit_worker())
+
 
 
 
