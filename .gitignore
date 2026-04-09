@@ -58,3 +58,16 @@ count.txt
 .env.local
 
 test_*.txt
+# Arquivos temporários e binários que não devem ir ao git
+src/finanalytics_ai/interfaces/api/static/000/
+src/finanalytics_ai/interfaces/api/static/ProfitDLL/bin/
+src/finanalytics_ai/interfaces/api/static/ProfitDLL/DLLs/
+src/finanalytics_ai/interfaces/api/static/ProfitDLL/Manual/
+src/finanalytics_ai/interfaces/api/static/ProfitDLL/OnBoarding*
+src/finanalytics_ai/interfaces/api/static/patch_*.py
+src/finanalytics_ai/interfaces/api/static/fix_*.py
+src/finanalytics_ai/interfaces/api/static/diag_*.py
+src/finanalytics_ai/interfaces/api/static/profit_market_worker*.py
+src/finanalytics_ai/interfaces/api/static/PENDENCIAS.md
+src/finanalytics_ai/interfaces/api/static/Dockerfile
+mypy.ini.bak
