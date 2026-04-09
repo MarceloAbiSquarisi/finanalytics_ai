@@ -241,8 +241,14 @@ class ProfitDLLClient:
                 _ai = _AI.from_address(asset_id_raw)
                 ticker   = _ai.Ticker   or ""
                 exchange = _ai.Exchange or "B"
-            except Exception:
-                ticker, exchange = "", "B"
+            except Exception as _e:
+                # full_login: asset_id pode ser passado by value (primeiro campo = ptr Ticker)
+                try:
+                    import ctypes as _ct
+                    ticker = _ct.wstring_at(asset_id_raw) if asset_id_raw else ""
+                    exchange = "B"
+                except Exception:
+                    ticker, exchange = "", "B"
 
             # Decodifica TConnectorTrade via TranslateTrade
             from finanalytics_ai.infrastructure.market_data.profit_dll.types import (
@@ -253,7 +259,7 @@ class ProfitDLLClient:
 
             trade = _CT()
             ret = _dll_t.TranslateTrade(_csz2(trade_ptr), _byref2(trade))
-            if ret != 0:
+            if not ret:  # nao-zero = sucesso
                 return
 
             tick = PriceTick(
@@ -275,6 +281,58 @@ class ProfitDLLClient:
                 pass
 
         self._cb_trade = _trade_cb           # mantém referência (evita GC ctypes)
+
+        # ── Callback com assinatura CORRETA para SetTradeCallbackV2 ───────────
+        # O exemplo oficial Nelogica usa (TConnectorAssetIdentifier, c_size_t, c_uint)
+        # passado by-value — asset_id.Ticker funciona diretamente.
+        # _trade_cb minimal acima tem assinatura errada: lê Exchange ptr como trade_ptr.
+        from finanalytics_ai.infrastructure.market_data.profit_dll.types import (
+            TConnectorAssetIdentifier as _AI_v2,
+            TConnectorTrade as _CT_v2,
+        )
+        from ctypes import WINFUNCTYPE as _WFT_v2, c_size_t as _csz_v2, c_uint as _cuint_v2
+        from ctypes import byref as _byref_v2
+        from datetime import datetime, timezone as _tz_v2
+
+        _queue_v2 = self._tick_queue
+        _loop_v2  = self._loop
+        _dll_v2   = self._dll
+
+        @_WFT_v2(None, _AI_v2, _csz_v2, _cuint_v2)
+        def _trade_cb_v2(asset_id, trade_ptr, flags):
+            import os as _os
+            _log = r"C:\Temp\trade_diag.log"
+            try:
+                _os.makedirs(r"C:\Temp", exist_ok=True)
+                ticker = asset_id.Ticker or ""
+                trade = _CT_v2(Version=0)
+                translate_ret = _dll_v2.TranslateTrade(_csz_v2(trade_ptr), _byref_v2(trade))
+                with open(_log, "a") as _f:
+                    _f.write(f"ticker={ticker!r} ptr={trade_ptr} translate={translate_ret} price={trade.Price}\n")
+                if not ticker or not translate_ret or trade.Price <= 0:
+                    return
+                tick = PriceTick(
+                    ticker=ticker,
+                    exchange=asset_id.Exchange or "B",
+                    price=trade.Price,
+                    volume=trade.Volume,
+                    quantity=int(trade.Quantity),
+                    trade_number=int(trade.TradeNumber),
+                    trade_type=int(trade.TradeType),
+                    buy_agent=int(trade.BuyAgent),
+                    sell_agent=int(trade.SellAgent),
+                    timestamp=datetime.now(tz=_tz_v2.utc),
+                    is_edit=bool(flags & 1),
+                )
+                _loop_v2.call_soon_threadsafe(_queue_v2.put_nowait, tick)
+            except Exception as _ex:
+                try:
+                    with open(_log, "a") as _f:
+                        _f.write(f"EXCEPTION: {_ex}\n")
+                except Exception:
+                    pass
+
+        self._cb_trade = _trade_cb_v2  # sobrescreve minimal com assinatura correta
         # SetTradeCallbackV2 NAO chamado aqui — sera registrado uma unica vez
         # no worker APOS routing, igual ao diagnostico que funciona.
         log.info("profit_dll.trade_callback_stored")
@@ -304,6 +362,11 @@ class ProfitDLLClient:
         if ret != 0:
             raise RuntimeError(f"DLLInitializeMarketLogin falhou: {ret}")
         log.info("profit_dll.initialized", mode="full_login")
+
+        # Registra SetTradeCallbackV2 IMEDIATAMENTE apos DLLInitializeLogin
+        # r=4 (MARKET_CONNECTED) dispara em ~1s — nao pode aguardar o worker
+        self._dll.SetTradeCallbackV2(_trade_cb_v2)
+        log.info("profit_dll.trade_callback_v2_registered_early")
         # ─────────────────────────────────────────────────────────────────────
 
     async def wait_connected(self, timeout: float = 30.0) -> bool:
@@ -514,7 +577,7 @@ class ProfitDLLClient:
 
         # Guarda referências (evita GC)
         self._cb_state        = state_callback
-        self._cb_trade        = trade_callback_v2
+        self._cb_trade        = trade_callback_v2  # callback correto: TConnectorAssetIdentifier by value
         self._cb_daily        = daily_callback
         self._cb_progress     = progress_callback
         self._cb_tiny_book    = tiny_book_callback
@@ -587,9 +650,9 @@ class ProfitDLLClient:
         from finanalytics_ai.infrastructure.market_data.profit_dll.types import TConnectorTrade
         from ctypes import c_size_t
 
-        trade = TConnectorTrade()
+        trade = TConnectorTrade(Version=0)
         ret = self._dll.TranslateTrade(c_size_t(trade_ptr), byref(trade))
-        if ret != 0:
+        if not ret:  # TranslateTrade retorna nao-zero em sucesso (igual exemplo oficial)
             return
 
         now = datetime.now(tz=timezone.utc)
