@@ -245,15 +245,11 @@ async def run_profit_worker() -> None:
         if hasattr(profit_client, '_dll') and profit_client._dll is not None:
             profit_client._dll.SetTradeCallbackV2(profit_client._cb_trade)
             log.info("profit_market_worker.trade_callback_registered_post_routing")
-
-    # Aguarda market data — diagnostico recebeu conn_type=2 result=4 em 0.5s apos callback
-    for _mi in range(600):  # max 300s
-        if profit_client.state.market_connected:
-            log.info("profit_market_worker.market_data_connected", attempts=_mi)
-            break
-        await asyncio.sleep(0.5)
-    else:
-        log.warning("profit_market_worker.market_data_timeout_proceeding")
+    # market_connected nao e gate para ticks — routing_connected e suficiente.
+    # conn_type=2 result=4 dispara durante init antes deste ponto; nao bloquear.
+    await asyncio.sleep(1.0)  # yield para callbacks pendentes
+    log.info("profit_market_worker.market_data_proceeding",
+             market_connected=profit_client.state.market_connected)
     # Inicializa DB/Redis APOS market connected — sem bloquear callbacks
     session_factory = get_session_factory()
     service, redis_client, ts_pool = await _build_processor(settings, session_factory)

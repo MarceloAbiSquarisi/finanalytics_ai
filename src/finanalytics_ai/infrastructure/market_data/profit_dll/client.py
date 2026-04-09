@@ -209,7 +209,7 @@ class ProfitDLLClient:
             elif t == 1: _state.routing_connected  = (r >= 4)
             elif t == 2:
                 if r >= 4:   _state.market_connected = True
-                elif r == 0: _state.market_connected = False
+                # latch: nao resetar market_connected
             elif t == 3: _state.market_login_valid = (r == 0)
 
         self._cb_state = _state_cb  # evita GC
@@ -443,7 +443,7 @@ class ProfitDLLClient:
             if conn_type == 0:
                 _state_ref.login_connected = (result == 0)
             elif conn_type == 2:
-                _state_ref.market_connected = (result == 4)
+                if result == 4: _state_ref.market_connected = True  # latch
                 try:
                     open(r"C:\\Temp\\market_cb2.log", "a").write(f"t={conn_type} r={result}\n")
                 except:
@@ -566,7 +566,7 @@ class ProfitDLLClient:
             log.info("profit_dll.login_state", connected=self._state.login_connected, result=result)
         # CONNECTION_STATE_MARKET_DATA = 2, MARKET_CONNECTED = 4
         elif conn_type == 2:
-            self._state.market_connected = (result == 4)
+            if result == 4: self._state.market_connected = True  # latch
             log.info("profit_dll.market_state", connected=self._state.market_connected, result=result)
         # CONNECTION_STATE_MARKET_LOGIN = 3, CONNECTION_ACTIVATE_VALID = 0
         elif conn_type == 3:
