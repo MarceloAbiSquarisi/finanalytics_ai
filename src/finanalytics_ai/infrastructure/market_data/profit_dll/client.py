@@ -40,6 +40,7 @@ Uso:
 from __future__ import annotations
 
 import asyncio
+import threading
 import sys
 import time
 from dataclasses import dataclass, field
@@ -161,6 +162,7 @@ class ProfitDLLClient:
         self._connected_event = asyncio.Event()
 
         # Mantém referências aos callbacks (evita GC)
+        self._subscribe_event: threading.Event = threading.Event()
         self._cb_state: Any = None
         self._cb_trade: Any = None
         self._cb_daily: Any = None
@@ -208,7 +210,12 @@ class ProfitDLLClient:
             if t == 0:   _state.login_connected    = (r == 0)
             elif t == 1: _state.routing_connected  = (r >= 4)
             elif t == 2:
-                if r >= 4:   _state.market_connected = True
+                if r >= 4:
+                    _state.market_connected = True
+                    try:
+                        self._subscribe_event.set()
+                    except Exception:
+                        pass
                 # latch: nao resetar market_connected
             elif t == 3: _state.market_login_valid = (r == 0)
 
@@ -333,10 +340,12 @@ class ProfitDLLClient:
                     pass
 
         self._cb_trade = _trade_cb_v2  # sobrescreve minimal com assinatura correta
-        # SetTradeCallbackV2 NAO chamado aqui — sera registrado uma unica vez
-        # no worker APOS routing, igual ao diagnostico que funciona.
         log.info("profit_dll.trade_callback_stored")
 
+        # Registra callbacks ANTES do DLLInitializeLogin — igual ao diag que funcionou
+        self._dll.SetTradeCallback(_trade_cb_v2)
+        self._dll.SetChangeCotationCallback(_trade_cb_v2)
+        log.info("profit_dll.callbacks_registered_before_init")
 
         # Inicializa via DLLInitializeLogin (login completo).
         # DLLInitializeMarketLogin exige assinatura API standalone.
@@ -363,11 +372,7 @@ class ProfitDLLClient:
             raise RuntimeError(f"DLLInitializeMarketLogin falhou: {ret}")
         log.info("profit_dll.initialized", mode="full_login")
 
-        # Registra SetTradeCallbackV2 IMEDIATAMENTE apos DLLInitializeLogin
-        # r=4 (MARKET_CONNECTED) dispara em ~1s — nao pode aguardar o worker
-        self._dll.SetTradeCallbackV2(_trade_cb_v2)
-        log.info("profit_dll.trade_callback_v2_registered_early")
-        # ─────────────────────────────────────────────────────────────────────
+        # callbacks ja registrados antes do init
 
     async def wait_connected(self, timeout: float = 30.0) -> bool:
         """Aguarda market_login_valid via polling — sem threading primitives no callback."""
@@ -380,6 +385,26 @@ class ProfitDLLClient:
             await asyncio.sleep(0.5)
         log.warning("profit_dll.connect_timeout", timeout=timeout, state=self._state)
         return False
+
+    def start_subscribe_thread(self, tickers: list[str], exchange: str = DEFAULT_EXCHANGE) -> None:
+        """Thread separada: aguarda t=2 r=4 e chama SubscribeTicker fora do callback."""
+        import threading as _threading, time as _time
+        from ctypes import c_wchar_p as _cwp
+        _dll, _log = self._dll, log
+        _tevent = _threading.Event()
+        self._subscribe_event = _tevent  # referencia para state_cb sinalizar
+
+        def _sub():
+            if not _tevent.wait(timeout=90):
+                _log.warning("profit_dll.subscribe_thread_timeout"); return
+            _time.sleep(0.5)
+            for ticker in tickers:
+                ret = _dll.SubscribeTicker(_cwp(ticker), _cwp(exchange))
+                _log.info("profit_dll.subscribed_via_thread", ticker=ticker, ret=ret)
+
+        _threading.Thread(target=_sub, daemon=True).start()
+        log.info("profit_dll.subscribe_thread_started", tickers=tickers)
+
 
     async def subscribe_tickers(
         self, tickers: list[str], exchange: str = DEFAULT_EXCHANGE

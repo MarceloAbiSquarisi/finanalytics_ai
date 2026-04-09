@@ -31,6 +31,7 @@ Shutdown gracioso:
 from __future__ import annotations
 
 import asyncio
+from ctypes import WINFUNCTYPE
 import os
 import signal
 import sys
@@ -240,17 +241,23 @@ async def run_profit_worker() -> None:
     else:
         log.warning("profit_market_worker.routing_timeout_proceeding")
 
-    # Registra SetTradeCallbackV2 imediatamente apos init (nao espera routing).
-    if hasattr(profit_client, '_cb_trade') and profit_client._cb_trade is not None:
-        if hasattr(profit_client, '_dll') and profit_client._dll is not None:
-            profit_client._dll.SetTradeCallbackV2(profit_client._cb_trade)
-            log.info("profit_market_worker.trade_callback_registered_post_routing")
-    # market_connected nao e gate para ticks — routing_connected e suficiente.
-    # conn_type=2 result=4 dispara durante init antes deste ponto; nao bloquear.
+    # patch_worker_subscribe_thread_applied
+    # callbacks ja registrados no client.py apos DLLInitializeLogin
     await asyncio.sleep(1.0)  # yield para callbacks pendentes
     log.info("profit_market_worker.market_data_proceeding",
              market_connected=profit_client.state.market_connected)
-    # Inicializa DB/Redis APOS market connected — sem bloquear callbacks
+    # Aguarda market_connected antes de iniciar DB/Redis.
+    # ProactorEventLoop usa IOCP — DB/Redis competem com market data da DLL.
+    # Iniciar DB/Redis antes impede t=2 r=4 de chegar.
+    for _dbi in range(60):  # max 30s
+        if profit_client.state.market_connected:
+            log.info("profit_market_worker.market_connected_before_db")
+            break
+        await asyncio.sleep(0.5)
+    else:
+        log.warning("profit_market_worker.proceeding_without_market_connected")
+
+    # Inicializa DB/Redis APOS market connected — sem competir com IOCP da DLL
     session_factory = get_session_factory()
     service, redis_client, ts_pool = await _build_processor(settings, session_factory)
     worker = EventConsumerWorker(
@@ -293,7 +300,12 @@ async def run_profit_worker() -> None:
     profit_client.add_tick_handler(_publish_tick)
     log.info("profit_worker.tape_bridge_registered")
 
-    if hasattr(profit_client, "subscribe_tickers"):
+    # Inicia thread de subscribe — chama SubscribeTicker apos t=2 r=4
+    # (nunca chamar DLL dentro de callback — manual secao 3.2)
+    if hasattr(profit_client, "start_subscribe_thread"):
+        profit_client.start_subscribe_thread(tickers)
+        log.info("profit_market_worker.subscribe_thread_started", tickers=tickers)
+    elif hasattr(profit_client, "subscribe_tickers"):
         await profit_client.subscribe_tickers(tickers)
         log.info("profit_market_worker.subscribed", tickers=tickers)
 
@@ -328,11 +340,47 @@ async def run_profit_worker() -> None:
 
 
 if __name__ == "__main__":
-    # ProactorEventLoop (padrao no Windows) interfere com Winsock da ProfitDLL.
-    # SelectorEventLoop evita o conflito de IOCP.
-    import sys
+    # SOLUCAO DEFINITIVA: inicializa DLL antes do asyncio.run()
+    # ProactorEventLoop (IOCP) interfere com ConnectorThread da DLL Nelogica.
+    # SelectorEventLoop dentro do asyncio tambem interfere.
+    # Unica solucao: DLL conectada (t=2 r=4) antes de qualquer event loop.
+    import sys, threading, os
+    from ctypes import WinDLL, WINFUNCTYPE, c_int, c_wchar_p
+    from pathlib import Path
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(".env.local"), override=True)
+    load_dotenv(Path(".env"), override=False)
+
+    _dll_path = os.getenv("PROFIT_DLL_PATH", r"C:\Nelogica\profitdll.dll")
+    _key      = os.getenv("PROFIT_ACTIVATION_KEY", "")
+    _usr      = os.getenv("PROFIT_USERNAME", "")
+    _pwd      = os.getenv("PROFIT_PASSWORD", "")
+
+    _market_ready = threading.Event()
+    _pre_dll = WinDLL(_dll_path)
+
+    @WINFUNCTYPE(None, c_int, c_int)
+    def _pre_state_cb(t, r):
+        if t == 2 and r == 4:
+            _market_ready.set()
+
+    _pre_dll.SetTradeCallback(_pre_state_cb)
+    _pre_dll.SetChangeCotationCallback(_pre_state_cb)
+    _pre_dll.DLLInitializeLogin(
+        c_wchar_p(_key), c_wchar_p(_usr), c_wchar_p(_pwd),
+        _pre_state_cb, None, None, None, None, None, None, None, None, None, None,
+    )
+    print("DLL pre-init: aguardando market connected (t=2 r=4)...", flush=True)
+    connected = _market_ready.wait(timeout=90)
+    if connected:
+        print("DLL pre-init: market connected! Subindo asyncio...", flush=True)
+    else:
+        print("DLL pre-init: timeout — subindo asyncio sem market connected", flush=True)
+    _pre_dll.DLLFinalize()
+
     if sys.platform == "win32":
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     asyncio.run(run_profit_worker())
 
 
