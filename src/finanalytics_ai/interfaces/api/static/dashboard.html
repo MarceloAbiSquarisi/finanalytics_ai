@@ -1565,7 +1565,7 @@ function renderPriceChart(bars, bb) {
     const pxEl = document.getElementById('tk-px');
     const chgEl = document.getElementById('tk-chg');
     if (pxEl) {
-      pxEl.textContent = 'R\$ ' + f2(last.close);
+      pxEl.textContent = 'R$ ' + f2(last.close);
       const chg = last.close - last.open, pct = (chg/last.open*100).toFixed(2);
       pxEl.style.color = chg >= 0 ? 'var(--green)' : 'var(--red)';
       if (chgEl) { chgEl.textContent = (chg>=0?'+':'') + f2(chg) + ' (' + pct + '%)'; chgEl.className = 'tb-chg ' + (chg>=0?'up':'dn'); }
@@ -1582,7 +1582,7 @@ function renderPriceChart(bars, bb) {
     const b = p.seriesData.get(priceSeries);
     if (!b) { _tip.style.display='none'; return; }
     const chg = b.close - b.open, pct = (chg/b.open*100).toFixed(2), col = chg>=0?'#2ED47A':'#E05555';
-    _tip.innerHTML = '<span style=color:' + col + ';font-weight:700>R\$ ' + f2(b.close) + '</span>&nbsp;&nbsp;<span style=color:' + col + '>' + (chg>=0?'+':'') + f2(chg) + ' (' + pct + '%)</span><br><span style=color:#4a6080>O:' + f2(b.open) + ' H:' + f2(b.high) + ' L:' + f2(b.low) + '</span>';
+    _tip.innerHTML = '<span style=color:' + col + ';font-weight:700>R$ ' + f2(b.close) + '</span>&nbsp;&nbsp;<span style=color:' + col + '>' + (chg>=0?'+':'') + f2(chg) + ' (' + pct + '%)</span><br><span style=color:#4a6080>O:' + f2(b.open) + ' H:' + f2(b.high) + ' L:' + f2(b.low) + '</span>';
     const x=p.point.x, y=p.point.y, W=container.clientWidth, H=container.clientHeight;
     _tip.style.display='block'; _tip.style.left=(x+16+180>W?x-195:x+16)+'px'; _tip.style.top=(y+16+55>H?y-65:y+16)+'px';
   });
@@ -3055,15 +3055,13 @@ function faDTToggle(btn){
       var fmt = fmtPrice(t.last_price);
       var wp = document.getElementById('wp-' + t.ticker);
       if (wp) wp.innerText = fmt;
-      document.querySelectorAll('[data-ticker="' + t.ticker + '"][data-field="price"]')
-        .forEach(function(el) { el.innerText = fmt; });
       document.dispatchEvent(new CustomEvent('live-price', {detail: t}));
     });
   }
 
   function startSSE() {
     if (_es) return;
-    _es = new EventSource('/api/v1/marketdata/live/sse/tickers');
+    _es = new EventSource('/api/v1/live/sse/tickers');
     _es.onmessage = function(e) {
       try { applyPrices(JSON.parse(e.data)); } catch(ex) {}
     };
@@ -3078,18 +3076,16 @@ function faDTToggle(btn){
     if (localStorage.getItem('access_token')) {
       startSSE();
     } else {
-      setTimeout(pollAndStart, 1000);
+      setTimeout(pollAndStart, 2000);
     }
   }
 
-  // Intercepta localStorage.setItem para capturar login
   var _orig = localStorage.setItem.bind(localStorage);
   localStorage.setItem = function(k, v) {
     _orig(k, v);
     if (k === 'access_token') setTimeout(startSSE, 300);
   };
 
-  // Inicia polling imediatamente
   pollAndStart();
 
   window._liveSSE = {
@@ -3098,7 +3094,9 @@ function faDTToggle(btn){
   };
 })();
 // ── Fim SSE v4 ───────────────────────────────────────────────────────────────
+</script>
 </body>
 <script>
 function faOptToggle(btn){var s=document.getElementById('opt-submenu');btn.classList.toggle('open');s.classList.toggle('open');}
 </script>
+

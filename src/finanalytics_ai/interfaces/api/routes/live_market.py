@@ -192,3 +192,53 @@ async def get_ohlc_latest(
         return dict(row)
     finally:
         await conn.close()
+
+import asyncio as _aio
+import json as _json
+from fastapi.responses import StreamingResponse
+
+@router.get("/sse/tickers", summary="SSE stream de precos ao vivo")
+async def sse_tickers(interval: float = Query(1.0, ge=0.2, le=60.0)) -> StreamingResponse:
+    async def gen():
+        while True:
+            try:
+                rows = await _aio.to_thread(_live_query,
+                    "SELECT DISTINCT ON (ticker) ticker, exchange, "
+                    "price::text AS last_price, ts::text AS last_ts "
+                    "FROM ticks WHERE ticker != '__warmup__' ORDER BY ticker, ts DESC"
+                )
+                for r in rows:
+                    try: r["last_price"] = float(r["last_price"])
+                    except: pass
+                yield f"data: {_json.dumps(rows)}\n\n"
+            except Exception:
+                yield "data: []\n\n"
+            await _aio.sleep(interval)
+    return StreamingResponse(gen(), media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@router.get("/sse/ticks/{ticker}", summary="SSE stream de ticks de um ticker")
+async def sse_ticks(ticker: str, interval: float = Query(0.5, ge=0.2, le=60.0)) -> StreamingResponse:
+    t = _sanitize_ticker(ticker)
+    async def gen():
+        last_ts = None
+        while True:
+            try:
+                rows = await _aio.to_thread(_live_query,
+                    f"SELECT ticker, exchange, ts::text AS ts, "
+                    f"price::text AS price, quantity, volume::text AS volume "
+                    f"FROM ticks WHERE ticker='{t}' ORDER BY ts DESC LIMIT 1"
+                )
+                if rows:
+                    r = rows[0]
+                    if r.get("ts") != last_ts:
+                        last_ts = r.get("ts")
+                        try: r["price"] = float(r["price"])
+                        except: pass
+                        yield f"data: {_json.dumps(r)}\n\n"
+            except Exception:
+                pass
+            await _aio.sleep(interval)
+    return StreamingResponse(gen(), media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

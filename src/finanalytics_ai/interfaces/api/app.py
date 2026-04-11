@@ -105,504 +105,77 @@ def get_price_producer() -> Any:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """
+    Lifespan do FastAPI — inicializa todos os servicos na ordem correta.
+    Cada bloco esta isolado em startup/*.py para facilitar manutencao e testes.
+    """
     global _kafka_consumer, _kafka_task, _alert_service, _price_producer, _producer_task, _account_service
+
+    from finanalytics_ai.interfaces.api.startup import db as _db
+    from finanalytics_ai.interfaces.api.startup import cache as _cache
+    from finanalytics_ai.interfaces.api.startup import kafka as _kafka
+    from finanalytics_ai.interfaces.api.startup import market_data as _md
+    from finanalytics_ai.interfaces.api.startup import services as _svc
+    from finanalytics_ai.interfaces.api.startup import producers as _prod
 
     settings = get_settings()
     logger.info("api.starting", env=getattr(settings, "env", "production"))
 
-    # ── 1. PostgreSQL ─────────────────────────────────────────────────────────
-    get_engine()
-    logger.info("postgres.connected")
+    # 1. PostgreSQL + Bootstrap
+    await _db.init_postgres(app)
 
-    # ── Bootstrap: garante que marceloabisquarisi é sempre MASTER ─────────────
-    try:
-        from finanalytics_ai.interfaces.api.routes.admin import run_bootstrap
-        from finanalytics_ai.infrastructure.database.connection import get_session as _get_bs_session
-        async with _get_bs_session() as _bs_session:
-            _result = await run_bootstrap(_bs_session)
-            logger.info("bootstrap.master", result=_result)
-    except Exception as _be:
-        logger.warning("bootstrap.FAILED", error=str(_be))
+    # 2. Cache + Rate Limiter
+    _cache.init_cache(app, settings)
 
-    # ── 0. Cache + Rate Limiter ───────────────────────────────────────────────
-    app.state.cache_backend = create_cache_backend(str(settings.redis_url) if settings.redis_url else None)
-    app.state.rate_limiter = create_rate_limiter(str(settings.redis_url) if settings.redis_url else None)
-    logger.info("cache.ready", backend=type(app.state.cache_backend).__name__)
-    logger.info("rate_limiter.ready", backend=type(app.state.rate_limiter).__name__)
+    # 3. TimescaleDB + chunk warmup
+    timescale_ok = await _db.init_timescale()
 
-    # ── 2. TimescaleDB ────────────────────────────────────────────────────────
-    timescale_ok = False
-    try:
-        from finanalytics_ai.infrastructure.timescale.repository import get_timescale_pool
+    # 4. AlertService
+    _alert_service = await _svc.init_alert_service(app)
 
-        await get_timescale_pool()
-        timescale_ok = True
-        logger.info("timescale.connected")
-        # ── Chunk warmup automatico (garante chunk do dia no TimescaleDB) ──────
-        try:
-            import subprocess as _sp
-            _sp.run([
-                "docker","exec","finanalytics_timescale",
-                "psql","-U","finanalytics","-d","market_data","--no-psqlrc","-c",
-                "INSERT INTO ticks (ticker,exchange,ts,trade_number,price,quantity,volume,trade_type) "
-                "VALUES ('__warmup__','B',now(),0,1.0,1,1.0,0) ON CONFLICT DO NOTHING; "
-                "DELETE FROM ticks WHERE ticker='__warmup__';"
-            ], capture_output=True, timeout=10)
-            logger.info("timescale.chunk.warmup.ok")
-        except Exception as _wex:
-            logger.warning("timescale.chunk.warmup.failed", error=str(_wex))
-        # ── Fim chunk warmup ─────────────────────────────────────────────────
+    # 5. AccountService
+    _account_service = await _svc.init_account_service(app)
 
-    except Exception as exc:
-        logger.warning("timescale.unavailable", error=str(exc))
+    # 6. Kafka consumer
+    _kafka_consumer, _kafka_task = await _kafka.init_kafka(app, _alert_service, timescale_ok)
+    kafka_ok = _kafka_consumer is not None
 
-    # ── 3. NotificationBus + AlertService ─────────────────────────────────────
-    from finanalytics_ai.application.services.alert_service import AlertService
-    from finanalytics_ai.infrastructure.database.connection import get_session
-    from finanalytics_ai.infrastructure.notifications import get_notification_bus
+    # 7. Market data client + servicos dependentes
+    market_client = await _md.init_market_data(app, settings)
 
-    bus = get_notification_bus()
-    _alert_service = AlertService(
-        session_factory=get_session,
-        notification_bus=bus
-    )
-    logger.info("alert_service.ready")
+    # 8. Watchlist (cria tabelas)
+    await _svc.init_watchlist(app)
 
-    # ── AccountService ────────────────────────────────────────────────────────
-    try:
-        from finanalytics_ai.infrastructure.database.connection import get_session_factory as _gsf_acc
-        from finanalytics_ai.infrastructure.database.repositories.sql_account_repo import (
-            TradingAccountModel,  # noqa: F401 — registra tabela no metadata
-        )
-        _account_service = AccountService(_gsf_acc())
-        logger.info("account_service.ready")
-    except Exception as _ace:
-        logger.warning("account_service.FAILED", error=str(_ace))
+    # 9. OHLC services + Tape Service + servicos de dominio
+    from finanalytics_ai.interfaces.api.startup import ohlc as _ohlc
+    _ohlc_daily_task = await _ohlc.init_ohlc_services(app, timescale_ok)
+    await _ohlc.init_tape_service(app, settings)
+    await _ohlc.init_domain_services(app, market_client)
 
-    # ── 4. Kafka consumer ─────────────────────────────────────────────────────
-    kafka_ok = False
-    try:
-        from finanalytics_ai.infrastructure.queue.kafka_adapter import KafkaMarketEventConsumer
+    # 10. DiarioRepository + FundamentalAnalysis
+    await _svc.init_diario(app)
+    await _svc.init_fundamental_analysis(app, market_client)
 
-        consumer = KafkaMarketEventConsumer()
-        await consumer.start()
-        _kafka_consumer = consumer
-
-        async def _handle_event(event: Any) -> None:
-            from finanalytics_ai.domain.entities.event import EventType, MarketEvent
-
-            if not isinstance(event, MarketEvent):
-                return
-            logger.debug("kafka.event.received", type=event.event_type, ticker=event.ticker)
-
-            if event.event_type == EventType.PRICE_UPDATE and _alert_service:
-                price = event.payload.get("price")
-                if price:
-                    triggered = await _alert_service.evaluate_price(event.ticker, float(price))
-                    if triggered:
-                        logger.info("alerts.triggered", ticker=event.ticker, count=triggered)
-
-            if event.event_type == EventType.PRICE_UPDATE and timescale_ok:
-                try:
-                    from finanalytics_ai.infrastructure.timescale.repository import (
-                        TimescalePriceTickRepository,
-                        get_timescale_pool
-                    )
-
-                    pool = await get_timescale_pool()
-                    repo = TimescalePriceTickRepository(pool)
-                    await repo.save_tick(
-                        ticker=event.ticker,
-                        price=float(event.payload.get("price", 0)),
-                        change_pct=event.payload.get("change_pct"),
-                        volume=event.payload.get("volume"),
-                        source=event.source
-                    )
-                except Exception as e:
-                    logger.warning("timescale.tick.save_failed", error=str(e))
-
-        _kafka_task = asyncio.create_task(consumer.consume_loop(_handle_event))
-        kafka_ok = True
-        logger.info("kafka.consumer.running", group=settings.kafka_consumer_group)
-    except Exception as exc:
-            logger.warning("kafka.unavailable", error=str(exc))
-
-    # ── 5. BacktestService + OptimizerService + WalkForwardService ───────────
-    if settings.brapi_token:
-        from finanalytics_ai.application.services.anomaly_service import AnomalyService
-        from finanalytics_ai.application.services.backtest_service import BacktestService
-        from finanalytics_ai.application.services.correlation_service import CorrelationService
-        from finanalytics_ai.application.services.multi_ticker_service import MultiTickerService
-        from finanalytics_ai.application.services.optimizer_service import OptimizerService
-        from finanalytics_ai.application.services.screener_service import ScreenerService
-        from finanalytics_ai.application.services.walkforward_service import WalkForwardService
-        from finanalytics_ai.infrastructure.adapters.market_data_client import (
-            create_cached_market_data_client
-        )
-        from finanalytics_ai.infrastructure.database.connection import get_session_factory
-
-        market_client = create_cached_market_data_client(settings.brapi_token, get_session_factory())
-        app.state.backtest_service = BacktestService(market_client)
-        app.state.optimizer_service = OptimizerService(market_client)
-        app.state.walkforward_service = WalkForwardService(market_client)
-        app.state.multi_ticker_service = MultiTickerService(market_client)
-        app.state.correlation_service = CorrelationService(market_client)
-        app.state.screener_service = ScreenerService(market_client)  # type: ignore[arg-type]
-        app.state.anomaly_service = AnomalyService(market_client)
-        app.state.market_client = market_client  # <-- acesso direto para outras dependências
-        logger.info("market_data_client.composite.ready")
-    else:
-        # Sem token BRAPI: serviços analíticos indisponíveis, mas watchlist
-        # funciona com Yahoo Finance como fonte primária
-        from finanalytics_ai.infrastructure.adapters.market_data_client import (
-            create_cached_market_data_client
-        )
-        from finanalytics_ai.infrastructure.database.connection import get_session_factory
-
-        market_client = create_cached_market_data_client(None, get_session_factory())
-        app.state.market_client = market_client
-        from finanalytics_ai.application.services.anomaly_service import AnomalyService
-        from finanalytics_ai.application.services.backtest_service import BacktestService
-        from finanalytics_ai.application.services.correlation_service import CorrelationService
-        from finanalytics_ai.application.services.multi_ticker_service import MultiTickerService
-        from finanalytics_ai.application.services.optimizer_service import OptimizerService
-        from finanalytics_ai.application.services.walkforward_service import WalkForwardService
-        app.state.backtest_service = BacktestService(market_client)
-        app.state.optimizer_service = OptimizerService(market_client)
-        app.state.walkforward_service = WalkForwardService(market_client)
-        app.state.multi_ticker_service = MultiTickerService(market_client)
-        app.state.correlation_service = CorrelationService(market_client)
-        app.state.anomaly_service = AnomalyService(market_client)
-        logger.info("market_data_client.fintz_fallback.ready")
-
-    # ── 6. WatchlistService: cria tabelas DB ─────────────────────────────────
-    # Importa os models ANTES do create_all para registrá-los no metadata.
-    # Sem o import, Base.metadata não conhece as tabelas e create_all é no-op.
-    from finanalytics_ai.infrastructure.database.connection import Base
-    from finanalytics_ai.infrastructure.database.repositories.ohlc_repo import (  # noqa: F401
-        OHLCBarModel,
-        OHLCCacheMetaModel
-    )
-    from finanalytics_ai.infrastructure.database.repositories.rf_repo import (
-        Base as RFBase
-    )
-    from finanalytics_ai.infrastructure.database.repositories.rf_repo import (  # noqa: F401
-        RFHoldingModel,
-        RFPortfolioModel
-    )
-    from finanalytics_ai.infrastructure.database.repositories.user_repo import (
-        UserModel,  # noqa: F401
-    )
-    from finanalytics_ai.infrastructure.database.repositories.watchlist_repo import (
-        WatchlistItemModel,  # noqa: F401
-    )
-    from finanalytics_ai.infrastructure.database.repositories.diario_repo import (
-        DiarioModel,  # noqa: F401 — registra trade_journal na metadata
-    )
-
-    try:
-        async with get_engine().begin() as conn:
-            await conn.run_sync(lambda c: Base.metadata.create_all(c, checkfirst=True))
-            await conn.run_sync(lambda c: RFBase.metadata.create_all(c, checkfirst=True))
-        logger.info("watchlist_tables.ok")
-    except Exception as exc:
-        logger.error("watchlist_tables.FAILED", error=str(exc))
-        logger.info("correlation_service.ready")
-        logger.info("screener_service.ready")
-        logger.info("anomaly_service.ready")
-
-    # ── OHLC: TimescaleDB + Updater ───────────────────────────────────────────
-
-    # ── OHLC 1m Service (cache + agregacao livre de intervalos) ──────────────
-    app.state.ohlc_1m_service = None
-    try:
-        from finanalytics_ai.application.services.ohlc_1m_service import OHLC1mService as _S1m
-        from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient as _BC2
-        from finanalytics_ai.infrastructure.database.connection import get_engine as _ge2
-        from finanalytics_ai.infrastructure.database.connection import get_session_factory as _gsf2
-        from finanalytics_ai.infrastructure.database.repositories.ohlc_1m_repo import Base as _B1m
-
-        async with _ge2().begin() as _c2:
-            await _c2.run_sync(_B1m.metadata.create_all)
-        _bt2 = getattr(get_settings(), "brapi_token", "")
-        _bc2 = _BC2(token=_bt2)
-        app.state.ohlc_1m_service = _S1m(session_factory=_gsf2(), brapi_client=_bc2)
-        logger.info("ohlc_1m_service.ready")
-    except Exception as _e1m:
-        logger.warning("ohlc_1m_service.FAILED", error=str(_e1m))
-
-    app.state.ohlc_ts_repo = None
-    app.state.ohlc_updater = None
-    _ohlc_daily_task = None
-    try:
-        from finanalytics_ai.application.services.ohlc_updater import OHLCUpdaterService
-        from finanalytics_ai.infrastructure.timescale.connection import (
-            init_ts_pool,
-            ts_pool_available
-        )
-        from finanalytics_ai.infrastructure.timescale.ohlc_ts_repo import OHLCTimescaleRepo
-        from finanalytics_ai.infrastructure.timescale.schema import init_schema
-
-        ts_dsn = settings.timescale_url
-        if await ts_pool_available(ts_dsn):
-            ts_pool = await init_ts_pool(ts_dsn, min_size=2, max_size=8)
-            await init_schema(ts_pool)
-            repo = OHLCTimescaleRepo(ts_pool)
-            updater = OHLCUpdaterService(repo, market_client)
-            app.state.ohlc_ts_repo = repo
-            app.state.ohlc_updater = updater
-            # Inicia loop de atualização diária em background
-            _ohlc_daily_task = asyncio.create_task(updater.run_daily_loop())
-            logger.info("timescale.ohlc.ready")
-        else:
-            logger.warning("timescale.unavailable — OHLC endpoints retornam 503")
-    except Exception as exc:
-        logger.warning("timescale.init.FAILED", error=str(exc))
-
-    # -- Ticker Service ------------------------------------------------
-    app.state.ticker_service = None
-    try:
-        from finanalytics_ai.infrastructure.database.connection import get_engine as _get_eng
-        from finanalytics_ai.infrastructure.database.connection import get_session_factory
-        from finanalytics_ai.infrastructure.database.repositories.ticker_repo import (
-            Base as TickerBase
-        )
-        from finanalytics_ai.infrastructure.database.repositories.ticker_service import (
-            TickerService
-        )
-
-        async with _get_eng().begin() as conn:
-            await conn.run_sync(lambda c: TickerBase.metadata.create_all(c, checkfirst=True))
-        app.state.ticker_service = TickerService(get_session_factory())
-        logger.info("ticker_service.ready")
-    except Exception as exc:
-        logger.warning("ticker_service.FAILED", error=str(exc))
-
-
-    # -- IntradaySetupService (deteccao de setups em tempo real)
-    try:
-        from finanalytics_ai.application.services.intraday_setup_service import IntradaySetupService
-        _market = getattr(app.state, 'market_client', None)
-        _bus = getattr(app.state, 'notification_bus', None)
-        if _market:
-            app.state.intraday_setup_service = IntradaySetupService(_market, _bus)
-            logger.info("intraday_setup_service.ready")
-        else:
-            app.state.intraday_setup_service = None
-            logger.warning("intraday_setup_service.skipped", reason="market_client ausente")
-    except Exception as _ise:
-        logger.warning("intraday_setup_service.FAILED", error=str(_ise))
-        app.state.intraday_setup_service = None
-
-    
-    
-    
-    # -- TapeService (Tape Reading via ProfitDLL)
-    try:
-        from finanalytics_ai.application.services.tape_service import TapeService
-        tape_svc = TapeService()
-        app.state.tape_service = tape_svc
-        logger.info("tape_service.ready")
-        # Inicia consumer Redis (recebe ticks do profit_market_worker)
-        import asyncio as _asyncio
-        from finanalytics_ai.config import get_settings as _gs
-        _redis_url = _gs().redis_url if hasattr(_gs(), "redis_url") else "redis://redis:6379/0"
-        _tape_task = _asyncio.create_task(tape_svc.start_redis_consumer(_redis_url))
-        app.state.tape_redis_task = _tape_task
-        logger.info("tape_service.redis_consumer_launched", redis_url=_redis_url)
-    except Exception as _tse:
-        logger.warning("tape_service.FAILED", error=str(_tse))
-        app.state.tape_service = None
-    # -- VaRService (Value at Risk)
-    try:
-        from finanalytics_ai.application.services.var_service import VaRService
-        _var_market = getattr(app.state, "market_client", None)
-        if _var_market:
-            app.state.var_service = VaRService(_var_market)
-            logger.info("var_service.ready")
-        else:
-            app.state.var_service = None
-            logger.warning("var_service.SKIPPED", reason="market_client nao disponivel")
-    except Exception as _vse:
-        logger.warning("var_service.FAILED", error=str(_vse))
-        app.state.var_service = None
-    # -- SentimentService (analise de noticias via Claude Haiku 4.5)
-    try:
-        from finanalytics_ai.application.services.sentiment_service import SentimentService
-        _anthropic_key = getattr(settings, "anthropic_api_key", "") or ""
-        if _anthropic_key:
-            _redis_client = None
-            try:
-                from redis.asyncio import from_url as _redis_from_url
-                _redis_client = _redis_from_url(str(settings.redis_url))
-            except Exception:
-                pass
-            app.state.sentiment_service = SentimentService(
-                api_key=_anthropic_key,
-                redis_client=_redis_client,
-            )
-            logger.info("sentiment_service.ready")
-        else:
-            logger.warning("sentiment_service.SKIPPED", reason="ANTHROPIC_API_KEY nao configurada")
-            app.state.sentiment_service = None
-    except Exception as _sse:
-        logger.warning("sentiment_service.FAILED", error=str(_sse))
-        app.state.sentiment_service = None
-    # -- OptionsService (calculadora de opcoes Black-Scholes)
-    try:
-        from finanalytics_ai.application.services.options_service import OptionsService
-        app.state.options_service = OptionsService()
-        logger.info("options_service.ready")
-    except Exception as _ose:
-        logger.warning("options_service.FAILED", error=str(_ose))
-        app.state.options_service = None
-
-    # -- RankingService (ranking de acoes por metodologia)
-    try:
-        from finanalytics_ai.application.services.ranking_service import RankingService
-        from finanalytics_ai.infrastructure.database.connection import get_session_factory as _gsf3
-        app.state.ranking_service = RankingService(_gsf3())
-        logger.info("ranking_service.ready")
-    except Exception as _rke:
-        logger.warning("ranking_service.FAILED", error=str(_rke))
-        app.state.ranking_service = None
-
-    # -- IndicatorAlertService (alertas de indicadores Fintz)
-    try:
-        from finanalytics_ai.application.services.indicator_alert_service import (
-            IndicatorAlertService,
-        )
-        from finanalytics_ai.infrastructure.database.connection import get_session_factory as _gsf2
-        _notification_bus = getattr(app.state, 'notification_bus', None)
-        app.state.indicator_alert_service = IndicatorAlertService(_gsf2(), _notification_bus)
-        logger.info("indicator_alert_service.ready")
-    except Exception as _iae:
-        logger.warning("indicator_alert_service.FAILED", error=str(_iae))
-        app.state.indicator_alert_service = None
-
-    # -- FintzScreenerService (dados locais Fintz)
-    try:
-        from finanalytics_ai.application.services.fintz_screener_service import FintzScreenerService
-        from finanalytics_ai.infrastructure.database.connection import get_session_factory as _gsf
-        app.state.fintz_screener_service = FintzScreenerService(_gsf())
-        logger.info("fintz_screener_service.ready")
-    except Exception as _fse:
-        logger.warning("fintz_screener_service.FAILED", error=str(_fse))
-        app.state.fintz_screener_service = None
-
-    # ── DiarioRepository ──────────────────────────────────────────────────────
-    
-    
-    
-
-    try:
-        from finanalytics_ai.infrastructure.database.repositories.diario_repo import (
-            DiarioRepository,
-        )
-        from finanalytics_ai.infrastructure.database.connection import get_session_factory
-
-        app.state.diario_repo = DiarioRepository(get_session_factory())
-        logger.info("diario_repo.ready")
-    except Exception as exc:
-        logger.warning("diario_repo.FAILED", error=str(exc))
-        app.state.diario_repo = None
-
-    # ── 6. BRAPI Price Producer ───────────────────────────────────────────────
-    producer_ok = False
-    if settings.producer_enabled and kafka_ok and settings.brapi_token:
-        try:
-            from finanalytics_ai.application.services.price_producer import BrapiPriceProducer
-            from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
-            from finanalytics_ai.infrastructure.queue.kafka_adapter import KafkaMarketEventProducer
-
-            tickers = [t.strip() for t in settings.producer_tickers.split(",") if t.strip()]
-            brapi = BrapiClient()
-            kprod = KafkaMarketEventProducer()
-
-            _price_producer = BrapiPriceProducer(
-                tickers=tickers,
-                poll_interval=settings.producer_poll_interval_seconds,
-                brapi_client=brapi,
-                kafka_producer=kprod
-            )
-            await _price_producer.start()
-            _producer_task = asyncio.create_task(_price_producer.run())
-            producer_ok = True
-            logger.info(
-                "price_producer.running",
-                tickers=tickers,
-                interval=settings.producer_poll_interval_seconds
-            )
-        except Exception as exc:
-            logger.warning("price_producer.unavailable", error=str(exc))
-    elif settings.producer_enabled and not settings.brapi_token:
-        logger.warning(
-            "price_producer.disabled",
-            reason="BRAPI_TOKEN não configurado — adicione ao .env para ativar o producer automático"
-        )
-
-    # ── Fundamental Analysis Service ──────────────────────────────────────
-    try:
-        from finanalytics_ai.application.services.fundamental_analysis_service import (
-            FundamentalAnalysisService
-        )
-        from finanalytics_ai.infrastructure.database.repositories.fintz_repo import FintzRepo
-        _fintz_repo = FintzRepo()
-        app.state.fintz_ts_repo = _fintz_repo
-        _brapi = getattr(app.state, "market_client", None)
-        if _brapi:
-            app.state.fundamental_analysis_service = FundamentalAnalysisService(_fintz_repo, _brapi)
-            logger.info("fundamental_analysis.ready")
-        else:
-            logger.warning("fundamental_analysis.skipped", reason="market_client ausente")
-    except Exception as _exc:
-        logger.warning("fundamental_analysis.FAILED", error=str(_exc))
+    # 11. BRAPI Price Producer
+    _price_producer, _producer_task = await _prod.init_price_producer(app, settings)
+    producer_ok = _price_producer is not None
 
     logger.info(
         "api.ready",
         postgres=True,
         timescale=timescale_ok,
         kafka=kafka_ok,
-        producer=producer_ok
+        producer=producer_ok,
     )
     yield
 
     # ── Shutdown ──────────────────────────────────────────────────────────────
-    if _producer_task:
-        if _price_producer:
-            await _price_producer.stop()
-        _producer_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await _producer_task
-
-    if _kafka_task:
-        _kafka_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await _kafka_task
-    if _kafka_consumer:
-        with suppress(Exception):
-            await _kafka_consumer.stop()
-    if timescale_ok:
-        try:
-            from finanalytics_ai.infrastructure.timescale.repository import close_timescale_pool
-
-            await close_timescale_pool()
-        except Exception:
-            pass
-    # Cancela loop de atualização OHLC
-    if _ohlc_daily_task:
-        _ohlc_daily_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await _ohlc_daily_task
-    # Fecha pool TimescaleDB
-    try:
-        from finanalytics_ai.infrastructure.timescale.connection import close_ts_pool
-
-        await close_ts_pool()
-    except Exception:
-        pass
-    await close_engine()
+    await _prod.shutdown(_price_producer, _producer_task)
+    await _kafka.shutdown(_kafka_consumer, _kafka_task)
+    await _ohlc.shutdown_ohlc(_ohlc_daily_task)
+    await _db.shutdown(timescale_ok)
     logger.info("api.stopped")
+
 
 def create_app() -> FastAPI:
     app = FastAPI(

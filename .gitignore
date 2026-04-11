@@ -71,3 +71,16 @@ src/finanalytics_ai/interfaces/api/static/profit_market_worker*.py
 src/finanalytics_ai/interfaces/api/static/PENDENCIAS.md
 src/finanalytics_ai/interfaces/api/static/Dockerfile
 mypy.ini.bak
+
+# Backups de scripts
+scripts/_backups/
+
+# Diagnosticos e patches temporarios
+diag_*.py
+patch_*.py
+
+# Arquivos de teste temporarios
+test_history.py
+
+# ZIP de backup
+*.zip

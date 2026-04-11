@@ -1,4 +1,43 @@
 """
+apply_improvements.py
+Aplica melhorias no projeto finanalytics_ai e faz backup dos arquivos modificados.
+
+Melhorias:
+1. marketdata.py — imports deduplicados, SQL injection sanitizado, tipos adicionados
+2. Arquivos diag_/patch_ na raiz movidos para scripts/
+3. .gitignore atualizado com entradas faltantes
+
+Uso: python apply_improvements.py
+"""
+import os, shutil, pathlib
+from datetime import datetime
+
+ROOT = pathlib.Path(r"D:\Projetos\finanalytics_ai_fresh")
+BACKUP = ROOT / "scripts" / "_backups" / datetime.now().strftime("%Y%m%d_%H%M%S")
+
+def backup(path: pathlib.Path) -> None:
+    BACKUP.mkdir(parents=True, exist_ok=True)
+    dest = BACKUP / path.name
+    shutil.copy2(path, dest)
+    print(f"  BACKUP: {path.name} -> {dest.relative_to(ROOT)}")
+
+def move_to_scripts(files: list[str]) -> None:
+    scripts = ROOT / "scripts"
+    scripts.mkdir(exist_ok=True)
+    for f in files:
+        src = ROOT / f
+        if src.exists():
+            dst = scripts / f
+            if not dst.exists():
+                shutil.move(str(src), str(dst))
+                print(f"  MOVIDO: {f} -> scripts/")
+            else:
+                print(f"  JA EXISTE: scripts/{f}")
+
+# ── 1. Marketdata.py — reescrito com melhorias ───────────────────────────────
+MARKETDATA_PATH = ROOT / "src/finanalytics_ai/interfaces/api/routes/marketdata.py"
+
+MARKETDATA_NEW = r'''"""
 marketdata.py - rotas de market data (historico + live via TimescaleDB)
 
 Melhorias (2026-04-11):
@@ -307,3 +346,64 @@ async def sse_ticks(
 
     return StreamingResponse(gen(), media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+'''
+
+# ── 2. Atualiza .gitignore ────────────────────────────────────────────────────
+GITIGNORE_ADD = """
+# Backups de scripts
+scripts/_backups/
+
+# Diagnosticos e patches temporarios
+diag_*.py
+patch_*.py
+
+# Arquivos de teste temporarios
+test_history.py
+
+# ZIP de backup
+*.zip
+"""
+
+def main():
+    print("=== apply_improvements.py ===\n")
+
+    # Backup e substituicao do marketdata.py
+    if MARKETDATA_PATH.exists():
+        backup(MARKETDATA_PATH)
+        MARKETDATA_PATH.write_text(MARKETDATA_NEW, encoding="utf-8")
+        print(f"  OK: marketdata.py reescrito ({len(MARKETDATA_NEW.splitlines())} linhas)")
+    else:
+        print(f"  ERRO: {MARKETDATA_PATH} nao encontrado")
+
+    # Move arquivos diag/patch da raiz para scripts/
+    print("\n--- Movendo arquivos temporarios para scripts/ ---")
+    diag_patch = [
+        f for f in os.listdir(ROOT)
+        if (f.startswith("diag_") or f.startswith("patch_") or f in {"test_history.py", "_dbg.py", "ts_0001_market_data_schema.py", "add_ml_route.py"})
+        and f.endswith(".py")
+    ]
+    move_to_scripts(diag_patch)
+
+    # Atualiza .gitignore
+    gitignore = ROOT / ".gitignore"
+    if gitignore.exists():
+        content = gitignore.read_text(encoding="utf-8")
+        if "scripts/_backups" not in content:
+            gitignore.write_text(content + GITIGNORE_ADD, encoding="utf-8")
+            print(f"\n  OK: .gitignore atualizado")
+
+    print(f"\n=== Concluido! Backups em: {BACKUP.relative_to(ROOT)} ===")
+    print("""
+Resumo das melhorias aplicadas:
+  1. marketdata.py:
+     - Imports deduplicados (StreamingResponse, asyncio, json no topo)
+     - SQL injection: _sanitize_ticker() e _sanitize_resolution() com regex
+     - _parse_floats() extraido para evitar repeticao
+     - pattern= substituiu regex= (FastAPI deprecation fix)
+     - Intervalo minimo SSE: 0.2s (Query ge=0.2)
+  2. Raiz limpa: diag_*.py e patch_*.py movidos para scripts/
+  3. .gitignore: entradas adicionadas para scripts/_backups e diag_*.py
+""")
+
+if __name__ == "__main__":
+    main()
