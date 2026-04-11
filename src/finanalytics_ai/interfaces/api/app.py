@@ -22,10 +22,12 @@ from finanalytics_ai.config import get_settings
 from finanalytics_ai.exceptions import FinAnalyticsError
 from finanalytics_ai.infrastructure.database.connection import close_engine, get_engine
 from finanalytics_ai.interfaces.api.routes import admin as admin_routes
-from finanalytics_ai.interfaces.api.routes import admin as admin_routes
 from finanalytics_ai.interfaces.api.routes import ml_forecasting as ml_routes
 from finanalytics_ai.interfaces.api.routes import marketdata as marketdata_routes
+from finanalytics_ai.interfaces.api.routes import live_market as live_market_routes
 from finanalytics_ai.interfaces.api.routes import fundos as fundos_routes
+from finanalytics_ai.interfaces.api.routes import accounts as accounts_routes
+from finanalytics_ai.application.services.account_service import AccountService
 from finanalytics_ai.interfaces.api.routes import (
     wallet,
     alerts,
@@ -87,6 +89,10 @@ _kafka_task: Any = None
 _alert_service: Any = None
 _price_producer: Any = None
 _producer_task: Any = None
+_account_service: AccountService | None = None
+
+def get_account_service() -> AccountService | None:
+    return _account_service
 
 def get_kafka_consumer() -> Any:
     return _kafka_consumer
@@ -99,7 +105,7 @@ def get_price_producer() -> Any:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    global _kafka_consumer, _kafka_task, _alert_service, _price_producer, _producer_task
+    global _kafka_consumer, _kafka_task, _alert_service, _price_producer, _producer_task, _account_service
 
     settings = get_settings()
     logger.info("api.starting", env=getattr(settings, "env", "production"))
@@ -107,16 +113,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # ── 1. PostgreSQL ─────────────────────────────────────────────────────────
     get_engine()
     logger.info("postgres.connected")
-
-    # ── Bootstrap: garante que marceloabisquarisi é sempre MASTER ─────────────
-    try:
-        from finanalytics_ai.interfaces.api.routes.admin import run_bootstrap
-        from finanalytics_ai.infrastructure.database.connection import get_session as _get_bs_session
-        async with _get_bs_session() as _bs_session:
-            _result = await run_bootstrap(_bs_session)
-            logger.info("bootstrap.master", result=_result)
-    except Exception as _be:
-        logger.warning("bootstrap.FAILED", error=str(_be))
 
     # ── Bootstrap: garante que marceloabisquarisi é sempre MASTER ─────────────
     try:
@@ -142,6 +138,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await get_timescale_pool()
         timescale_ok = True
         logger.info("timescale.connected")
+        # ── Chunk warmup automatico (garante chunk do dia no TimescaleDB) ──────
+        try:
+            import subprocess as _sp
+            _sp.run([
+                "docker","exec","finanalytics_timescale",
+                "psql","-U","finanalytics","-d","market_data","--no-psqlrc","-c",
+                "INSERT INTO ticks (ticker,exchange,ts,trade_number,price,quantity,volume,trade_type) "
+                "VALUES ('__warmup__','B',now(),0,1.0,1,1.0,0) ON CONFLICT DO NOTHING; "
+                "DELETE FROM ticks WHERE ticker='__warmup__';"
+            ], capture_output=True, timeout=10)
+            logger.info("timescale.chunk.warmup.ok")
+        except Exception as _wex:
+            logger.warning("timescale.chunk.warmup.failed", error=str(_wex))
+        # ── Fim chunk warmup ─────────────────────────────────────────────────
+
     except Exception as exc:
         logger.warning("timescale.unavailable", error=str(exc))
 
@@ -156,6 +167,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         notification_bus=bus
     )
     logger.info("alert_service.ready")
+
+    # ── AccountService ────────────────────────────────────────────────────────
+    try:
+        from finanalytics_ai.infrastructure.database.connection import get_session_factory as _gsf_acc
+        from finanalytics_ai.infrastructure.database.repositories.sql_account_repo import (
+            TradingAccountModel,  # noqa: F401 — registra tabela no metadata
+        )
+        _account_service = AccountService(_gsf_acc())
+        logger.info("account_service.ready")
+    except Exception as _ace:
+        logger.warning("account_service.FAILED", error=str(_ace))
 
     # ── 4. Kafka consumer ─────────────────────────────────────────────────────
     kafka_ok = False
@@ -650,6 +672,7 @@ def create_app() -> FastAPI:
     app.include_router(quotes.router, prefix="/api/v1/quotes", tags=["Cotações"])
     app.include_router(events.router, prefix="/api/v1/events", tags=["Eventos"])
     app.include_router(alerts.router, prefix="/api/v1/alerts", tags=["Alertas"])
+    app.include_router(accounts_routes.router, prefix="/api/v1/accounts", tags=["Contas"])
     app.include_router(producer.router, prefix="/api/v1/producer", tags=["Producer"])
     app.include_router(fundos_routes.router)
     app.include_router(backtest.router, tags=["Backtest"])
@@ -816,6 +839,7 @@ def create_app() -> FastAPI:
         logger.warning("screener_fintz.route.FAILED", error=str(_sfe))
     app.include_router(ml_routes.router, tags=["ML Probabilistico"])
     app.include_router(marketdata_routes.router, tags=["Market Data"])
+    app.include_router(live_market_routes.router, tags=["Live Market Data"])
     app.include_router(anomaly.router, tags=["Anomaly"])
     app.include_router(reports.router, tags=["Reports"])
     app.include_router(watchlist.router, tags=["Watchlist"])
@@ -1094,4 +1118,7 @@ def create_app() -> FastAPI:
         return _html("tickers.html")
 
     return app
+
+
+
 

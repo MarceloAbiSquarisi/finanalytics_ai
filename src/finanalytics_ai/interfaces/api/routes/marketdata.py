@@ -240,3 +240,105 @@ async def get_last_candle(
         return {"ticker": ticker.upper(), "candle": dict(row)}
     except Exception as e:
         return {"ticker": ticker.upper(), "candle": None, "error": str(e)}
+
+# ── Live Market Data (TimescaleDB: profit_tick_worker + tape_service) ──────────
+
+# __ Live Market Data __
+_LIVE_CONTAINER = 'finanalytics_timescale'
+_LIVE_USER = 'finanalytics'
+_LIVE_DB = 'market_data'
+_VALID_RES = {'1','5','15','60','D'}
+
+def _live_query(sql):
+    import subprocess
+    r = subprocess.run(['docker','exec',_LIVE_CONTAINER,'psql','-U',_LIVE_USER,'-d',_LIVE_DB,'--no-psqlrc','-A','--csv','-c',sql],capture_output=True,text=True,timeout=15)
+    if r.returncode != 0 or not r.stdout.strip(): return []
+    lines = [l for l in r.stdout.strip().splitlines() if l]
+    if not lines: return []
+    hdr = lines[0].split(',')
+    return [dict(zip(hdr,l.split(','))) for l in lines[1:]]
+
+@router.get('/live/tickers')
+def live_tickers():
+    rows = _live_query("SELECT DISTINCT ON (ticker) ticker,exchange,price::text AS last_price,ts::text AS last_ts FROM ticks WHERE ticker!='__warmup__' ORDER BY ticker,ts DESC")
+    for r in rows:
+        try: r['last_price']=float(r['last_price'])
+        except: pass
+    return rows
+
+@router.get('/live/ohlc/{ticker}/latest')
+def live_ohlc_latest(ticker:str,resolution:str=Query('1')):
+    from fastapi import HTTPException
+    t=ticker.upper()
+    rows=_live_query(f"SELECT ticker,exchange,ts::text AS ts,resolution,open::text,high::text,low::text,close::text,volume::text,quantity,trade_count FROM ohlc WHERE ticker='{t}' AND resolution='{resolution}' ORDER BY ts DESC LIMIT 1")
+    if not rows: raise HTTPException(404,detail='Sem dados')
+    r=rows[0]
+    [r.update({k:float(r[k])}) for k in ('open','high','low','close','volume') if r.get(k)]
+    return r
+
+@router.get('/live/ohlc/{ticker}')
+def live_ohlc(ticker:str,resolution:str=Query('1'),limit:int=Query(100,ge=1,le=500)):
+    from fastapi import HTTPException
+    if resolution not in _VALID_RES: raise HTTPException(400,detail='Resolucao invalida')
+    t=ticker.upper()
+    rows=_live_query(f"SELECT ticker,exchange,ts::text AS ts,resolution,open::text,high::text,low::text,close::text,volume::text,quantity,trade_count FROM ohlc WHERE ticker='{t}' AND resolution='{resolution}' ORDER BY ts DESC LIMIT {limit}")
+    if not rows: raise HTTPException(404,detail='Sem OHLC')
+    [r.update({k:float(r[k])}) for r in rows for k in ('open','high','low','close','volume') if r.get(k)]
+    return {'ticker':t,'resolution':resolution,'count':len(rows),'bars':list(reversed(rows))}
+
+@router.get('/live/ticks/{ticker}')
+def live_ticks(ticker:str,limit:int=Query(100,ge=1,le=1000)):
+    from fastapi import HTTPException
+    t=ticker.upper()
+    rows=_live_query(f"SELECT ticker,exchange,ts::text AS ts,price::text AS price,quantity,volume::text AS volume FROM ticks WHERE ticker='{t}' ORDER BY ts DESC LIMIT {limit}")
+    if not rows: raise HTTPException(404,detail='Ticker nao encontrado')
+    [r.update({k:float(r[k])}) for r in rows for k in ('price','volume') if r.get(k)]
+    return {'ticker':t,'count':len(rows),'ticks':rows}
+
+# __ SSE Live Ticks __
+from fastapi.responses import StreamingResponse
+import asyncio as _aio, json as _json
+
+@router.get('/live/sse/tickers', summary='SSE stream de precos ao vivo')
+async def sse_tickers(interval: float = 1.0):
+    async def gen():
+        while True:
+            try:
+                rows = await _aio.to_thread(_live_query,
+                    "SELECT DISTINCT ON (ticker) ticker,exchange,price::text AS last_price,ts::text AS last_ts "
+                    "FROM ticks WHERE ticker!='__warmup__' ORDER BY ticker,ts DESC"
+                )
+                for r in rows:
+                    try: r['last_price'] = float(r['last_price'])
+                    except: pass
+                yield f'data: {_json.dumps(rows)}\n\n'
+            except Exception:
+                yield 'data: []\n\n'
+            await _aio.sleep(interval)
+    return StreamingResponse(gen(), media_type='text/event-stream',
+        headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})
+
+@router.get('/live/sse/ticks/{ticker}', summary='SSE stream de ticks de um ticker')
+async def sse_ticks(ticker: str, interval: float = 0.5):
+    t = ticker.upper()
+    async def gen():
+        last_ts = None
+        while True:
+            try:
+                rows = await _aio.to_thread(_live_query,
+                    f"SELECT ticker,exchange,ts::text AS ts,price::text AS price,quantity,volume::text AS volume "
+                    f"FROM ticks WHERE ticker='{t}' ORDER BY ts DESC LIMIT 1"
+                )
+                if rows:
+                    r = rows[0]
+                    if r.get('ts') != last_ts:
+                        last_ts = r.get('ts')
+                        for k in ('price','volume'):
+                            try: r[k] = float(r[k])
+                            except: pass
+                        yield f'data: {_json.dumps(r)}\n\n'
+            except Exception:
+                pass
+            await _aio.sleep(interval)
+    return StreamingResponse(gen(), media_type='text/event-stream',
+        headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})

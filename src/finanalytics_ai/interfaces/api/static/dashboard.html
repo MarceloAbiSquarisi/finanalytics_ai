@@ -3039,7 +3039,65 @@ function faDTToggle(btn){
     if(s2)s2.classList.add('open');
   }
 })();
-</script>
+
+// ── Live Market Data via SSE v4 ────────────────────────────────────────────────
+(function() {
+  var _es = null;
+
+  function fmtPrice(v) {
+    var n = parseFloat(v);
+    if (isNaN(n)) return v;
+    return 'R$ ' + n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+
+  function applyPrices(tickers) {
+    tickers.forEach(function(t) {
+      var fmt = fmtPrice(t.last_price);
+      var wp = document.getElementById('wp-' + t.ticker);
+      if (wp) wp.innerText = fmt;
+      document.querySelectorAll('[data-ticker="' + t.ticker + '"][data-field="price"]')
+        .forEach(function(el) { el.innerText = fmt; });
+      document.dispatchEvent(new CustomEvent('live-price', {detail: t}));
+    });
+  }
+
+  function startSSE() {
+    if (_es) return;
+    _es = new EventSource('/api/v1/marketdata/live/sse/tickers');
+    _es.onmessage = function(e) {
+      try { applyPrices(JSON.parse(e.data)); } catch(ex) {}
+    };
+    _es.onerror = function() {
+      _es = null;
+      setTimeout(pollAndStart, 8000);
+    };
+  }
+
+  function pollAndStart() {
+    if (_es) return;
+    if (localStorage.getItem('access_token')) {
+      startSSE();
+    } else {
+      setTimeout(pollAndStart, 1000);
+    }
+  }
+
+  // Intercepta localStorage.setItem para capturar login
+  var _orig = localStorage.setItem.bind(localStorage);
+  localStorage.setItem = function(k, v) {
+    _orig(k, v);
+    if (k === 'access_token') setTimeout(startSSE, 300);
+  };
+
+  // Inicia polling imediatamente
+  pollAndStart();
+
+  window._liveSSE = {
+    start: startSSE,
+    stop: function() { if (_es) { _es.close(); _es = null; } }
+  };
+})();
+// ── Fim SSE v4 ───────────────────────────────────────────────────────────────
 </body>
 <script>
 function faOptToggle(btn){var s=document.getElementById('opt-submenu');btn.classList.toggle('open');s.classList.toggle('open');}
