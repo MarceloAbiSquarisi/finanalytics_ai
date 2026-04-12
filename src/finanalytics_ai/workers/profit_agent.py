@@ -1,4 +1,4 @@
-﻿
+
 """
 profit_agent.py — Agente standalone ProfitDLL (Nelogica)
 
@@ -420,18 +420,85 @@ class DBWriter:
         ))
 
     def ensure_tickers_table(self) -> None:
-        """Cria tabela de tickers se nao existir."""
-        sql = """
+        """Cria/migra tabela de tickers subscritos."""
+        # Cria tabela se não existir
+        self.execute("""
         CREATE TABLE IF NOT EXISTS profit_subscribed_tickers (
-            ticker   VARCHAR(20)  NOT NULL,
-            exchange VARCHAR(10)  NOT NULL DEFAULT 'B',
-            active   BOOLEAN      NOT NULL DEFAULT TRUE,
-            added_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-            notes    TEXT,
+            ticker          VARCHAR(20)  NOT NULL,
+            exchange        VARCHAR(10)  NOT NULL DEFAULT 'B',
+            active          BOOLEAN      NOT NULL DEFAULT TRUE,
+            subscribe_book  BOOLEAN      NOT NULL DEFAULT FALSE,
+            priority        INTEGER      NOT NULL DEFAULT 0,
+            notes           TEXT,
+            created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+            updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
             PRIMARY KEY (ticker, exchange)
         )
+        """)
+        # Migração: adiciona colunas novas se não existirem (idempotente)
+        migrations = [
+            "ALTER TABLE profit_subscribed_tickers ADD COLUMN IF NOT EXISTS subscribe_book BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE profit_subscribed_tickers ADD COLUMN IF NOT EXISTS priority INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE profit_subscribed_tickers ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+            "ALTER TABLE profit_subscribed_tickers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+            # Renomeia added_at → created_at se existir
+            "DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='profit_subscribed_tickers' AND column_name='added_at') THEN ALTER TABLE profit_subscribed_tickers RENAME COLUMN added_at TO created_at; END IF; END $$",
+        ]
+        for m in migrations:
+            self.execute(m)
+
+    def list_tickers_full(self, only_active: bool = False) -> list:
+        """Lista tickers com todos os campos."""
+        if self._conn is None:
+            return []
+        try:
+            where = "WHERE active = TRUE" if only_active else ""
+            with self._lock:
+                cur = self._conn.cursor()
+                cur.execute(f"""
+                    SELECT ticker, exchange, active, subscribe_book,
+                           priority, notes, created_at, updated_at
+                    FROM profit_subscribed_tickers
+                    {where}
+                    ORDER BY priority DESC, ticker
+                """)
+                cols = [d[0] for d in cur.description]
+                rows = cur.fetchall()
+                cur.close()
+            return [dict(zip(cols, [
+                str(v) if hasattr(v, 'isoformat') else v for v in row
+            ])) for row in rows]
+        except Exception as e:
+            log.warning("db.list_tickers_full error=%s", e)
+            return []
+
+    def upsert_ticker(self, ticker: str, exchange: str = "B",
+                      active: bool = True, subscribe_book: bool = False,
+                      priority: int = 0, notes: str = "") -> bool:
+        """Insere ou atualiza um ticker."""
+        sql = """
+        INSERT INTO profit_subscribed_tickers
+            (ticker, exchange, active, subscribe_book, priority, notes, updated_at)
+        VALUES (%s, %s, %s, %s, %s, %s, NOW())
+        ON CONFLICT (ticker, exchange) DO UPDATE SET
+            active         = EXCLUDED.active,
+            subscribe_book = EXCLUDED.subscribe_book,
+            priority       = EXCLUDED.priority,
+            notes          = EXCLUDED.notes,
+            updated_at     = NOW()
         """
-        self.execute(sql)
+        return self.execute(sql, (
+            ticker.upper(), exchange.upper(),
+            active, subscribe_book, priority, notes
+        ))
+
+    def toggle_ticker(self, ticker: str, exchange: str, active: bool) -> bool:
+        """Ativa ou desativa subscrição de um ticker."""
+        return self.execute("""
+            UPDATE profit_subscribed_tickers
+            SET active = %s, updated_at = NOW()
+            WHERE ticker = %s AND exchange = %s
+        """, (active, ticker.upper(), exchange.upper()))
 
     def get_subscribed_tickers(self) -> list:
         """Retorna lista de (ticker, exchange) ativos."""
@@ -479,11 +546,133 @@ class DBWriter:
                 count = cur.fetchone()[0]
                 cur.close()
             if count == 0:
+                # Detecta exchange pelo sufixo (ex: WINFUT:F → exchange=F)
                 for t in tickers:
-                    self.add_ticker(t)
+                    parts = t.split(":")
+                    tkr = parts[0].strip().upper()
+                    exch = parts[1].strip().upper() if len(parts) > 1 else "B"
+                    is_future = exch == "F" or tkr.endswith("FUT")
+                    self.upsert_ticker(
+                        ticker=tkr, exchange=exch,
+                        active=True,
+                        subscribe_book=False,
+                        priority=10 if is_future else 5,
+                        notes="Seeded from .env",
+                    )
                 log.info("db.tickers_seeded_from_env count=%d", len(tickers))
         except Exception as e:
             log.warning("db.seed_tickers_failed error=%s", e)
+
+    def ensure_history_tickers_table(self) -> None:
+        """Cria tabela de configuração de coleta de histórico."""
+        sql = """
+        CREATE TABLE IF NOT EXISTS profit_history_tickers (
+            ticker              VARCHAR(20)  NOT NULL,
+            exchange            VARCHAR(5)   NOT NULL,
+            active              BOOLEAN      NOT NULL DEFAULT TRUE,
+            collect_from        TIMESTAMPTZ  NOT NULL DEFAULT '2026-01-01 00:00:00+00',
+            last_collected_at   TIMESTAMPTZ  NULL,
+            last_collected_from TIMESTAMPTZ  NULL,
+            last_collected_to   TIMESTAMPTZ  NULL,
+            last_tick_count     INTEGER      NULL,
+            notes               TEXT,
+            created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+            updated_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (ticker, exchange)
+        )
+        """
+        self.execute(sql)
+
+    def get_active_history_tickers(self) -> list:
+        """Retorna [(ticker, exchange, collect_from)] dos ativos com active=True."""
+        if self._conn is None:
+            return []
+        try:
+            with self._lock:
+                cur = self._conn.cursor()
+                cur.execute("""
+                    SELECT ticker, exchange, collect_from
+                    FROM profit_history_tickers
+                    WHERE active = TRUE
+                    ORDER BY ticker
+                """)
+                rows = cur.fetchall()
+                cur.close()
+            return [(r[0], r[1], r[2]) for r in rows]
+        except Exception as e:
+            log.warning("db.get_active_history_tickers error=%s", e)
+            return []
+
+    def list_history_tickers(self) -> list:
+        """Retorna todos os tickers (ativos e inativos) como lista de dicts."""
+        if self._conn is None:
+            return []
+        try:
+            with self._lock:
+                cur = self._conn.cursor()
+                cur.execute("""
+                    SELECT ticker, exchange, active, collect_from,
+                           last_collected_at, last_collected_from,
+                           last_collected_to, last_tick_count, notes,
+                           created_at, updated_at
+                    FROM profit_history_tickers
+                    ORDER BY ticker, exchange
+                """)
+                cols = [d[0] for d in cur.description]
+                rows = cur.fetchall()
+                cur.close()
+            return [dict(zip(cols, [
+                str(v) if hasattr(v, 'isoformat') else v for v in row
+            ])) for row in rows]
+        except Exception as e:
+            log.warning("db.list_history_tickers error=%s", e)
+            return []
+
+    def upsert_history_ticker(self, ticker: str, exchange: str,
+                               active: bool = True,
+                               collect_from: str = "2026-01-01 00:00:00",
+                               notes: str = "") -> bool:
+        """Insere ou atualiza configuração de um ticker para coleta."""
+        sql = """
+        INSERT INTO profit_history_tickers
+            (ticker, exchange, active, collect_from, notes, updated_at)
+        VALUES (%s, %s, %s, %s, %s, NOW())
+        ON CONFLICT (ticker, exchange) DO UPDATE SET
+            active       = EXCLUDED.active,
+            collect_from = EXCLUDED.collect_from,
+            notes        = EXCLUDED.notes,
+            updated_at   = NOW()
+        """
+        return self.execute(sql, (
+            ticker.upper(), exchange.upper(), active, collect_from, notes
+        ))
+
+    def toggle_history_ticker(self, ticker: str, exchange: str,
+                               active: bool) -> bool:
+        """Ativa ou desativa a coleta de um ticker."""
+        sql = """
+        UPDATE profit_history_tickers
+        SET active = %s, updated_at = NOW()
+        WHERE ticker = %s AND exchange = %s
+        """
+        return self.execute(sql, (active, ticker.upper(), exchange.upper()))
+
+    def update_history_ticker_collected(
+        self, ticker: str, exchange: str,
+        dt_start: str, dt_end: str, tick_count: int
+    ) -> bool:
+        """Atualiza metadados da última coleta bem-sucedida."""
+        sql = """
+        UPDATE profit_history_tickers SET
+            last_collected_at   = NOW(),
+            last_collected_from = %s,
+            last_collected_to   = %s,
+            last_tick_count     = %s,
+            updated_at          = NOW()
+        WHERE ticker = %s AND exchange = %s
+        """
+        return self.execute(sql, (_parse(dt_start), _parse(dt_end), tick_count,
+                                   ticker.upper(), exchange.upper()))
 
 
 # ---------------------------------------------------------------------------
@@ -697,6 +886,22 @@ class ProfitAgent:
             )
             # Garante tabela e migra tickers do .env (apenas se tabela vazia)
             self._db.ensure_tickers_table()
+            self._db.ensure_history_tickers_table()
+            # Seed padrão: WINFUT e WDOFUT (futuros, exchange=F)
+            self._db.upsert_history_ticker("WINFUT", "F",
+                active=True, collect_from="2026-01-01 00:00:00",
+                notes="Mini Ibovespa Futuro")
+            self._db.upsert_history_ticker("WDOFUT", "F",
+                active=True, collect_from="2026-01-01 00:00:00",
+                notes="Mini Dólar Futuro")
+            self._db.ensure_history_tickers_table()
+            # Seed padrão: WINFUT e WDOFUT (futuros, exchange=F)
+            self._db.upsert_history_ticker("WINFUT", "F",
+                active=True, collect_from="2026-01-01 00:00:00",
+                notes="Mini Ibovespa Futuro")
+            self._db.upsert_history_ticker("WDOFUT", "F",
+                active=True, collect_from="2026-01-01 00:00:00",
+                notes="Mini Dólar Futuro")
             self._db.seed_tickers_from_env(self._subscribe_tickers)
         else:
             log.warning("profit_agent.db_unavailable continuing_without_persistence")
@@ -869,6 +1074,13 @@ class ProfitAgent:
     # ------------------------------------------------------------------
     # Callbacks
     # ------------------------------------------------------------------
+        # ── History (adicionado pelo patch) ──────────────────────────────
+        self._dll.GetHistoryTrades.argtypes  = [c_wchar_p, c_wchar_p, c_wchar_p, c_wchar_p]
+        self._dll.GetHistoryTrades.restype   = c_int
+        self._dll.TranslateTrade.argtypes    = [c_size_t, POINTER(TConnectorTrade)]
+        self._dll.TranslateTrade.restype     = c_int
+        self._dll.SetHistoryTradeCallbackV2.restype = None
+
     def _register_callbacks(self) -> None:
         agent = self
 
@@ -1729,6 +1941,316 @@ class ProfitAgent:
     # ------------------------------------------------------------------
     # HTTP Server
     # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Coleta de histórico — intercepta V1 + SetSerieProgressCallback
+    # ------------------------------------------------------------------
+    def collect_history(self, body: dict) -> dict:
+        """
+        POST /collect_history
+        Body: {"ticker":"WINFUT","exchange":"B",
+               "dt_start":"09/04/2026 09:00:00",
+               "dt_end":"09/04/2026 18:00:00",
+               "timeout":180}
+
+        DIAGNÓSTICO: DLL com V1 callback no pos 8 roteia histórico via
+        SetTradeCallback (V1), com fim sinalizado por SetSerieProgressCallback
+        nProgress=100 — NÃO via SetHistoryTradeCallbackV2/TC_LAST_PACKET.
+
+        Use range máximo de 1 dia (range maior → NL_INVALID_ARGS).
+        """
+        if not self._market_connected.is_set():
+            return {"error": "market_not_connected — aguarde conexao"}
+
+        ticker   = str(body.get("ticker",   "WINFUT")).strip().split(":")[0]
+        exchange = str(body.get("exchange", "B"))
+        dt_start = str(body.get("dt_start", "09/04/2026 09:00:00"))
+        dt_end   = str(body.get("dt_end",   "09/04/2026 18:00:00"))
+        timeout  = int(body.get("timeout",  180))
+
+        ERR = {
+            0:           "NL_OK",
+            -2147483647: "NL_INTERNAL_ERROR",
+            -2147483646: "NL_NOT_INITIALIZED",
+            -2147483645: "NL_INVALID_ARGS",
+            -2147483644: "NL_WAITING_SERVER",
+        }
+        NL_OK          = 0
+        TC_LAST_PACKET = 0x02
+        TC_IS_EDIT     = 0x01
+
+        ticks = []
+        done  = threading.Event()
+
+        # ── Configura restypes ────────────────────────────────────────────────
+        try:
+            self._dll.GetHistoryTrades.argtypes  = [c_wchar_p, c_wchar_p,
+                                                     c_wchar_p, c_wchar_p]
+            self._dll.GetHistoryTrades.restype   = c_int
+            self._dll.TranslateTrade.argtypes    = [c_size_t,
+                                                     POINTER(TConnectorTrade)]
+            self._dll.TranslateTrade.restype     = c_int
+            self._dll.SetHistoryTradeCallbackV2.restype = None
+            self._dll.SetTradeCallbackV2.restype        = None
+            self._dll.SetTradeCallback.restype          = None
+            self._dll.SetSerieProgressCallback.restype  = None
+            self._dll.SetEnabledHistOrder.argtypes      = [c_int]
+            self._dll.SetEnabledHistOrder.restype       = None
+        except Exception as e:
+            log.warning("collect_history setup_error e=%s", e)
+
+        # ── Callback V2 (SetHistoryTradeCallbackV2 / SetTradeCallbackV2) ──────
+        @WINFUNCTYPE(None, TConnectorAssetIdentifier, c_size_t, c_uint)
+        def _cb_v2(asset_id, p_trade, flags):
+            is_last = bool(flags & TC_LAST_PACKET)
+            if not bool(flags & TC_IS_EDIT) and p_trade:
+                trade = TConnectorTrade(Version=0)
+                if (self._dll.TranslateTrade(p_trade, byref(trade)) == NL_OK
+                        and trade.Price > 0):
+                    st = trade.TradeDate
+                    try:
+                        td = datetime(st.wYear, st.wMonth, st.wDay,
+                                      st.wHour, st.wMinute, st.wSecond,
+                                      tzinfo=timezone.utc)
+                    except ValueError:
+                        td = datetime(2000, 1, 1, tzinfo=timezone.utc)
+                    ticks.append({
+                        "src": "v2",
+                        "ticker":       asset_id.Ticker or ticker,
+                        "trade_date":   td.isoformat(),
+                        "trade_number": int(trade.TradeNumber),
+                        "price":        trade.Price / 100.0,
+                        "quantity":     int(trade.Quantity),
+                        "volume":       trade.Volume / 100.0,
+                        "trade_type":   int(trade.TradeType),
+                        "buy_agent":    int(trade.BuyAgent),
+                        "sell_agent":   int(trade.SellAgent),
+                    })
+                    if len(ticks) % 1000 == 0:
+                        log.info("collect_history v2 ticks=%d", len(ticks))
+            if is_last:
+                log.info("collect_history v2 TC_LAST_PACKET total=%d", len(ticks))
+                done.set()
+
+        # ── Callback V1 (SetTradeCallback — sobrepõe pos 8 DLLInitializeLogin)
+        # Assinatura TNewTradeCallback (V1):
+        # (asset: TAssetID*, date: wchar_p, trade_num: uint, price: double,
+        #  vol: double, qty: int, buy: int, sell: int, type: int, edit: char)
+        @WINFUNCTYPE(None, c_void_p, c_wchar_p, c_uint, c_double,
+                     c_double, c_int, c_int, c_int, c_int, c_char)
+        def _cb_v1(asset_ptr, date_str, trade_num, price, vol, qty,
+                   buy_agent, sell_agent, trade_type, edit):
+            if not asset_ptr or price <= 0:
+                return
+            try:
+                import ctypes as _ct
+                asset = _ct.cast(asset_ptr, _ct.POINTER(TAssetID)).contents
+                ticker_v1 = asset.ticker or ticker
+                # Parse "DD/MM/YYYY HH:mm:SS.ZZZ"
+                if date_str and len(date_str) >= 19:
+                    try:
+                        td = datetime(
+                            int(date_str[6:10]),   # year
+                            int(date_str[3:5]),    # month
+                            int(date_str[0:2]),    # day
+                            int(date_str[11:13]),  # hour
+                            int(date_str[14:16]),  # minute
+                            int(date_str[17:19]),  # second
+                            tzinfo=timezone.utc,
+                        )
+                    except Exception:
+                        td = datetime(2000, 1, 1, tzinfo=timezone.utc)
+                else:
+                    td = datetime(2000, 1, 1, tzinfo=timezone.utc)
+                ticks.append({
+                    "src":          "v1",
+                    "ticker":       ticker_v1,
+                    "trade_date":   td.isoformat(),
+                    "trade_number": int(trade_num),
+                    "price":        price,
+                    "quantity":     int(qty),
+                    "volume":       vol,
+                    "trade_type":   int(trade_type),
+                    "buy_agent":    int(buy_agent),
+                    "sell_agent":   int(sell_agent),
+                })
+                if len(ticks) % 1000 == 0:
+                    log.info("collect_history v1 ticks=%d", len(ticks))
+                # Também encaminha para o pipeline normal (real-time)
+                self._total_ticks += 1
+                self._db_queue.put_nowait({
+                    "_type": "tick",
+                    "time": datetime.now(tz=timezone.utc),
+                    "ticker": ticker_v1,
+                    "exchange": asset.bolsa or "B",
+                    "price": price, "quantity": qty,
+                    "volume": vol, "buy_agent": buy_agent,
+                    "sell_agent": sell_agent,
+                    "trade_number": trade_num,
+                    "trade_type": trade_type,
+                    "is_edit": bool(edit),
+                })
+            except Exception as e:
+                log.debug("collect_history v1 error e=%s", e)
+
+        # ── Progress callback (SetSerieProgressCallback — fim do histórico V1)
+        @WINFUNCTYPE(None, TAssetID, c_int)
+        def _progress_cb(asset_id, progress):
+            log.info("collect_history progress ticker=%s pct=%d",
+                     asset_id.ticker or ticker, progress)
+            if progress >= 100:
+                log.info("collect_history progress=100 → done total=%d", len(ticks))
+                done.set()
+
+        # Guarda refs contra GC
+        self._hist_cb_v2_ref      = _cb_v2
+        self._hist_cb_v1_ref      = _cb_v1
+        self._hist_progress_ref   = _progress_cb
+
+        # ── Guarda callbacks originais ────────────────────────────────────────
+        orig_trade_v2 = None
+        try:
+            cbs = getattr(self, '_callbacks', [])
+            if len(cbs) > 6:
+                orig_trade_v2 = cbs[6]
+        except Exception:
+            pass
+        orig_init_refs = getattr(self, '_init_refs', [])
+        orig_v1 = orig_init_refs[0] if orig_init_refs else None
+
+        # ── SetEnabledHistOrder(1) ────────────────────────────────────────────
+        try:
+            self._dll.SetEnabledHistOrder(c_int(1))
+            log.info("collect_history SetEnabledHistOrder(1) OK")
+        except Exception as e:
+            log.warning("collect_history SetEnabledHistOrder e=%s", e)
+
+        # ── Registra callbacks ────────────────────────────────────────────────
+        # V2 (por garantia)
+        self._dll.SetHistoryTradeCallbackV2(_cb_v2)
+        log.info("collect_history SetHistoryTradeCallbackV2 OK")
+        if orig_trade_v2:
+            self._dll.SetTradeCallbackV2(_cb_v2)
+            log.info("collect_history SetTradeCallbackV2 substituído")
+
+        # V1 — intercepta pos 8 (KEY: é aqui que o DLL entrega histórico)
+        self._dll.SetTradeCallback(_cb_v1)
+        log.info("collect_history SetTradeCallback(V1) substituído")
+
+        # Progress — detecta fim do histórico V1
+        self._dll.SetSerieProgressCallback(_progress_cb)
+        log.info("collect_history SetSerieProgressCallback OK")
+
+        # ── GetHistoryTrades ──────────────────────────────────────────────────
+        log.info("collect_history GetHistoryTrades ticker=%s %s→%s",
+                 ticker, dt_start, dt_end)
+        ret = self._dll.GetHistoryTrades(
+            c_wchar_p(ticker), c_wchar_p(exchange),
+            c_wchar_p(dt_start), c_wchar_p(dt_end),
+        )
+        ret_name = ERR.get(ret, f"UNKNOWN({ret})")
+        log.info("collect_history GetHistoryTrades ret=%d (%s)", ret, ret_name)
+
+        if ret != 0:
+            self._restore_callbacks(orig_trade_v2, orig_v1)
+            return {"error": f"GetHistoryTrades: {ret_name}", "ret": ret}
+
+        # ── Aguarda TC_LAST_PACKET ou nProgress=100 ───────────────────────────
+        received = done.wait(timeout=timeout)
+        if not received:
+            log.warning("collect_history TIMEOUT ticks=%d", len(ticks))
+
+        # ── Restaura callbacks ────────────────────────────────────────────────
+        self._restore_callbacks(orig_trade_v2, orig_v1)
+
+        # ── Persiste em batch (executemany — muito mais rápido) ──────────────
+        inserted = 0
+        if ticks and self._db and self._db._conn:
+            CREATE = """
+            CREATE TABLE IF NOT EXISTS market_history_trades (
+                ticker TEXT NOT NULL, trade_date TIMESTAMPTZ NOT NULL,
+                trade_number BIGINT NOT NULL, price DOUBLE PRECISION NOT NULL,
+                quantity BIGINT NOT NULL, volume DOUBLE PRECISION NOT NULL,
+                trade_type INT NOT NULL, buy_agent INT NOT NULL, sell_agent INT NOT NULL,
+                PRIMARY KEY (ticker, trade_date, trade_number)
+            )"""
+            self._db.execute(CREATE)
+            UPSERT = """
+            INSERT INTO market_history_trades
+                (ticker, trade_date, trade_number, price, quantity, volume,
+                 trade_type, buy_agent, sell_agent)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ON CONFLICT (ticker, trade_date, trade_number) DO NOTHING"""
+            rows = [
+                (t["ticker"], datetime.fromisoformat(t["trade_date"]),
+                 t["trade_number"], t["price"], t["quantity"],
+                 t["volume"], t["trade_type"], t["buy_agent"], t["sell_agent"])
+                for t in ticks
+            ]
+            # Batch insert em chunks de 5000
+            CHUNK = 5000
+            try:
+                with self._db._lock:
+                    cur = self._db._conn.cursor()
+                    for i in range(0, len(rows), CHUNK):
+                        chunk = rows[i:i+CHUNK]
+                        cur.executemany(UPSERT, chunk)
+                        inserted += len(chunk)
+                        log.info("collect_history batch %d/%d inseridos",
+                                 min(i+CHUNK, len(rows)), len(rows))
+                    cur.close()
+            except Exception as e:
+                log.error("collect_history batch_insert_error e=%s", e)
+                inserted = 0
+            log.info("collect_history persistido inserted=%d", inserted)
+
+        # Remove campo 'src' dos resultados finais
+        clean_ticks = [{k: v for k, v in t.items() if k != 'src'} for t in ticks]
+        return {
+            "status":   "ok" if received else "timeout",
+            "ticks":    len(clean_ticks),
+            "inserted": inserted,
+            "v1_count": sum(1 for t in ticks if t.get("src") == "v1"),
+            "v2_count": sum(1 for t in ticks if t.get("src") == "v2"),
+            "first":    clean_ticks[0]  if clean_ticks else None,
+            "last":     clean_ticks[-1] if clean_ticks else None,
+        }
+
+    def _restore_callbacks(self, orig_trade_v2, orig_v1) -> None:
+        """Restaura callbacks originais após collect_history."""
+        try:
+            if orig_trade_v2:
+                self._dll.SetTradeCallbackV2(orig_trade_v2)
+                log.info("collect_history SetTradeCallbackV2 restaurado")
+        except Exception as e:
+            log.warning("collect_history restaurar_v2 e=%s", e)
+        try:
+            # Restaura V1 original via SetTradeCallbackV2 ou mantém noop
+            # (o V1 original estava em _init_refs[2] = _trade_v1_init)
+            orig_v1_real = None
+            init_refs = getattr(self, '_init_refs', [])
+            if len(init_refs) > 1:
+                orig_v1_real = init_refs[1]  # _trade_v1_init
+            if orig_v1_real:
+                self._dll.SetTradeCallback(orig_v1_real)
+                log.info("collect_history SetTradeCallback(V1) restaurado")
+        except Exception as e:
+            log.warning("collect_history restaurar_v1 e=%s", e)
+        try:
+            # Restaura progress noop
+            orig_progress = None
+            init_refs = getattr(self, '_init_refs', [])
+            if len(init_refs) > 0:
+                # _init_refs = [state_cb, trade_v1, daily_v1, progress, tiny, account]
+                if len(init_refs) > 3:
+                    orig_progress = init_refs[3]  # _noop_progress
+            if orig_progress:
+                self._dll.SetSerieProgressCallback(orig_progress)
+                log.info("collect_history SetSerieProgressCallback restaurado")
+        except Exception as e:
+            log.warning("collect_history restaurar_progress e=%s", e)
+
     def _start_http(self, port: int) -> None:
         agent = self
 
@@ -1771,9 +2293,16 @@ class ProfitAgent:
                         },
                     })
                 elif self.path == "/tickers":
-                    self._send_json(agent.list_tickers())
+                    full = agent._db.list_tickers_full() if agent._db else []
+                    self._send_json({"tickers": full, "count": len(full)})
+                elif self.path == "/tickers/active":
+                    active = agent._db.list_tickers_full(only_active=True) if agent._db else []
+                    self._send_json({"tickers": active, "count": len(active)})
                 elif self.path == "/health":
                     self._send_json({"ok": True})
+                elif self.path == "/history/tickers":
+                    tickers = agent._db.list_history_tickers() if agent._db else []
+                    self._send_json({"tickers": tickers, "count": len(tickers)})
                 elif self.path == "/orders":
                     from urllib.parse import urlparse, parse_qs
                     qs = parse_qs(urlparse(self.path).query)
@@ -1858,13 +2387,100 @@ class ProfitAgent:
                 elif self.path == "/subscribe":
                     self._send_json(agent.subscribe_ticker(body))
                 elif self.path == "/tickers/add":
-                    self._send_json(agent.subscribe_ticker(body))
+                    # Body: {"ticker":"WINFUT","exchange":"F","active":true,
+                    #        "subscribe_book":false,"priority":10,"notes":"..."}
+                    if not agent._db:
+                        self._send_json({"error": "db_unavailable"}, 503)
+                    else:
+                        tkr  = body.get("ticker","").upper()
+                        exch = body.get("exchange","B").upper()
+                        ok = agent._db.upsert_ticker(
+                            ticker=tkr, exchange=exch,
+                            active=bool(body.get("active", True)),
+                            subscribe_book=bool(body.get("subscribe_book", False)),
+                            priority=int(body.get("priority", 0)),
+                            notes=body.get("notes",""),
+                        )
+                        # Subscreve em tempo real se active=True
+                        if ok and body.get("active", True):
+                            agent._subscribe(tkr, exch)
+                        self._send_json({"ok": ok, "ticker": tkr, "exchange": exch})
                 elif self.path == "/tickers/remove":
                     self._send_json(agent.unsubscribe_ticker(body))
+                elif self.path == "/tickers/toggle":
+                    if not agent._db:
+                        self._send_json({"error": "db_unavailable"}, 503)
+                    else:
+                        _tkr  = body.get("ticker","").upper()
+                        _exch = body.get("exchange","B").upper()
+                        _act  = bool(body.get("active", True))
+                        _ok   = agent._db.toggle_ticker(_tkr, _exch, _act)
+                        if _ok and _act:
+                            agent._subscribe(_tkr, _exch)
+                        self._send_json({"ok": _ok, "ticker": _tkr, "active": _act})
+                elif self.path == "/collect_history":
+                    self._send_json(agent.collect_history(body))
+                elif self.path == "/history/tickers/add":
+                    # Body: {"ticker":"WINFUT","exchange":"F","active":true,
+                    #        "collect_from":"2026-01-01 09:00:00","notes":"..."}
+                    if not agent._db:
+                        self._send_json({"error": "db_unavailable"}, 503)
+                    else:
+                        ok = agent._db.upsert_history_ticker(
+                            body.get("ticker","").upper(),
+                            body.get("exchange","B").upper(),
+                            bool(body.get("active", True)),
+                            body.get("collect_from", "2026-01-01 00:00:00"),
+                            body.get("notes", ""),
+                        )
+                        self._send_json({"ok": ok})
+                elif self.path == "/history/tickers/toggle":
+                    # Body: {"ticker":"WINFUT","exchange":"F","active":false}
+                    if not agent._db:
+                        self._send_json({"error": "db_unavailable"}, 503)
+                    else:
+                        ok = agent._db.toggle_history_ticker(
+                            body.get("ticker","").upper(),
+                            body.get("exchange","B").upper(),
+                            bool(body.get("active", True)),
+                        )
+                        self._send_json({"ok": ok})
+                elif self.path == "/history/collect_all":
+                    # Coleta todos os ativos active=True da tabela
+                    # Body opcional: {"timeout": 300}
+                    if not agent._db:
+                        self._send_json({"error": "db_unavailable"}, 503)
+                        return
+                    active_tickers = agent._db.get_active_history_tickers()
+                    if not active_tickers:
+                        self._send_json({"error": "no_active_tickers"})
+                        return
+                    timeout_each = int(body.get("timeout", 180))
+                    results = []
+                    for tkr, exch, collect_from in active_tickers:
+                        from datetime import datetime, timedelta, timezone as _tz
+                        # Usa last_collected_to como dt_start se disponível,
+                        # senão usa collect_from
+                        dt_start = body.get("dt_start",
+                            collect_from.strftime("%d/%m/%Y 09:00:00")
+                            if hasattr(collect_from, "strftime")
+                            else str(collect_from)[:10].replace("-", "/")
+                        )
+                        dt_end = body.get("dt_end",
+                            datetime.now(_tz.utc).strftime("%d/%m/%Y 18:00:00")
+                        )
+                        r = agent.collect_history({
+                            "ticker": tkr, "exchange": exch,
+                            "dt_start": dt_start, "dt_end": dt_end,
+                            "timeout": timeout_each,
+                        })
+                        results.append({"ticker": tkr, "exchange": exch, **r})
+                    self._send_json({"results": results, "count": len(results)})
                 else:
                     self._send_json({"error": "not found"}, 404)
 
-        server = HTTPServer(("127.0.0.1", port), Handler)
+        from http.server import ThreadingHTTPServer
+        server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
         server.serve_forever()
 
     # ------------------------------------------------------------------
