@@ -440,8 +440,7 @@ def main() -> None:
         time.sleep(0.5)
 
     if not market_connected:
-        dll.DLLFinalize()
-        raise RuntimeError("market data não conectou em 60s")
+        log.warning("market data nao conectou — tentando GetHistoryTrades mesmo assim (historico nao precisa de market feed)")
     log.info("dll.market_connected")
 
     # ── Fase 2+3: coleta e persiste imediatamente por ticker ─────────────────
@@ -471,3 +470,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

@@ -1,3 +1,6 @@
+$destino = "D:\Projetos\finanalytics_ai_fresh\src\finanalytics_ai\workers\profit_history_worker.py"
+
+$conteudo = @'
 """
 profit_history_worker.py  (v15 - baseado no profit_agent.py que funciona)
 
@@ -355,3 +358,11 @@ if __name__ == "__main__":
     finally:
         try: dll.DLLFinalize()
         except Exception: pass
+'@
+
+$dir = Split-Path $destino
+if (-not (Test-Path $dir)) {
+    New-Item -ItemType Directory -Path $dir -Force | Out-Null
+}
+[System.IO.File]::WriteAllText($destino, $conteudo, [System.Text.UTF8Encoding]::new($false))
+Write-Host "Instalado: $destino" -ForegroundColor Green
