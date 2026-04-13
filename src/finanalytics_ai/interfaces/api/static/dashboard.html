@@ -221,6 +221,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .n-toast .n-msg{font-size:14px;margin-top:3px;color:var(--muted)}
 @keyframes slidein{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
 .trade-box{padding:14px 16px;border-bottom:1px solid var(--border)}
+.orders-item{background:rgba(13,33,68,.6);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-family:DM Mono,monospace;font-size:12px}
+.orders-item .o-ticker{font-weight:700;color:var(--blue);font-size:13px}
+.orders-item .o-status-0{color:var(--muted)}.orders-item .o-status-2{color:var(--green)}.orders-item .o-status-4{color:var(--red)}.orders-item .o-status-8{color:var(--red)}
+.pos-card{background:rgba(13,33,68,.6);border:1px solid var(--border);border-radius:6px;padding:8px 10px}
+.pos-row{display:flex;justify-content:space-between;align-items:center;padding:2px 0;font-family:DM Mono,monospace;font-size:13px}
+.pos-lbl{color:var(--muted);font-size:11px}.pos-val{font-weight:700}
+#t-stop-wrap{display:none}
 .ttabs{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:9px}
 .ttab{flex:1;padding:6px;font-family:'Syne',sans-serif;font-weight:700;font-size:14px;
   letter-spacing:.8px;text-transform:uppercase;border:none;background:transparent;color:var(--muted);cursor:pointer;transition:all .2s}
@@ -1002,38 +1009,153 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 </div>
 </div>
 
-    <!-- Ordem Rápida -->
-    <div class="trade-box">
-      <div class="lbl" style="margin-bottom:8px">Ordem Rápida
-</div>
-      <div class="ttabs">
-        <button class="ttab buy active" id="ttab-b" onclick="setMode('buy')">Comprar</button>
-        <button class="ttab sell"       id="ttab-s" onclick="setMode('sell')">Vender</button>
-</div>
-      <div class="fld"><label>Ticker</label>
-        <input id="t-tk" placeholder="ex: PETR4" maxlength="10" oninput="this.value=this.value.toUpperCase();calcTotal()">
-</div>
-      <div class="frow">
-        <div class="fld" style="margin:0"><label>Qtd</label>
-          <input id="t-q" type="number" placeholder="100" min="1" oninput="calcTotal()">
-</div>
-        <div class="fld" style="margin:0"><label>Preço R$</label>
-          <input id="t-p" type="number" placeholder="0.00" step=".01" oninput="calcTotal()">
-</div>
-</div>
-      <div class="total"><span class="tl">Total</span><span class="tv" id="t-tot">R$ 0,00</span>
-</div>
-      <button class="btn-tr buy" id="tr-btn" onclick="executeTrade()">COMPRAR</button>
-</div>
+    <!-- Painel DayTrade -->
+    <div class="trade-box" style="padding-bottom:10px">
 
-    <!-- Posições -->
+      <!-- Abas principais -->
+      <div style="display:flex;gap:4px;margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:8px">
+        <button id="dttab-order" class="ttab buy active" style="font-size:12px;padding:4px 10px" onclick="dtTab('order')">Ordem</button>
+        <button id="dttab-oco"   class="ttab"            style="font-size:12px;padding:4px 10px" onclick="dtTab('oco')">OCO</button>
+        <button id="dttab-pos"   class="ttab"            style="font-size:12px;padding:4px 10px" onclick="dtTab('pos')">Posição</button>
+        <button id="dttab-list"  class="ttab"            style="font-size:12px;padding:4px 10px" onclick="dtTab('list')">Ordens</button>
+      </div>
+
+      <!-- ── ABA ORDEM ─────────────────────────────────────────────── -->
+      <div id="dt-pane-order">
+        <div class="ttabs" style="margin-bottom:8px">
+          <button class="ttab buy active" id="ttab-b" onclick="setMode('buy')">Comprar</button>
+          <button class="ttab sell"       id="ttab-s" onclick="setMode('sell')">Vender</button>
+        </div>
+        <div class="fld"><label>Ticker</label>
+          <input id="t-tk" placeholder="ex: PETR4" maxlength="10"
+            oninput="this.value=this.value.toUpperCase();calcTotal();dtSyncTicker()">
+        </div>
+        <div class="frow">
+          <div class="fld" style="margin:0"><label>Tipo</label>
+            <select id="t-type" class="sel" style="width:100%;font-size:13px" onchange="dtToggleStop()">
+              <option value="limit">Limite</option>
+              <option value="market">Mercado</option>
+              <option value="stop">Stop-Limite</option>
+            </select>
+          </div>
+          <div class="fld" style="margin:0"><label>Qtd</label>
+            <input id="t-q" type="number" placeholder="100" min="1" oninput="calcTotal()">
+          </div>
+        </div>
+        <div class="frow">
+          <div class="fld" style="margin:0"><label>Preço R$</label>
+            <input id="t-p" type="number" placeholder="0.00" step=".01" oninput="calcTotal()">
+          </div>
+          <div class="fld" style="margin:0" id="t-stop-wrap"><label>Stop R$</label>
+            <input id="t-stop" type="number" placeholder="0.00" step=".01">
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin:6px 0">
+          <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;cursor:pointer">
+            <input type="checkbox" id="t-dt" checked style="accent-color:var(--blue)"> DayTrade
+          </label>
+          <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;cursor:pointer">
+            <input type="checkbox" id="t-sim" checked style="accent-color:var(--gold)"> Simulador
+          </label>
+        </div>
+        <div class="total"><span class="tl">Total</span><span class="tv" id="t-tot">R$ 0,00</span></div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button class="btn-tr buy" id="tr-btn" onclick="executeTrade()" style="flex:1">COMPRAR</button>
+          <button style="background:rgba(224,85,85,.15);color:var(--red);border:1px solid rgba(224,85,85,.3);
+            font-family:Syne,sans-serif;font-weight:700;font-size:13px;padding:8px;border-radius:6px;cursor:pointer;flex:0 0 36px"
+            onclick="dtCancelAll()" title="Cancelar todas">✕</button>
+        </div>
+        <div id="dt-order-msg" style="font-size:12px;font-family:DM Mono,monospace;margin-top:6px;min-height:16px;color:var(--muted)"></div>
+      </div>
+
+      <!-- ── ABA OCO ────────────────────────────────────────────────── -->
+      <div id="dt-pane-oco" style="display:none">
+        <div style="font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:8px">One Cancels Other</div>
+        <div class="fld"><label>Ticker</label>
+          <input id="oco-tk" placeholder="ex: PETR4" maxlength="10" oninput="this.value=this.value.toUpperCase()">
+        </div>
+        <div class="frow">
+          <div class="fld" style="margin:0"><label>Qtd</label>
+            <input id="oco-q" type="number" placeholder="100" min="1">
+          </div>
+          <div class="fld" style="margin:0"><label>Lado</label>
+            <select id="oco-side" class="sel" style="width:100%;font-size:13px">
+              <option value="sell">Venda</option>
+              <option value="buy">Compra</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:2px">
+          <div class="fld" style="margin:0">
+            <label style="color:var(--green)">Take Profit R$</label>
+            <input id="oco-tp" type="number" placeholder="52.00" step=".01">
+          </div>
+          <div class="fld" style="margin:0">
+            <label style="color:var(--red)">Stop Disparo R$</label>
+            <input id="oco-sl" type="number" placeholder="47.00" step=".01">
+          </div>
+          <div class="fld" style="margin:0;grid-column:1/-1">
+            <label style="color:var(--red)">Stop Limite R$</label>
+            <input id="oco-lim" type="number" placeholder="46.50" step=".01">
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin:6px 0">
+          <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;cursor:pointer">
+            <input type="checkbox" id="oco-dt" checked style="accent-color:var(--blue)"> DayTrade
+          </label>
+          <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;cursor:pointer">
+            <input type="checkbox" id="oco-sim" checked style="accent-color:var(--gold)"> Simulador
+          </label>
+        </div>
+        <button onclick="sendOCO()" style="width:100%;background:linear-gradient(135deg,var(--gold-dk),var(--gold));
+          color:var(--navy);border:none;font-family:Syne,sans-serif;font-weight:700;font-size:14px;
+          padding:10px;border-radius:6px;cursor:pointer;margin-top:4px">ENVIAR OCO</button>
+        <div id="oco-status" style="font-size:12px;font-family:DM Mono,monospace;margin-top:8px;min-height:16px;color:var(--muted)"></div>
+        <!-- Lista de OCOs ativos -->
+        <div id="oco-pairs-list" style="margin-top:8px;display:flex;flex-direction:column;gap:4px"></div>
+      </div>
+
+      <!-- ── ABA POSIÇÃO ────────────────────────────────────────────── -->
+      <div id="dt-pane-pos" style="display:none">
+        <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
+          <input id="pos-tk" placeholder="PETR4" maxlength="10" style="flex:1;background:var(--card);border:1px solid var(--border);color:var(--white);font-family:DM Mono,monospace;font-size:14px;padding:5px 9px;border-radius:6px;outline:none"
+            oninput="this.value=this.value.toUpperCase()">
+          <select id="pos-type" class="sel" style="font-size:12px">
+            <option value="1">DayTrade</option>
+            <option value="2">Swing</option>
+          </select>
+          <button onclick="loadDLLPosition()" class="btn" style="font-size:12px;padding:5px 10px">Ver</button>
+        </div>
+        <div id="pos-dll-result" style="font-family:DM Mono,monospace;font-size:13px">
+          <div style="color:var(--muted)">Selecione um ticker e clique em Ver</div>
+        </div>
+        <!-- Ativos com posição aberta -->
+        <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+          <div style="font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Posições abertas</div>
+          <div id="pos-assets-list" style="display:flex;flex-direction:column;gap:3px">
+            <div style="font-size:12px;color:var(--muted)">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ABA ORDENS ─────────────────────────────────────────────── -->
+      <div id="dt-pane-list" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">Ordens do dia</span>
+          <button onclick="refreshOrders()" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:16px" title="Atualizar">↻</button>
+        </div>
+        <div id="orders-list" style="display:flex;flex-direction:column;gap:4px;max-height:320px;overflow-y:auto">
+          <div style="font-size:12px;color:var(--muted)">Carregando...</div>
+        </div>
+      </div>
+
+    </div><!-- /trade-box -->
+
+    <!-- Posições carteira -->
     <div class="pos-box">
-      <div class="lbl" style="margin-bottom:8px">Posições
-</div>
-      <div id="pos-list"><div style="font-size:14px;color:var(--muted);font-family:DM Mono,monospace">Selecione uma carteira
-</div>
-</div>
-</div>
+      <div class="lbl" style="margin-bottom:8px">Posições</div>
+      <div id="pos-list"><div style="font-size:14px;color:var(--muted);font-family:DM Mono,monospace">Selecione uma carteira</div></div>
+    </div>
 
 </div>
 </div>
@@ -1495,7 +1617,6 @@ function renderPriceChart(bars, bb) {
       vertLine:{color:'rgba(58,191,248,.4)',labelBackgroundColor:'#0D2144'},
       horzLine:{color:'rgba(58,191,248,.4)',labelBackgroundColor:'#0D2144'} },
     rightPriceScale: { borderColor:'rgba(58,191,248,.1)', scaleMargins:{top:.06, bottom:.22} },
-    localization: { timeFormatter: (t) => { const d = new Date(t*1000); return d.toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'}); } },
     timeScale: { borderColor:'rgba(58,191,248,.1)', timeVisible:true, secondsVisible:false, fixLeftEdge:true, rightOffset:4, tickMarkFormatter: (t) => { const d = new Date(t * 1000); const h = String(d.getUTCHours()).padStart(2,'0'); const m = String(d.getUTCMinutes()).padStart(2,'0'); return h+':'+m; } },
   });
 
@@ -1503,7 +1624,6 @@ function renderPriceChart(bars, bb) {
     upColor:'#2ED47A', downColor:'#E05555',
     borderUpColor:'#2ED47A', borderDownColor:'#E05555',
     wickUpColor:'#2ED47A', wickDownColor:'#E05555',
-    priceLineVisible: false, lastValueVisible: true,
   });
   // Garante timestamps numericos antes de setData
   var _bars2 = bars.map(function(b){
@@ -2491,7 +2611,285 @@ function calcTotal(){
   const p=parseFloat(document.getElementById('t-p').value)||0;
   document.getElementById('t-tot').textContent=(q*p).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 }
+// ── DayTrade Tab control ──────────────────────────────────────────────────────
+const DT_TABS = ['order','oco','pos','list'];
+function dtTab(tab) {
+  DT_TABS.forEach(t => {
+    document.getElementById('dttab-'+t).classList.toggle('active', t===tab);
+    document.getElementById('dttab-'+t).classList.toggle('buy',    t===tab);
+    document.getElementById('dt-pane-'+t).style.display = t===tab ? '' : 'none';
+  });
+  if (tab==='list') refreshOrders();
+  if (tab==='pos')  loadPositionAssets();
+}
+function dtToggleStop() {
+  const isStop = document.getElementById('t-type').value === 'stop';
+  document.getElementById('t-stop-wrap').style.display = isStop ? '' : 'none';
+}
+function dtSyncTicker() {
+  const tk = document.getElementById('t-tk').value;
+  const oco = document.getElementById('oco-tk');
+  if (oco && !oco.value) oco.value = tk;
+  const pos = document.getElementById('pos-tk');
+  if (pos && !pos.value) pos.value = tk;
+}
+
+// ── executeTrade — envia para profit_agent ────────────────────────────────────
 async function executeTrade(){
+  const tk = document.getElementById('t-tk').value.trim();
+  const q  = document.getElementById('t-q').value;
+  const p  = document.getElementById('t-p').value;
+  const tp = document.getElementById('t-type').value;
+  const sp = document.getElementById('t-stop').value;
+  const dt = document.getElementById('t-dt').checked;
+  const sim= document.getElementById('t-sim').checked;
+  const msg = document.getElementById('dt-order-msg');
+
+  if (!tk||!q) { toast('Ticker e quantidade obrigatórios','err'); return; }
+  if (tp !== 'market' && !p) { toast('Informe o preço','err'); return; }
+  if (tp === 'stop' && !sp) { toast('Informe o preço stop','err'); return; }
+
+  const body = {
+    env:            sim ? 'simulation' : 'production',
+    order_type:     tp,
+    order_side:     tradeMode,
+    ticker:         tk,
+    exchange:       'B',
+    quantity:       parseInt(q),
+    price:          tp === 'market' ? -1 : parseFloat(p),
+    stop_price:     tp === 'stop'   ? parseFloat(sp) : -1,
+    is_daytrade:    dt,
+    user_account_id:'marcelo',
+    portfolio_id:   'carteira_principal',
+    strategy_id:    'dashboard',
+  };
+
+  msg.textContent = 'Enviando...';
+  msg.style.color = 'var(--muted)';
+  try {
+    const r = await post('/api/v1/agent/order/send', body);
+    if (r.ok || r.local_order_id) {
+      const side = tradeMode==='buy' ? '▲ COMPRA' : '▼ VENDA';
+      msg.textContent = `${side} ${q} ${tk} @ ${tp==='market'?'MKT':p} → ID ${r.local_order_id}`;
+      msg.style.color = 'var(--green)';
+      toast(`Ordem ${tk} enviada!`, 'ok');
+      document.getElementById('t-q').value='';
+      calcTotal();
+      // Também registra no portfolio se selecionado
+      if (currentPf && tp !== 'market') {
+        try { await post(`/api/v1/portfolios/${currentPf}/${tradeMode}`,
+          {ticker:tk,quantity:parseInt(q),price:parseFloat(p)}); } catch {}
+      }
+      // Atualiza lista de ordens
+      setTimeout(refreshOrders, 1500);
+    } else {
+      msg.textContent = r.error || 'Erro';
+      msg.style.color = 'var(--red)';
+    }
+  } catch(e) {
+    msg.textContent = e.message;
+    msg.style.color = 'var(--red)';
+  }
+}
+
+// ── dtCancelAll — cancela todas as ordens ─────────────────────────────────────
+async function dtCancelAll() {
+  const sim = document.getElementById('t-sim').checked;
+  if (!confirm('Cancelar TODAS as ordens abertas?')) return;
+  try {
+    await post('/api/v1/agent/order/cancel_all', {env: sim?'simulation':'production'});
+    toast('Todas as ordens canceladas', 'ok');
+    setTimeout(refreshOrders, 1000);
+  } catch(e) { toast('Erro: '+e.message,'err'); }
+}
+
+// ── sendOCO ───────────────────────────────────────────────────────────────────
+const _ocoPairs = {}; // tp_id → par
+async function sendOCO() {
+  const tk  = document.getElementById('oco-tk').value.trim();
+  const q   = document.getElementById('oco-q').value;
+  const tp  = document.getElementById('oco-tp').value;
+  const sl  = document.getElementById('oco-sl').value;
+  const lim = document.getElementById('oco-lim').value;
+  const side= document.getElementById('oco-side').value;
+  const dt  = document.getElementById('oco-dt').checked;
+  const sim = document.getElementById('oco-sim').checked;
+  const st  = document.getElementById('oco-status');
+
+  if (!tk||!q||!tp||!sl) { toast('Preencha todos os campos OCO','err'); return; }
+
+  st.textContent = 'Enviando...';
+  st.style.color = 'var(--muted)';
+  try {
+    const r = await post('/api/v1/agent/order/oco', {
+      env:         sim?'simulation':'production',
+      ticker:      tk, exchange:'B', quantity:parseInt(q),
+      take_profit: parseFloat(tp), stop_loss:parseFloat(sl),
+      stop_limit:  parseFloat(lim||sl),
+      order_side:  side, is_daytrade:dt,
+      user_account_id:'marcelo', portfolio_id:'carteira_principal', strategy_id:'oco_dash',
+    });
+    if (r.ok) {
+      _ocoPairs[r.take_profit.local_order_id] = r;
+      st.textContent = `✓ TP:${r.take_profit.local_order_id} SL:${r.stop_loss.local_order_id}`;
+      st.style.color = 'var(--green)';
+      toast(`OCO ${tk} enviado!`,'ok');
+      renderOCOPairs();
+      // Poll status
+      setTimeout(()=>pollOCOStatus(r.take_profit.local_order_id, sim?'simulation':'production'), 3000);
+    } else {
+      st.textContent = r.error||'Erro';
+      st.style.color = 'var(--red)';
+    }
+  } catch(e) {
+    st.textContent = e.message;
+    st.style.color = 'var(--red)';
+  }
+}
+
+async function pollOCOStatus(tpId, env) {
+  try {
+    const r = await fetch(`/api/v1/agent/oco/status/${tpId}?env=${env}`).then(r=>r.json());
+    if (r.error) { delete _ocoPairs[tpId]; renderOCOPairs(); return; }
+    _ocoPairs[tpId]._status = r;
+    renderOCOPairs();
+    if (r.oco_status==='ativo') setTimeout(()=>pollOCOStatus(tpId,env), 2000);
+    else { setTimeout(()=>{ delete _ocoPairs[tpId]; renderOCOPairs(); }, 5000); }
+  } catch {}
+}
+
+function renderOCOPairs() {
+  const el = document.getElementById('oco-pairs-list');
+  if (!el) return;
+  const pairs = Object.values(_ocoPairs);
+  if (!pairs.length) { el.innerHTML=''; return; }
+  const STATUS_COLOR = {ativo:'var(--muted)',take_profit_executado:'var(--green)',stop_loss_executado:'var(--red)',encerrado:'var(--muted)'};
+  el.innerHTML = pairs.map(p => {
+    const st = p._status;
+    const stColor = st ? STATUS_COLOR[st.oco_status]||'var(--muted)' : 'var(--muted)';
+    const stLabel = st ? st.oco_status.replace(/_/g,' ').toUpperCase() : 'aguardando';
+    return `<div class="orders-item">
+      <div style="display:flex;justify-content:space-between">
+        <span class="o-ticker">${p.ticker}</span>
+        <span style="color:${stColor};font-size:11px">${stLabel}</span>
+      </div>
+      <div style="color:var(--muted);font-size:11px;margin-top:2px">
+        TP <span style="color:var(--green)">R$ ${p.take_profit.price.toFixed(2)}</span>
+        &nbsp;SL <span style="color:var(--red)">R$ ${p.stop_loss.stop.toFixed(2)}</span>
+        &nbsp;Qtd ${p.quantity}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── refreshOrders ─────────────────────────────────────────────────────────────
+const ORDER_STATUS = {0:'nova',1:'parcial',2:'executada',3:'done',4:'cancelada',7:'stopped',8:'rejeitada',10:'pendente'};
+const ORDER_STATUS_CLS = {0:'o-status-0',1:'o-status-0',2:'o-status-2',4:'o-status-4',8:'o-status-8'};
+async function refreshOrders() {
+  const el = document.getElementById('orders-list');
+  if (!el) return;
+  try {
+    const r = await fetch('/api/v1/agent/orders').then(r=>r.json());
+    const orders = r.orders || [];
+    if (!orders.length) { el.innerHTML='<div style="font-size:12px;color:var(--muted)">Nenhuma ordem hoje</div>'; return; }
+    const open = orders.filter(o=>![2,4].includes(o.order_status));
+    const done = orders.filter(o=> [2,4].includes(o.order_status));
+    const render = (list) => list.map(o => {
+      const stLabel = ORDER_STATUS[o.order_status]||String(o.order_status);
+      const stCls   = ORDER_STATUS_CLS[o.order_status]||'o-status-0';
+      const side    = o.order_side===1?'▲ C':'▼ V';
+      const sideClr = o.order_side===1?'var(--green)':'var(--red)';
+      const typeLabel = o.order_type===1?'MKT':o.order_type===2?'LMT':'STP';
+      const canCancel = ![2,4].includes(o.order_status);
+      return `<div class="orders-item">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <span style="color:${sideClr};font-weight:700">${side}</span>
+            <span class="o-ticker"> ${o.ticker}</span>
+            <span style="color:var(--muted);font-size:10px;margin-left:4px">${typeLabel}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="${stCls}" style="font-size:10px;text-transform:uppercase">${stLabel}</span>
+            ${canCancel?`<button onclick="cancelOrder(${o.local_order_id})"
+              style="background:rgba(224,85,85,.2);border:none;color:var(--red);cursor:pointer;font-size:10px;padding:2px 5px;border-radius:3px">✕</button>`:''}
+          </div>
+        </div>
+        <div style="color:var(--muted);font-size:11px;margin-top:2px">
+          ${o.quantity} × R$ ${o.price?o.price.toFixed(2):'—'}
+          ${o.avg_price?`→ avg R$ ${o.avg_price.toFixed(2)}`:''}
+          ${o.traded_qty?`(${o.traded_qty} exec)`:''}
+        </div>
+      </div>`;
+    }).join('');
+    el.innerHTML = (open.length?`<div style="font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin:4px 0 2px">Abertas (${open.length})</div>`+render(open):'')
+                 + (done.length?`<div style="font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin:8px 0 2px">Fechadas</div>`+render(done.slice(0,5)):'');
+  } catch(e) {
+    el.innerHTML = `<div style="font-size:12px;color:var(--red)">${e.message}</div>`;
+  }
+}
+
+async function cancelOrder(localId) {
+  try {
+    const r = await post('/api/v1/agent/order/cancel', {local_order_id:localId,env:'simulation'});
+    toast('Ordem cancelada','ok');
+    setTimeout(refreshOrders, 1000);
+  } catch(e) { toast('Erro: '+e.message,'err'); }
+}
+
+// ── Posição DLL ───────────────────────────────────────────────────────────────
+async function loadDLLPosition() {
+  const tk  = document.getElementById('pos-tk').value.trim() || 'PETR4';
+  const tp  = document.getElementById('pos-type').value;
+  const el  = document.getElementById('pos-dll-result');
+  el.innerHTML = '<span style="color:var(--muted)">Buscando...</span>';
+  try {
+    const r = await fetch(`/api/v1/agent/position/${tk}?type=${tp}`).then(r=>r.json());
+    if (r.error) { el.innerHTML=`<span style="color:var(--red)">${r.error}</span>`; return; }
+    const sideMap={1:'▲ Comprada',2:'▼ Vendida'}; const side=sideMap[r.open_side]||'— Zerada';
+    const sideClr = r.open_side===1?'var(--green)':r.open_side===2?'var(--red)':'var(--muted)';
+    el.innerHTML = `<div class="pos-card">
+      <div class="pos-row"><span class="pos-lbl">Ticker</span><span class="pos-val" style="color:var(--blue)">${r.ticker}</span></div>
+      <div class="pos-row"><span class="pos-lbl">Posição</span><span class="pos-val" style="color:${sideClr}">${side}</span></div>
+      <div class="pos-row"><span class="pos-lbl">Qty aberta</span><span class="pos-val">${r.open_qty}</span></div>
+      <div class="pos-row"><span class="pos-lbl">Preço médio</span><span class="pos-val">R$ ${r.open_avg_price.toFixed(4)}</span></div>
+      <div style="border-top:1px solid var(--border);margin:4px 0;padding-top:4px">
+        <div class="pos-row"><span class="pos-lbl">Compras dia</span><span class="pos-val" style="color:var(--green)">${r.daily_buy_qty} × R$ ${r.daily_buy_avg_price.toFixed(2)}</span></div>
+        <div class="pos-row"><span class="pos-lbl">Vendas dia</span><span class="pos-val" style="color:var(--red)">${r.daily_sell_qty} × R$ ${r.daily_sell_avg_price.toFixed(2)}</span></div>
+        <div class="pos-row"><span class="pos-lbl">Disponível</span><span class="pos-val">${r.qty_available}</span></div>
+      </div>
+    </div>`;
+  } catch(e) { el.innerHTML=`<span style="color:var(--red)">${e.message}</span>`; }
+}
+
+async function loadPositionAssets() {
+  const el = document.getElementById('pos-assets-list');
+  if (!el) return;
+  try {
+    const r = await fetch('/api/v1/agent/positions/assets').then(r=>r.json());
+    const assets = r.assets || [];
+    if (!assets.length) { el.innerHTML='<div style="font-size:12px;color:var(--muted)">Sem posições abertas</div>'; return; }
+    el.innerHTML = assets.map(a =>
+      `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;cursor:pointer"
+          onclick="document.getElementById('pos-tk').value='${a.ticker}';loadDLLPosition()">
+        <span style="color:var(--blue);font-weight:700;font-family:DM Mono,monospace;font-size:13px">${a.ticker}</span>
+        <span style="font-size:10px;color:var(--muted)">${a.exchange}</span>
+      </div>`
+    ).join('');
+  } catch {}
+}
+
+// Polling automático: atualiza ordens abertas a cada 5s quando na aba list
+let _ordersInterval = null;
+function startOrdersPolling() {
+  if (_ordersInterval) return;
+  _ordersInterval = setInterval(()=>{
+    const pane = document.getElementById('dt-pane-list');
+    if (pane && pane.style.display !== 'none') refreshOrders();
+  }, 5000);
+}
+
+// ── executeTrade original (carteira) ─────────────────────────────────────────
+async function executeTradePortfolio(){
   if(!currentPf){toast('Selecione uma carteira','err');return;}
   const tk=document.getElementById('t-tk').value.trim();
   const q=document.getElementById('t-q').value, p=document.getElementById('t-p').value;
@@ -3042,6 +3440,16 @@ function faDTToggle(btn){
   }
 })();
 
+// ── Init DayTrade panels ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  startOrdersPolling();
+  // Sincroniza ticker atual com os painéis DT
+  const obs = setInterval(()=>{
+    const tk = document.getElementById('t-tk');
+    if (tk && tk.value) dtSyncTicker();
+  }, 1000);
+});
+
 // ── Live Market Data via SSE v4 ────────────────────────────────────────────────
 (function() {
   var _es = null;
@@ -3101,8 +3509,6 @@ function faDTToggle(btn){
 <script>
 function faOptToggle(btn){var s=document.getElementById('opt-submenu');btn.classList.toggle('open');s.classList.toggle('open');}
 </script>
-
-
 
 
 
