@@ -499,21 +499,19 @@ class TConnectorTradingMessageResult(Structure):
 # Mapa de ResultCode para order_status (convencao FIX parcial)
 
 _TRADING_RESULT_STATUS: dict[int, int] = {
-
-    0:  0,   # OK / New
-
-    1:  8,   # Rejected
-
-    2:  2,   # Filled
-
-    3:  1,   # Partial fill
-
-    4:  4,   # Cancelled
-
-    5:  0,   # Changed (aceito)
-
-    6:  4,   # ZeroPosition aceito
-
+    # TConnectorTradingMessageResultCode → estágio de roteamento
+    0:  0,   # Starting
+    1:  8,   # NotConnected → rejeitada
+    2:  0,   # SentToHadesProxy
+    3:  8,   # RejectedMercury → rejeitada
+    4:  0,   # SentToHades
+    5:  8,   # RejectedHades → rejeitada
+    6:  0,   # SentToBroker
+    7:  8,   # RejectedBroker → rejeitada
+    8:  0,   # SentToMarket
+    9:  8,   # RejectedMarket → rejeitada
+    10: 0,   # Accepted (pendente no book)
+    24: 8,   # BlockedByRisk → rejeitada
 }
 
 
@@ -819,8 +817,9 @@ class DBWriter:
             data["order_type"], data["order_side"],
 
             data.get("price"), data.get("stop_price"), data["quantity"],
+            data.get("user_account_id"), data.get("portfolio_id"),
 
-            data.get("user_account_id"), data.get("portfolio_id"), data.get("is_daytrade", False), data.get("strategy_id"), data.get("notes")
+            data.get("is_daytrade", False), data.get("strategy_id"), data.get("notes"),
         ))
 
 
@@ -2798,7 +2797,7 @@ class ProfitAgent:
 
                     "cl_ord_id": cl_ord,
 
-                    "order_status": 0,   # new - corretora confirmou
+                    "order_status": 0,   # confirmado pela corretora
 
                 })
 
@@ -2996,7 +2995,14 @@ class ProfitAgent:
 
                                cl_ord_id    = COALESCE(%s, cl_ord_id),
 
-                               order_status = LEAST(order_status, %s),
+                               order_status = %s,
+
+                               traded_qty   = COALESCE(%s, traded_qty),
+
+                               leaves_qty   = COALESCE(%s, leaves_qty),
+
+                               avg_price    = COALESCE(%s, avg_price),
+
 
                                updated_at   = NOW()
 
@@ -3005,6 +3011,12 @@ class ProfitAgent:
                         (item.get("cl_ord_id") or None,
 
                          item.get("order_status", 0),
+
+                         item.get("traded_qty") or None,
+
+                         item.get("leaves_qty") or None,
+
+                         item.get("avg_price") or None,
 
                          item["local_order_id"]),
 
@@ -3018,11 +3030,14 @@ class ProfitAgent:
 
                     msg    = item.get("message")
 
+                    # ResultCode = estágio de roteamento (não status da ordem)
+                    # Apenas atualiza cl_ord_id e error_message para rastreabilidade
+                    _is_rejection = status == 8  # RejectedBroker/Market/etc
                     self._db.execute(
 
                         """UPDATE profit_orders SET
 
-                               order_status  = %s,
+                               order_status  = CASE WHEN %s THEN 8 ELSE order_status END,
 
                                cl_ord_id     = COALESCE(%s, cl_ord_id),
 
@@ -3034,9 +3049,9 @@ class ProfitAgent:
 
                            WHERE local_order_id = %s
 
-                              OR (message_id IS NOT NULL AND message_id = %s)""",
+                              OR cl_ord_id = %s""",
 
-                        (status,
+                        (_is_rejection,
 
                          item.get("cl_ord_id") or None,
 
@@ -3044,7 +3059,7 @@ class ProfitAgent:
 
                          item.get("local_order_id"),
 
-                         item.get("message_id")),
+                         item.get("cl_ord_id") or None),
 
                     )
 
@@ -3285,6 +3300,11 @@ class ProfitAgent:
                 "strategy_id": params.get("strategy_id"),
                 "notes": params.get("notes"),
 
+                "user_account_id": params.get("user_account_id"),
+                "portfolio_id": params.get("portfolio_id"),
+                "is_daytrade": params.get("is_daytrade", False),
+                "strategy_id": params.get("strategy_id"),
+                "notes": params.get("notes"),
             })
 
 
