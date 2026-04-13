@@ -3865,13 +3865,11 @@ class ProfitAgent:
     def get_positions_dll(self, env: str = "simulation") -> dict:
         """
         Consulta ordens via EnumerateAllOrders com assinatura correta (manual pág. 46):
-          a_AccountID:    POINTER(TConnectorAccountIdentifier)  ← struct pointer, NÃO int/str!
-          a_OrderVersion: c_ubyte (0 = versão básica TConnectorOrder)
+          a_AccountID:    POINTER(TConnectorAccountIdentifier)  — struct pointer, NÃO int/str!
+          a_OrderVersion: c_ubyte (0 = TConnectorOrder básico)
           a_Param:        c_long  (user data repassado ao callback)
           a_Callback:     TConnectorEnumerateOrdersProc
-
-        A função É SÍNCRONA — retorna após todos os callbacks.
-        Callbacks rodam na ConnectorThread (thread separada da DLL).
+        Síncrona — retorna após todos os callbacks.
         """
         if not self._dll:
             return {"orders": [], "positions": [], "error": "DLL nao inicializada"}
@@ -3883,13 +3881,11 @@ class ProfitAgent:
         orders_found    = []
         positions_found = []
 
-        # Tipos de callback definidos localmente
         _EnumCbType  = WINFUNCTYPE(c_bool, POINTER(TConnectorOrder), c_long)
         _PosCbType   = WINFUNCTYPE(None,   POINTER(TConnectorTradingAccountPosition))
         _HistCbType  = WINFUNCTYPE(None,   c_int, c_int, c_int)
 
         def _enum_impl(order_ptr, user_data):
-            log.info("enum_orders_cb fired")
             try:
                 o = order_ptr.contents
                 orders_found.append({
@@ -3900,7 +3896,7 @@ class ProfitAgent:
                     "order_side":   o.OrderSide,
                     "order_type":   o.OrderType,
                     "order_status": o.OrderStatus,
-                    "price":        round(o.Price, 4)       if o.Price       > 0 else None,
+                    "price":        round(o.Price, 4)        if o.Price        > 0 else None,
                     "quantity":     o.Quantity,
                     "traded_qty":   o.TradedQuantity,
                     "leaves_qty":   o.LeavesQuantity,
@@ -3908,7 +3904,7 @@ class ProfitAgent:
                 })
             except Exception as ex:
                 log.warning("enum_orders error: %s", ex)
-            return True  # True = continua, False = para iteração
+            return True
 
         def _pos_impl(pos_ptr):
             try:
@@ -3932,15 +3928,13 @@ class ProfitAgent:
                 log.warning("position_cb error: %s", ex)
 
         def _hist_impl(broker, count, extra):
-            log.info("order_history_cb broker=%d count=%d extra=%d", broker, count, extra)
+            log.info("order_history_cb broker=%d count=%d", broker, count)
 
-        # ── CRÍTICO: mantém callbacks vivos na instância (evita GC) ──────────
         self._gc_enum_cb = _EnumCbType(_enum_impl)
         self._gc_pos_cb  = _PosCbType(_pos_impl)
         self._gc_hist_cb = _HistCbType(_hist_impl)
 
         try:
-            # Registra callbacks globais opcionais
             for fn_name, cb in [("SetAssetPositionListCallback", self._gc_pos_cb),
                                  ("SetOrderHistoryCallback",      self._gc_hist_cb)]:
                 fn = getattr(self._dll, fn_name, None)
@@ -3952,36 +3946,20 @@ class ProfitAgent:
                     except Exception as e:
                         log.warning("get_positions_dll %s: %s", fn_name, e)
 
-            # ── Assinatura CORRETA conforme manual pág. 46 ───────────────────
-            # a_AccountID:    POINTER(TConnectorAccountIdentifier)
-            # a_OrderVersion: c_ubyte
-            # a_Param:        c_long  (LPARAM)
-            # a_Callback:     TConnectorEnumerateOrdersProc
             self._dll.EnumerateAllOrders.argtypes = [
-                POINTER(TConnectorAccountIdentifier),  # a_AccountID: ponteiro para struct
-                c_ubyte,                               # a_OrderVersion: 0 = TConnectorOrder básico
-                c_long,                                # a_Param: user data (repassado ao callback)
-                _EnumCbType,                           # a_Callback
+                POINTER(TConnectorAccountIdentifier),
+                c_ubyte, c_long, _EnumCbType,
             ]
             self._dll.EnumerateAllOrders.restype = c_bool
 
-            # Monta a struct de identificação da conta
             account_id_struct = TConnectorAccountIdentifier(
-                Version=0,
-                BrokerID=broker_id,
-                AccountID=account_id,
-                SubAccountID=sub_id or "",
-                Reserved=0,
+                Version=0, BrokerID=broker_id,
+                AccountID=account_id, SubAccountID=sub_id or "", Reserved=0,
             )
-
-            log.info("EnumerateAllOrders broker=%d account=%s version=0", broker_id, account_id)
             ok = self._dll.EnumerateAllOrders(
-                byref(account_id_struct),  # a_AccountID: pointer para struct
-                c_ubyte(0),                # a_OrderVersion: 0 = TConnectorOrder
-                c_long(0),                 # a_Param: user data
-                self._gc_enum_cb,          # a_Callback
+                byref(account_id_struct), c_ubyte(0), c_long(0), self._gc_enum_cb,
             )
-            log.info("EnumerateAllOrders returned ok=%s orders=%d", ok, len(orders_found))
+            log.info("EnumerateAllOrders ok=%s orders=%d", ok, len(orders_found))
 
         except AttributeError as e:
             return {"orders": [], "positions": [], "error": f"EnumerateAllOrders: {e}"}
@@ -3989,7 +3967,6 @@ class ProfitAgent:
             log.warning("get_positions_dll error: %s", e)
             return {"orders": [], "positions": [], "error": str(e)}
 
-        # Reconcilia ordens encontradas com o banco
         if orders_found and self._db:
             for o in orders_found:
                 if not o["cl_ord_id"]:
@@ -4005,10 +3982,133 @@ class ProfitAgent:
                     (o["order_status"], o["traded_qty"] or None,
                      o["leaves_qty"] or None, o["avg_price"], o["cl_ord_id"])
                 )
-            log.info("get_positions_dll reconciled %d orders no banco", len(orders_found))
 
         return {"orders": orders_found, "positions": positions_found,
                 "env": env, "source": "dll"}
+
+    def enumerate_position_assets(self, env: str = "simulation") -> dict:
+        """
+        EnumerateAllPositionAssets — lista ativos com posição aberta (manual pág. 46-47).
+          a_AccountID:    POINTER(TConnectorAccountIdentifier)
+          a_AssetVersion: Byte (0 = TConnectorAssetIdentifier básico)
+          a_Param:        LPARAM
+          a_Callback:     TConnectorEnumerateAssetProc
+        Síncrona. Callbacks na ConnectorThread.
+        """
+        if not self._dll:
+            return {"assets": [], "error": "DLL nao inicializada"}
+
+        broker_id, account_id, sub_id, routing_pass = self._get_account(env)
+        if not account_id:
+            return {"assets": [], "error": f"Conta {env} nao configurada"}
+
+        assets_found = []
+        _EnumAssetCbType = WINFUNCTYPE(c_bool, POINTER(TConnectorAssetIdentifier), c_long)
+
+        def _asset_impl(asset_ptr, user_data):
+            try:
+                a = asset_ptr.contents
+                ticker   = (a.Ticker   or "").strip()
+                exchange = (a.Exchange or "B").strip()
+                if ticker:
+                    assets_found.append({"ticker": ticker, "exchange": exchange})
+                    log.info("position_asset ticker=%s exchange=%s", ticker, exchange)
+            except Exception as ex:
+                log.warning("enumerate_position_asset error: %s", ex)
+            return True
+
+        self._gc_enum_asset_cb = _EnumAssetCbType(_asset_impl)
+
+        try:
+            self._dll.EnumerateAllPositionAssets.argtypes = [
+                POINTER(TConnectorAccountIdentifier),
+                c_ubyte, c_long, _EnumAssetCbType,
+            ]
+            self._dll.EnumerateAllPositionAssets.restype = c_bool
+
+            account_id_struct = TConnectorAccountIdentifier(
+                Version=0, BrokerID=broker_id,
+                AccountID=account_id, SubAccountID=sub_id or "", Reserved=0,
+            )
+            ok = self._dll.EnumerateAllPositionAssets(
+                byref(account_id_struct), c_ubyte(0), c_long(0), self._gc_enum_asset_cb,
+            )
+            log.info("EnumerateAllPositionAssets ok=%s assets=%d", ok, len(assets_found))
+
+        except AttributeError as e:
+            return {"assets": [], "error": f"EnumerateAllPositionAssets: {e}"}
+        except Exception as e:
+            log.warning("enumerate_position_assets error: %s", e)
+            return {"assets": [], "error": str(e)}
+
+        return {"assets": assets_found, "env": env, "source": "dll"}
+
+    def get_position_v2(self, ticker: str, exchange: str = "B",
+                        env: str = "simulation", position_type: int = 1) -> dict:
+        """
+        GetPositionV2 — posição para conta+ativo (manual pág. 44).
+          a_Position: TConnectorTradingAccountPosition (pré-preenchido com AccountID+AssetID)
+        Retorna dados DIRETAMENTE na struct (sem callback).
+        Version=1: suporta PositionType (1=DayTrade, 2=Consolidated).
+        """
+        if not self._dll:
+            return {"error": "DLL nao inicializada"}
+
+        broker_id, account_id, sub_id, routing_pass = self._get_account(env)
+        if not account_id:
+            return {"error": f"Conta {env} nao configurada"}
+
+        try:
+            self._dll.GetPositionV2.argtypes = [POINTER(TConnectorTradingAccountPosition)]
+            self._dll.GetPositionV2.restype  = c_bool
+
+            pos = TConnectorTradingAccountPosition()
+            pos.Version = 0 if position_type == 0 else 1
+            pos.AccountID = TConnectorAccountIdentifier(
+                Version=0, BrokerID=broker_id,
+                AccountID=account_id, SubAccountID=sub_id or "", Reserved=0,
+            )
+            pos.AssetID = TConnectorAssetIdentifier(
+                Version=0, Ticker=ticker, Exchange=exchange, FeedType=0,
+            )
+            pos.PositionType = c_ubyte(position_type)  # 1=DayTrade, 2=Consolidated
+
+            ok = self._dll.GetPositionV2(byref(pos))
+            log.info("GetPositionV2 ok=%s open_qty=%d open_avg=%.4f side=%d buy_qty=%d",
+                     ok, pos.OpenQuantity, pos.OpenAveragePrice, pos.OpenSide, pos.DailyBuyQuantity)
+            log.info("GetPositionV2 ok=%s open_qty=%d open_avg=%.4f side=%d buy_qty=%d",
+                     ok, pos.OpenQuantity, pos.OpenAveragePrice, pos.OpenSide, pos.DailyBuyQuantity)
+            log.info("GetPositionV2 ok=%s ticker=%s open_qty=%d avg=%.4f side=%d",
+                     ok, ticker, pos.OpenQuantity, pos.OpenAveragePrice, pos.OpenSide)
+
+            # ok=False e normal na DLL — os dados ja estao na struct
+
+            return {
+                "ticker":               ticker,
+                "exchange":             exchange,
+                "env":                  env,
+                "position_type":        position_type,
+                "open_qty":             pos.OpenQuantity,
+                "open_avg_price":       round(pos.OpenAveragePrice, 4),
+                "open_side":            pos.OpenSide,     # 1=Comprada, 2=Vendida, 0=Desconhecida
+                "daily_buy_qty":        pos.DailyBuyQuantity,
+                "daily_buy_avg_price":  round(pos.DailyAverageBuyPrice, 4),
+                "daily_sell_qty":       pos.DailySellQuantity,
+                "daily_sell_avg_price": round(pos.DailyAverageSellPrice, 4),
+                "qty_d1":               pos.DailyQuantityD1,
+                "qty_d2":               pos.DailyQuantityD2,
+                "qty_d3":               pos.DailyQuantityD3,
+                "qty_blocked":          pos.DailyQuantityBlocked,
+                "qty_pending":          pos.DailyQuantityPending,
+                "qty_available":        pos.DailyQuantityAvailable,
+                "source":               "dll",
+            }
+
+        except AttributeError as e:
+            return {"ticker": ticker, "error": f"GetPositionV2: {e}"}
+        except Exception as e:
+            log.warning("get_position_v2 error: %s", e)
+            return {"ticker": ticker, "error": str(e)}
 
     def list_book(self, ticker: str = "") -> dict:
 
@@ -4854,6 +4954,23 @@ class ProfitAgent:
 
                     ))
 
+                elif self.path.startswith("/positions/assets"):
+
+                    from urllib.parse import urlparse, parse_qs as _pqs_a
+                    _qs_a = _pqs_a(urlparse(self.path).query)
+                    self._send_json(agent.enumerate_position_assets(_qs_a.get("env",["simulation"])[0]))
+
+                elif self.path.startswith("/position/"):
+
+                    from urllib.parse import urlparse, parse_qs as _pqs_p
+                    _p2     = urlparse(self.path)
+                    _ticker = _p2.path.split("/position/",1)[-1].upper().strip("/")
+                    _qs_p   = _pqs_p(_p2.query)
+                    _exch   = _qs_p.get("exchange",["B"])[0]
+                    _env2   = _qs_p.get("env",["simulation"])[0]
+                    _ptype  = int(_qs_p.get("type",["1"])[0])
+                    self._send_json(agent.get_position_v2(_ticker, _exch, _env2, _ptype))
+
                 elif self.path.startswith("/positions/dll"):
 
                     from urllib.parse import urlparse, parse_qs as _pqs_dll
@@ -5329,6 +5446,12 @@ def main() -> None:
 if __name__ == "__main__":
 
     main()
+
+
+
+
+
+
 
 
 
