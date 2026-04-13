@@ -132,9 +132,12 @@ async def get_candles(
                 GROUP BY 1
             )
             SELECT ts, open, high, low, close, volume, trades
-            FROM bucketed
+            FROM (
+                SELECT * FROM bucketed
+                ORDER BY ts DESC
+                LIMIT $2
+            ) sub
             ORDER BY ts ASC
-            LIMIT $2
         """, t, limit)
         await conn.close()
         return {"ticker": t, "resolution": resolution, "candles": [dict(r) for r in rows]}
@@ -331,4 +334,5 @@ async def sse_ticks(
 
     return StreamingResponse(gen(), media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
 

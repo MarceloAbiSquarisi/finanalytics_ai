@@ -1495,6 +1495,7 @@ function renderPriceChart(bars, bb) {
       vertLine:{color:'rgba(58,191,248,.4)',labelBackgroundColor:'#0D2144'},
       horzLine:{color:'rgba(58,191,248,.4)',labelBackgroundColor:'#0D2144'} },
     rightPriceScale: { borderColor:'rgba(58,191,248,.1)', scaleMargins:{top:.06, bottom:.22} },
+    localization: { timeFormatter: (t) => { const d = new Date(t*1000); return d.toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'}); } },
     timeScale: { borderColor:'rgba(58,191,248,.1)', timeVisible:true, secondsVisible:false, fixLeftEdge:true, rightOffset:4, tickMarkFormatter: (t) => { const d = new Date(t * 1000); const h = String(d.getUTCHours()).padStart(2,'0'); const m = String(d.getUTCMinutes()).padStart(2,'0'); return h+':'+m; } },
   });
 
@@ -1502,6 +1503,7 @@ function renderPriceChart(bars, bb) {
     upColor:'#2ED47A', downColor:'#E05555',
     borderUpColor:'#2ED47A', borderDownColor:'#E05555',
     wickUpColor:'#2ED47A', wickDownColor:'#E05555',
+    priceLineVisible: false, lastValueVisible: true,
   });
   // Garante timestamps numericos antes de setData
   var _bars2 = bars.map(function(b){
@@ -3099,6 +3101,9 @@ function faDTToggle(btn){
 <script>
 function faOptToggle(btn){var s=document.getElementById('opt-submenu');btn.classList.toggle('open');s.classList.toggle('open');}
 </script>
+
+
+
 
 
 
