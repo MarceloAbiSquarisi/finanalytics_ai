@@ -96,22 +96,46 @@ async def get_ticks(ticker: str, limit: int = Query(500, le=1000)) -> Any:
 @router.get("/candles/{ticker}")
 async def get_candles(
     ticker: str,
-    resolution: str = Query("1m", pattern="^(1m|5m|15m|30m|1h|1d)$"),
+    resolution: str = Query("5m", pattern="^(1m|5m|15m|30m|1h|1d)$"),
+    limit: int = Query(1000, ge=1, le=10000),
 ) -> Any:
     t = _sanitize_ticker(ticker)
-    bucket = _INTERVALS.get(resolution, "1 minute")
+    bucket = _INTERVALS.get(resolution, "5 minutes")
     try:
         conn = await _conn()
+        # Une dados históricos (market_history_trades) + live (profit_ticks)
         rows = await conn.fetch(f"""
-            SELECT time_bucket('{bucket}', time) AS ts,
-                (array_agg(price ORDER BY time ASC))[1]  AS open,
-                MAX(price) AS high, MIN(price) AS low,
-                (array_agg(price ORDER BY time DESC))[1] AS close,
-                SUM(quantity) AS volume
-            FROM profit_ticks
-            WHERE ticker=$1 AND time >= NOW() - INTERVAL '2 hours'
-            GROUP BY 1 ORDER BY 1 DESC LIMIT 200
-        """, t)
+            WITH combined AS (
+                -- Dados históricos
+                SELECT trade_date AS ts_raw, price, quantity
+                FROM market_history_trades
+                WHERE ticker = $1
+
+                UNION ALL
+
+                -- Dados live (últimas 24h para cobrir sessão atual)
+                SELECT time AS ts_raw, price, quantity
+                FROM profit_ticks
+                WHERE ticker = $1
+                  AND time >= NOW() - INTERVAL '1 day'
+            ),
+            bucketed AS (
+                SELECT
+                    time_bucket('{bucket}', ts_raw) AS ts,
+                    (array_agg(price ORDER BY ts_raw ASC))[1]  AS open,
+                    MAX(price)                                   AS high,
+                    MIN(price)                                   AS low,
+                    (array_agg(price ORDER BY ts_raw DESC))[1]  AS close,
+                    SUM(quantity)                                AS volume,
+                    COUNT(*)                                     AS trades
+                FROM combined
+                GROUP BY 1
+            )
+            SELECT ts, open, high, low, close, volume, trades
+            FROM bucketed
+            ORDER BY ts ASC
+            LIMIT $2
+        """, t, limit)
         await conn.close()
         return {"ticker": t, "resolution": resolution, "candles": [dict(r) for r in rows]}
     except Exception as e:
