@@ -1893,6 +1893,12 @@ class ProfitAgent:
 
         db_thread.start()
 
+        # OCO monitor thread — auto-cancela perna oposta quando uma executa
+        self._oco_pairs = {}
+        _oco_thread = threading.Thread(target=self._oco_monitor_loop, daemon=True)
+        _oco_thread.start()
+        log.info("profit_agent.oco_monitor_started")
+
 
 
         # 7. Verifica contagem de contas (catalogo chega via SetAssetListInfoCallbackV2)
@@ -3863,28 +3869,16 @@ class ProfitAgent:
 
 
     def get_positions_dll(self, env: str = "simulation") -> dict:
-        """
-        Consulta ordens via EnumerateAllOrders com assinatura correta (manual pág. 46):
-          a_AccountID:    POINTER(TConnectorAccountIdentifier)  — struct pointer, NÃO int/str!
-          a_OrderVersion: c_ubyte (0 = TConnectorOrder básico)
-          a_Param:        c_long  (user data repassado ao callback)
-          a_Callback:     TConnectorEnumerateOrdersProc
-        Síncrona — retorna após todos os callbacks.
-        """
+        """Consulta ordens via EnumerateAllOrders (assinatura correta manual pág.46)."""
         if not self._dll:
             return {"orders": [], "positions": [], "error": "DLL nao inicializada"}
-
-        broker_id, account_id, sub_id, routing_pass = self._get_account(env)
+        broker_id, account_id, sub_id, _ = self._get_account(env)
         if not account_id:
             return {"orders": [], "positions": [], "error": f"Conta {env} nao configurada"}
-
-        orders_found    = []
-        positions_found = []
-
-        _EnumCbType  = WINFUNCTYPE(c_bool, POINTER(TConnectorOrder), c_long)
-        _PosCbType   = WINFUNCTYPE(None,   POINTER(TConnectorTradingAccountPosition))
-        _HistCbType  = WINFUNCTYPE(None,   c_int, c_int, c_int)
-
+        orders_found = []
+        _EnumCbType = WINFUNCTYPE(c_bool, POINTER(TConnectorOrder), c_long)
+        _PosCbType  = WINFUNCTYPE(None, POINTER(TConnectorTradingAccountPosition))
+        _HistCbType = WINFUNCTYPE(None, c_int, c_int, c_int)
         def _enum_impl(order_ptr, user_data):
             try:
                 o = order_ptr.contents
@@ -3893,222 +3887,265 @@ class ProfitAgent:
                     "local_id":     o.OrderID.LocalOrderID,
                     "ticker":       (o.AssetID.Ticker    or "").strip(),
                     "exchange":     (o.AssetID.Exchange  or "B").strip(),
-                    "order_side":   o.OrderSide,
-                    "order_type":   o.OrderType,
+                    "order_side":   o.OrderSide, "order_type": o.OrderType,
                     "order_status": o.OrderStatus,
                     "price":        round(o.Price, 4)        if o.Price        > 0 else None,
-                    "quantity":     o.Quantity,
-                    "traded_qty":   o.TradedQuantity,
+                    "quantity":     o.Quantity, "traded_qty": o.TradedQuantity,
                     "leaves_qty":   o.LeavesQuantity,
                     "avg_price":    round(o.AveragePrice, 4) if o.AveragePrice > 0 else None,
                 })
             except Exception as ex:
                 log.warning("enum_orders error: %s", ex)
             return True
-
-        def _pos_impl(pos_ptr):
-            try:
-                p = pos_ptr.contents
-                ticker = (p.AssetID.Ticker or "").strip()
-                if ticker:
-                    positions_found.append({
-                        "ticker":               ticker,
-                        "exchange":             (p.AssetID.Exchange or "B").strip(),
-                        "open_qty":             p.OpenQuantity,
-                        "open_avg_price":       round(p.OpenAveragePrice, 4),
-                        "open_side":            p.OpenSide,
-                        "daily_buy_qty":        p.DailyBuyQuantity,
-                        "daily_buy_avg_price":  round(p.DailyAverageBuyPrice, 4),
-                        "daily_sell_qty":       p.DailySellQuantity,
-                        "daily_sell_avg_price": round(p.DailyAverageSellPrice, 4),
-                        "available_qty":        p.DailyQuantityAvailable,
-                        "position_type":        p.PositionType,
-                    })
-            except Exception as ex:
-                log.warning("position_cb error: %s", ex)
-
+        def _pos_impl(pos_ptr): pass
         def _hist_impl(broker, count, extra):
             log.info("order_history_cb broker=%d count=%d", broker, count)
-
         self._gc_enum_cb = _EnumCbType(_enum_impl)
         self._gc_pos_cb  = _PosCbType(_pos_impl)
         self._gc_hist_cb = _HistCbType(_hist_impl)
-
         try:
             for fn_name, cb in [("SetAssetPositionListCallback", self._gc_pos_cb),
                                  ("SetOrderHistoryCallback",      self._gc_hist_cb)]:
                 fn = getattr(self._dll, fn_name, None)
                 if fn:
-                    try:
-                        fn.restype = None
-                        fn(cb)
-                        log.info("get_positions_dll %s OK", fn_name)
-                    except Exception as e:
-                        log.warning("get_positions_dll %s: %s", fn_name, e)
-
+                    try: fn.restype = None; fn(cb)
+                    except Exception as e: log.warning("get_positions_dll %s: %s", fn_name, e)
             self._dll.EnumerateAllOrders.argtypes = [
-                POINTER(TConnectorAccountIdentifier),
-                c_ubyte, c_long, _EnumCbType,
-            ]
+                POINTER(TConnectorAccountIdentifier), c_ubyte, c_long, _EnumCbType]
             self._dll.EnumerateAllOrders.restype = c_bool
-
-            account_id_struct = TConnectorAccountIdentifier(
-                Version=0, BrokerID=broker_id,
-                AccountID=account_id, SubAccountID=sub_id or "", Reserved=0,
-            )
-            ok = self._dll.EnumerateAllOrders(
-                byref(account_id_struct), c_ubyte(0), c_long(0), self._gc_enum_cb,
-            )
+            acct = TConnectorAccountIdentifier(Version=0, BrokerID=broker_id,
+                AccountID=account_id, SubAccountID=sub_id or "", Reserved=0)
+            ok = self._dll.EnumerateAllOrders(byref(acct), c_ubyte(0), c_long(0), self._gc_enum_cb)
             log.info("EnumerateAllOrders ok=%s orders=%d", ok, len(orders_found))
-
         except AttributeError as e:
             return {"orders": [], "positions": [], "error": f"EnumerateAllOrders: {e}"}
         except Exception as e:
             log.warning("get_positions_dll error: %s", e)
             return {"orders": [], "positions": [], "error": str(e)}
-
         if orders_found and self._db:
             for o in orders_found:
-                if not o["cl_ord_id"]:
-                    continue
+                if not o["cl_ord_id"]: continue
                 self._db.execute(
-                    """UPDATE profit_orders SET
-                           order_status = %s,
-                           traded_qty   = COALESCE(%s, traded_qty),
-                           leaves_qty   = COALESCE(%s, leaves_qty),
-                           avg_price    = COALESCE(%s, avg_price),
-                           updated_at   = NOW()
-                       WHERE cl_ord_id = %s""",
+                    "UPDATE profit_orders SET order_status=%s,traded_qty=COALESCE(%s,traded_qty),"
+                    "leaves_qty=COALESCE(%s,leaves_qty),avg_price=COALESCE(%s,avg_price),"
+                    "updated_at=NOW() WHERE cl_ord_id=%s",
                     (o["order_status"], o["traded_qty"] or None,
-                     o["leaves_qty"] or None, o["avg_price"], o["cl_ord_id"])
-                )
-
-        return {"orders": orders_found, "positions": positions_found,
-                "env": env, "source": "dll"}
+                     o["leaves_qty"] or None, o["avg_price"], o["cl_ord_id"]))
+        return {"orders": orders_found, "positions": [], "env": env, "source": "dll"}
 
     def enumerate_position_assets(self, env: str = "simulation") -> dict:
-        """
-        EnumerateAllPositionAssets — lista ativos com posição aberta (manual pág. 46-47).
-          a_AccountID:    POINTER(TConnectorAccountIdentifier)
-          a_AssetVersion: Byte (0 = TConnectorAssetIdentifier básico)
-          a_Param:        LPARAM
-          a_Callback:     TConnectorEnumerateAssetProc
-        Síncrona. Callbacks na ConnectorThread.
-        """
+        """Lista ativos com posição aberta via EnumerateAllPositionAssets (manual pág.46-47)."""
         if not self._dll:
             return {"assets": [], "error": "DLL nao inicializada"}
-
-        broker_id, account_id, sub_id, routing_pass = self._get_account(env)
+        broker_id, account_id, sub_id, _ = self._get_account(env)
         if not account_id:
             return {"assets": [], "error": f"Conta {env} nao configurada"}
-
         assets_found = []
         _EnumAssetCbType = WINFUNCTYPE(c_bool, POINTER(TConnectorAssetIdentifier), c_long)
-
         def _asset_impl(asset_ptr, user_data):
             try:
                 a = asset_ptr.contents
-                ticker   = (a.Ticker   or "").strip()
-                exchange = (a.Exchange or "B").strip()
-                if ticker:
-                    assets_found.append({"ticker": ticker, "exchange": exchange})
-                    log.info("position_asset ticker=%s exchange=%s", ticker, exchange)
-            except Exception as ex:
-                log.warning("enumerate_position_asset error: %s", ex)
+                t = (a.Ticker or "").strip()
+                if t:
+                    assets_found.append({"ticker": t, "exchange": (a.Exchange or "B").strip()})
+            except Exception as ex: log.warning("enumerate_position_asset error: %s", ex)
             return True
-
         self._gc_enum_asset_cb = _EnumAssetCbType(_asset_impl)
-
         try:
             self._dll.EnumerateAllPositionAssets.argtypes = [
-                POINTER(TConnectorAccountIdentifier),
-                c_ubyte, c_long, _EnumAssetCbType,
-            ]
+                POINTER(TConnectorAccountIdentifier), c_ubyte, c_long, _EnumAssetCbType]
             self._dll.EnumerateAllPositionAssets.restype = c_bool
-
-            account_id_struct = TConnectorAccountIdentifier(
-                Version=0, BrokerID=broker_id,
-                AccountID=account_id, SubAccountID=sub_id or "", Reserved=0,
-            )
-            ok = self._dll.EnumerateAllPositionAssets(
-                byref(account_id_struct), c_ubyte(0), c_long(0), self._gc_enum_asset_cb,
-            )
+            acct = TConnectorAccountIdentifier(Version=0, BrokerID=broker_id,
+                AccountID=account_id, SubAccountID=sub_id or "", Reserved=0)
+            ok = self._dll.EnumerateAllPositionAssets(byref(acct), c_ubyte(0), c_long(0), self._gc_enum_asset_cb)
             log.info("EnumerateAllPositionAssets ok=%s assets=%d", ok, len(assets_found))
-
         except AttributeError as e:
             return {"assets": [], "error": f"EnumerateAllPositionAssets: {e}"}
         except Exception as e:
-            log.warning("enumerate_position_assets error: %s", e)
             return {"assets": [], "error": str(e)}
-
         return {"assets": assets_found, "env": env, "source": "dll"}
 
     def get_position_v2(self, ticker: str, exchange: str = "B",
                         env: str = "simulation", position_type: int = 1) -> dict:
-        """
-        GetPositionV2 — posição para conta+ativo (manual pág. 44).
-          a_Position: TConnectorTradingAccountPosition (pré-preenchido com AccountID+AssetID)
-        Retorna dados DIRETAMENTE na struct (sem callback).
-        Version=1: suporta PositionType (1=DayTrade, 2=Consolidated).
-        """
+        """GetPositionV2 — posição real via DLL. ok=False é normal; dados ficam na struct."""
         if not self._dll:
             return {"error": "DLL nao inicializada"}
-
-        broker_id, account_id, sub_id, routing_pass = self._get_account(env)
+        broker_id, account_id, sub_id, _ = self._get_account(env)
         if not account_id:
             return {"error": f"Conta {env} nao configurada"}
-
         try:
             self._dll.GetPositionV2.argtypes = [POINTER(TConnectorTradingAccountPosition)]
             self._dll.GetPositionV2.restype  = c_bool
-
             pos = TConnectorTradingAccountPosition()
             pos.Version = 0 if position_type == 0 else 1
-            pos.AccountID = TConnectorAccountIdentifier(
-                Version=0, BrokerID=broker_id,
-                AccountID=account_id, SubAccountID=sub_id or "", Reserved=0,
-            )
-            pos.AssetID = TConnectorAssetIdentifier(
-                Version=0, Ticker=ticker, Exchange=exchange, FeedType=0,
-            )
-            pos.PositionType = c_ubyte(position_type)  # 1=DayTrade, 2=Consolidated
-
-            ok = self._dll.GetPositionV2(byref(pos))
-            log.info("GetPositionV2 ok=%s open_qty=%d open_avg=%.4f side=%d buy_qty=%d",
-                     ok, pos.OpenQuantity, pos.OpenAveragePrice, pos.OpenSide, pos.DailyBuyQuantity)
-            log.info("GetPositionV2 ok=%s open_qty=%d open_avg=%.4f side=%d buy_qty=%d",
-                     ok, pos.OpenQuantity, pos.OpenAveragePrice, pos.OpenSide, pos.DailyBuyQuantity)
-            log.info("GetPositionV2 ok=%s ticker=%s open_qty=%d avg=%.4f side=%d",
-                     ok, ticker, pos.OpenQuantity, pos.OpenAveragePrice, pos.OpenSide)
-
-            # ok=False e normal na DLL — os dados ja estao na struct
-
+            pos.AccountID = TConnectorAccountIdentifier(Version=0, BrokerID=broker_id,
+                AccountID=account_id, SubAccountID=sub_id or "", Reserved=0)
+            pos.AssetID = TConnectorAssetIdentifier(Version=0, Ticker=ticker,
+                Exchange=exchange, FeedType=0)
+            pos.PositionType = c_ubyte(position_type)
+            self._dll.GetPositionV2(byref(pos))
+            log.info("GetPositionV2 ticker=%s open_qty=%d avg=%.4f side=%d",
+                     ticker, pos.OpenQuantity, pos.OpenAveragePrice, pos.OpenSide)
             return {
-                "ticker":               ticker,
-                "exchange":             exchange,
-                "env":                  env,
-                "position_type":        position_type,
+                "ticker": ticker, "exchange": exchange, "env": env, "position_type": position_type,
                 "open_qty":             pos.OpenQuantity,
                 "open_avg_price":       round(pos.OpenAveragePrice, 4),
-                "open_side":            pos.OpenSide,     # 1=Comprada, 2=Vendida, 0=Desconhecida
+                "open_side":            pos.OpenSide,
                 "daily_buy_qty":        pos.DailyBuyQuantity,
                 "daily_buy_avg_price":  round(pos.DailyAverageBuyPrice, 4),
                 "daily_sell_qty":       pos.DailySellQuantity,
                 "daily_sell_avg_price": round(pos.DailyAverageSellPrice, 4),
-                "qty_d1":               pos.DailyQuantityD1,
-                "qty_d2":               pos.DailyQuantityD2,
-                "qty_d3":               pos.DailyQuantityD3,
-                "qty_blocked":          pos.DailyQuantityBlocked,
-                "qty_pending":          pos.DailyQuantityPending,
-                "qty_available":        pos.DailyQuantityAvailable,
-                "source":               "dll",
+                "qty_d1": pos.DailyQuantityD1, "qty_d2": pos.DailyQuantityD2,
+                "qty_d3": pos.DailyQuantityD3, "qty_blocked": pos.DailyQuantityBlocked,
+                "qty_pending": pos.DailyQuantityPending, "qty_available": pos.DailyQuantityAvailable,
+                "source": "dll",
             }
-
         except AttributeError as e:
             return {"ticker": ticker, "error": f"GetPositionV2: {e}"}
         except Exception as e:
-            log.warning("get_position_v2 error: %s", e)
             return {"ticker": ticker, "error": str(e)}
+
+    def send_oco_order(self, params: dict) -> dict:
+        """
+        OCO (One Cancels Other) — DLL não tem OCO nativo.
+        Envia Take Profit (limit) + Stop Loss (stop-limit).
+        Par registrado em self._oco_pairs para auto-cancelamento pelo _oco_monitor_loop.
+
+        Params: env, ticker, exchange, quantity,
+                take_profit   → preço limite (gain),
+                stop_loss     → preço de disparo (loss),
+                stop_limit    → preço limite do stop (default = stop_loss),
+                order_side    → 'sell' (default) | 'buy',
+                user_account_id, portfolio_id, is_daytrade, strategy_id
+        """
+        if not self._dll:
+            return {"ok": False, "error": "DLL nao inicializada"}
+        ticker      = params.get("ticker", "")
+        quantity    = int(params.get("quantity", 0))
+        take_profit = float(params.get("take_profit", 0))
+        stop_loss   = float(params.get("stop_loss",   0))
+        stop_limit  = float(params.get("stop_limit",  stop_loss))
+        env         = params.get("env", "simulation")
+        order_side  = params.get("order_side", "sell")
+        if not ticker or quantity <= 0:
+            return {"ok": False, "error": "ticker e quantity obrigatorios"}
+        if take_profit <= 0 or stop_loss <= 0:
+            return {"ok": False, "error": "take_profit e stop_loss obrigatorios"}
+        # 1. Take Profit — ordem limite
+        tp = self._send_order_legacy({**params, "order_type": "limit",
+            "order_side": order_side, "price": take_profit, "stop_price": -1,
+            "quantity": quantity,
+            "strategy_id": f"{params.get('strategy_id','oco')}_tp"})
+        if not tp.get("ok"):
+            return {"ok": False, "error": f"Take Profit falhou: {tp.get('error')}"}
+        # 2. Stop Loss — ordem stop-limit
+        sl = self._send_order_legacy({**params, "order_type": "stop",
+            "order_side": order_side, "price": stop_limit, "stop_price": stop_loss,
+            "quantity": quantity,
+            "strategy_id": f"{params.get('strategy_id','oco')}_sl"})
+        if not sl.get("ok"):
+            self.cancel_order({"local_order_id": tp["local_order_id"], "env": env})
+            return {"ok": False, "error": f"Stop Loss falhou: {sl.get('error')}"}
+        tp_id, sl_id = tp["local_order_id"], sl["local_order_id"]
+        # 3. Registra par para auto-cancelamento pelo OCO monitor thread
+        if not hasattr(self, "_oco_pairs"):
+            self._oco_pairs = {}
+        self._oco_pairs[tp_id] = {"pair_id": sl_id, "env": env, "type": "tp",
+                                   "ticker": ticker, "price": take_profit}
+        self._oco_pairs[sl_id] = {"pair_id": tp_id, "env": env, "type": "sl",
+                                   "ticker": ticker, "price": stop_loss}
+        log.info("oco.sent ticker=%s qty=%d tp_id=%d tp=%.4f sl_id=%d sl=%.4f lim=%.4f",
+                 ticker, quantity, tp_id, take_profit, sl_id, stop_loss, stop_limit)
+        return {"ok": True, "ticker": ticker, "quantity": quantity,
+                "take_profit": {"local_order_id": tp_id, "price": take_profit, "type": "limit"},
+                "stop_loss":   {"local_order_id": sl_id, "stop": stop_loss,
+                                "limit": stop_limit, "type": "stop_limit"}}
+
+    def get_oco_status(self, tp_id: int, env: str = "simulation") -> dict:
+        """
+        Status do par OCO via EnumerateAllOrders.
+        Retorna estado atual de ambas as pernas (TP e SL).
+        """
+        if not hasattr(self, "_oco_pairs") or tp_id not in self._oco_pairs:
+            return {"error": f"OCO {tp_id} nao encontrado", "pairs": {}}
+        pair_info = self._oco_pairs[tp_id]
+        sl_id     = pair_info["pair_id"]
+        # Busca ordens atuais na DLL
+        result = self.get_positions_dll(env)
+        orders = {o["local_id"]: o for o in result.get("orders", [])}
+        STATUS_MAP = {0:"pendente", 1:"parcial", 2:"executada", 4:"cancelada",
+                      7:"stopped", 8:"rejeitada", 10:"nova"}
+        def order_info(oid, otype):
+            o = orders.get(oid, {})
+            return {
+                "local_order_id": oid,
+                "type":           otype,
+                "status_code":    o.get("order_status"),
+                "status":         STATUS_MAP.get(o.get("order_status", -1), "desconhecido"),
+                "price":          o.get("price"),
+                "traded_qty":     o.get("traded_qty", 0),
+                "avg_price":      o.get("avg_price"),
+                "leaves_qty":     o.get("leaves_qty", 0),
+            }
+        tp_info = order_info(tp_id, "take_profit")
+        sl_info = order_info(sl_id, "stop_loss")
+        # Determina estado do par
+        tp_done = tp_info["status_code"] in (2, 4, 8)
+        sl_done = sl_info["status_code"] in (2, 4, 8)
+        if tp_info["status_code"] == 2:
+            oco_status = "take_profit_executado"
+        elif sl_info["status_code"] == 2:
+            oco_status = "stop_loss_executado"
+        elif tp_done and sl_done:
+            oco_status = "encerrado"
+        elif not tp_done and not sl_done:
+            oco_status = "ativo"
+        else:
+            oco_status = "parcialmente_encerrado"
+        return {
+            "oco_status":  oco_status,
+            "ticker":      pair_info.get("ticker"),
+            "env":         env,
+            "take_profit": tp_info,
+            "stop_loss":   sl_info,
+        }
+
+    def _oco_monitor_loop(self) -> None:
+        """
+        Background thread: monitora pares OCO via EnumerateAllOrders a cada 500ms.
+        Quando uma perna executa (status=2), cancela a outra automaticamente.
+        """
+        log.info("oco_monitor.started")
+        while not self._stop_event.is_set():
+            try:
+                if hasattr(self, "_oco_pairs") and self._oco_pairs:
+                    # Obtém status atual de todas as ordens
+                    result = self.get_positions_dll()
+                    orders_by_id = {o["local_id"]: o for o in result.get("orders", [])}
+                    to_remove = []
+                    pairs_snapshot = dict(self._oco_pairs)
+                    for local_id, pair_info in pairs_snapshot.items():
+                        order = orders_by_id.get(local_id)
+                        if not order:
+                            continue
+                        status = order.get("order_status", -1)
+                        if status == 2:  # Filled — cancela a perna oposta
+                            pair_id  = pair_info["pair_id"]
+                            pair_env = pair_info.get("env", "simulation")
+                            log.info("oco.filled local_id=%d type=%s → canceling pair %d",
+                                     local_id, pair_info.get("type"), pair_id)
+                            self.cancel_order({"local_order_id": pair_id, "env": pair_env})
+                            to_remove.extend([local_id, pair_id])
+                        elif status in (4, 8):  # Cancelada ou rejeitada — remove do mapa
+                            to_remove.append(local_id)
+                    for rid in set(to_remove):
+                        self._oco_pairs.pop(rid, None)
+                    if to_remove:
+                        log.info("oco_monitor.removed ids=%s remaining=%d",
+                                 to_remove, len(self._oco_pairs))
+            except Exception as e:
+                log.warning("oco_monitor error: %s", e)
+            time.sleep(0.5)
 
     def list_book(self, ticker: str = "") -> dict:
 
@@ -4954,23 +4991,6 @@ class ProfitAgent:
 
                     ))
 
-                elif self.path.startswith("/positions/assets"):
-
-                    from urllib.parse import urlparse, parse_qs as _pqs_a
-                    _qs_a = _pqs_a(urlparse(self.path).query)
-                    self._send_json(agent.enumerate_position_assets(_qs_a.get("env",["simulation"])[0]))
-
-                elif self.path.startswith("/position/"):
-
-                    from urllib.parse import urlparse, parse_qs as _pqs_p
-                    _p2     = urlparse(self.path)
-                    _ticker = _p2.path.split("/position/",1)[-1].upper().strip("/")
-                    _qs_p   = _pqs_p(_p2.query)
-                    _exch   = _qs_p.get("exchange",["B"])[0]
-                    _env2   = _qs_p.get("env",["simulation"])[0]
-                    _ptype  = int(_qs_p.get("type",["1"])[0])
-                    self._send_json(agent.get_position_v2(_ticker, _exch, _env2, _ptype))
-
                 elif self.path.startswith("/positions/dll"):
 
                     from urllib.parse import urlparse, parse_qs as _pqs_dll
@@ -4978,6 +4998,34 @@ class ProfitAgent:
                     _qs_dll = _pqs_dll(urlparse(self.path).query)
 
                     self._send_json(agent.get_positions_dll(_qs_dll.get("env",["simulation"])[0]))
+
+                elif self.path.startswith("/positions/assets"):
+                    from urllib.parse import urlparse, parse_qs as _pqs_a
+                    _qs_a = _pqs_a(urlparse(self.path).query)
+                    self._send_json(agent.enumerate_position_assets(_qs_a.get("env",["simulation"])[0]))
+
+                elif self.path.startswith("/positions/dll"):
+                    from urllib.parse import urlparse, parse_qs as _pqs_d
+                    _qs_d = _pqs_d(urlparse(self.path).query)
+                    self._send_json(agent.get_positions_dll(_qs_d.get("env",["simulation"])[0]))
+
+                elif self.path.startswith("/position/"):
+                    from urllib.parse import urlparse, parse_qs as _pqs_p
+                    _p2     = urlparse(self.path)
+                    _ticker = _p2.path.split("/position/",1)[-1].upper().strip("/")
+                    _qs_p   = _pqs_p(_p2.query)
+                    self._send_json(agent.get_position_v2(
+                        _ticker, _qs_p.get("exchange",["B"])[0],
+                        _qs_p.get("env",["simulation"])[0],
+                        int(_qs_p.get("type",["1"])[0])))
+
+                elif self.path.startswith("/oco/status/"):
+                    from urllib.parse import urlparse, parse_qs as _pqs_oco
+                    _p_oco   = urlparse(self.path)
+                    _tp_id   = int(_p_oco.path.split("/oco/status/",1)[-1].strip("/") or 0)
+                    _qs_oco  = _pqs_oco(_p_oco.query)
+                    _env_oco = _qs_oco.get("env",["simulation"])[0]
+                    self._send_json(agent.get_oco_status(_tp_id, _env_oco))
 
                 elif self.path.startswith("/positions"):
 
@@ -5118,6 +5166,9 @@ class ProfitAgent:
                 elif self.path == "/order/change":
 
                     self._send_json(agent.change_order(body))
+
+                elif self.path == "/order/oco":
+                    self._send_json(agent.send_oco_order(body))
 
                 elif self.path == "/order/zero_position":
 
@@ -5446,12 +5497,6 @@ def main() -> None:
 if __name__ == "__main__":
 
     main()
-
-
-
-
-
-
 
 
 
