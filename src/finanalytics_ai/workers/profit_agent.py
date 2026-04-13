@@ -322,6 +322,58 @@ class TConnectorOrderIdentifier(Structure):
 
 
 
+
+class TConnectorOrder(Structure):
+    """Ordem completa com status — usada no SetOrderCallback e EnumerateOrders."""
+    _fields_ = [
+        ("Version",         c_ubyte),
+        ("OrderID",         TConnectorOrderIdentifier),
+        ("AccountID",       TConnectorAccountIdentifier),
+        ("AssetID",         TConnectorAssetIdentifier),
+        ("Quantity",        c_int64),
+        ("TradedQuantity",  c_int64),
+        ("LeavesQuantity",  c_int64),
+        ("Price",           c_double),
+        ("StopPrice",       c_double),
+        ("AveragePrice",    c_double),
+        ("OrderSide",       c_ubyte),
+        ("OrderType",       c_ubyte),
+        ("OrderStatus",     c_ubyte),
+        ("ValidityType",    c_ubyte),
+    ]
+
+
+class TConnectorTradingAccountPosition(Structure):
+    """Posição consolidada por ativo — populada via callback de posição."""
+    _fields_ = [
+        ("Version",                 c_ubyte),
+        ("AccountID",               TConnectorAccountIdentifier),
+        ("AssetID",                 TConnectorAssetIdentifier),
+        ("OpenQuantity",            c_int64),
+        ("OpenAveragePrice",        c_double),
+        ("OpenSide",                c_ubyte),
+        ("DailyAverageSellPrice",   c_double),
+        ("DailySellQuantity",       c_int64),
+        ("DailyAverageBuyPrice",    c_double),
+        ("DailyBuyQuantity",        c_int64),
+        ("DailyQuantityD1",         c_int64),
+        ("DailyQuantityD2",         c_int64),
+        ("DailyQuantityD3",         c_int64),
+        ("DailyQuantityBlocked",    c_int64),
+        ("DailyQuantityPending",    c_int64),
+        ("DailyQuantityAlloc",      c_int64),
+        ("DailyQuantityProvision",  c_int64),
+        ("DailyQuantity",           c_int64),
+        ("DailyQuantityAvailable",  c_int64),
+        ("PositionType",            c_ubyte),
+        ("EventID",                 c_int64),
+    ]
+
+
+# Tipo callback para EnumerateOrders
+TConnectorEnumerateOrdersProc = WINFUNCTYPE(c_bool, POINTER(TConnectorOrder), c_long)
+
+
 class TConnectorSendOrder(Structure):
 
     _fields_ = [
@@ -2798,6 +2850,9 @@ class ProfitAgent:
                     "cl_ord_id": cl_ord,
 
                     "order_status": 0,   # confirmado pela corretora
+                    "traded_qty": traded_qty,
+                    "leaves_qty": leaves_qty,
+                    "avg_price": avg_price,   # new - corretora confirmou
 
                 })
 
@@ -3809,6 +3864,87 @@ class ProfitAgent:
 
 
 
+
+    def get_positions_dll(self, env: str = "simulation") -> dict:
+        """
+        Posição via banco de dados (ordens executadas + abertas).
+        EnumerateOrders não disponível nesta versão da DLL.
+        Usa traded_qty e avg_price das ordens persistidas.
+        """
+        if self._db is None or self._db._conn is None:
+            return {"positions": [], "error": "DB indisponivel", "source": "db"}
+
+        try:
+            sql = """
+                SELECT
+                    ticker, exchange, order_side, env,
+                    SUM(traded_qty)  AS total_traded,
+                    SUM(CASE WHEN order_side = 1 THEN traded_qty
+                             WHEN order_side = 2 THEN -traded_qty
+                             ELSE 0 END) AS net_qty,
+                    SUM(CASE WHEN order_side = 1 AND traded_qty > 0
+                             THEN traded_qty * COALESCE(avg_price, price)
+                             ELSE 0 END) /
+                    NULLIF(SUM(CASE WHEN order_side = 1 AND traded_qty > 0
+                               THEN traded_qty ELSE 0 END), 0) AS avg_buy_price,
+                    SUM(CASE WHEN order_side = 1 AND leaves_qty > 0
+                             THEN leaves_qty ELSE 0 END) AS pending_buy,
+                    SUM(CASE WHEN order_side = 2 AND leaves_qty > 0
+                             THEN leaves_qty ELSE 0 END) AS pending_sell,
+                    COUNT(*) FILTER (WHERE order_status IN (1,2)) AS filled_orders,
+                    COUNT(*) FILTER (WHERE order_status = 0)      AS open_orders
+                FROM profit_orders
+                WHERE env = %s
+                GROUP BY ticker, exchange, order_side, env
+                ORDER BY ticker
+            """
+            with self._db._lock:
+                cur = self._db._conn.cursor()
+                cur.execute(sql, (env,))
+                cols = [d[0] for d in cur.description]
+                rows = cur.fetchall()
+                cur.close()
+
+            # Agrupa buy e sell por ticker
+            by_ticker: dict = {}
+            for row in rows:
+                r = dict(zip(cols, row))
+                tk = r["ticker"]
+                if tk not in by_ticker:
+                    by_ticker[tk] = {
+                        "ticker": tk,
+                        "exchange": r["exchange"],
+                        "env": env,
+                        "net_qty": 0,
+                        "avg_buy_price": None,
+                        "pending_buy": 0,
+                        "pending_sell": 0,
+                        "filled_orders": 0,
+                        "open_orders": 0,
+                    }
+                p = by_ticker[tk]
+                side = r["order_side"]
+                net = float(r["net_qty"] or 0)
+                p["net_qty"] += net
+                if side == 1 and r["avg_buy_price"]:
+                    p["avg_buy_price"] = float(r["avg_buy_price"])
+                p["pending_buy"]    += int(r["pending_buy"]  or 0)
+                p["pending_sell"]   += int(r["pending_sell"] or 0)
+                p["filled_orders"]  += int(r["filled_orders"] or 0)
+                p["open_orders"]    += int(r["open_orders"]  or 0)
+
+            # Retorna tickers com atividade
+            positions = [
+                p for p in by_ticker.values()
+                if p["net_qty"] != 0 or p["pending_buy"] or p["pending_sell"] or p["open_orders"]
+            ]
+            return {"positions": positions, "env": env, "source": "db"}
+
+        except Exception as e:
+            log.warning("get_positions_dll error: %s", e)
+            return {"positions": [], "error": str(e), "source": "db"}
+
+
     def list_book(self, ticker: str = "") -> dict:
 
         """Retorna snapshot atual do book em memoria."""
@@ -4653,6 +4789,14 @@ class ProfitAgent:
 
                     ))
 
+                elif self.path.startswith("/positions/dll"):
+
+                    from urllib.parse import urlparse, parse_qs as _pqs_dll
+
+                    _qs_dll = _pqs_dll(urlparse(self.path).query)
+
+                    self._send_json(agent.get_positions_dll(_qs_dll.get("env",["simulation"])[0]))
+
                 elif self.path.startswith("/positions"):
 
                     from urllib.parse import urlparse, parse_qs
@@ -5120,7 +5264,6 @@ def main() -> None:
 if __name__ == "__main__":
 
     main()
-
 
 
 
