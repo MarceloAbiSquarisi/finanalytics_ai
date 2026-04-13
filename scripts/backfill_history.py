@@ -23,9 +23,24 @@ import urllib.error
 from datetime import date, timedelta
 from pathlib import Path
 
+# Carrega .env para PROFIT_TIMESCALE_DSN
+_env_file = Path(__file__).resolve().parents[1] / ".env"
+if _env_file.exists():
+    for _line in _env_file.read_text(encoding="utf-8").splitlines():
+        _line = _line.strip()
+        if _line and not _line.startswith("#") and "=" in _line:
+            _k, _v = _line.split("=", 1)
+            _k = _k.strip()
+            _v = _v.strip().strip('"').strip("'")
+            import os as _os2
+            if _k not in _os2.environ:
+                _os2.environ[_k] = _v
+
 # ── Configuração ──────────────────────────────────────────────────────────────
 AGENT_URL  = "http://localhost:8002"
-TIMEOUT_S  = 150        # timeout por coleta (segundos)
+TIMEOUT_S    = 300   # timeout por coleta — ações
+TIMEOUT_FUT  = 1200  # timeout futuros (WINFUT/WDOFUT ~500k ticks/dia)
+FUTURES_EXCHANGE = {"F"}  # exchanges de futuros
 DELAY_S    = 3          # delay entre chamadas (segundos) — evita sobrecarga DLL
 CHUNK_DAYS = 1          # dias por chamada (DLL aceita max ~1-2 dias)
 
@@ -61,6 +76,40 @@ def http_get(path: str) -> dict:
         return json.loads(r.read())
 
 
+# Configuração do banco (mesmo DSN do profit_agent)
+import os as _os
+DB_DSN = _os.getenv(
+    "PROFIT_TIMESCALE_DSN",
+    "postgresql://finanalytics:timescale_secret@localhost:5433/market_data"
+)
+
+
+def get_collected_dates(ticker: str, exchange: str,
+                        start: date, end: date) -> set[date]:
+    """
+    Consulta market_history_trades diretamente via psycopg2
+    para saber quais datas já têm ticks.
+    """
+    try:
+        import psycopg2  # type: ignore
+        conn = psycopg2.connect(DB_DSN)
+        cur  = conn.cursor()
+        cur.execute("""
+            SELECT DISTINCT trade_date::date
+            FROM market_history_trades
+            WHERE ticker = %s
+              AND trade_date::date BETWEEN %s AND %s
+            ORDER BY 1
+        """, (ticker, start.isoformat(), end.isoformat()))
+        rows  = cur.fetchall()
+        cur.close()
+        conn.close()
+        return {row[0] for row in rows}
+    except Exception as e:
+        print(f"  [AVISO] Não foi possível verificar datas no banco: {e}")
+        return set()
+
+
 def http_post(path: str, body: dict, timeout: int = 30) -> dict:
     url  = f"{AGENT_URL}{path}"
     data = json.dumps(body).encode("utf-8")
@@ -72,9 +121,45 @@ def http_post(path: str, body: dict, timeout: int = 30) -> dict:
 
 
 def get_active_tickers() -> list[dict]:
-    """Retorna tickers com active=True de profit_history_tickers."""
-    data = http_get("/history/tickers")
-    return [t for t in data.get("tickers", []) if t.get("active")]
+    """Retorna tickers com active=True direto do banco (não depende do agent)."""
+    # Tenta primeiro via banco direto (mais confiável)
+    try:
+        import psycopg2  # type: ignore
+        conn = psycopg2.connect(DB_DSN)
+        cur  = conn.cursor()
+        cur.execute("""
+            SELECT ticker, exchange, collect_from,
+                   last_collected_to, last_tick_count, notes
+            FROM profit_history_tickers
+            WHERE active = TRUE
+            ORDER BY ticker
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        result = []
+        for r in rows:
+            result.append({
+                "ticker":           r[0],
+                "exchange":         r[1],
+                "collect_from":     r[2],
+                "last_collected_to": str(r[3]) if r[3] else None,
+                "last_tick_count":  r[4],
+                "notes":            r[5],
+                "active":           True,
+            })
+        print(f"[OK] {len(result)} ticker(s) ativos via banco direto")
+        return result
+    except Exception as e:
+        print(f"[AVISO] Banco direto falhou ({e}), tentando via agent HTTP...")
+
+    # Fallback: via agent HTTP
+    try:
+        data = http_get("/history/tickers")
+        return [t for t in data.get("tickers", []) if t.get("active")]
+    except Exception as e2:
+        print(f"[ERRO] Falha ao buscar tickers: {e2}")
+        return []
 
 
 def format_dt(d: date, hour: str) -> str:
@@ -149,7 +234,24 @@ def backfill(start: date, end: date, delay: float, dry_run: bool) -> None:
             done_calls += len(all_days)
             continue
 
-        print(f"\n[{ticker}:{exchange}] {len(days_for_ticker)} pregões para coletar")
+        # Consulta banco para ver datas que já têm dados reais
+        if not dry_run:
+            print(f"  Verificando datas já coletadas no banco...", flush=True)
+            collected = get_collected_dates(ticker, exchange, start, end)
+            if collected:
+                before = len(days_for_ticker)
+                days_for_ticker = [d for d in days_for_ticker if d not in collected]
+                skipped = before - len(days_for_ticker)
+                if skipped:
+                    print(f"  Pulando {skipped} dias já no banco")
+
+        if not days_for_ticker:
+            print(f"[{ticker}] Todos os dias já coletados — pulando\n")
+            done_calls += len(all_days)
+            continue
+
+        _t_label = f"{TIMEOUT_FUT}s" if exchange in FUTURES_EXCHANGE else f"{TIMEOUT_S}s"
+        print(f"\n[{ticker}:{exchange}] {len(days_for_ticker)} pregões para coletar (timeout={_t_label})")
         ticker_ticks = 0
 
         for d in days_for_ticker:
@@ -168,13 +270,15 @@ def backfill(start: date, end: date, delay: float, dry_run: bool) -> None:
                 continue
 
             try:
+                # Futuros têm muito mais ticks — timeout maior
+                _t = TIMEOUT_FUT if exchange in FUTURES_EXCHANGE else TIMEOUT_S
                 result = http_post("/collect_history", {
                     "ticker":   ticker,
                     "exchange": exchange,
                     "dt_start": dt_start,
                     "dt_end":   dt_end,
-                    "timeout":  TIMEOUT_S,
-                }, timeout=TIMEOUT_S + 30)
+                    "timeout":  _t,
+                }, timeout=_t + 60)
 
                 ticks    = result.get("ticks", 0)
                 inserted = result.get("inserted", 0)

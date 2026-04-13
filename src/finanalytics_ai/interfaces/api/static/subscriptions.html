@@ -127,4 +127,216 @@ if (saved) _token = saved;
 load();
 checkAgent();
 setInterval(checkAgent, 10000);
-</script></body></html>
+</script>
+<!-- ═══ PROFIT AGENT TICKERS (adicionado) ══════════════════════════════ -->
+<div class="section" style="margin-top:40px;border-top:1px solid var(--border);padding-top:28px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+    <div class="section-title" style="margin:0;border:none">
+      PROFIT AGENT — TICKERS
+      <span id="pa-status" style="font-size:13px;margin-left:12px;color:var(--muted)">verificando...</span>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button class="btn" id="pa-tab-rt"
+        style="background:rgba(58,191,248,.2);color:var(--blue);border:1px solid rgba(58,191,248,.3);padding:5px 12px;font-size:14px"
+        onclick="paSwitchTab('rt')">Real-time</button>
+      <button class="btn" id="pa-tab-hist"
+        style="background:transparent;color:var(--muted);border:1px solid var(--border);padding:5px 12px;font-size:14px"
+        onclick="paSwitchTab('hist')">Histórico</button>
+      <button class="btn" id="pa-tab-add"
+        style="background:rgba(46,212,122,.12);color:var(--green);border:1px solid rgba(46,212,122,.3);padding:5px 12px;font-size:14px"
+        onclick="paSwitchTab('add')">+ Adicionar</button>
+    </div>
+  </div>
+
+  <!-- Real-time -->
+  <div id="pa-panel-rt">
+    <div class="ticker-grid" id="pa-rt-grid">
+      <span style="color:var(--muted);font-size:15px">Carregando...</span>
+    </div>
+  </div>
+
+  <!-- Histórico -->
+  <div id="pa-panel-hist" style="display:none">
+    <div class="ticker-grid" id="pa-hist-grid">
+      <span style="color:var(--muted);font-size:15px">Carregando...</span>
+    </div>
+  </div>
+
+  <!-- Adicionar -->
+  <div id="pa-panel-add" style="display:none">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+      <!-- Real-time form -->
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:18px">
+        <div class="section-title" style="margin-bottom:14px">Real-time</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <input id="pa-rt-ticker" placeholder="Ticker (ex: PETR4)" maxlength="10"
+            style="background:#0a0e1a;border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:15px;outline:none">
+          <select id="pa-rt-exch"
+            style="background:#0a0e1a;border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:15px">
+            <option value="B">B — Bovespa/B3</option>
+            <option value="F">F — Futuros</option>
+          </select>
+          <input id="pa-rt-notes" placeholder="Notas (opcional)"
+            style="background:#0a0e1a;border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:15px;outline:none">
+          <input id="pa-rt-priority" type="number" value="5" placeholder="Prioridade"
+            style="background:#0a0e1a;border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:15px;outline:none">
+          <button class="btn btn-green" style="font-size:15px" onclick="paAddRt()">+ Salvar Real-time</button>
+        </div>
+      </div>
+
+      <!-- Histórico form -->
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:18px">
+        <div class="section-title" style="margin-bottom:14px">Histórico</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <input id="pa-hist-ticker" placeholder="Ticker (ex: WINFUT)" maxlength="10"
+            style="background:#0a0e1a;border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:15px;outline:none">
+          <select id="pa-hist-exch"
+            style="background:#0a0e1a;border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:15px">
+            <option value="B">B — Bovespa/B3</option>
+            <option value="F">F — Futuros</option>
+          </select>
+          <input id="pa-hist-from" placeholder="Desde (DD/MM/AAAA)"
+            style="background:#0a0e1a;border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:15px;outline:none">
+          <input id="pa-hist-notes" placeholder="Notas (opcional)"
+            style="background:#0a0e1a;border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:15px;outline:none">
+          <button class="btn btn-green" style="font-size:15px" onclick="paAddHist()">+ Salvar Histórico</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const PA = 'http://localhost:8002';
+
+// Status do agent
+(async () => {
+  const el = document.getElementById('pa-status');
+  try {
+    const r = await fetch(PA + '/status');
+    const d = await r.json();
+    el.textContent = d.market_connected ? '● conectado' : '○ desconectado';
+    el.style.color = d.market_connected ? 'var(--green)' : 'var(--red)';
+  } catch {
+    el.textContent = '○ offline (porta 8002)';
+    el.style.color = 'var(--red)';
+  }
+})();
+
+// Switch de abas
+function paSwitchTab(tab) {
+  ['rt','hist','add'].forEach(t => {
+    document.getElementById('pa-panel-'+t).style.display = t===tab ? '' : 'none';
+    const btn = document.getElementById('pa-tab-'+t);
+    if (t === tab) {
+      btn.style.background = t==='add' ? 'rgba(46,212,122,.25)' : 'rgba(58,191,248,.25)';
+      btn.style.color = t==='add' ? 'var(--green)' : 'var(--blue)';
+    } else {
+      btn.style.background = 'transparent';
+      btn.style.color = 'var(--muted)';
+    }
+  });
+  if (tab === 'rt')   paLoadRt();
+  if (tab === 'hist') paLoadHist();
+}
+
+// Carrega real-time
+async function paLoadRt() {
+  const grid = document.getElementById('pa-rt-grid');
+  grid.innerHTML = '<span style="color:var(--muted)">Carregando...</span>';
+  try {
+    const d = await fetch(PA+'/tickers').then(r=>r.json());
+    if (!d.tickers?.length) { grid.innerHTML='<span style="color:var(--muted)">Nenhum ticker cadastrado</span>'; return; }
+    grid.innerHTML = d.tickers.map(t => `
+      <div class="ticker-card ${t.active?'active':''}">
+        <div class="ticker-info">
+          <span class="ticker-name">${t.ticker}</span>
+          <span class="ticker-exch">Exchange: ${t.exchange}</span>
+          <span class="ticker-type">${t.notes||''}</span>
+        </div>
+        <span class="${t.active?'badge-on':'badge-off'}" onclick="paToggleRt('${t.ticker}','${t.exchange}',${!t.active})">
+          <span class="dot ${t.active?'on':'off'}"></span>
+          ${t.active?'ATIVO':'INATIVO'}
+        </span>
+      </div>`).join('');
+  } catch(e) { grid.innerHTML='<span style="color:var(--red)">Erro: '+e.message+'</span>'; }
+}
+
+// Carrega histórico
+async function paLoadHist() {
+  const grid = document.getElementById('pa-hist-grid');
+  grid.innerHTML = '<span style="color:var(--muted)">Carregando...</span>';
+  try {
+    const d = await fetch(PA+'/history/tickers').then(r=>r.json());
+    if (!d.tickers?.length) { grid.innerHTML='<span style="color:var(--muted)">Nenhum ticker configurado</span>'; return; }
+    grid.innerHTML = d.tickers.map(t => {
+      const lastAt = t.last_collected_at ? new Date(t.last_collected_at).toLocaleDateString('pt-BR') : '—';
+      const ticks  = t.last_tick_count   ? Number(t.last_tick_count).toLocaleString('pt-BR')        : '—';
+      return `
+        <div class="ticker-card ${t.active?'active':''}">
+          <div class="ticker-info">
+            <span class="ticker-name">${t.ticker}</span>
+            <span class="ticker-exch">Exchange: ${t.exchange}</span>
+            <span class="ticker-type" style="color:var(--gold)">${ticks} ticks · ${lastAt}</span>
+          </div>
+          <span class="${t.active?'badge-on':'badge-off'}" onclick="paToggleHist('${t.ticker}','${t.exchange}',${!t.active})">
+            <span class="dot ${t.active?'on':'off'}"></span>
+            ${t.active?'ATIVO':'INATIVO'}
+          </span>
+        </div>`;
+    }).join('');
+  } catch(e) { grid.innerHTML='<span style="color:var(--red)">Erro: '+e.message+'</span>'; }
+}
+
+// Toggles
+async function paToggleRt(ticker, exchange, active) {
+  const r = await fetch(PA+'/tickers/toggle',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ticker,exchange,active})}).then(r=>r.json()).catch(e=>({ok:false,error:e.message}));
+  if (r.ok) { toast(ticker+' '+(active?'ativado':'pausado')); paLoadRt(); }
+  else toast('Erro: '+(r.error||JSON.stringify(r)));
+}
+
+async function paToggleHist(ticker, exchange, active) {
+  const r = await fetch(PA+'/history/tickers/toggle',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ticker,exchange,active})}).then(r=>r.json()).catch(e=>({ok:false,error:e.message}));
+  toast(ticker+' histórico '+(active?'ativado':'pausado'));
+  paLoadHist();
+}
+
+// Adicionar
+async function paAddRt() {
+  const ticker   = document.getElementById('pa-rt-ticker').value.trim().toUpperCase();
+  const exchange = document.getElementById('pa-rt-exch').value;
+  const notes    = document.getElementById('pa-rt-notes').value.trim();
+  const priority = parseInt(document.getElementById('pa-rt-priority').value)||5;
+  if (!ticker) { toast('Digite o ticker'); return; }
+  const r = await fetch(PA+'/tickers/add',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ticker,exchange,active:true,subscribe_book:false,priority,notes})}).then(r=>r.json());
+  if (r.ok) { toast(ticker+':'+exchange+' adicionado!'); document.getElementById('pa-rt-ticker').value=''; paLoadRt(); }
+  else toast('Erro: '+JSON.stringify(r));
+}
+
+async function paAddHist() {
+  const ticker   = document.getElementById('pa-hist-ticker').value.trim().toUpperCase();
+  const exchange = document.getElementById('pa-hist-exch').value;
+  const notes    = document.getElementById('pa-hist-notes').value.trim();
+  const fromRaw  = document.getElementById('pa-hist-from').value.trim();
+  if (!ticker) { toast('Digite o ticker'); return; }
+  let collect_from = '2026-01-01 09:00:00';
+  if (fromRaw) {
+    const p = fromRaw.split('/');
+    if (p.length===3) collect_from = `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')} 09:00:00`;
+  }
+  const r = await fetch(PA+'/history/tickers/add',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ticker,exchange,active:true,collect_from,notes})}).then(r=>r.json());
+  toast(ticker+':'+exchange+' histórico adicionado!');
+  document.getElementById('pa-hist-ticker').value='';
+  paLoadHist();
+}
+
+// Inicializa aba real-time
+paLoadRt();
+</script>
+
+</body></html>
