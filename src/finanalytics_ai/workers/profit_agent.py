@@ -590,58 +590,78 @@ class DBWriter:
 
 
 
-    def connect(self) -> bool:
-
-        try:
-
-            import psycopg2  # type: ignore
-
-            self._conn = psycopg2.connect(self._dsn)
-
-            self._conn.autocommit = True
-
-            log.info("db.connected dsn=%s", self._dsn.split("@")[-1])
-
-            return True
-
-        except Exception as e:
-
-            log.error("db.connect_failed error=%s", e)
-
+    @property
+    def is_connected(self) -> bool:
+        """Retorna True se a conexão está ativa."""
+        if self._conn is None:
             return False
+        try:
+            cur = self._conn.cursor()
+            cur.execute("SELECT 1")
+            cur.close()
+            return True
+        except Exception:
+            self._conn = None
+            return False
+
+    def connect(self) -> bool:
+        try:
+            import psycopg2  # type: ignore
+            self._conn = psycopg2.connect(self._dsn)
+            self._conn.autocommit = True
+            log.info("db.connected dsn=%s", self._dsn.split("@")[-1])
+            return True
+        except Exception as e:
+            log.error("db.connect_failed error=%s", e)
+            return False
+
+    def _ensure_connected(self) -> bool:
+        """Garante conexão ativa — reconecta se necessário."""
+        if self._conn is not None:
+            try:
+                # Testa a conexão com query leve
+                cur = self._conn.cursor()
+                cur.execute("SELECT 1")
+                cur.close()
+                return True
+            except Exception:
+                log.warning("db.connection_lost — tentando reconectar...")
+                self._conn = None
+        # Tenta reconectar até 3 vezes
+        import psycopg2  # type: ignore
+        for attempt in range(1, 4):
+            try:
+                self._conn = psycopg2.connect(self._dsn)
+                self._conn.autocommit = True
+                log.info("db.reconnected attempt=%d dsn=%s",
+                         attempt, self._dsn.split("@")[-1])
+                return True
+            except Exception as e:
+                log.warning("db.reconnect_failed attempt=%d error=%s", attempt, e)
+                import time as _t
+                _t.sleep(attempt * 2)
+        log.error("db.reconnect_giving_up — persistência desativada temporariamente")
+        return False
 
 
 
     def execute(self, sql: str, params: tuple = ()) -> bool:
-
-        if self._conn is None:
-
+        # Garante conexão ativa (reconecta se necessário)
+        if not self._ensure_connected():
             return False
-
         try:
-
             with self._lock:
-
                 cur = self._conn.cursor()
-
                 cur.execute(sql, params)
-
                 cur.close()
-
             return True
-
         except Exception as e:
-
             log.warning("db.execute_failed error=%s sql=%.100s", e, sql)
-
+            # Marca conexão como inválida para forçar reconexão no próximo execute
             try:
-
                 self._conn.rollback()
-
             except Exception:
-
-                pass
-
+                self._conn = None
             return False
 
 
@@ -3872,7 +3892,7 @@ class ProfitAgent:
 
             "db_queue_size":      self._db_queue.qsize(),
 
-            "db_connected":       self._db is not None,
+            "db_connected":       self._db is not None and self._db.is_connected,
 
         }
 
@@ -4734,7 +4754,7 @@ class ProfitAgent:
 
                 if self.path == "/order/send":
 
-                    self._send_json(agent.send_order(body))
+                    self._send_json(agent._send_order_legacy(body))
 
                 elif self.path == "/order/cancel":
 
@@ -5075,6 +5095,8 @@ def main() -> None:
 if __name__ == "__main__":
 
     main()
+
+
 
 
 
