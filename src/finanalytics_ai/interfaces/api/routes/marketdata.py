@@ -107,7 +107,9 @@ async def get_candles(
         rows = await conn.fetch(f"""
             WITH combined AS (
                 -- Dados históricos
-                SELECT trade_date AS ts_raw, price * 100 AS price, quantity
+                SELECT trade_date AS ts_raw,
+                    CASE WHEN price < 5 THEN price * 100 ELSE price END AS price,
+                    quantity
                 FROM market_history_trades
                 WHERE ticker = $1
 
@@ -118,6 +120,7 @@ async def get_candles(
                 FROM profit_ticks
                 WHERE ticker = $1
                   AND time >= NOW() - INTERVAL '1 day'
+                  AND price > 0
             ),
             bucketed AS (
                 SELECT
@@ -334,5 +337,7 @@ async def sse_ticks(
 
     return StreamingResponse(gen(), media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
 
 
