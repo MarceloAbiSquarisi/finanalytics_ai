@@ -1,342 +1,784 @@
-<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Subscrições Profit — FinAnalytics</title>
 <style>
-:root{--bg:#0a0e1a;--panel:#0f1520;--border:#1c2535;--text:#e2e8f0;--green:#2ED47A;--red:#E05555;--blue:#3ABFF8;--gold:#F0B429;--muted:#4a6080;--mono:'JetBrains Mono','Fira Code',monospace}
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@700;800&display=swap');
+
+:root {
+  --bg:#0a0e1a; --panel:#0f1520; --panel2:#131c2e;
+  --border:#1c2535; --border2:rgba(58,191,248,.12);
+  --text:#e2e8f0; --green:#2ED47A; --red:#E05555;
+  --blue:#3ABFF8; --gold:#F0B429; --muted:#4a6080;
+  --mono:'JetBrains Mono','Fira Code',monospace;
+}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:17px;min-height:100vh}
-.header{background:var(--panel);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px}
-.header h1{font-size:19px;font-weight:700;letter-spacing:2px;color:var(--blue)}
-.back{color:var(--muted);text-decoration:none;font-size:15px;padding:4px 10px;border:1px solid var(--border);border-radius:4px}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:14px;min-height:100vh}
+
+/* grid bg */
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(58,191,248,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(58,191,248,.025) 1px,transparent 1px);
+  background-size:40px 40px}
+
+/* HEADER */
+.header{position:sticky;top:0;z-index:100;background:rgba(10,14,26,.92);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);padding:12px 24px;
+  display:flex;align-items:center;gap:16px}
+.logo{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--blue);letter-spacing:-0.5px}
+.back{color:var(--muted);text-decoration:none;font-size:12px;padding:4px 10px;
+  border:1px solid var(--border);border-radius:4px;letter-spacing:.05em;transition:.15s}
 .back:hover{color:var(--blue);border-color:var(--blue)}
-.content{max-width:900px;margin:32px auto;padding:0 24px}
-.add-bar{display:flex;gap:8px;margin-bottom:24px}
-.add-bar input{flex:1;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 12px;font-family:var(--mono);font-size:17px;outline:none}
-.add-bar input:focus{border-color:var(--blue)}
-.add-bar select{background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 12px;font-family:var(--mono);font-size:17px}
-.btn{padding:8px 18px;border-radius:6px;border:none;cursor:pointer;font-family:var(--mono);font-size:16px;font-weight:700;letter-spacing:.5px;transition:.15s}
-.btn-green{background:rgba(46,212,122,.15);color:var(--green);border:1px solid rgba(46,212,122,.3)}
-.btn-green:hover{background:rgba(46,212,122,.25)}
-.btn-red{background:rgba(224,85,85,.12);color:var(--red);border:1px solid rgba(224,85,85,.25);padding:4px 10px;font-size:15px}
-.btn-red:hover{background:rgba(224,85,85,.22)}
-.section{margin-bottom:28px}
-.section-title{font-size:14px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
-.ticker-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
-.ticker-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;transition:.15s}
-.ticker-card.active{border-color:rgba(46,212,122,.3);background:rgba(46,212,122,.04)}
-.ticker-info{display:flex;flex-direction:column;gap:2px}
-.ticker-name{font-weight:700;font-size:17px;color:var(--text)}
-.ticker-type{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
-.ticker-exch{font-size:14px;color:var(--blue)}
-.badge-on{display:inline-flex;align-items:center;gap:4px;background:rgba(46,212,122,.12);color:var(--green);border:1px solid rgba(46,212,122,.3);border-radius:4px;padding:2px 8px;font-size:14px;font-weight:700;cursor:pointer}
-.badge-off{display:inline-flex;align-items:center;gap:4px;background:rgba(74,96,128,.12);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:14px;font-weight:700;cursor:pointer}
+.agent-pill{margin-left:auto;display:flex;align-items:center;gap:6px;
+  background:var(--panel);border:1px solid var(--border);border-radius:20px;
+  padding:4px 12px;font-size:12px;letter-spacing:.05em}
+.agent-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);transition:.3s}
+.agent-dot.on{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* LAYOUT */
+.layout{position:relative;z-index:1;display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 49px)}
+
+/* SIDEBAR NAV */
+.sidenav{border-right:1px solid var(--border);background:rgba(15,21,32,.6);padding:24px 0;
+  position:sticky;top:49px;height:calc(100vh - 49px);overflow-y:auto}
+.nav-section{padding:0 16px;margin-bottom:24px}
+.nav-label{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);
+  margin-bottom:8px;padding:0 6px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:5px;
+  cursor:pointer;font-size:13px;color:var(--muted);transition:.15s;border:1px solid transparent;
+  text-decoration:none}
+.nav-item:hover{color:var(--text);background:rgba(58,191,248,.06)}
+.nav-item.active{color:var(--blue);background:rgba(58,191,248,.1);border-color:rgba(58,191,248,.2)}
+.nav-item .icon{font-size:15px;width:18px;text-align:center}
+.nav-divider{border:none;border-top:1px solid var(--border);margin:12px 16px}
+
+/* MAIN CONTENT */
+.main{padding:28px 32px;overflow-y:auto}
+
+/* SECTION BLOCK */
+.section-block{margin-bottom:36px}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.section-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--text);
+  display:flex;align-items:center;gap:8px}
+.section-title .tag{font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  background:rgba(58,191,248,.1);color:var(--blue);border:1px solid rgba(58,191,248,.2);
+  border-radius:3px;padding:2px 7px;font-family:var(--mono);font-weight:400}
+.section-divider{border:none;border-top:1px solid var(--border);margin-bottom:16px}
+
+/* ADD BAR */
+.add-bar{display:flex;gap:8px;margin-bottom:20px;background:var(--panel);
+  border:1px solid var(--border);border-radius:8px;padding:10px}
+.add-bar input,.add-bar select{
+  background:#080c14;border:1px solid var(--border);border-radius:5px;
+  color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:13px;outline:none;transition:.15s}
+.add-bar input{flex:1}
+.add-bar input:focus,.add-bar input:hover{border-color:var(--blue)}
+.add-bar select{border-color:var(--border)}
+
+/* BUTTONS */
+.btn{padding:7px 16px;border-radius:5px;border:none;cursor:pointer;
+  font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.06em;transition:.15s}
+.btn-blue{background:rgba(58,191,248,.15);color:var(--blue);border:1px solid rgba(58,191,248,.3)}
+.btn-blue:hover{background:rgba(58,191,248,.25)}
+.btn-green{background:rgba(46,212,122,.12);color:var(--green);border:1px solid rgba(46,212,122,.3)}
+.btn-green:hover{background:rgba(46,212,122,.22)}
+.btn-gold{background:rgba(240,180,41,.12);color:var(--gold);border:1px solid rgba(240,180,41,.3)}
+.btn-gold:hover{background:rgba(240,180,41,.22)}
+.btn-red{background:rgba(224,85,85,.1);color:var(--red);border:1px solid rgba(224,85,85,.25);padding:4px 8px;font-size:11px}
+.btn-red:hover{background:rgba(224,85,85,.2)}
+.btn-sm{padding:4px 10px;font-size:11px}
+
+/* TICKER GRID */
+.ticker-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.ticker-card{background:var(--panel);border:1px solid var(--border);border-radius:7px;
+  padding:11px 13px;display:flex;align-items:center;justify-content:space-between;
+  transition:.15s;animation:fadein .2s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.ticker-card:hover{border-color:rgba(58,191,248,.2)}
+.ticker-card.active{border-color:rgba(46,212,122,.25);background:rgba(46,212,122,.03)}
+.ticker-info{display:flex;flex-direction:column;gap:3px}
+.ticker-name{font-weight:700;font-size:15px}
+.ticker-sub{font-size:11px;color:var(--muted);letter-spacing:.03em}
+.ticker-gold{font-size:11px;color:var(--gold)}
+.badge-on,.badge-off{display:inline-flex;align-items:center;gap:4px;border-radius:4px;
+  padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.04em;transition:.15s}
+.badge-on{background:rgba(46,212,122,.12);color:var(--green);border:1px solid rgba(46,212,122,.3)}
+.badge-off{background:rgba(74,96,128,.1);color:var(--muted);border:1px solid var(--border)}
 .badge-on:hover{background:rgba(224,85,85,.12);color:var(--red);border-color:rgba(224,85,85,.3)}
 .badge-off:hover{background:rgba(46,212,122,.12);color:var(--green);border-color:rgba(46,212,122,.3)}
-.dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
 .dot.on{background:var(--green);box-shadow:0 0 5px var(--green)}
 .dot.off{background:var(--muted)}
-.toast{position:fixed;bottom:20px;right:20px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:16px;z-index:999;animation:slidein .2s ease}
-@keyframes slidein{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
-</style></head><body>
+
+/* FORM GRID */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:18px}
+.form-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;
+  color:var(--blue);margin-bottom:14px;letter-spacing:.03em}
+.field{margin-bottom:10px}
+.field label{display:block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:5px}
+.field input,.field select{width:100%;background:#080c14;border:1px solid var(--border);
+  border-radius:5px;color:var(--text);padding:7px 10px;font-family:var(--mono);
+  font-size:12px;outline:none;transition:.15s}
+.field input:focus{border-color:var(--blue)}
+.checkbox-row{display:flex;align-items:center;gap:7px;margin-bottom:14px;font-size:12px;color:var(--text)}
+.checkbox-row input{accent-color:var(--blue);width:13px;height:13px;cursor:pointer}
+
+/* BACKFILL */
+.backfill-card{background:var(--panel);border:1px solid rgba(240,180,41,.15);border-radius:8px;padding:20px}
+.backfill-grid{display:grid;grid-template-columns:repeat(4,1fr) auto;gap:10px;align-items:end;margin-bottom:14px}
+.progress-wrap{background:var(--border);border-radius:3px;height:4px;margin-top:8px;overflow:hidden}
+.progress-bar{height:4px;background:var(--gold);border-radius:3px;width:0%;transition:width .4s}
+.log-box{background:#080c14;border:1px solid var(--border);border-radius:5px;
+  padding:10px;max-height:160px;overflow-y:auto;font-size:11px;
+  color:var(--muted);line-height:1.7;margin-top:12px}
+.log-ok{color:var(--green)}.log-warn{color:var(--gold)}.log-err{color:var(--red)}
+
+/* STATS ROW */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}
+.stat-card{background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:12px 14px}
+.stat-val{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--blue)}
+.stat-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:3px}
+
+/* TOAST */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--panel2);
+  border:1px solid var(--border);border-radius:7px;padding:10px 16px;
+  font-size:13px;z-index:999;animation:slidein .2s ease;pointer-events:none}
+@keyframes slidein{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+.toast.ok{border-color:rgba(46,212,122,.3);color:var(--green)}
+.toast.err{border-color:rgba(224,85,85,.3);color:var(--red)}
+
+.empty{color:var(--muted);font-size:13px;padding:8px 0}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
 <div class="header">
   <a href="/dashboard" class="back">← Dashboard</a>
-  <h1>SUBSCRIÇÕES PROFIT AGENT</h1>
-  <span style="margin-left:auto;font-size:15px;color:var(--muted)" id="agent-status">Verificando agente...</span>
-</div>
-<div class="content">
-  <div class="add-bar">
-    <input id="new-ticker" placeholder="Ticker (ex: BBAS3, MGLU3...)" maxlength="10" onkeydown="if(event.key==='Enter')addTicker()">
-    <select id="new-exch"><option value="B">B — Bovespa/B3</option><option value="F">F — Futuro BMF</option><option value="N">N — NYSE</option></select>
-    <button class="btn btn-green" onclick="addTicker()">+ SUBSCREVER</button>
+  <div class="logo">Subscrições · Profit Agent</div>
+  <div class="agent-pill">
+    <div class="agent-dot" id="agent-dot"></div>
+    <span id="agent-status">verificando...</span>
   </div>
-  <div class="section"><div class="section-title">Futuros</div><div class="ticker-grid" id="grid-future"></div></div>
-  <div class="section"><div class="section-title">Ações</div><div class="ticker-grid" id="grid-stock"></div></div>
-  <div class="section"><div class="section-title">FIIs</div><div class="ticker-grid" id="grid-fii"></div></div>
-  <div class="section"><div class="section-title">Outros</div><div class="ticker-grid" id="grid-other"></div></div>
 </div>
+
+<div class="layout">
+
+  <!-- SIDEBAR NAV -->
+  <nav class="sidenav">
+    <div class="nav-section">
+      <div class="nav-label">FastAPI</div>
+      <a class="nav-item active" onclick="showSection('rt-api')" href="#">
+        <span class="icon">📡</span> Real-time API
+      </a>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <div class="nav-label">Profit Agent :8002</div>
+      <a class="nav-item" onclick="showSection('pa-rt')" href="#">
+        <span class="icon">⚡</span> Real-time
+      </a>
+      <a class="nav-item" onclick="showSection('pa-hist')" href="#">
+        <span class="icon">📅</span> Histórico
+      </a>
+      <a class="nav-item" onclick="showSection('pa-add')" href="#">
+        <span class="icon">➕</span> Adicionar
+      </a>
+      <a class="nav-item" onclick="showSection('pa-backfill')" href="#">
+        <span class="icon">🔄</span> Backfill
+      </a>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- STATS -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-val" id="stat-rt-api">—</div>
+        <div class="stat-lbl">Subscritos API</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="stat-pa-rt">—</div>
+        <div class="stat-lbl">Agent Real-time</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="stat-pa-hist">—</div>
+        <div class="stat-lbl">Histórico Ativos</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="stat-ticks">—</div>
+        <div class="stat-lbl">Ticks Agent</div>
+      </div>
+    </div>
+
+    <!-- ══ SEÇÃO: REAL-TIME API (FastAPI) ══════════════════════════════ -->
+    <div id="sec-rt-api" class="section-block">
+      <div class="section-header">
+        <div class="section-title">
+          Real-time API
+          <span class="tag">FastAPI :8000</span>
+        </div>
+        <button class="btn btn-blue btn-sm" onclick="loadApiTickers()">↺ Refresh</button>
+      </div>
+      <hr class="section-divider">
+
+      <div class="add-bar">
+        <input id="new-ticker" placeholder="Ticker (ex: BBAS3, MGLU3...)" maxlength="10"
+          onkeydown="if(event.key==='Enter')addApiTicker()" style="text-transform:uppercase">
+        <select id="new-exch">
+          <option value="B">B — Bovespa/B3</option>
+          <option value="F">F — Futuro BMF</option>
+          <option value="N">N — NYSE</option>
+        </select>
+        <button class="btn btn-green" onclick="addApiTicker()">+ SUBSCREVER</button>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.1em">Futuros</div>
+        <div class="ticker-grid" id="grid-future"></div>
+      </div>
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.1em">Ações</div>
+        <div class="ticker-grid" id="grid-stock"></div>
+      </div>
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.1em">FIIs</div>
+        <div class="ticker-grid" id="grid-fii"></div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.1em">Outros</div>
+        <div class="ticker-grid" id="grid-other"></div>
+      </div>
+    </div>
+
+    <!-- ══ SEÇÃO: PROFIT AGENT REAL-TIME ═══════════════════════════════ -->
+    <div id="sec-pa-rt" class="section-block" style="display:none">
+      <div class="section-header">
+        <div class="section-title">
+          Profit Agent — Real-time
+          <span class="tag">porta 8002</span>
+        </div>
+        <button class="btn btn-blue btn-sm" onclick="loadPaRt()">↺ Refresh</button>
+      </div>
+      <hr class="section-divider">
+      <div class="ticker-grid" id="pa-rt-grid">
+        <span class="empty">Carregando...</span>
+      </div>
+    </div>
+
+    <!-- ══ SEÇÃO: PROFIT AGENT HISTÓRICO ═══════════════════════════════ -->
+    <div id="sec-pa-hist" class="section-block" style="display:none">
+      <div class="section-header">
+        <div class="section-title">
+          Profit Agent — Histórico
+          <span class="tag">profit_history_tickers</span>
+        </div>
+        <button class="btn btn-blue btn-sm" onclick="loadPaHist()">↺ Refresh</button>
+      </div>
+      <hr class="section-divider">
+      <div class="ticker-grid" id="pa-hist-grid">
+        <span class="empty">Carregando...</span>
+      </div>
+    </div>
+
+    <!-- ══ SEÇÃO: ADICIONAR ═════════════════════════════════════════════ -->
+    <div id="sec-pa-add" class="section-block" style="display:none">
+      <div class="section-header">
+        <div class="section-title">Adicionar Tickers</div>
+      </div>
+      <hr class="section-divider">
+      <div class="form-grid">
+
+        <!-- Real-time form -->
+        <div class="form-card">
+          <div class="form-title">📡 Real-time (Agent :8002)</div>
+          <div class="field"><label>Ticker</label>
+            <input id="pa-rt-ticker" placeholder="ex: PETR4" style="text-transform:uppercase"></div>
+          <div class="field"><label>Exchange</label>
+            <select id="pa-rt-exch">
+              <option value="B">B — Bovespa/B3</option>
+              <option value="F">F — Futuros</option>
+            </select></div>
+          <div class="field"><label>Prioridade</label>
+            <input id="pa-rt-priority" type="number" value="5" min="0" max="99"></div>
+          <div class="field"><label>Notas</label>
+            <input id="pa-rt-notes" placeholder="ex: Petrobras PN"></div>
+          <div class="checkbox-row">
+            <input type="checkbox" id="pa-rt-active" checked>
+            <label for="pa-rt-active">Ativo (subscrever na DLL)</label>
+          </div>
+          <button class="btn btn-green" style="width:100%" onclick="addPaRt()">Salvar Real-time</button>
+        </div>
+
+        <!-- Histórico form -->
+        <div class="form-card">
+          <div class="form-title">📅 Histórico (profit_history_tickers)</div>
+          <div class="field"><label>Ticker</label>
+            <input id="pa-hist-ticker" placeholder="ex: WINFUT" style="text-transform:uppercase"></div>
+          <div class="field"><label>Exchange</label>
+            <select id="pa-hist-exch">
+              <option value="B">B — Bovespa/B3</option>
+              <option value="F">F — Futuros</option>
+            </select></div>
+          <div class="field"><label>Coletar desde (DD/MM/AAAA)</label>
+            <input id="pa-hist-from" placeholder="01/01/2026"></div>
+          <div class="field"><label>Notas</label>
+            <input id="pa-hist-notes" placeholder="ex: Mini Ibovespa Futuro"></div>
+          <div class="checkbox-row">
+            <input type="checkbox" id="pa-hist-active" checked>
+            <label for="pa-hist-active">Ativo (incluir no backfill)</label>
+          </div>
+          <button class="btn btn-green" style="width:100%" onclick="addPaHist()">Salvar Histórico</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ══ SEÇÃO: BACKFILL ══════════════════════════════════════════════ -->
+    <div id="sec-pa-backfill" class="section-block" style="display:none">
+      <div class="section-header">
+        <div class="section-title">
+          Backfill Histórico
+          <span class="tag">collect_history</span>
+        </div>
+      </div>
+      <hr class="section-divider">
+
+      <div class="backfill-card">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">
+          Coleta histórico de ticks para todos os tickers <strong style="color:var(--gold)">active=true</strong>
+          em <code>profit_history_tickers</code>, dia a dia no período informado.
+          Pula dias já coletados automaticamente.
+        </div>
+
+        <div class="backfill-grid">
+          <div class="field" style="margin:0">
+            <label>Ticker (vazio = todos)</label>
+            <input id="bf-ticker" placeholder="WINFUT ou vazio" style="text-transform:uppercase">
+          </div>
+          <div class="field" style="margin:0">
+            <label>Data início</label>
+            <input id="bf-start" placeholder="DD/MM/AAAA" value="02/01/2026">
+          </div>
+          <div class="field" style="margin:0">
+            <label>Data fim</label>
+            <input id="bf-end" placeholder="DD/MM/AAAA" value="">
+          </div>
+          <div class="field" style="margin:0">
+            <label>Timeout (s)</label>
+            <input id="bf-timeout" type="number" value="300">
+          </div>
+          <button class="btn btn-gold" onclick="startBackfill()" style="height:34px;margin-top:0">
+            ▶ Iniciar
+          </button>
+        </div>
+
+        <!-- Progress -->
+        <div id="bf-progress-wrap" style="display:none">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
+            <span id="bf-progress-label">Aguardando...</span>
+            <span id="bf-progress-pct">0%</span>
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-bar" id="bf-progress-bar"></div>
+          </div>
+        </div>
+
+        <!-- Log -->
+        <div class="log-box" id="bf-log" style="display:none"></div>
+
+        <!-- Resultado final -->
+        <div id="bf-result" style="display:none;margin-top:12px;padding:10px;
+          background:#080c14;border:1px solid var(--border);border-radius:5px;font-size:12px"></div>
+      </div>
+
+      <!-- Tickers configurados para backfill -->
+      <div style="margin-top:24px">
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px">
+          Tickers configurados
+        </div>
+        <div class="ticker-grid" id="bf-tickers-grid">
+          <span class="empty">Carregando...</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /layout -->
+
 <script>
+const PA = 'http://localhost:8002';
 const API = '/api/v1';
 let _token = localStorage.getItem('fa_token') || '';
 const H = () => ({Authorization:'Bearer '+_token,'Content-Type':'application/json'});
 
-async function load() {
-  const r = await fetch(API+'/tickers/subscriptions', {headers:H()});
-  if (!r.ok) { document.getElementById('grid-stock').innerHTML='<p style="color:var(--red)">Erro ao carregar</p>'; return; }
-  const d = await r.json();
-  const grids = {future:[],stock:[],fii:[],other:[]};
-  (d.tickers||[]).forEach(t => {
-    const type = t.ticker_type || 'other';
-    const key = ['future','stock','fii'].includes(type) ? type : 'other';
-    grids[key].push(t);
+// ── NAV ───────────────────────────────────────────────────────────────────
+const SECTIONS = ['rt-api','pa-rt','pa-hist','pa-add','pa-backfill'];
+function showSection(name) {
+  SECTIONS.forEach(s => {
+    document.getElementById('sec-'+s).style.display = s===name ? '' : 'none';
   });
-  Object.entries(grids).forEach(([type,tickers]) => {
-    document.getElementById('grid-'+type).innerHTML = tickers.length
-      ? tickers.map(t => cardHTML(t)).join('')
-      : '<span style="color:var(--muted);font-size:15px">Nenhum</span>';
-  });
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  event?.currentTarget?.classList.add('active');
+  if (name==='pa-rt')       loadPaRt();
+  if (name==='pa-hist')     loadPaHist();
+  if (name==='pa-backfill') { loadPaHist(); loadBfTickers(); }
 }
 
-function cardHTML(t) {
+// ── STATUS AGENT ──────────────────────────────────────────────────────────
+async function checkAgent() {
+  try {
+    const s = await fetch(PA+'/status').then(r=>r.json());
+    const dot = document.getElementById('agent-dot');
+    const lbl = document.getElementById('agent-status');
+    if (s.market_connected) {
+      dot.className = 'agent-dot on';
+      lbl.textContent = '● agente online';
+      lbl.style.color = 'var(--green)';
+      document.getElementById('stat-ticks').textContent = (s.total_ticks||0).toLocaleString('pt-BR');
+    } else {
+      dot.className = 'agent-dot';
+      lbl.textContent = '○ agente offline';
+      lbl.style.color = 'var(--red)';
+    }
+  } catch {
+    document.getElementById('agent-status').textContent = '○ offline :8002';
+    document.getElementById('agent-status').style.color = 'var(--red)';
+  }
+}
+
+// ── FASTAPI TICKERS ───────────────────────────────────────────────────────
+async function loadApiTickers() {
+  try {
+    const r = await fetch(API+'/tickers/subscriptions', {headers:H()});
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    const d = await r.json();
+    const grids = {future:[],stock:[],fii:[],other:[]};
+    (d.tickers||[]).forEach(t => {
+      const type = t.ticker_type||'other';
+      const key = ['future','stock','fii'].includes(type)?type:'other';
+      grids[key].push(t);
+    });
+    let total = 0;
+    Object.entries(grids).forEach(([type,tickers]) => {
+      total += tickers.length;
+      document.getElementById('grid-'+type).innerHTML = tickers.length
+        ? tickers.map(t => apiCardHTML(t)).join('')
+        : '<span class="empty">Nenhum</span>';
+    });
+    document.getElementById('stat-rt-api').textContent = total;
+  } catch(e) {
+    document.getElementById('grid-stock').innerHTML =
+      '<span style="color:var(--red);font-size:12px">Erro ao carregar: '+e.message+'</span>';
+  }
+}
+
+function apiCardHTML(t) {
   const on = t.profit_subscribed;
-  const exch = t.profit_exchange || t.exchange || 'B';
+  const exch = t.profit_exchange||t.exchange||'B';
   return `<div class="ticker-card ${on?'active':''}" id="card-${t.ticker}">
     <div class="ticker-info">
       <span class="ticker-name">${t.ticker}</span>
-      <span class="ticker-type">${t.ticker_type||''}</span>
-      <span class="ticker-exch">Exchange: ${exch}</span>    </div>
-    <span class="${on?'badge-on':'badge-off'}" onclick="toggle('${t.ticker}','${exch}',${!on})">
-      <span class="dot ${on?'on':'off'}"></span>
-      ${on?'ATIVO':'INATIVO'}</span>  </div>`;
+      <span class="ticker-sub">${t.ticker_type||''} · ${exch}</span>
+    </div>
+    <span class="${on?'badge-on':'badge-off'}" onclick="toggleApi('${t.ticker}','${exch}',${!on})">
+      <span class="dot ${on?'on':'off'}"></span>${on?'ON':'OFF'}
+    </span></div>`;
 }
 
-async function toggle(ticker, exchange, subscribe) {
-  const r = await fetch(API+'/tickers/subscriptions/'+ticker, {
-    method:'POST', headers:H(),
-    body: JSON.stringify({subscribed:subscribe, exchange})
-  });
-  if (r.ok) { toast(ticker+' '+(subscribe?'subscrito':'removido')); load(); }
+async function toggleApi(ticker, exchange, subscribe) {
+  const r = await fetch(API+'/tickers/subscriptions/'+ticker,
+    {method:'POST',headers:H(),body:JSON.stringify({subscribed:subscribe,exchange})});
+  if (r.ok) { toast(ticker+' '+(subscribe?'subscrito':'removido')); loadApiTickers(); }
+  else toast('Erro ao atualizar','err');
 }
 
-async function addTicker() {
+async function addApiTicker() {
   const ticker = document.getElementById('new-ticker').value.trim().toUpperCase();
   const exchange = document.getElementById('new-exch').value;
   if (!ticker) return;
-  await toggle(ticker, exchange, true);
+  await toggleApi(ticker, exchange, true);
   document.getElementById('new-ticker').value = '';
 }
 
-async function checkAgent() {
-  try {
-    const r = await fetch(API+'/marketdata/status');
-    const d = await r.json();
-    const el = document.getElementById('agent-status');
-    el.textContent = d.market_connected ? '● AGENTE CONECTADO' : '○ AGENTE OFFLINE';
-    el.style.color = d.market_connected ? 'var(--green)' : 'var(--red)';
-  } catch { document.getElementById('agent-status').textContent = '○ AGENTE OFFLINE'; }
-}
-
-function toast(msg) {
-  const t = document.createElement('div');
-  t.className = 'toast'; t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 3000);
-}
-
-// Init
-const saved = localStorage.getItem('fa_token');
-if (saved) _token = saved;
-load();
-checkAgent();
-setInterval(checkAgent, 10000);
-</script>
-<!-- ═══ PROFIT AGENT TICKERS (adicionado) ══════════════════════════════ -->
-<div class="section" style="margin-top:40px;border-top:1px solid var(--border);padding-top:28px">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
-    <div class="section-title" style="margin:0;border:none">
-      PROFIT AGENT — TICKERS
-      <span id="pa-status" style="font-size:13px;margin-left:12px;color:var(--muted)">verificando...</span>
-    </div>
-    <div style="display:flex;gap:6px">
-      <button class="btn" id="pa-tab-rt"
-        style="background:rgba(58,191,248,.2);color:var(--blue);border:1px solid rgba(58,191,248,.3);padding:5px 12px;font-size:14px"
-        onclick="paSwitchTab('rt')">Real-time</button>
-      <button class="btn" id="pa-tab-hist"
-        style="background:transparent;color:var(--muted);border:1px solid var(--border);padding:5px 12px;font-size:14px"
-        onclick="paSwitchTab('hist')">Histórico</button>
-      <button class="btn" id="pa-tab-add"
-        style="background:rgba(46,212,122,.12);color:var(--green);border:1px solid rgba(46,212,122,.3);padding:5px 12px;font-size:14px"
-        onclick="paSwitchTab('add')">+ Adicionar</button>
-    </div>
-  </div>
-
-  <!-- Real-time -->
-  <div id="pa-panel-rt">
-    <div class="ticker-grid" id="pa-rt-grid">
-      <span style="color:var(--muted);font-size:15px">Carregando...</span>
-    </div>
-  </div>
-
-  <!-- Histórico -->
-  <div id="pa-panel-hist" style="display:none">
-    <div class="ticker-grid" id="pa-hist-grid">
-      <span style="color:var(--muted);font-size:15px">Carregando...</span>
-    </div>
-  </div>
-
-  <!-- Adicionar -->
-  <div id="pa-panel-add" style="display:none">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-
-      <!-- Real-time form -->
-      <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:18px">
-        <div class="section-title" style="margin-bottom:14px">Real-time</div>
-        <div style="display:flex;flex-direction:column;gap:10px">
-          <input id="pa-rt-ticker" placeholder="Ticker (ex: PETR4)" maxlength="10"
-            style="background:#0a0e1a;border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:15px;outline:none">
-          <select id="pa-rt-exch"
-            style="background:#0a0e1a;border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:15px">
-            <option value="B">B — Bovespa/B3</option>
-            <option value="F">F — Futuros</option>
-          </select>
-          <input id="pa-rt-notes" placeholder="Notas (opcional)"
-            style="background:#0a0e1a;border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:15px;outline:none">
-          <input id="pa-rt-priority" type="number" value="5" placeholder="Prioridade"
-            style="background:#0a0e1a;border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:15px;outline:none">
-          <button class="btn btn-green" style="font-size:15px" onclick="paAddRt()">+ Salvar Real-time</button>
-        </div>
-      </div>
-
-      <!-- Histórico form -->
-      <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:18px">
-        <div class="section-title" style="margin-bottom:14px">Histórico</div>
-        <div style="display:flex;flex-direction:column;gap:10px">
-          <input id="pa-hist-ticker" placeholder="Ticker (ex: WINFUT)" maxlength="10"
-            style="background:#0a0e1a;border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:15px;outline:none">
-          <select id="pa-hist-exch"
-            style="background:#0a0e1a;border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:15px">
-            <option value="B">B — Bovespa/B3</option>
-            <option value="F">F — Futuros</option>
-          </select>
-          <input id="pa-hist-from" placeholder="Desde (DD/MM/AAAA)"
-            style="background:#0a0e1a;border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:15px;outline:none">
-          <input id="pa-hist-notes" placeholder="Notas (opcional)"
-            style="background:#0a0e1a;border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:15px;outline:none">
-          <button class="btn btn-green" style="font-size:15px" onclick="paAddHist()">+ Salvar Histórico</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-const PA = 'http://localhost:8002';
-
-// Status do agent
-(async () => {
-  const el = document.getElementById('pa-status');
-  try {
-    const r = await fetch(PA + '/status');
-    const d = await r.json();
-    el.textContent = d.market_connected ? '● conectado' : '○ desconectado';
-    el.style.color = d.market_connected ? 'var(--green)' : 'var(--red)';
-  } catch {
-    el.textContent = '○ offline (porta 8002)';
-    el.style.color = 'var(--red)';
-  }
-})();
-
-// Switch de abas
-function paSwitchTab(tab) {
-  ['rt','hist','add'].forEach(t => {
-    document.getElementById('pa-panel-'+t).style.display = t===tab ? '' : 'none';
-    const btn = document.getElementById('pa-tab-'+t);
-    if (t === tab) {
-      btn.style.background = t==='add' ? 'rgba(46,212,122,.25)' : 'rgba(58,191,248,.25)';
-      btn.style.color = t==='add' ? 'var(--green)' : 'var(--blue)';
-    } else {
-      btn.style.background = 'transparent';
-      btn.style.color = 'var(--muted)';
-    }
-  });
-  if (tab === 'rt')   paLoadRt();
-  if (tab === 'hist') paLoadHist();
-}
-
-// Carrega real-time
-async function paLoadRt() {
+// ── PROFIT AGENT REAL-TIME ────────────────────────────────────────────────
+async function loadPaRt() {
   const grid = document.getElementById('pa-rt-grid');
-  grid.innerHTML = '<span style="color:var(--muted)">Carregando...</span>';
   try {
     const d = await fetch(PA+'/tickers').then(r=>r.json());
-    if (!d.tickers?.length) { grid.innerHTML='<span style="color:var(--muted)">Nenhum ticker cadastrado</span>'; return; }
-    grid.innerHTML = d.tickers.map(t => `
-      <div class="ticker-card ${t.active?'active':''}">
-        <div class="ticker-info">
-          <span class="ticker-name">${t.ticker}</span>
-          <span class="ticker-exch">Exchange: ${t.exchange}</span>
-          <span class="ticker-type">${t.notes||''}</span>
-        </div>
-        <span class="${t.active?'badge-on':'badge-off'}" onclick="paToggleRt('${t.ticker}','${t.exchange}',${!t.active})">
-          <span class="dot ${t.active?'on':'off'}"></span>
-          ${t.active?'ATIVO':'INATIVO'}
-        </span>
-      </div>`).join('');
-  } catch(e) { grid.innerHTML='<span style="color:var(--red)">Erro: '+e.message+'</span>'; }
-}
-
-// Carrega histórico
-async function paLoadHist() {
-  const grid = document.getElementById('pa-hist-grid');
-  grid.innerHTML = '<span style="color:var(--muted)">Carregando...</span>';
-  try {
-    const d = await fetch(PA+'/history/tickers').then(r=>r.json());
-    if (!d.tickers?.length) { grid.innerHTML='<span style="color:var(--muted)">Nenhum ticker configurado</span>'; return; }
-    grid.innerHTML = d.tickers.map(t => {
-      const lastAt = t.last_collected_at ? new Date(t.last_collected_at).toLocaleDateString('pt-BR') : '—';
-      const ticks  = t.last_tick_count   ? Number(t.last_tick_count).toLocaleString('pt-BR')        : '—';
-      return `
+    document.getElementById('stat-pa-rt').textContent = d.tickers?.filter(t=>t.active).length||0;
+    grid.innerHTML = d.tickers?.length
+      ? d.tickers.map(t => `
         <div class="ticker-card ${t.active?'active':''}">
           <div class="ticker-info">
             <span class="ticker-name">${t.ticker}</span>
-            <span class="ticker-exch">Exchange: ${t.exchange}</span>
-            <span class="ticker-type" style="color:var(--gold)">${ticks} ticks · ${lastAt}</span>
+            <span class="ticker-sub">${t.exchange} · p${t.priority||0}</span>
+            <span class="ticker-sub">${t.notes||''}</span>
           </div>
-          <span class="${t.active?'badge-on':'badge-off'}" onclick="paToggleHist('${t.ticker}','${t.exchange}',${!t.active})">
-            <span class="dot ${t.active?'on':'off'}"></span>
-            ${t.active?'ATIVO':'INATIVO'}
-          </span>
-        </div>`;
-    }).join('');
-  } catch(e) { grid.innerHTML='<span style="color:var(--red)">Erro: '+e.message+'</span>'; }
+          <span class="${t.active?'badge-on':'badge-off'}" onclick="togglePaRt('${t.ticker}','${t.exchange}',${!t.active})">
+            <span class="dot ${t.active?'on':'off'}"></span>${t.active?'ON':'OFF'}
+          </span></div>`).join('')
+      : '<span class="empty">Nenhum ticker cadastrado</span>';
+  } catch(e) {
+    grid.innerHTML = '<span style="color:var(--red);font-size:12px">Agent offline: '+e.message+'</span>';
+  }
 }
 
-// Toggles
-async function paToggleRt(ticker, exchange, active) {
-  const r = await fetch(PA+'/tickers/toggle',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({ticker,exchange,active})}).then(r=>r.json()).catch(e=>({ok:false,error:e.message}));
-  if (r.ok) { toast(ticker+' '+(active?'ativado':'pausado')); paLoadRt(); }
-  else toast('Erro: '+(r.error||JSON.stringify(r)));
+async function togglePaRt(ticker, exchange, active) {
+  const r = await fetch(PA+'/tickers/toggle',
+    {method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({ticker,exchange,active})}).then(r=>r.json());
+  if (r.ok) { toast(ticker+' '+(active?'ativado':'pausado')); loadPaRt(); }
+  else toast('Erro: '+JSON.stringify(r),'err');
 }
 
-async function paToggleHist(ticker, exchange, active) {
-  const r = await fetch(PA+'/history/tickers/toggle',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({ticker,exchange,active})}).then(r=>r.json()).catch(e=>({ok:false,error:e.message}));
+// ── PROFIT AGENT HISTÓRICO ────────────────────────────────────────────────
+async function loadPaHist() {
+  const grid = document.getElementById('pa-hist-grid');
+  try {
+    const d = await fetch(PA+'/history/tickers').then(r=>r.json());
+    document.getElementById('stat-pa-hist').textContent = d.tickers?.filter(t=>t.active).length||0;
+    grid.innerHTML = d.tickers?.length
+      ? d.tickers.map(t => {
+          const lastAt = t.last_collected_at
+            ? new Date(t.last_collected_at).toLocaleDateString('pt-BR') : '—';
+          const ticks = t.last_tick_count
+            ? Number(t.last_tick_count).toLocaleString('pt-BR') : '—';
+          return `<div class="ticker-card ${t.active?'active':''}">
+            <div class="ticker-info">
+              <span class="ticker-name">${t.ticker}</span>
+              <span class="ticker-sub">${t.exchange} · ${t.notes||''}</span>
+              <span class="ticker-gold">${ticks} tks · ${lastAt}</span>
+            </div>
+            <span class="${t.active?'badge-on':'badge-off'}" onclick="togglePaHist('${t.ticker}','${t.exchange}',${!t.active})">
+              <span class="dot ${t.active?'on':'off'}"></span>${t.active?'ON':'OFF'}
+            </span></div>`;
+        }).join('')
+      : '<span class="empty">Nenhum ticker configurado</span>';
+  } catch(e) {
+    grid.innerHTML = '<span style="color:var(--red);font-size:12px">Erro: '+e.message+'</span>';
+  }
+}
+
+async function togglePaHist(ticker, exchange, active) {
+  await fetch(PA+'/history/tickers/toggle',
+    {method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({ticker,exchange,active})}).then(r=>r.json());
   toast(ticker+' histórico '+(active?'ativado':'pausado'));
-  paLoadHist();
+  loadPaHist();
 }
 
-// Adicionar
-async function paAddRt() {
+// ── ADICIONAR ─────────────────────────────────────────────────────────────
+async function addPaRt() {
   const ticker   = document.getElementById('pa-rt-ticker').value.trim().toUpperCase();
   const exchange = document.getElementById('pa-rt-exch').value;
-  const notes    = document.getElementById('pa-rt-notes').value.trim();
   const priority = parseInt(document.getElementById('pa-rt-priority').value)||5;
-  if (!ticker) { toast('Digite o ticker'); return; }
-  const r = await fetch(PA+'/tickers/add',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({ticker,exchange,active:true,subscribe_book:false,priority,notes})}).then(r=>r.json());
-  if (r.ok) { toast(ticker+':'+exchange+' adicionado!'); document.getElementById('pa-rt-ticker').value=''; paLoadRt(); }
-  else toast('Erro: '+JSON.stringify(r));
+  const notes    = document.getElementById('pa-rt-notes').value.trim();
+  const active   = document.getElementById('pa-rt-active').checked;
+  if (!ticker) { toast('Digite o ticker','err'); return; }
+  const r = await fetch(PA+'/tickers/add',
+    {method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({ticker,exchange,active,subscribe_book:false,priority,notes})}).then(r=>r.json());
+  if (r.ok) {
+    toast(ticker+':'+exchange+' salvo!');
+    document.getElementById('pa-rt-ticker').value='';
+    document.getElementById('stat-pa-rt').textContent = '...';
+  } else toast('Erro: '+JSON.stringify(r),'err');
 }
 
-async function paAddHist() {
+async function addPaHist() {
   const ticker   = document.getElementById('pa-hist-ticker').value.trim().toUpperCase();
   const exchange = document.getElementById('pa-hist-exch').value;
   const notes    = document.getElementById('pa-hist-notes').value.trim();
+  const active   = document.getElementById('pa-hist-active').checked;
   const fromRaw  = document.getElementById('pa-hist-from').value.trim();
-  if (!ticker) { toast('Digite o ticker'); return; }
+  if (!ticker) { toast('Digite o ticker','err'); return; }
   let collect_from = '2026-01-01 09:00:00';
   if (fromRaw) {
     const p = fromRaw.split('/');
-    if (p.length===3) collect_from = `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')} 09:00:00`;
+    if (p.length===3) collect_from=`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')} 09:00:00`;
   }
-  const r = await fetch(PA+'/history/tickers/add',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({ticker,exchange,active:true,collect_from,notes})}).then(r=>r.json());
-  toast(ticker+':'+exchange+' histórico adicionado!');
+  const r = await fetch(PA+'/history/tickers/add',
+    {method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({ticker,exchange,active,collect_from,notes})}).then(r=>r.json());
+  toast(ticker+':'+exchange+' histórico salvo!');
   document.getElementById('pa-hist-ticker').value='';
-  paLoadHist();
 }
 
-// Inicializa aba real-time
-paLoadRt();
-</script>
+// ── BACKFILL ──────────────────────────────────────────────────────────────
+let bfRunning = false;
 
-</body></html>
+function loadBfTickers() {
+  loadPaHist(); // reutiliza
+  fetch(PA+'/history/tickers').then(r=>r.json()).then(d => {
+    const grid = document.getElementById('bf-tickers-grid');
+    grid.innerHTML = d.tickers?.length
+      ? d.tickers.map(t => `
+        <div class="ticker-card ${t.active?'active':''}">
+          <div class="ticker-info">
+            <span class="ticker-name">${t.ticker}</span>
+            <span class="ticker-sub">${t.exchange} · ${t.active?'incluído no backfill':'excluído'}</span>
+            <span class="ticker-gold">${t.last_tick_count
+              ? Number(t.last_tick_count).toLocaleString('pt-BR')+' tks' : 'sem dados'}</span>
+          </div>
+          <span class="${t.active?'badge-on':'badge-off'}" onclick="togglePaHist('${t.ticker}','${t.exchange}',${!t.active});loadBfTickers()">
+            <span class="dot ${t.active?'on':'off'}"></span>${t.active?'ON':'OFF'}
+          </span></div>`).join('')
+      : '<span class="empty">Nenhum ticker configurado</span>';
+  }).catch(() => {
+    document.getElementById('bf-tickers-grid').innerHTML =
+      '<span style="color:var(--red);font-size:12px">Agent offline</span>';
+  });
+}
+
+function bfLog(msg, type='') {
+  const box = document.getElementById('bf-log');
+  box.style.display = '';
+  const cls = {ok:'log-ok',warn:'log-warn',err:'log-err'}[type]||'';
+  const line = document.createElement('div');
+  line.className = cls;
+  line.textContent = '['+new Date().toLocaleTimeString('pt-BR')+'] '+msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+async function startBackfill() {
+  if (bfRunning) { toast('Backfill já em andamento','err'); return; }
+
+  const tickerFilter = document.getElementById('bf-ticker').value.trim().toUpperCase();
+  const startRaw     = document.getElementById('bf-start').value.trim();
+  const endRaw       = document.getElementById('bf-end').value.trim() ||
+    new Date().toLocaleDateString('pt-BR');
+  const timeout      = parseInt(document.getElementById('bf-timeout').value)||300;
+
+  // Converte DD/MM/AAAA → datas JS
+  const parseDate = s => {
+    const [d,m,y] = s.split('/');
+    return new Date(+y, +m-1, +d);
+  };
+  const fmtDt = d =>
+    `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+
+  // Busca tickers ativos
+  let tickers;
+  try {
+    const d = await fetch(PA+'/history/tickers').then(r=>r.json());
+    tickers = (d.tickers||[]).filter(t => t.active &&
+      (!tickerFilter || t.ticker===tickerFilter));
+  } catch(e) { toast('Agent offline','err'); return; }
+
+  if (!tickers.length) { toast('Nenhum ticker ativo','err'); return; }
+
+  // Pregões: seg–sex
+  const start = parseDate(startRaw);
+  const end   = parseDate(endRaw);
+  const feriados = new Set(['2026-01-01','2026-02-16','2026-02-17','2026-04-10','2026-04-21',
+    '2026-05-01','2026-06-04','2026-09-07','2026-10-12','2026-11-02','2026-11-15','2026-11-20',
+    '2026-12-25']);
+  const pregoes = [];
+  for (let d=new Date(start); d<=end; d.setDate(d.getDate()+1)) {
+    if (d.getDay()===0||d.getDay()===6) continue;
+    const key = d.toISOString().slice(0,10);
+    if (feriados.has(key)) continue;
+    pregoes.push(new Date(d));
+  }
+
+  const total = tickers.length * pregoes.length;
+  let done = 0;
+
+  // UI
+  bfRunning = true;
+  document.getElementById('bf-progress-wrap').style.display='';
+  document.getElementById('bf-log').innerHTML='';
+  document.getElementById('bf-result').style.display='none';
+  bfLog(`Iniciando: ${tickers.length} ticker(s) × ${pregoes.length} pregões = ${total} chamadas`);
+
+  const FUT_EX = new Set(['F']);
+  let totalTicks=0, erros=0;
+
+  for (const t of tickers) {
+    bfLog(`\n▶ ${t.ticker}:${t.exchange}`, 'ok');
+    const tOut = FUT_EX.has(t.exchange) ? Math.max(timeout, 1200) : timeout;
+
+    for (const d of pregoes) {
+      done++;
+      const pct = Math.round(done/total*100);
+      document.getElementById('bf-progress-bar').style.width = pct+'%';
+      document.getElementById('bf-progress-pct').textContent = pct+'%';
+      document.getElementById('bf-progress-label').textContent =
+        `${t.ticker} · ${fmtDt(d)} (${done}/${total})`;
+
+      const dtStart = fmtDt(d)+' 09:00:00';
+      const dtEnd   = fmtDt(d)+' 18:00:00';
+
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(()=>ctrl.abort(), (tOut+30)*1000);
+        const r = await fetch(PA+'/collect_history',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ticker:t.ticker,exchange:t.exchange,
+            dt_start:dtStart,dt_end:dtEnd,timeout:tOut}),
+          signal:ctrl.signal
+        }).then(r=>r.json());
+        clearTimeout(timer);
+
+        const tks = r.ticks||0;
+        totalTicks += tks;
+        if (tks>0||r.status==='ok') {
+          bfLog(`  ${fmtDt(d)} — ${tks.toLocaleString('pt-BR')} tks / ${r.inserted||0} inseridos`,'ok');
+        } else {
+          bfLog(`  ${fmtDt(d)} — ${r.error||r.status||'sem dados'}`,'warn');
+        }
+      } catch(e) {
+        erros++;
+        bfLog(`  ${fmtDt(d)} — ERRO: ${e.message}`,'err');
+      }
+
+      // delay 1s entre chamadas
+      await new Promise(res=>setTimeout(res,1000));
+    }
+  }
+
+  bfRunning = false;
+  document.getElementById('bf-progress-label').textContent = 'Concluído!';
+  document.getElementById('bf-progress-pct').textContent = '100%';
+  document.getElementById('bf-progress-bar').style.width='100%';
+
+  const res = document.getElementById('bf-result');
+  res.style.display='';
+  res.innerHTML = `<span style="color:var(--green);font-weight:700">✓ Backfill concluído</span><br>
+    Total ticks: <strong>${totalTicks.toLocaleString('pt-BR')}</strong> ·
+    Erros: <strong style="color:${erros>0?'var(--red)':'var(--muted)'}">${erros}</strong>`;
+  bfLog(`\n✓ Concluído! ${totalTicks.toLocaleString('pt-BR')} ticks · ${erros} erros`,'ok');
+  toast('Backfill concluído!');
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────
+function toast(msg, type='ok') {
+  const t = document.createElement('div');
+  t.className = 'toast '+type; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 3000);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+const saved = localStorage.getItem('fa_token');
+if (saved) _token = saved;
+
+// Preenche data fim com hoje
+document.getElementById('bf-end').value = new Date().toLocaleDateString('pt-BR');
+
+checkAgent();
+loadApiTickers();
+setInterval(checkAgent, 15000);
+</script>
+</body>
+</html>
