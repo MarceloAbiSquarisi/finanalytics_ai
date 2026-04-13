@@ -107,7 +107,7 @@ async def get_candles(
         rows = await conn.fetch(f"""
             WITH combined AS (
                 -- Dados históricos
-                SELECT trade_date AS ts_raw, price, quantity
+                SELECT trade_date AS ts_raw, price * 100 AS price, quantity
                 FROM market_history_trades
                 WHERE ticker = $1
 
@@ -331,3 +331,4 @@ async def sse_ticks(
 
     return StreamingResponse(gen(), media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
