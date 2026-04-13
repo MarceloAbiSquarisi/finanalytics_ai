@@ -3813,13 +3813,13 @@ class ProfitAgent:
 
                 SELECT ticker, exchange,
 
-                    SUM(CASE WHEN order_side = 1 THEN filled_qty
+                    SUM(CASE WHEN order_side = 1 THEN traded_qty
 
-                             WHEN order_side = 2 THEN -filled_qty ELSE 0 END) AS net_qty,
+                             WHEN order_side = 2 THEN -traded_qty ELSE 0 END) AS net_qty,
 
-                    SUM(CASE WHEN order_side = 1 THEN filled_qty * COALESCE(avg_fill_price,0)
+                    SUM(CASE WHEN order_side = 1 THEN traded_qty * COALESCE(avg_price,0)
 
-                             WHEN order_side = 2 THEN -filled_qty * COALESCE(avg_fill_price,0)
+                             WHEN order_side = 2 THEN -traded_qty * COALESCE(avg_price,0)
 
                              ELSE 0 END) AS financial_exposure
 
@@ -3829,9 +3829,9 @@ class ProfitAgent:
 
                 GROUP BY ticker, exchange
 
-                HAVING SUM(CASE WHEN order_side = 1 THEN filled_qty
+                HAVING SUM(CASE WHEN order_side = 1 THEN traded_qty
 
-                                WHEN order_side = 2 THEN -filled_qty ELSE 0 END) != 0
+                                WHEN order_side = 2 THEN -traded_qty ELSE 0 END) != 0
 
                 ORDER BY ticker
 
@@ -4973,7 +4973,7 @@ class ProfitAgent:
 
                     self._send_json({"tickers": tickers, "count": len(tickers)})
 
-                elif self.path == "/orders":
+                elif self.path.startswith("/orders"):
 
                     from urllib.parse import urlparse, parse_qs
 
@@ -5497,6 +5497,9 @@ def main() -> None:
 if __name__ == "__main__":
 
     main()
+
+
+
 
 
 

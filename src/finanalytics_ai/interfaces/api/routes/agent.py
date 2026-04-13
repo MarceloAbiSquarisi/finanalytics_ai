@@ -83,7 +83,7 @@ async def agent_orders(
     limit: int = Query(100, ge=1, le=500),
 ):
     """Lista ordens com filtros opcionais."""
-    return await _get("/orders", {"env": env, "limit": limit})
+    return await _get("/orders", {"limit": limit})
 
 
 @router.post("/order/send", tags=["Agent"])
@@ -246,5 +246,6 @@ async def agent_ticks(
 ):
     """Últimos ticks em memória do agent para o ticker."""
     return await _get(f"/ticks/{ticker.upper()}", {"limit": limit})
+
 
 
