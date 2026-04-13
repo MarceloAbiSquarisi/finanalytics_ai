@@ -1013,11 +1013,11 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     <div class="trade-box" style="padding-bottom:10px">
 
       <!-- Abas principais -->
-      <div style="display:flex;gap:4px;margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:8px">
-        <button id="dttab-order" class="ttab buy active" style="font-size:12px;padding:4px 10px" onclick="dtTab('order')">Ordem</button>
-        <button id="dttab-oco"   class="ttab"            style="font-size:12px;padding:4px 10px" onclick="dtTab('oco')">OCO</button>
-        <button id="dttab-pos"   class="ttab"            style="font-size:12px;padding:4px 10px" onclick="dtTab('pos')">Posição</button>
-        <button id="dttab-list"  class="ttab"            style="font-size:12px;padding:4px 10px" onclick="dtTab('list')">Ordens</button>
+      <div style="display:flex;gap:3px;margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:8px">
+        <button id="dttab-order" class="ttab buy active" style="flex:1;font-size:11px;padding:4px 2px;text-align:center" onclick="dtTab('order')">Ordem</button>
+        <button id="dttab-oco"   class="ttab"            style="flex:1;font-size:11px;padding:4px 2px;text-align:center" onclick="dtTab('oco')">OCO</button>
+        <button id="dttab-pos"   class="ttab"            style="flex:1;font-size:11px;padding:4px 2px;text-align:center" onclick="dtTab('pos')">Pos.</button>
+        <button id="dttab-list"  class="ttab"            style="flex:1;font-size:11px;padding:4px 2px;text-align:center" onclick="dtTab('list')">Ordens</button>
       </div>
 
       <!-- ── ABA ORDEM ─────────────────────────────────────────────── -->
@@ -3509,6 +3509,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <script>
 function faOptToggle(btn){var s=document.getElementById('opt-submenu');btn.classList.toggle('open');s.classList.toggle('open');}
 </script>
+
 
 
 
