@@ -822,6 +822,13 @@ def create_app() -> FastAPI:
     except Exception as _sfe:
         logger.warning("screener_fintz.route.FAILED", error=str(_sfe))
     app.include_router(ml_routes.router, tags=["ML Probabilistico"])
+    try:
+        from finanalytics_ai.interfaces.api.routes import agent as agent_routes
+        app.include_router(agent_routes.router, tags=["Agent"])
+        logger.info("agent.route.registered")
+    except Exception as _are:
+        logger.warning("agent.route.FAILED", error=str(_are))
+
     app.include_router(marketdata_routes.router, prefix="/api/v1/marketdata", tags=["Market Data"])
     app.include_router(anomaly.router, tags=["Anomaly"])
     app.include_router(reports.router, tags=["Reports"])
@@ -1101,5 +1108,6 @@ def create_app() -> FastAPI:
         return _html("tickers.html")
 
     return app
+
 
 
