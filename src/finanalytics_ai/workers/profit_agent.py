@@ -2850,10 +2850,7 @@ class ProfitAgent:
                     "cl_ord_id": cl_ord,
 
                     "order_status": 0,   # confirmado pela corretora
-                    "traded_qty": traded_qty,
-                    "leaves_qty": leaves_qty,
-                    "avg_price": avg_price,   # new - corretora confirmou
-
+                                                            
                 })
 
             except queue.Full:
@@ -3810,13 +3807,13 @@ class ProfitAgent:
 
                 SELECT ticker, exchange,
 
-                    SUM(CASE WHEN order_side = 1 THEN traded_qty
+                    SUM(CASE WHEN order_side = 1 THEN filled_qty
 
-                             WHEN order_side = 2 THEN -traded_qty ELSE 0 END) AS net_qty,
+                             WHEN order_side = 2 THEN -filled_qty ELSE 0 END) AS net_qty,
 
-                    SUM(CASE WHEN order_side = 1 THEN traded_qty * COALESCE(avg_price,0)
+                    SUM(CASE WHEN order_side = 1 THEN filled_qty * COALESCE(avg_fill_price,0)
 
-                             WHEN order_side = 2 THEN -traded_qty * COALESCE(avg_price,0)
+                             WHEN order_side = 2 THEN -filled_qty * COALESCE(avg_fill_price,0)
 
                              ELSE 0 END) AS financial_exposure
 
@@ -3826,9 +3823,9 @@ class ProfitAgent:
 
                 GROUP BY ticker, exchange
 
-                HAVING SUM(CASE WHEN order_side = 1 THEN traded_qty
+                HAVING SUM(CASE WHEN order_side = 1 THEN filled_qty
 
-                                WHEN order_side = 2 THEN -traded_qty ELSE 0 END) != 0
+                                WHEN order_side = 2 THEN -filled_qty ELSE 0 END) != 0
 
                 ORDER BY ticker
 
@@ -3867,83 +3864,151 @@ class ProfitAgent:
 
     def get_positions_dll(self, env: str = "simulation") -> dict:
         """
-        Posição via banco de dados (ordens executadas + abertas).
-        EnumerateOrders não disponível nesta versão da DLL.
-        Usa traded_qty e avg_price das ordens persistidas.
+        Consulta ordens via EnumerateAllOrders com assinatura correta (manual pág. 46):
+          a_AccountID:    POINTER(TConnectorAccountIdentifier)  ← struct pointer, NÃO int/str!
+          a_OrderVersion: c_ubyte (0 = versão básica TConnectorOrder)
+          a_Param:        c_long  (user data repassado ao callback)
+          a_Callback:     TConnectorEnumerateOrdersProc
+
+        A função É SÍNCRONA — retorna após todos os callbacks.
+        Callbacks rodam na ConnectorThread (thread separada da DLL).
         """
-        if self._db is None or self._db._conn is None:
-            return {"positions": [], "error": "DB indisponivel", "source": "db"}
+        if not self._dll:
+            return {"orders": [], "positions": [], "error": "DLL nao inicializada"}
+
+        broker_id, account_id, sub_id, routing_pass = self._get_account(env)
+        if not account_id:
+            return {"orders": [], "positions": [], "error": f"Conta {env} nao configurada"}
+
+        orders_found    = []
+        positions_found = []
+
+        # Tipos de callback definidos localmente
+        _EnumCbType  = WINFUNCTYPE(c_bool, POINTER(TConnectorOrder), c_long)
+        _PosCbType   = WINFUNCTYPE(None,   POINTER(TConnectorTradingAccountPosition))
+        _HistCbType  = WINFUNCTYPE(None,   c_int, c_int, c_int)
+
+        def _enum_impl(order_ptr, user_data):
+            log.info("enum_orders_cb fired")
+            try:
+                o = order_ptr.contents
+                orders_found.append({
+                    "cl_ord_id":    (o.OrderID.ClOrderID or "").strip(),
+                    "local_id":     o.OrderID.LocalOrderID,
+                    "ticker":       (o.AssetID.Ticker    or "").strip(),
+                    "exchange":     (o.AssetID.Exchange  or "B").strip(),
+                    "order_side":   o.OrderSide,
+                    "order_type":   o.OrderType,
+                    "order_status": o.OrderStatus,
+                    "price":        round(o.Price, 4)       if o.Price       > 0 else None,
+                    "quantity":     o.Quantity,
+                    "traded_qty":   o.TradedQuantity,
+                    "leaves_qty":   o.LeavesQuantity,
+                    "avg_price":    round(o.AveragePrice, 4) if o.AveragePrice > 0 else None,
+                })
+            except Exception as ex:
+                log.warning("enum_orders error: %s", ex)
+            return True  # True = continua, False = para iteração
+
+        def _pos_impl(pos_ptr):
+            try:
+                p = pos_ptr.contents
+                ticker = (p.AssetID.Ticker or "").strip()
+                if ticker:
+                    positions_found.append({
+                        "ticker":               ticker,
+                        "exchange":             (p.AssetID.Exchange or "B").strip(),
+                        "open_qty":             p.OpenQuantity,
+                        "open_avg_price":       round(p.OpenAveragePrice, 4),
+                        "open_side":            p.OpenSide,
+                        "daily_buy_qty":        p.DailyBuyQuantity,
+                        "daily_buy_avg_price":  round(p.DailyAverageBuyPrice, 4),
+                        "daily_sell_qty":       p.DailySellQuantity,
+                        "daily_sell_avg_price": round(p.DailyAverageSellPrice, 4),
+                        "available_qty":        p.DailyQuantityAvailable,
+                        "position_type":        p.PositionType,
+                    })
+            except Exception as ex:
+                log.warning("position_cb error: %s", ex)
+
+        def _hist_impl(broker, count, extra):
+            log.info("order_history_cb broker=%d count=%d extra=%d", broker, count, extra)
+
+        # ── CRÍTICO: mantém callbacks vivos na instância (evita GC) ──────────
+        self._gc_enum_cb = _EnumCbType(_enum_impl)
+        self._gc_pos_cb  = _PosCbType(_pos_impl)
+        self._gc_hist_cb = _HistCbType(_hist_impl)
 
         try:
-            sql = """
-                SELECT
-                    ticker, exchange, order_side, env,
-                    SUM(traded_qty)  AS total_traded,
-                    SUM(CASE WHEN order_side = 1 THEN traded_qty
-                             WHEN order_side = 2 THEN -traded_qty
-                             ELSE 0 END) AS net_qty,
-                    SUM(CASE WHEN order_side = 1 AND traded_qty > 0
-                             THEN traded_qty * COALESCE(avg_price, price)
-                             ELSE 0 END) /
-                    NULLIF(SUM(CASE WHEN order_side = 1 AND traded_qty > 0
-                               THEN traded_qty ELSE 0 END), 0) AS avg_buy_price,
-                    SUM(CASE WHEN order_side = 1 AND leaves_qty > 0
-                             THEN leaves_qty ELSE 0 END) AS pending_buy,
-                    SUM(CASE WHEN order_side = 2 AND leaves_qty > 0
-                             THEN leaves_qty ELSE 0 END) AS pending_sell,
-                    COUNT(*) FILTER (WHERE order_status IN (1,2)) AS filled_orders,
-                    COUNT(*) FILTER (WHERE order_status = 0)      AS open_orders
-                FROM profit_orders
-                WHERE env = %s
-                GROUP BY ticker, exchange, order_side, env
-                ORDER BY ticker
-            """
-            with self._db._lock:
-                cur = self._db._conn.cursor()
-                cur.execute(sql, (env,))
-                cols = [d[0] for d in cur.description]
-                rows = cur.fetchall()
-                cur.close()
+            # Registra callbacks globais opcionais
+            for fn_name, cb in [("SetAssetPositionListCallback", self._gc_pos_cb),
+                                 ("SetOrderHistoryCallback",      self._gc_hist_cb)]:
+                fn = getattr(self._dll, fn_name, None)
+                if fn:
+                    try:
+                        fn.restype = None
+                        fn(cb)
+                        log.info("get_positions_dll %s OK", fn_name)
+                    except Exception as e:
+                        log.warning("get_positions_dll %s: %s", fn_name, e)
 
-            # Agrupa buy e sell por ticker
-            by_ticker: dict = {}
-            for row in rows:
-                r = dict(zip(cols, row))
-                tk = r["ticker"]
-                if tk not in by_ticker:
-                    by_ticker[tk] = {
-                        "ticker": tk,
-                        "exchange": r["exchange"],
-                        "env": env,
-                        "net_qty": 0,
-                        "avg_buy_price": None,
-                        "pending_buy": 0,
-                        "pending_sell": 0,
-                        "filled_orders": 0,
-                        "open_orders": 0,
-                    }
-                p = by_ticker[tk]
-                side = r["order_side"]
-                net = float(r["net_qty"] or 0)
-                p["net_qty"] += net
-                if side == 1 and r["avg_buy_price"]:
-                    p["avg_buy_price"] = float(r["avg_buy_price"])
-                p["pending_buy"]    += int(r["pending_buy"]  or 0)
-                p["pending_sell"]   += int(r["pending_sell"] or 0)
-                p["filled_orders"]  += int(r["filled_orders"] or 0)
-                p["open_orders"]    += int(r["open_orders"]  or 0)
-
-            # Retorna tickers com atividade
-            positions = [
-                p for p in by_ticker.values()
-                if p["net_qty"] != 0 or p["pending_buy"] or p["pending_sell"] or p["open_orders"]
+            # ── Assinatura CORRETA conforme manual pág. 46 ───────────────────
+            # a_AccountID:    POINTER(TConnectorAccountIdentifier)
+            # a_OrderVersion: c_ubyte
+            # a_Param:        c_long  (LPARAM)
+            # a_Callback:     TConnectorEnumerateOrdersProc
+            self._dll.EnumerateAllOrders.argtypes = [
+                POINTER(TConnectorAccountIdentifier),  # a_AccountID: ponteiro para struct
+                c_ubyte,                               # a_OrderVersion: 0 = TConnectorOrder básico
+                c_long,                                # a_Param: user data (repassado ao callback)
+                _EnumCbType,                           # a_Callback
             ]
-            return {"positions": positions, "env": env, "source": "db"}
+            self._dll.EnumerateAllOrders.restype = c_bool
 
+            # Monta a struct de identificação da conta
+            account_id_struct = TConnectorAccountIdentifier(
+                Version=0,
+                BrokerID=broker_id,
+                AccountID=account_id,
+                SubAccountID=sub_id or "",
+                Reserved=0,
+            )
+
+            log.info("EnumerateAllOrders broker=%d account=%s version=0", broker_id, account_id)
+            ok = self._dll.EnumerateAllOrders(
+                byref(account_id_struct),  # a_AccountID: pointer para struct
+                c_ubyte(0),                # a_OrderVersion: 0 = TConnectorOrder
+                c_long(0),                 # a_Param: user data
+                self._gc_enum_cb,          # a_Callback
+            )
+            log.info("EnumerateAllOrders returned ok=%s orders=%d", ok, len(orders_found))
+
+        except AttributeError as e:
+            return {"orders": [], "positions": [], "error": f"EnumerateAllOrders: {e}"}
         except Exception as e:
             log.warning("get_positions_dll error: %s", e)
-            return {"positions": [], "error": str(e), "source": "db"}
+            return {"orders": [], "positions": [], "error": str(e)}
 
+        # Reconcilia ordens encontradas com o banco
+        if orders_found and self._db:
+            for o in orders_found:
+                if not o["cl_ord_id"]:
+                    continue
+                self._db.execute(
+                    """UPDATE profit_orders SET
+                           order_status = %s,
+                           traded_qty   = COALESCE(%s, traded_qty),
+                           leaves_qty   = COALESCE(%s, leaves_qty),
+                           avg_price    = COALESCE(%s, avg_price),
+                           updated_at   = NOW()
+                       WHERE cl_ord_id = %s""",
+                    (o["order_status"], o["traded_qty"] or None,
+                     o["leaves_qty"] or None, o["avg_price"], o["cl_ord_id"])
+                )
+            log.info("get_positions_dll reconciled %d orders no banco", len(orders_found))
+
+        return {"orders": orders_found, "positions": positions_found,
+                "env": env, "source": "dll"}
 
     def list_book(self, ticker: str = "") -> dict:
 
@@ -5264,6 +5329,8 @@ def main() -> None:
 if __name__ == "__main__":
 
     main()
+
+
 
 
 
