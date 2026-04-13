@@ -802,9 +802,9 @@ class DBWriter:
 
              env, ticker, exchange, order_type, order_side, price, stop_price,
 
-             quantity, order_status)
+             quantity, order_status, user_account_id, portfolio_id, is_daytrade, strategy_id, notes)
 
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,10)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,10,%s,%s,%s,%s,%s)
 
         """
 
@@ -820,8 +820,8 @@ class DBWriter:
 
             data.get("price"), data.get("stop_price"), data["quantity"],
 
+            data.get("user_account_id"), data.get("portfolio_id"), data.get("is_daytrade", False), data.get("strategy_id"), data.get("notes")
         ))
-
 
 
     def update_agent_status(self, data: dict) -> None:
@@ -3279,6 +3279,11 @@ class ProfitAgent:
                 "order_type": order_type, "order_side": order_side,
 
                 "price": price, "stop_price": stop_price, "quantity": qty,
+                "user_account_id": params.get("user_account_id"),
+                "portfolio_id": params.get("portfolio_id"),
+                "is_daytrade": params.get("is_daytrade", False),
+                "strategy_id": params.get("strategy_id"),
+                "notes": params.get("notes"),
 
             })
 
@@ -5095,6 +5100,7 @@ def main() -> None:
 if __name__ == "__main__":
 
     main()
+
 
 
 
