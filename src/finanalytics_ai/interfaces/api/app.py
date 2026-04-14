@@ -26,6 +26,8 @@ from finanalytics_ai.interfaces.api.routes import ml_forecasting as ml_routes
 from finanalytics_ai.interfaces.api.routes import marketdata as marketdata_routes
 from finanalytics_ai.interfaces.api.routes import fundos as fundos_routes
 from finanalytics_ai.interfaces.api.routes import accounts as accounts_routes
+from finanalytics_ai.interfaces.api.routes import hub as hub_routes
+from finanalytics_ai.observability.correlation import CorrelationMiddleware
 from finanalytics_ai.application.services.account_service import AccountService
 from finanalytics_ai.interfaces.api.routes import (
     wallet,
@@ -598,6 +600,7 @@ def create_app() -> FastAPI:
         redoc_url="/redoc"
     )
 
+    app.add_middleware(CorrelationMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -828,6 +831,11 @@ def create_app() -> FastAPI:
         logger.info("agent.route.registered")
     except Exception as _are:
         logger.warning("agent.route.FAILED", error=str(_are))
+
+    # ── Hub (Event Pipeline) ─────────────────────────────────────────────────
+    app.include_router(hub_routes.router, tags=["Hub"])
+    from finanalytics_ai.infrastructure.database.connection import get_session
+    app.dependency_overrides[hub_routes.get_db] = get_session
 
     app.include_router(marketdata_routes.router, prefix="/api/v1/marketdata", tags=["Market Data"])
     app.include_router(anomaly.router, tags=["Anomaly"])

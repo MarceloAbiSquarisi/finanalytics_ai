@@ -294,6 +294,45 @@ tr:hover td{background:rgba(0,212,255,.015)}
         </table>
       </div>
     </div>
+
+    <!-- Event Pipeline -->
+    <div class="section">
+      <div class="sec-header">
+        <div class="sec-title">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          Event Pipeline
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-restart" onclick="cleanupCompleted()" title="Limpar eventos concluidos antigos">Limpar Concluidos</button>
+          <button class="btn-restart" onclick="reprocessAll()" title="Reprocessar todos FAILED e DEAD_LETTER">Reprocessar Todos</button>
+        </div>
+      </div>
+      <div class="infra-grid" id="eventPipelineCards" style="margin-bottom:14px">
+        <div class="infra-card">
+          <div class="infra-card-top"><div class="infra-card-icon" style="background:rgba(251,191,36,.1);font-size:16px">⏳</div></div>
+          <div class="infra-card-name" id="ep-pending">0</div><div class="infra-card-url">PENDING</div>
+        </div>
+        <div class="infra-card">
+          <div class="infra-card-top"><div class="infra-card-icon" style="background:rgba(0,230,118,.1);font-size:16px">✅</div></div>
+          <div class="infra-card-name" id="ep-completed">0</div><div class="infra-card-url">COMPLETED</div>
+        </div>
+        <div class="infra-card">
+          <div class="infra-card-top"><div class="infra-card-icon" style="background:rgba(255,61,90,.1);font-size:16px">❌</div></div>
+          <div class="infra-card-name" id="ep-failed">0</div><div class="infra-card-url">FAILED</div>
+        </div>
+        <div class="infra-card">
+          <div class="infra-card-top"><div class="infra-card-icon" style="background:rgba(168,85,247,.1);font-size:16px">💀</div></div>
+          <div class="infra-card-name" id="ep-dead_letter">0</div><div class="infra-card-url">DEAD_LETTER</div>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Tipo</th><th>Source</th><th>Erro</th><th>Data</th><th>Acao</th></tr></thead>
+          <tbody id="epTbody"><tr class="loading-row"><td colspan="6">Carregando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 
 </div>
@@ -401,6 +440,7 @@ async function loadAll() {
     btn.classList.remove('spinning');
   }
   loadProfitAgent();
+  loadEventPipeline();
 }
 
 function renderOverall(services) {
@@ -530,6 +570,84 @@ async function checkInfra() {
         });
     })(items[i]);
   }
+}
+
+async function loadEventPipeline() {
+  try {
+    var stats = await fetch('/hub/stats', {headers: H()}).then(function(r){ return r.json(); });
+    var c = stats.counts || {};
+    document.getElementById('ep-pending').textContent = c.pending || 0;
+    document.getElementById('ep-completed').textContent = c.completed || 0;
+    document.getElementById('ep-failed').textContent = c.failed || 0;
+    document.getElementById('ep-dead_letter').textContent = c.dead_letter || 0;
+  } catch(e) {
+    console.warn('event pipeline stats error', e);
+  }
+
+  var tb = document.getElementById('epTbody');
+  try {
+    var failedData = await fetch('/hub/events?status=failed&limit=50', {headers: H()}).then(function(r){ return r.json(); });
+    var dlData = await fetch('/hub/events?status=dead_letter&limit=50', {headers: H()}).then(function(r){ return r.json(); });
+    var items = (failedData.events || []).concat(dlData.events || []);
+    if (!items.length) {
+      tb.innerHTML = '<tr class="loading-row"><td colspan="6">Nenhum evento failed/dead_letter.</td></tr>';
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < items.length; i++) {
+      var ev = items[i];
+      var statusPill = ev.status === 'failed'
+        ? '<span class="pill pill-error">FAILED</span>'
+        : '<span class="pill pill-stopped">DEAD_LETTER</span>';
+      var shortId = ev.event_id.substring(0, 8);
+      var dt = '';
+      try { dt = new Date(ev.created_at).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); } catch(e){}
+      html += '<tr>'
+        + '<td><span style="font-family:monospace;font-size:13px;color:var(--muted)" title="' + ev.event_id + '">' + shortId + '...</span> ' + statusPill + '</td>'
+        + '<td>' + (ev.event_type || '--') + '</td>'
+        + '<td>' + (ev.source || '--') + '</td>'
+        + '<td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:var(--red)" title="' + (ev.error_message || '') + '">' + (ev.error_message || '--') + '</td>'
+        + '<td><span class="upd-time">' + dt + '</span></td>'
+        + '<td><button class="btn-restart" onclick="reprocessEvent(\'' + ev.event_id + '\')">Reprocessar</button></td>'
+        + '</tr>';
+    }
+    tb.innerHTML = html;
+  } catch(e) {
+    tb.innerHTML = '<tr class="loading-row"><td colspan="6" style="color:var(--red)">Erro ao carregar eventos: ' + e.message + '</td></tr>';
+  }
+}
+
+async function reprocessEvent(eventId) {
+  try {
+    var r = await fetch('/hub/events/' + eventId + '/reprocess', {method: 'POST', headers: H()});
+    if (!r.ok) { var err = await r.json(); alert('Erro: ' + (err.detail || r.statusText)); return; }
+    loadEventPipeline();
+  } catch(e) { alert('Erro: ' + e.message); }
+}
+
+async function reprocessAll() {
+  if (!confirm('Reprocessar todos os eventos FAILED e DEAD_LETTER?')) return;
+  var tb = document.getElementById('epTbody');
+  var rows = tb.querySelectorAll('tr');
+  var ids = [];
+  for (var i = 0; i < rows.length; i++) {
+    var title = rows[i].querySelector('[title]');
+    if (title && title.title.length > 30) ids.push(title.title);
+  }
+  for (var j = 0; j < ids.length; j++) {
+    try { await fetch('/hub/events/' + ids[j] + '/reprocess', {method: 'POST', headers: H()}); } catch(e) {}
+  }
+  loadEventPipeline();
+}
+
+async function cleanupCompleted() {
+  if (!confirm('Limpar eventos COMPLETED com mais de 30 dias?')) return;
+  try {
+    var r = await fetch('/hub/cleanup?retention_days=30', {method: 'POST', headers: H()});
+    var data = await r.json();
+    alert('Removidos: ' + data.deleted + ' eventos');
+    loadEventPipeline();
+  } catch(e) { alert('Erro: ' + e.message); }
 }
 
 init();

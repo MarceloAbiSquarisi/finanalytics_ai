@@ -58,6 +58,13 @@ class EventProcessorConfig(BaseSettings):
         description="Prefixo das chaves no Redis",
     )
 
+    # Cleanup
+    cleanup_retention_days: int = Field(
+        default=30,
+        ge=1,
+        description="Dias para reter event_records completed",
+    )
+
     # Observabilidade
     metrics_enabled: bool = Field(default=True)
     tracing_enabled: bool = Field(default=True)

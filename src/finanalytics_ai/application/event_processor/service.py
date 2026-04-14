@@ -163,6 +163,7 @@ class EventProcessorService:
                 self._obs.record_event_status(
                     str(event.payload.event_type), "dead_letter"
                 )
+                self._obs.record_dead_letter(str(event.payload.event_type))
                 span.record_exception(exc)
                 span.set_attribute("event.result", "dead_letter")
                 span.set_error()
@@ -211,6 +212,7 @@ class EventProcessorService:
     ) -> None:
         if event.retry_count >= self._max_retries:
             event.mark_dead_letter(error)
+            self._obs.record_dead_letter(str(event.payload.event_type))
             exc = MaxRetriesExceededError(event.event_id, self._max_retries)
             log.error("event.dead_letter.max_retries", max_retries=self._max_retries)
             raise exc

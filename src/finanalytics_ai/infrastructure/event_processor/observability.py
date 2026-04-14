@@ -25,6 +25,7 @@ class _ObservabilityBackend(Protocol):
     def record_processing_time(self, event_type: str, duration_ms: float) -> None: ...
     def record_event_status(self, event_type: str, status: str) -> None: ...
     def record_retry(self, event_type: str, retry_count: int) -> None: ...
+    def record_dead_letter(self, event_type: str) -> None: ...
 
 
 class NullObservability:
@@ -39,6 +40,9 @@ class NullObservability:
     def record_retry(self, event_type: str, retry_count: int) -> None:
         pass
 
+    def record_dead_letter(self, event_type: str) -> None:
+        pass
+
 
 class LoggingObservability:
     """Observabilidade via structured logging."""
@@ -51,6 +55,9 @@ class LoggingObservability:
 
     def record_retry(self, event_type: str, retry_count: int) -> None:
         logger.warning("metric.retry", event_type=event_type, retry_count=retry_count)
+
+    def record_dead_letter(self, event_type: str) -> None:
+        logger.warning("metric.dead_letter", event_type=event_type)
 
 
 class PrometheusObservability:
@@ -79,6 +86,11 @@ class PrometheusObservability:
                 "Total de retries por tipo de evento",
                 ["event_type"],
             )
+            self._dead_letter_total = Counter(
+                "finanalytics_dead_letter_total",
+                "Total de eventos movidos para dead-letter",
+                ["event_type"],
+            )
             self._available = True
         except ImportError:
             logger.warning("prometheus_client nao instalado -- usando NullObservability")
@@ -102,6 +114,12 @@ class PrometheusObservability:
             self._retries.labels(event_type=event_type).inc()
         else:
             self._null.record_retry(event_type, retry_count)
+
+    def record_dead_letter(self, event_type: str) -> None:
+        if self._available:
+            self._dead_letter_total.labels(event_type=event_type).inc()
+        else:
+            self._null.record_dead_letter(event_type)
 
 
 class CompositeObservability:
@@ -127,6 +145,10 @@ class CompositeObservability:
         for b in self._backends:
             b.record_retry(event_type, retry_count)
 
+    def record_dead_letter(self, event_type: str) -> None:
+        for b in self._backends:
+            b.record_dead_letter(event_type)
+
 class NoOpObservability:
     """Observabilidade no-op para desenvolvimento sem Prometheus configurado."""
 
@@ -137,4 +159,7 @@ class NoOpObservability:
         pass
 
     def record_retry(self, event_type: str, retry_count: int) -> None:
+        pass
+
+    def record_dead_letter(self, event_type: str) -> None:
         pass

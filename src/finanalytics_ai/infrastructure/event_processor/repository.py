@@ -19,7 +19,9 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import structlog
-from sqlalchemy import select
+from datetime import datetime
+
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from finanalytics_ai.domain.events.exceptions import DatabaseError
@@ -110,8 +112,6 @@ class SqlEventRepository:
         """Retorna contagem de eventos agrupados por status."""
         try:
             async with self._session_factory() as session:
-                from sqlalchemy import func
-
                 stmt = (
                     select(EventRecord.status, func.count())
                     .group_by(EventRecord.status)
@@ -121,6 +121,24 @@ class SqlEventRepository:
         except Exception as exc:
             raise DatabaseError(
                 f"Falha ao contar eventos por status: {exc}",
+                original=exc,
+            ) from exc
+
+    async def delete_completed_before(self, cutoff: datetime) -> int:
+        """Deleta event_records completed mais antigos que cutoff. Retorna contagem."""
+        try:
+            async with self._session_factory() as session:
+                async with session.begin():
+                    stmt = (
+                        delete(EventRecord)
+                        .where(EventRecord.status == EventStatus.COMPLETED.value)
+                        .where(EventRecord.created_at < cutoff)
+                    )
+                    result = await session.execute(stmt)
+                    return result.rowcount  # type: ignore[return-value]
+        except Exception as exc:
+            raise DatabaseError(
+                f"Falha ao deletar eventos completed antes de {cutoff}: {exc}",
                 original=exc,
             ) from exc
 

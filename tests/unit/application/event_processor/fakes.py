@@ -72,6 +72,7 @@ class FakeObservability:
         self.processing_times: list[tuple[str, float]] = []
         self.statuses: list[tuple[str, str]] = []
         self.retries: list[tuple[str, int]] = []
+        self.dead_letters: list[str] = []
 
     def record_processing_time(self, event_type: str, duration_ms: float) -> None:
         self.processing_times.append((event_type, duration_ms))
@@ -81,6 +82,9 @@ class FakeObservability:
 
     def record_retry(self, event_type: str, retry_count: int) -> None:
         self.retries.append((event_type, retry_count))
+
+    def record_dead_letter(self, event_type: str) -> None:
+        self.dead_letters.append(event_type)
 
 
 class SuccessRule:

@@ -9,6 +9,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
@@ -63,6 +64,16 @@ class FakeRepo:
             counts[e.status.value] = counts.get(e.status.value, 0) + 1
         return counts
 
+    async def delete_completed_before(self, cutoff: datetime) -> int:
+        to_delete = [
+            eid
+            for eid, e in self.store.items()
+            if e.status == EventStatus.COMPLETED and e.created_at < cutoff
+        ]
+        for eid in to_delete:
+            del self.store[eid]
+        return len(to_delete)
+
 
 # Singleton do fake repo — compartilhado entre hub._make_repo e os testes
 _fake_repo = FakeRepo()
@@ -106,6 +117,7 @@ def _cleanup(client: TestClient) -> None:
 def _make_event(
     event_type: str = "price.update",
     status: EventStatus = EventStatus.PENDING,
+    created_at: datetime | None = None,
 ) -> DomainEvent:
     event = DomainEvent.create(
         EventPayload(
@@ -123,6 +135,8 @@ def _make_event(
     elif status == EventStatus.COMPLETED:
         event.mark_processing()
         event.mark_completed({"ok": True})
+    if created_at is not None:
+        event.created_at = created_at
     return event
 
 
@@ -383,5 +397,81 @@ class TestReprocess:
         try:
             resp = client.post("/hub/events/not-a-uuid/reprocess")
             assert resp.status_code == 422
+        finally:
+            _cleanup(client)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# POST /hub/cleanup
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+class TestCleanup:
+    def test_cleanup_deletes_old_completed(self) -> None:
+        repo = FakeRepo()
+        old_event = _make_event(
+            status=EventStatus.COMPLETED,
+            created_at=datetime.now(timezone.utc) - timedelta(days=60),
+        )
+        repo.store[old_event.event_id] = old_event
+
+        client = _get_test_client(repo)
+        try:
+            resp = client.post("/hub/cleanup", params={"retention_days": 30})
+            assert resp.status_code == 200
+            body = resp.json()
+            assert body["deleted"] == 1
+            assert body["retention_days"] == 30
+            assert old_event.event_id not in repo.store
+        finally:
+            _cleanup(client)
+
+    def test_cleanup_respects_retention_days(self) -> None:
+        """Evento completed de 60 dias atrás não é deletado com retention=90."""
+        repo = FakeRepo()
+        recent_event = _make_event(
+            status=EventStatus.COMPLETED,
+            created_at=datetime.now(timezone.utc) - timedelta(days=60),
+        )
+        repo.store[recent_event.event_id] = recent_event
+
+        client = _get_test_client(repo)
+        try:
+            resp = client.post("/hub/cleanup", params={"retention_days": 90})
+            assert resp.status_code == 200
+            body = resp.json()
+            assert body["deleted"] == 0
+            assert recent_event.event_id in repo.store
+        finally:
+            _cleanup(client)
+
+    def test_cleanup_keeps_non_completed(self) -> None:
+        """FAILED, PENDING e DEAD_LETTER antigos NÃO são deletados."""
+        repo = FakeRepo()
+        old_failed = _make_event(
+            status=EventStatus.FAILED,
+            created_at=datetime.now(timezone.utc) - timedelta(days=60),
+        )
+        old_pending = _make_event(
+            status=EventStatus.PENDING,
+            created_at=datetime.now(timezone.utc) - timedelta(days=60),
+        )
+        old_dead = _make_event(
+            status=EventStatus.DEAD_LETTER,
+            created_at=datetime.now(timezone.utc) - timedelta(days=60),
+        )
+        repo.store[old_failed.event_id] = old_failed
+        repo.store[old_pending.event_id] = old_pending
+        repo.store[old_dead.event_id] = old_dead
+
+        client = _get_test_client(repo)
+        try:
+            resp = client.post("/hub/cleanup", params={"retention_days": 30})
+            assert resp.status_code == 200
+            body = resp.json()
+            assert body["deleted"] == 0
+            assert old_failed.event_id in repo.store
+            assert old_pending.event_id in repo.store
+            assert old_dead.event_id in repo.store
         finally:
             _cleanup(client)

@@ -14,6 +14,7 @@ Design:
 """
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 import uuid
 
@@ -74,6 +75,12 @@ class ReprocessResponse(BaseModel):
     previous_status: str
     new_status: str
     message: str
+
+
+class CleanupResponse(BaseModel):
+    deleted: int
+    retention_days: int
+    cutoff: str
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -253,4 +260,27 @@ async def reprocess_event(
         previous_status=previous.value,
         new_status=EventStatus.PENDING.value,
         message="Evento marcado como PENDING. Será processado no próximo ciclo do worker.",
+    )
+
+
+@router.post("/cleanup", response_model=CleanupResponse)
+async def cleanup_completed(
+    retention_days: int = Query(default=30, ge=1, description="Dias de retenção"),
+    session: AsyncSession = Depends(get_db),
+) -> CleanupResponse:
+    """Deleta event_records COMPLETED mais antigos que retention_days."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+    repo = _make_repo(session)
+    deleted = await repo.delete_completed_before(cutoff)
+
+    logger.info(
+        "hub.cleanup",
+        deleted=deleted,
+        retention_days=retention_days,
+        cutoff=cutoff.isoformat(),
+    )
+    return CleanupResponse(
+        deleted=deleted,
+        retention_days=retention_days,
+        cutoff=cutoff.isoformat(),
     )
