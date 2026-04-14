@@ -3175,11 +3175,20 @@ class ProfitAgent:
 
     # ------------------------------------------------------------------
 
-    def _get_account(self, env: str) -> tuple[int, str, str, str]:
+    def _get_account(self, env: str, params: dict | None = None) -> tuple[int, str, str, str]:
 
         """Retorna (broker_id, account_id, sub_account_id, routing_password) por env.
 
-        Resolve broker_id pelo nome da corretora se necessario."""
+        Se params contiver _account_broker_id (injetado pelo proxy), usa direto.
+        Caso contrario, resolve pelo nome da corretora ou env vars (fallback)."""
+
+        # Credenciais injetadas pelo proxy (conta ativa do banco)
+        if params and params.get("_account_broker_id"):
+            broker_id = int(params["_account_broker_id"])
+            account_id = str(params.get("_account_id", ""))
+            sub_id = str(params.get("_sub_account_id", ""))
+            routing_pass = str(params.get("_routing_password", ""))
+            return (broker_id, account_id, sub_id, routing_pass)
 
         if env == "production":
 
@@ -3289,7 +3298,7 @@ class ProfitAgent:
 
         env = params.get("env", "simulation")
 
-        broker_id, account_id, sub_id, routing_pass = self._get_account(env)
+        broker_id, account_id, sub_id, routing_pass = self._get_account(env, params)
 
 
 
@@ -3412,7 +3421,7 @@ class ProfitAgent:
 
         env = params.get("env", "simulation")
 
-        broker_id, account_id, sub_id, routing_pass = self._get_account(env)
+        broker_id, account_id, sub_id, routing_pass = self._get_account(env, params)
 
         cl_ord_id = params.get("cl_ord_id", "")
 
@@ -3452,7 +3461,7 @@ class ProfitAgent:
 
         env = params.get("env", "simulation")
 
-        broker_id, account_id, sub_id, routing_pass = self._get_account(env)
+        broker_id, account_id, sub_id, routing_pass = self._get_account(env, params)
 
         cancel = TConnectorCancelAllOrders(Version=0)
 
@@ -3480,7 +3489,7 @@ class ProfitAgent:
 
         env = params.get("env", "simulation")
 
-        broker_id, account_id, sub_id, routing_pass = self._get_account(env)
+        broker_id, account_id, sub_id, routing_pass = self._get_account(env, params)
 
         change = TConnectorChangeOrder(Version=1, MessageID=-1)
 
@@ -3524,7 +3533,7 @@ class ProfitAgent:
 
         env = params.get("env", "simulation")
 
-        broker_id, account_id, sub_id, routing_pass = self._get_account(env)
+        broker_id, account_id, sub_id, routing_pass = self._get_account(env, params)
 
         ticker   = params.get("ticker", "")
 

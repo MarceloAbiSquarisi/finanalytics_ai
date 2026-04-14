@@ -27,6 +27,25 @@ router = APIRouter(prefix="/api/v1/agent")
 
 # ── Helper ────────────────────────────────────────────────────────────────────
 
+async def _inject_account(body: dict) -> dict:
+    """Resolve conta ativa e injeta credenciais no body para o profit_agent."""
+    from finanalytics_ai.interfaces.api.app import get_account_service
+    svc = get_account_service()
+    if not svc:
+        return body
+    try:
+        account = await svc.get_active()
+        body["_account_broker_id"] = account.broker_id
+        body["_account_id"] = account.account_id
+        body["_routing_password"] = account.routing_password or ""
+        body["_sub_account_id"] = account.sub_account_id or ""
+        if not body.get("user_account_id") or body["user_account_id"] == "sem_conta":
+            body["user_account_id"] = account.uuid
+    except Exception:
+        pass  # Sem conta ativa → profit_agent usa env vars (fallback)
+    return body
+
+
 async def _get(path: str, params: dict | None = None) -> Any:
     """GET assíncrono para o profit_agent."""
     try:
@@ -108,18 +127,21 @@ async def agent_send_order(body: dict):
     }
     ```
     """
+    body = await _inject_account(body)
     return await _post("/order/send", body)
 
 
 @router.post("/order/cancel", tags=["Agent"])
 async def agent_cancel_order(body: dict):
     """Cancela ordem pelo local_order_id."""
+    body = await _inject_account(body)
     return await _post("/order/cancel", body)
 
 
 @router.post("/order/cancel_all", tags=["Agent"])
 async def agent_cancel_all_orders(body: dict):
     """Cancela todas as ordens abertas."""
+    body = await _inject_account(body)
     return await _post("/order/cancel_all", body)
 
 
@@ -138,12 +160,14 @@ async def agent_change_order(body: dict):
     }
     ```
     """
+    body = await _inject_account(body)
     return await _post("/order/change", body)
 
 
 @router.post("/order/zero_position", tags=["Agent"])
 async def agent_zero_position(body: dict):
     """Zera posição de um ativo (SendZeroPositionV2)."""
+    body = await _inject_account(body)
     return await _post("/order/zero_position", body)
 
 
@@ -171,6 +195,7 @@ async def agent_send_oco(body: dict):
     }
     ```
     """
+    body = await _inject_account(body)
     return await _post("/order/oco", body)
 
 

@@ -159,8 +159,16 @@ SPA em vanilla JS, 3500+ linhas. Painel DayTrade no lado direito:
 - **Aba OCO**: TP+SL com polling automático → `/api/v1/agent/order/oco`
 - **Aba Pos.**: GetPositionV2 + lista ativos abertos → `/api/v1/agent/position/{ticker}`
 - **Aba Ordens**: lista com auto-refresh 5s + cancelar individual
+- **Aba Conta**: CRUD de contas + seletor de conta ativa → `/api/v1/accounts/...`
 
 Funções JS chave: `executeTrade()`, `sendOCO()`, `refreshOrders()`, `loadDLLPosition()`, `dtTab(tab)`
+
+### Fluxo de credenciais (conta ativa → DLL)
+1. Dashboard envia ordem para FastAPI proxy (`/api/v1/agent/order/send`)
+2. Proxy (`agent.py`) resolve conta ativa via `AccountService.get_active()`
+3. Proxy injeta `_account_broker_id`, `_account_id`, `_routing_password`, `_sub_account_id` no body
+4. profit_agent (`_get_account()`) detecta campos injetados e usa em vez dos env vars
+5. Fallback: sem conta ativa → profit_agent usa `PROFIT_SIM_*` / `PROFIT_PROD_*` do `.env`
 
 ## Banco de Dados
 
@@ -169,6 +177,7 @@ Tabelas principais:
 - `market_history_trades` — ticks históricos (hypertable, partição por trade_date)
 - `profit_orders` — ordens enviadas via DLL
 - `profit_history_tickers` — tickers configurados para backfill (active=True/False)
+- `trading_accounts` — contas de corretora (CRUD, conta ativa para ordens)
 
 ### Estado atual dos dados (Abr/2026)
 | Ticker | Dias | Completo |
@@ -186,14 +195,14 @@ Tabelas principais:
 
 1. ~~`SetOrderCallback → TConnectorOrder`~~ — **DONE** (callback recebe `POINTER(TConnectorOrder)` com status real)
 2. ~~Multi-conta MVP~~ — **DONE** (`user_account_id` auto-populado como `{env}:{broker_id}:{account_id}`)
-3. Multi-conta CRUD API + UI de seleção de contas (sprint dedicada)
+3. ~~Multi-conta CRUD API + UI de seleção de contas~~ — **DONE** (Sprint MC: CRUD + seletor UI; Sprint MC-2: proxy injeta credenciais da conta ativa no profit_agent)
 4. Backfill ABEV3, BBDC4, WEGE3, WDOFUT, WINFUT completo
 
 ## Convenções do Projeto
 
 - **Logging**: `structlog` no FastAPI, `logging` padrão no profit_agent
 - **Async**: FastAPI usa `asyncio`; profit_agent usa threads (DLL é síncrona)
-- **Deploy**: `docker cp` + `docker restart` (sem rebuild de imagem)
+- **Deploy**: `docker compose build api && docker compose up -d api` (rebuild completo; `docker cp` apenas para hotfix rápido)
 - **Sem frameworks pesados**: sem Django, sem ORM pesado
 - **Injeção de dependência manual**: sem FastAPI `Depends` em excesso
 - **Tipagem**: type hints em todo código novo
@@ -202,5 +211,5 @@ Tabelas principais:
 ```
 Remote: https://github.com/MarceloAbiSquarisi/finanalytics_ai
 Branch: master
-Último commit: feat(dashboard): abas DayTrade flex:1
+Último commit: feat(multi-conta): UI seletor + CRUD + seed + fix infra warnings — Sprint MC
 ```
