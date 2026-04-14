@@ -87,6 +87,11 @@ class Settings(BaseSettings):
     cuda_visible_devices: str = Field(default="1")     # GPU2 dedicada
     polars_max_threads: int = Field(default=16, ge=1, le=32)
 
+    # ── Analytics ─────────────────────────────────────────────────────────────
+    analytics_min_candles: int = Field(default=50, ge=1)
+    analytics_vwap_market_open: str = Field(default="10:00")
+    analytics_vwap_market_close: str = Field(default="17:55")
+
     # ── Runtime ─────────────────────────────────────────────────────────────
     environment: str = Field(default="development")
     debug: bool = Field(default=False)

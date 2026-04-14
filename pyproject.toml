@@ -60,6 +60,8 @@ dependencies = [
     "scikit-learn>=1.4.0",
     "lightgbm>=4.3.0",
     "arch>=6.3.0",
+    "pandas-ta>=0.4.0",
+    "statsmodels>=0.14.0",
     "python-dateutil>=2.9.0",
 
     # ── Parsing de documentos ──────────────────────────────────────────────
@@ -162,6 +164,7 @@ module = [
     "asyncpg.*", "prometheus_client.*", "alembic.*",
     "lightgbm.*", "arch.*", "pdfplumber.*", "reportlab.*",
     "opentelemetry.*", "aiokafka.*", "factory_boy.*", "freezegun.*",
+    "pandas_ta.*", "statsmodels.*",
 ]
 ignore_missing_imports = true
 
