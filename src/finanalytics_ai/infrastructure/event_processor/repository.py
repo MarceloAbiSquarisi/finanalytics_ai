@@ -105,3 +105,46 @@ class SqlEventRepository:
                 f"Falha ao buscar eventos com status {status}: {exc}",
                 original=exc,
             ) from exc
+
+    async def count_by_status(self) -> dict[str, int]:
+        """Retorna contagem de eventos agrupados por status."""
+        try:
+            async with self._session_factory() as session:
+                from sqlalchemy import func
+
+                stmt = (
+                    select(EventRecord.status, func.count())
+                    .group_by(EventRecord.status)
+                )
+                result = await session.execute(stmt)
+                return dict(result.all())
+        except Exception as exc:
+            raise DatabaseError(
+                f"Falha ao contar eventos por status: {exc}",
+                original=exc,
+            ) from exc
+
+    async def find_filtered(
+        self,
+        *,
+        status: EventStatus | None = None,
+        event_type: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[DomainEvent]:
+        """Busca eventos com filtros opcionais e paginação."""
+        try:
+            async with self._session_factory() as session:
+                stmt = select(EventRecord).order_by(EventRecord.created_at.desc())
+                if status is not None:
+                    stmt = stmt.where(EventRecord.status == status.value)
+                if event_type is not None:
+                    stmt = stmt.where(EventRecord.event_type == event_type)
+                stmt = stmt.offset(offset).limit(limit)
+                result = await session.execute(stmt)
+                return [record_to_domain(r) for r in result.scalars().all()]
+        except Exception as exc:
+            raise DatabaseError(
+                f"Falha ao buscar eventos filtrados: {exc}",
+                original=exc,
+            ) from exc

@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from finanalytics_ai.config import get_settings
 from finanalytics_ai.container_v2 import bootstrap_v2 as bootstrap, build_engine_v2 as build_engine, build_session_factory_v2 as build_session_factory
-from finanalytics_ai.interfaces.api.routes import admin_events
+from finanalytics_ai.interfaces.api.routes import admin_events, hub
 from finanalytics_ai.observability.logging import get_logger
 
 log = get_logger(__name__)
@@ -112,6 +112,12 @@ app.include_router(
     dependencies=[],
 )
 app.dependency_overrides[admin_events.get_db] = get_db
+
+app.include_router(
+    hub.router,
+    dependencies=[],
+)
+app.dependency_overrides[hub.get_db] = get_db
 
 
 # ──────────────────────────────────────────────────────────────────────────────
