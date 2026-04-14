@@ -39,7 +39,7 @@ if _env_file.exists():
 # ── Configuração ──────────────────────────────────────────────────────────────
 AGENT_URL  = "http://localhost:8002"
 TIMEOUT_S    = 300   # timeout por coleta — ações
-TIMEOUT_FUT  = 1200  # timeout futuros (WINFUT/WDOFUT ~500k ticks/dia)
+TIMEOUT_FUT  = 2400  # timeout futuros (WINFUT/WDOFUT ~500k ticks/dia)
 FUTURES_EXCHANGE = {"F"}  # exchanges de futuros
 DELAY_S    = 3          # delay entre chamadas (segundos) — evita sobrecarga DLL
 CHUNK_DAYS = 1          # dias por chamada (DLL aceita max ~1-2 dias)
@@ -332,3 +332,5 @@ if __name__ == "__main__":
         delay   = args.delay,
         dry_run = args.dry_run,
     )
+
+

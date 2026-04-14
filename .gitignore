@@ -75,9 +75,10 @@ mypy.ini.bak
 # Backups de scripts
 scripts/_backups/
 
-# Diagnosticos e patches temporarios
+# Diagnosticos, patches e fixes temporarios
 diag_*.py
 patch_*.py
+fix_*.py
 
 # Arquivos de teste temporarios
 test_history.py
