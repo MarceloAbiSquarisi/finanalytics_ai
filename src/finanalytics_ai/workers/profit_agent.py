@@ -2833,35 +2833,67 @@ class ProfitAgent:
 
 
 
-        # 11. Order callback - confirma recebimento e registra cl_ord_id
+        # 11. Order callback - recebe TConnectorOrder completo com status real
 
-        @WINFUNCTYPE(None, TConnectorOrderIdentifier)
+        @WINFUNCTYPE(None, POINTER(TConnectorOrder))
 
-        def order_cb(order_id) -> None:
-
-            local_id = order_id.LocalOrderID
-
-            cl_ord   = order_id.ClOrderID or ""
-
-            log.info("order_callback local_id=%d cl_ord=%s", local_id, cl_ord)
+        def order_cb(order_ptr) -> None:
 
             try:
 
+                o = order_ptr.contents
+
+                local_id   = o.OrderID.LocalOrderID
+
+                cl_ord     = (o.OrderID.ClOrderID or "").strip()
+
+                status     = o.OrderStatus
+
+                traded_qty = o.TradedQuantity
+
+                leaves_qty = o.LeavesQuantity
+
+                avg_price  = round(o.AveragePrice, 4) if o.AveragePrice > 0 else None
+
+                ticker     = (o.AssetID.Ticker or "").strip()
+
+                log.info(
+
+                    "order_callback local_id=%d cl_ord=%s status=%d ticker=%s "
+
+                    "traded=%d leaves=%d avg=%.4f",
+
+                    local_id, cl_ord, status, ticker,
+
+                    traded_qty, leaves_qty, avg_price or 0.0,
+
+                )
+
                 agent._db_queue.put_nowait({
 
-                    "_type": "order_update",
+                    "_type":          "order_update",
 
                     "local_order_id": local_id,
 
-                    "cl_ord_id": cl_ord,
+                    "cl_ord_id":      cl_ord,
 
-                    "order_status": 0,   # confirmado pela corretora
-                                                            
+                    "order_status":   status,
+
+                    "traded_qty":     traded_qty,
+
+                    "leaves_qty":     leaves_qty,
+
+                    "avg_price":      avg_price,
+
                 })
 
             except queue.Full:
 
                 pass
+
+            except Exception as exc:
+
+                log.warning("order_callback error: %s", exc)
 
 
 
@@ -3339,6 +3371,9 @@ class ProfitAgent:
 
         self._total_orders += 1
 
+        if not params.get("user_account_id"):
+            params["user_account_id"] = f"{env}:{broker_id}:{account_id}"
+
         if self._db:
 
             self._db.insert_order({
@@ -3352,12 +3387,6 @@ class ProfitAgent:
                 "order_type": order_type, "order_side": order_side,
 
                 "price": price, "stop_price": stop_price, "quantity": qty,
-                "user_account_id": params.get("user_account_id"),
-                "portfolio_id": params.get("portfolio_id"),
-                "is_daytrade": params.get("is_daytrade", False),
-                "strategy_id": params.get("strategy_id"),
-                "notes": params.get("notes"),
-
                 "user_account_id": params.get("user_account_id"),
                 "portfolio_id": params.get("portfolio_id"),
                 "is_daytrade": params.get("is_daytrade", False),
