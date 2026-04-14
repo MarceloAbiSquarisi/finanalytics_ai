@@ -10,7 +10,7 @@ param([switch]$RunOnce)
 if ($env:PROFIT_WATCHDOG_INTERVAL_SEC) { $IntervalSec = [int]$env:PROFIT_WATCHDOG_INTERVAL_SEC } else { $IntervalSec = 60 }
 if ($env:PROFIT_WATCHDOG_LOG_DIR)      { $LogDir      = $env:PROFIT_WATCHDOG_LOG_DIR }           else { $LogDir      = "D:\Logs\finanalytics" }
 if ($env:PROFIT_WATCHDOG_PROJECT_DIR)  { $ProjectDir  = $env:PROFIT_WATCHDOG_PROJECT_DIR }       else { $ProjectDir  = "D:\Projetos\finanalytics_ai_fresh" }
-if ($env:PROFIT_WATCHDOG_PORT)         { $AgentPort   = [int]$env:PROFIT_WATCHDOG_PORT }         else { $AgentPort   = 8001 }
+if ($env:PROFIT_WATCHDOG_PORT)         { $AgentPort   = [int]$env:PROFIT_WATCHDOG_PORT }         else { $AgentPort   = 8002 }
 if ($env:PROFIT_WATCHDOG_MAX_RESTARTS) { $MaxRestarts = [int]$env:PROFIT_WATCHDOG_MAX_RESTARTS } else { $MaxRestarts = 5 }
 
 $BatPath   = "$ProjectDir\scripts\start_profit_agent.bat"

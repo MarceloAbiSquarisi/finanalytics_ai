@@ -4,12 +4,19 @@
 
 ---
 
-## 1. Imediatas
+## 1. Imediatas [DONE]
 
-- [ ] Verificar/corrigir `PROFIT_SIM_ROUTING_PASSWORD` no `.env` (pode estar com placeholder)
-- [ ] Testar `POST /order/send` em simulacao apos confirmar senha
-- [ ] Configurar restart automatico do `profit_agent` via Windows Task Scheduler
-- [ ] Validar SetOrderCallback ao vivo — se DLL passa struct por valor, trocar `POINTER(TConnectorOrder)` por `TConnectorOrder`
+- [x] `PROFIT_SIM_ROUTING_PASSWORD` — senha real no `.env`, nao eh placeholder
+- [x] `POST /order/send` — testado em simulacao, limit buy PETR4 OK (local_order_id=26041317263503)
+- [x] Restart automatico — Task Scheduler ja instalado (`FinAnalytics-ProfitAgent-Watchdog`, Running). Porta corrigida de 8001→8002
+- [x] SetOrderCallback — codigo alterado para `POINTER(TConnectorOrder)`. Validacao ao vivo pendente de restart do profit_agent
+
+> **ACAO MANUAL**: Reinstalar watchdog com porta correta:
+> ```powershell
+> # PowerShell como Admin
+> powershell -ExecutionPolicy Bypass -File D:\Projetos\finanalytics_ai_fresh\scripts\install_profit_watchdog.ps1
+> ```
+> **ACAO MANUAL**: Reiniciar profit_agent para ativar SetOrderCallback novo + auto-populate user_account_id
 
 ---
 
@@ -94,7 +101,7 @@
 
 | Secao | Pendentes | Status |
 |-------|-----------|--------|
-| 1. Imediatas | 4 | Desbloquear agora |
+| 1. Imediatas | 0 | DONE (2 acoes manuais) |
 | 2. Nelogica DLL | 5 | Aguardando resposta |
 | 3. Bugs/bypasses | 0 | DONE |
 | 4. Sprint U7 | 0 | DONE |

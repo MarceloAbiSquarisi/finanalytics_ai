@@ -12,7 +12,7 @@ param(
     [string]$ProjectDir  = "D:\Projetos\finanalytics_ai_fresh",
     [string]$LogDir      = "D:\Logs\finanalytics",
     [int]$IntervalSec    = 60,
-    [int]$AgentPort      = 8001,
+    [int]$AgentPort      = 8002,
     [int]$MaxRestarts    = 5
 )
 
