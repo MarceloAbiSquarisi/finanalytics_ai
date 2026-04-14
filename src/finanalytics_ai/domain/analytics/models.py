@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date  # noqa: TC003 — needed at runtime by dataclass
+from datetime import date, datetime  # noqa: TC003 — needed at runtime by dataclass
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,6 +106,36 @@ class ScanResult:
     last_close: float
     indicators: IndicatorResult
     signals: SetupSignal
+
+
+@dataclass(slots=True)
+class SetupDetection:
+    """A detected technical setup for a ticker."""
+
+    ticker: str
+    tipo: str  # "acao" | "futuro"
+    setup_name: str
+    descricao: str
+    direcao: str  # "long" | "short" | "neutral"
+    timeframe: str  # "daily" | "weekly"
+    strength: float  # 0.0 - 1.0
+    date: date
+    details: dict[str, float | None]
+    entry_price: float | None = None
+    stop_price: float | None = None
+
+
+@dataclass(slots=True)
+class ScanAllResult:
+    """Aggregated scanner result across multiple tickers."""
+
+    scanned_at: datetime
+    total_tickers: int
+    tickers_com_dados: int
+    total_signals: int
+    duracao_ms: int
+    signals: list[SetupDetection]
+    tickers_sem_dados: list[str]
 
 
 @dataclass(frozen=True, slots=True)

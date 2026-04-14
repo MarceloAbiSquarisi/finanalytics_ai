@@ -89,6 +89,7 @@ class Settings(BaseSettings):
 
     # ── Analytics ─────────────────────────────────────────────────────────────
     analytics_min_candles: int = Field(default=50, ge=1)
+    analytics_scan_cache_ttl: int = Field(default=300)  # 5 min
     analytics_vwap_market_open: str = Field(default="10:00")
     analytics_vwap_market_close: str = Field(default="17:55")
 

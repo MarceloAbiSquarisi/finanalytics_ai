@@ -839,6 +839,13 @@ def create_app() -> FastAPI:
     except Exception as _ire:
         logger.warning("indicators.route.FAILED", error=str(_ire))
 
+    try:
+        from finanalytics_ai.interfaces.api.routes import scanner as scanner_routes
+        app.include_router(scanner_routes.router, tags=["Scanner Setups"])
+        logger.info("scanner.route.registered")
+    except Exception as _scre:
+        logger.warning("scanner.route.FAILED", error=str(_scre))
+
     # ── Hub (Event Pipeline) ─────────────────────────────────────────────────
     app.include_router(hub_routes.router, tags=["Hub"])
     from finanalytics_ai.infrastructure.database.connection import get_session
