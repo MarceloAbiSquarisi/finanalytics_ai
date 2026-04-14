@@ -44,12 +44,22 @@ FUTURES_EXCHANGE = {"F"}  # exchanges de futuros
 DELAY_S    = 3          # delay entre chamadas (segundos) — evita sobrecarga DLL
 CHUNK_DAYS = 1          # dias por chamada (DLL aceita max ~1-2 dias)
 
-# Feriados B3 Jan-Mar 2026 (adicione conforme necessário)
+# Feriados B3 2026 (adicione conforme necessário)
 HOLIDAYS_BR: set[date] = {
     date(2026, 1, 1),   # Confraternização Universal
     date(2026, 2, 16),  # Carnaval (segunda)
     date(2026, 2, 17),  # Carnaval (terça)
     date(2026, 2, 18),  # Quarta de Cinzas (até o meio-dia)
+    date(2026, 4, 3),   # Sexta-feira Santa
+    date(2026, 4, 21),  # Tiradentes
+    date(2026, 5, 1),   # Dia do Trabalhador
+    date(2026, 6, 4),   # Corpus Christi
+    date(2026, 9, 7),   # Independência
+    date(2026, 10, 12), # Nossa Sra Aparecida
+    date(2026, 11, 2),  # Finados
+    date(2026, 11, 15), # Proclamação da República
+    date(2026, 11, 20), # Consciência Negra
+    date(2026, 12, 25), # Natal
 }
 
 

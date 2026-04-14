@@ -17,7 +17,9 @@ D:\Projetos\finanalytics_ai_fresh\
 │   │   └── profit_agent.py           # Agente Windows — DLL wrapper HTTP server :8002
 │   └── config.py                     # Settings via pydantic-settings
 ├── scripts\
-│   └── backfill_history.py           # Coleta histórica de ticks
+│   ├── backfill_history.py           # Coleta histórica de ticks
+│   ├── populate_daily_bars.py        # Agrega ticks → profit_daily_bars
+│   └── migrate_to_timescale.py       # Migra Fintz PG → TimescaleDB
 ├── .env                              # Variáveis de ambiente
 ├── docker-compose.yml                # API + TimescaleDB + Redis
 └── pyproject.toml                    # Dependências (uv/poetry)
@@ -175,28 +177,41 @@ Funções JS chave: `executeTrade()`, `sendOCO()`, `refreshOrders()`, `loadDLLPo
 ### TimescaleDB (market_data)
 Tabelas principais:
 - `market_history_trades` — ticks históricos (hypertable, partição por trade_date)
+- `profit_daily_bars` — barras diárias OHLCV (geradas por `populate_daily_bars.py`)
+- `fintz_cotacoes_ts` — OHLCV diário Fintz (1.32M rows, 200+ tickers, 2010→2025)
 - `profit_orders` — ordens enviadas via DLL
 - `profit_history_tickers` — tickers configurados para backfill (active=True/False)
 - `trading_accounts` — contas de corretora (CRUD, conta ativa para ordens)
 
+### Candle fallback chain (`candle_repository.py`)
+1. `profit_daily_bars` — pré-agregado, 8 tickers DLL (Jan→Abr/2026)
+2. `market_history_trades` — agrega ticks on-the-fly (~69 dias)
+3. `profit_ticks` — ticks real-time
+4. `fintz_cotacoes_ts` — stocks only (exclui futuros), 200+ tickers, 2010→2025
+
 ### Estado atual dos dados (Abr/2026)
+
+**DLL Profit (ticks + daily bars)**:
 | Ticker | Dias | Completo |
 |--------|------|----------|
-| ITUB4  | 63   | ✅ |
-| PETR4  | 63   | ✅ |
-| VALE3  | 63   | ✅ |
-| WDOFUT | 15   | ⚠️ backfill em andamento |
-| WEGE3  | 9    | ⚠️ backfill em andamento |
-| BBDC4  | 4    | ❌ backfill pendente |
-| ABEV3  | 2    | ❌ backfill pendente |
-| WINFUT | 1    | ❌ backfill pendente |
+| ABEV3  | 69   | ✅ |
+| BBDC4  | 69   | ✅ |
+| ITUB4  | 69   | ✅ |
+| PETR4  | 64   | ✅ |
+| VALE3  | 64   | ✅ |
+| WDOFUT | 69   | ✅ |
+| WEGE3  | 69   | ✅ |
+| WINFUT | 16   | ⚠️ backfill parcial |
+
+**Fintz (fintz_cotacoes_ts)**: 1.319.764 rows, 200+ tickers, 2010-01-04 → 2025-12-30
 
 ## Pendências Técnicas
 
 1. ~~`SetOrderCallback → TConnectorOrder`~~ — **DONE** (callback recebe `POINTER(TConnectorOrder)` com status real)
 2. ~~Multi-conta MVP~~ — **DONE** (`user_account_id` auto-populado como `{env}:{broker_id}:{account_id}`)
 3. ~~Multi-conta CRUD API + UI de seleção de contas~~ — **DONE** (Sprint MC: CRUD + seletor UI; Sprint MC-2: proxy injeta credenciais da conta ativa no profit_agent)
-4. Backfill ABEV3, BBDC4, WEGE3, WDOFUT, WINFUT completo
+4. ~~Sprint OHLC — Unificação Fintz + DLL~~ — **DONE** (migração 1.32M rows, daily bars, fallback chain 4 níveis)
+5. Fintz sync cotacoes_ohlc (Nov/2025 → Abr/2026) — preencher gap entre Fintz e DLL
 
 ## Convenções do Projeto
 

@@ -5,6 +5,7 @@ Fallback order:
   1. profit_daily_bars  (pre-aggregated, fastest)
   2. market_history_trades  (tick-level, ~63 days of data)
   3. profit_ticks  (real-time ticks, ~16 days)
+  4. fintz_cotacoes_ts  (stocks only, 2010+, ~200 tickers)
 """
 
 from __future__ import annotations
@@ -57,6 +58,17 @@ GROUP BY time::date
 ORDER BY date ASC
 """
 
+_SQL_FINTZ_OHLCV = """
+SELECT time::date AS date, preco_abertura AS open, preco_maximo AS high,
+       preco_minimo AS low, preco_fechamento AS close,
+       COALESCE(volume_negociado, 0) AS volume
+FROM fintz_cotacoes_ts
+WHERE ticker = $1 AND time >= $2
+ORDER BY time ASC
+"""
+
+_FUTURES_TICKERS = {"WINFUT", "WDOFUT", "DOLFUT", "INDFUT"}
+
 _SQL_INTRADAY_TICKS = """
 SELECT
     time,
@@ -101,7 +113,7 @@ async def fetch_candles(
 
     Returns:
         Tuple of (candles, source_name).
-        source_name is one of: "daily_bars", "market_history_trades", "profit_ticks"
+        source_name is one of: "daily_bars", "market_history_trades", "profit_ticks", "fintz_cotacoes_ts"
     """
     pool = await get_timescale_pool()
     ticker_upper = ticker.upper()
@@ -141,6 +153,18 @@ async def fetch_candles(
                 return _rows_to_candles(rows), "profit_ticks"
         except Exception:
             logger.debug("candle.ticks.unavailable", ticker=ticker_upper)
+
+        # 4. Try fintz_cotacoes_ts (stocks only, 2010+)
+        if ticker_upper not in _FUTURES_TICKERS:
+            try:
+                rows = await conn.fetch(_SQL_FINTZ_OHLCV, ticker_upper, since_ts)
+                if rows:
+                    logger.debug(
+                        "candle.source", ticker=ticker_upper, source="fintz_cotacoes_ts", count=len(rows)
+                    )
+                    return _rows_to_candles(rows), "fintz_cotacoes_ts"
+            except Exception:
+                logger.debug("candle.fintz.unavailable", ticker=ticker_upper)
 
     return [], ""
 

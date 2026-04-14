@@ -29,13 +29,16 @@ from finanalytics_ai.infrastructure.database.repositories.timescale_writer impor
 def build_timescale_writer(settings, timescale_session_factory=None):
     """
     Adapter de compatibilidade com a assinatura original do container V1.
-    Retorna NoOpTimescaleWriter se TimescaleDB nao estiver configurado.
-    Em producao com TimescaleDB: passar timescale_session_factory explicitamente.
+    Tenta PgTimescaleWriter com DSN do settings/env; fallback NoOp.
     """
-    if timescale_session_factory is None:
-        return NoOpTimescaleWriter()
-    from finanalytics_ai.infrastructure.database.repositories.timescale_writer import PgTimescaleWriter
-    return PgTimescaleWriter(timescale_session_factory)
+    if timescale_session_factory is not None:
+        from finanalytics_ai.infrastructure.database.repositories.timescale_writer import PgTimescaleWriter
+        return PgTimescaleWriter(timescale_session_factory)
+    ts_dsn = getattr(settings, "profit_timescale_dsn", None) or os.getenv("PROFIT_TIMESCALE_DSN")
+    if ts_dsn:
+        from finanalytics_ai.infrastructure.database.repositories.timescale_writer import PgTimescaleWriter
+        return PgTimescaleWriter(ts_dsn)
+    return NoOpTimescaleWriter()
 from finanalytics_ai.observability.logging import get_logger
 
 log = get_logger(__name__)
