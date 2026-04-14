@@ -1,143 +1,104 @@
-# FinAnalytics AI — Pendências e Backlog
-> Atualizado: 2026-04-07 (pós-sessão 7 — DLL + bloqueadores)
+# Pendencias — finanalytics_ai
+> Atualizado: 2026-04-14
+> Fonte: PENDENCIAS.md original + analise Claude Code do projeto completo
 
 ---
 
-## RESOLVIDOS HOJE (2026-04-07)
+## 1. Imediatas
 
-| # | Item | Status |
-|---|------|--------|
-| B1 | API rebuild limpo | ✅ |
-| B2 | Migration 0014_import_tables — único head | ✅ |
-| B3 | Pipeline Redis → TapeService → métricas | ✅ |
-| F9 | Exportação DataFrame (parquet, botão dashboard) | 📝 anotado |
+- [ ] Verificar/corrigir `PROFIT_SIM_ROUTING_PASSWORD` no `.env` (pode estar com placeholder)
+- [ ] Testar `POST /order/send` em simulacao apos confirmar senha
+- [ ] Configurar restart automatico do `profit_agent` via Windows Task Scheduler
+- [ ] Validar SetOrderCallback ao vivo — se DLL passa struct por valor, trocar `POINTER(TConnectorOrder)` por `TConnectorOrder`
 
 ---
 
-## DLL NELOGICA — STATUS ATUAL
+## 2. Bloqueadas — aguardando Nelogica (DLL 4.0)
 
-Sequência correta identificada (baseada em diag_asyncio_dll.py que funcionou):
-  1. DLLInitializeLogin (sem SetTradeCallbackV2 antes)
-  2. Aguardar routing_connected (conn_type=1 r>=4) — ~1.5s
-  3. SetTradeCallbackV2 UMA UNICA VEZ após routing
-  4. Aguardar market_connected (conn_type=2 r>=4) — ~0.5s
-  5. SubscribeTicker x8
-  6. Ticks chegam via trade_cb → Redis → TapeService
-
-Diagnósticos que funcionaram hoje:
-  - diag_trade_raw_v2.py    13:25 → raw=1  tick price=49.0 ✅
-  - diag_asyncio_dll.py     13:43 → raw=160 ticks ✅
-  - diag_market_cb_check.py 15:29 → raw=57  ticks ✅
-
-Worker v2 (profit_market_worker_v2.py) com ctypes direto:
-  - Routing conecta corretamente (conn_type=1 r=4 em ~1.5s)
-  - market_connected timeout após ~14:30 — rate limiting suspeito
-  - Causa: 30+ tentativas de conexão no mesmo dia = throttling Nelogica
-
-AÇÃO AMANHÃ ÀS 10H:
-  1. uv run python diag_asyncio_dll.py → confirmar se market data volta
-  2. Se OK: uv run python -m finanalytics_ai.workers.profit_market_worker_v2
-  3. Validar ticks no tape: GET /api/v1/tape/metrics/WINFUT
-
-Patches aplicados em client.py (estado atual):
-  - patch_dll_polling_wait.py       ← wait_connected usa polling (sem event)
-  - patch_dll_market_latch.py       ← market_connected = True se r>=4
-  - patch_dll_remove_early_settrade ← sem SetTradeCallbackV2 em start()
-  - patch_dll_log_market_cb.py      ← file log para conn_type=2 (debug)
-
-Patches aplicados em profit_market_worker.py (estado atual):
-  - patch_worker_subscribe_early    ← remove wait market_connected antigo
-  - patch_worker_wait_routing       ← wait routing antes de subscribe
-  - patch_worker_no_routing         ← "no_routing_account" label
-  - patch_worker_restore_routing    ← restaura wait routing
-  - patch_worker_single_settrade    ← SetTradeCallbackV2 único pós-routing
-  - patch_worker_diag_sequence      ← sequência do diagnóstico
-  - patch_worker_longer_market_wait ← timeout 120s
-
-Worker alternativo recomendado: profit_market_worker_v2.py
-  Usa ctypes direto (sem ProfitDLLClient), mesma abordagem do diagnóstico.
+- [ ] Confirmar nova interface de market data streaming na DLL 4.0
+- [ ] Implementar `price_depth_cb` — book de precos (`profit_agent.py:2736` — `return` antes do codigo)
+- [ ] Testar `daily_cb` — candles diarios (nao testado)
+- [ ] Investigar `total_assets=0` — catalogo de ativos nao chegando
+- [ ] `_pos_impl` stub vazio (`profit_agent.py:3929`) — callback de posicao registrado mas `pass`
 
 ---
 
-## DEPENDEM DE MERCADO ABERTO (amanhã)
+## 3. Codigo — bugs e bypasses ativos [DONE]
 
-| # | Item | Status |
-|---|------|--------|
-| M1 | Confirmar ticks ao vivo via worker v2 | ⏳ rate limiting hoje |
-| M2 | TickAnomalyBridge ao vivo | Código pronto |
-| M3 | Análise de anomalias loop 60s | Implementar |
-| M4 | Sinais por confluência engine | Implementar |
-| M6 | Dashboard tick live BusinessDay→Unix | Validar |
+- [x] `if True:` em `routes/events.py:52` — corrigido: `if not settings.kafka_bootstrap_servers:`
+- [x] `if True:` em `routes/events.py:209` — corrigido: `if not settings.kafka_bootstrap_servers:`
+- [x] `/docs` (Swagger) — ja funcionando, `from __future__ import annotations` nao esta mais nas routes
+- [x] `fintz_sync_service_updated.py` — deletado (identico ao original, ja havia sido copiado)
+- [x] `container.py` e `container_v2.py` — removido container.py + .v1.bak (so v2 eh usado)
 
 ---
 
-## FEATURES NOVAS (qualquer hora)
+## 4. Sprint U7 — Event Processor [DONE]
 
-| # | Item | Prioridade |
-|---|------|------------|
-| F2 | Extrato bancário XLS/CSV/OFX → portfólio | Alta |
-| F3 | Notas de corretagem PDF/XLS — XP, Clear, BTG, Inter | Alta |
-| F5 | WhatsApp QR code — Evolution API | Média |
-| F6 | Alertas Tape + WhatsApp | Média |
-| F7 | Relatório PDF avançado | Baixa |
-| F8 | Dias de Estresse — análise de risco | Média |
-| F9 | Exportação Parquet (ticks, candles, anomalias) | Média |
-
----
-
-## DÉBITO TÉCNICO / DASHBOARD
-
-| # | Item |
-|---|------|
-| D1 | Linha vertical entre dias de pregão |
-| D2 | Select duplicado refresh-sel |
-| D3 | PETR4 5m — espaço vazio à esquerda |
+- [x] Domain layer: entities, models, exceptions, ports, rules, value_objects
+- [x] Application layer: EventProcessorService, factory, config, tracing, rules
+- [x] Infrastructure: ORM, repository, mapper, consumer, idempotency, observability
+- [x] Hub router: POST/GET /events, GET /stats, POST /events/{id}/reprocess
+- [x] Worker: event_worker_v2.py com poll loop async
+- [x] Testes: 16 hub tests + 72 event processor tests passando
+- [x] mypy limpo, ruff limpo nos arquivos novos
+- [x] pyproject.toml: ruff, mypy strict, pytest-asyncio ja configurados
 
 ---
 
-## TIMESCALE (warninq no worker)
+## 5. Sprint U8 — Hub frontend + observabilidade
 
-  profit_worker.timescale_unavailable
-  error='invalid DSN: scheme is expected to be either "postgresql" or "postgres",
-         got postgresql+asyncpg'
-
-  Fix: converter TIMESCALE_URL de asyncpg para psycopg2/pg antes de criar pool asyncpg.
-  Impacto: PriceUpdateRule não persiste candles no TimescaleDB (degraded mode).
+- [ ] Cards dead-letter/failed na pagina `/hub` com botao "Reprocessar"
+- [ ] Metrica Prometheus `finanalytics_dead_letter_total` no Grafana
+- [ ] Cleanup job: DELETE `event_records` WHERE status = `completed` AND age > N dias
+- [ ] `correlation_id` propagado no tracing cross-service
 
 ---
 
-## COMANDOS RÁPIDOS
+## 6. Multi-conta (sprint dedicada)
 
-  # Worker v2 (recomendado)
-  $env:REDIS_URL = "redis://localhost:6379/0"
-  $env:LOG_FORMAT = "text"
-  uv run python -m finanalytics_ai.workers.profit_market_worker_v2
-
-  # Diagnóstico básico (confirmar DLL ok)
-  uv run python diag_asyncio_dll.py
-
-  # Rebuild API
-  docker-compose build --no-cache api && docker-compose up -d api
-
-  # Migrations
-  docker exec finanalytics_api alembic upgrade heads
-
-  # Tick de teste manual
-  docker exec finanalytics_redis redis-cli PUBLISH tape:ticks '{"ticker":"WINFUT","price":130500.0,"volume":5.0,"quantity":5,"trade_type":1,"buy_agent":1,"sell_agent":2,"ts":"now","trade_number":1}'
-
-  # Git
-  git add -A && git commit -m "mensagem" && git push origin master
+- [x] Schema `investment_accounts` (migration 0009)
+- [x] `user_account_id` auto-populado no `_send_order_legacy`
+- [ ] CRUD API para contas (endpoints REST)
+- [ ] Seletor de conta no dashboard
+- [ ] Integracao renda fixa com `investment_account_id` na UI `/carteira`
+- [ ] Visualizacao de carteiras de outros usuarios na pagina `/admin` (role MASTER)
 
 ---
 
-## STACK
+## 7. Backfill historico
 
-  Python 3.12 · FastAPI · PostgreSQL 16 · TimescaleDB · Redis
-  SQLAlchemy 2.x async · uv · Docker Compose · Alembic
-  ProfitDLL 4.0.0.35 · Fintz · Evolution API (WhatsApp)
+- [x] ITUB4 (63 dias)
+- [x] PETR4 (63 dias)
+- [x] VALE3 (63 dias)
+- [x] ABEV3 (68 dias)
+- [x] BBDC4 (68 dias)
+- [x] WDOFUT (67 dias)
+- [ ] WEGE3 (55/70 dias — faltam ~15)
+- [ ] WINFUT (13/70 dias — faltam ~57)
+- [x] Scripts run_backfill.ps1 e monitor_backfill.ps1 criados
 
-  Containers:
-    finanalytics_postgres  :5432 ✅
-    finanalytics_timescale :5433 ✅
-    finanalytics_redis     :6379 ✅
-    finanalytics_api       :8000 ✅
+---
+
+## 8. Organizacao do repo [DONE]
+
+- [x] 8 scripts soltos na raiz — todos deletados (nenhum era importado por codigo ativo)
+- [x] `container.py.v1.bak` na raiz do src — deletado
+- [x] `.bak` e `.spd.bak` em routes/, static/, workers/ — todos deletados
+- [x] `static_sidebar_bak/` — diretorio inteiro removido
+- [x] Merge-head migration 0013 — ja nao existe
+
+---
+
+## Resumo
+
+| Secao | Pendentes | Status |
+|-------|-----------|--------|
+| 1. Imediatas | 4 | Desbloquear agora |
+| 2. Nelogica DLL | 5 | Aguardando resposta |
+| 3. Bugs/bypasses | 0 | DONE |
+| 4. Sprint U7 | 0 | DONE |
+| 5. Sprint U8 | 4 | Proxima sprint |
+| 6. Multi-conta | 4 | Sprint dedicada |
+| 7. Backfill | 2 | Scripts prontos |
+| 8. Organizacao | 0 | DONE |

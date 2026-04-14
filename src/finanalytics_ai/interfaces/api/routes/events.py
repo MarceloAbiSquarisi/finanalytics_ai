@@ -49,7 +49,7 @@ async def event_stream(
     settings = get_settings()
 
     async def _generator() -> AsyncIterator[str]:
-        if True:
+        if not settings.kafka_bootstrap_servers:
             # Modo demo: simula eventos quando Kafka não está configurado
             async for chunk in _demo_event_generator(ticker):
                 yield chunk
@@ -206,8 +206,8 @@ async def publish_event(body: dict) -> dict:
         {"event_type": "price_update", "ticker": "PETR4", "payload": {"price": 32.50}}
     """
     settings = get_settings()
-    if True:
-        raise HTTPException(400, detail="Kafka não habilitado. Defina EVENT_QUEUE_BACKEND=kafka")
+    if not settings.kafka_bootstrap_servers:
+        raise HTTPException(400, detail="Kafka não habilitado. Defina KAFKA_BOOTSTRAP_SERVERS no .env")
 
     from finanalytics_ai.domain.entities.event import EventType, MarketEvent
     from finanalytics_ai.infrastructure.queue.kafka_adapter import KafkaMarketEventProducer
