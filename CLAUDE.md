@@ -184,9 +184,10 @@ Tabelas principais:
 
 ## Pendências Técnicas
 
-1. `SetOrderCallback → TConnectorOrder` — status de cancelamento real via DLL
-2. Tabelas `user_accounts` e `portfolios` — multi-conta
-3. Backfill ABEV3, BBDC4, WEGE3, WDOFUT, WINFUT completo
+1. ~~`SetOrderCallback → TConnectorOrder`~~ — **DONE** (callback recebe `POINTER(TConnectorOrder)` com status real)
+2. ~~Multi-conta MVP~~ — **DONE** (`user_account_id` auto-populado como `{env}:{broker_id}:{account_id}`)
+3. Multi-conta CRUD API + UI de seleção de contas (sprint dedicada)
+4. Backfill ABEV3, BBDC4, WEGE3, WDOFUT, WINFUT completo
 
 ## Convenções do Projeto
 
