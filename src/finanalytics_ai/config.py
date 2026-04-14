@@ -93,6 +93,11 @@ class Settings(BaseSettings):
     analytics_vwap_market_open: str = Field(default="10:00")
     analytics_vwap_market_close: str = Field(default="17:55")
 
+    # ── Profit DLL (simulador padrão) ─────────────────────────────────────────
+    profit_sim_broker_id: str = Field(default="")
+    profit_sim_account_id: str = Field(default="")
+    profit_sim_routing_password: str = Field(default="")
+
     # ── Runtime ─────────────────────────────────────────────────────────────
     environment: str = Field(default="development")
     debug: bool = Field(default=False)
