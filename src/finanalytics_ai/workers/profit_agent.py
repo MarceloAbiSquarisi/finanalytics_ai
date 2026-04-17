@@ -4463,11 +4463,11 @@ class ProfitAgent:
 
                         "trade_number": int(trade.TradeNumber),
 
-                        "price":        trade.Price / 100.0,
+                        "price":        trade.Price,
 
                         "quantity":     int(trade.Quantity),
 
-                        "volume":       trade.Volume / 100.0,
+                        "volume":       trade.Volume,
 
                         "trade_type":   int(trade.TradeType),
 
