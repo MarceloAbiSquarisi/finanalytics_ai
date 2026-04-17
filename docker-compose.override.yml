@@ -98,7 +98,7 @@ services:
       TIMESCALE_POOL_SIZE:    10
       TIMESCALE_MAX_OVERFLOW: 20
       # GPU2 disponível para inferência via CUDA
-      CUDA_VISIBLE_DEVICES:   "1"
+      CUDA_VISIBLE_DEVICES: "0"
     deploy:
       resources:
         limits:
@@ -112,7 +112,7 @@ services:
       DATABASE_MAX_OVERFLOW: 20
       TIMESCALE_URL:         postgresql+asyncpg://finanalytics:${TIMESCALE_PASSWORD:-timescale_secret}@timescale:5432/market_data
       # GPU2 dedicada ao worker de processamento
-      CUDA_VISIBLE_DEVICES:  "1"
+      CUDA_VISIBLE_DEVICES: "0"
       # Polars usa todos os threads disponíveis — limita para não interferir
       POLARS_MAX_THREADS:    "16"
     deploy:
@@ -125,7 +125,7 @@ services:
   scheduler:
     environment:
       TIMESCALE_URL:        postgresql+asyncpg://finanalytics:${TIMESCALE_PASSWORD:-timescale_secret}@timescale:5432/market_data
-      CUDA_VISIBLE_DEVICES: "1"
+      CUDA_VISIBLE_DEVICES: "0"
       POLARS_MAX_THREADS:   "8"
     deploy:
       resources:
