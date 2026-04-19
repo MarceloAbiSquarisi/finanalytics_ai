@@ -38,6 +38,7 @@ docker exec finanalytics_timescale psql -U finanalytics -d market_data -c `
                 COUNT(DISTINCT trade_date::date) AS dias,
                 MAX(trade_date::date) AS fim
          FROM market_history_trades
+         WHERE trade_date >= '2025-12-01'
          GROUP BY ticker
      ) h ON h.ticker = t.ticker
      ORDER BY t.ticker;"
