@@ -49,15 +49,53 @@ Resumida em prosa: na camada de persistência, um TimescaleDB (Postgres + extens
 
 **Fase 4 — Backfill histórico 2020–hoje (em andamento, HOJE):** universo = watchlist (~135 stocks) + futuros (WINFUT, WDOFUT). Período: 02-jan-2020 a hoje, ~1.500 pregões. Script `backfill_historico_watchlist.py` pronto, resiliente (retry 3×, graceful shutdown via signals, idempotente via ON CONFLICT). Falta: instalar nssm, criar o serviço via `setup_backfill_service.ps1`, dar start.
 
-## 1.4 O que está rodando agora
+## 1.4 O que está rodando agora (snapshot 19/abr/2026 ~20h BRT)
 
-**TimescaleDB** — container `finanalytics_timescale`, exposto em `localhost:5433`, volume nomeado persistente. Usuário `finanalytics`, banco `market_data`. Hoje armazena milhões de ticks de 2025-01 até 2026-04-17, watchlist completa, agregado `ohlc_1m` para 2025.
+**TimescaleDB** — container `finanalytics_timescale`, `localhost:5433`, user `finanalytics`, banco `market_data`. Armazena ticks 2020–2026-04-17 para 135 tickers (parcial — backfill em curso), 1.32 M bars Fintz diárias (2010→2025-12-30, estagnada lado Fintz), 270 405 linhas em `gap_map_1m` (Sprint 5), 9 489 linhas em `profit_daily_cov` (Sprint 5+4), 13.96 M rows em `fintz_indicadores_ts` (pós-fix Sprint 6), features_daily com 1 457 rows PETR4 (Sprint 10 scaffold).
 
-**profit_agent (FastAPI)** — em `localhost:8002`, embrulha a ProfitDLL. Endpoints principais: `GET /status`, `POST /collect_history`, `POST /subscribe`, `POST /unsubscribe`, `GET /ticks`. Desde 17-abr roda com o patch-bundle que corrige as 5 classes de bugs de contaminação (detalhes em Apêndice B). Pré-requisito operacional: Profit.exe aberto e logado antes de subir o agent, senão `/status` retorna `market_connected=false`.
+**profit_agent** — `localhost:8002`, BaseHTTPRequestHandler embrulhando a ProfitDLL. Endpoints principais: `GET /status|/metrics|/ticks`, `POST /collect_history|/subscribe|/unsubscribe|/order/*`. Desde 17-abr com patch-bundle contra as 5 contaminações. **Endpoint `/metrics` Prometheus adicionado em 19/abr (precisa restart do agent para ativar).** Pré-requisito: Profit.exe logado.
 
-**Backfill histórico (a iniciar)** — `backfill_historico_watchlist.py` pronto para rodar sob nssm como serviço `FinAnalyticsBackfill`. Logs rotacionam em 100 MB. AppStopMethodConsole=120 000ms garante graceful stop. ETA estimado para universo completo: 3–5 dias wall-time, dependendo de throughput do ProfitDLL.
+**Backfill histórico (Sprint 1)** — `FinAnalyticsBackfill` nssm service **em execução**. Universo: 135 tickers da watchlist VERDE+AMARELO + WINFUT/WDOFUT, 2020-01-02 → hoje. Última checagem 19/abr 19:00 BRT: `ITUB4 2020-06` (1.5 % do universo; ETA 3–5 dias wall-clock, competindo com queries concorrentes). Logs em `Melhorias/logs/backfill_historico_{stdout,stderr}.log`. Graceful stop via `setup_backfill_service.ps1 stop`.
 
-**Nada de produção externa ainda** — tudo roda local no workstation do usuário. A decisão de hospedagem está documentada em `FinAnalyticsAI_Relatorio_Hospedagem.docx` e `proposta_decisao_15_dualgpu.md`.
+**Fintz sync worker** — schedule diário 22:05 BRT embutido. Full sync 19/abr gravou 5 datasets (75 em skip por hash inalterado). Gap estrutural: `fintz_cotacoes_ts.max(time) = 2025-12-30` congelado do lado da Fintz/Varos (requer contato com vendor — R6).
+
+**Grafana** — `localhost:3000` (admin / finanalytics2026), container `finanalytics_grafana` 10.4.0, rede `finanalytics_net`. Datasource `TimescaleDB` (UID `afjkz1gl2ky68e`) configurado. Dashboard `FinAnalytics AI — Qualidade de Dados` (UID `finanalytics-data-quality`) com 3 painéis: cobertura 30d, latência por ticker, candles/min hoje. JSON em `Melhorias/grafana_dashboards/qualidade_dados.json`.
+
+**Outros containers Docker** (2 dias up): `finanalytics_api`, `finanalytics_worker`, `finanalytics_scheduler`, `finanalytics_ohlc_ingestor`, `finanalytics_worker_v2`, `finanalytics_zookeeper`, `finanalytics_kafka`, `finanalytics_kafka_ui`, `finanalytics_redis`, `finanalytics_redisinsight`, `finanalytics_postgres`, `finanalytics_pgadmin`, `finanalytics_backup`, `finanalytics_evolution`.
+
+**Nada de produção externa ainda** — tudo local. Decisão de hospedagem (R8) em aberto — input em `Melhorias/proposta_decisao_15_dualgpu.md`.
+
+## 1.5a Sessão 19/abr/2026 — Sprints 2–10 fechados
+
+Dia intenso com 7 sprints fechados (sequenciais e paralelos ao Sprint 1 em execução). 7 commits em `origin/master` (`fcc9a06`, `d32eef6`, `8ecdc53`, `fab7e46`, `2173f18`, `f756f84`, `c71ab13`). Todos validados com DoDs do plano (exceções documentadas).
+
+**Entregas:**
+
+| Sprint | R | Entrega | Status DoD |
+|---|---|---|---|
+| S2 | R4 | BBDC3 → VERDE; BPAN4/GUAR3 → VERMELHO_sem_profit (delisting confirmado via `/collect_history` em 17/abr = 0 ticks). Distribuição final: 124 VERDE, 9 AMARELO_coleta_fraca, 0 AMARELO_parada_recente, 82 VERMELHO_sem_profit. | ✅ |
+| S3 | R2 | Re-agregação `ohlc_1m` 2026-04-13..16 via fork `fase1_backfill_ohlc_1m_range.sql`. 46k candles/dia × 133 tickers. Sanity PETR4 09:30 bateu exato vs ticks (open/high/low/close/volume/trades idênticos). Descoberta: `ohlc_1m` é hypertable comum (não CAgg) — docs corrigidos. | ✅ (passo 6) / ⚠️ passo 5 (30 tickers VERDE baixa liquidez com <300 candles — esperado) |
+| S4 | R3 | `ticker_stride` (215 stocks + WIN/WDO, todos stride=10 empiricamente). View `cobertura_diaria_v2`. Resultado 13-16/abr: stocks 100%, futuros 0.6-14.6 % — fórmula `(tn_max-tn_min)/stride` super-estima futuros (gaps largos no trade_number). Migrado para métrica temporal em S5. | ✅ stocks / ⚠️ futuros (alternativa implementada em S5) |
+| S5 | R7 | **Rota B**: `calendario_b3` (2 922 dias), `profit_daily_cov` (materializada via procedure `pop_profit_daily_cov` com COMMIT por ticker), view `gap_map_1m` com métrica `minutos_com_tick` (funciona para stocks e futuros). 270 405 linhas; query top-20 gaps em 8.99 s. | ✅ |
+| S6 | R6 | Full sync Fintz RUN_ONCE: ok=5, skip=75, error=0, 13.96 M rows adicionadas a `fintz_indicadores_ts` (antes 0). **Fix de dois bugs**: (a) timescale_writer não aceitava df bruto (data→data_publicacao); (b) DSN apontava localhost:5433 dentro do container. **Bloqueio externo confirmado**: `cotacoes_ohlc` da Fintz congelado em 2025-12-30. `fill_fintz_gap.ps1` arquivado. | ⚠️ código OK; DoD de cobertura bloqueado lado Fintz |
+| S8 | R9 | Grafana reaproveitado (já rodava 2 dias). Datasource `TimescaleDB` + dashboard `finanalytics-data-quality` com 3 painéis (cobertura 30d heatmap-like, latência por ticker, candles/minuto hoje). Senha admin resetada (`finanalytics2026`). JSON versionado. | ✅ |
+| S10-scaffold | R10 | Auditoria ML existente (3.2 k linhas já em produção). `features_daily` hypertable. `scripts/features_daily_builder.py` (CLI) + `scripts/train_petr4_mvp.py` (LightGBM). Validação PETR4: **val IC=0.0593, test IC=0.1106** (DoD >0.05 bate). Sharpe LS naive negativo (esperado; usar `MLStrategy` + `RiskEstimator` existentes). `Strategy` Protocol documentado via README. | ✅ scaffold / ⚠️ Sharpe (tratamento via infra existente) |
+
+**Fixes transversais:**
+
+- **profit_agent /metrics** (Prometheus text exposition): counters/gauges para ticks/probes/contaminações/buffer/db. Código pronto, requer restart do agent (retry do backfill protege).
+- **profit_daily_cov** expandido de 30d para **108d** (2026-01-02 → 2026-04-17), 9 489 linhas. Painel 2 do Grafana ganha backup de 3.5 meses.
+- **fintz_indicadores_ts** reparado (5 datasets, 13.96 M rows).
+
+**Ressalvas e follow-ups** (detalhes em changelog §1.6 e `runbook_R10_modelos.md §6`):
+
+1. **Profit_daily_bars quirk de escala**: valores oscilam 0.4 ↔ 49 entre dias para PETR4 (possível confusão close/close_ajustado ou split factor dinâmico). Desativado como fonte no `features_daily_builder`. Investigar em Sprint 10.1.
+2. **Fintz pós-dez/2025**: requer contato com Fintz/Varos. Alternativas: migrar fonte EOD, usar ProfitDLL pós-S1, aceitar gap.
+3. **`/predict` endpoint**: `routes/forecast.py` e `routes/ml_forecasting.py` (1 080 linhas) cobrem mas não foram revisados.
+4. **Restart profit_agent** pendente para ativar `/metrics`.
+5. **Prometheus container** não existe (datasource mal configurado) — subir container real para consumir `/metrics`.
+6. **R5 e R8** são decisões de negócio pendentes.
+7. **75 datasets Fintz** em `hash_unchanged` nunca chegaram ao Timescale; limpar `fintz_sync_log` + full sync para backfill completo (~4–6h, pode esperar).
 
 ## 1.5 Destaques da sessão 17/abr/2026
 
@@ -79,19 +117,92 @@ Consequência prática: a **profundidade histórica** do ProfitDLL está validad
 
 **R3. Auditoria ponderada adaptada a futuros (Fase 3).** Necessidades: descobrir o stride típico de `trade_number` em WINFUT e WDOFUT por contrato e por intensidade (pode variar com vencimento). Criar uma CTE que, por `exchange`, aplique o divisor correto (10 para stocks, stride empírico para futuros). Alternativa: abandonar a fórmula baseada em `trade_number` e medir cobertura em termos de janela temporal (minutos com ≥ 1 tick / minutos totais do pregão).
 
+- **19/abr/2026**: R3 parcialmente fechado (Sprint 4, §8 PLANO_CLAUDE_CODE.md).
+  - Criado `ticker_stride` (PK ticker, classe stock/future, stride_padrao, fonte). Populado com 215 stocks da watchlist (fonte `b3_stride_10`) + WINFUT + WDOFUT (fonte `empirical_2026-04-13..16`). **Medição empírica mostrou stride_mediana=10 e stride_p95=10 para ambos os futuros** — contrariando a doc antiga (WINFUT~160, WDOFUT~70). DLL ou patch-bundle normalizou o stride.
+  - Criada view `cobertura_diaria_v2` (stocks + future por dia, com `pct_cob_media` e `pct_cob_pond`). INNER JOIN com `ticker_stride` exclui tickers fora da watchlist (opções etc) — 96–104 ficam de fora, trabalho de Sprint 5.
+  - **Resultado 13–16/abr/2026:** stocks 100% ponderada nos 4 dias ✅. **Futuros 0.59–14.63% — fórmula `(tn_max−tn_min)/stride+1` super-estima o esperado em WINFUT/WDOFUT** porque `trade_number` tem gaps grandes entre lotes de ticks (não é monotônico consecutivo como em stocks). A alternativa prevista pelo próprio plano (métrica temporal: minutos com ≥1 tick) fica para Sprint 5 (`gap_map_1m`).
+  - Limitação performática: filtro `WHERE dia BETWEEN ...` na view bloqueia Index Only Scan (cast `::date`); para janelas grandes, usar CTE direto com `trade_date >= ts AND trade_date < ts_excl`. Documentado em `ESTADO_TECNICO.md §9.1`.
+  - Artefatos: `Melhorias/sprint4_ticker_stride.sql`, `ticker_stride` (tabela), `cobertura_diaria_v2` (view).
+
 **R4. Investigar 3 tickers AMARELO_parada_recente.** BBDC3, BPAN4, GUAR3 caíram para AMARELO por parada recente de coleta. Necessidades: consulta `SELECT max(trade_date) FROM market_history_trades WHERE ticker IN (…)`, cruzar com Fintz e calendário B3 para distinguir delisting real, fusão, ou falha de coleta. Se for falha de coleta, forçar probe manual e reverter status para VERDE.
+
+- **19/abr/2026**: R4 fechado.
+  - **BBDC3** → `VERDE`: snapshot desatualizada. `max(trade_date)` real = 2026-04-16 (backfill já puxou; 7 675–15 353 ticks/dia entre 13–16/abr). Cobertura normal; não era parada real de coleta.
+  - **BPAN4** → `VERMELHO_sem_profit`: parou abrupta em 2026-01-23. Probe manual `/collect_history` em 2026-04-17 (janela 09:00–18:30) retornou 0 ticks (`v1=0, v2=0, first=null, last=null`). Fintz (`fintz_cotacoes_ts`) sem registros além de 2025-11-03 — inconclusivo por atraso da sync Fintz, mas a ausência na DLL em pregão recente confirma delisting/fusão.
+  - **GUAR3** → `VERMELHO_sem_profit`: parou abrupta em 2026-02-04. Probe manual em 2026-04-17 também retornou 0 ticks. Mesma conclusão que BPAN4.
+  - Distribuição pós-UPDATE: VERDE=124, AMARELO_coleta_fraca=9, AMARELO_parada_recente=0, VERMELHO_sem_profit=82.
+
+- **19/abr/2026**: R2 fechado (Sprint 3, §7 PLANO_CLAUDE_CODE.md).
+  - **Premissa do plano corrigida**: `ohlc_1m` é hypertable comum, não continuous aggregate. `refresh_continuous_aggregate` não se aplica. Produtor primário é brapi (ingestor contínuo); ticks só entram em `ohlc_1m` via SQL manual com `source='tick_agg_v1'`. Docs `ESTADO_TECNICO.md §2.2` e §A corrigidas.
+  - **Re-agregação efetiva**: fork `Melhorias/fase1_backfill_ohlc_1m_range.sql` com filtro `trade_date BETWEEN 2026-04-13 .. 2026-04-16`. Processou 133 tickers (watchlist VERDE + AMARELO_*) em ~2 min. Resultado: 46 336 / 46 893 / 46 090 / 46 495 barras por dia, 133 tickers/dia, 100 % `source='tick_agg_v1'` (6 tickers brapi antigos em 15–16/abr sobrescritos).
+  - **Sanity PETR4 2026-04-15 09:30**: OHLC do `ohlc_1m` bateu exatamente com agregação direta dos ticks (open=47.54, high=47.58, low=47.54, close=47.56, volume=23 000, trades=110). DoD passo 6 ✓.
+  - **Validação passo 5** (HAVING count(*) < 300 para VERDE): 30 linhas restantes — ENJU3 (33), IFCM3 (33–66), MATD3 (52–67), AZTE3/ITSA3/AZEV4/FRAS3/HBRE3/MLAS3/OPCT3. Todos tickers VERDE de liquidez marginal (<1M BRL/dia mediano em vários casos). Não é falha de coleta; threshold de 300 é inadequado para tickers esparsos. Tratamento refinado fica para Sprint 5 (gap_map_1m com threshold dinâmico).
+  - **Backup preservado**: `ohlc_1m_backup_20260419` (90 294 rows, 132 tickers). Rollback documentado no cabeçalho do fork SQL. Dropar em ~7 dias.
 
 **R5. Assinar ProfitDLL para cobrir os ~80 VERMELHO_sem_profit.** Necessidades: revisar lista de VERMELHO, calcular custo/benefício da assinatura extra da Nelogica para desbloquear tickers fora do plano atual. Alternativa: aceitar cobertura parcial via Fintz-EOD apenas para esses.
 
 **R6. Pipeline P23 Fintz refinado (Fase 2).** Necessidades: refatorar `fill_fintz_gap.ps1` em um job resiliente (idealmente também serviço), com rate-limiting (Fintz tem quota), paginação robusta e escrita idempotente em `fintz_cotacoes_ts`. Incluir monitoramento de latência de atualização por ticker.
 
+- **19/abr/2026**: R6 parcialmente fechado (Sprint 6, §10 PLANO_CLAUDE_CODE.md) — **entregas técnicas OK, DoD de cobertura bloqueado por Fintz**.
+  - **Descoberta**: a lógica Fintz já existia em produção em stack DDD completa (`workers/fintz_sync_worker.py` + `application/services/fintz_sync_service.py` + `infrastructure/adapters/fintz_client.py` + `domain/fintz/*`). Atende TODOS os requisitos de §10: `max_retries=3`, timeouts configuráveis, idempotência SHA-256 por dataset (`fintz_sync_log`), SIGTERM/SIGINT graceful, logging estruturado (structlog JSON), RUN_ONCE mode e filtro via `SYNC_DATASETS`. Schedule diário embutido (22:05 BRT via `run_scheduled`) — não precisa nssm dedicado. **Reescrever seria reinvenção**.
+  - **Execução full sync (RUN_ONCE)**: 7m 16s, 80 datasets, `ok=5, skip=75, error=0, total_rows=13 961 262`. Log em `Melhorias/logs/fintz_sync_s6_*.log`.
+  - **Bloqueio externo confirmado**: `fintz_cotacoes_ts` permanece em `max(time)=2025-12-30` pós-sync. A API Fintz serve o dataset `cotacoes_ohlc` com SHA idêntico desde então (hash_unchanged skip automático). Não é falha do pipeline — é a Fintz/Varos que parou de publicar cotações. **Requer contato com vendor para destravar**.
+  - **DoD §10 (não-bate por causa externa)**: `count(*) FROM gap_map_1m WHERE NOT tem_fintz AND dia < CURRENT_DATE` = 17 500 (plano pede ≤100); cobertura Fintz VERDE 2024-hoje << 99.5%. Mas: isso é insolúvel sem resolver o acesso Fintz pós-dez/2025.
+  - **Bug follow-up identificado**: durante o sync, 4 erros `timescale_writer.write_failed: expected a datetime.date or datetime.datetime instance, got 'str'` em `fintz_indicadores_ts`. Não afeta cotações. Writer absorveu os erros (service contabilizou `error=0`) mas rows foram perdidas. Merece fix dedicado em `infrastructure/database/repositories/timescale_writer.py` ou adapter upstream.
+  - **Artefatos**:
+    - `Melhorias/legado/fill_fintz_gap.ps1` (arquivado — wrapper substituído pela execução direta do worker).
+    - Documentação completa da stack Fintz em `ESTADO_TECNICO.md §5`.
+  - **Próxima ação operacional (fora do escopo Claude Code)**: contato com Fintz/Varos para investigar por que `cotacoes_ohlc` parou de ser atualizado em 2025-12-30. Alternativas: migrar para outra fonte EOD, usar ProfitDLL EOD (quando S1 completar), ou aceitar gap como conhecido.
+
 **R7. View `gap_map_1m` consolidada (Fase 3).** Necessidades: join de `market_history_trades` (ticker × dia × count(*)) com `fintz_cotacoes_ts` e `calendario_b3`. Output: uma linha por ticker × dia com flags `tem_profit`, `tem_fintz`, `pct_cobertura_intraday`. Base para qualquer dashboard de qualidade de dados.
+
+- **19/abr/2026**: R7 fechado (Sprint 5, §9 PLANO_CLAUDE_CODE.md, **Rota B**).
+  - **Desvio do plano original**: doc previa `profit_cov` lendo de `ohlc_1m` (CAgg hipotético). Como `ohlc_1m` é hypertable mista brapi+tick_agg_v1 com cobertura histórica esparsa (S3), migramos para `market_history_trades` direto, materializado em `profit_daily_cov` via `CALL pop_profit_daily_cov(d_start)` — PROCEDURE com COMMIT por ticker (progresso visível). CTE inline fazia seq scan de 545M rows → query top-20 pendurava 10+ min. Com tabela materializada: **8.99 s**.
+  - **Métrica intraday**: `minutos_com_tick` (`count DISTINCT time_bucket('1 minute')`) em vez de "candles ≥ 300" — funciona igual para stocks e futuros (resolve dívida de S4 sobre futuros).
+  - **Threshold tiered por `mediana_vol_brl`** (300/200/100/50/20 min para stocks, 200 min para WINFUT/WDOFUT). Baseline adaptativo por ticker ficou como follow-up (tentativa 60-90d teve custo I/O proibitivo em disputa com S1).
+  - **Artefatos criados**: `calendario_b3` (2 922 dias, 101 feriados), `profit_daily_cov` (PK ticker×dia, 2 557 linhas iniciais cobrindo 2026-03-20→2026-04-17, 135 tickers), procedure `pop_profit_daily_cov`, view `gap_map_1m` (270 405 linhas = 135 tickers × 1 247 pregões de 2020–2027).
+  - **DoD**: `count(*) FROM gap_map_1m` = **270 405** (plano: ≈200k) ✅; query top-20 em **8.99 s** (plano: <10s) ✅; calendário 248–250 pregões/ano (plano: 247–252) ✅.
+  - **Follow-ups documentados**: expandir janela de `profit_daily_cov` pós-S1; implementar `ticker_profit_baseline`; resolver `tem_fintz=false` em ~160 dias recentes (S6); opcionalmente cobrir tickers não-watchlist.
+  - **Artefatos em disco**: `Melhorias/sprint5_calendario_b3.sql`, `sprint5_profit_daily_cov.sql`, `sprint5_pop_cov_procedure.sql`, `sprint5_populate_cov_window.sql`, `sprint5_gap_map_1m.sql`. Documentação em `ESTADO_TECNICO.md §9.2`.
 
 **R8. Decisão de hospedagem e deploy.** Necessidades: finalizar comparativo de TCO em `FinAnalyticsAI_Comparativo_Hospedagem.xlsx`, decidir entre workstation local persistente × VM dedicada × híbrido (dual-GPU). Documento em `proposta_decisao_15_dualgpu.md` cobre opções. Impacta plano de uptime do ProfitDLL, uma vez que a DLL é Windows-only e exige Profit.exe rodando.
 
 **R9. Dashboards de qualidade de dados.** Necessidades: stack de visualização (Grafana + Postgres? Streamlit? Next.js?). Painéis mínimos: (i) cobertura por ticker × dia nos últimos 30 dias; (ii) latência de ticks (diferença entre `now()` e `max(trade_date)` por ticker); (iii) gaps em `ohlc_1m` por minuto no dia corrente. Dependência: R7.
 
+- **19/abr/2026**: R9 fechado (Sprint 8, §12 PLANO_CLAUDE_CODE.md).
+  - **Contexto descoberto**: container `finanalytics_grafana` 10.4.0 já estava rodando há 2 dias na rede `finanalytics_net` (volume persistente `finanalytics_ai_fresh_grafana_data`), com 3 dashboards pré-existentes (API Overview, Business Metrics, System Resources) e datasource Prometheus. Admin password foi resetado via `grafana cli admin reset-admin-password finanalytics2026`.
+  - **Artefatos novos**: datasource `TimescaleDB` (UID `afjkz1gl2ky68e`, via POST `/api/datasources`) e dashboard `FinAnalytics AI — Qualidade de Dados` (UID `finanalytics-data-quality`, via POST `/api/dashboards/db`). JSON versionado em `Melhorias/grafana_dashboards/qualidade_dados.json`.
+  - **3 painéis**:
+    - **P1 — Cobertura intraday 30d**: table sobre `gap_map_1m` com cores gradiente (vermelho <40%, laranja 40-70%, verde ≥70%) + flags `tem_profit_ok`/`tem_fintz` com ícone ✓/✗ colorido.
+    - **P2 — Latência por ticker**: horas desde `max(dia)+17h` em `profit_daily_cov`. Cores: verde <24h, laranja 24-72h, vermelho ≥72h. Hoje (19/abr, domingo) painel mostra ~73h para toda a watchlist (último dia coberto = 2026-04-16) — esperado.
+    - **P3 — Candles/minuto hoje**: bar chart com contagem de tickers em `ohlc_1m` por minuto (10:00-17:00). Vazio em dia sem pregão (como hoje, domingo). Vai preencher a partir de segunda.
+  - **Refresh**: 5min. Time range default: `now-30d`.
+  - **DoD §12**: Grafana em `:3000` ✅; datasource TimescaleDB OK (teste `SELECT 1` via API retornou 200) ✅; 3 painéis populados ✅; JSON versionado ✅.
+  - **Limitações**: P2 usa `profit_daily_cov` em vez de `market_history_trades` direto — latência real de ticks bruta precisaria de query mais pesada; compromisso aceito (profit_daily_cov é 30d rolling window, será mais preciso pós-Sprint 1). P3 só funciona em dia de pregão.
+  - **Artefatos em disco**: `Melhorias/grafana_dashboards/qualidade_dados.json`. Documentação em `ESTADO_TECNICO.md §11` (seção "Grafana", "Datasources", "Dashboards").
+
 **R10. Sistema de modelos e backtests.** Necessidades: R1 terminar (6 anos de histórico), arquitetura definida para features incrementais (materialized views com joins Fintz ↔ Profit), framework de backtest (VectorBT, Zipline fork, ou custom). Decisão de GPU (dual-GPU) impacta custo/tempo de treino de modelos maiores.
+
+- **19/abr/2026**: R10 scaffold concluído (Sprint 10, §14 PLANO_CLAUDE_CODE.md).
+  - **Auditoria** revelou ~3 200 linhas de ML/backtest já implementadas: `application/ml/*` (QuantileForecaster LightGBM P10/P50/P90; feature_pipeline com RSI/vol/returns; MLService; MLStrategy; RiskEstimator histórico/t-Student/GARCH/MonteCarlo), `domain/backtesting/*` (Strategy Protocol, engine.run_backtest, 19 estratégias em technical.py, optimizer walk-forward, multi_ticker), routes ML (1 080 linhas). Reescrever seria reinvenção. Inventário em `Melhorias/auditoria_ml_existente.md`.
+  - **Artefatos novos**:
+    - `features_daily` (hypertable TimescaleDB, PK `ticker,dia`, 12 colunas incluindo `close, r_1d/5d/21d, atr_14, vol_21d, vol_rel_20, sma_50, sma_200, rsi_14, source`) — `Melhorias/sprint10_features_daily.sql`.
+    - `scripts/features_daily_builder.py` — CLI `--backfill` / `--incremental` / `--only T1,T2` / `--dry-run`. Fonte MVP: `fintz_cotacoes_ts` 2010→2025-12-30. `profit_daily_bars` desativado por quirk de escala (0.4 ↔ 49 para PETR4; investigar Sprint 10.1).
+    - `scripts/train_petr4_mvp.py` — pipeline end-to-end LightGBM Regressor, target r_1d_futuro (log-return 1d ahead), split 2020-23/2024/2025+, métricas IC (Spearman), hit rate, Sharpe LS. Serializa `models/*.pkl|json`.
+    - `src/finanalytics_ai/domain/backtesting/strategies/README.md` — documenta padrão Strategy Protocol (§14 passo 4).
+  - **Validação end-to-end (PETR4, 1 257 rows Fintz)**:
+    - train=795, val=251, test=211
+    - **val IC = 0.0593** (DoD >0.05 ✅), **test IC = 0.1106** (DoD >0.05 ✅)
+    - val hit rate 0.47, test hit rate 0.48
+    - val Sharpe LS = −0.28, test Sharpe LS = −0.54 (DoD >0 ❌ — estratégia sign() naive perde; produção deve usar `MLStrategy` com sizing + filtro via `RiskEstimator`).
+    - Modelo serializado em `models/petr4_mvp_PETR4_*.pkl|.json`.
+  - **DoD §14**:
+    - `features_daily` populado para watchlist VERDE 2020-hoje: parcial (PETR4 validado; expandir com `--backfill`).
+    - 1 modelo com IC>0.05: ✅ bate.
+    - Sharpe>0: ❌ não bate com estratégia naive — follow-up com `MLStrategy` + `RiskEstimator` (infraestrutura pronta).
+    - `/predict` respondendo 5 tickers: ❌ não implementado — `routes/forecast.py`/`ml_forecasting.py` já cobrem mas não foram revisados; follow-up.
+    - Runbook: ✅ `Melhorias/runbook_R10_modelos.md`.
+  - **Follow-ups**: (a) expandir features_daily para watchlist inteira (`--backfill` roda em ~1h); (b) cobertura 2026+ (dep. S1 completar + regenerar `profit_daily_bars` ou agregar `ohlc_1m` daily); (c) endpoint `/predict` usando último pickle; (d) `MLStrategy` backtest produção com QuantileForecaster + RiskEstimator; (e) MLflow registry (out-of-scope).
 
 Priorização prática imediata: R1 (rodando) → R4 (rápido, descarta delisting) → R2 (depende de R1) → R7 (destranca R9) → R10.
 
@@ -103,7 +214,7 @@ Priorização prática imediata: R1 (rodando) → R4 (rápido, descarta delistin
 
 **`market_history_trades`** (hypertable, partition por `trade_date`): uma linha por tick. Chave composta `(ticker, trade_date, trade_number)` usada no `ON CONFLICT DO NOTHING`. Colunas principais: `ticker text`, `trade_date timestamptz`, `trade_number bigint`, `price numeric`, `quantity bigint`, `agressor char(1)`, `exchange char(1)`, `trade_id bigint`. `trade_number` é monotônico dentro de um pregão na B3 com stride 10 para ações (à vista); em futuros o stride varia (ver 1.5).
 
-**`ohlc_1m`** (continuous aggregate de `market_history_trades`): candles de 1 minuto por `(ticker, bucket)`. Refresh incremental via `refresh_continuous_aggregate` chamado no fim do pregão ou sob demanda via `fase1_backfill_ohlc_1m.sql`. Colunas: `ticker`, `bucket timestamptz`, `open`, `high`, `low`, `close`, `volume`, `trade_count`.
+**`ohlc_1m`** (**hypertable**, não continuous aggregate — correção 19/abr/2026): candles de 1 minuto, PK `(time, ticker)`, coluna `source` diferencia origem. Duas fontes populam a mesma tabela: `source='brapi'` (ingestor contínuo `workers/ohlc_1m_ingestor.py` + `OHLC1mService`) e `source='tick_agg_v1'` (agregação manual de `market_history_trades` via `fase1_backfill_ohlc_1m.sql`). Colunas: `time`, `ticker`, `open`, `high`, `low`, `close`, `volume`, `trades`, `vwap`, `source`. Não há continuous aggregate ou job de refresh — apenas Columnstore Policy (job 1003, compressão após 7d). Ver `ESTADO_TECNICO.md §2.2` para detalhes.
 
 **`watchlist_tickers`** (tabela comum, ~135 linhas): fonte canônica da watchlist. DDL em `create_watchlist_tickers.sql`. Campos: `ticker (PK)`, `mediana_vol_brl`, `media_vol_brl`, `mediana_trades_dia`, `dias_cobertura`, `ticks_2026`, `ultimo_tick`, `status` (enum textual: `VERDE`, `AMARELO_parada_recente`, `AMARELO_coleta_fraca`, `VERMELHO_sem_profit`). Refresh é manual após re-running dos diagnósticos de Fase 0.
 

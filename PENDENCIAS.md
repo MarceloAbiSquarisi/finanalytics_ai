@@ -1,6 +1,68 @@
 # Pendencias — finanalytics_ai
-> Atualizado: 2026-04-14
+> Atualizado: 2026-04-19 (sessão Sprints 2-10 + fixes)
 > Fonte: PENDENCIAS.md original + analise Claude Code do projeto completo
+
+> **IMPORTANTE:** o estado operacional vivo dos sprints R1-R10 está em
+> `ESTADO_CONSOLIDADO.md §1.6` e `ESTADO_TECNICO.md`. Este arquivo preserva
+> pendências mais antigas (abril/2026). Novas pendências técnicas vão para o
+> runbook específico de cada sprint (ex: `Melhorias/runbook_R10_modelos.md`).
+
+---
+
+## 0. Status 19/abr/2026 — pós-sessão
+
+**Sprints fechados hoje:** S2 (R4 watchlist), S3 (R2 ohlc_1m), S4 (R3 stride),
+S5 (R7 gap_map_1m), S6 (R6 Fintz — bloqueio externo), S8 (R9 dashboards),
+S10-scaffold (R10 features_daily + MVP PETR4 IC=0.11).
+
+**Em execução:** Sprint 1 (R1 backfill 2020-hoje) como nssm service
+`FinAnalyticsBackfill` — em `ITUB4 2020-06` (última checagem 19/abr 19h BRT;
+ETA 3-5 dias wall-clock, competindo com I/O concorrente).
+
+**Pendentes (ordem de prioridade):**
+
+1. **Conclusão Sprint 1** — backfill continuar até 100% (bloqueia R10 completo).
+2. **Restart do profit_agent** para ativar `/metrics` Prometheus (endpoint
+   implementado em 19/abr mas agent ainda rodando sem restart).
+3. **Fintz pós-dez/2025** — contato com Fintz/Varos (dataset `cotacoes_ohlc`
+   congelado em 2025-12-30, hash idêntico desde então).
+4. **R8 — decisão hospedagem** (input em `Melhorias/proposta_decisao_15_dualgpu.md`).
+5. **R5 — decisão VERMELHO_sem_profit** (82 tickers; custo/benefício plano Nelogica).
+6. **`profit_daily_bars` quirk de escala** — valores oscilam 0.4↔49 entre dias
+   para PETR4. Desativado como fonte no `features_daily_builder`. Investigar
+   em `populate_daily_bars.py` ou `candle_repository.py`.
+7. **Expansão `features_daily`** para watchlist inteira via
+   `python scripts/features_daily_builder.py --backfill --start 2020-01-02`
+   (~1h de run).
+8. **Endpoint `/predict`** — revisar `routes/forecast.py` e
+   `routes/ml_forecasting.py` (já existentes, 1 080 linhas) e garantir que
+   expõem o pickle mais recente em `models/`.
+9. **Prometheus server** — subir container dedicado para scrape do profit_agent
+   `/metrics` (integração Grafana).
+10. **`MLStrategy` + `RiskEstimator`** em produção — tudo já existe em
+    `application/ml/*`, falta integrar ao pipeline de backtest/serving.
+11. **75 datasets Fintz** com hash_unchanged nunca chegaram ao Timescale —
+    `TRUNCATE fintz_sync_log` + full sync (~4-6h) se quiser backfill completo
+    dos fundamentos/indicadores no Timescale.
+
+**Bugs descobertos que já foram corrigidos:**
+
+- `timescale_writer` rejeitava df bruto em indicadores/itens_contabeis → fix
+  via `_ensure_data_publicacao` + `_ensure_tipo_periodo`. 5 datasets reparados
+  (13.96 M rows em `fintz_indicadores_ts`).
+- `PROFIT_TIMESCALE_DSN=localhost:5433` inválido dentro do container
+  `fintz_sync_worker` → override em `docker-compose.yml`.
+- `gap_map_1m` cast `dia::date` bloqueava Index Only Scan → usar timestamp
+  range direto em queries de grande janela.
+- Contagens de `profit_agent_total_contaminations` agora disponíveis via
+  `/metrics` (antes só em log).
+
+**Arquivos de orquestração** (vivos):
+- `ESTADO_CONSOLIDADO.md §1.6` — changelog R1-R10 detalhado.
+- `ESTADO_TECNICO.md` — schemas, queries, patches.
+- `PLANO_CLAUDE_CODE.md` — plano 0-10 (roadmap).
+- `Melhorias/runbook_R10_modelos.md` — operação ML.
+- `docs/historico/` — briefings de sessões 16-17/abr (não-ativos).
 
 ---
 
