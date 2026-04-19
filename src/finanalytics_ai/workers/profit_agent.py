@@ -1471,6 +1471,13 @@ class ProfitAgent:
 
         self._total_assets = 0
 
+        # Métricas Prometheus (/metrics endpoint)
+        self._total_probes           = 0
+        self._total_contaminations   = 0
+        self._probe_duration_sum_s   = 0.0
+        self._probe_duration_count   = 0
+        self._probes_lock            = threading.Lock()
+
         self._book: dict = {}
 
         self._sse_clients: list = []
@@ -4299,6 +4306,72 @@ class ProfitAgent:
 
 
 
+    def get_metrics(self) -> str:
+        """Prometheus text exposition format (text/plain; version=0.0.4)."""
+        db_ok = 1 if (self._db is not None and self._db.is_connected) else 0
+        mkt_ok = 1 if self._market_ok else 0
+        lines = [
+            "# HELP profit_agent_total_ticks Total de ticks processados (acumulado)",
+            "# TYPE profit_agent_total_ticks counter",
+            f"profit_agent_total_ticks {self._total_ticks}",
+            "# HELP profit_agent_total_orders Total de ordens processadas",
+            "# TYPE profit_agent_total_orders counter",
+            f"profit_agent_total_orders {self._total_orders}",
+            "# HELP profit_agent_total_assets Total de ativos reconhecidos na sessao",
+            "# TYPE profit_agent_total_assets gauge",
+            f"profit_agent_total_assets {self._total_assets}",
+            "# HELP profit_agent_db_queue_size Itens na fila de writes do DB",
+            "# TYPE profit_agent_db_queue_size gauge",
+            f"profit_agent_db_queue_size {self._db_queue.qsize()}",
+            "# HELP profit_agent_subscribed_tickers Tickers em subscribe realtime",
+            "# TYPE profit_agent_subscribed_tickers gauge",
+            f"profit_agent_subscribed_tickers {len(self._subscribed)}",
+            "# HELP profit_agent_market_connected 1 se DLL conectada ao mercado",
+            "# TYPE profit_agent_market_connected gauge",
+            f"profit_agent_market_connected {mkt_ok}",
+            "# HELP profit_agent_db_connected 1 se TimescaleDB alcancavel",
+            "# TYPE profit_agent_db_connected gauge",
+            f"profit_agent_db_connected {db_ok}",
+            "# HELP profit_agent_total_probes Total de chamadas /collect_history",
+            "# TYPE profit_agent_total_probes counter",
+            f"profit_agent_total_probes {self._total_probes}",
+            "# HELP profit_agent_total_contaminations Contaminacoes detectadas (first/last != requested)",
+            "# TYPE profit_agent_total_contaminations counter",
+            f"profit_agent_total_contaminations {self._total_contaminations}",
+            "# HELP profit_agent_probe_duration_seconds_sum Soma de duracao dos probes (s)",
+            "# TYPE profit_agent_probe_duration_seconds_sum counter",
+            f"profit_agent_probe_duration_seconds_sum {self._probe_duration_sum_s:.3f}",
+            "# HELP profit_agent_probe_duration_seconds_count Contagem de probes mensurados",
+            "# TYPE profit_agent_probe_duration_seconds_count counter",
+            f"profit_agent_probe_duration_seconds_count {self._probe_duration_count}",
+        ]
+        return "\n".join(lines) + "\n"
+
+
+
+    def _instrument_probe(self, body: dict, result: dict, duration_s: float) -> None:
+        """Incrementa contadores Prometheus a partir de um probe /collect_history."""
+        try:
+            requested = (body or {}).get("ticker")
+            first_t = (result.get("first") or {}).get("ticker") if result else None
+            last_t  = (result.get("last")  or {}).get("ticker") if result else None
+            ticks_n = (result or {}).get("ticks", 0) or 0
+            contaminated = bool(
+                ticks_n > 0 and requested and (
+                    (first_t and first_t != requested) or (last_t and last_t != requested)
+                )
+            )
+            with self._probes_lock:
+                self._total_probes          += 1
+                self._probe_duration_sum_s  += float(duration_s)
+                self._probe_duration_count  += 1
+                if contaminated:
+                    self._total_contaminations += 1
+        except Exception:
+            pass  # métricas nunca devem derrubar o handler
+
+
+
     # ------------------------------------------------------------------
 
     # HTTP Server
@@ -4358,6 +4431,43 @@ class ProfitAgent:
         dt_end   = str(body.get("dt_end",   "09/04/2026 18:00:00"))
 
         timeout  = int(body.get("timeout",  180))
+
+        # ── PATCH contaminacao (17/abr/2026) ──────────────────────────────────
+        # Bugs corrigidos:
+        #   1. V1 callback global captura realtime de outros tickers durante wait
+        #   2. _db_queue.put_nowait polui profit_ticks com time=now
+        #   3. Sem filtro de ticker
+        #   4. Sem filtro de janela temporal
+        # Estrategia:
+        #   - self._collecting_history_ticker marca modo historico
+        #   - _win_start / _win_end delimitam janela aceita (margem +/-12h p/ TZ)
+        #   - callbacks V1/V2 descartam trades fora desses filtros
+        def _parse_hist_window(s):
+            from datetime import datetime as _dtw, timedelta as _tdw
+            s = s.strip()
+            for _fmt in ("%d/%m/%Y %H:%M:%S", "%d/%m/%Y",
+                         "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+                try:
+                    return _dtw.strptime(s, _fmt).replace(tzinfo=timezone.utc)
+                except ValueError:
+                    pass
+            try:
+                return _dtw.fromisoformat(s).replace(tzinfo=timezone.utc)
+            except Exception:
+                return None
+        from datetime import timedelta as _td_win
+        _win_start_parsed = _parse_hist_window(dt_start)
+        _win_end_parsed   = _parse_hist_window(dt_end)
+        if _win_start_parsed and _win_end_parsed:
+            _win_start = _win_start_parsed - _td_win(hours=12)
+            _win_end   = _win_end_parsed   + _td_win(hours=12)
+        else:
+            _win_start = datetime(2000, 1, 1, tzinfo=timezone.utc)
+            _win_end   = datetime(2099, 1, 1, tzinfo=timezone.utc)
+        _hist_ticker_up = ticker.upper()
+        self._collecting_history_ticker = _hist_ticker_up
+        log.info("collect_history FILTERS ticker=%s window=%s→%s",
+                 _hist_ticker_up, _win_start.isoformat(), _win_end.isoformat())
 
 
 
@@ -4453,6 +4563,17 @@ class ProfitAgent:
 
                         td = datetime(2000, 1, 1, tzinfo=timezone.utc)
 
+                    # PATCH contaminacao: filtra ticker e janela (V2)
+                    _tk_v2 = (asset_id.Ticker or ticker).upper()
+                    if _tk_v2 != _hist_ticker_up:
+                        if is_last:
+                            done.set()
+                        return
+                    if td < _win_start or td > _win_end:
+                        if is_last:
+                            done.set()
+                        return
+
                     ticks.append({
 
                         "src": "v2",
@@ -4517,6 +4638,10 @@ class ProfitAgent:
 
                 ticker_v1 = asset.ticker or ticker
 
+                # PATCH contaminacao: filtro de ticker (V1)
+                if (ticker_v1 or '').upper() != _hist_ticker_up:
+                    return
+
                 # Parse "DD/MM/YYYY HH:mm:SS.ZZZ"
 
                 if date_str and len(date_str) >= 19:
@@ -4549,6 +4674,10 @@ class ProfitAgent:
 
                     td = datetime(2000, 1, 1, tzinfo=timezone.utc)
 
+                # PATCH contaminacao: filtro de janela temporal (V1)
+                if td < _win_start or td > _win_end:
+                    return
+
                 ticks.append({
 
                     "src":          "v1",
@@ -4577,33 +4706,10 @@ class ProfitAgent:
 
                     log.info("collect_history v1 ticks=%d", len(ticks))
 
-                # Também encaminha para o pipeline normal (real-time)
-
-                self._total_ticks += 1
-
-                self._db_queue.put_nowait({
-
-                    "_type": "tick",
-
-                    "time": datetime.now(tz=timezone.utc),
-
-                    "ticker": ticker_v1,
-
-                    "exchange": asset.bolsa or "B",
-
-                    "price": price, "quantity": qty,
-
-                    "volume": vol, "buy_agent": buy_agent,
-
-                    "sell_agent": sell_agent,
-
-                    "trade_number": trade_num,
-
-                    "trade_type": trade_type,
-
-                    "is_edit": bool(edit),
-
-                })
+                # PATCH contaminacao: NAO mais empurrar para _db_queue durante
+                # modo historico — isso poluia profit_ticks com time=now para
+                # trades historicos. Persistencia final acontece via INSERT em
+                # batch no final do collect_history usando trade_date original.
 
             except Exception as e:
 
@@ -4731,6 +4837,9 @@ class ProfitAgent:
 
             self._restore_callbacks(orig_trade_v2, orig_v1)
 
+            # PATCH contaminacao: limpa flag se abortamos cedo
+            self._collecting_history_ticker = None
+
             return {"error": f"GetHistoryTrades: {ret_name}", "ret": ret}
 
 
@@ -4745,9 +4854,31 @@ class ProfitAgent:
 
 
 
+        # ── PATCH estabilizacao — corrige race do done.set() prematuro ────────
+        # progress=100 chega antes do ultimo batch V1 ser entregue. Esperar ate
+        # len(ticks) estabilizar por 5 seg (max 30 seg total de espera extra).
+        import time as _time_stab
+        _prev_len   = len(ticks)
+        _stable_sec = 0
+        _stab_start = _time_stab.time()
+        while _stable_sec < 5:
+            _time_stab.sleep(1)
+            if len(ticks) == _prev_len:
+                _stable_sec += 1
+            else:
+                _stable_sec = 0
+                _prev_len = len(ticks)
+            if _time_stab.time() - _stab_start > 30:
+                log.warning("collect_history stab_timeout final=%d", len(ticks))
+                break
+        log.info("collect_history stabilized final=%d", len(ticks))
+
         # ── Restaura callbacks ────────────────────────────────────────────────
 
         self._restore_callbacks(orig_trade_v2, orig_v1)
+
+        # PATCH contaminacao: limpa flag de modo historico
+        self._collecting_history_ticker = None
 
 
 
@@ -4962,6 +5093,15 @@ class ProfitAgent:
                 if self.path == "/status":
 
                     self._send_json(agent.get_status())
+
+                elif self.path == "/metrics":
+
+                    body = agent.get_metrics().encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
 
                 elif self.path == "/accounts":
 
@@ -5282,7 +5422,10 @@ class ProfitAgent:
 
                 elif self.path == "/collect_history":
 
-                    self._send_json(agent.collect_history(body))
+                    _t0 = time.time()
+                    _res = agent.collect_history(body)
+                    agent._instrument_probe(body, _res, time.time() - _t0)
+                    self._send_json(_res)
 
                 elif self.path == "/history/tickers/add":
 
