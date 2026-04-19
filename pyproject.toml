@@ -17,41 +17,33 @@ dependencies = [
     "fastapi>=0.111.0",
     "uvicorn[standard]>=0.29.0",
     "python-multipart>=0.0.9",
-
     # ── Database ───────────────────────────────────────────────────────────
     "sqlalchemy[asyncio]>=2.0.30",
     "asyncpg>=0.29.0",
     "psycopg2-binary>=2.9.9",        # alembic CLI (sync)
     "alembic>=1.13.1",
-
     # ── Cache / Messaging ──────────────────────────────────────────────────
     "redis>=5.0.3",
     "aiokafka>=0.10.0",
-
     # ── Validation / Settings ──────────────────────────────────────────────
     "pydantic>=2.7.0",
     "pydantic-settings>=2.2.0",
     "python-dotenv>=1.0.0",
-
     # ── HTTP client ────────────────────────────────────────────────────────
     "aiohttp>=3.9.5",
     "httpx>=0.27.0",
-
     # ── Resiliência ────────────────────────────────────────────────────────
     "tenacity>=8.3.0",
-
     # ── Observabilidade ────────────────────────────────────────────────────
     "structlog>=24.1.0",
     "prometheus-client>=0.20.0",
     "opentelemetry-api>=1.24.0",
     "opentelemetry-sdk>=1.24.0",
     "opentelemetry-instrumentation-sqlalchemy>=0.45b0",
-
     # ── Auth / Segurança ───────────────────────────────────────────────────
     "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",
     "bcrypt==4.0.1",                  # pin: API pública estável
-
     # ── Data / Analytics ───────────────────────────────────────────────────
     "numpy>=1.26.0",
     "pandas>=2.2.0",
@@ -63,17 +55,15 @@ dependencies = [
     "pandas-ta>=0.4.0",
     "statsmodels>=0.14.0",
     "python-dateutil>=2.9.0",
-
     # ── Parsing de documentos ──────────────────────────────────────────────
     "pdfplumber>=0.10.0",
     "openpyxl>=3.1.0",
-
     # ── Relatórios ─────────────────────────────────────────────────────────
     "reportlab>=4.1.0",
     "pillow>=10.3.0",
-
     # ── Utilitários ────────────────────────────────────────────────────────
     "click>=8.1.0",
+    "pyield>=0.48.9",
 ]
 
 # ──────────────────────────────────────────────────────────────────────────────
