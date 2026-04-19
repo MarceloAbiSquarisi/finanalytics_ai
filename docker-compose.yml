@@ -264,6 +264,10 @@ services:
     env_file: .env
     environment:
       DATABASE_URL:          postgresql+asyncpg://finanalytics:${POSTGRES_PASSWORD:-secret}@postgres:5432/finanalytics
+      # Sprint 6 fix (19/abr/2026): override do DSN TimescaleDB para hostname
+      # da rede Docker; o .env usa localhost:5433 (visão do host), inválido
+      # dentro do container. Sem isto o PgTimescaleWriter falha connect.
+      PROFIT_TIMESCALE_DSN:  postgresql://finanalytics:${TIMESCALE_PASSWORD:-timescale_secret}@finanalytics_timescale:5432/market_data
       RUN_ONCE:              "false"
       FINTZ_SYNC_HOUR:       "22"
       FINTZ_SYNC_MINUTE:     "5"

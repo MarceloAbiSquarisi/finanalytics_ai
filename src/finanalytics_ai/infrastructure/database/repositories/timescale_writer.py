@@ -147,9 +147,13 @@ class PgTimescaleWriter:
         """
         Grava itens contábeis em fintz_itens_contabeis_ts.
 
-        DataFrame esperado (após FintzRepo._normalize_itens_contabeis):
-          ticker, item, tipo_periodo, data_publicacao (date), valor
+        Aceita DataFrame bruto (parquet Fintz: ticker, item, data, valor)
+        ou normalizado (via FintzRepo._normalize_itens_contabeis: ticker, item,
+        tipo_periodo, data_publicacao, valor). Fintz_sync_service passa o df
+        bruto — fallback de normalização abaixo.
         """
+        df = self._ensure_data_publicacao(df)
+        df = self._ensure_tipo_periodo(df, spec)
         columns = ["time", "ticker", "item", "tipo_periodo", "valor"]
         return await self._write_normalized(
             df=df,
@@ -165,9 +169,12 @@ class PgTimescaleWriter:
         """
         Grava indicadores em fintz_indicadores_ts.
 
-        DataFrame esperado (após FintzRepo._normalize_indicadores):
-          ticker, indicador, data_publicacao (date), valor
+        Aceita DataFrame bruto (parquet Fintz: ticker, indicador, data, valor)
+        ou normalizado (via FintzRepo._normalize_indicadores: ticker,
+        indicador, data_publicacao, valor). Fintz_sync_service passa o df
+        bruto — fallback de normalização abaixo.
         """
+        df = self._ensure_data_publicacao(df)
         columns = ["time", "ticker", "indicador", "valor"]
         return await self._write_normalized(
             df=df,
@@ -176,6 +183,26 @@ class PgTimescaleWriter:
             time_col_src="data_publicacao",
             conflict_cols="(time, ticker, indicador)",
         )
+
+    # ── Normalização defensiva (df bruto vs normalizado) ──────────────────────
+
+    @staticmethod
+    def _ensure_data_publicacao(df: Any) -> Any:
+        if df is None or not hasattr(df, "columns"):
+            return df
+        if "data_publicacao" not in df.columns and "data" in df.columns:
+            df = df.rename(columns={"data": "data_publicacao"})
+        return df
+
+    @staticmethod
+    def _ensure_tipo_periodo(df: Any, spec: Any) -> Any:
+        if df is None or not hasattr(df, "columns"):
+            return df
+        if "tipo_periodo" not in df.columns:
+            tp = getattr(spec, "params", {}).get("tipoPeriodo", "") if spec else ""
+            df = df.copy()
+            df["tipo_periodo"] = tp
+        return df
 
     # ── Core: COPY → temp → INSERT ON CONFLICT DO NOTHING ────────────────────
 
