@@ -85,3 +85,13 @@ test_history.py
 
 # ZIP de backup
 *.zip
+
+# Claude Code (config local, state, logs)
+.claude/
+
+# Backups automáticos timestamped (docker-compose.*.backup_YYYYMMDD_HHMM etc)
+*.backup_*
+
+# Artefatos ML (modelos serializados + metadata) — regeneráveis via
+# scripts/train_*.py. Se precisar versionar, usar git-lfs ou release asset.
+models/
