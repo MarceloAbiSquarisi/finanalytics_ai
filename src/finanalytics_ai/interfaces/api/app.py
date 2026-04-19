@@ -23,6 +23,7 @@ from finanalytics_ai.exceptions import FinAnalyticsError
 from finanalytics_ai.infrastructure.database.connection import close_engine, get_engine
 from finanalytics_ai.interfaces.api.routes import admin as admin_routes
 from finanalytics_ai.interfaces.api.routes import ml_forecasting as ml_routes
+from finanalytics_ai.interfaces.api.routes import predict_mvp as predict_mvp_routes
 from finanalytics_ai.interfaces.api.routes import marketdata as marketdata_routes
 from finanalytics_ai.interfaces.api.routes import fundos as fundos_routes
 from finanalytics_ai.interfaces.api.routes import accounts as accounts_routes
@@ -851,6 +852,7 @@ def create_app() -> FastAPI:
     except Exception as _sfe:
         logger.warning("screener_fintz.route.FAILED", error=str(_sfe))
     app.include_router(ml_routes.router, tags=["ML Probabilistico"])
+    app.include_router(predict_mvp_routes.router, tags=["ML Probabilistico"])
     try:
         from finanalytics_ai.interfaces.api.routes import agent as agent_routes
         app.include_router(agent_routes.router, tags=["Agent"])

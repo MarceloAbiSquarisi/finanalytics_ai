@@ -28,9 +28,22 @@ ETA 3-5 dias wall-clock, competindo com I/O concorrente).
    congelado em 2025-12-30, hash idêntico desde então).
 4. **R8 — decisão hospedagem** (input em `Melhorias/proposta_decisao_15_dualgpu.md`).
 5. **R5 — decisão VERMELHO_sem_profit** (82 tickers; custo/benefício plano Nelogica).
-6. **`profit_daily_bars` quirk de escala** — valores oscilam 0.4↔49 entre dias
-   para PETR4. Desativado como fonte no `features_daily_builder`. Investigar
-   em `populate_daily_bars.py` ou `candle_repository.py`.
+6. **`profit_daily_bars` quirk de escala — CAUSA IDENTIFICADA (B1, 19/abr/2026)**.
+   Não é bug de `populate_daily_bars.py` — os ticks em `market_history_trades`
+   coletados ANTES do commit `efba27c` ("fix: remove erroneous /100 division
+   in V2 history callback") têm price dividido por 100. `populate_daily_bars`
+   só agrega esses ticks → close ~0.49 em vez de 49. Escopo: 64–69 de 72 dias
+   para os 8 tickers DLL principais (~95% do histórico 2026-01 → 2026-04-08).
+   Diagnóstico via `scripts/audit_profit_price_scale.py`:
+   - `FULL_BUG`: 100% dos ticks ÷100 (ex: PETR4 09-10/abr).
+   - `MIXED`: Sprint 3 re-coletou e ON CONFLICT DO NOTHING deixou antigos
+     ÷100 junto com novos corretos (ex: PETR4 15-16/abr min=0.47 max=48).
+   - `ok`: todos corretos (ex: PETR4 13-14/abr re-coletados pós-patch sem
+     registros antigos; 17/abr novo).
+   **Fix pendente (destrutivo)**: DELETE dos ticks com `price < 5` (stocks
+   com mediana_vol > 1M) + re-coleta via `/collect_history` + re-rodar
+   `populate_daily_bars.py`. Requer Profit.exe. Estimativa: 30-60 min de
+   operação. Script de auditoria read-only já está versionado.
 7. **Expansão `features_daily`** para watchlist inteira via
    `python scripts/features_daily_builder.py --backfill --start 2020-01-02`
    (~1h de run).
