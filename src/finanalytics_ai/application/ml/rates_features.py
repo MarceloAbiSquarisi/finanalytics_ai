@@ -136,6 +136,137 @@ def nelson_siegel_fit(vertice_du: list[int], taxa_pct: list[float]) -> dict[str,
     }
 
 
+# ── F2: Time Series Momentum (Moskowitz et al. 2012) ─────────────────────────
+
+def tsmom_signal(taxa_series: list[float],
+                 lookback_dias: int = 63,
+                 vol_target: float = 0.10,
+                 vol_clip_upper: float = 2.0) -> float | None:
+    """
+    TSMOM na taxa DI1. Retorna sinal escalonado por vol-target (range -2..+2).
+
+    Lógica: sinal = sign(retorno_lookback) * (vol_target / vol_hist_realized).
+    No DI1 a taxa é cotada inversamente ao preço — o sinal aqui é na taxa:
+      sinal > 0 → taxa tem subido (short DI1)
+      sinal < 0 → taxa tem caído (long DI1)
+
+    Consumidor (execution) inverte o signal conforme direção desejada.
+
+    taxa_series deve estar ordenada ASC (mais recente no final).
+    Retorna None se série muito curta.
+    """
+    if len(taxa_series) < lookback_dias + 1:
+        return None
+    t_now  = taxa_series[-1]
+    t_back = taxa_series[-lookback_dias - 1]
+    if t_back is None or t_back == 0:
+        return None
+    ret_lb = (t_now - t_back) / abs(t_back)
+
+    # Volatilidade histórica anualizada dos retornos 1d
+    returns_1d: list[float] = []
+    for i in range(max(1, len(taxa_series) - 63), len(taxa_series)):
+        prev = taxa_series[i - 1]
+        curr = taxa_series[i]
+        if prev and prev != 0:
+            returns_1d.append((curr - prev) / abs(prev))
+    if len(returns_1d) < 20:
+        return None
+    mean = sum(returns_1d) / len(returns_1d)
+    var = sum((r - mean) ** 2 for r in returns_1d) / max(1, len(returns_1d) - 1)
+    vol_ann = (var ** 0.5) * (252 ** 0.5)
+    if vol_ann <= 0:
+        return None
+    escala = min(vol_clip_upper, vol_target / max(vol_ann, 0.01))
+    sign = 1.0 if ret_lb > 0 else (-1.0 if ret_lb < 0 else 0.0)
+    return sign * escala
+
+
+# ── F3: Carry (Koijen, Moskowitz, Pedersen, Vrugt 2018) ──────────────────────
+
+def carry_ntnb_over_cdi(taxa_ntnb_real_aa: float, cdi_aa: float) -> float:
+    """Carry real NTN-B: taxa real - CDI (ambas em % a.a.). Em juro alto
+    tipicamente negativo; sinal para reversão quando muito negativo."""
+    return float(taxa_ntnb_real_aa) - float(cdi_aa)
+
+
+def carry_roll_down(taxa_longa: float, taxa_curta: float,
+                    du_longo: int, du_curto: int) -> float | None:
+    """Roll-down: ganho anualizado por 'descer' na curva inclinada positivamente.
+    Curva positiva → roll-down > 0 (carry favorável ao long)."""
+    if du_longo == du_curto:
+        return None
+    return (taxa_longa - taxa_curta) / (du_longo - du_curto) * du_curto
+
+
+# ── F4: Value via z-score do histórico ─────────────────────────────────────────
+
+def value_zscore(taxa_atual: float, historico: list[float]) -> float | None:
+    """Z-score da taxa atual vs histórico. Z > +1 = 'barato' (taxa alta),
+    Z < -1 = 'caro' (taxa baixa). Assumimos que reversão à média domina no
+    horizonte de semanas-meses (Asness et al. 2013)."""
+    clean = [float(x) for x in historico if x is not None]
+    if len(clean) < 20:
+        return None
+    mu = sum(clean) / len(clean)
+    var = sum((x - mu) ** 2 for x in clean) / max(1, len(clean) - 1)
+    std = var ** 0.5
+    if std == 0:
+        return None
+    return (float(taxa_atual) - mu) / std
+
+
+def value_breakeven_vs_focus(breakeven_aa: float, focus_ipca_aa: float) -> float:
+    """Value via inflação implícita − expectativa Focus. Positivo = mercado
+    precifica inflação acima do consenso → oportunidade de vender inflação
+    implícita (long pré + short IPCA)."""
+    return float(breakeven_aa) - float(focus_ipca_aa)
+
+
+# ── F5: Combinação Value + Momentum (Asness et al. 2013) ──────────────────────
+
+def value_momentum_combined(value_z: float | None,
+                            momentum_z: float | None,
+                            weight_value: float = 0.5,
+                            weight_momentum: float = 0.5) -> float | None:
+    """Value + momentum com pesos iguais. Correlação negativa V-M (~-0.4 a -0.6)
+    → combinação reduz vol sem derrubar retorno (√2 Sharpe boost)."""
+    if value_z is None or momentum_z is None:
+        return None
+    return weight_value * value_z + weight_momentum * momentum_z
+
+
+# ── F6: Butterfly e FRA (Litterman & Scheinkman 1991) ────────────────────────
+
+def butterfly_duration_neutral(taxa_curta: float, taxa_media: float, taxa_longa: float,
+                               du_curto: int, du_medio: int, du_longo: int) -> float | None:
+    """Butterfly duration-neutral: taxa_media - (w1·taxa_curta + w2·taxa_longa).
+    w1, w2 garantem duration neutra. Positivo = corpo caro → short corpo,
+    long wings. Negativo = corpo barato → inverso."""
+    du_range = du_longo - du_curto
+    if du_range == 0:
+        return None
+    w1 = (du_longo - du_medio) / du_range
+    w2 = (du_medio - du_curto) / du_range
+    return taxa_media - (w1 * taxa_curta + w2 * taxa_longa)
+
+
+def fra_implied(taxa_longa_aa: float, taxa_curta_aa: float,
+                du_longo: int, du_curto: int) -> float | None:
+    """FRA: taxa forward implícita no intervalo [du_curto, du_longo].
+    Taxas em % a.a. (decimal = /100 internamente)."""
+    if du_longo <= du_curto:
+        return None
+    r_long  = taxa_longa_aa / 100.0
+    r_short = taxa_curta_aa / 100.0
+    fator_longo = (1 + r_long) ** (du_longo / 252.0)
+    fator_curto = (1 + r_short) ** (du_curto / 252.0)
+    du_fra = du_longo - du_curto
+    fator_fra = fator_longo / fator_curto
+    taxa_fra = fator_fra ** (252.0 / du_fra) - 1
+    return taxa_fra * 100.0
+
+
 # ── PCA da curva (histórico multi-day) ────────────────────────────────────────
 
 def yield_curve_pca(yield_matrix: list[list[float]], n_components: int = 3) -> dict[str, Any] | None:
