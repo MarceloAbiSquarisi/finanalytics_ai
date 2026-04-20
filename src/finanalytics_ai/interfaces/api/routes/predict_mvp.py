@@ -44,12 +44,27 @@ import os as _os_mod
 _default_models = Path(__file__).resolve().parents[5] / "models"
 MODELS_DIR = Path(_os_mod.environ.get("FINANALYTICS_MODELS_DIR", str(_default_models)))
 
-FEATURES = [
+FEATURES_DEFAULT = [
     "close",
     "r_1d", "r_5d", "r_21d",
     "atr_14", "vol_21d", "vol_rel_20",
     "sma_50", "sma_200", "rsi_14",
 ]
+
+# Features RF adicionais (MVP v2 cross-asset). Carregadas via JOIN em
+# features_daily_full quando o pickle declarar essas colunas.
+RF_FEATURES_AVAILABLE = {
+    "slope_1y_5y", "slope_2y_10y", "curvatura_butterfly",
+    "tsmom_di1_1y_3m", "tsmom_di1_2y_3m", "tsmom_di1_5y_3m",
+    "tsmom_di1_1y_12m", "tsmom_di1_2y_12m", "tsmom_di1_5y_12m",
+    "carry_roll_di1_2y", "carry_roll_di1_5y",
+    "value_di1_1y_z", "value_di1_2y_z", "value_di1_5y_z",
+    "value_ntnb_2y_z", "value_ntnb_5y_z",
+    "breakeven_1y", "breakeven_2y", "breakeven_5y",
+    "ns_level", "ns_slope", "ns_curvature", "ns_lambda",
+    "vm_combo_1y", "vm_combo_2y", "vm_combo_5y",
+    "fra_1y2y", "fra_2y5y",
+}
 
 
 class PredictResponse(BaseModel):
@@ -84,11 +99,12 @@ def _find_latest_pickle(ticker: str) -> tuple[Path, dict] | None:
     return None
 
 
-def _load_latest_features(ticker: str, dsn: str) -> dict[str, Any] | None:
-    cols = ", ".join(FEATURES)
+def _load_latest_features(ticker: str, dsn: str, features: list[str]) -> dict[str, Any] | None:
+    """Lê última linha de features_daily_full (JOIN técnicas + RF)."""
+    cols = ", ".join(features)
     with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
         cur.execute(
-            f"SELECT dia, {cols} FROM features_daily "
+            f"SELECT dia, {cols} FROM features_daily_full "
             f"WHERE ticker = %s ORDER BY dia DESC LIMIT 1",
             (ticker.upper(),),
         )
@@ -96,7 +112,7 @@ def _load_latest_features(ticker: str, dsn: str) -> dict[str, Any] | None:
     if not row:
         return None
     d: dict[str, Any] = {"dia": row[0]}
-    for i, f in enumerate(FEATURES, 1):
+    for i, f in enumerate(features, 1):
         v = row[i]
         d[f] = float(v) if v is not None else None
     return d
@@ -121,6 +137,7 @@ async def predict_mvp(ticker: str) -> PredictResponse:
                    f"Train first: python scripts/train_petr4_mvp.py --ticker {ticker_u}",
         )
     pkl_path, meta = pkl_info
+    features = list(meta.get("features") or FEATURES_DEFAULT)
 
     import os as _os
     dsn = (
@@ -130,7 +147,7 @@ async def predict_mvp(ticker: str) -> PredictResponse:
     )
     dsn = dsn.replace("postgresql+asyncpg://", "postgresql://")
     try:
-        feats = _load_latest_features(ticker_u, dsn)
+        feats = _load_latest_features(ticker_u, dsn, features)
     except Exception as exc:
         log.error("predict_mvp.features_error", ticker=ticker_u, error=str(exc))
         raise HTTPException(500, detail=f"features_daily query failed: {exc}") from exc
@@ -144,7 +161,7 @@ async def predict_mvp(ticker: str) -> PredictResponse:
         )
 
     # Checa se todas as features têm valor
-    missing = [f for f in FEATURES if feats.get(f) is None]
+    missing = [f for f in features if feats.get(f) is None]
     if missing:
         raise HTTPException(
             422,
@@ -152,7 +169,7 @@ async def predict_mvp(ticker: str) -> PredictResponse:
                    f"Ticker may have incomplete history.",
         )
 
-    x_vec = np.array([[feats[f] for f in FEATURES]], dtype=float)
+    x_vec = np.array([[feats[f] for f in features]], dtype=float)
 
     try:
         with pkl_path.open("rb") as fh:
@@ -172,5 +189,5 @@ async def predict_mvp(ticker: str) -> PredictResponse:
         model_file=pkl_path.name,
         model_trained_at=meta.get("trained_at_utc"),
         model_metrics=meta.get("metrics"),
-        features_used={"dia": str(feats["dia"]), **{f: feats[f] for f in FEATURES}},
+        features_used={"dia": str(feats["dia"]), **{f: feats[f] for f in features}},
     )

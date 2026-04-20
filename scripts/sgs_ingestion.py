@@ -41,7 +41,7 @@ DSN = os.environ.get(
 SERIES_MAP = {
     "SELIC_OVER":  (11,   "SELIC over, % ao dia"),
     "CDI_OVER":    (12,   "CDI over, % ao dia"),
-    "SELIC_META":  (432,  "SELIC Meta anualizada"),
+    "SELIC_META":  (432,  "SELIC Meta diária anualizada (% a.a.)"),
     "IPCA":        (433,  "IPCA mensal"),
     "PTAX_VENDA":  (1178, "PTAX venda BRL/USD"),
 }
