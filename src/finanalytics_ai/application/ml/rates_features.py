@@ -267,6 +267,26 @@ def fra_implied(taxa_longa_aa: float, taxa_curta_aa: float,
     return taxa_fra * 100.0
 
 
+# ── F9: Quality cross-asset (§7 melhorias_renda_fixa_2.md) ───────────────────
+
+def quality_ntnb_vs_div_yield(taxa_real_ntnb_aa: float,
+                              div_yield_setor_aa: float) -> float:
+    """
+    Quality sinal: taxa real NTN-B − div_yield setor. Positivo = renda fixa
+    paga mais que equity do setor sensível a juros (utilities, bancos,
+    real estate) → signal contra equity e pró NTN-B. Literatura AQR/JPM 2018.
+    """
+    return float(taxa_real_ntnb_aa) - float(div_yield_setor_aa)
+
+
+def quality_bank_equity_credit(bank_spread_bps: float, vol_ibov: float) -> float:
+    """Relação bond-equity no setor bancário: spread/vol — spreads amplos com
+    vol baixa sugerem stress de crédito idiossincrático nos bancos."""
+    if vol_ibov <= 0:
+        return 0.0
+    return float(bank_spread_bps) / float(vol_ibov)
+
+
 # ── PCA da curva (histórico multi-day) ────────────────────────────────────────
 
 def yield_curve_pca(yield_matrix: list[list[float]], n_components: int = 3) -> dict[str, Any] | None:

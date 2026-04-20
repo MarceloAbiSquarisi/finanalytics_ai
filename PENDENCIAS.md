@@ -9,6 +9,25 @@
 
 ---
 
+## 00. Status 19/abr/2026 (2) — pós ordem RF completa
+
+**Sequência E4 → Tier 2 HMM → F9 → E5 → BERTimbau → F8:**
+
+| Item | Entrega | Status |
+|---|---|---|
+| **E4** Treasuries RF (FRED) | `scripts/fred_ingestion.py` (requests+session+retry), `us_macro_daily` com 12 634 rows, `treasury_rf_mvp.py` RandomForestClassifier direcional 21d. Test acc 54.5%, AUC 0.47 (training set pequeno por HY_spread começar em 2023). | ✅ scaffold |
+| **Tier 2 HMM** monetário | `hmm_monetary_cycle.py` (hmmlearn GaussianHMM 3-estados), `hmm_monetary_daily` com 1 338 dias. Rótulos: easing/neutral/tightening (balanceado ~450 cada). Últimos dias alternando easing/neutral (ciclo BR 2024-25). | ✅ |
+| **F9** Quality cross-asset | `quality_ntnb_vs_div_yield`, `quality_bank_equity_credit` em `rates_features.py`. Pure compute (features só). | ✅ |
+| **E5** DI1 realtime | `di1_realtime_worker.py` — **SCAFFOLD only** (não executar). TODO: subscribe DI1 via ProfitDLL, Kafka `market.rates.di1`. | ⏸️ scaffold |
+| **BERTimbau COPOM** | `copom_sentiment.py` — **SCAFFOLD only**. Interface `COPOMSentimentModel` estável. TODO: fine-tune BERTimbau (450MB download, VRAM 1.5GB). | ⏸️ scaffold |
+| **F8 DRL** | `drl_env.py` — **SCAFFOLD only**. Observation space (30 RF features), reward function. TODO: Gymnasium Env + PPO stable-baselines3. | ⏸️ scaffold |
+
+Novas tabelas: `us_macro_daily`, `br_macro_daily`, `hmm_monetary_daily`.
+Novos ingestores: `fred_ingestion.py`, `sgs_ingestion.py` (BCB 4 814 rows).
+Dependências novas: `hmmlearn`.
+
+---
+
 ## 0. Status 19/abr/2026 — pós-sessão
 
 **Sprints fechados hoje:** S2 (R4 watchlist), S3 (R2 ohlc_1m), S4 (R3 stride),
