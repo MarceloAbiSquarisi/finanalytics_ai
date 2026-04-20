@@ -22,6 +22,11 @@
   - 9.5 Detectar contaminação residual
   - 9.6 Executar no container
   - 9.7 Gap-map por ticker × dia (`gap_map_1m`)
+  - 9.8 Renda Fixa — `yield_curves`, `rates_features_daily`, `features_daily_full`
+  - 9.9 Macro — `us_macro_daily`, `br_macro_daily`, `hmm_monetary_daily`
+  - 9.10 ML — `features_daily`, `/predict_mvp`, MLStrategy backtest
+  - 9.11 Bug `profit_daily_bars` (escala ÷100)
+  - 9.12 Scaffolds não-executados (E5 DI1, BERTimbau COPOM, F8 DRL)
 - 10. Calendário B3 2020–2026 (feriados codificados)
 - 11. Paths, DSNs e variáveis de ambiente
 - 12. Pendências técnicas (R1–R10)
@@ -568,6 +573,64 @@ SELECT ticker, classe, dia, minutos_com_tick, tem_fintz,
 2. **Threshold adaptativo (baseline por ticker)**: tentativa 90d / 60d teve custo de I/O proibitivo em disputa com Sprint 1. Implementar `ticker_profit_baseline` pós-S1 completo (script ficou em queda; ressuscitar quando houver janela de I/O livre).
 3. **Fintz atrasado** até 2025-11-03 → `tem_fintz=false` para ~160 dias recentes em ~215 tickers. Sprint 6 resolve.
 4. **Tickers não-watchlist** (opções etc) excluídos da view por design — Sprint 5.1 pode opcionalmente expandir para todos os tickers em `market_history_trades`.
+
+### 9.8 Renda Fixa — yield_curves, rates_features_daily, features_daily_full
+
+**Artefatos (Sprint RF F1–F7, 19/abr/2026):**
+
+```
+yield_curves        (hypertable)  — taxa por (time, market, vertice_du, source)
+breakeven_inflation (hypertable)  — inflação implícita por (time, vertice_du)
+rates_features_daily (tabela)     — 36 features RF por dia (1 row/dia, 1567 rows)
+features_daily_full  (VIEW)       — JOIN features_daily + rates_features_daily
+```
+
+**Populadores:**
+- `scripts/yield_ingestion.py` — ANBIMA via pyield. Backfill 2020-01-02 → 2026-04-17 = 1 567 dias (40 413 + 22 504 rows).
+- `scripts/fred_ingestion.py` — FRED via requests.Session+retry (Kaspersky bloqueava urllib). DGS3MO/DGS2/DGS10 → yield_curves; DFF/CPI/VIX/T5YIE/T10YIE/HY_spread → us_macro_daily (12 634 rows).
+- `scripts/rates_features_builder.py` — compute 36 features via rates_features.py (pure) e upsert. ~2 min para 1 567 dias.
+
+**Features (`src/.../application/ml/rates_features.py`):**
+- F1-núcleo: `taxa_em_vertice` (flat-forward), `slope`, `butterfly_duration_neutral`, `nelson_siegel_fit`, `yield_curve_pca`.
+- F2 TSMOM (Moskowitz 2012): `tsmom_signal` vol-targeted 10%.
+- F3 Carry (Koijen 2018): `carry_ntnb_over_cdi`, `carry_roll_down`.
+- F4 Value (Asness 2013): `value_zscore`, `value_breakeven_vs_focus`.
+- F5 V+M combinado: `value_momentum_combined`.
+- F6 FRA: `fra_implied`.
+- F9 Quality (§7 RF2): `quality_ntnb_vs_div_yield`, `quality_bank_equity_credit`.
+
+### 9.9 Macro — us_macro_daily, br_macro_daily, hmm_monetary_daily
+
+- **`us_macro_daily`** (Sprint E4): séries FRED não-Treasury. PK `(time, series)`. 7 915 rows.
+- **`br_macro_daily`** (Sprint T2): BCB SGS (SELIC over, CDI, IPCA mensal, PTAX). `scripts/sgs_ingestion.py`. 4 814 rows. SELIC_META cod 432 retornou JSON inválido — trocar por 4189 em follow-up.
+- **`hmm_monetary_daily`** (Sprint T2): HMM 3-estados sobre [SELIC_OVER, slope_2y_10y, IPCA_12m, ΔSELIC_21d]. `scripts/hmm_monetary_cycle.py`. 1 338 dias classificados easing/neutral/tightening (balanceado ~450 cada). Últimos dias alternando easing/neutral (corte BR 2024-25).
+
+### 9.10 ML — features_daily, /predict_mvp, MLStrategy backtest
+
+- **`features_daily`** (hypertable): features técnicas por ticker-dia. PK `(ticker, dia)`. Populado por `scripts/features_daily_builder.py` (fonte Fintz, profit_daily_bars desativado — ver bug abaixo). Backfill watchlist: 171 473 rows × 133 tickers.
+- **View `features_daily_full`**: JOIN features_daily (técnicas) + rates_features_daily (macro RF). Consumida por `train_petr4_mvp_v2.py` (33 features cross-asset).
+- **Endpoint `GET /api/v1/ml/predict_mvp/{ticker}`** (`routes/predict_mvp.py`): carrega pickle recente em `models/` + última linha features_daily, retorna `predicted_log_return`.
+- **Pipeline produção (A3 scaffold)**: `scripts/mlstrategy_backtest.py` — QuantileForecaster (P10/P50/P90 LightGBM quantile) + score MLStrategy + `engine.run_backtest`. PETR4 th=0.10: Sharpe 0.402, +2.12%, 1 trade. Calibração por ticker + walk-forward são follow-up.
+- **MVP v2 cross-asset (F7)**: val IC 0.059 → 0.080 (+35%), val Sharpe -0.28 → +1.57 com RF features adicionadas. Test com variância 2025+ (distribuição shift).
+
+### 9.11 Bug de escala `profit_daily_bars` / `market_history_trades`
+
+**Causa raiz** (diagnosticado Sprint B1, 19/abr): ticks em `market_history_trades` coletados ANTES do commit `efba27c` ("fix: remove erroneous /100 division in V2 history callback") têm `price` dividido por 100. Consequência:
+- Agregação em `profit_daily_bars` via `populate_daily_bars.py` usa esses ticks → close/high/low saem ÷100 (ex: PETR4 0.49 em vez de 49).
+- Escopo: 64-69 de 72 dias × 8 tickers DLL entre 2026-01-02 e 2026-04-08.
+
+**Diagnóstico**: `scripts/audit_profit_price_scale.py` (read-only) classifica dias em:
+- `FULL_BUG`: todos os ticks ÷100.
+- `MIXED`: Sprint 3 re-coletou e ON CONFLICT DO NOTHING deixou ticks antigos ÷100 junto com novos corretos.
+- `ok`: todos corretos.
+
+**Fix pendente (destrutivo)**: DELETE dos ticks com price<5 para stocks líquidos + re-coleta via `/collect_history` do ProfitDLL + re-rodar `populate_daily_bars.py`. Requer Profit.exe ativo. Estimativa 30-60 min. Não executado.
+
+### 9.12 Scaffolds não-executados (próximas sessões)
+
+- `src/.../workers/di1_realtime_worker.py` (E5): subscribe DI1 ProfitDLL → Kafka `market.rates.di1`.
+- `src/.../application/ml/copom_sentiment.py` (Tier 2 BERTimbau): interface `COPOMSentimentModel` pronta; requer download 450 MB + fine-tune com VRAM 1.5 GB.
+- `src/.../application/ml/drl_env.py` (F8): `RATE_OBSERVATIONS` (30 features) + `reward_fn`; requer Gymnasium + stable-baselines3 PPO + GPU.
 
 ## 10. Calendário B3 2020–2026 (feriados codificados)
 

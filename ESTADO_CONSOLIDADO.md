@@ -55,7 +55,14 @@ Resumida em prosa: na camada de persistência, um TimescaleDB (Postgres + extens
 
 **profit_agent** — `localhost:8002`, BaseHTTPRequestHandler embrulhando a ProfitDLL. Endpoints principais: `GET /status|/metrics|/ticks`, `POST /collect_history|/subscribe|/unsubscribe|/order/*`. Desde 17-abr com patch-bundle contra as 5 contaminações. **Endpoint `/metrics` Prometheus adicionado em 19/abr (precisa restart do agent para ativar).** Pré-requisito: Profit.exe logado.
 
-**Backfill histórico (Sprint 1)** — `FinAnalyticsBackfill` nssm service **em execução**. Universo: 135 tickers da watchlist VERDE+AMARELO + WINFUT/WDOFUT, 2020-01-02 → hoje. Última checagem 19/abr 19:00 BRT: `ITUB4 2020-06` (1.5 % do universo; ETA 3–5 dias wall-clock, competindo com queries concorrentes). Logs em `Melhorias/logs/backfill_historico_{stdout,stderr}.log`. Graceful stop via `setup_backfill_service.ps1 stop`.
+**Backfill histórico (Sprint 1)** — `FinAnalyticsBackfill` nssm service **em execução**. Universo: 135 tickers da watchlist VERDE+AMARELO + WINFUT/WDOFUT, 2020-01-02 → hoje. Última checagem 19/abr ~20:00 BRT: `ITUB4 2020-06` (1.5 % do universo; ETA 3–5 dias wall-clock, competindo com queries concorrentes). Logs em `Melhorias/logs/backfill_historico_{stdout,stderr}.log`. Graceful stop via `setup_backfill_service.ps1 stop`.
+
+**Renda fixa (RF Tier 1-2)** — stack funcional pós-sessão 19/abr:
+- `yield_curves`: 40 413 rows ANBIMA (br_pre+br_ipca) + 4 719 rows FRED (us_treasury) = ~45 k rows, 2020→2026-04.
+- `rates_features_daily`: 1 567 dias × 36 features (slope/butterfly/TSMOM/carry/value/NS/FRA/V+M).
+- `hmm_monetary_daily`: 1 338 dias classificados easing/neutral/tightening.
+- `us_macro_daily` (7 915 rows) + `br_macro_daily` (4 814 rows): macro FRED+BCB SGS.
+- Schedule: ANBIMA via `yield_ingestion.py` idealmente 20:30 BRT (não automatizado ainda); FRED e SGS manual. Automatização = follow-up do scheduler_worker.
 
 **Fintz sync worker** — schedule diário 22:05 BRT embutido. Full sync 19/abr gravou 5 datasets (75 em skip por hash inalterado). Gap estrutural: `fintz_cotacoes_ts.max(time) = 2025-12-30` congelado do lado da Fintz/Varos (requer contato com vendor — R6).
 
@@ -64,6 +71,39 @@ Resumida em prosa: na camada de persistência, um TimescaleDB (Postgres + extens
 **Outros containers Docker** (2 dias up): `finanalytics_api`, `finanalytics_worker`, `finanalytics_scheduler`, `finanalytics_ohlc_ingestor`, `finanalytics_worker_v2`, `finanalytics_zookeeper`, `finanalytics_kafka`, `finanalytics_kafka_ui`, `finanalytics_redis`, `finanalytics_redisinsight`, `finanalytics_postgres`, `finanalytics_pgadmin`, `finanalytics_backup`, `finanalytics_evolution`.
 
 **Nada de produção externa ainda** — tudo local. Decisão de hospedagem (R8) em aberto — input em `Melhorias/proposta_decisao_15_dualgpu.md`.
+
+## 1.5b Sessão 19/abr/2026 (2) — RF Tier 1-2 + MLStrategy prod + debug
+
+Segundo bloco da sessão após fechar S2-S10. Foco em renda fixa, ML produção e scaffolds para expansões futuras.
+
+**Entregas:**
+
+| Item | Entrega | Status |
+|---|---|---|
+| RF F1 | Backfill histórico `yield_curves` via pyield: 1 567 dias úteis × LTN+NTN-B = **40 413 rows** `yield_curves` + **22 504 rows** `breakeven_inflation` (2020-01-02 → 2026-04-17). | ✅ |
+| RF F2-F6 | Funções puras em `application/ml/rates_features.py`: `tsmom_signal` (Moskowitz 2012), `carry_ntnb_over_cdi`+`carry_roll_down` (Koijen 2018), `value_zscore`+`value_breakeven_vs_focus` (Asness 2013), `value_momentum_combined`, `butterfly_duration_neutral`+`fra_implied` (Litterman & Scheinkman 1991). Validadas em dados reais DI1 1Y (614 dias hist). | ✅ |
+| RF F7 | `rates_features_daily` (tabela materializada, 36 campos, 1 567 rows) + `scripts/rates_features_builder.py`. View `features_daily_full` (JOIN features_daily + RF). MVP v2 (`train_petr4_mvp_v2.py`): cross-asset features elevaram **val Sharpe de -0.28 para +1.57** e val IC 0.059 → 0.080 (test com variância 2025+). | ✅ |
+| A3 | `scripts/mlstrategy_backtest.py` — pipeline end-to-end QuantileForecaster (P10/P50/P90) + score MLStrategy + `engine.run_backtest`. PETR4 th=0.10: Sharpe 0.402 / +2.12% / 1 trade. Scaffold validado; calibração por ticker e walk-forward são follow-up. | ✅ scaffold |
+| E4 | Treasuries RF via FRED: `scripts/fred_ingestion.py` (requests+session+retry vs urllib bloqueado por Kaspersky). Tabela `us_macro_daily` (DFF/CPI/VIX/T5YIE/T10YIE/BAMLH0A0HYM2) + Treasuries em `yield_curves market='us_treasury'`: **12 634 rows**. `treasury_rf_mvp.py` RandomForest 500 trees. Test acc 54.5% (N=728; HY_spread só desde 2023 limita train). Feature importances consistentes com literatura: slope_3m_10y (0.28) e slope_2y_10y (0.22) dominam. | ✅ scaffold |
+| Tier 2 HMM | BCB SGS via `scripts/sgs_ingestion.py` (SELIC over, CDI, IPCA mensal, PTAX): **4 814 rows** em `br_macro_daily`. `scripts/hmm_monetary_cycle.py` (hmmlearn GaussianHMM 3-estados): **1 338 dias classificados** em easing/neutral/tightening (balanceado ~450 cada). Tabela `hmm_monetary_daily`. Últimos dias alternando easing/neutral (ciclo BR 2024-25). | ✅ |
+| F9 | `quality_ntnb_vs_div_yield` e `quality_bank_equity_credit` em `rates_features.py`. Pure functions. | ✅ |
+| E5 | `workers/di1_realtime_worker.py` — **SCAFFOLD only**. TODO: subscribe DI1 via ProfitDLL + Kafka `market.rates.di1`. | ⏸️ scaffold |
+| BERTimbau COPOM | `application/ml/copom_sentiment.py` — **SCAFFOLD only**. Interface `COPOMSentimentModel`. TODO: fine-tune BERTimbau (450 MB, VRAM 1.5 GB). | ⏸️ scaffold |
+| F8 DRL | `application/ml/drl_env.py` — **SCAFFOLD only**. `RATE_OBSERVATIONS` (30 features) + `reward_fn`. TODO: Gymnasium + PPO. | ⏸️ scaffold |
+| **B1** (descoberto) | Bug escala `profit_daily_bars` (valores 0.4↔49). Causa: ticks pré-`efba27c` em `market_history_trades` têm price ÷100. Script `audit_profit_price_scale.py` classifica dias em `ok`/`FULL_BUG`/`MIXED`. **Fix destrutivo não executado** (requer DELETE + re-coleta via Profit.exe). | ✅ audit / ⏸️ fix |
+| `/predict_mvp` | `routes/predict_mvp.py` — endpoint `GET /api/v1/ml/predict_mvp/{ticker}` valida via HTTP (PETR4 retorna log_ret=0.00073). Complementar ao `/forecast` existente. | ✅ |
+| `features_daily` | Backfill watchlist inteira via `--backfill --start 2020-01-02`: **171 473 rows × 133 tickers × 1 457 dias** (fonte `fintz_cotacoes_ts`). | ✅ |
+
+**Novas dependências:** `pyield>=0.48.9`, `hmmlearn==0.3.3`, `requests` (implícita via pyield).
+
+**Novas tabelas TimescaleDB:**
+- `yield_curves` (pré/IPCA/Treasury)
+- `breakeven_inflation`
+- `rates_features_daily`
+- `us_macro_daily`, `br_macro_daily`, `hmm_monetary_daily`
+- View `features_daily_full` (JOIN features_daily + rates_features_daily)
+
+**Novos scripts:** `yield_ingestion`, `fred_ingestion`, `sgs_ingestion`, `rates_features_builder`, `train_petr4_mvp_v2`, `mlstrategy_backtest`, `treasury_rf_mvp`, `hmm_monetary_cycle`, `audit_profit_price_scale`.
 
 ## 1.5a Sessão 19/abr/2026 — Sprints 2–10 fechados
 
