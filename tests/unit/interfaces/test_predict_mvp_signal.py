@@ -33,3 +33,19 @@ def test_horizon_zero_guard():
     # horizon=0 nao deve dividir por zero; aceita como se fosse 1
     sig, _ = _signal_from_prediction(0.5, {"th_buy": 0.3, "th_sell": -0.3, "horizon_days": 0})
     assert sig == "BUY"
+
+
+# ─── /signals batch ────────────────────────────────────────────────────────
+
+def test_signals_response_aggregates_correctly():
+    from finanalytics_ai.interfaces.api.routes.predict_mvp import SignalsResponse, SignalItem
+
+    items = [
+        SignalItem(ticker="A", signal="BUY",  th_buy=0.0, th_sell=-0.1, horizon_days=21),
+        SignalItem(ticker="B", signal="SELL", th_buy=0.0, th_sell=-0.1, horizon_days=21),
+        SignalItem(ticker="C", signal="HOLD", th_buy=0.0, th_sell=-0.1, horizon_days=21),
+        SignalItem(ticker="D", signal=None,   error="no_model"),
+    ]
+    resp = SignalsResponse(count=len(items), buy=1, sell=1, hold=1, errors=1, items=items)
+    assert resp.count == 4
+    assert resp.buy + resp.sell + resp.hold + resp.errors == resp.count

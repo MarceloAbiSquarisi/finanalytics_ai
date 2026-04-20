@@ -28,7 +28,7 @@ from typing import Any
 
 import numpy as np
 import psycopg2
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from finanalytics_ai.config import get_settings
@@ -280,4 +280,128 @@ async def predict_mvp(ticker: str) -> PredictResponse:
         signal=signal,
         signal_method=signal_method,
         calibration=calibration,
+    )
+
+
+# ─── /signals batch ────────────────────────────────────────────────────────
+
+class SignalItem(BaseModel):
+    ticker: str
+    signal: str | None = None
+    predicted_log_return: float | None = None
+    predicted_return_pct: float | None = None
+    reference_date: date | None = None
+    th_buy: float | None = None
+    th_sell: float | None = None
+    horizon_days: int | None = None
+    best_sharpe: float | None = None
+    error: str | None = None
+
+
+class SignalsResponse(BaseModel):
+    count: int
+    buy: int
+    sell: int
+    hold: int
+    errors: int
+    items: list[SignalItem]
+
+
+def _load_all_calibrations(dsn: str, min_sharpe: float | None) -> list[dict[str, Any]]:
+    sql = (
+        "SELECT ticker, th_buy, th_sell, horizon_days, best_sharpe "
+        "FROM ticker_ml_config"
+    )
+    params: tuple = ()
+    if min_sharpe is not None:
+        sql += " WHERE best_sharpe >= %s"
+        params = (min_sharpe,)
+    sql += " ORDER BY best_sharpe DESC NULLS LAST"
+    with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+    return [
+        {"ticker": r[0], "th_buy": float(r[1]), "th_sell": float(r[2]),
+         "horizon_days": int(r[3]),
+         "best_sharpe": float(r[4]) if r[4] is not None else None}
+        for r in rows
+    ]
+
+
+@router.get("/signals", response_model=SignalsResponse)
+async def signals_batch(
+    min_sharpe: float | None = Query(None, description="Filtra por best_sharpe >= N"),
+    limit: int = Query(200, ge=1, le=500),
+) -> SignalsResponse:
+    """Retorna signals em batch para todos os tickers calibrados com
+    pickle disponivel. Tickers sem pickle retornam error='no_model'."""
+    import os as _os
+    dsn = (
+        _os.environ.get("TIMESCALE_URL")
+        or _os.environ.get("PROFIT_TIMESCALE_DSN")
+        or "postgresql://finanalytics:timescale_secret@localhost:5433/market_data"
+    )
+    dsn = dsn.replace("postgresql+asyncpg://", "postgresql://")
+
+    configs = _load_all_calibrations(dsn, min_sharpe)[:limit]
+    model_cache: dict[str, tuple[Any, dict, Path]] = {}
+    items: list[SignalItem] = []
+    counts = {"BUY": 0, "SELL": 0, "HOLD": 0}
+    errors = 0
+
+    for cfg in configs:
+        t = cfg["ticker"]
+        base = SignalItem(
+            ticker=t, th_buy=cfg["th_buy"], th_sell=cfg["th_sell"],
+            horizon_days=cfg["horizon_days"], best_sharpe=cfg["best_sharpe"],
+        )
+        pkl_info = _find_latest_pickle(t)
+        if pkl_info is None:
+            base.error = "no_model"
+            items.append(base); errors += 1; continue
+        pkl_path, meta = pkl_info
+        features = list(meta.get("features") or FEATURES_DEFAULT)
+
+        if t not in model_cache:
+            try:
+                with pkl_path.open("rb") as fh:
+                    model_cache[t] = (pickle.load(fh), meta, pkl_path)
+            except Exception as exc:
+                base.error = f"load_fail:{type(exc).__name__}"
+                items.append(base); errors += 1; continue
+        model, _meta, _pkl_path = model_cache[t]
+
+        try:
+            feats = _load_latest_features(t, dsn, features)
+        except Exception as exc:
+            base.error = f"features_fail:{type(exc).__name__}"
+            items.append(base); errors += 1; continue
+        if feats is None:
+            base.error = "no_features"
+            items.append(base); errors += 1; continue
+
+        missing = [f for f in features if feats.get(f) is None]
+        if missing:
+            base.error = f"feature_nulls:{len(missing)}"
+            items.append(base); errors += 1; continue
+
+        x_vec = np.array([[feats[f] for f in features]], dtype=float)
+        try:
+            pred_log = float(model.predict(x_vec)[0])
+        except Exception as exc:
+            base.error = f"inference_fail:{type(exc).__name__}"
+            items.append(base); errors += 1; continue
+
+        sig, _method = _signal_from_prediction(pred_log, cfg)
+        base.signal = sig
+        base.predicted_log_return = pred_log
+        base.predicted_return_pct = round((float(np.exp(pred_log)) - 1.0) * 100.0, 4)
+        base.reference_date = feats["dia"]
+        items.append(base)
+        counts[sig] += 1
+
+    return SignalsResponse(
+        count=len(items),
+        buy=counts["BUY"], sell=counts["SELL"], hold=counts["HOLD"],
+        errors=errors, items=items,
     )
