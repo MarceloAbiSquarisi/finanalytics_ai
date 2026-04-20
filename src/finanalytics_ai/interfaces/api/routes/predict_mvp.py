@@ -431,3 +431,126 @@ async def signals_batch(
         buy=counts["BUY"], sell=counts["SELL"], hold=counts["HOLD"],
         errors=errors, items=items,
     )
+
+
+# ─── /signal_history ──────────────────────────────────────────────────────
+
+class HistoryItem(BaseModel):
+    snapshot_date: date
+    ticker: str
+    signal: str
+    predicted_log_return: float | None = None
+    predicted_return_pct: float | None = None
+    th_buy: float | None = None
+    th_sell: float | None = None
+    horizon_days: int | None = None
+    best_sharpe: float | None = None
+    signal_method: str | None = None
+
+
+class ChangeItem(BaseModel):
+    ticker: str
+    snapshot_date: date
+    prev_signal: str | None = None
+    curr_signal: str
+    prev_date: date | None = None
+    best_sharpe: float | None = None
+
+
+@router.get("/signal_history", response_model=list[HistoryItem])
+async def signal_history(
+    ticker: str | None = Query(None, description="Filtra por ticker"),
+    since: date | None = Query(None, description="snapshot_date >= since"),
+    limit: int = Query(500, ge=1, le=5000),
+):
+    """Retorna snapshots historicos de signals (ordenado snapshot_date DESC)."""
+    import os as _os
+    dsn = (
+        _os.environ.get("TIMESCALE_URL")
+        or _os.environ.get("PROFIT_TIMESCALE_DSN")
+        or "postgresql://finanalytics:timescale_secret@localhost:5433/market_data"
+    ).replace("postgresql+asyncpg://", "postgresql://")
+
+    sql = (
+        "SELECT snapshot_date, ticker, signal, predicted_log_return, "
+        "predicted_return_pct, th_buy, th_sell, horizon_days, "
+        "best_sharpe, signal_method FROM signal_history WHERE 1=1"
+    )
+    params: list = []
+    if ticker:
+        sql += " AND ticker=%s"
+        params.append(ticker.upper())
+    if since:
+        sql += " AND snapshot_date >= %s"
+        params.append(since)
+    sql += " ORDER BY snapshot_date DESC, ticker LIMIT %s"
+    params.append(limit)
+
+    with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute(sql, tuple(params))
+        rows = cur.fetchall()
+    return [
+        HistoryItem(
+            snapshot_date=r[0], ticker=r[1], signal=r[2],
+            predicted_log_return=float(r[3]) if r[3] is not None else None,
+            predicted_return_pct=float(r[4]) if r[4] is not None else None,
+            th_buy=float(r[5]) if r[5] is not None else None,
+            th_sell=float(r[6]) if r[6] is not None else None,
+            horizon_days=r[7],
+            best_sharpe=float(r[8]) if r[8] is not None else None,
+            signal_method=r[9],
+        )
+        for r in rows
+    ]
+
+
+@router.get("/signal_history/changes", response_model=list[ChangeItem])
+async def signal_history_changes(
+    snapshot_date: date | None = Query(None, description="default: snapshot mais recente"),
+    limit: int = Query(100, ge=1, le=500),
+):
+    """Retorna tickers que mudaram de signal vs snapshot anterior."""
+    import os as _os
+    dsn = (
+        _os.environ.get("TIMESCALE_URL")
+        or _os.environ.get("PROFIT_TIMESCALE_DSN")
+        or "postgresql://finanalytics:timescale_secret@localhost:5433/market_data"
+    ).replace("postgresql+asyncpg://", "postgresql://")
+
+    with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
+        if snapshot_date is None:
+            cur.execute("SELECT max(snapshot_date) FROM signal_history")
+            r = cur.fetchone()
+            if not r or not r[0]:
+                return []
+            snapshot_date = r[0]
+
+        cur.execute(
+            """
+            WITH prev AS (
+              SELECT DISTINCT ON (ticker) ticker, signal AS prev_signal,
+                     snapshot_date AS prev_date
+                FROM signal_history WHERE snapshot_date < %s
+                ORDER BY ticker, snapshot_date DESC
+            ),
+            curr AS (
+              SELECT ticker, signal AS curr_signal, best_sharpe
+                FROM signal_history WHERE snapshot_date = %s
+            )
+            SELECT c.ticker, p.prev_signal, c.curr_signal, p.prev_date, c.best_sharpe
+              FROM curr c LEFT JOIN prev p ON p.ticker = c.ticker
+             WHERE p.prev_signal IS DISTINCT FROM c.curr_signal
+             ORDER BY c.best_sharpe DESC NULLS LAST LIMIT %s
+            """,
+            (snapshot_date, snapshot_date, limit),
+        )
+        rows = cur.fetchall()
+    return [
+        ChangeItem(
+            ticker=r[0], snapshot_date=snapshot_date,
+            prev_signal=r[1], curr_signal=r[2], prev_date=r[3],
+            best_sharpe=float(r[4]) if r[4] is not None else None,
+        )
+        for r in rows
+    ]
+
