@@ -8,7 +8,7 @@ from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional, Any
 import structlog
-from sqlalchemy import String, Boolean, Numeric, Date, DateTime, Text, func, select, delete
+from sqlalchemy import String, Boolean, Numeric, Date, DateTime, Text, func, select, delete, text
 from sqlalchemy.orm import Mapped, mapped_column
 from finanalytics_ai.infrastructure.database.connection import Base, get_session
 
@@ -206,6 +206,45 @@ class WalletRepository:
             m.is_active = False
             await s.commit()
             return True
+
+    # ── Portfolio resolution ─────────────────────────────────────────────
+
+    async def get_default_portfolio_id(self, user_id: str) -> str | None:
+        """Retorna id do portfolio default do usuario, ou None se nao existir."""
+        async with get_session() as s:
+            r = await s.execute(text(
+                "SELECT id FROM portfolios WHERE user_id=:u AND is_default=true LIMIT 1"
+            ), {"u": user_id})
+            row = r.first()
+            if row:
+                return row[0]
+            r2 = await s.execute(text(
+                "SELECT id FROM portfolios WHERE user_id=:u ORDER BY created_at LIMIT 1"
+            ), {"u": user_id})
+            row2 = r2.first()
+            return row2[0] if row2 else None
+
+    async def ensure_default_portfolio(self, user_id: str, name: str = "Carteira Principal") -> str:
+        """Garante portfolio para o usuario; cria 'Carteira Principal' como
+        is_default=true se nenhum existir. Retorna sempre o id."""
+        existing = await self.get_default_portfolio_id(user_id)
+        if existing:
+            return existing
+        new_id = str(uuid.uuid4())
+        async with get_session() as s:
+            await s.execute(text("""
+                INSERT INTO portfolios (id, user_id, name, currency, cash, is_default)
+                VALUES (:id, :u, :n, 'BRL', 0, true)
+            """), {"id": new_id, "u": user_id, "n": name})
+            await s.commit()
+        return new_id
+
+    async def validate_portfolio_belongs_to_user(self, portfolio_id: str, user_id: str) -> bool:
+        async with get_session() as s:
+            r = await s.execute(text(
+                "SELECT 1 FROM portfolios WHERE id=:p AND user_id=:u"
+            ), {"p": portfolio_id, "u": user_id})
+            return r.first() is not None
 
     # ── Trades ────────────────────────────────────────────────────────────
 

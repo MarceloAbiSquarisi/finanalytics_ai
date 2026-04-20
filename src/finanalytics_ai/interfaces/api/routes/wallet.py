@@ -28,6 +28,22 @@ def _require_master_or_admin(user: User) -> User:
         raise HTTPException(status_code=403, detail="Acesso negado: requer perfil MASTER ou ADMIN")
     return user
 
+
+async def _resolve_portfolio_id(user_id: str, supplied: Optional[str]) -> str:
+    """Resolve portfolio_id para INSERT em trades/positions/etc.
+
+    - Se supplied: valida que pertence ao user; 422 se nao.
+    - Se nao: pega o default do user; cria 'Carteira Principal' se nenhum.
+
+    Garante invariante DB (portfolio_id NOT NULL + FK).
+    """
+    repo = _repo()
+    if supplied:
+        if not await repo.validate_portfolio_belongs_to_user(supplied, user_id):
+            raise HTTPException(422, f"portfolio_id {supplied} nao pertence ao usuario")
+        return supplied
+    return await repo.ensure_default_portfolio(user_id)
+
 # ── Schemas ───────────────────────────────────────────────────────────────
 
 from finanalytics_ai.domain.validation import is_valid_cpf, normalize_cpf  # noqa: E402
@@ -191,6 +207,7 @@ async def create_trade(
     data = body.model_dump()
     data["user_id"] = str(user.user_id)
     data["ticker"] = data["ticker"].upper()
+    data["portfolio_id"] = await _resolve_portfolio_id(str(user.user_id), data.get("portfolio_id"))
     data["total_cost"] = float(data["quantity"]) * float(data["unit_price"]) + float(data["fees"])
     for k in ("quantity", "unit_price", "fees", "total_cost"):
         data[k] = float(data[k])
@@ -228,6 +245,7 @@ async def upsert_crypto(
 ) -> dict:
     data = body.model_dump()
     data["user_id"] = str(user.user_id)
+    data["portfolio_id"] = await _resolve_portfolio_id(str(user.user_id), data.get("portfolio_id"))
     for k in ("quantity", "average_price_brl", "average_price_usd"):
         if data[k] is not None:
             data[k] = float(data[k])
@@ -258,6 +276,7 @@ async def create_other(
 ) -> dict:
     data = body.model_dump()
     data["user_id"] = str(user.user_id)
+    data["portfolio_id"] = await _resolve_portfolio_id(str(user.user_id), data.get("portfolio_id"))
     for k in ("current_value", "invested_value"):
         if data[k] is not None:
             data[k] = float(data[k])
