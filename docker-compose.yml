@@ -278,6 +278,37 @@ services:
     networks:
       - finanalytics_net
 
+  di1_realtime_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    image: finanalytics-worker:latest
+    container_name: finanalytics_di1_realtime
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      PROFIT_AGENT_URL:      http://host.docker.internal:8002
+      PROFIT_TIMESCALE_DSN:  postgresql://finanalytics:${TIMESCALE_PASSWORD:-timescale_secret}@finanalytics_timescale:5432/market_data
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DI1_REALTIME_TOPIC:    market.rates.di1
+      DI1_CONTRACTS:         DI1F27,DI1F28,DI1F29
+      DI1_POLL_INTERVAL_S:   "2.0"
+      DI1_WORKER_METRICS_PORT: "9101"
+      PYTHONPATH:            /app/src
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "9101:9101"
+    command: ["python", "-u", "/app/src/finanalytics_ai/workers/di1_realtime_worker.py"]
+    profiles:
+      - di1_realtime
+    networks:
+      - finanalytics_net
+
   grafana:
     image: grafana/grafana:10.4.0
     container_name: finanalytics_grafana
