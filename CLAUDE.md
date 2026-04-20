@@ -4,6 +4,25 @@
 Sistema de análise financeira com DayTrade via ProfitDLL (Nelogica).
 Stack: FastAPI :8000 (Docker) + profit_agent :8002 (Windows host) + TimescaleDB :5433 + Redis.
 
+## Hardware
+
+| Componente | Configuração |
+|---|---|
+| CPU | Intel i9-14900K (24 cores / 32 threads, 6 GHz) |
+| RAM | 196 GB |
+| **GPU 0** | **NVIDIA RTX 4090** 24 GB — bus PCIe `01:00.0` — **HEADLESS, dedicada a compute** |
+| **GPU 1** | NVIDIA RTX 4090 24 GB — bus PCIe `08:00.0` — monitor principal Windows |
+| Driver | NVIDIA 591.86, CUDA 13.1, compute cap 8.9 (Ada Lovelace) |
+| Storage | E:\ 2 TB NVMe (bind mounts dos containers) |
+| PSU | ≥1.500W (marca/modelo a registrar — Degrau 0 da Decisão 15) |
+
+**Validação do mapeamento** (após cabos físicos remanejados):
+```bash
+docker run --rm --gpus '"device=0"' nvidia/cuda:12.1.0-base-ubuntu22.04 \
+  nvidia-smi --query-gpu=index,pci.bus_id --format=csv
+# Esperado: 0, 00000000:01:00.0
+```
+
 ## Estrutura Principal
 ```
 D:\Projetos\finanalytics_ai_fresh\
@@ -246,6 +265,28 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 13. ~~Investment accounts spec (titular/CPF/apelido) + master CRUD~~ — **DONE 20/abr** (incluindo validação CPF DV, FK portfolio NOT NULL/RESTRICT)
 14. ~~Prometheus + Grafana versionados em docker/~~ — **DONE 20/abr** (provisioning, removeu `docker run` manual)
 15. Aguardando arquivo Nelogica 1m (~2 dias) → rodar `runbook_import_dados_historicos.md`
+
+## Decisões Arquiteturais (Imutáveis)
+
+> Decisões do tipo "não revogar sem evidência empírica nova". Anterior a alterar uma destas, ler o documento de origem.
+
+### Decisão 15 — Dual-GPU: separação estrita
+
+Origem: `Melhorias/proposta_decisao_15_dualgpu.md` (16/abr/2026), motivada por incidentes de reboot ao usar as 2 GPUs em compute simultâneo (transientes de potência sincronizados disparando OCP da PSU).
+
+**Regras vinculantes:**
+1. Toda carga de compute ML (treino, inferência, serving, embeddings) executa **exclusivamente na GPU 0** (bus `01:00.0`, headless).
+2. GPU 1 (bus `08:00.0`) reservada ao Windows/desktop. **Nunca** recebe workload de compute em produção.
+3. Toda definição de service Docker que precisar de GPU deve declarar `deploy.resources.reservations.devices` com `device_ids: ["0"]` + `capabilities: [gpu, utility, compute]`. `CUDA_VISIBLE_DEVICES: "0"` acompanha por redundância.
+4. **Proibido**: paralelismo puro multi-GPU (Modo 3 — DDP, `device_map="auto"`, DataParallel) enquanto a PSU instalada for a mesma dos incidentes históricos.
+5. **Exceção autorizada (Modo 2)**: workloads ML *distintos* por GPU (ex: treino na 0 + FinBERT inference na 1) APENAS para jobs offline com `nvidia-smi -pl 320` ativo em ambas. Nunca em horário de pregão.
+6. Se cabos físicos forem remanejados, validar mapeamento via comando da seção Hardware antes de subir container com compute.
+7. Para liberar Modo 3: (a) upgrade PSU ≥1.600W ATX 3.0/3.1 Titanium com 2 cabos 12V-2×6 nativos, OU (b) migração para servidor de colocation com hardware novo.
+
+**Aplicação atual** (commit `5e7dfbd`, 20/abr/2026):
+- 3 services com reservation: `api`, `worker`, `event_worker_v2`.
+- `nvidia-smi` funciona dentro dos containers (NVIDIA Container Runtime auto-injeta libs).
+- `torch.cuda.is_available()` ainda False — image usa wheel `torch-cpu`. Para usar GPU compute em container, trocar para `torch+cu124` no Dockerfile.
 
 ## Convenções do Projeto
 
