@@ -97,13 +97,18 @@ services:
       TIMESCALE_URL:          postgresql+asyncpg://finanalytics:${TIMESCALE_PASSWORD:-timescale_secret}@timescale:5432/market_data
       TIMESCALE_POOL_SIZE:    10
       TIMESCALE_MAX_OVERFLOW: 20
-      # GPU2 disponível para inferência via CUDA
+      # GPU 0 (headless, bus 01:00.0) — Decisao 15
       CUDA_VISIBLE_DEVICES: "0"
     deploy:
       resources:
         limits:
           cpus: '16'
           memory: 8G
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [gpu, utility, compute]
 
   # ── Worker — processamento paralelo ───────────────────────────────────────
   worker:
@@ -111,7 +116,7 @@ services:
       DATABASE_POOL_SIZE:    10
       DATABASE_MAX_OVERFLOW: 20
       TIMESCALE_URL:         postgresql+asyncpg://finanalytics:${TIMESCALE_PASSWORD:-timescale_secret}@timescale:5432/market_data
-      # GPU2 dedicada ao worker de processamento
+      # GPU 0 (headless, bus 01:00.0) — Decisao 15
       CUDA_VISIBLE_DEVICES: "0"
       # Polars usa todos os threads disponíveis — limita para não interferir
       POLARS_MAX_THREADS:    "16"
@@ -120,6 +125,11 @@ services:
         limits:
           cpus: '16'
           memory: 32G
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [gpu, utility, compute]
 
   # ── Scheduler ─────────────────────────────────────────────────────────────
   scheduler:
@@ -179,6 +189,14 @@ services:
       - PYTHONPATH=/app/src
       - ENVIRONMENT=production
       - LOG_FORMAT=json
+      - CUDA_VISIBLE_DEVICES=0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [gpu, utility, compute]
     depends_on:
       - postgres
       - redis
