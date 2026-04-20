@@ -18,7 +18,11 @@ D:\Projetos\finanalytics_ai_fresh\
 │   └── config.py                     # Settings via pydantic-settings
 ├── scripts\
 │   ├── backfill_history.py           # Coleta histórica de ticks
-│   ├── populate_daily_bars.py        # Agrega ticks → profit_daily_bars
+│   ├── populate_daily_bars.py        # Agrega ticks OU ohlc_1m (--source) → profit_daily_bars
+│   ├── import_historical_1m.py       # Importer externo CSV/Parquet → ohlc_1m
+│   ├── calibrate_ml_thresholds.py    # Grid search th_buy/th_sell por ticker
+│   ├── retrain_top20_h21.py          # Retreina MVPs no horizon=21d
+│   ├── copom_fetch.py / _label_selic / _finetune / _infer  # Pipeline BERTimbau COPOM
 │   └── migrate_to_timescale.py       # Migra Fintz PG → TimescaleDB
 ├── .env                              # Variáveis de ambiente
 ├── docker-compose.yml                # API + TimescaleDB + Redis
@@ -177,17 +181,21 @@ Funções JS chave: `executeTrade()`, `sendOCO()`, `refreshOrders()`, `loadDLLPo
 ### TimescaleDB (market_data)
 Tabelas principais:
 - `market_history_trades` — ticks históricos (hypertable, partição por trade_date)
+- `ohlc_1m` — bars 1m (hypertable 27 chunks, 3.5M rows; `source` ∈ {brapi, external_1m, nelogica_1m})
 - `profit_daily_bars` — barras diárias OHLCV (geradas por `populate_daily_bars.py`)
-- `fintz_cotacoes_ts` — OHLCV diário Fintz (1.32M rows, 200+ tickers, 2010→2025)
+- `fintz_cotacoes_ts` — OHLCV diário Fintz (1.32M rows, 200+ tickers, 2010→2025; **read-only**)
 - `profit_orders` — ordens enviadas via DLL
 - `profit_history_tickers` — tickers configurados para backfill (active=True/False)
 - `trading_accounts` — contas de corretora (CRUD, conta ativa para ordens)
+- `ticker_ml_config` — calibração ML por ticker (118 rows: th_buy/th_sell/best_sharpe/horizon_days)
+- `copom_documents` / `copom_sentiment` — pipeline BERTimbau COPOM (vazio até BCB recuperar)
 
 ### Candle fallback chain (`candle_repository.py`)
 1. `profit_daily_bars` — pré-agregado, 8 tickers DLL (Jan→Abr/2026)
-2. `market_history_trades` — agrega ticks on-the-fly (~69 dias)
-3. `profit_ticks` — ticks real-time
-4. `fintz_cotacoes_ts` — stocks only (exclui futuros), 200+ tickers, 2010→2025
+2. `ohlc_1m` — bars 1m (brapi 3.5M rows + import externo `nelogica_1m`), agrega on-the-fly p/ daily
+3. `market_history_trades` — agrega ticks on-the-fly (~69 dias)
+4. `profit_ticks` — ticks real-time
+5. `fintz_cotacoes_ts` — stocks only (exclui futuros), 200+ tickers, 2010→2025
 
 ### Estado atual dos dados (Abr/2026)
 
@@ -211,7 +219,13 @@ Tabelas principais:
 2. ~~Multi-conta MVP~~ — **DONE** (`user_account_id` auto-populado como `{env}:{broker_id}:{account_id}`)
 3. ~~Multi-conta CRUD API + UI de seleção de contas~~ — **DONE** (Sprint MC: CRUD + seletor UI; Sprint MC-2: proxy injeta credenciais da conta ativa no profit_agent)
 4. ~~Sprint OHLC — Unificação Fintz + DLL~~ — **DONE** (migração 1.32M rows, daily bars, fallback chain 4 níveis)
-5. Fintz sync cotacoes_ohlc (Nov/2025 → Abr/2026) — preencher gap entre Fintz e DLL
+5. ~~Fintz sync~~ — **CANCELADO** (Fintz freezada; sem mais sync)
+6. ~~Migração ticks externos → 1m bars~~ — **DONE 20/abr** (`import_historical_1m.py`, `populate_daily_bars --source 1m`, fallback chain agora 5 níveis)
+7. ~~ML calibração + retreino h21~~ — **DONE 20/abr** (118 tickers calibrados em `ticker_ml_config`, 116 pickles MVP h21)
+8. ~~`/api/v1/ml/signals` batch + dashboard tab~~ — **DONE 20/abr**
+9. ~~DI1 realtime worker~~ — **DONE 20/abr** (subscribe + Kafka publisher + Grafana 3 painéis)
+10. ~~BERTimbau COPOM scaffold~~ — **DONE 20/abr** (pipeline end-to-end validado em sintético; aguarda BCB API recuperar)
+11. Aguardando arquivo Nelogica 1m (~2 dias) → rodar `runbook_import_dados_historicos.md`
 
 ## Convenções do Projeto
 
@@ -226,5 +240,13 @@ Tabelas principais:
 ```
 Remote: https://github.com/MarceloAbiSquarisi/finanalytics_ai
 Branch: master
-Último commit: feat(multi-conta): UI seletor + CRUD + seed + fix infra warnings — Sprint MC
+Últimos commits (20/abr):
+  2b558ba feat(1m): adapta pipeline para bars 1-minuto (substitui ticks externos)
+  e3e47e2 feat(copom): pipeline BERTimbau sentiment end-to-end
+  dbd10e8 feat(dashboard): aba Signals mostra ML signals calibrados
+  ebcc6c0 feat(mvp-h21): retreino top-20 em horizon 21d
+  e78f1b9 feat(signals): /api/v1/ml/signals batch + paineis DI1 Grafana
+  833f47b feat(predict_mvp): integra thresholds calibrados com signal BUY/SELL/HOLD
+  8be756e feat(di1-realtime): worker funcional — subscribe + Kafka publisher
+  eacf748 feat(day1): import_historical_ticks + calibrate_ml_thresholds + paineis RF
 ```
