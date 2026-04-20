@@ -67,6 +67,17 @@ RF_FEATURES_AVAILABLE = {
 }
 
 
+class CalibrationInfo(BaseModel):
+    th_buy: float
+    th_sell: float
+    horizon_days: int
+    best_sharpe: float | None = None
+    best_return_pct: float | None = None
+    best_trades: int | None = None
+    best_win_rate: float | None = None
+    calibrated_at: str | None = None
+
+
 class PredictResponse(BaseModel):
     model_config = {"protected_namespaces": ()}
 
@@ -78,6 +89,18 @@ class PredictResponse(BaseModel):
     model_trained_at: str | None = None
     model_metrics: dict[str, Any] | None = None
     features_used: dict[str, Any]
+    signal: str | None = Field(
+        None, description="BUY | SELL | HOLD | None (se sem calibração)"
+    )
+    signal_method: str | None = Field(
+        None,
+        description=(
+            "scaled_linear_1d: th_buy/th_sell calibrados em horizon_days "
+            "(ex 21d) divididos por horizon_days para comparação com "
+            "prediction 1d — aproximação de primeira ordem"
+        ),
+    )
+    calibration: CalibrationInfo | None = None
 
 
 def _find_latest_pickle(ticker: str) -> tuple[Path, dict] | None:
@@ -97,6 +120,53 @@ def _find_latest_pickle(ticker: str) -> tuple[Path, dict] | None:
         if meta.get("ticker", "").upper() == ticker.upper():
             return pkl, meta
     return None
+
+
+def _load_calibration(ticker: str, dsn: str) -> dict[str, Any] | None:
+    """Busca calibração em ticker_ml_config."""
+    try:
+        with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT th_buy, th_sell, horizon_days,
+                       best_sharpe, best_return_pct, best_trades, best_win_rate,
+                       calibrated_at
+                  FROM ticker_ml_config WHERE ticker=%s
+                """,
+                (ticker.upper(),),
+            )
+            row = cur.fetchone()
+    except Exception as exc:
+        log.warning("predict_mvp.calibration_query_failed", ticker=ticker, error=str(exc))
+        return None
+    if not row:
+        return None
+    return {
+        "th_buy":         float(row[0]),
+        "th_sell":        float(row[1]),
+        "horizon_days":   int(row[2]),
+        "best_sharpe":    float(row[3]) if row[3] is not None else None,
+        "best_return_pct": float(row[4]) if row[4] is not None else None,
+        "best_trades":    int(row[5]) if row[5] is not None else None,
+        "best_win_rate":  float(row[6]) if row[6] is not None else None,
+        "calibrated_at":  row[7].isoformat() if row[7] is not None else None,
+    }
+
+
+def _signal_from_prediction(pred_log_1d: float, cfg: dict[str, Any]) -> tuple[str, str]:
+    """Deriva BUY/SELL/HOLD. Thresholds foram calibrados em horizon_days
+    (ex 21d); o modelo MVP prediz 1d log-return. Aproximação linear de
+    primeira ordem: divide thresholds por horizon_days."""
+    h = max(int(cfg["horizon_days"]), 1)
+    th_buy_1d  = float(cfg["th_buy"])  / h
+    th_sell_1d = float(cfg["th_sell"]) / h
+    if pred_log_1d >= th_buy_1d:
+        sig = "BUY"
+    elif pred_log_1d <= th_sell_1d:
+        sig = "SELL"
+    else:
+        sig = "HOLD"
+    return sig, "scaled_linear_1d"
 
 
 def _load_latest_features(ticker: str, dsn: str, features: list[str]) -> dict[str, Any] | None:
@@ -181,6 +251,23 @@ async def predict_mvp(ticker: str) -> PredictResponse:
 
     pred_pct = (float(np.exp(pred_log)) - 1.0) * 100.0
 
+    cfg = _load_calibration(ticker_u, dsn)
+    signal: str | None = None
+    signal_method: str | None = None
+    calibration: CalibrationInfo | None = None
+    if cfg is not None:
+        signal, signal_method = _signal_from_prediction(pred_log, cfg)
+        calibration = CalibrationInfo(
+            th_buy=cfg["th_buy"],
+            th_sell=cfg["th_sell"],
+            horizon_days=cfg["horizon_days"],
+            best_sharpe=cfg["best_sharpe"],
+            best_return_pct=cfg["best_return_pct"],
+            best_trades=cfg["best_trades"],
+            best_win_rate=cfg["best_win_rate"],
+            calibrated_at=cfg["calibrated_at"],
+        )
+
     return PredictResponse(
         ticker=ticker_u,
         reference_date=feats["dia"],
@@ -190,4 +277,7 @@ async def predict_mvp(ticker: str) -> PredictResponse:
         model_trained_at=meta.get("trained_at_utc"),
         model_metrics=meta.get("metrics"),
         features_used={"dia": str(feats["dia"]), **{f: feats[f] for f in features}},
+        signal=signal,
+        signal_method=signal_method,
+        calibration=calibration,
     )
