@@ -1,0 +1,37 @@
+# Prometheus config — FinAnalyticsAI observability stack
+#
+# Scrape targets:
+#   - profit_agent (host Windows, porta 8002) via host.docker.internal
+#   - di1_realtime_worker (Docker, porta 9101)
+#   - finanalytics_api (Docker, porta 8000) — futuro, quando expor /metrics
+#
+# Para aplicar mudancas sem restart do container:
+#   docker exec -it finanalytics_prometheus kill -HUP 1
+
+global:
+  scrape_interval:     30s
+  evaluation_interval: 30s
+  external_labels:
+    env: local
+    cluster: finanalytics-ai
+
+scrape_configs:
+  - job_name: 'profit_agent'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['host.docker.internal:8002']
+        labels:
+          service: 'profit_agent'
+          component: 'dll_wrapper'
+
+  - job_name: 'di1_realtime_worker'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['finanalytics_di1_realtime:9101']
+        labels:
+          service: 'di1_realtime_worker'
+          component: 'rates'
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

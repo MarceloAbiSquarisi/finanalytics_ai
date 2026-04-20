@@ -1,0 +1,16 @@
+# Provisioning de dashboards JSON via filesystem.
+# Grafana le periodicamente o folder e importa/atualiza.
+
+apiVersion: 1
+
+providers:
+  - name: 'finanalytics'
+    orgId: 1
+    folder: 'FinAnalytics'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards-provisioned
+      foldersFromFilesStructure: false

@@ -1,0 +1,30 @@
+# Auto-provisionado no boot do container Grafana (subindo via docker-compose).
+# Ver: https://grafana.com/docs/grafana/latest/administration/provisioning/
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://finanalytics_prometheus:9090
+    uid: prometheus_main
+    isDefault: true
+    editable: true
+    jsonData:
+      timeInterval: "30s"
+
+  - name: TimescaleDB
+    type: grafana-postgresql-datasource
+    access: proxy
+    url: finanalytics_timescale:5432
+    user: finanalytics
+    secureJsonData:
+      password: "${TIMESCALE_PASSWORD:-timescale_secret}"
+    jsonData:
+      database: market_data
+      sslmode: disable
+      postgresVersion: 1500
+      timescaledb: true
+    uid: timescale_main
+    editable: true

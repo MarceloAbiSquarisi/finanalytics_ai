@@ -310,6 +310,25 @@ services:
     networks:
       - finanalytics_net
 
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: finanalytics_prometheus
+    restart: unless-stopped
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=90d
+      - --web.enable-lifecycle
+    networks:
+      - finanalytics_net
+
   grafana:
     image: grafana/grafana:10.4.0
     container_name: finanalytics_grafana
@@ -322,6 +341,10 @@ services:
       GF_INSTALL_PLUGINS: "grafana-clock-panel,grafana-simple-json-datasource"
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards-provisioned:ro
+    depends_on:
+      - prometheus
     networks:
       - finanalytics_net
 
@@ -427,3 +450,4 @@ networks:
 volumes:
   grafana_data:
   pgadmin_data:
+  prometheus_data:

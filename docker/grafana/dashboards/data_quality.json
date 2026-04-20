@@ -1,0 +1,705 @@
+{
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "timescale_main"
+      },
+      "description": "Via gap_map_1m. pct_cob_intraday = minutos_com_tick / 420. tem_profit_ok usa threshold tiered por mediana_vol_brl.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pct_cob_intraday"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "gradient",
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 40
+                    },
+                    {
+                      "color": "green",
+                      "value": 70
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tem_profit_ok"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "false": {
+                        "color": "red",
+                        "text": "âœ—"
+                      },
+                      "true": {
+                        "color": "green",
+                        "text": "âœ“"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tem_fintz"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "false": {
+                        "color": "red",
+                        "text": "âœ—"
+                      },
+                      "true": {
+                        "color": "green",
+                        "text": "âœ“"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "mediana_vol_brl"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyBRL"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT dia, ticker, classe, minutos_com_tick, pct_cob_intraday, threshold_minutos, tem_profit_ok, tem_fintz, mediana_vol_brl FROM gap_map_1m WHERE dia >= (CURRENT_DATE - INTERVAL '30 days') AND (mediana_vol_brl > 10000000 OR classe = 'future') ORDER BY dia DESC, coalesce(mediana_vol_brl, 999999999999) DESC LIMIT 1000;",
+          "refId": "A"
+        }
+      ],
+      "title": "Painel 1 â€” Cobertura intraday 30d (liquidez > 10M ou futuro)",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "timescale_main"
+      },
+      "description": "Calcula horas desde o Ãºltimo dia materializado em profit_daily_cov. Alerta se atraso > 24h em dia Ãºtil. Nota: profit_daily_cov sÃ³ cobre janela populada (hoje 2026-03-20â†’2026-04-17).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "atraso_horas"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "h"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 24
+                    },
+                    {
+                      "color": "red",
+                      "value": 72
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "mediana_vol_brl"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyBRL"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "id": 2,
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT p.ticker, max(p.dia) AS ultimo_dia, EXTRACT(EPOCH FROM (now() - (max(p.dia)::timestamp + interval '17 hours')))/3600 AS atraso_horas, w.mediana_vol_brl FROM profit_daily_cov p LEFT JOIN watchlist_tickers w ON w.ticker = p.ticker GROUP BY p.ticker, w.mediana_vol_brl ORDER BY atraso_horas DESC LIMIT 30;",
+          "refId": "A"
+        }
+      ],
+      "title": "Painel 2 â€” LatÃªncia por ticker (Ãºltimo dia coberto em profit_daily_cov)",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "timescale_main"
+      },
+      "description": "ohlc_1m do dia corrente, janela 10:00-17:00. Ideal: curva constante em ~130. Queda = falha de coleta.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 50
+              },
+              {
+                "color": "green",
+                "value": 100
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "id": 3,
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH m AS (SELECT generate_series(date_trunc('day', now()) + interval '10 hours', date_trunc('day', now()) + interval '17 hours', interval '1 minute') AS minuto) SELECT m.minuto AS time, count(o.ticker) AS tickers_com_candle FROM m LEFT JOIN ohlc_1m o ON o.time = m.minuto GROUP BY m.minuto ORDER BY m.minuto;",
+          "refId": "A"
+        }
+      ],
+      "title": "Painel 3 â€” Tickers com candle por minuto (hoje)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "description": "rate(profit_agent_total_ticks[5m]) do /metrics.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "rate(profit_agent_total_ticks[5m])",
+          "legendFormat": "ticks/s",
+          "refId": "A"
+        }
+      ],
+      "title": "Painel 4 — profit_agent rate de ticks (ticks/s)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "description": "Total cumulativo de probes + contaminações detectadas.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "id": 5,
+      "targets": [
+        {
+          "expr": "profit_agent_total_probes",
+          "legendFormat": "probes",
+          "refId": "A"
+        },
+        {
+          "expr": "profit_agent_total_contaminations",
+          "legendFormat": "contaminations",
+          "refId": "B"
+        }
+      ],
+      "title": "Painel 5 — Probes e contaminações /collect_history",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "description": "market_connected + db_connected gauges (1=UP, 0=DOWN).",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "text": "DOWN"
+                },
+                "1": {
+                  "color": "green",
+                  "text": "UP"
+                }
+              },
+              "type": "value"
+            }
+          ]
+        }
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "orientation": "horizontal"
+      },
+      "targets": [
+        {
+          "expr": "profit_agent_market_connected",
+          "legendFormat": "market DLL",
+          "refId": "A"
+        },
+        {
+          "expr": "profit_agent_db_connected",
+          "legendFormat": "TimescaleDB",
+          "refId": "B"
+        }
+      ],
+      "title": "Painel 6 — DLL + DB conectados",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "description": "rate(sum)/rate(count) dos probe_duration.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
+      "id": 7,
+      "targets": [
+        {
+          "expr": "rate(profit_agent_probe_duration_seconds_sum[10m]) / rate(profit_agent_probe_duration_seconds_count[10m])",
+          "legendFormat": "avg duration",
+          "refId": "A"
+        }
+      ],
+      "title": "Painel 7 — /collect_history duração média (s)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "timescale_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 38
+      },
+      "id": 8,
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT dia AS time, taxa_pre_1y*100 AS y1y, taxa_pre_2y*100 AS y2y, taxa_pre_5y*100 AS y5y FROM rates_features_daily WHERE dia >= (CURRENT_DATE - INTERVAL '730 days') ORDER BY dia",
+          "refId": "A"
+        }
+      ],
+      "title": "Painel 8 - Yield curve BR pre 1Y/2Y/5Y",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "timescale_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 46
+      },
+      "id": 9,
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT dia AS time, breakeven_1y*100 AS be1, breakeven_2y*100 AS be2, breakeven_5y*100 AS be5 FROM rates_features_daily WHERE dia >= (CURRENT_DATE - INTERVAL '730 days') ORDER BY dia",
+          "refId": "A"
+        }
+      ],
+      "title": "Painel 9 - Breakeven BR (1Y/2Y/5Y)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "timescale_main"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 46
+      },
+      "id": 10,
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT dia AS time, tsmom_di1_1y_3m AS t1y, tsmom_di1_2y_3m AS t2y, tsmom_di1_5y_3m AS t5y FROM rates_features_daily WHERE dia >= (CURRENT_DATE - INTERVAL '730 days') ORDER BY dia",
+          "refId": "A"
+        }
+      ],
+      "title": "Painel 10 - TSMOM DI1 3m (1Y/2Y/5Y)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "timescale_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "easing": {
+                  "color": "blue",
+                  "index": 0
+                },
+                "neutral": {
+                  "color": "yellow",
+                  "index": 1
+                },
+                "tightening": {
+                  "color": "red",
+                  "index": 2
+                }
+              },
+              "type": "value"
+            }
+          ]
+        }
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 54
+      },
+      "id": 11,
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT dia AS time, regime_name AS value FROM hmm_monetary_daily WHERE dia >= (CURRENT_DATE - INTERVAL '730 days') ORDER BY dia",
+          "refId": "A"
+        }
+      ],
+      "title": "Painel 11 - Regime monetario BR (HMM)",
+      "type": "state-timeline"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "showPoints": "never"
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 60
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(di1_worker_ticks_per_contract_total[1m]) * 60",
+          "legendFormat": "{{contract}}",
+          "refId": "A"
+        }
+      ],
+      "title": "DI1: Ticks por minuto (por contrato)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 60
+      },
+      "id": 13,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "di1_worker_kafka_errors_total",
+          "legendFormat": "kafka",
+          "refId": "A"
+        },
+        {
+          "expr": "di1_worker_poll_errors_total",
+          "legendFormat": "poll",
+          "refId": "B"
+        }
+      ],
+      "title": "DI1: Erros (Kafka + Poll)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 60
+              },
+              {
+                "color": "red",
+                "value": 300
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 60
+      },
+      "id": 14,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "di1_worker_last_tick_age_seconds",
+          "legendFormat": "age",
+          "refId": "A"
+        }
+      ],
+      "title": "DI1: Idade do ultimo tick (s)",
+      "type": "stat"
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 38,
+  "tags": [
+    "finanalytics",
+    "quality",
+    "sprint8"
+  ],
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "FinAnalytics AI â€” Qualidade de Dados",
+  "uid": "finanalytics-data-quality",
+  "version": 1
+}
