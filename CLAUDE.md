@@ -16,12 +16,19 @@ D:\Projetos\finanalytics_ai_fresh\
 │   ├── workers\
 │   │   └── profit_agent.py           # Agente Windows — DLL wrapper HTTP server :8002
 │   └── config.py                     # Settings via pydantic-settings
+├── docker\                           # Configs versionadas (NOVO 20/abr)
+│   ├── prometheus\prometheus.yml     # Scrape config (substitui Melhorias/)
+│   └── grafana\
+│       ├── provisioning\             # Auto-import datasources + dashboards
+│       └── dashboards\data_quality.json  # 14 painéis versionados
 ├── scripts\
 │   ├── backfill_history.py           # Coleta histórica de ticks
 │   ├── populate_daily_bars.py        # Agrega ticks OU ohlc_1m (--source) → profit_daily_bars
 │   ├── import_historical_1m.py       # Importer externo CSV/Parquet → ohlc_1m
+│   ├── resample_ohlc.py              # ohlc_1m → ohlc_resampled (5m/15m/30m/60m/...)
 │   ├── calibrate_ml_thresholds.py    # Grid search th_buy/th_sell por ticker
 │   ├── retrain_top20_h21.py          # Retreina MVPs no horizon=21d
+│   ├── snapshot_signals.py           # Snapshot diário /signals → signal_history
 │   ├── copom_fetch.py / _label_selic / _finetune / _infer  # Pipeline BERTimbau COPOM
 │   └── migrate_to_timescale.py       # Migra Fintz PG → TimescaleDB
 ├── .env                              # Variáveis de ambiente
@@ -182,13 +189,22 @@ Funções JS chave: `executeTrade()`, `sendOCO()`, `refreshOrders()`, `loadDLLPo
 Tabelas principais:
 - `market_history_trades` — ticks históricos (hypertable, partição por trade_date)
 - `ohlc_1m` — bars 1m (hypertable 27 chunks, 3.5M rows; `source` ∈ {brapi, external_1m, nelogica_1m})
+- `ohlc_resampled` — N-min bars (hypertable, PK `(time, ticker, interval_minutes)`; gerado por `resample_ohlc.py`)
 - `profit_daily_bars` — barras diárias OHLCV (geradas por `populate_daily_bars.py`)
 - `fintz_cotacoes_ts` — OHLCV diário Fintz (1.32M rows, 200+ tickers, 2010→2025; **read-only**)
 - `profit_orders` — ordens enviadas via DLL
 - `profit_history_tickers` — tickers configurados para backfill (active=True/False)
-- `trading_accounts` — contas de corretora (CRUD, conta ativa para ordens)
+- `trading_accounts` — contas de corretora DayTrade (broker_id+account_id+routing_password)
 - `ticker_ml_config` — calibração ML por ticker (118 rows: th_buy/th_sell/best_sharpe/horizon_days)
+- `signal_history` — snapshots diários de signals (hypertable, PK `(snapshot_date, ticker)`)
 - `copom_documents` / `copom_sentiment` — pipeline BERTimbau COPOM (vazio até BCB recuperar)
+
+### PostgreSQL (finanalytics) — multi-tenant
+Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
+- `users` — RBAC `role ∈ {USER, MASTER, ADMIN}`; MASTER vê contas de outros
+- `investment_accounts` — campos obrigatórios: `titular`, `cpf`, `apelido`, `institution_code/name`, `agency`, `account_number`. UNIQUE `(user_id, cpf) WHERE cpf NOT NULL`. CRUD em `/api/v1/wallet/accounts/*`; CRUD master em `/api/v1/wallet/admin/accounts/*`
+- `portfolios` — FK `user_id` + `investment_account_id`; `is_default` flag
+- `trades` / `positions` / `crypto_holdings` / `rf_holdings` / `other_assets` — `portfolio_id NOT NULL`, `ON DELETE RESTRICT` (todo investimento DEVE estar em portfolio)
 
 ### Candle fallback chain (`candle_repository.py`)
 1. `profit_daily_bars` — pré-agregado, 8 tickers DLL (Jan→Abr/2026)
@@ -225,7 +241,11 @@ Tabelas principais:
 8. ~~`/api/v1/ml/signals` batch + dashboard tab~~ — **DONE 20/abr**
 9. ~~DI1 realtime worker~~ — **DONE 20/abr** (subscribe + Kafka publisher + Grafana 3 painéis)
 10. ~~BERTimbau COPOM scaffold~~ — **DONE 20/abr** (pipeline end-to-end validado em sintético; aguarda BCB API recuperar)
-11. Aguardando arquivo Nelogica 1m (~2 dias) → rodar `runbook_import_dados_historicos.md`
+11. ~~Resample ohlc_1m → N-min bars~~ — **DONE 20/abr** (5/15/30/60m via `resample_ohlc.py`, endpoint `/api/v1/marketdata/bars/{ticker}`)
+12. ~~Histórico de signals + scheduler~~ — **DONE 20/abr** (`signal_history`, snapshot diário 18:30 BRT, dashboard sub-tabs Live/Hist/Mudanças)
+13. ~~Investment accounts spec (titular/CPF/apelido) + master CRUD~~ — **DONE 20/abr** (incluindo validação CPF DV, FK portfolio NOT NULL/RESTRICT)
+14. ~~Prometheus + Grafana versionados em docker/~~ — **DONE 20/abr** (provisioning, removeu `docker run` manual)
+15. Aguardando arquivo Nelogica 1m (~2 dias) → rodar `runbook_import_dados_historicos.md`
 
 ## Convenções do Projeto
 
@@ -241,6 +261,12 @@ Tabelas principais:
 Remote: https://github.com/MarceloAbiSquarisi/finanalytics_ai
 Branch: master
 Últimos commits (20/abr):
+  e5e8062 infra(observability): Prometheus + Grafana versionados em docker/
+  cecf359 feat(wallet): enforce portfolio_id obrigatorio em todos investimentos
+  4a71c6f feat(accounts): titular/cpf/apelido + master CRUD + validacao CPF
+  1c9311e feat(dashboard): sub-tabs Live/Historico/Mudancas na aba Signals
+  c17897c feat(signals): historico diario + endpoints + scheduler
+  0c87d85 feat(resample): pipeline ohlc_1m -> N-minute bars (5/15/30/60...)
   2b558ba feat(1m): adapta pipeline para bars 1-minuto (substitui ticks externos)
   e3e47e2 feat(copom): pipeline BERTimbau sentiment end-to-end
   dbd10e8 feat(dashboard): aba Signals mostra ML signals calibrados
