@@ -1022,6 +1022,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
         <button id="dttab-oco"     class="ttab"            style="flex:1;font-size:11px;padding:4px 2px;text-align:center" onclick="dtTab('oco')">OCO</button>
         <button id="dttab-pos"     class="ttab"            style="flex:1;font-size:11px;padding:4px 2px;text-align:center" onclick="dtTab('pos')">Pos.</button>
         <button id="dttab-list"    class="ttab"            style="flex:1;font-size:11px;padding:4px 2px;text-align:center" onclick="dtTab('list')">Ordens</button>
+        <button id="dttab-signals" class="ttab"            style="flex:1;font-size:11px;padding:4px 2px;text-align:center" onclick="dtTab('signals')">Signals</button>
         <button id="dttab-account" class="ttab"            style="flex:1;font-size:11px;padding:4px 2px;text-align:center" onclick="dtTab('account')">Conta</button>
       </div>
 
@@ -1151,6 +1152,28 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
         </div>
         <div id="orders-list" style="display:flex;flex-direction:column;gap:4px;max-height:320px;overflow-y:auto">
           <div style="font-size:12px;color:var(--muted)">Carregando...</div>
+        </div>
+      </div>
+
+      <!-- ── ABA SIGNALS ────────────────────────────────────────────── -->
+      <div id="dt-pane-signals" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">ML Signals (calibrados)</span>
+          <button onclick="dtLoadSignals()" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:16px" title="Atualizar">↻</button>
+        </div>
+        <div style="display:flex;gap:4px;margin-bottom:6px;font-size:11px;color:var(--muted)">
+          <label style="display:flex;align-items:center;gap:4px">min Sharpe
+            <input id="sig-min-sharpe" type="number" step="0.1" value="1.0"
+                   style="width:60px;background:var(--card);border:1px solid var(--border);color:var(--white);font-family:DM Mono,monospace;font-size:12px;padding:2px 4px;border-radius:4px;outline:none"
+                   onchange="dtLoadSignals()">
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+            <input type="checkbox" id="sig-only-signal" checked onchange="dtLoadSignals()"> só BUY/SELL
+          </label>
+        </div>
+        <div id="sig-summary" style="font-size:11px;color:var(--muted);margin-bottom:6px">—</div>
+        <div id="signals-list" style="display:flex;flex-direction:column;gap:3px;max-height:360px;overflow-y:auto">
+          <div style="font-size:12px;color:var(--muted)">Clique ↻ para carregar</div>
         </div>
       </div>
 
@@ -2661,7 +2684,7 @@ function calcTotal(){
   document.getElementById('t-tot').textContent=(q*p).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 }
 // ── DayTrade Tab control ──────────────────────────────────────────────────────
-const DT_TABS = ['order','oco','pos','list','account'];
+const DT_TABS = ['order','oco','pos','list','signals','account'];
 function dtTab(tab) {
   DT_TABS.forEach(t => {
     document.getElementById('dttab-'+t).classList.toggle('active', t===tab);
@@ -2671,6 +2694,52 @@ function dtTab(tab) {
   if (tab==='list')    refreshOrders();
   if (tab==='pos')     loadPositionAssets();
   if (tab==='account') loadAccounts();
+  if (tab==='signals') dtLoadSignals();
+}
+
+// ── dtLoadSignals — fetch /api/v1/ml/signals e render --------------------
+async function dtLoadSignals() {
+  const box = document.getElementById('signals-list');
+  const sum = document.getElementById('sig-summary');
+  const minS = parseFloat(document.getElementById('sig-min-sharpe').value || '0');
+  const onlyBS = document.getElementById('sig-only-signal').checked;
+  box.innerHTML = '<div style="font-size:12px;color:var(--muted)">carregando…</div>';
+  try {
+    const url = `/api/v1/ml/signals?min_sharpe=${isFinite(minS)?minS:0}&limit=200`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    sum.textContent = `total=${d.count} · BUY=${d.buy} · SELL=${d.sell} · HOLD=${d.hold} · err=${d.errors}`;
+    let items = d.items;
+    if (onlyBS) items = items.filter(x => x.signal === 'BUY' || x.signal === 'SELL');
+    if (!items.length) { box.innerHTML = '<div style="font-size:12px;color:var(--muted)">— sem signals —</div>'; return; }
+    box.innerHTML = items.map(it => {
+      const sig = it.signal || 'ERR';
+      const color = sig === 'BUY' ? '#2da44e' : sig === 'SELL' ? '#cf222e' : sig === 'HOLD' ? '#6b7280' : '#cf222e';
+      const pct = it.predicted_return_pct !== null && it.predicted_return_pct !== undefined
+                    ? (it.predicted_return_pct > 0 ? '+' : '') + it.predicted_return_pct.toFixed(2) + '%'
+                    : '—';
+      const sharpe = it.best_sharpe !== null && it.best_sharpe !== undefined
+                    ? it.best_sharpe.toFixed(2) : '—';
+      const err = it.error ? ` · ${it.error}` : '';
+      return `<div style="display:grid;grid-template-columns:50px 55px 70px 50px 1fr;gap:6px;align-items:center;padding:4px 6px;background:rgba(13,33,68,.4);border-radius:4px;font-family:DM Mono,monospace;font-size:11px;cursor:pointer" onclick="dtPickSignal('${it.ticker}')">
+        <span style="font-weight:700">${it.ticker}</span>
+        <span style="padding:1px 4px;background:${color};color:white;border-radius:3px;text-align:center;font-size:10px">${sig}</span>
+        <span style="color:var(--muted);text-align:right">${pct}</span>
+        <span style="color:var(--muted);text-align:right">S${sharpe}</span>
+        <span style="color:var(--muted);font-size:10px">h${it.horizon_days ?? '?'}${err}</span>
+      </div>`;
+    }).join('');
+  } catch (exc) {
+    box.innerHTML = `<div style="font-size:12px;color:#cf222e">erro: ${exc.message}</div>`;
+    sum.textContent = '—';
+  }
+}
+
+function dtPickSignal(tk) {
+  const inp = document.getElementById('t-tk');
+  if (inp) { inp.value = tk; inp.dispatchEvent(new Event('input')); }
+  dtTab('order');
 }
 function dtToggleStop() {
   const isStop = document.getElementById('t-type').value === 'stop';
