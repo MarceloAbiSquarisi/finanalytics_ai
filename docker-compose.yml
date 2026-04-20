@@ -303,7 +303,8 @@ services:
       - "host.docker.internal:host-gateway"
     ports:
       - "9101:9101"
-    command: ["python", "-u", "/app/src/finanalytics_ai/workers/di1_realtime_worker.py"]
+    entrypoint: ["python", "-u"]
+    command: ["/app/src/finanalytics_ai/workers/di1_realtime_worker.py"]
     profiles:
       - di1_realtime
     networks:
