@@ -70,14 +70,16 @@ def load_features(ticker: str, include_rf: bool = True) -> list[dict]:
     return out
 
 
-def build_target(rows: list[dict]) -> list[float | None]:
+def build_target(rows: list[dict], horizon: int = 1) -> list[float | None]:
     closes = [r["close"] for r in rows]
     out: list[float | None] = []
     for i in range(len(closes)):
-        if i + 1 >= len(closes) or closes[i] is None or closes[i + 1] is None or closes[i] <= 0:
+        if (i + horizon >= len(closes) or closes[i] is None
+                or closes[i + horizon] is None or closes[i] <= 0
+                or closes[i + horizon] <= 0):
             out.append(None)
         else:
-            out.append(float(np.log(closes[i + 1] / closes[i])))
+            out.append(float(np.log(closes[i + horizon] / closes[i])))
     return out
 
 
@@ -150,15 +152,18 @@ def train_and_eval(X_tr, y_tr, X_val, y_val, X_te, y_te):
     }
 
 
-def serialize(model, ticker, metrics, features):
+def serialize(model, ticker, metrics, features, horizon: int = 1):
     out_dir = Path(__file__).resolve().parent.parent / "models"
     out_dir.mkdir(exist_ok=True)
     ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    stem = out_dir / f"mvp_v2_{ticker}_{ts}"
+    suffix = f"_h{horizon}" if horizon != 1 else ""
+    stem = out_dir / f"mvp_v2{suffix}_{ticker}_{ts}"
     with stem.with_suffix(".pkl").open("wb") as f:
         pickle.dump(model, f)
     meta = {
-        "ticker": ticker, "trained_at_utc": ts, "version": "v2_cross_asset",
+        "ticker": ticker, "trained_at_utc": ts,
+        "version": f"v2_cross_asset_h{horizon}",
+        "horizon_days": horizon,
         "features": features, "n_features": len(features),
         "model": "lightgbm.LGBMRegressor", "metrics": metrics,
         "file": stem.with_suffix(".pkl").name,
@@ -172,6 +177,8 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--ticker", default="PETR4")
     p.add_argument("--no-rf", action="store_true", help="baseline sem RF features")
+    p.add_argument("--horizon", type=int, default=1,
+                   help="target: log(close[i+h]/close[i]). 1=1d, 21=21d (bate com calibracao)")
     return p.parse_args()
 
 
@@ -185,11 +192,12 @@ def main():
         print(f"Sem features para {args.ticker}")
         return 2
 
-    target = build_target(rows)
+    target = build_target(rows, horizon=args.horizon)
     X, y, dates = to_xy(rows, features, target)
     m_tr, m_val, m_te = split_dates(dates)
 
-    print(f"Ticker={args.ticker}  include_rf={include_rf}  features={len(features)}  rows_uteis={len(X)}")
+    print(f"Ticker={args.ticker}  include_rf={include_rf}  horizon={args.horizon}d  "
+          f"features={len(features)}  rows_uteis={len(X)}")
     print(f"  train={int(m_tr.sum())} val={int(m_val.sum())} test={int(m_te.sum())}")
     if int(m_tr.sum()) < 50:
         print("train < 50 rows -> abort")
@@ -200,7 +208,7 @@ def main():
     for k, v in metrics.items():
         print(f"  {k:>12} = {v}")
 
-    pkl = serialize(model, args.ticker, metrics, features)
+    pkl = serialize(model, args.ticker, metrics, features, horizon=args.horizon)
     print(f"modelo: {pkl}")
     return 0
 

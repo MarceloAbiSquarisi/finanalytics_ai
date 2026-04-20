@@ -103,12 +103,15 @@ class PredictResponse(BaseModel):
     calibration: CalibrationInfo | None = None
 
 
-def _find_latest_pickle(ticker: str) -> tuple[Path, dict] | None:
+def _find_latest_pickle(ticker: str, prefer_horizon: int | None = None) -> tuple[Path, dict] | None:
     """Localiza o pickle mais recente em models/ para o ticker alvo.
-    Fallback: qualquer pickle com metadata matching ticker."""
+
+    Se prefer_horizon for dado, escolhe primeiro pickles com horizon_days
+    igual. Fallback: ultimo pickle disponivel (mais recente)."""
     if not MODELS_DIR.exists():
         return None
     candidates = sorted(MODELS_DIR.glob(f"*_{ticker}_*.pkl"), reverse=True)
+    parsed: list[tuple[Path, dict]] = []
     for pkl in candidates:
         meta_path = pkl.with_suffix(".json")
         if not meta_path.exists():
@@ -117,9 +120,17 @@ def _find_latest_pickle(ticker: str) -> tuple[Path, dict] | None:
             meta = json.loads(meta_path.read_text(encoding="utf-8"))
         except Exception:
             continue
-        if meta.get("ticker", "").upper() == ticker.upper():
-            return pkl, meta
-    return None
+        if meta.get("ticker", "").upper() != ticker.upper():
+            continue
+        parsed.append((pkl, meta))
+
+    if not parsed:
+        return None
+    if prefer_horizon is not None:
+        for pkl, meta in parsed:
+            if int(meta.get("horizon_days", 1)) == prefer_horizon:
+                return pkl, meta
+    return parsed[0]
 
 
 def _load_calibration(ticker: str, dsn: str) -> dict[str, Any] | None:
@@ -153,20 +164,31 @@ def _load_calibration(ticker: str, dsn: str) -> dict[str, Any] | None:
     }
 
 
-def _signal_from_prediction(pred_log_1d: float, cfg: dict[str, Any]) -> tuple[str, str]:
-    """Deriva BUY/SELL/HOLD. Thresholds foram calibrados em horizon_days
-    (ex 21d); o modelo MVP prediz 1d log-return. Aproximação linear de
-    primeira ordem: divide thresholds por horizon_days."""
-    h = max(int(cfg["horizon_days"]), 1)
-    th_buy_1d  = float(cfg["th_buy"])  / h
-    th_sell_1d = float(cfg["th_sell"]) / h
-    if pred_log_1d >= th_buy_1d:
+def _signal_from_prediction(
+    pred_log: float, cfg: dict[str, Any], model_horizon: int | None = None,
+) -> tuple[str, str]:
+    """Deriva BUY/SELL/HOLD comparando prediction com thresholds calibrados.
+
+    Se model_horizon == cfg.horizon_days (ex ambos 21d): comparacao direta.
+    Caso contrario: aproximacao linear (divide thresholds por horizon).
+    """
+    cfg_h = max(int(cfg["horizon_days"]), 1)
+    if model_horizon is not None and int(model_horizon) == cfg_h:
+        th_buy = float(cfg["th_buy"])
+        th_sell = float(cfg["th_sell"])
+        method = "direct_match_horizon"
+    else:
+        th_buy  = float(cfg["th_buy"])  / cfg_h
+        th_sell = float(cfg["th_sell"]) / cfg_h
+        method = "scaled_linear_1d"
+
+    if pred_log >= th_buy:
         sig = "BUY"
-    elif pred_log_1d <= th_sell_1d:
+    elif pred_log <= th_sell:
         sig = "SELL"
     else:
         sig = "HOLD"
-    return sig, "scaled_linear_1d"
+    return sig, method
 
 
 def _load_latest_features(ticker: str, dsn: str, features: list[str]) -> dict[str, Any] | None:
@@ -199,7 +221,16 @@ async def predict_mvp(ticker: str) -> PredictResponse:
     """
     ticker_u = ticker.upper()
 
-    pkl_info = _find_latest_pickle(ticker_u)
+    import os as _os
+    dsn_early = (
+        _os.environ.get("TIMESCALE_URL")
+        or _os.environ.get("PROFIT_TIMESCALE_DSN")
+        or "postgresql://finanalytics:timescale_secret@localhost:5433/market_data"
+    ).replace("postgresql+asyncpg://", "postgresql://")
+    cfg_early = _load_calibration(ticker_u, dsn_early)
+    prefer_h = cfg_early["horizon_days"] if cfg_early else None
+
+    pkl_info = _find_latest_pickle(ticker_u, prefer_horizon=prefer_h)
     if pkl_info is None:
         raise HTTPException(
             404,
@@ -208,14 +239,8 @@ async def predict_mvp(ticker: str) -> PredictResponse:
         )
     pkl_path, meta = pkl_info
     features = list(meta.get("features") or FEATURES_DEFAULT)
-
-    import os as _os
-    dsn = (
-        _os.environ.get("TIMESCALE_URL")
-        or _os.environ.get("PROFIT_TIMESCALE_DSN")
-        or "postgresql://finanalytics:timescale_secret@localhost:5433/market_data"
-    )
-    dsn = dsn.replace("postgresql+asyncpg://", "postgresql://")
+    model_horizon = int(meta.get("horizon_days", 1))
+    dsn = dsn_early
     try:
         feats = _load_latest_features(ticker_u, dsn, features)
     except Exception as exc:
@@ -251,12 +276,12 @@ async def predict_mvp(ticker: str) -> PredictResponse:
 
     pred_pct = (float(np.exp(pred_log)) - 1.0) * 100.0
 
-    cfg = _load_calibration(ticker_u, dsn)
+    cfg = cfg_early
     signal: str | None = None
     signal_method: str | None = None
     calibration: CalibrationInfo | None = None
     if cfg is not None:
-        signal, signal_method = _signal_from_prediction(pred_log, cfg)
+        signal, signal_method = _signal_from_prediction(pred_log, cfg, model_horizon=model_horizon)
         calibration = CalibrationInfo(
             th_buy=cfg["th_buy"],
             th_sell=cfg["th_sell"],
@@ -355,12 +380,13 @@ async def signals_batch(
             ticker=t, th_buy=cfg["th_buy"], th_sell=cfg["th_sell"],
             horizon_days=cfg["horizon_days"], best_sharpe=cfg["best_sharpe"],
         )
-        pkl_info = _find_latest_pickle(t)
+        pkl_info = _find_latest_pickle(t, prefer_horizon=cfg["horizon_days"])
         if pkl_info is None:
             base.error = "no_model"
             items.append(base); errors += 1; continue
         pkl_path, meta = pkl_info
         features = list(meta.get("features") or FEATURES_DEFAULT)
+        model_horizon = int(meta.get("horizon_days", 1))
 
         if t not in model_cache:
             try:
@@ -392,7 +418,7 @@ async def signals_batch(
             base.error = f"inference_fail:{type(exc).__name__}"
             items.append(base); errors += 1; continue
 
-        sig, _method = _signal_from_prediction(pred_log, cfg)
+        sig, _method = _signal_from_prediction(pred_log, cfg, model_horizon=model_horizon)
         base.signal = sig
         base.predicted_log_return = pred_log
         base.predicted_return_pct = round((float(np.exp(pred_log)) - 1.0) * 100.0, 4)
