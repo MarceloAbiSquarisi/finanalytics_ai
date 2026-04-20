@@ -35,7 +35,7 @@ DB_DSN = os.getenv(
     "postgresql://finanalytics:timescale_secret@localhost:5433/market_data",
 )
 
-_SQL_AGGREGATE = """
+_SQL_AGGREGATE_TICKS = """
 SELECT
     trade_date::date AS date,
     (array_agg(price ORDER BY trade_date ASC))[1]  AS open,
@@ -48,6 +48,24 @@ SELECT
 FROM market_history_trades
 WHERE ticker = %s
 GROUP BY trade_date::date
+ORDER BY date
+"""
+
+# Fallback: agrega bars 1m -> diaria (quando nao ha ticks).
+# open = 1o bar do dia, close = ultimo, high/low = extremos, volume = soma.
+_SQL_AGGREGATE_1M = """
+SELECT
+    time::date AS date,
+    (array_agg(open  ORDER BY time ASC))[1]  AS open,
+    MAX(high) AS high,
+    MIN(low)  AS low,
+    (array_agg(close ORDER BY time DESC))[1] AS close,
+    SUM(volume) AS volume,
+    CAST(SUM(volume) AS INTEGER) AS qty,
+    CAST(COALESCE(SUM(trades), 0) AS INTEGER) AS trades
+FROM ohlc_1m
+WHERE ticker = %s
+GROUP BY time::date
 ORDER BY date
 """
 
@@ -75,18 +93,42 @@ def get_active_tickers(conn) -> list[dict]:
     return [{"ticker": r[0], "exchange": r[1]} for r in rows]
 
 
-def populate_ticker(conn, ticker: str, exchange: str, dry_run: bool) -> int:
+def populate_ticker(conn, ticker: str, exchange: str, dry_run: bool,
+                    source_pref: str = "auto", min_price: float = 0.0) -> int:
+    """Agrega para profit_daily_bars. source_pref:
+        'auto'  -> tenta ticks primeiro, depois 1m
+        'ticks' -> apenas market_history_trades
+        '1m'    -> apenas ohlc_1m
+    """
     cur = conn.cursor()
-    cur.execute(_SQL_AGGREGATE, (ticker,))
-    rows = cur.fetchall()
+    rows: list = []
+    source_used = None
+    if source_pref in ("auto", "ticks"):
+        cur.execute(_SQL_AGGREGATE_TICKS, (ticker,))
+        rows = cur.fetchall()
+        if rows:
+            source_used = "ticks"
+    if not rows and source_pref in ("auto", "1m"):
+        cur.execute(_SQL_AGGREGATE_1M, (ticker,))
+        rows = cur.fetchall()
+        if rows:
+            source_used = "1m"
     cur.close()
 
     if not rows:
-        print(f"  [{ticker}] Sem ticks — pulando")
+        print(f"  [{ticker}] Sem dados (ticks ou 1m) -- pulando")
         return 0
 
+    if min_price > 0:
+        before = len(rows)
+        rows = [r for r in rows if r[3] is not None and float(r[3]) >= min_price]
+        if len(rows) < before:
+            print(f"  [{ticker}] filtro min_price={min_price}: {before - len(rows)} dias rejeitados")
+        if not rows:
+            return 0
+
     if dry_run:
-        print(f"  [{ticker}] {len(rows)} barras diárias (dry-run)")
+        print(f"  [{ticker}] {len(rows)} barras diarias (source={source_used}, dry-run)")
         return len(rows)
 
     cur = conn.cursor()
@@ -100,14 +142,19 @@ def populate_ticker(conn, ticker: str, exchange: str, dry_run: bool) -> int:
     conn.commit()
     cur.close()
 
-    print(f"  [{ticker}] {len(rows)} barras upserted")
+    print(f"  [{ticker}] {len(rows)} barras upserted (source={source_used})")
     return len(rows)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Popula profit_daily_bars a partir de ticks")
-    parser.add_argument("--ticker", default=None, help="Ticker específico (default: todos ativos)")
+    parser = argparse.ArgumentParser(
+        description="Popula profit_daily_bars a partir de ticks OU ohlc_1m (fallback)")
+    parser.add_argument("--ticker", default=None, help="Ticker especifico (default: todos ativos)")
     parser.add_argument("--dry-run", action="store_true", help="Simula sem gravar")
+    parser.add_argument("--source", choices=["auto", "ticks", "1m"], default="auto",
+                        help="Fonte: 'auto' tenta ticks depois 1m; 'ticks'/'1m' forca")
+    parser.add_argument("--min-price", type=float, default=0.0,
+                        help="Filtra dias com low < min (defesa contra bug /100). 5.0 p/ stocks liquidas.")
     args = parser.parse_args()
 
     try:
@@ -118,7 +165,7 @@ def main() -> None:
 
     conn = psycopg2.connect(DB_DSN)
     print(f"\n{'='*60}")
-    print(f"POPULATE DAILY BARS (market_history_trades → profit_daily_bars)")
+    print(f"POPULATE DAILY BARS (ticks/1m -> profit_daily_bars)")
     print(f"  DSN: ...@{DB_DSN.split('@')[-1]}")
     print(f"  Dry-run: {args.dry_run}")
     print(f"{'='*60}\n")
@@ -138,7 +185,9 @@ def main() -> None:
     t0 = time.perf_counter()
     total_bars = 0
     for t in tickers:
-        total_bars += populate_ticker(conn, t["ticker"], t["exchange"], args.dry_run)
+        total_bars += populate_ticker(conn, t["ticker"], t["exchange"],
+                                      args.dry_run, source_pref=args.source,
+                                      min_price=args.min_price)
 
     elapsed = time.perf_counter() - t0
     print(f"\n{'='*60}")

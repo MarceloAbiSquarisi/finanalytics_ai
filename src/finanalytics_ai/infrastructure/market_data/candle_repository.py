@@ -3,9 +3,10 @@ Candle repository — aggregates OHLCV from TimescaleDB with fallback chain.
 
 Fallback order:
   1. profit_daily_bars  (pre-aggregated, fastest)
-  2. market_history_trades  (tick-level, ~63 days of data)
-  3. profit_ticks  (real-time ticks, ~16 days)
-  4. fintz_cotacoes_ts  (stocks only, 2010+, ~200 tickers)
+  2. ohlc_1m            (1m bars aggregate -> daily; external import OR brapi)
+  3. market_history_trades  (tick-level, ~63 days of data)
+  4. profit_ticks  (real-time ticks, ~16 days)
+  5. fintz_cotacoes_ts  (stocks only, 2010+, ~200 tickers)
 """
 
 from __future__ import annotations
@@ -41,6 +42,20 @@ SELECT
 FROM market_history_trades
 WHERE ticker = $1 AND trade_date >= $2
 GROUP BY trade_date::date
+ORDER BY date ASC
+"""
+
+_SQL_1M_OHLCV = """
+SELECT
+    time::date AS date,
+    (array_agg(open  ORDER BY time ASC))[1]  AS open,
+    MAX(high) AS high,
+    MIN(low)  AS low,
+    (array_agg(close ORDER BY time DESC))[1] AS close,
+    SUM(volume) AS volume
+FROM ohlc_1m
+WHERE ticker = $1 AND time >= $2
+GROUP BY time::date
 ORDER BY date ASC
 """
 
@@ -113,7 +128,7 @@ async def fetch_candles(
 
     Returns:
         Tuple of (candles, source_name).
-        source_name is one of: "daily_bars", "market_history_trades", "profit_ticks", "fintz_cotacoes_ts"
+        source_name is one of: "daily_bars", "ohlc_1m", "market_history_trades", "profit_ticks", "fintz_cotacoes_ts"
     """
     pool = await get_timescale_pool()
     ticker_upper = ticker.upper()
@@ -129,7 +144,18 @@ async def fetch_candles(
         except Exception:
             logger.debug("candle.daily_bars.unavailable", ticker=ticker_upper)
 
-        # 2. Try market_history_trades
+        # 2. Try ohlc_1m (aggregate to daily)
+        try:
+            rows = await conn.fetch(_SQL_1M_OHLCV, ticker_upper, since_ts)
+            if rows:
+                logger.debug(
+                    "candle.source", ticker=ticker_upper, source="ohlc_1m", count=len(rows)
+                )
+                return _rows_to_candles(rows), "ohlc_1m"
+        except Exception:
+            logger.debug("candle.ohlc_1m.unavailable", ticker=ticker_upper)
+
+        # 3. Try market_history_trades
         try:
             rows = await conn.fetch(_SQL_TRADES_OHLCV, ticker_upper, since_ts)
             if rows:
