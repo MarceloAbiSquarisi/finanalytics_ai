@@ -21,6 +21,9 @@ class InvestmentAccountModel(Base):
     __tablename__ = "investment_accounts"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    titular: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    cpf: Mapped[Optional[str]] = mapped_column(String(14), nullable=True)
+    apelido: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     institution_name: Mapped[str] = mapped_column(String(200), nullable=False)
     institution_code: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     agency: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
@@ -160,6 +163,44 @@ class WalletRepository:
                 InvestmentAccountModel.user_id == user_id,
             )
             m = (await s.execute(q)).scalar_one_or_none()
+            if not m:
+                return False
+            m.is_active = False
+            await s.commit()
+            return True
+
+    # ── Variantes Master/Admin (sem filtro user_id) ───────────────────────
+
+    async def list_all_accounts(self, include_inactive: bool = False) -> list[dict]:
+        async with get_session() as s:
+            q = select(InvestmentAccountModel)
+            if not include_inactive:
+                q = q.where(InvestmentAccountModel.is_active.is_(True))
+            q = q.order_by(InvestmentAccountModel.user_id,
+                           InvestmentAccountModel.institution_name)
+            rows = (await s.execute(q)).scalars().all()
+            return [_model_to_dict(r) for r in rows]
+
+    async def get_account_any_user(self, account_id: str) -> dict | None:
+        async with get_session() as s:
+            m = await s.get(InvestmentAccountModel, account_id)
+            return _model_to_dict(m) if m else None
+
+    async def update_account_any_user(self, account_id: str, data: dict) -> dict | None:
+        async with get_session() as s:
+            m = await s.get(InvestmentAccountModel, account_id)
+            if not m:
+                return None
+            for k, v in data.items():
+                if hasattr(m, k) and k not in ("id", "user_id", "created_at"):
+                    setattr(m, k, v)
+            await s.commit()
+            await s.refresh(m)
+            return _model_to_dict(m)
+
+    async def delete_account_any_user(self, account_id: str) -> bool:
+        async with get_session() as s:
+            m = await s.get(InvestmentAccountModel, account_id)
             if not m:
                 return False
             m.is_active = False

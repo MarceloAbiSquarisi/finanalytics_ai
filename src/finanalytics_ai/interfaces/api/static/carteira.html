@@ -410,8 +410,19 @@ tr:hover td{background:rgba(0,212,255,.02)}
     <div class="modal-title">Nova Conta de Investimento <button class="modal-close" onclick="closeModal('modal-account')">×</button>
 </div>
     <div class="form-grid">
-      <div class="form-group"><label>Instituição Financeira *</label><input id="acc-institution" placeholder="Ex: XP Investimentos, Nubank, Binance">
-</div>
+      <div class="form-grid form-grid-2">
+        <div class="form-group"><label>Titular *</label><input id="acc-titular" placeholder="Nome completo do titular"></div>
+        <div class="form-group"><label>CPF *</label><input id="acc-cpf" placeholder="000.000.000-00" maxlength="14"></div>
+      </div>
+      <div class="form-group"><label>Apelido *</label><input id="acc-apelido" placeholder="Ex: Conta principal, BTG investimentos"></div>
+      <div class="form-grid form-grid-2">
+        <div class="form-group"><label>Cód. Instituição *</label><input id="acc-code" placeholder="Ex: 341"></div>
+        <div class="form-group"><label>Nome Instituição *</label><input id="acc-institution" placeholder="Ex: Itaú Unibanco, XP Investimentos"></div>
+      </div>
+      <div class="form-grid form-grid-2">
+        <div class="form-group"><label>Cód. Agência *</label><input id="acc-agency" placeholder="0001"></div>
+        <div class="form-group"><label>Número da Conta *</label><input id="acc-number" placeholder="123456-7"></div>
+      </div>
       <div class="form-grid form-grid-2">
         <div class="form-group"><label>Tipo</label>
           <select id="acc-type">
@@ -421,30 +432,21 @@ tr:hover td{background:rgba(0,212,255,.02)}
             <option value="previdencia">Previdência</option>
             <option value="outro">Outro</option>
           </select>
-</div>
-        <div class="form-group"><label>País</label><input id="acc-country" value="BRA" maxlength="3" style="text-transform:uppercase">
-</div>
-</div>
-      <div class="form-grid form-grid-2">
-        <div class="form-group"><label>Agência</label><input id="acc-agency" placeholder="0001">
-</div>
-        <div class="form-group"><label>Número da Conta</label><input id="acc-number" placeholder="123456-7">
-</div>
-</div>
-      <div class="form-grid form-grid-2">
-        <div class="form-group"><label>Código/CNPJ</label><input id="acc-code" placeholder="Opcional">
-</div>
+        </div>
         <div class="form-group"><label>Moeda</label>
           <select id="acc-currency">
             <option value="BRL">BRL</option>
             <option value="USD">USD</option>
             <option value="EUR">EUR</option>
           </select>
-</div>
-</div>
-      <div class="form-group"><label>Observações</label><textarea id="acc-note" placeholder="Opcional"></textarea>
-</div>
-</div>
+        </div>
+      </div>
+      <div class="form-grid form-grid-2">
+        <div class="form-group"><label>País</label><input id="acc-country" value="BRA" maxlength="3" style="text-transform:uppercase"></div>
+        <div class="form-group"></div>
+      </div>
+      <div class="form-group"><label>Observações</label><textarea id="acc-note" placeholder="Opcional"></textarea></div>
+    </div>
     <div class="msg error" id="msg-account">
 </div>
     <div class="form-actions">
@@ -698,7 +700,12 @@ async function loadAccounts() {
     if (!accounts.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Nenhuma conta cadastrada. Clique em "+ Nova Conta".</td></tr>'; return; }
     tbody.innerHTML = accounts.map(a => `
       <tr>
-        <td><strong>${a.institution_name}</strong>${a.institution_code?`<br><small style="color:var(--muted)">${a.institution_code}</small>`:''}</td>
+        <td>
+          ${a.apelido?`<strong>${a.apelido}</strong><br>`:''}
+          <span style="color:var(--muted)">${a.institution_name}</span>
+          ${a.institution_code?`<small style="color:var(--muted)"> · ${a.institution_code}</small>`:''}
+          ${a.titular?`<br><small style="color:var(--muted)">Titular: ${a.titular}${a.cpf?` (${a.cpf})`:''}</small>`:''}
+        </td>
         <td>${badge(a.account_type)}</td>
         <td>${a.agency||'—'}</td>
         <td style="font-family:monospace">${a.account_number||'—'}</td>
@@ -712,22 +719,46 @@ async function loadAccounts() {
 }
 
 async function saveAccount() {
-  const inst = document.getElementById('acc-institution').value.trim();
-  if (!inst) { showMsg('msg-account','Informe a instituição financeira'); return; }
+  const titular = document.getElementById('acc-titular').value.trim();
+  const cpf     = document.getElementById('acc-cpf').value.trim();
+  const apelido = document.getElementById('acc-apelido').value.trim();
+  const code    = document.getElementById('acc-code').value.trim();
+  const inst    = document.getElementById('acc-institution').value.trim();
+  const agency  = document.getElementById('acc-agency').value.trim();
+  const num     = document.getElementById('acc-number').value.trim();
+
+  // Validacoes basicas
+  const missing = [];
+  if (!titular) missing.push('Titular');
+  if (!cpf)     missing.push('CPF');
+  if (!apelido) missing.push('Apelido');
+  if (!code)    missing.push('Cód. Instituição');
+  if (!inst)    missing.push('Nome Instituição');
+  if (!agency)  missing.push('Cód. Agência');
+  if (!num)     missing.push('Número da Conta');
+  if (missing.length) {
+    showMsg('msg-account', 'Campos obrigatórios: ' + missing.join(', '));
+    return;
+  }
+
   try {
     await api('/accounts', { method:'POST', body: JSON.stringify({
+      titular: titular,
+      cpf: cpf,
+      apelido: apelido,
+      institution_code: code,
       institution_name: inst,
+      agency: agency,
+      account_number: num,
       account_type: document.getElementById('acc-type').value,
       country: document.getElementById('acc-country').value.toUpperCase()||'BRA',
       currency: document.getElementById('acc-currency').value,
-      agency: document.getElementById('acc-agency').value||null,
-      account_number: document.getElementById('acc-number').value||null,
-      institution_code: document.getElementById('acc-code').value||null,
       note: document.getElementById('acc-note').value||null,
     })});
     closeModal('modal-account');
     loadAccounts();
-    ['acc-institution','acc-agency','acc-number','acc-code','acc-note'].forEach(id=>document.getElementById(id).value='');
+    ['acc-titular','acc-cpf','acc-apelido','acc-institution','acc-agency','acc-number','acc-code','acc-note']
+      .forEach(id=>document.getElementById(id).value='');
   } catch(e) { showMsg('msg-account', e.message); }
 }
 

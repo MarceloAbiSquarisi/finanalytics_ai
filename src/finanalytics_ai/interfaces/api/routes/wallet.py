@@ -13,7 +13,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from finanalytics_ai.domain.auth.entities import User, UserRole
 from finanalytics_ai.interfaces.api.dependencies import get_current_user
 from finanalytics_ai.infrastructure.database.repositories.wallet_repo import WalletRepository
@@ -30,21 +30,53 @@ def _require_master_or_admin(user: User) -> User:
 
 # ── Schemas ───────────────────────────────────────────────────────────────
 
+from finanalytics_ai.domain.validation import is_valid_cpf, normalize_cpf  # noqa: E402
+
 class AccountCreate(BaseModel):
-    institution_name: str = Field(..., min_length=2)
-    country: str = Field("BRA", max_length=3)
-    currency: str = Field("BRL", max_length=3)
-    account_type: str = Field("corretora")
-    institution_code: Optional[str] = None
-    agency: Optional[str] = None
-    account_number: Optional[str] = None
-    note: Optional[str] = None
+    titular: str            = Field(..., min_length=2, max_length=200,
+                                    description="Nome do titular da conta")
+    cpf: str                = Field(..., description="CPF (com ou sem mascara)")
+    institution_code: str   = Field(..., min_length=1, max_length=20,
+                                    description="Codigo da instituicao (ex: '341' Itau)")
+    institution_name: str   = Field(..., min_length=2, max_length=200)
+    agency: str             = Field(..., min_length=1, max_length=20,
+                                    description="Codigo da agencia")
+    account_number: str     = Field(..., min_length=1, max_length=50)
+    apelido: str            = Field(..., min_length=1, max_length=100,
+                                    description="Apelido da conta (UI-friendly)")
+    country: str            = Field("BRA", max_length=3)
+    currency: str           = Field("BRL", max_length=3)
+    account_type: str       = Field("corretora")
+    note: Optional[str]     = None
+
+    @field_validator("cpf")
+    @classmethod
+    def _v_cpf(cls, v: str) -> str:
+        v = normalize_cpf(v)
+        if not is_valid_cpf(v):
+            raise ValueError("CPF invalido (DV ou tamanho)")
+        return v
 
 class AccountUpdate(BaseModel):
-    institution_name: Optional[str] = None
-    agency: Optional[str] = None
-    account_number: Optional[str] = None
-    is_active: Optional[bool] = None
+    titular: Optional[str]          = Field(None, min_length=2, max_length=200)
+    cpf: Optional[str]              = None
+    institution_code: Optional[str] = None
+    institution_name: Optional[str] = Field(None, min_length=2)
+    agency: Optional[str]           = None
+    account_number: Optional[str]   = None
+    apelido: Optional[str]          = Field(None, min_length=1, max_length=100)
+    is_active: Optional[bool]       = None
+    note: Optional[str]             = None
+
+    @field_validator("cpf")
+    @classmethod
+    def _v_cpf(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v = normalize_cpf(v)
+        if not is_valid_cpf(v):
+            raise ValueError("CPF invalido (DV ou tamanho)")
+        return v
     note: Optional[str] = None
 
 class TradeCreate(BaseModel):
@@ -291,3 +323,71 @@ async def master_view(
 ) -> list[dict]:
     _require_master_or_admin(user)
     return await _repo().list_all_users_summary(user_id)
+
+
+# ── Master CRUD: contas de outros usuarios ────────────────────────────────
+
+@router.get("/admin/accounts")
+async def admin_list_accounts(
+    user_id: Optional[str] = Query(None, description="Filtra por user_id; sem filtro = todos"),
+    include_inactive: bool = False,
+    user: User = Depends(get_current_user),
+) -> list[dict]:
+    """Master/Admin: lista contas de outro usuario (ou todos)."""
+    _require_master_or_admin(user)
+    if user_id:
+        return await _repo().list_accounts(user_id, include_inactive)
+    return await _repo().list_all_accounts(include_inactive)
+
+
+@router.post("/admin/accounts", status_code=status.HTTP_201_CREATED)
+async def admin_create_account(
+    body: AccountCreate,
+    user_id: str = Query(..., description="user_id alvo do registro"),
+    actor: User = Depends(get_current_user),
+) -> dict:
+    """Master/Admin: cria conta para outro usuario (user_id no query)."""
+    _require_master_or_admin(actor)
+    data = body.model_dump()
+    data["user_id"] = user_id
+    return await _repo().create_account(data)
+
+
+@router.get("/admin/accounts/{account_id}")
+async def admin_get_account(
+    account_id: str,
+    actor: User = Depends(get_current_user),
+) -> dict:
+    """Master/Admin: detalhe de conta (qualquer user)."""
+    _require_master_or_admin(actor)
+    acc = await _repo().get_account_any_user(account_id)
+    if not acc:
+        raise HTTPException(404, "Conta nao encontrada")
+    return acc
+
+
+@router.patch("/admin/accounts/{account_id}")
+async def admin_update_account(
+    account_id: str,
+    body: AccountUpdate,
+    actor: User = Depends(get_current_user),
+) -> dict:
+    """Master/Admin: atualiza conta (qualquer user)."""
+    _require_master_or_admin(actor)
+    data = {k: v for k, v in body.model_dump().items() if v is not None}
+    acc = await _repo().update_account_any_user(account_id, data)
+    if not acc:
+        raise HTTPException(404, "Conta nao encontrada")
+    return acc
+
+
+@router.delete("/admin/accounts/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def admin_deactivate_account(
+    account_id: str,
+    actor: User = Depends(get_current_user),
+) -> None:
+    """Master/Admin: desativa conta (qualquer user)."""
+    _require_master_or_admin(actor)
+    ok = await _repo().delete_account_any_user(account_id)
+    if not ok:
+        raise HTTPException(404, "Conta nao encontrada")
