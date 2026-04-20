@@ -24,6 +24,51 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 router = APIRouter()
 
+
+# ── /bars/{ticker} - resampled OHLC (5m, 15m, 30m, 60m...) ─────────────────
+from datetime import date as _date  # noqa: E402
+
+from finanalytics_ai.infrastructure.market_data.resampled_repository import (  # noqa: E402
+    fetch_resampled,
+)
+
+
+@router.get("/bars/{ticker}")
+async def get_bars(
+    ticker: str,
+    interval: int = Query(5, ge=1, le=1440, description="Intervalo em minutos (1..1440)"),
+    since: str | None = Query(None, description="ISO date YYYY-MM-DD"),
+    materialized_only: bool = Query(False, description="Se true, nao faz fallback on-the-fly"),
+    limit: int = Query(2000, ge=1, le=20000),
+):
+    """Retorna bars OHLCV agregadas de ohlc_1m em N minutos.
+    Tenta ohlc_resampled (materialized) primeiro; fallback aggrega on-the-fly.
+    """
+    t = _sanitize_ticker(ticker)
+    since_dt: _date | None = None
+    if since:
+        try:
+            since_dt = _date.fromisoformat(since)
+        except ValueError:
+            raise HTTPException(400, detail=f"since invalido (YYYY-MM-DD): {since}")
+    try:
+        bars, source = await fetch_resampled(
+            ticker=t, interval_minutes=interval, since=since_dt,
+            allow_on_the_fly=not materialized_only,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, detail=str(exc)) from exc
+
+    bars = bars[-limit:] if len(bars) > limit else bars
+    return {
+        "ticker": t, "interval_minutes": interval,
+        "source": source, "count": len(bars),
+        "bars": [
+            {**b, "time": b["time"].isoformat() if hasattr(b["time"], "isoformat") else str(b["time"])}
+            for b in bars
+        ],
+    }
+
 # ── Constantes ────────────────────────────────────────────────────────────────
 _LIVE_CONTAINER = os.getenv("TIMESCALE_CONTAINER", "finanalytics_timescale")
 _LIVE_USER      = os.getenv("TIMESCALE_USER",      "finanalytics")
