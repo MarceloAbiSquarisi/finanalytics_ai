@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolios — FinAnalytics AI</title>
+<style>
+:root{
+  --bg:#080b10;--s1:#0d1117;--s2:#111822;--border:#1c2535;--border2:#253045;
+  --text:#cdd6e0;--muted:#4a5e72;--accent:#00d4ff;--green:#00e676;--red:#ff3d5a;
+  --gold:#F0B429;--purple:#a855f7;--orange:#fb923c;--yellow:#fbbf24;
+  --sb-w:220px;--sb-w-collapsed:52px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;font-size:17px;min-height:100vh}
+.fa-topbar{height:52px;background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 16px;position:sticky;top:0;z-index:300}
+.fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none}
+.fa-logo-text{font-family:monospace;font-size:17px;font-weight:600;color:#e2eaf4}
+.fa-logo-text em{color:var(--gold);font-style:normal}
+.fa-ai-badge{background:var(--gold);color:#0a1628;font-size:12px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.08em;vertical-align:middle;margin-left:2px}
+.fa-user-chip{display:flex;align-items:center;gap:6px;margin-left:auto}
+.fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:14px;color:#8899aa}
+.fa-logout-btn{background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-size:15px;padding:4px 10px;cursor:pointer;display:flex;align-items:center;gap:5px;transition:.15s}
+.fa-logout-btn:hover{color:var(--red);border-color:var(--red)}
+.fa-sidebar{position:fixed;left:0;top:52px;bottom:0;width:var(--sb-w-collapsed);background:#0a0f18;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1);z-index:200}
+.fa-sidebar.open{width:var(--sb-w)}
+.fa-sidebar-toggle{width:100%;padding:10px 14px;background:transparent;border:none;border-bottom:1px solid var(--border);color:#7a95b0;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:17px;white-space:nowrap;overflow:hidden}
+.fa-sidebar-toggle:hover{color:var(--gold);background:rgba(240,180,41,.06)}
+.fa-sidebar-toggle svg{flex-shrink:0}
+.fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;text-decoration:none;font-size:16px;white-space:nowrap;overflow:hidden;transition:all .15s}
+.fa-sb-link:hover{color:#e2eaf4;background:rgba(0,212,255,.05)}
+.fa-sb-link.active{color:var(--accent);background:rgba(0,212,255,.08);border-right:2px solid var(--accent)}
+.fa-sb-link svg{flex-shrink:0}
+.fa-sb-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-link span{opacity:1}
+.fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1)}
+body.sb-open .fa-page-content{margin-left:var(--sb-w)}
+.main{padding:20px 24px;max-width:1400px}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.page-title{font-size:26px;font-weight:700;color:#e2eaf4;display:flex;align-items:center;gap:10px}
+.page-sub{font-size:15px;color:var(--muted);margin-top:2px}
+.toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.toggle-wrap{display:flex;align-items:center;gap:8px;background:var(--s1);border:1px solid var(--border);border-radius:6px;padding:7px 12px;cursor:pointer;user-select:none;transition:.15s}
+.toggle-wrap:hover{border-color:var(--border2)}
+.toggle-wrap input{accent-color:var(--accent);cursor:pointer}
+.toggle-wrap label{cursor:pointer;font-size:14px}
+.btn{background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);border-radius:5px;color:var(--accent);font-size:14px;font-weight:600;padding:6px 14px;cursor:pointer;transition:.15s;font-family:inherit}
+.btn:hover{background:rgba(0,212,255,.15)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-warn{background:rgba(251,191,36,.06);border-color:rgba(251,191,36,.3);color:var(--yellow)}
+.btn-warn:hover{background:rgba(251,191,36,.13)}
+.btn-success{background:rgba(0,230,118,.06);border-color:rgba(0,230,118,.3);color:var(--green)}
+.btn-success:hover{background:rgba(0,230,118,.13)}
+.tbl-wrap{border:1px solid var(--border);border-radius:8px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th{background:#0a0f18;color:var(--muted);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:10px 14px;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:11px 14px;font-size:15px;color:var(--text);border-bottom:1px solid rgba(28,37,53,.6);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(0,212,255,.015)}
+tr.inactive td{opacity:.55}
+tr.inactive td:first-child{border-left:3px solid var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase}
+.pill-active{background:rgba(0,230,118,.1);color:var(--green);border:1px solid rgba(0,230,118,.2)}
+.pill-inactive{background:rgba(74,94,114,.1);color:var(--muted);border:1px solid rgba(74,94,114,.25)}
+.pill-default{background:rgba(240,180,41,.08);color:var(--gold);border:1px solid rgba(240,180,41,.25)}
+.empty-row td{text-align:center;color:var(--muted);font-style:italic;padding:30px}
+.actions{display:flex;gap:6px}
+.toast{position:fixed;bottom:24px;right:24px;padding:14px 18px;border-radius:8px;font-weight:600;font-size:15px;z-index:1000;animation:slideIn .25s ease-out;max-width:420px;line-height:1.35}
+.toast-ok{background:rgba(0,230,118,.15);border:1px solid rgba(0,230,118,.4);color:var(--green)}
+.toast-err{background:rgba(255,61,90,.15);border:1px solid rgba(255,61,90,.4);color:var(--red)}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.cash{font-family:monospace;color:var(--muted)}
+.name-cell{font-weight:600;color:#e2eaf4}
+.desc-cell{font-size:13px;color:var(--muted)}
+.denied{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;gap:12px}
+</style>
+</head>
+<body>
+
+<div class="fa-topbar">
+  <a href="/" class="fa-logo">
+    <span class="fa-logo-text">Fin<em>Analytics</em><span class="fa-ai-badge">AI</span></span>
+  </a>
+  <div class="fa-user-chip">
+    <div class="fa-avatar" id="avatarInitial">?</div>
+    <span id="topbarEmail" style="font-size:15px;color:var(--muted)"></span>
+    <button class="fa-logout-btn" onclick="logout()">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      Sair
+    </button>
+  </div>
+</div>
+
+<div class="fa-sidebar" id="sidebar">
+  <button class="fa-sidebar-toggle" onclick="toggleSidebar()">
+    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <span>Menu</span>
+  </button>
+  <a href="/dashboard" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
+  <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
+  <a href="/portfolios" class="fa-sb-link active"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg><span>Portfolios</span></a>
+  <a href="/alerts" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span>Alertas</span></a>
+  <a href="/screener" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Screener</span></a>
+  <a href="/profile" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
+  <a href="/admin" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Admin</span></a>
+</div>
+
+<div class="fa-page-content">
+<div class="main" id="mainContent" style="display:none">
+
+  <div class="page-header">
+    <div>
+      <div class="page-title">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>
+        Portfolios
+      </div>
+      <div class="page-sub">Gerencia carteiras nomeadas. Inativacao preserva historico — exige saldo zero em todas as aplicacoes.</div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="toggle-wrap" onclick="toggleInactive()">
+      <input type="checkbox" id="chkInactive">
+      <label for="chkInactive">Mostrar inativos</label>
+    </div>
+    <button class="btn" onclick="loadPortfolios()" style="padding:7px 14px">Atualizar</button>
+    <span style="margin-left:auto;color:var(--muted);font-size:13px;font-family:monospace" id="counts"></span>
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>Benchmark</th>
+          <th>Posicoes</th>
+          <th>Caixa</th>
+          <th>Status</th>
+          <th style="width:160px;text-align:right">Acoes</th>
+        </tr>
+      </thead>
+      <tbody id="pfList">
+        <tr class="empty-row"><td colspan="6">Carregando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<div class="denied" id="accessDenied">
+  <svg width="64" height="64" fill="none" stroke="var(--red)" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+  <div style="font-size:22px;color:#e2eaf4">Acesso negado</div>
+  <div style="color:var(--muted)">Faca login para acessar esta pagina.</div>
+</div>
+</div><!-- /fa-page-content -->
+
+<script src="/static/auth_guard.js"></script>
+<script>
+const API = '/api/v1';
+let _user = null;
+let _showInactive = false;
+
+function tok() { return FAAuth.getToken(); }
+function H() { return FAAuth.headers(); }
+
+function logout() {
+  FAAuth.clearTokens();
+  location.href = '/';
+}
+
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const open = sb.classList.toggle('open');
+  document.body.classList.toggle('sb-open', open);
+  localStorage.setItem('fa_sidebar_open', open ? '1' : '0');
+}
+if (localStorage.getItem('fa_sidebar_open') === '1') {
+  document.getElementById('sidebar').classList.add('open');
+  document.body.classList.add('sb-open');
+}
+
+function toast(msg, kind) {
+  const t = document.createElement('div');
+  t.className = 'toast ' + (kind === 'err' ? 'toast-err' : 'toast-ok');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4500);
+}
+
+async function init() {
+  _user = await FAAuth.requireAuth({});
+  if (!_user) return;
+  document.getElementById('mainContent').style.display = 'block';
+  document.getElementById('topbarEmail').textContent = _user.email;
+  document.getElementById('avatarInitial').textContent = (_user.full_name || _user.email)[0].toUpperCase();
+  // Restaura preferência da última sessão
+  _showInactive = localStorage.getItem('fa_pf_show_inactive') === '1';
+  document.getElementById('chkInactive').checked = _showInactive;
+  await loadPortfolios();
+}
+
+function toggleInactive() {
+  _showInactive = !_showInactive;
+  document.getElementById('chkInactive').checked = _showInactive;
+  localStorage.setItem('fa_pf_show_inactive', _showInactive ? '1' : '0');
+  loadPortfolios();
+}
+
+async function loadPortfolios() {
+  const tb = document.getElementById('pfList');
+  tb.innerHTML = '<tr class="empty-row"><td colspan="6">Carregando...</td></tr>';
+  try {
+    const url = API + '/portfolios?include_inactive=' + (_showInactive ? 'true' : 'false');
+    const r = await fetch(url, { headers: H() });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const list = await r.json();
+    renderList(list);
+  } catch (e) {
+    tb.innerHTML = `<tr class="empty-row"><td colspan="6">Erro: ${e.message}</td></tr>`;
+  }
+}
+
+function renderList(list) {
+  const tb = document.getElementById('pfList');
+  if (!list || list.length === 0) {
+    tb.innerHTML = '<tr class="empty-row"><td colspan="6">Nenhum portfolio para exibir.</td></tr>';
+    document.getElementById('counts').textContent = '';
+    return;
+  }
+  const ativos   = list.filter(p => p.is_active).length;
+  const inativos = list.length - ativos;
+  document.getElementById('counts').textContent =
+    `${list.length} total — ${ativos} ativo(s)` + (inativos ? ` · ${inativos} inativo(s)` : '');
+
+  tb.innerHTML = list.map(p => {
+    const cls = p.is_active ? '' : 'inactive';
+    const statusPill = p.is_active
+      ? '<span class="pill pill-active">ATIVO</span>'
+      : '<span class="pill pill-inactive">INATIVO</span>';
+    const defaultPill = p.is_default
+      ? ' <span class="pill pill-default">DEFAULT</span>'
+      : '';
+    const benchmark = p.benchmark || '<span style="color:var(--muted)">—</span>';
+    const desc = p.description ? `<div class="desc-cell">${escapeHtml(p.description)}</div>` : '';
+    const cash = parseFloat(p.cash || '0').toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+    const action = p.is_active
+      ? `<button class="btn btn-warn" onclick="deactivate('${p.portfolio_id}','${escapeJs(p.name)}')">Desativar</button>`
+      : `<button class="btn btn-success" onclick="reactivate('${p.portfolio_id}','${escapeJs(p.name)}')">Reativar</button>`;
+    return `<tr class="${cls}">
+      <td>
+        <div class="name-cell">${escapeHtml(p.name)}</div>
+        ${desc}
+      </td>
+      <td style="font-family:monospace;font-size:13px">${benchmark}</td>
+      <td style="font-family:monospace;font-size:14px">${p.positions}</td>
+      <td class="cash">R$ ${cash}</td>
+      <td>${statusPill}${defaultPill}</td>
+      <td><div class="actions" style="justify-content:flex-end">${action}</div></td>
+    </tr>`;
+  }).join('');
+}
+
+async function deactivate(id, name) {
+  if (!confirm(`Desativar o portfolio "${name}"?\n\nO historico e as trades serao preservados. Reativacao e possivel a qualquer momento.\n\nA operacao e bloqueada se houver positions, cripto, RF ou outros ativos com saldo > 0.`)) return;
+  try {
+    const r = await fetch(API + '/portfolios/' + encodeURIComponent(id) + '/deactivate', {
+      method: 'POST', headers: H()
+    });
+    if (r.status === 409) {
+      const data = await r.json().catch(() => ({}));
+      toast(data.detail || 'Portfolio possui aplicacoes com saldo > 0.', 'err');
+      return;
+    }
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.detail || ('HTTP ' + r.status));
+    }
+    toast(`"${name}" desativado.`, 'ok');
+    await loadPortfolios();
+  } catch (e) {
+    toast('Falha: ' + e.message, 'err');
+  }
+}
+
+async function reactivate(id, name) {
+  try {
+    const r = await fetch(API + '/portfolios/' + encodeURIComponent(id) + '/reactivate', {
+      method: 'POST', headers: H()
+    });
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.detail || ('HTTP ' + r.status));
+    }
+    toast(`"${name}" reativado.`, 'ok');
+    await loadPortfolios();
+  } catch (e) {
+    toast('Falha: ' + e.message, 'err');
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escapeJs(s) {
+  return String(s).replace(/['\\]/g, '\\$&').replace(/\n/g, '\\n');
+}
+
+init();
+</script>
+</body>
+</html>

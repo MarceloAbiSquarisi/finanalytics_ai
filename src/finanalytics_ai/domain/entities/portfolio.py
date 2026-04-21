@@ -63,6 +63,7 @@ class Portfolio:
     description: str = ""
     benchmark: str = ""
     is_default: bool = False
+    is_active: bool = True
     currency: Currency = Currency.BRL
     positions: dict[str, Position] = field(default_factory=dict)
     cash: Money = field(default_factory=lambda: Money.of("0"))

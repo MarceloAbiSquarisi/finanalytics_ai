@@ -41,6 +41,7 @@ class PortfolioModel(Base):
     description: Mapped[str | None] = mapped_column(String(500), nullable=True)
     benchmark: Mapped[str | None] = mapped_column(String(20), nullable=True)
     is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="BRL")
     cash: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
@@ -74,6 +75,7 @@ class SQLPortfolioRepository:
             existing.description = portfolio.description  # type: ignore[assignment]
             existing.benchmark = portfolio.benchmark  # type: ignore[assignment]
             existing.is_default = portfolio.is_default  # type: ignore[assignment]
+            existing.is_active = portfolio.is_active  # type: ignore[assignment]
             existing.cash = portfolio.cash.amount  # type: ignore[assignment]
             existing.updated_at = datetime.now(UTC)  # type: ignore[assignment]
         else:
@@ -84,6 +86,7 @@ class SQLPortfolioRepository:
                 description=portfolio.description,
                 benchmark=portfolio.benchmark,
                 is_default=portfolio.is_default,
+                is_active=portfolio.is_active,
                 currency=portfolio.currency.value,
                 cash=portfolio.cash.amount,
                 created_at=portfolio.created_at,
@@ -114,8 +117,12 @@ class SQLPortfolioRepository:
             return None
         return await self._hydrate(pm)
 
-    async def find_by_user(self, user_id: str) -> list[Portfolio]:
+    async def find_by_user(
+        self, user_id: str, include_inactive: bool = False
+    ) -> list[Portfolio]:
         stmt = select(PortfolioModel).where(PortfolioModel.user_id == user_id)
+        if not include_inactive:
+            stmt = stmt.where(PortfolioModel.is_active.is_(True))
         result = await self._session.execute(stmt)
         portfolios = []
         for pm in result.scalars():
@@ -124,6 +131,41 @@ class SQLPortfolioRepository:
 
     async def delete(self, portfolio_id: str) -> None:
         await self._session.execute(delete(PortfolioModel).where(PortfolioModel.id == portfolio_id))
+
+    async def has_active_holdings(self, portfolio_id: str) -> dict[str, int]:
+        """
+        Conta quantos holdings com saldo > 0 existem em cada classe.
+
+        Trades NAO sao contadas — sao logs imutaveis.
+        Retorna {classe: count}; vazio = portfolio sem saldo.
+        """
+        from sqlalchemy import text
+
+        sql = text(
+            """
+            SELECT 'positions'        AS classe, COUNT(*) AS n
+              FROM positions
+             WHERE portfolio_id = :pid AND quantity > 0
+             UNION ALL
+            SELECT 'crypto_holdings'  AS classe, COUNT(*)
+              FROM crypto_holdings
+             WHERE portfolio_id = :pid AND quantity > 0
+             UNION ALL
+            SELECT 'rf_holdings'      AS classe, COUNT(*)
+              FROM rf_holdings
+             WHERE portfolio_id = :pid AND invested > 0
+             UNION ALL
+            SELECT 'other_assets'     AS classe, COUNT(*)
+              FROM other_assets
+             WHERE portfolio_id = :pid AND current_value > 0
+            """
+        )
+        result = await self._session.execute(sql, {"pid": portfolio_id})
+        out: dict[str, int] = {}
+        for classe, n in result.all():
+            if int(n) > 0:
+                out[str(classe)] = int(n)
+        return out
 
     async def clear_default(self, user_id: str) -> None:
         """Remove is_default de todas as carteiras do usuário."""
@@ -150,6 +192,7 @@ class SQLPortfolioRepository:
             description=str(pm.description) if pm.description else "",
             benchmark=str(pm.benchmark) if pm.benchmark else "",
             is_default=bool(pm.is_default),
+            is_active=bool(pm.is_active),
             currency=Currency(str(pm.currency)),
             cash=Money(Decimal(str(pm.cash)), Currency(str(pm.currency))),
             created_at=pm.created_at,  # type: ignore[arg-type]

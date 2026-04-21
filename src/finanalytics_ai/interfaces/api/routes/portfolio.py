@@ -1,11 +1,13 @@
 """
 Rotas REST para gestão de portfólio — v2: múltiplas carteiras.
 
-Endpoints novos:
-  PATCH  /portfolios/{id}            — editar nome/descrição/benchmark
-  DELETE /portfolios/{id}            — deletar carteira
-  POST   /portfolios/{id}/set-default — definir como carteira padrão
-  GET    /portfolios/compare          — comparar N carteiras
+Endpoints:
+  PATCH  /portfolios/{id}              — editar nome/descrição/benchmark
+  POST   /portfolios/{id}/deactivate   — soft-delete (valida saldo zero)
+  POST   /portfolios/{id}/reactivate   — reativa portfolio inativo
+  POST   /portfolios/{id}/set-default  — definir como carteira padrão
+  GET    /portfolios?include_inactive  — lista (opcional inclui inativos)
+  GET    /portfolios/compare           — comparar N carteiras
 """
 
 from decimal import Decimal
@@ -61,6 +63,7 @@ class PortfolioSummary(BaseModel):
     description: str
     benchmark: str
     is_default: bool
+    is_active: bool
     cash: str
     positions: int
 
@@ -90,10 +93,11 @@ async def create_portfolio(
 
 @router.get("", response_model=list[PortfolioSummary])
 async def list_portfolios(
+    include_inactive: bool = Query(default=False, description="Inclui portfolios desativados"),
     current_user: User = Depends(get_current_user),
     svc: PortfolioService = Depends(get_portfolio_service)
 ) -> list[PortfolioSummary]:
-    portfolios = await svc.list_portfolios(current_user.user_id)
+    portfolios = await svc.list_portfolios(current_user.user_id, include_inactive=include_inactive)
     return [
         PortfolioSummary(
             portfolio_id=p.portfolio_id,
@@ -101,6 +105,7 @@ async def list_portfolios(
             description=p.description,
             benchmark=p.benchmark,
             is_default=p.is_default,
+            is_active=p.is_active,
             cash=str(p.cash.amount),
             positions=p.position_count()
         )
@@ -158,17 +163,49 @@ async def update_portfolio(
         message="Portfólio atualizado"
     )
 
-@router.delete("/{portfolio_id}", status_code=204)
-async def delete_portfolio(
+@router.post("/{portfolio_id}/deactivate", response_model=PortfolioResponse)
+async def deactivate_portfolio(
     portfolio_id: str,
     current_user: User = Depends(get_current_user),
     svc: PortfolioService = Depends(get_portfolio_service)
-) -> None:
+) -> PortfolioResponse:
     """
-    Deleta a carteira. Se for a default, promove automaticamente
-    a carteira mais antiga como nova default.
+    Soft-delete: marca portfolio como inativo. Preserva historico/FKs.
+
+    Recusa (409 Conflict) se houver positions/crypto/RF/other com
+    saldo > 0. Trades historicas nao bloqueiam (sao logs imutaveis).
+
+    Se for o default, promove o portfolio ativo mais antigo como novo default.
     """
-    await svc.delete_portfolio(portfolio_id, current_user.user_id)
+    p = await svc.deactivate_portfolio(portfolio_id, current_user.user_id)
+    return PortfolioResponse(
+        portfolio_id=p.portfolio_id,
+        name=p.name,
+        description=p.description,
+        benchmark=p.benchmark,
+        is_default=p.is_default,
+        user_id=p.user_id,
+        message="Portfolio desativado"
+    )
+
+
+@router.post("/{portfolio_id}/reactivate", response_model=PortfolioResponse)
+async def reactivate_portfolio(
+    portfolio_id: str,
+    current_user: User = Depends(get_current_user),
+    svc: PortfolioService = Depends(get_portfolio_service)
+) -> PortfolioResponse:
+    """Reativa um portfolio inativo. Idempotente; nao toca em is_default."""
+    p = await svc.reactivate_portfolio(portfolio_id, current_user.user_id)
+    return PortfolioResponse(
+        portfolio_id=p.portfolio_id,
+        name=p.name,
+        description=p.description,
+        benchmark=p.benchmark,
+        is_default=p.is_default,
+        user_id=p.user_id,
+        message="Portfolio reativado"
+    )
 
 @router.post("/{portfolio_id}/set-default", response_model=PortfolioResponse)
 async def set_default(

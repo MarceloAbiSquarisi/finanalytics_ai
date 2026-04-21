@@ -124,17 +124,63 @@ class PortfolioService:
         logger.info("portfolio.updated", portfolio_id=portfolio_id)
         return portfolio
 
-    async def delete_portfolio(self, portfolio_id: str, user_id: str) -> None:
+    async def deactivate_portfolio(self, portfolio_id: str, user_id: str) -> Portfolio:
+        """
+        Soft-delete: marca portfolio como inativo. Preserva historico/FKs.
+
+        Restricoes:
+        - Recusa (409) se houver holdings com saldo > 0 em qualquer
+          tabela dependente (positions, crypto_holdings, rf_holdings,
+          other_assets). Trades historicas NAO bloqueiam.
+        - Se for o default, promove o portfolio ativo mais antigo restante
+          como novo default. Se nao houver outro ativo, mantem flag
+          (usuario fica sem default ate criar/reativar outro).
+        """
+        from fastapi import HTTPException, status
+
         portfolio = await self._get_and_assert_owner(portfolio_id, user_id)
+        if not portfolio.is_active:
+            return portfolio  # idempotente
+
+        # Validacao de saldo
+        holdings = await self._repo.has_active_holdings(portfolio_id)
+        if holdings:
+            detail = ", ".join(f"{k}={v}" for k, v in sorted(holdings.items()))
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Portfolio possui aplicacoes com saldo > 0 ({detail}). "
+                    "Zere as posicoes antes de desativar."
+                ),
+            )
+
+        # Promove novo default se necessario
         if portfolio.is_default:
-            # Ao deletar a default, promove a mais antiga das restantes
-            others = [p for p in await self._repo.find_by_user(user_id) if p.portfolio_id != portfolio_id]
-            if others:
-                oldest = min(others, key=lambda p: p.created_at)
+            others_active = [
+                p
+                for p in await self._repo.find_by_user(user_id, include_inactive=False)
+                if p.portfolio_id != portfolio_id
+            ]
+            if others_active:
+                oldest = min(others_active, key=lambda p: p.created_at)
                 oldest.is_default = True
                 await self._repo.save(oldest)
-        await self._repo.delete(portfolio_id)
-        logger.info("portfolio.deleted", portfolio_id=portfolio_id, user_id=user_id)
+            portfolio.is_default = False
+
+        portfolio.is_active = False
+        await self._repo.save(portfolio)
+        logger.info("portfolio.deactivated", portfolio_id=portfolio_id, user_id=user_id)
+        return portfolio
+
+    async def reactivate_portfolio(self, portfolio_id: str, user_id: str) -> Portfolio:
+        """Reativa um portfolio inativo. Idempotente; nao toca em is_default."""
+        portfolio = await self._get_and_assert_owner(portfolio_id, user_id)
+        if portfolio.is_active:
+            return portfolio
+        portfolio.is_active = True
+        await self._repo.save(portfolio)
+        logger.info("portfolio.reactivated", portfolio_id=portfolio_id, user_id=user_id)
+        return portfolio
 
     async def set_default(self, portfolio_id: str, user_id: str) -> Portfolio:
         """Define uma carteira como default. Remove o flag das demais."""
@@ -286,8 +332,10 @@ class PortfolioService:
             positions=positions_snap,
         )
 
-    async def list_portfolios(self, user_id: str) -> list[Portfolio]:
-        return await self._repo.find_by_user(user_id)
+    async def list_portfolios(
+        self, user_id: str, include_inactive: bool = False
+    ) -> list[Portfolio]:
+        return await self._repo.find_by_user(user_id, include_inactive=include_inactive)
 
     async def _get_or_raise(self, portfolio_id: str) -> Portfolio:
         p = await self._repo.find_by_id(portfolio_id)
