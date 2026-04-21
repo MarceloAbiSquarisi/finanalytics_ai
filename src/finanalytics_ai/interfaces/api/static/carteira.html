@@ -866,7 +866,7 @@ async function saveAccount() {
 
 async function deleteAccount(id) {
   if (!confirm('Desativar esta conta?')) return;
-  try { await api('/accounts/'+id, {method:'DELETE'}); loadAccounts(); } catch(e) { alert(e.message); }
+  try { await api('/accounts/'+id, {method:'DELETE'}); loadAccounts(); } catch(e) { FAToast.err(e.message); }
 }
 
 // ── Account selects ───────────────────────────────────────────────────────
@@ -920,7 +920,7 @@ async function saveTrade() {
 
 async function deleteTrade(id) {
   if (!confirm('Excluir este trade? O preço médio será recalculado.')) return;
-  try { await api('/trades/'+id, {method:'DELETE'}); loadTrades(); loadPositions(); } catch(e) { alert(e.message); }
+  try { await api('/trades/'+id, {method:'DELETE'}); loadTrades(); loadPositions(); } catch(e) { FAToast.err(e.message); }
 }
 
 // Calcula total em tempo real
@@ -996,7 +996,7 @@ async function saveCrypto() {
 
 async function deleteCrypto(id) {
   if (!confirm('Excluir esta posição de cripto?')) return;
-  try { await api('/crypto/'+id, {method:'DELETE'}); loadCrypto(); } catch(e) { alert(e.message); }
+  try { await api('/crypto/'+id, {method:'DELETE'}); loadCrypto(); } catch(e) { FAToast.err(e.message); }
 }
 
 // ── Other Assets ──────────────────────────────────────────────────────────
@@ -1044,7 +1044,7 @@ async function saveOther() {
 
 async function deleteOther(id) {
   if (!confirm('Excluir este ativo?')) return;
-  try { await api('/other/'+id, {method:'DELETE'}); loadOther(); } catch(e) { alert(e.message); }
+  try { await api('/other/'+id, {method:'DELETE'}); loadOther(); } catch(e) { FAToast.err(e.message); }
 }
 
 async function loadSummary() {
@@ -1065,6 +1065,7 @@ loadAll();
 loadSummary();
 </script>
 <script src="/static/sidebar.js"></script>
+<script src="/static/toast.js"></script>
 </body>
 </html>
 

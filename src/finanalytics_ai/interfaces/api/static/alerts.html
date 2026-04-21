@@ -214,6 +214,7 @@ tr:hover td{background:rgba(0,212,255,.015)}
 </div><!-- /fa-page-content -->
 
 <script src="/static/auth_guard.js"></script>
+<script src="/static/toast.js"></script>
 <script>
 const API = '/api/v1';
 let _user = null;
@@ -239,12 +240,10 @@ if (localStorage.getItem('fa_sidebar_open') === '1') {
   document.body.classList.add('sb-open');
 }
 
+// toast() local migrado para FAToast (toast.js) — wrapper compat
 function toast(msg, kind) {
-  const t = document.createElement('div');
-  t.className = 'toast ' + (kind === 'err' ? 'toast-err' : 'toast-ok');
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 3500);
+  if (kind === 'err') return FAToast.err(msg);
+  return FAToast.ok(msg);
 }
 
 async function init() {
@@ -281,7 +280,7 @@ async function loadFields() {
 
 async function loadAlerts() {
   const tb = document.getElementById('alertList');
-  tb.innerHTML = '<tr class="empty-row"><td colspan="7">Carregando...</td></tr>';
+  tb.innerHTML = '<tr><td colspan="7" class="fa-loading-row"><span class="fa-spinner"></span>Carregando alertas...</td></tr>';
   try {
     const r = await fetch(API + '/alerts/indicator?user_id=' + encodeURIComponent(_user.user_id), { headers: H() });
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -304,7 +303,10 @@ function statusPill(s) {
 function renderAlerts(list) {
   const tb = document.getElementById('alertList');
   if (!list || list.length === 0) {
-    tb.innerHTML = '<tr class="empty-row"><td colspan="7">Sem alertas. Crie um acima.</td></tr>';
+    tb.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:36px">
+      <div style="font-size:16px;color:var(--muted);margin-bottom:12px">Voce ainda nao tem alertas configurados.</div>
+      <div style="font-size:13px;color:var(--muted)">Use o formulario acima para criar seu primeiro — ex: <span class="code">ROE > 15%</span> ou <span class="code">DividendYield >= 6%</span>.</div>
+    </td></tr>`;
     return;
   }
   tb.innerHTML = list.map(a => {

@@ -414,6 +414,10 @@ services:
       - finanalytics_net
 
   # ── Backup diário PostgreSQL + TimescaleDB ────────────────────────────────
+  # Storage decision (21/abr/2026): backups em H: (Seagate 7.45TB HDD USB
+  # externo) — adequado para escrita sequencial + arquivo. Dados ativos do
+  # DB permanecem em E: (Corsair MP700 NVMe interno). Ver docs decisao em
+  # CLAUDE.md ou commit que move o bind.
   backup:
     build:
       context: ./backup
@@ -432,7 +436,7 @@ services:
       TS_PASSWORD: ${TIMESCALE_PASSWORD:-timescale_secret}
       TS_DB:       market_data
     volumes:
-      - E:/finanalytics_data/docker/backups:/backups
+      - H:/finanalytics_data/docker/backups:/backups
     networks:
       - finanalytics_net
     depends_on:

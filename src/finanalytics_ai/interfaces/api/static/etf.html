@@ -446,7 +446,7 @@ async function rbCalculate() {
     target_weights[ticker] = weight;
     weightSum += weight;
   });
-  if (positions.length < 2) { alert('Adicione pelo menos 2 tickers.'); return; }
+  if (positions.length < 2) { FAToast.warn('Adicione pelo menos 2 tickers.'); return; }
   if (Math.abs(weightSum - 100) > 0.5) {
     if (!confirm(`Soma dos pesos = ${weightSum.toFixed(1)}% (esperado 100%). Continuar mesmo assim?`)) return;
   }
@@ -465,7 +465,7 @@ async function rbCalculate() {
     const data = await r.json();
     rbRenderResult(data);
   } catch (e) {
-    alert('Falha: ' + e.message);
+    FAToast.err('Falha: ' + e.message);
   } finally {
     btn.disabled = false; btn.textContent = oldText;
   }
@@ -641,7 +641,7 @@ async function runCompare() {
   const tickers = document.getElementById('cmp-tickers').value.split(',').map(t=>t.trim()).filter(Boolean);
   const period  = document.getElementById('cmp-period').value;
   const cdi     = parseFloat(document.getElementById('cmp-cdi').value) || 14.65;
-  if(tickers.length < 2) { alert('Adicione pelo menos 2 tickers'); return; }
+  if(tickers.length < 2) { FAToast.warn('Adicione pelo menos 2 tickers'); return; }
 
   document.getElementById('cmp-status').innerHTML = '<span class="spinner"></span>Calculando métricas...';
   ['cmp-winners','cmp-chart-wrap','cmp-table-wrap'].forEach(id => {
@@ -774,6 +774,7 @@ function faLogout(){
 loadOverview();
 </script>
 <script src="/static/sidebar.js"></script>
+<script src="/static/toast.js"></script>
 </body>
 </html>
 

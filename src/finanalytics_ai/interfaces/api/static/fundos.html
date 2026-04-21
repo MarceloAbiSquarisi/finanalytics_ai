@@ -138,6 +138,7 @@ tr:hover td{background:rgba(0,212,255,.015)}
 
 <script src="/static/auth_guard.js"></script>
 <script src="/static/sidebar.js"></script>
+<script src="/static/toast.js"></script>
 <script>
 const API = '/api/v1/fundos';
 let _user = null;
@@ -147,12 +148,10 @@ let _searchTimer = null;
 function logout() { FAAuth.clearTokens(); location.href = '/'; }
 function H() { return FAAuth.headers(); }
 
+// toast() local migrado para FAToast — wrapper compat
 function toast(msg, kind) {
-  const t = document.createElement('div');
-  t.className = 'toast ' + (kind === 'err' ? 'toast-err' : 'toast-ok');
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 4500);
+  if (kind === 'err') return FAToast.err(msg);
+  return FAToast.ok(msg);
 }
 
 async function init() {
@@ -191,7 +190,7 @@ async function doSearch() {
     tb.innerHTML = '<tr class="empty"><td colspan="5">Digite ao menos 3 caracteres para buscar.</td></tr>';
     return;
   }
-  tb.innerHTML = '<tr class="empty"><td colspan="5">Buscando...</td></tr>';
+  tb.innerHTML = '<tr><td colspan="5" class="fa-loading-row"><span class="fa-spinner"></span>Buscando fundos...</td></tr>';
   try {
     const params = new URLSearchParams();
     if (q) params.set('q', q);

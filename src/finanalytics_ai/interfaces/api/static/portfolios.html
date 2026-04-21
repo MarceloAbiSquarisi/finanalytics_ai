@@ -336,6 +336,7 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
 </div><!-- /fa-page-content -->
 
 <script src="/static/auth_guard.js"></script>
+<script src="/static/toast.js"></script>
 <script>
 const API = '/api/v1';
 let _user = null;
@@ -360,12 +361,10 @@ if (localStorage.getItem('fa_sidebar_open') === '1') {
   document.body.classList.add('sb-open');
 }
 
+// toast() local migrado para FAToast (toast.js) — wrapper compat
 function toast(msg, kind) {
-  const t = document.createElement('div');
-  t.className = 'toast ' + (kind === 'err' ? 'toast-err' : 'toast-ok');
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 4500);
+  if (kind === 'err') return FAToast.err(msg);
+  return FAToast.ok(msg);
 }
 
 async function init() {
@@ -389,7 +388,7 @@ function toggleInactive() {
 
 async function loadPortfolios() {
   const tb = document.getElementById('pfList');
-  tb.innerHTML = '<tr class="empty-row"><td colspan="6">Carregando...</td></tr>';
+  tb.innerHTML = '<tr><td colspan="6" class="fa-loading-row"><span class="fa-spinner"></span>Carregando portfolios...</td></tr>';
   try {
     const url = API + '/portfolios?include_inactive=' + (_showInactive ? 'true' : 'false');
     const r = await fetch(url, { headers: H() });
@@ -404,7 +403,13 @@ async function loadPortfolios() {
 function renderList(list) {
   const tb = document.getElementById('pfList');
   if (!list || list.length === 0) {
-    tb.innerHTML = '<tr class="empty-row"><td colspan="6">Nenhum portfolio para exibir.</td></tr>';
+    const cta = _showInactive
+      ? 'Nenhum portfolio ativo nem inativo. Crie o primeiro.'
+      : 'Voce ainda nao tem portfolios. Crie o primeiro para comecar a operar.';
+    tb.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px">
+      <div style="font-size:16px;color:var(--muted);margin-bottom:14px">${cta}</div>
+      <button class="btn" onclick="openCreate()" style="padding:9px 18px;background:rgba(0,230,118,.08);border-color:rgba(0,230,118,.3);color:var(--green)">+ Criar primeiro portfolio</button>
+    </td></tr>`;
     document.getElementById('counts').textContent = '';
     return;
   }
