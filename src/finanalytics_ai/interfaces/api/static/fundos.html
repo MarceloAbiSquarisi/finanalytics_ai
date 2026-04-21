@@ -140,6 +140,7 @@ tr:hover td{background:rgba(0,212,255,.015)}
 <script src="/static/sidebar.js"></script>
 <script src="/static/notifications.js"></script>
 <script src="/static/toast.js"></script>
+<script src="/static/table_utils.js"></script>
 <script>
 const API = '/api/v1/fundos';
 let _user = null;
@@ -165,6 +166,9 @@ async function init() {
     document.getElementById('syncSection').style.display = 'block';
   }
   await loadTipos();
+  // Enhance tabela de resultados com sort nas colunas
+  const t = document.querySelector('.tbl-wrap table');
+  if (t) FATable.enhance(t, { sort: true, filter: false });
 }
 
 async function loadTipos() {

@@ -160,6 +160,7 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
       <label for="chkInactive">Mostrar inativos</label>
     </div>
     <button class="btn" onclick="loadPortfolios()" style="padding:7px 14px">Atualizar</button>
+    <input type="text" id="pf-filter" placeholder="Buscar..." style="background:var(--s2);border:1px solid var(--border2);border-radius:5px;color:var(--text);font-size:14px;padding:6px 10px;outline:none;font-family:inherit;width:180px">
     <span style="margin-left:auto;color:var(--muted);font-size:13px;font-family:monospace" id="counts"></span>
   </div>
 
@@ -337,6 +338,7 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
 
 <script src="/static/auth_guard.js"></script>
 <script src="/static/toast.js"></script>
+<script src="/static/table_utils.js"></script>
 <script>
 const API = '/api/v1';
 let _user = null;
@@ -377,6 +379,8 @@ async function init() {
   _showInactive = localStorage.getItem('fa_pf_show_inactive') === '1';
   document.getElementById('chkInactive').checked = _showInactive;
   await loadPortfolios();
+  // Enhance tabela com sort (click th) + filter (input)
+  FATable.enhance(document.querySelector('.tbl-wrap table'), { sort: true, filter: true, filterInputId: 'pf-filter' });
 }
 
 function toggleInactive() {
