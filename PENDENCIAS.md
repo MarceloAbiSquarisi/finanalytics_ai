@@ -147,6 +147,22 @@ ETA 3-5 dias wall-clock, competindo com I/O concorrente).
 
 ---
 
+## 5b. Follow-ups Sprint UX C (21/abr/2026) — gaps menores
+
+Levantamento UX cobriu 25+ endpoints de mutação user-facing em
+DayTrade/Screener/Fundamentalista/ML/Outros. **Cobertura geral 85%**
+(22/25 com UI). Gaps restantes (ordem de impacto):
+
+- [ ] **ETF Rebalancer** — `POST /etf/rebalance` (`routes/etf.py:122`)
+      calcula COMPRAR/VENDER/MANTER. Sem botao em `etf.html`.
+      Impacto: feature invisivel.
+- [ ] **Fundos sync** — `POST /fundos/sync/cadastro` + `POST /fundos/sync/informe`
+      (`routes/fundos.py:116,122`). Sem pagina propria. `laminas.html` so le.
+      Impacto: sync exige curl manual.
+- [ ] **ETF Correlation** — `POST /etf/correlation` (`routes/etf.py:100`)
+      duplica `correlation.html` generico mas sem UX especifica em `etf.html`.
+      Impacto: confusao de navegacao.
+
 ## 5. Sprint U8 — Hub frontend + observabilidade [DONE 21/abr/2026]
 
 - [x] Cards dead-letter/failed na pagina `/hub` com botao "Reprocessar" — ja existia (`hub.html` + `POST /hub/events/{id}/reprocess`)
