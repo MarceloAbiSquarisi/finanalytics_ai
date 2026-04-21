@@ -30,14 +30,55 @@
     if (document.getElementById(STYLE_ID)) return;
     var s = document.createElement('style');
     s.id = STYLE_ID;
-    // Estilos de grupos/secoes injetados pelo loader. Sprint UI C — 21/abr.
-    // Os estilos base .fa-sb-link / .fa-sidebar ficam em cada pagina.
+    // Estilos compartilhados injetados em todas as 39 paginas:
+    //   - Sprint UI C: section headers (.fa-sb-section)
+    //   - Sprint UI E: mobile responsive (sidebar overlay <768px,
+    //     topbar compacto, modal fullscreen, tabela scroll)
     s.textContent = [
+      // Section headers (Sprint UI C)
       '.fa-sb-section{font-size:10px;font-weight:700;color:#3a5570;text-transform:uppercase;letter-spacing:.12em;padding:14px 14px 4px;white-space:nowrap;overflow:hidden;opacity:0;transition:opacity .15s}',
       '.fa-sidebar.open .fa-sb-section{opacity:1}',
       '.fa-sb-section:first-of-type{padding-top:10px}',
+      // Backdrop overlay (Sprint UI E mobile)
+      '.fa-sb-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:150;display:none;animation:fa-fade-in .2s ease-out}',
+      '@keyframes fa-fade-in{from{opacity:0}to{opacity:1}}',
+      '@media (max-width:768px){',
+        '.fa-sidebar{width:0 !important;transition:width .25s ease-out}',
+        '.fa-sidebar.open{width:240px !important;box-shadow:6px 0 24px rgba(0,0,0,.6)}',
+        '.fa-sidebar.open + .fa-sb-backdrop, body.sb-open .fa-sb-backdrop{display:block}',
+        '.fa-sidebar.open .fa-sb-link span,.fa-sidebar.open .fa-sb-section{opacity:1}',
+        '.fa-page-content{margin-left:0 !important}',
+        'body.sb-open .fa-page-content{margin-left:0 !important}',
+        // Topbar compacto: esconde email, encolhe logo
+        '.fa-topbar{padding:0 10px !important;gap:8px !important}',
+        '.fa-topbar .fa-user-chip span,.fa-topbar #fa-username,.fa-topbar #topbarEmail{display:none !important}',
+        '.fa-logo-text{font-size:14px !important}',
+        '.fa-logout-btn{padding:3px 8px !important;font-size:13px !important}',
+        '.fa-logout-btn span,.fa-logout-btn{gap:4px}',
+        // Modais fullscreen
+        '.modal-overlay{padding:0 !important}',
+        '.modal{width:100% !important;max-width:100% !important;height:100vh;max-height:100vh !important;border-radius:0 !important;border:none !important;overflow-y:auto}',
+        // Tabelas com scroll horizontal
+        '.tbl-wrap,.metrics-table{overflow-x:auto;-webkit-overflow-scrolling:touch}',
+        // Main padding reduzido
+        '.main{padding:14px !important}',
+        '.page-title{font-size:22px !important}',
+        // Notificacoes panel compacto
+        '.fa-notif-panel{width:calc(100vw - 20px) !important;right:-10px !important}',
+      '}',
     ].join('\n');
     document.head.appendChild(s);
+  }
+
+  function ensureBackdrop() {
+    if (document.querySelector('.fa-sb-backdrop')) return;
+    var bd = document.createElement('div');
+    bd.className = 'fa-sb-backdrop';
+    bd.onclick = function () {
+      document.querySelector('.fa-sidebar').classList.remove('open');
+      document.body.classList.remove('sb-open');
+    };
+    document.body.appendChild(bd);
   }
 
   function applyToggleState() {
@@ -93,6 +134,7 @@
     }
     try {
       ensureStyles();
+      ensureBackdrop();
       var r = await fetch(SIDEBAR_URL, { credentials: 'same-origin' });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       sb.innerHTML = await r.text();
