@@ -18,10 +18,14 @@ Stack: FastAPI :8000 (Docker) + profit_agent :8002 (Windows host) + TimescaleDB 
 
 **Validação do mapeamento** (após cabos físicos remanejados):
 ```bash
-docker run --rm --gpus '"device=0"' nvidia/cuda:12.1.0-base-ubuntu22.04 \
-  nvidia-smi --query-gpu=index,pci.bus_id --format=csv
-# Esperado: 0, 00000000:01:00.0
+docker run --rm --gpus all nvidia/cuda:12.1.0-base-ubuntu22.04 \
+  nvidia-smi --query-gpu=index,pci.bus_id,name --format=csv
+# Esperado:
+# 0, 00000000:01:00.0, NVIDIA GeForce RTX 4090
+# 1, 00000000:08:00.0, NVIDIA GeForce RTX 4090
 ```
+
+**Peculiaridade Docker Desktop Windows** (validado 21/abr/2026): `--gpus '"device=0"'` e `NVIDIA_VISIBLE_DEVICES=0` **não filtram** o que `nvidia-smi` enxerga — sempre mostra as 2 GPUs. O isolamento real para apps CUDA (Decisão 15) vem de `CUDA_VISIBLE_DEVICES=0` no env, que já está configurado em api/worker/scheduler/event_worker_v2 no `docker-compose.override.yml`. `torch.cuda.device_count() = 1` confirma o efeito.
 
 ## Estrutura Principal
 ```
