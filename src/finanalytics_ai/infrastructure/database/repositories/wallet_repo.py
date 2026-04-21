@@ -262,7 +262,8 @@ class WalletRepository:
 
     async def list_trades(self, user_id: str, ticker: str | None = None,
                           asset_class: str | None = None,
-                          account_id: str | None = None) -> list[dict]:
+                          account_id: str | None = None,
+                          portfolio_id: str | None = None) -> list[dict]:
         async with get_session() as s:
             q = select(TradeModel).where(TradeModel.user_id == user_id)
             if ticker:
@@ -271,6 +272,8 @@ class WalletRepository:
                 q = q.where(TradeModel.asset_class == asset_class)
             if account_id:
                 q = q.where(TradeModel.investment_account_id == account_id)
+            if portfolio_id:
+                q = q.where(TradeModel.portfolio_id == portfolio_id)
             q = q.order_by(TradeModel.trade_date.desc())
             rows = (await s.execute(q)).scalars().all()
             return [_model_to_dict(r) for r in rows]
@@ -287,9 +290,12 @@ class WalletRepository:
             return True
 
     async def get_positions_summary(self, user_id: str,
-                                    asset_class: str | None = None) -> list[dict]:
+                                    asset_class: str | None = None,
+                                    portfolio_id: str | None = None) -> list[dict]:
         """Calcula posição consolidada (preço médio) por ticker."""
-        trades = await self.list_trades(user_id, asset_class=asset_class)
+        trades = await self.list_trades(
+            user_id, asset_class=asset_class, portfolio_id=portfolio_id
+        )
         from collections import defaultdict
         by_ticker: dict[str, list] = defaultdict(list)
         for t in trades:
@@ -347,10 +353,14 @@ class WalletRepository:
             await s.refresh(m)
             return _model_to_dict(m)
 
-    async def list_crypto(self, user_id: str) -> list[dict]:
+    async def list_crypto(self, user_id: str,
+                          portfolio_id: str | None = None) -> list[dict]:
         async with get_session() as s:
             q = select(CryptoHoldingModel).where(
-                CryptoHoldingModel.user_id == user_id).order_by(CryptoHoldingModel.symbol)
+                CryptoHoldingModel.user_id == user_id)
+            if portfolio_id:
+                q = q.where(CryptoHoldingModel.portfolio_id == portfolio_id)
+            q = q.order_by(CryptoHoldingModel.symbol)
             rows = (await s.execute(q)).scalars().all()
             return [_model_to_dict(r) for r in rows]
 
@@ -379,11 +389,14 @@ class WalletRepository:
             return _model_to_dict(m)
 
     async def list_other_assets(self, user_id: str,
-                                 asset_type: str | None = None) -> list[dict]:
+                                 asset_type: str | None = None,
+                                 portfolio_id: str | None = None) -> list[dict]:
         async with get_session() as s:
             q = select(OtherAssetModel).where(OtherAssetModel.user_id == user_id)
             if asset_type:
                 q = q.where(OtherAssetModel.asset_type == asset_type)
+            if portfolio_id:
+                q = q.where(OtherAssetModel.portfolio_id == portfolio_id)
             q = q.order_by(OtherAssetModel.name)
             rows = (await s.execute(q)).scalars().all()
             return [_model_to_dict(r) for r in rows]

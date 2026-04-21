@@ -195,9 +195,12 @@ async def list_trades(
     ticker: Optional[str] = None,
     asset_class: Optional[str] = None,
     account_id: Optional[str] = None,
+    portfolio_id: Optional[str] = None,
     user: User = Depends(get_current_user)
 ) -> list[dict]:
-    return await _repo().list_trades(str(user.user_id), ticker, asset_class, account_id)
+    return await _repo().list_trades(
+        str(user.user_id), ticker, asset_class, account_id, portfolio_id=portfolio_id
+    )
 
 @router.post("/trades", status_code=status.HTTP_201_CREATED)
 async def create_trade(
@@ -228,15 +231,21 @@ async def delete_trade(
 @router.get("/positions")
 async def get_positions(
     asset_class: Optional[str] = None,
+    portfolio_id: Optional[str] = None,
     user: User = Depends(get_current_user)
 ) -> list[dict]:
-    return await _repo().get_positions_summary(str(user.user_id), asset_class)
+    return await _repo().get_positions_summary(
+        str(user.user_id), asset_class, portfolio_id=portfolio_id
+    )
 
 # ── Crypto ────────────────────────────────────────────────────────────────
 
 @router.get("/crypto")
-async def list_crypto(user: User = Depends(get_current_user)) -> list[dict]:
-    return await _repo().list_crypto(str(user.user_id))
+async def list_crypto(
+    portfolio_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+) -> list[dict]:
+    return await _repo().list_crypto(str(user.user_id), portfolio_id=portfolio_id)
 
 @router.put("/crypto", status_code=status.HTTP_200_OK)
 async def upsert_crypto(
@@ -265,9 +274,12 @@ async def delete_crypto(
 @router.get("/other")
 async def list_other(
     asset_type: Optional[str] = None,
+    portfolio_id: Optional[str] = None,
     user: User = Depends(get_current_user)
 ) -> list[dict]:
-    return await _repo().list_other_assets(str(user.user_id), asset_type)
+    return await _repo().list_other_assets(
+        str(user.user_id), asset_type, portfolio_id=portfolio_id
+    )
 
 @router.post("/other", status_code=status.HTTP_201_CREATED)
 async def create_other(
@@ -311,14 +323,17 @@ async def delete_other(
 # ── Summary ───────────────────────────────────────────────────────────────
 
 @router.get("/summary")
-async def wallet_summary(user: User = Depends(get_current_user)) -> dict:
+async def wallet_summary(
+    portfolio_id: Optional[str] = None,
+    user: User = Depends(get_current_user)
+) -> dict:
     uid = str(user.user_id)
     repo = _repo()
     accounts, positions, crypto, other = await __import__("asyncio").gather(
         repo.list_accounts(uid),
-        repo.get_positions_summary(uid),
-        repo.list_crypto(uid),
-        repo.list_other_assets(uid)
+        repo.get_positions_summary(uid, portfolio_id=portfolio_id),
+        repo.list_crypto(uid, portfolio_id=portfolio_id),
+        repo.list_other_assets(uid, portfolio_id=portfolio_id),
     )
     return {
         "accounts": accounts,
@@ -330,7 +345,8 @@ async def wallet_summary(user: User = Depends(get_current_user)) -> dict:
             "num_tickers": len(positions),
             "num_crypto": len(crypto),
             "num_other": len(other),
-        }
+        },
+        "portfolio_id": portfolio_id,
     }
 
 # ── Master view ───────────────────────────────────────────────────────────
