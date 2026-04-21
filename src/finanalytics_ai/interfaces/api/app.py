@@ -609,7 +609,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # alert rules de drift/snapshot no Grafana sem precisar pollar JSON.
     app.state.ml_metrics_task = None
     try:
-        from finanalytics_ai.application.services.ml_metrics_refresh import refresh_loop as _ml_refresh
+        from finanalytics_ai.application.services.ml_metrics_refresh import (
+            refresh_loop as _ml_refresh,
+        )
 
         app.state.ml_metrics_task = asyncio.create_task(_ml_refresh())
         logger.info("ml_metrics_refresh.scheduled")

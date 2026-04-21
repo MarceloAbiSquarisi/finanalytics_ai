@@ -102,7 +102,10 @@ if _PROM_AVAILABLE:
     scheduler_job_runs_total = Counter(
         "scheduler_job_runs_total",
         "Total de execucoes de jobs do scheduler por status",
-        labelnames=["job", "status"],  # job: macro/ohlcv/cleanup/reconcile/etc; status: ok/error/skip
+        labelnames=[
+            "job",
+            "status",
+        ],  # job: macro/ohlcv/cleanup/reconcile/etc; status: ok/error/skip
     )
     scheduler_reconcile_errors_total = Counter(
         "scheduler_reconcile_errors_total",
@@ -749,7 +752,9 @@ def main() -> None:
             start_http_server(METRICS_PORT)
             logger.info("scheduler_worker.metrics.serving", port=METRICS_PORT)
         except Exception as exc:
-            logger.warning("scheduler_worker.metrics.bind_failed", port=METRICS_PORT, error=str(exc))
+            logger.warning(
+                "scheduler_worker.metrics.bind_failed", port=METRICS_PORT, error=str(exc)
+            )
 
     asyncio.run(run_once() if RUN_ONCE else schedule_loop())
 

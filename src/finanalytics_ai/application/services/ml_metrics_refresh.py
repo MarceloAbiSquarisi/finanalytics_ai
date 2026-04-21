@@ -16,8 +16,8 @@ Por que 5min e nao on-scrape (30s):
 from __future__ import annotations
 
 import asyncio
-import os
 from datetime import UTC, datetime
+import os
 from pathlib import Path
 
 import psycopg2
