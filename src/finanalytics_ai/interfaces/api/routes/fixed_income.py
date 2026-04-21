@@ -408,6 +408,25 @@ async def delete_rf_holding(
 ) -> None:
     await _rf_svc(session).delete_holding(holding_id, portfolio_id)
 
+
+class RFRedeemRequest(BaseModel):
+    amount: float = Field(..., gt=0, description="Valor resgatado (decremento de invested)")
+
+
+@router.post("/portfolio/{portfolio_id}/holdings/{holding_id}/redeem")
+async def redeem_rf_holding(
+    portfolio_id: str,
+    holding_id: str,
+    body: RFRedeemRequest,
+    session: AsyncSession = Depends(get_db_session)
+) -> dict:
+    """Resgate parcial: decrementa invested. Se zerar, remove o holding."""
+    from fastapi import HTTPException
+    result = await _rf_svc(session).redeem_holding(holding_id, portfolio_id, body.amount)
+    if result is None:
+        raise HTTPException(404, "Holding nao encontrado")
+    return result
+
 @router.get("/portfolio/{portfolio_id}/diversification")
 async def rf_diversification(
     portfolio_id: str,

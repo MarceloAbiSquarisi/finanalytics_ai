@@ -235,6 +235,7 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
       <button class="op-tab tab-buy active" data-pane="buy" onclick="setOpTab('buy')">Comprar</button>
       <button class="op-tab tab-sell" data-pane="sell" onclick="setOpTab('sell')">Vender</button>
       <button class="op-tab tab-deposit" data-pane="deposit" onclick="setOpTab('deposit')">Depositar</button>
+      <button class="op-tab tab-sell" data-pane="withdraw" onclick="setOpTab('withdraw')">Resgatar</button>
     </div>
 
     <!-- Buy/Sell partilham campos -->
@@ -286,6 +287,12 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
       <label for="dep-amount">Valor (R$)</label>
       <input type="number" id="dep-amount" step="0.01" min="0" placeholder="1000">
       <div class="op-info">Soma direto ao caixa do portfolio. Use para registrar aportes.</div>
+    </div>
+
+    <div class="op-pane" id="pane-withdraw">
+      <label for="wd-amount">Valor (R$)</label>
+      <input type="number" id="wd-amount" step="0.01" min="0" placeholder="500">
+      <div class="op-info">Resgate do caixa do portfolio. Recusado se exceder caixa disponivel.</div>
     </div>
 
     <div class="modal-actions">
@@ -542,7 +549,7 @@ function openOperate(id, name, cash) {
   document.getElementById('op-cash').textContent =
     'R$ ' + parseFloat(cash || '0').toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
   // Limpa
-  ['buy-ticker','buy-qty','buy-price','sell-ticker','sell-qty','sell-price','dep-amount']
+  ['buy-ticker','buy-qty','buy-price','sell-ticker','sell-qty','sell-price','dep-amount','wd-amount']
     .forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('buy-broker').value = 'manual';
   document.getElementById('sell-broker').value = 'manual';
@@ -603,6 +610,15 @@ async function saveOperation() {
     url = API + '/portfolios/' + encodeURIComponent(id) + '/deposit';
     body = { amount };
     opLabel = 'Deposito R$ ' + amount.toLocaleString('pt-BR');
+  } else if (_opTab === 'withdraw') {
+    const amount = parseFloat(document.getElementById('wd-amount').value);
+    if (!(amount > 0)) {
+      toast('Valor deve ser > 0.', 'err');
+      return;
+    }
+    url = API + '/portfolios/' + encodeURIComponent(id) + '/withdraw';
+    body = { amount };
+    opLabel = 'Resgate R$ ' + amount.toLocaleString('pt-BR');
   } else {
     return;
   }

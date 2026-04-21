@@ -317,3 +317,34 @@ async def deposit(
         user_id=p.user_id,
         message=f"Depósito de R$ {body.amount} realizado"
     )
+
+
+@router.post("/{portfolio_id}/withdraw", response_model=PortfolioResponse)
+async def withdraw(
+    portfolio_id: str,
+    body: DepositRequest,  # mesmo schema (amount > 0)
+    current_user: User = Depends(get_current_user),
+    svc: PortfolioService = Depends(get_portfolio_service)
+) -> PortfolioResponse:
+    """Resgate do caixa do portfolio. Recusa (409) se amount > caixa atual."""
+    await svc._get_and_assert_owner(portfolio_id, current_user.user_id)
+    from finanalytics_ai.domain.value_objects.money import Money
+
+    p = await svc._get_or_raise(portfolio_id)
+    amount = Money.of(body.amount)
+    if amount > p.cash:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Saldo insuficiente: caixa R$ {p.cash.amount}, solicitado R$ {body.amount}"
+        )
+    p.cash = p.cash - amount
+    await svc._repo.save(p)
+    return PortfolioResponse(
+        portfolio_id=p.portfolio_id,
+        name=p.name,
+        description=p.description,
+        benchmark=p.benchmark,
+        is_default=p.is_default,
+        user_id=p.user_id,
+        message=f"Resgate de R$ {body.amount} realizado"
+    )

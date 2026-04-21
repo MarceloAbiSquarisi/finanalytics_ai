@@ -156,6 +156,12 @@ class RFPortfolioService:
     async def delete_holding(self, holding_id: str, portfolio_id: str) -> None:
         await self._repo.delete_holding(holding_id, portfolio_id)
 
+    async def redeem_holding(
+        self, holding_id: str, portfolio_id: str, amount: float
+    ) -> dict[str, Any] | None:
+        """Resgate parcial: decrementa invested. Zera ou negativo -> deleta."""
+        return await self._repo.redeem_holding(holding_id, portfolio_id, amount)
+
     # ── Diversificação ─────────────────────────────────────────────────────────
 
     async def diversification_report(self, portfolio_id: str) -> dict[str, Any] | None:

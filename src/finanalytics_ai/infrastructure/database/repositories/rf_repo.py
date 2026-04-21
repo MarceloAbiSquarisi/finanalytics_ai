@@ -244,6 +244,28 @@ class RFPortfolioRepository:
             )
         )
 
+    async def redeem_holding(
+        self, holding_id: str, portfolio_id: str, amount: float
+    ) -> dict | None:
+        """Decrementa invested. Se zerar/negativo, deleta o holding."""
+        result = await self._session.execute(
+            select(RFHoldingModel).where(
+                RFHoldingModel.holding_id == holding_id,
+                RFHoldingModel.portfolio_id == portfolio_id,
+            )
+        )
+        m = result.scalar_one_or_none()
+        if m is None:
+            return None
+        new_invested = float(m.invested) - amount
+        if new_invested <= 0:
+            await self._session.delete(m)
+            await self._session.flush()
+            return {"status": "removed", "remaining_invested": 0.0}
+        m.invested = new_invested
+        await self._session.flush()
+        return {"status": "redeemed", "remaining_invested": float(m.invested)}
+
     async def _get_holdings(self, portfolio_id: str) -> list[RFHolding]:
         result = await self._session.execute(
             select(RFHoldingModel).where(RFHoldingModel.portfolio_id == portfolio_id)

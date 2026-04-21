@@ -260,6 +260,25 @@ async def upsert_crypto(
             data[k] = float(data[k])
     return await _repo().upsert_crypto(data)
 
+class CryptoRedeemRequest(BaseModel):
+    quantity: Decimal = Field(..., gt=0, description="Quantidade resgatada (decremento da posicao)")
+
+
+@router.post("/crypto/{crypto_id}/redeem")
+async def redeem_crypto(
+    crypto_id: str,
+    body: CryptoRedeemRequest,
+    user: User = Depends(get_current_user)
+) -> dict:
+    """Resgate parcial de cripto. Decrementa quantity. Se zerar, deleta o holding."""
+    result = await _repo().redeem_crypto(crypto_id, str(user.user_id), float(body.quantity))
+    if result is None:
+        raise HTTPException(404, "Cripto não encontrada")
+    if result.get("removed"):
+        return {"status": "removed", "remaining_quantity": 0}
+    return {"status": "redeemed", **result}
+
+
 @router.delete("/crypto/{crypto_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_crypto(
     crypto_id: str,

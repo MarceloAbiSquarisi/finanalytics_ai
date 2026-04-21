@@ -376,6 +376,27 @@ class WalletRepository:
             await s.commit()
             return True
 
+    async def redeem_crypto(
+        self, crypto_id: str, user_id: str, qty: float
+    ) -> dict | None:
+        """Decrementa quantity. Se chegar a zero ou negativo, remove o holding."""
+        async with get_session() as s:
+            q = select(CryptoHoldingModel).where(
+                CryptoHoldingModel.id == crypto_id,
+                CryptoHoldingModel.user_id == user_id)
+            m = (await s.execute(q)).scalar_one_or_none()
+            if not m:
+                return None
+            new_qty = float(m.quantity) - qty
+            if new_qty <= 0:
+                await s.delete(m)
+                await s.commit()
+                return {"removed": True, "remaining_quantity": 0}
+            m.quantity = new_qty
+            await s.commit()
+            await s.refresh(m)
+            return {"removed": False, "remaining_quantity": float(m.quantity)}
+
     # ── Other Assets ──────────────────────────────────────────────────────
 
     async def create_other_asset(self, data: dict) -> dict:
