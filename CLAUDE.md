@@ -188,18 +188,57 @@ agent.change_order(params)         # SendChangeOrderV2
 ### Order Status
 - `0` = New, `1` = PartialFilled, `2` = Filled, `4` = Canceled, `8` = Rejected, `10` = PendingNew
 
-## UI compartilhada (Sprint UX 21/abr)
+## UI compartilhada (Sprint UI 21/abr — 24 helpers)
 
-| Asset | Função |
-|---|---|
-| `static/auth_guard.js` | `FAAuth.requireAuth({allowedRoles, onDenied})` — gating front; encapsula token + `/auth/me` + redirect |
-| `static/sidebar.html` + `sidebar.js` | Sidebar canônica injetada via fetch+sentinel (1 edição reflete nas 38 páginas) |
-| `/static/{filename}` whitelist | `.js`, `.css` + `_ALLOWED_PARTIALS = {"sidebar.html"}` |
-| Páginas admin (RBAC backend) | `/hub` (todos endpoints), `/admin`, `/api/v1/events/*` (events_admin) — `_require_admin` checa `UserRole.ADMIN/MASTER` |
+> **Documentação completa**: `src/finanalytics_ai/interfaces/api/static/STATIC_HELPERS.md` com tabela, ordem de carregamento, exemplos de uso por helper.
 
-**Pattern de soft-delete** (portfolios é referência): `is_active` em vez de DELETE; `has_active_holdings()` valida saldo zero antes de desativar; promove novo default automaticamente.
+**Auth & layout**:
+- `auth_guard.js` — `FAAuth.requireAuth({allowedRoles, onDenied})` + auto-refresh com Lembre-me 7d
+- `sidebar.html` + `sidebar.js` — sidebar canônica em 6 seções, auto-replace via fetch+sentinel (1 edição reflete nas 39 páginas), mobile responsive
+- `theme.css` — vars globais + `@media print` + `[data-theme="light"]` overrides
 
-**Pattern de auditoria** (portfolio_name_history é referência): tabela dedicada `<entidade>_<campo>_history` com `(old, new, changed_at, changed_by)` em vez de colunas `previous_X`.
+**Feedback**:
+- `toast.js` — `FAToast.{ok,err,warn,info,loading}` cap 4 + fila + click-fecha + hover-pausa
+- `modal.js` — `FAModal.{confirm,alert}` Promise-based + focus trap (substitui `confirm()`/`alert()`)
+- `loading.js` — `FALoading.{skeleton,tableRows,spinner}` shimmer (respeita `prefers-reduced-motion`)
+- `empty_state.js` — `FAEmpty.{render,tableRow}` com CTA
+- `notifications.js` — `FANotif` SSE realtime sino topbar
+- `error_handler.js` — `FAErr.{handle,fetchJson}` boundary global + correlation_id
+
+**Forms & tables**:
+- `table_utils.js` — `FATable.enhance` auto-init via `[data-fa-table]` (44 tabelas)
+- `form_validate.js` — `FAForm.validate(rules)` declarativo (`required/email/cpf/url/integer/number/min/max/regex`)
+
+**Discovery**:
+- `breadcrumbs.js` — `FABreadcrumbs.set([...])` baseado em `PATH_MAP`
+- `command_palette.js` — `FAPalette` Cmd+K fuzzy 40+ páginas
+- `shortcuts.js` — `FAShortcuts` g+letra goto
+- `onboarding.js` — `FAOnboarding` wizard 3 passos
+
+**Acessibilidade & i18n**:
+- `a11y.js` — `FAA11y.{init,trapFocus}` skip-link + focus-visible + lang=pt-BR + ARIA auto
+- `i18n.js` + `i18n_pt.json` + `i18n_en.json` — `FAI18n.t(key, vars)` 80+ chaves; auto-detect locale; `data-i18n="key"` + `data-i18n-attr="placeholder:key"`
+- `theme_toggle.js` — `FATheme.{set,toggle}` botão sol/lua + `Cmd+Shift+L`
+- `locale_toggle.js` — `FALocale.toggle` botão `PT/EN` na topbar
+
+**PWA & infra**:
+- `manifest.json` + `sw.js` (cache-versionado, precache de 17 helpers) + `pwa_register.js`
+- `print_helper.js` — `FAPrint.print(title)` + `body[data-print-date]` para rodapé CSS
+- `charts.js` — `FACharts.{apply,opts,palette,load}` patch defaults + lazy-load Chart.js 4.4.1
+- `favicon.svg`
+
+**Patterns**:
+- **Soft-delete** (portfolios é referência): `is_active` em vez de DELETE; `has_active_holdings()` valida saldo zero; promove novo default
+- **Auditoria** (portfolio_name_history é referência): tabela dedicada `<entidade>_<campo>_history` com `(old, new, changed_at, changed_by)`
+- **Helper pattern**: IIFE expondo `window.FAXxx`; `ensureStyles()` auto-injeta CSS na primeira chamada; idempotente; defensivo (checa `window.FAToast` etc antes de usar)
+- **Bulk distribution**: novos `<script>` tags adicionados via Python ancorando em script existente conhecido (ex: `sidebar.js`)
+
+**Topbar (esq → dir)**: logo · email/avatar · `PT/EN` · `🌙/☀️` · `Sair`
+
+**Rotas FastAPI específicas**:
+- `/static/{filename}` — whitelist `.js/.css/.svg/.png/.ico/.json` + `_ALLOWED_PARTIALS={sidebar.html}`; cache 1h (svg 1d)
+- `/sw.js` — root scope; `Service-Worker-Allowed: /`; `Cache-Control: no-store`
+- `/manifest.json` — root scope; cache 1d
 
 ## Dashboard (dashboard.html)
 SPA em vanilla JS, 3500+ linhas. Painel DayTrade no lado direito:
@@ -284,7 +323,8 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 15. ~~GPU compute em container (torch+cu124)~~ — **DONE 21/abr** (api/worker/worker_v2 com `cuda.is_available()=True`)
 16. ~~Sprint U8 — Hub frontend + observabilidade~~ — **DONE 21/abr** (cleanup scheduler 23h BRT + correlation_id Kafka cross-service + 3 painéis Grafana dead_letter)
 17. ~~Sprint UX — RBAC backend + UI portfolios CRUD + alertas indicador + sidebar shared~~ — **DONE 21/abr** (helper `auth_guard.js`, hub admin-only via `_require_admin`, página `/alerts`, soft-delete portfolios via `is_active`, `portfolio_name_history`, `sidebar.js` auto-replace em 38 páginas; commits `49f2ca5`, `5e8ebb1`, `ef71e6a`, `2b59225`, `00b21d6`, `9d2e07f`)
-18. Aguardando arquivo Nelogica 1m (~2 dias) → rodar `runbook_import_dados_historicos.md`
+18. ~~Sprint UI 21/abr — Helper-driven UI completa~~ — **DONE 21/abr** — 24 helpers em `static/`, 9 commits (`848aaf2`→`afd7ecb`): toast queue/pause, FAModal Promise, FAErr global boundary, FATable auto-init, FAEmpty CTAs, FALoading skeletons, FAA11y skip-link/focus-trap, FAPrint stylesheets, FACharts theming, FAForm validation, FAI18n PT/EN scaffold + sidebar i18n, FATheme dark/light toggle, FALocale PT/EN switcher, PWA (manifest+sw.js), 343 cores hex→var, 11 fetch boilerplate→FAErr.fetchJson. Decisões 16-19 imutaveis. Ver `STATIC_HELPERS.md`.
+19. Aguardando arquivo Nelogica 1m (~2 dias) → rodar `runbook_import_dados_historicos.md`
 
 ## Decisões Arquiteturais (Imutáveis)
 
@@ -310,6 +350,47 @@ Origem: `Melhorias/proposta_decisao_15_dualgpu.md` (16/abr/2026), motivada por i
 - `nvidia-smi` funciona dentro dos containers (NVIDIA Container Runtime auto-injeta libs).
 - **GPU compute em container habilitado** (21/abr/2026): Dockerfile builder usa `torch>=2.4 +cu124` (~2.5GB extra). Validado nos 3 images: `torch.cuda.is_available()=True`, device `RTX 4090`, compute_cap `(8,9)`, runtime CUDA 12.4. Wheel cu124 traz `libcudart`/`libcublas` bundled — não precisa `nvidia-cuda-toolkit` na imagem.
 
+### Decisão 16 — Helper-driven UI (Sprint UI 21/abr/2026)
+
+Origem: 9 commits da Sprint UI (`848aaf2` → `afd7ecb`) que criaram 24 helpers reutilizáveis em `static/`.
+
+**Regras vinculantes:**
+1. Toda página HTML privada deve carregar pelo menos: `auth_guard.js`, `sidebar.js`, `theme.css`, `theme_toggle.js`, `i18n.js`, `error_handler.js`, `toast.js`. Sem isso, regredimos para inconsistências de auth/layout/locale.
+2. Novo asset compartilhado segue o pattern IIFE expondo `window.FAXxx`, com `ensureStyles()` auto-injetado e idempotente. Ver `STATIC_HELPERS.md` para a regra completa.
+3. **Distribuição em massa**: para tocar N páginas, escrever script Python idempotente em `scripts/refactor_*.py` (existem 3 referências: `refactor_alert_confirm.py`, `refactor_fetch_to_faerr.py`, `refactor_colors_to_vars.py`). Edição manual em mais de 5 páginas sinaliza que falta script.
+4. **Anchor pattern**: novos `<script>` tags são adicionados via `replace(ANCHOR, ANCHOR + '\n  ' + TAG)` em scripts que já existem (estável: `sidebar.js`, `auth_guard.js`, `error_handler.js`).
+5. Não substituir `confirm()`/`alert()` nativos por implementações próprias página a página — usar `FAModal.confirm` / `FAToast.*` (são Promise-based + acessíveis + thottled).
+6. `data-fa-table` no `<table>` é o padrão para sort/filter automático (FATable auto-init). Não chamar `FATable.enhance` manualmente em páginas novas.
+
+### Decisão 17 — FOUC prevention para light theme
+
+Origem: Sprint UI O (`dbc3202`).
+
+**Regra**: o snippet inline abaixo deve estar no `<head>` ANTES do `<link rel="stylesheet" href="/static/theme.css">` em todas as páginas:
+
+```html
+<script>(function(){try{var t=localStorage.getItem('fa_theme');
+  if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script>
+```
+
+Sem isso, usuários com light theme veem flash dark→light em cada navegação. O snippet roda síncrono antes do paint, define `[data-theme="light"]` no `<html>` e o CSS já carrega no tema certo.
+
+### Decisão 18 — i18n por fall-through (PT default + EN fallback)
+
+Origem: Sprint UI N+S (`bc70e24`, `afd7ecb`).
+
+**Regra**: `FAI18n.t(key)` resolve `_dict[locale][key]` e cai para `_dict['pt'][key]` se ausente. Chave inexistente em ambos retorna a própria key (sinal de bug, não erro silencioso). PT é o idioma canônico (autoridade da copy); EN é tradução.
+
+**Não migrar texto in-page de uma vez** — usar `data-i18n="key"` em elementos novos ou em refatorações pontuais. Páginas inteiras em PT continuam funcionando — `FAI18n.applyDOM()` só toca elementos marcados.
+
+### Decisão 19 — `:root{...}` per-page é identidade visual intencional
+
+Origem: Sprint UI T (`afd7ecb`) — auditoria das 60+ páginas.
+
+**Regra**: blocos `:root{...}` em páginas individuais NÃO são duplicatas dos globals de `theme.css`. Várias páginas têm identidade visual própria (ex: `performance.html` usa `--surface`/`--card`/`--white` inexistentes em theme.css; `--accent` green em vez do cyan global). 
+
+**Não migrar** automaticamente para os vars globais — quebraria visual identity. Páginas redesenhadas devem fazer cleanup deliberado, não bulk migration. Light mode funciona via fall-through nos vars que NÃO foram redefinidos localmente (que são a maioria, após Sprint UI P migrar 343 cores hardcoded).
+
 ## Convenções do Projeto
 
 - **Logging**: `structlog` no FastAPI, `logging` padrão no profit_agent
@@ -323,6 +404,16 @@ Origem: `Melhorias/proposta_decisao_15_dualgpu.md` (16/abr/2026), motivada por i
 ```
 Remote: https://github.com/MarceloAbiSquarisi/finanalytics_ai
 Branch: master
+Últimos commits (21/abr — Sprint UI):
+  afd7ecb feat(ui): S (locale switcher PT/EN + sidebar i18n) + T (no-op)
+  24b1d9e feat(ui): P (cores hardcoded -> var) + R (selectors)
+  dbc3202 feat(ui): O — Light mode toggle
+  bc70e24 feat(ui): Q (FAErr.fetchJson 11 sites) + N (i18n scaffold pt/en)
+  9f4f4d0 feat(ui): L (toast queue+pause) + M (chart theming)
+  f584bb6 feat(ui): H (print) + J (Chart.js theme + lazy) + I (form validation)
+  ab4d274 feat(ui): C (loading skeletons) + E (a11y) + F (PWA) + G (FAErr.fetchJson)
+  6bfee75 feat(ui): A (FATable+FAEmpty) + B (FAModal/FAToast) + D (error boundary)
+  848aaf2 feat(ui): W (auto-skip pre-login) + Z (STATIC_HELPERS) + Y (cache TTL) + AA (FAEmpty screener)
 Últimos commits (20/abr):
   e5e8062 infra(observability): Prometheus + Grafana versionados em docker/
   cecf359 feat(wallet): enforce portfolio_id obrigatorio em todos investimentos
