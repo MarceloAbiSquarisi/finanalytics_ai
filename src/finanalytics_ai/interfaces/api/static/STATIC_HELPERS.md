@@ -1,6 +1,6 @@
 # UI helpers compartilhados — `interfaces/api/static/`
 
-> **Sprint UI 21/abr/2026** — 23 assets globais consumidos pelas 39 páginas HTML.
+> **Sprint UI 21/abr/2026** — 24 assets globais consumidos pelas 39 páginas HTML.
 > Todos servidos via rota `/static/{filename}` (whitelist `.js`/`.css`/`.svg`/`.png`/`.ico` + `_ALLOWED_PARTIALS = {sidebar.html}`).
 
 ## Tabela de assets
@@ -23,6 +23,7 @@
 | `form_validate.js` | `FAForm.{validate,markError,clearErrors,showErrors,isEmail,isCpf,isUrl}` | Validação declarativa — regras `required`/`email`/`cpf`/`url`/`integer`/`number`/`min`/`max`/`regex`. Marca input + toast no primeiro erro |
 | `i18n.js` + `i18n_pt.json` + `i18n_en.json` | `FAI18n.{t,setLocale,getLocale,load,applyDOM}` | Scaffold i18n com 50+ chaves base (PT padrão, EN fallback). Auto-detect via `localStorage` > `navigator.language` > `<html lang>`. `data-i18n="key"` + `data-i18n-attr="placeholder:key"` |
 | `theme_toggle.js` | `FATheme.{get,set,toggle,injectButton}` | Toggle dark/light via `[data-theme="light"]` no `<html>`. Botão sol/lua na topbar, atalho `Cmd+Shift+L`, comando no FAPalette. FOUC prevenido por snippet inline no `<head>` antes do `theme.css` |
+| `locale_toggle.js` | `FALocale.{toggle,injectButton}` | Botão `PT/EN` na topbar (à esquerda do theme toggle). Cicla locale via FAI18n + re-aplica DOM. Comando "Mudar idioma" no FAPalette |
 | `onboarding.js` | `FAOnboarding.{start,dismiss}` | Wizard 3 etapas (welcome → criar portfolio → tour); auto-start em `/dashboard` na 1ª visita (`fa_onboarded`) |
 | `breadcrumbs.js` | `FABreadcrumbs.{render,set}` | Breadcrumbs no topo do `.main` baseado em `PATH_MAP` (40 rotas → secção/label) |
 | `command_palette.js` | `FAPalette.{open,close,register}` | Modal Cmd+K / `/` com busca fuzzy em 40 páginas + 3 ações |

@@ -140,6 +140,10 @@
       sb.innerHTML = await r.text();
       markActive();
       applyToggleState();
+      // Sprint UI S (21/abr): aplica i18n nos labels recem-injetados
+      if (window.FAI18n && window.FAI18n.applyDOM) {
+        window.FAI18n.applyDOM(sb);
+      }
     } catch (e) {
       console.error('[sidebar.js] Falha ao carregar sidebar:', e);
     }
