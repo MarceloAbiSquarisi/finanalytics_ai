@@ -14,7 +14,7 @@ Stack: FastAPI :8000 (Docker) + profit_agent :8002 (Windows host) + TimescaleDB 
 | **GPU 1** | NVIDIA RTX 4090 24 GB — bus PCIe `08:00.0` — monitor principal Windows |
 | Driver | NVIDIA 591.86, CUDA 13.1, compute cap 8.9 (Ada Lovelace) |
 | Storage | E:\ 2 TB NVMe (bind mounts dos containers) |
-| PSU | ≥1.500W (marca/modelo a registrar — Degrau 0 da Decisão 15) |
+| PSU | **Corsair HX1500i** — 1500W, 80+ Platinum, ATX 3.1, fully modular, 2× 12V-2×6 nativos |
 
 **Validação do mapeamento** (após cabos físicos remanejados):
 ```bash
@@ -287,6 +287,8 @@ Origem: `Melhorias/proposta_decisao_15_dualgpu.md` (16/abr/2026), motivada por i
 5. **Exceção autorizada (Modo 2)**: workloads ML *distintos* por GPU (ex: treino na 0 + FinBERT inference na 1) APENAS para jobs offline com `nvidia-smi -pl 320` ativo em ambas. Nunca em horário de pregão.
 6. Se cabos físicos forem remanejados, validar mapeamento via comando da seção Hardware antes de subir container com compute.
 7. Para liberar Modo 3: (a) upgrade PSU ≥1.600W ATX 3.0/3.1 Titanium com 2 cabos 12V-2×6 nativos, OU (b) migração para servidor de colocation com hardware novo.
+
+**PSU atual** (registrada 21/abr/2026): Corsair HX1500i — 1500W Platinum ATX 3.1 com 2× 12V-2×6 nativos. **Não atende** critério (a) por: faltam 100W (1500 vs 1600) e eficiência Platinum vs Titanium. Status: Modo 1 e Modo 2 (offline com `nvidia-smi -pl 320`) autorizados; Modo 3 bloqueado até upgrade ou colocation. Candidatos para upgrade quando justificado: Super Flower Leadex VII XG Titanium 1600W ou MSI MEG Ai1600T PCIE5 (mesmo OEM, ~R$ 4-6k).
 
 **Aplicação atual** (commit `5e7dfbd` + 21/abr/2026):
 - 3 services com reservation: `api`, `worker`, `event_worker_v2`.
