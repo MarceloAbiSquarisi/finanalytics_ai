@@ -73,6 +73,28 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
 .name-cell{font-weight:600;color:#e2eaf4}
 .desc-cell{font-size:13px;color:var(--muted)}
 .denied{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;gap:12px}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:22px;width:520px;max-width:100%;max-height:85vh;overflow-y:auto}
+.modal-title{font-size:18px;font-weight:700;color:#e2eaf4;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+.modal-close{background:transparent;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1;padding:0 4px}
+.modal-close:hover{color:var(--red)}
+.modal label{display:block;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.modal input{width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:5px;color:var(--text);font-size:16px;padding:9px 12px;outline:none;font-family:inherit;transition:.15s}
+.modal input:focus{border-color:var(--accent)}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{color:var(--text);border-color:var(--border2)}
+.history-list{margin-top:8px;max-height:50vh;overflow-y:auto;font-size:14px}
+.history-row{display:grid;grid-template-columns:auto 1fr;gap:10px;padding:10px 12px;border-left:2px solid var(--border2);margin-bottom:6px;background:var(--s2);border-radius:0 5px 5px 0}
+.history-row .when{font-family:monospace;color:var(--muted);font-size:13px;white-space:nowrap}
+.history-row .change{color:var(--text)}
+.history-row .change b{color:var(--gold);font-weight:600}
+.history-row .arrow{color:var(--muted);margin:0 6px}
+.history-row .by{display:block;font-size:12px;color:var(--muted);margin-top:2px;font-family:monospace}
+.history-empty{color:var(--muted);font-style:italic;padding:14px;text-align:center}
+.btn-icon{background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-size:14px;font-weight:600;padding:5px 9px;cursor:pointer;transition:.15s}
+.btn-icon:hover{color:var(--accent);border-color:rgba(0,212,255,.3)}
 </style>
 </head>
 <body>
@@ -136,7 +158,7 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
           <th>Posicoes</th>
           <th>Caixa</th>
           <th>Status</th>
-          <th style="width:160px;text-align:right">Acoes</th>
+          <th style="width:280px;text-align:right">Acoes</th>
         </tr>
       </thead>
       <tbody id="pfList">
@@ -152,6 +174,40 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
   <div style="font-size:22px;color:#e2eaf4">Acesso negado</div>
   <div style="color:var(--muted)">Faca login para acessar esta pagina.</div>
 </div>
+
+<!-- Modal: Renomear -->
+<div class="modal-overlay" id="modalRename" onclick="if(event.target===this) closeModal('modalRename')">
+  <div class="modal">
+    <div class="modal-title">
+      <span>Renomear portfolio</span>
+      <button class="modal-close" onclick="closeModal('modalRename')">&times;</button>
+    </div>
+    <label for="rn-name">Novo nome</label>
+    <input type="text" id="rn-name" maxlength="200" placeholder="Ex: Long-term Equity">
+    <div style="margin-top:12px;font-size:13px;color:var(--muted)">
+      O nome anterior <span id="rn-old-name" style="color:var(--gold);font-weight:600"></span>
+      sera registrado no historico.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modalRename')">Cancelar</button>
+      <button class="btn" id="rn-save-btn" onclick="saveRename()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Historico -->
+<div class="modal-overlay" id="modalHistory" onclick="if(event.target===this) closeModal('modalHistory')">
+  <div class="modal" style="width:560px">
+    <div class="modal-title">
+      <span>Historico de nomes — <span id="hist-current-name" style="color:var(--accent)"></span></span>
+      <button class="modal-close" onclick="closeModal('modalHistory')">&times;</button>
+    </div>
+    <div class="history-list" id="hist-list">
+      <div class="history-empty">Carregando...</div>
+    </div>
+  </div>
+</div>
+
 </div><!-- /fa-page-content -->
 
 <script src="/static/auth_guard.js"></script>
@@ -243,7 +299,11 @@ function renderList(list) {
     const benchmark = p.benchmark || '<span style="color:var(--muted)">—</span>';
     const desc = p.description ? `<div class="desc-cell">${escapeHtml(p.description)}</div>` : '';
     const cash = parseFloat(p.cash || '0').toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
-    const action = p.is_active
+    const renameBtn = p.is_active
+      ? `<button class="btn-icon" title="Renomear" onclick="openRename('${p.portfolio_id}','${escapeJs(p.name)}')">Renomear</button>`
+      : '';
+    const histBtn = `<button class="btn-icon" title="Historico de nomes" onclick="showHistory('${p.portfolio_id}','${escapeJs(p.name)}')">Hist.</button>`;
+    const lifecycleBtn = p.is_active
       ? `<button class="btn btn-warn" onclick="deactivate('${p.portfolio_id}','${escapeJs(p.name)}')">Desativar</button>`
       : `<button class="btn btn-success" onclick="reactivate('${p.portfolio_id}','${escapeJs(p.name)}')">Reativar</button>`;
     return `<tr class="${cls}">
@@ -255,7 +315,7 @@ function renderList(list) {
       <td style="font-family:monospace;font-size:14px">${p.positions}</td>
       <td class="cash">R$ ${cash}</td>
       <td>${statusPill}${defaultPill}</td>
-      <td><div class="actions" style="justify-content:flex-end">${action}</div></td>
+      <td><div class="actions" style="justify-content:flex-end;flex-wrap:wrap">${renameBtn}${histBtn}${lifecycleBtn}</div></td>
     </tr>`;
   }).join('');
 }
@@ -298,12 +358,102 @@ async function reactivate(id, name) {
   }
 }
 
+// ── Rename ───────────────────────────────────────────────────────────────────
+let _renameTarget = null;  // {id, oldName}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function openRename(id, name) {
+  _renameTarget = { id, oldName: name };
+  document.getElementById('rn-old-name').textContent = '"' + name + '"';
+  const inp = document.getElementById('rn-name');
+  inp.value = name;
+  openModal('modalRename');
+  setTimeout(() => { inp.focus(); inp.select(); }, 50);
+}
+
+async function saveRename() {
+  if (!_renameTarget) return;
+  const newName = document.getElementById('rn-name').value.trim();
+  if (!newName) {
+    toast('Nome nao pode ser vazio', 'err');
+    return;
+  }
+  if (newName === _renameTarget.oldName) {
+    closeModal('modalRename');
+    return;  // sem mudanca
+  }
+  const btn = document.getElementById('rn-save-btn');
+  btn.disabled = true;
+  btn.textContent = '...';
+  try {
+    const r = await fetch(API + '/portfolios/' + encodeURIComponent(_renameTarget.id), {
+      method: 'PATCH',
+      headers: H(),
+      body: JSON.stringify({ name: newName })
+    });
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.detail || ('HTTP ' + r.status));
+    }
+    closeModal('modalRename');
+    toast(`Renomeado para "${newName}".`, 'ok');
+    await loadPortfolios();
+  } catch (e) {
+    toast('Falha: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Salvar';
+  }
+}
+
+// ── Historico ────────────────────────────────────────────────────────────────
+async function showHistory(id, currentName) {
+  document.getElementById('hist-current-name').textContent = currentName;
+  const list = document.getElementById('hist-list');
+  list.innerHTML = '<div class="history-empty">Carregando...</div>';
+  openModal('modalHistory');
+  try {
+    const r = await fetch(API + '/portfolios/' + encodeURIComponent(id) + '/name-history', { headers: H() });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const rows = await r.json();
+    if (!rows || rows.length === 0) {
+      list.innerHTML = '<div class="history-empty">Sem renames registrados.</div>';
+      return;
+    }
+    list.innerHTML = rows.map(h => {
+      const when = h.changed_at ? new Date(h.changed_at).toLocaleString('pt-BR') : '—';
+      const by = h.changed_by ? `<span class="by">por user ${escapeHtml(h.changed_by)}</span>` : '';
+      return `<div class="history-row">
+        <div class="when">${when}</div>
+        <div class="change">
+          <b>${escapeHtml(h.old_name)}</b>
+          <span class="arrow">&rarr;</span>
+          <b>${escapeHtml(h.new_name)}</b>
+          ${by}
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    list.innerHTML = `<div class="history-empty" style="color:var(--red)">Erro: ${e.message}</div>`;
+  }
+}
+
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 function escapeJs(s) {
   return String(s).replace(/['\\]/g, '\\$&').replace(/\n/g, '\\n');
 }
+
+// ESC fecha modais
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeModal('modalRename');
+    closeModal('modalHistory');
+  }
+});
 
 init();
 </script>

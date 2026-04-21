@@ -64,6 +64,24 @@ class PositionModel(Base):
     __table_args__ = (UniqueConstraint("portfolio_id", "ticker", name="uq_portfolio_ticker"),)
 
 
+class PortfolioNameHistoryModel(Base):
+    __tablename__ = "portfolio_name_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    portfolio_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("portfolios.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    old_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    new_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    changed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    changed_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+
 class SQLPortfolioRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -131,6 +149,44 @@ class SQLPortfolioRepository:
 
     async def delete(self, portfolio_id: str) -> None:
         await self._session.execute(delete(PortfolioModel).where(PortfolioModel.id == portfolio_id))
+
+    async def record_name_change(
+        self,
+        portfolio_id: str,
+        old_name: str,
+        new_name: str,
+        changed_by: str | None,
+    ) -> None:
+        """Grava 1 linha em portfolio_name_history. Idempotencia eh
+        responsabilidade do chamador — repassamos sem deduplicar."""
+        self._session.add(
+            PortfolioNameHistoryModel(
+                portfolio_id=portfolio_id,
+                old_name=old_name,
+                new_name=new_name,
+                changed_at=datetime.now(UTC),
+                changed_by=changed_by,
+            )
+        )
+        await self._session.flush()
+
+    async def name_history(self, portfolio_id: str) -> list[dict[str, str | None]]:
+        """Retorna historico de renames em ordem decrescente (mais recente primeiro)."""
+        stmt = (
+            select(PortfolioNameHistoryModel)
+            .where(PortfolioNameHistoryModel.portfolio_id == portfolio_id)
+            .order_by(PortfolioNameHistoryModel.changed_at.desc())
+        )
+        result = await self._session.execute(stmt)
+        return [
+            {
+                "old_name": str(h.old_name),
+                "new_name": str(h.new_name),
+                "changed_at": h.changed_at.isoformat() if h.changed_at else None,
+                "changed_by": h.changed_by,
+            }
+            for h in result.scalars()
+        ]
 
     async def has_active_holdings(self, portfolio_id: str) -> dict[str, int]:
         """

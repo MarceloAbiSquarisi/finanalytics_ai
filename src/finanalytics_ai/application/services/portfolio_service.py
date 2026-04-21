@@ -119,10 +119,34 @@ class PortfolioService:
         benchmark: str | None = None,
     ) -> Portfolio:
         portfolio = await self._get_and_assert_owner(portfolio_id, user_id)
+        old_name = portfolio.name
         portfolio.update_metadata(name=name, description=description, benchmark=benchmark)
+        # Rename audit: registra ANTES do save para que ambos os writes
+        # caiam no mesmo ciclo de transacao da session.
+        if name is not None and portfolio.name != old_name:
+            await self._repo.record_name_change(
+                portfolio_id=portfolio_id,
+                old_name=old_name,
+                new_name=portfolio.name,
+                changed_by=user_id,
+            )
+            logger.info(
+                "portfolio.renamed",
+                portfolio_id=portfolio_id,
+                old_name=old_name,
+                new_name=portfolio.name,
+                user_id=user_id,
+            )
         await self._repo.save(portfolio)
         logger.info("portfolio.updated", portfolio_id=portfolio_id)
         return portfolio
+
+    async def get_name_history(
+        self, portfolio_id: str, user_id: str
+    ) -> list[dict[str, str | None]]:
+        """Retorna historico de renames do portfolio. Valida ownership."""
+        await self._get_and_assert_owner(portfolio_id, user_id)
+        return await self._repo.name_history(portfolio_id)
 
     async def deactivate_portfolio(self, portfolio_id: str, user_id: str) -> Portfolio:
         """

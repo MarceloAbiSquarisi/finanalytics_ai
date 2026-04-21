@@ -163,6 +163,24 @@ async def update_portfolio(
         message="Portfólio atualizado"
     )
 
+class NameHistoryEntry(BaseModel):
+    old_name: str
+    new_name: str
+    changed_at: str | None
+    changed_by: str | None
+
+
+@router.get("/{portfolio_id}/name-history", response_model=list[NameHistoryEntry])
+async def get_name_history(
+    portfolio_id: str,
+    current_user: User = Depends(get_current_user),
+    svc: PortfolioService = Depends(get_portfolio_service)
+) -> list[NameHistoryEntry]:
+    """Lista cronologica decrescente de mudancas de nome do portfolio."""
+    rows = await svc.get_name_history(portfolio_id, current_user.user_id)
+    return [NameHistoryEntry(**r) for r in rows]
+
+
 @router.post("/{portfolio_id}/deactivate", response_model=PortfolioResponse)
 async def deactivate_portfolio(
     portfolio_id: str,
