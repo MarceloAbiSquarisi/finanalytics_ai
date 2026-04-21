@@ -57,7 +57,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .risk-bar{width:100%;border-radius:2px 2px 0 0;min-height:4px;transition:height .3s}
 .risk-bar-label{font-size:13px;color:var(--muted);font-family:var(--mono);text-align:center}
 .signal-badge{display:inline-block;padding:2px 8px;border-radius:3px;font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:.5px}
-.sig-strong-buy{background:#0d2b1a;color:#00e676;border:1px solid #00e676}
+.sig-strong-buy{background:#0d2b1a;color:var(--green);border:1px solid var(--green)}
 .sig-buy{background:#0d1f12;color:#69f0ae;border:1px solid #69f0ae}
 .sig-hold{background:#1a1a0d;color:#ffd740;border:1px solid #ffd740}
 .sig-sell{background:#1f0d0d;color:#ff6e6e;border:1px solid #ff6e6e}
@@ -73,7 +73,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
   position: fixed; left: 0; top: 0; bottom: 0;
   width: var(--sb-w-collapsed);
   background: #0a0f18;
-  border-right: 1px solid #1c2535;
+  border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
   overflow: hidden;
   transition: width .22s cubic-bezier(.4,0,.2,1);
@@ -83,12 +83,12 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .fa-sidebar-toggle {
   width: 100%; padding: 10px 14px;
   background: transparent; border: none;
-  border-bottom: 1px solid #1c2535;
+  border-bottom: 1px solid var(--border);
   color: #7a95b0; cursor: pointer;
   display: flex; align-items: center; gap: 10px;
   font-size: 17px; white-space: nowrap; overflow: hidden; flex-shrink: 0;
 }
-.fa-sidebar-toggle:hover { color: #F0B429; background: rgba(240,180,41,.06); }
+.fa-sidebar-toggle:hover { color: var(--gold); background: rgba(240,180,41,.06); }
 .fa-sidebar-toggle svg { flex-shrink: 0; }
 .fa-sb-link {
   display: flex; align-items: center; gap: 10px;
@@ -97,8 +97,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
   white-space: nowrap; overflow: hidden;
   transition: all .15s;
 }
-.fa-sb-link:hover { color: #e2eaf4; background: rgba(0,212,255,.05); }
-.fa-sb-link.active { color: #F0B429; background: rgba(240,180,41,.08); border-right: 2px solid #F0B429; }
+.fa-sb-link:hover { color: var(--text-strong); background: rgba(0,212,255,.05); }
+.fa-sb-link.active { color: var(--gold); background: rgba(240,180,41,.08); border-right: 2px solid var(--gold); }
 .fa-sb-link svg { flex-shrink: 0; }
 .fa-sb-link span { opacity: 0; transition: opacity .15s; }
 .fa-sidebar.open .fa-sb-link span { opacity: 1; }
@@ -117,13 +117,13 @@ body.sb-open .fa-sb-push { margin-left: var(--sb-w); }
   transition: all .15s; user-select: none;
   border: none; background: transparent; width: 100%;
 }
-.fa-sb-group-toggle:hover { color: #e2eaf4; background: rgba(240,180,41,.07); }
-.fa-sb-group-toggle.open { color: #F0B429; }
+.fa-sb-group-toggle:hover { color: var(--text-strong); background: rgba(240,180,41,.07); }
+.fa-sb-group-toggle.open { color: var(--gold); }
 .fa-sb-group-toggle svg { flex-shrink: 0; }
 .fa-sb-group-toggle span { opacity: 0; transition: opacity .15s; display: flex; align-items: center; gap: 6px; flex: 1; }
 .fa-sidebar.open .fa-sb-group-toggle span { opacity: 1; }
 .fa-sb-group-chevron { margin-left: auto; transition: transform .2s; font-size: 10px; color: #3a5570; }
-.fa-sb-group-toggle.open .fa-sb-group-chevron { transform: rotate(180deg); color: #F0B429; }
+.fa-sb-group-toggle.open .fa-sb-group-chevron { transform: rotate(180deg); color: var(--gold); }
 .fa-sb-submenu { max-height: 0; overflow: hidden; transition: max-height .25s ease; }
 .fa-sb-submenu.open { max-height: 200px; }
 .fa-sb-sub-link {
@@ -133,8 +133,8 @@ body.sb-open .fa-sb-push { margin-left: var(--sb-w); }
   white-space: nowrap; overflow: hidden;
   transition: all .15s; border-left: 2px solid transparent;
 }
-.fa-sb-sub-link:hover { color: #00d4ff; background: rgba(0,212,255,.05); border-left-color: rgba(0,212,255,.3); }
-.fa-sb-sub-link.active { color: #F0B429; border-left-color: #F0B429; background: rgba(240,180,41,.06); }
+.fa-sb-sub-link:hover { color: var(--accent); background: rgba(0,212,255,.05); border-left-color: rgba(0,212,255,.3); }
+.fa-sb-sub-link.active { color: var(--gold); border-left-color: var(--gold); background: rgba(240,180,41,.06); }
 .fa-sb-sub-link svg { flex-shrink: 0; }
 .fa-sb-sub-link span { opacity: 0; transition: opacity .15s; }
 .fa-sidebar.open .fa-sb-sub-link span { opacity: 1; }

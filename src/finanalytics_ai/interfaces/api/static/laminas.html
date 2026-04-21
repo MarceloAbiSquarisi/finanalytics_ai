@@ -21,7 +21,7 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
 /* ── Topbar ── */
 .fa-topbar{position:sticky;top:0;z-index:200;display:flex;align-items:center;gap:10px;padding:0 16px;height:52px;background:rgba(6,13,20,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);flex-shrink:0}
 .fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none;flex-shrink:0}
-.fa-logo-text{font-family:'Rajdhani',sans-serif;font-size:19px;font-weight:700;color:#e2eaf4;letter-spacing:.02em}
+.fa-logo-text{font-family:'Rajdhani',sans-serif;font-size:19px;font-weight:700;color:var(--text-strong);letter-spacing:.02em}
 .fa-logo-text em{font-style:normal;color:var(--blue)}
 .fa-ai-badge{background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid var(--border);border-radius:3px;font-size:13px;padding:1px 4px;color:var(--blue);letter-spacing:.05em;vertical-align:middle}
 .fa-logout-btn{margin-left:auto;display:flex;align-items:center;gap:5px;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--muted);font-size:15px;padding:4px 10px;cursor:pointer;font-family:'Rajdhani',sans-serif;font-weight:600;letter-spacing:.03em}
@@ -40,8 +40,8 @@ body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;mi
 .fa-sb-section-label{font-size:13px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;padding:12px 14px 4px;opacity:0;transition:opacity .15s;white-space:nowrap}
 .fa-sidebar.open .fa-sb-section-label{opacity:1}
 .fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;text-decoration:none;font-size:16px;white-space:nowrap;overflow:hidden;transition:all .15s}
-.fa-sb-link:hover{color:#e2eaf4;background:rgba(0,212,255,.05)}
-.fa-sb-link.active{color:#F0B429;background:rgba(240,180,41,.08);border-right:2px solid #F0B429}
+.fa-sb-link:hover{color:var(--text-strong);background:rgba(0,212,255,.05)}
+.fa-sb-link.active{color:var(--gold);background:rgba(240,180,41,.08);border-right:2px solid var(--gold)}
 .fa-sb-link svg{flex-shrink:0}
 .fa-sb-link span{opacity:0;transition:opacity .15s}
 .fa-sidebar.open .fa-sb-link span{opacity:1}
@@ -131,13 +131,13 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
   transition: all .15s; user-select: none;
   border: none; background: transparent; width: 100%;
 }
-.fa-sb-group-toggle:hover { color: #e2eaf4; background: rgba(240,180,41,.07); }
-.fa-sb-group-toggle.open { color: #F0B429; }
+.fa-sb-group-toggle:hover { color: var(--text-strong); background: rgba(240,180,41,.07); }
+.fa-sb-group-toggle.open { color: var(--gold); }
 .fa-sb-group-toggle svg { flex-shrink: 0; }
 .fa-sb-group-toggle span { opacity: 0; transition: opacity .15s; display: flex; align-items: center; gap: 6px; flex: 1; }
 .fa-sidebar.open .fa-sb-group-toggle span { opacity: 1; }
 .fa-sb-group-chevron { margin-left: auto; transition: transform .2s; font-size: 10px; color: #3a5570; }
-.fa-sb-group-toggle.open .fa-sb-group-chevron { transform: rotate(180deg); color: #F0B429; }
+.fa-sb-group-toggle.open .fa-sb-group-chevron { transform: rotate(180deg); color: var(--gold); }
 .fa-sb-submenu { max-height: 0; overflow: hidden; transition: max-height .25s ease; }
 .fa-sb-submenu.open { max-height: 200px; }
 .fa-sb-sub-link {
@@ -147,8 +147,8 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
   white-space: nowrap; overflow: hidden;
   transition: all .15s; border-left: 2px solid transparent;
 }
-.fa-sb-sub-link:hover { color: #00d4ff; background: rgba(0,212,255,.05); border-left-color: rgba(0,212,255,.3); }
-.fa-sb-sub-link.active { color: #F0B429; border-left-color: #F0B429; background: rgba(240,180,41,.06); }
+.fa-sb-sub-link:hover { color: var(--accent); background: rgba(0,212,255,.05); border-left-color: rgba(0,212,255,.3); }
+.fa-sb-sub-link.active { color: var(--gold); border-left-color: var(--gold); background: rgba(240,180,41,.06); }
 .fa-sb-sub-link svg { flex-shrink: 0; }
 .fa-sb-sub-link span { opacity: 0; transition: opacity .15s; }
 .fa-sidebar.open .fa-sb-sub-link span { opacity: 1; }

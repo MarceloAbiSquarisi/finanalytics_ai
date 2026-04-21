@@ -24,7 +24,7 @@ body{background:var(--navy);color:var(--white);font-family:'Syne',sans-serif;ove
 .fa-sidebar.open{width:var(--sb-w)}
 .fa-sidebar-toggle{width:100%;padding:10px 14px;background:transparent;border:none;border-bottom:1px solid var(--border);color:#7a95b0;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;white-space:nowrap;overflow:hidden}
 .fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;text-decoration:none;font-size:15px;white-space:nowrap;overflow:hidden;transition:all .15s}
-.fa-sb-link:hover{color:#e2eaf4;background:rgba(0,212,255,.05)}
+.fa-sb-link:hover{color:var(--text-strong);background:rgba(0,212,255,.05)}
 .fa-sb-link.active{color:var(--gold);background:rgba(240,180,41,.08);border-right:2px solid var(--gold)}
 .fa-sb-link svg{flex-shrink:0}
 .fa-sb-link span{opacity:0;transition:opacity .15s}
@@ -70,7 +70,7 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 /* Saldo fluxo bar */
 .fluxo-wrap{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px}
 .fluxo-title{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;margin-bottom:8px}
-.fluxo-bar-bg{height:16px;background:#1c2535;border-radius:10px;overflow:hidden;position:relative}
+.fluxo-bar-bg{height:16px;background:var(--border);border-radius:10px;overflow:hidden;position:relative}
 .fluxo-bar-buy{position:absolute;left:50%;height:100%;border-radius:0 10px 10px 0;transition:width .3s}
 .fluxo-bar-sell{position:absolute;right:50%;height:100%;border-radius:10px 0 0 10px;transition:width .3s}
 .fluxo-labels{display:flex;justify-content:space-between;margin-top:4px;font-size:11px;font-family:'DM Mono',monospace}
@@ -80,12 +80,12 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 .tape-scroll{height:480px;overflow-y:auto;font-family:'DM Mono',monospace;font-size:13px}
 .tape-scroll::-webkit-scrollbar{width:4px}
 .tape-scroll::-webkit-scrollbar-track{background:#0a1220}
-.tape-scroll::-webkit-scrollbar-thumb{background:#1c2535;border-radius:2px}
+.tape-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 .trade-row{display:flex;align-items:center;gap:10px;padding:5px 8px;border-bottom:1px solid #141f2e;transition:background .1s}
 .trade-row:hover{background:rgba(255,255,255,.02)}
 .trade-row.buy{border-left:2px solid var(--green)}
 .trade-row.sell{border-left:2px solid var(--red)}
-.trade-row.direct{border-left:2px solid #1c2535}
+.trade-row.direct{border-left:2px solid var(--border)}
 .trade-time{font-size:11px;color:var(--muted);width:55px}
 .trade-side{width:18px;font-weight:800;font-size:13px}
 .side-C{color:var(--green)}
@@ -98,7 +98,7 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 .vol-profile{margin-top:12px}
 .vp-row{display:flex;align-items:center;gap:6px;margin-bottom:3px}
 .vp-price{font-size:11px;font-family:'DM Mono',monospace;color:var(--muted);width:55px;text-align:right}
-.vp-bar-wrap{flex:1;height:8px;background:#1c2535;border-radius:4px;overflow:hidden}
+.vp-bar-wrap{flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden}
 .vp-bar-c{height:100%;background:rgba(0,230,118,.6);float:left;border-radius:4px 0 0 4px}
 .vp-bar-v{height:100%;background:rgba(255,61,90,.6);float:left}
 .vp-vol{font-size:11px;font-family:'DM Mono',monospace;color:var(--muted);width:55px}

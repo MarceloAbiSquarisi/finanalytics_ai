@@ -23,7 +23,7 @@ body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-ser
 .fa-topbar{height:52px;background:var(--s1);border-bottom:1px solid var(--border);
   display:flex;align-items:center;gap:12px;padding:0 16px;position:sticky;top:0;z-index:300}
 .fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none}
-.fa-logo-text{font-family:monospace;font-size:17px;font-weight:600;color:#e2eaf4}
+.fa-logo-text{font-family:monospace;font-size:17px;font-weight:600;color:var(--text-strong)}
 .fa-logo-text em{color:var(--gold);font-style:normal}
 .fa-ai-badge{background:var(--gold);color:#0a1628;font-size:12px;font-weight:800;
   padding:1px 5px;border-radius:3px;letter-spacing:.08em;vertical-align:middle;margin-left:2px}
@@ -47,8 +47,8 @@ body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-ser
 .fa-sidebar-toggle svg{flex-shrink:0}
 .fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;
   text-decoration:none;font-size:16px;white-space:nowrap;overflow:hidden;transition:all .15s}
-.fa-sb-link:hover{color:#e2eaf4;background:rgba(0,212,255,.05)}
-.fa-sb-link.active{color:#F0B429;background:rgba(240,180,41,.08);border-right:2px solid #F0B429}
+.fa-sb-link:hover{color:var(--text-strong);background:rgba(0,212,255,.05)}
+.fa-sb-link.active{color:var(--gold);background:rgba(240,180,41,.08);border-right:2px solid var(--gold)}
 .fa-sb-link svg{flex-shrink:0}
 .fa-sb-link span{opacity:0;transition:opacity .15s}
 .fa-sidebar.open .fa-sb-link span{opacity:1}
@@ -56,7 +56,7 @@ body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-ser
 .fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1)}
 body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 .main{padding:24px;max-width:720px}
-.page-title{font-size:26px;font-weight:700;color:#e2eaf4;margin-bottom:4px}
+.page-title{font-size:26px;font-weight:700;color:var(--text-strong);margin-bottom:4px}
 .page-sub{font-size:15px;color:var(--muted);margin-bottom:24px}
 .card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px}
 .card-title{font-size:15px;font-weight:700;color:var(--gold);letter-spacing:.08em;
@@ -117,13 +117,13 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
   transition: all .15s; user-select: none;
   border: none; background: transparent; width: 100%;
 }
-.fa-sb-group-toggle:hover { color: #e2eaf4; background: rgba(240,180,41,.07); }
-.fa-sb-group-toggle.open { color: #F0B429; }
+.fa-sb-group-toggle:hover { color: var(--text-strong); background: rgba(240,180,41,.07); }
+.fa-sb-group-toggle.open { color: var(--gold); }
 .fa-sb-group-toggle svg { flex-shrink: 0; }
 .fa-sb-group-toggle span { opacity: 0; transition: opacity .15s; display: flex; align-items: center; gap: 6px; flex: 1; }
 .fa-sidebar.open .fa-sb-group-toggle span { opacity: 1; }
 .fa-sb-group-chevron { margin-left: auto; transition: transform .2s; font-size: 10px; color: #3a5570; }
-.fa-sb-group-toggle.open .fa-sb-group-chevron { transform: rotate(180deg); color: #F0B429; }
+.fa-sb-group-toggle.open .fa-sb-group-chevron { transform: rotate(180deg); color: var(--gold); }
 .fa-sb-submenu { max-height: 0; overflow: hidden; transition: max-height .25s ease; }
 .fa-sb-submenu.open { max-height: 200px; }
 .fa-sb-sub-link {
@@ -133,8 +133,8 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
   white-space: nowrap; overflow: hidden;
   transition: all .15s; border-left: 2px solid transparent;
 }
-.fa-sb-sub-link:hover { color: #00d4ff; background: rgba(0,212,255,.05); border-left-color: rgba(0,212,255,.3); }
-.fa-sb-sub-link.active { color: #F0B429; border-left-color: #F0B429; background: rgba(240,180,41,.06); }
+.fa-sb-sub-link:hover { color: var(--accent); background: rgba(0,212,255,.05); border-left-color: rgba(0,212,255,.3); }
+.fa-sb-sub-link.active { color: var(--gold); border-left-color: var(--gold); background: rgba(240,180,41,.06); }
 .fa-sb-sub-link svg { flex-shrink: 0; }
 .fa-sb-sub-link span { opacity: 0; transition: opacity .15s; }
 .fa-sidebar.open .fa-sb-sub-link span { opacity: 1; }

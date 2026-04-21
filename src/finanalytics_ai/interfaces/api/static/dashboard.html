@@ -326,7 +326,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .fa-logo svg{display:block}
 .fa-logo-text{font-family:'Georgia','Times New Roman',serif;font-size:21px;
   font-weight:700;color:#e8f4fd;white-space:nowrap;letter-spacing:-.3px}
-.fa-logo-text em{color:#F0B429;font-style:normal}
+.fa-logo-text em{color:var(--gold);font-style:normal}
 .fa-ai-badge{display:inline-block;background:#1B3A6B;color:#fff;
   font-family:'Arial',sans-serif;font-size:13px;font-weight:800;
   letter-spacing:1.5px;padding:2px 5px;border-radius:3px;vertical-align:middle;margin-left:2px}
@@ -394,8 +394,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 
 .rb-period { background: rgba(240,180,41,.08) !important; color: #b8860b !important; border-color: rgba(240,180,41,.2) !important; }
-.rb-period:hover { background: rgba(240,180,41,.16) !important; color: #F0B429 !important; }
-.rb-period.active-period { background: rgba(240,180,41,.22) !important; color: #F0B429 !important; border-color: rgba(240,180,41,.5) !important; font-weight:700; }
+.rb-period:hover { background: rgba(240,180,41,.16) !important; color: var(--gold) !important; }
+.rb-period.active-period { background: rgba(240,180,41,.22) !important; color: var(--gold) !important; border-color: rgba(240,180,41,.5) !important; font-weight:700; }
 
 
 /* ── Collapsible Sidebar ─────────────────────────────────── */
@@ -404,7 +404,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   position: fixed; left: 0; top: 52px; bottom: 0;
   width: var(--sb-w-collapsed);
   background: #0a0f18;
-  border-right: 1px solid #1c2535;
+  border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
   overflow: hidden;
   transition: width .22s cubic-bezier(.4,0,.2,1);
@@ -414,12 +414,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .fa-sidebar-toggle {
   width: 100%; padding: 10px 14px;
   background: transparent; border: none;
-  border-bottom: 1px solid #1c2535;
+  border-bottom: 1px solid var(--border);
   color: #7a95b0; cursor: pointer;
   display: flex; align-items: center; gap: 10px;
   font-size: 17px; white-space: nowrap; overflow: hidden;
 }
-.fa-sidebar-toggle:hover { color: #F0B429; background: rgba(240,180,41,.06); }
+.fa-sidebar-toggle:hover { color: var(--gold); background: rgba(240,180,41,.06); }
 .fa-sidebar-toggle svg { flex-shrink: 0; }
 .fa-sb-section { padding: 8px 0; border-bottom: 1px solid #141f2e; }
 .fa-sb-section-label {
@@ -436,8 +436,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   white-space: nowrap; overflow: hidden;
   transition: all .15s;
 }
-.fa-sb-link:hover { color: #e2eaf4; background: rgba(0,212,255,.05); }
-.fa-sb-link.active{color:#F0B429;background:rgba(240,180,41,.08);border-right:2px solid #F0B429}
+.fa-sb-link:hover { color: var(--text-strong); background: rgba(0,212,255,.05); }
+.fa-sb-link.active{color:var(--gold);background:rgba(240,180,41,.08);border-right:2px solid var(--gold)}
 .fa-sb-link svg { flex-shrink: 0; }
 .fa-sb-link span { opacity: 0; transition: opacity .15s; }
 .fa-sidebar.open .fa-sb-link span { opacity: 1; }
@@ -460,13 +460,13 @@ body.sb-open .fa-page-content { margin-left: var(--sb-w); }
   transition: all .15s; user-select: none;
   border: none; background: transparent; width: 100%;
 }
-.fa-sb-group-toggle:hover { color: #e2eaf4; background: rgba(240,180,41,.07); }
-.fa-sb-group-toggle.open { color: #F0B429; }
+.fa-sb-group-toggle:hover { color: var(--text-strong); background: rgba(240,180,41,.07); }
+.fa-sb-group-toggle.open { color: var(--gold); }
 .fa-sb-group-toggle svg { flex-shrink: 0; }
 .fa-sb-group-toggle span { opacity: 0; transition: opacity .15s; display: flex; align-items: center; gap: 6px; flex: 1; }
 .fa-sidebar.open .fa-sb-group-toggle span { opacity: 1; }
 .fa-sb-group-chevron { margin-left: auto; transition: transform .2s; font-size: 10px; color: #3a5570; }
-.fa-sb-group-toggle.open .fa-sb-group-chevron { transform: rotate(180deg); color: #F0B429; }
+.fa-sb-group-toggle.open .fa-sb-group-chevron { transform: rotate(180deg); color: var(--gold); }
 .fa-sb-submenu { max-height: 0; overflow: hidden; transition: max-height .25s ease; }
 .fa-sb-submenu.open { max-height: 200px; }
 .fa-sb-sub-link {
@@ -476,8 +476,8 @@ body.sb-open .fa-page-content { margin-left: var(--sb-w); }
   white-space: nowrap; overflow: hidden;
   transition: all .15s; border-left: 2px solid transparent;
 }
-.fa-sb-sub-link:hover { color: #00d4ff; background: rgba(0,212,255,.05); border-left-color: rgba(0,212,255,.3); }
-.fa-sb-sub-link.active { color: #F0B429; border-left-color: #F0B429; background: rgba(240,180,41,.06); }
+.fa-sb-sub-link:hover { color: var(--accent); background: rgba(0,212,255,.05); border-left-color: rgba(0,212,255,.3); }
+.fa-sb-sub-link.active { color: var(--gold); border-left-color: var(--gold); background: rgba(240,180,41,.06); }
 .fa-sb-sub-link svg { flex-shrink: 0; }
 .fa-sb-sub-link span { opacity: 0; transition: opacity .15s; }
 .fa-sidebar.open .fa-sb-sub-link span { opacity: 1; }
@@ -694,11 +694,11 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     <!-- Quick access (Sprint UX D — 21/abr) -->
     <style>
       .fa-quick{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px}
-      .fa-quick a{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;color:#cdd6e0;text-decoration:none;font-size:14px;font-weight:600;transition:.15s}
-      .fa-quick a:hover{background:rgba(0,212,255,.08);border-color:rgba(0,212,255,.3);color:#00d4ff;transform:translateY(-1px)}
+      .fa-quick a{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;color:var(--text);text-decoration:none;font-size:14px;font-weight:600;transition:.15s}
+      .fa-quick a:hover{background:rgba(0,212,255,.08);border-color:rgba(0,212,255,.3);color:var(--accent);transform:translateY(-1px)}
       .fa-quick a svg{flex-shrink:0;opacity:.7}
       .fa-quick a:hover svg{opacity:1}
-      .fa-quick a .badge-new{background:#F0B429;color:#0a1628;font-size:10px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.05em;margin-left:4px}
+      .fa-quick a .badge-new{background:var(--gold);color:#0a1628;font-size:10px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.05em;margin-left:4px}
     </style>
     <div class="fa-quick" id="fa-quick-bar">
       <a href="/portfolios" title="Gerenciar carteiras nomeadas (criar, renomear, desativar)">
