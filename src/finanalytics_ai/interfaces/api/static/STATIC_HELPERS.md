@@ -1,6 +1,6 @@
 # UI helpers compartilhados — `interfaces/api/static/`
 
-> **Sprint UI 21/abr/2026** — 22 assets globais consumidos pelas 39 páginas HTML.
+> **Sprint UI 21/abr/2026** — 23 assets globais consumidos pelas 39 páginas HTML.
 > Todos servidos via rota `/static/{filename}` (whitelist `.js`/`.css`/`.svg`/`.png`/`.ico` + `_ALLOWED_PARTIALS = {sidebar.html}`).
 
 ## Tabela de assets
@@ -22,6 +22,7 @@
 | `charts.js` | `FACharts.{apply,opts,palette,load}` | Chart.js defaults com cores do theme.css. Patch do construtor injeta scales/grid padrão. `load()` lazy-load via CDN |
 | `form_validate.js` | `FAForm.{validate,markError,clearErrors,showErrors,isEmail,isCpf,isUrl}` | Validação declarativa — regras `required`/`email`/`cpf`/`url`/`integer`/`number`/`min`/`max`/`regex`. Marca input + toast no primeiro erro |
 | `i18n.js` + `i18n_pt.json` + `i18n_en.json` | `FAI18n.{t,setLocale,getLocale,load,applyDOM}` | Scaffold i18n com 50+ chaves base (PT padrão, EN fallback). Auto-detect via `localStorage` > `navigator.language` > `<html lang>`. `data-i18n="key"` + `data-i18n-attr="placeholder:key"` |
+| `theme_toggle.js` | `FATheme.{get,set,toggle,injectButton}` | Toggle dark/light via `[data-theme="light"]` no `<html>`. Botão sol/lua na topbar, atalho `Cmd+Shift+L`, comando no FAPalette. FOUC prevenido por snippet inline no `<head>` antes do `theme.css` |
 | `onboarding.js` | `FAOnboarding.{start,dismiss}` | Wizard 3 etapas (welcome → criar portfolio → tour); auto-start em `/dashboard` na 1ª visita (`fa_onboarded`) |
 | `breadcrumbs.js` | `FABreadcrumbs.{render,set}` | Breadcrumbs no topo do `.main` baseado em `PATH_MAP` (40 rotas → secção/label) |
 | `command_palette.js` | `FAPalette.{open,close,register}` | Modal Cmd+K / `/` com busca fuzzy em 40 páginas + 3 ações |
@@ -159,6 +160,24 @@ try { ... } catch (e) { FAErr.handle(e, 'loadPortfolios'); }
 ```
 
 Throttling: mesma mensagem em janela de 3s não re-toasta.
+
+### Theme toggle (light/dark)
+
+```js
+FATheme.toggle();              // alterna
+FATheme.set('light');          // força light
+FATheme.get();                 // 'light' | 'dark'
+```
+
+Atalho `Cmd/Ctrl + Shift + L`. Botão sol/lua aparece na topbar (à esquerda do logout). Persiste em `localStorage.fa_theme`.
+
+**FOUC prevention** — adicione no `<head>` ANTES do `theme.css`:
+```html
+<script>(function(){try{var t=localStorage.getItem('fa_theme');
+  if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script>
+```
+
+**Limitação conhecida**: páginas com cores hardcoded (`#0d1117`, `#cdd6e0`, etc) em `<style>` local continuam dark mesmo no modo claro. Migração para `var(--xxx)` é gradual.
 
 ### Loading skeletons
 

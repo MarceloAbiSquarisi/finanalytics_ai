@@ -60,8 +60,50 @@
   --font-mono:  'DM Mono','JetBrains Mono',monospace;
 }
 
-/* Escopo futuro: light theme via class no body */
-/* body.theme-light { --bg: #f5f7fa; ... } */
+/* ───────────────────────────────────────────────────────────────────
+ * Sprint UI O (21/abr/2026) — Light theme via [data-theme="light"]
+ *
+ * Apenas overrides das vars CSS de :root. Componentes que usam
+ * var(--xxx) reagem automaticamente. Paginas com cores hardcoded
+ * (~60 paginas) continuam dark — migracao gradual fora de escopo
+ * desta sprint.
+ *
+ * Toggle via theme_toggle.js: FATheme.toggle()/set('light'|'dark').
+ * Persiste em localStorage 'fa_theme'; aplica data-theme no <html>
+ * antes do paint para evitar flash dark>light.
+ * ──────────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg:         #f5f7fa;
+  --s1:         #ffffff;
+  --s2:         #eef2f6;
+  --s3:         #e4e9ef;
+
+  --border:     #d1d8e0;
+  --border2:    #b8c2cc;
+
+  --text:       #1a2332;
+  --muted:      #6a7a8a;
+  --text-strong:#0a1628;
+
+  /* Accent ajustado para contraste WCAG AA em fundo claro */
+  --accent:     #0073a8;   /* cyan mais escuro */
+  --blue:       #0066cc;
+  --green:      #008a3d;
+  --red:        #c8243a;
+  --gold:       #b8860b;   /* darkgoldenrod */
+  --yellow:     #b8860b;
+  --orange:     #d97706;
+  --purple:     #7c3aed;
+}
+
+/* Theme-color do browser (status bar mobile) — fallback,
+   theme_toggle.js troca dinamicamente */
+[data-theme="light"] {
+  color-scheme: light;
+}
+:root {
+  color-scheme: dark;
+}
 
 /* ───────────────────────────────────────────────────────────────────
  * Sprint UI H (21/abr/2026) — Print stylesheet
