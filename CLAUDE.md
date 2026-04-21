@@ -269,7 +269,8 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 13. ~~Investment accounts spec (titular/CPF/apelido) + master CRUD~~ — **DONE 20/abr** (incluindo validação CPF DV, FK portfolio NOT NULL/RESTRICT)
 14. ~~Prometheus + Grafana versionados em docker/~~ — **DONE 20/abr** (provisioning, removeu `docker run` manual)
 15. ~~GPU compute em container (torch+cu124)~~ — **DONE 21/abr** (api/worker/worker_v2 com `cuda.is_available()=True`)
-16. Aguardando arquivo Nelogica 1m (~2 dias) → rodar `runbook_import_dados_historicos.md`
+16. ~~Sprint U8 — Hub frontend + observabilidade~~ — **DONE 21/abr** (cleanup scheduler 23h BRT + correlation_id Kafka cross-service + 3 painéis Grafana dead_letter)
+17. Aguardando arquivo Nelogica 1m (~2 dias) → rodar `runbook_import_dados_historicos.md`
 
 ## Decisões Arquiteturais (Imutáveis)
 
