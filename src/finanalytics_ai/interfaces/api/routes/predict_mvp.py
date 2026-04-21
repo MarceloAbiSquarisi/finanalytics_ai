@@ -554,3 +554,105 @@ async def signal_history_changes(
         for r in rows
     ]
 
+
+# ─── /metrics — saude do pipeline ML (Sprint V2, 21/abr) ──────────────────
+
+class MLMetrics(BaseModel):
+    config_count: int = Field(..., description="Linhas em ticker_ml_config")
+    pickle_count: int = Field(..., description="Pickles MVP h21 disponiveis em models/")
+    drift_count: int = Field(..., description="Tickers calibrados sem pickle (config - pickle)")
+    drift_tickers: list[str] = Field(default_factory=list, description="Ate 10 tickers em drift")
+    last_calibration_at: str | None = Field(None, description="ticker_ml_config.MAX(updated_at) ISO")
+    last_snapshot_at: str | None = Field(None, description="signal_history.MAX(snapshot_date) ISO")
+    snapshot_age_days: int | None = Field(None, description="Dias desde o ultimo snapshot")
+    latest_pickle_age_days: int | None = Field(None, description="Idade do pickle mais recente em models/")
+    signals_24h: dict[str, int] = Field(default_factory=dict, description="Contagem BUY/SELL/HOLD nas ultimas 24h em signal_history")
+
+
+@router.get("/metrics", response_model=MLMetrics)
+async def ml_metrics() -> MLMetrics:
+    """Saude do pipeline ML — drift de modelos, freshness de calibracao
+    e snapshot, distribuicao de signals recentes.
+
+    Util para Grafana (ml_calibration_age_days alertable),
+    smoke test pos-deploy, e detectar regressoes silenciosas.
+    """
+    import os as _os
+    from datetime import datetime as _dt, timezone as _tz
+
+    dsn = (
+        _os.environ.get("TIMESCALE_URL")
+        or _os.environ.get("PROFIT_TIMESCALE_DSN")
+        or "postgresql://finanalytics:timescale_secret@localhost:5433/market_data"
+    ).replace("postgresql+asyncpg://", "postgresql://")
+
+    # ── Pickles em disco ──
+    pickle_files = sorted(MODELS_DIR.glob("petr4_mvp_*.pkl"))
+    pickle_tickers = set()
+    latest_mtime = None
+    for p in pickle_files:
+        # Nome: petr4_mvp_<TICKER>_<HORIZON>_<TIMESTAMP>.pkl
+        parts = p.stem.split("_")
+        if len(parts) >= 3:
+            pickle_tickers.add(parts[2].upper())
+        try:
+            mt = p.stat().st_mtime
+            if latest_mtime is None or mt > latest_mtime:
+                latest_mtime = mt
+        except OSError:
+            continue
+    pickle_count = len(pickle_tickers)
+    latest_pickle_age_days = None
+    if latest_mtime is not None:
+        latest_pickle_age_days = max(
+            0, int((_dt.now().timestamp() - latest_mtime) // 86400)
+        )
+
+    # ── Config + signal history em DB ──
+    try:
+        with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
+            cur.execute("SELECT ticker FROM ticker_ml_config")
+            config_tickers = {r[0].upper() for r in cur.fetchall()}
+
+            cur.execute(
+                "SELECT MAX(calibrated_at) FROM ticker_ml_config"
+            )
+            last_calib = cur.fetchone()[0]
+
+            cur.execute("SELECT MAX(snapshot_date) FROM signal_history")
+            last_snap = cur.fetchone()[0]
+
+            # Distribuicao de signals do snapshot mais recente
+            cur.execute(
+                "SELECT signal, COUNT(*) FROM signal_history "
+                "WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM signal_history) "
+                "GROUP BY signal"
+            )
+            signals_24h = {r[0]: int(r[1]) for r in cur.fetchall()}
+    except Exception as exc:
+        log.warning("ml_metrics.db_error", error=str(exc))
+        config_tickers = set()
+        last_calib = None
+        last_snap = None
+        signals_24h = {}
+
+    drift = sorted(config_tickers - pickle_tickers)
+    snapshot_age = None
+    if last_snap is not None:
+        try:
+            snapshot_age = (_dt.now(_tz.utc).date() - last_snap).days
+        except Exception:
+            snapshot_age = None
+
+    return MLMetrics(
+        config_count=len(config_tickers),
+        pickle_count=pickle_count,
+        drift_count=len(drift),
+        drift_tickers=drift[:10],
+        last_calibration_at=last_calib.isoformat() if last_calib else None,
+        last_snapshot_at=last_snap.isoformat() if last_snap else None,
+        snapshot_age_days=snapshot_age,
+        latest_pickle_age_days=latest_pickle_age_days,
+        signals_24h=signals_24h,
+    )
+

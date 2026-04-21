@@ -650,7 +650,14 @@ class DBWriter:
             cur.execute("SELECT 1")
             cur.close()
             return True
-        except Exception:
+        except Exception as exc:
+            # V1 fix (Sprint V1, 21/abr): logar disconnect detectado.
+            # Throttle: 1 log a cada 60s para nao spammar quando DB cair.
+            now = time.time()
+            last = getattr(self, "_last_disconnect_log", 0)
+            if now - last > 60:
+                log.warning("db.is_connected.failed reason=%s", exc)
+                self._last_disconnect_log = now
             self._conn = None
             return False
 
@@ -1692,9 +1699,13 @@ class ProfitAgent:
 
                     log.info("TICK_V1 ticker=%s price=%s qty=%s", ticker, price, qty)
 
-            except Exception:
+            except Exception as exc:
 
-                pass
+                # V1 fix (Sprint V1, 21/abr): warn em vez de pass silencioso.
+                # Throttle: 1 log por 1000 ticks com erro para evitar spam.
+                self._tick_v1_errors = getattr(self, "_tick_v1_errors", 0) + 1
+                if self._tick_v1_errors % 1000 == 1:
+                    log.warning("TICK_V1 callback error (count=%d): %s", self._tick_v1_errors, exc)
 
 
 
@@ -2618,9 +2629,15 @@ class ProfitAgent:
 
                     vd = datetime.strptime(valid_date[:10], "%d/%m/%Y").date()
 
-                except Exception:
+                except Exception as exc:
 
-                    pass
+                    # V1 fix (Sprint V1, 21/abr): debug em vez de pass.
+                    # Throttle: 1 log por 100 erros para evitar spam de
+                    # asset com formato de data inesperado.
+                    agent._asset_date_errors = getattr(agent, "_asset_date_errors", 0) + 1
+                    if agent._asset_date_errors % 100 == 1:
+                        log.debug("asset valid_date parse error (count=%d, raw=%r): %s",
+                                  agent._asset_date_errors, valid_date, exc)
 
             try:
 

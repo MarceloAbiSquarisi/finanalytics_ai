@@ -1,0 +1,44 @@
+# Grafana Alerting — contact points (Sprint V3, 21/abr/2026)
+#
+# Provisiona contact points reproduziveis. Definir Slack webhook em
+# .env como GRAFANA_SLACK_WEBHOOK; se vazio, alertas vao apenas para
+# o painel de notificacoes interno (UI Grafana > Alerting > History).
+#
+# Doc: https://grafana.com/docs/grafana/latest/alerting/set-up/provision-alerting-resources/
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: default-internal
+    receivers:
+      - uid: default-internal
+        type: email
+        # Email desabilitado por padrao (sem SMTP). Mantem o receiver
+        # presente para que rules apontem para "default-internal" sem
+        # quebrar — alertas aparecem em /alerting/list mesmo sem envio.
+        settings:
+          addresses: ${GRAFANA_ALERT_EMAIL:-disabled@local}
+          singleEmail: false
+        disableResolveMessage: false
+
+  - orgId: 1
+    name: slack-ops
+    receivers:
+      - uid: slack-ops
+        type: slack
+        settings:
+          # Webhook URL via env var. Vazio => Grafana noop (log warning).
+          url: ${GRAFANA_SLACK_WEBHOOK:-}
+          recipient: ${GRAFANA_SLACK_CHANNEL:-#alerts}
+          username: FinAnalytics Grafana
+          title: |
+            {{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} {{ .CommonLabels.alertname }}
+          text: |
+            *Status*: {{ .Status }}
+            *Severity*: {{ .CommonLabels.severity | default "info" }}
+            {{ range .Alerts -}}
+            • {{ .Annotations.summary }}
+              {{ if .Annotations.runbook_url }}runbook: {{ .Annotations.runbook_url }}{{ end }}
+              value: `{{ .ValueString }}`
+            {{ end }}
+        disableResolveMessage: false

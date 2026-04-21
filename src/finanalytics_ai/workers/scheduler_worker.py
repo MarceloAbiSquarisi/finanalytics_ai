@@ -60,6 +60,16 @@ CLEANUP_DEAD_LETTER_RETENTION_DAYS = int(
     os.environ.get("EVENT_CLEANUP_DEAD_LETTER_RETENTION_DAYS", "30")
 )
 
+# V4 (21/abr/2026): reconciliacao automatica posicoes DLL <-> DB.
+# Roda a cada N minutos dentro da janela de pregao (10h-18h BRT).
+# Chama GET /positions/dll no profit_agent — handler ja faz o UPDATE
+# em profit_orders quando ordens DLL diferem do DB.
+RECONCILE_ENABLED = os.environ.get("SCHEDULER_RECONCILE_ENABLED", "true").lower() == "true"
+RECONCILE_START_HOUR = int(os.environ.get("SCHEDULER_RECONCILE_START_HOUR", "10"))   # 10:00 BRT
+RECONCILE_END_HOUR = int(os.environ.get("SCHEDULER_RECONCILE_END_HOUR", "18"))       # 18:00 BRT
+RECONCILE_INTERVAL_MIN = int(os.environ.get("SCHEDULER_RECONCILE_INTERVAL_MIN", "5"))
+PROFIT_AGENT_URL = os.environ.get("PROFIT_AGENT_URL", "http://host.docker.internal:8002")
+
 # ── Logger ────────────────────────────────────────────────────────────────────
 structlog.configure(
     processors=[
@@ -491,6 +501,52 @@ async def cleanup_event_records_job() -> dict:
         return {"status": "error", "error": str(exc)}
 
 
+async def reconcile_job() -> dict[str, Any]:
+    """V4 (21/abr): chama GET /positions/dll no profit_agent.
+
+    O handler enumera ordens via DLL e faz UPDATE em profit_orders
+    quando status divergem (idempotente). Loga divergencias para
+    Prometheus alertar (futuro: contador profit_agent_reconcile_diff).
+
+    Skip silencioso fora da janela de pregao para evitar tentativas
+    quando profit_agent pode estar offline. Usuario pode forcar
+    via /positions/dll no UI.
+    """
+    now_utc = datetime.now(UTC)
+    local_hour = (now_utc.hour + TZ_OFFSET) % 24  # UTC + (-3) = BRT
+    if not _is_weekday():
+        return {"status": "skip", "reason": "weekend"}
+    if not (RECONCILE_START_HOUR <= local_hour < RECONCILE_END_HOUR):
+        return {"status": "skip", "reason": "outside_market_hours", "local_hour": local_hour}
+
+    try:
+        import aiohttp
+
+        async with aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=15),
+        ) as session:
+            url = f"{PROFIT_AGENT_URL}/positions/dll"
+            async with session.get(url) as resp:
+                if resp.status != 200:
+                    txt = await resp.text()
+                    logger.warning(
+                        "scheduler.reconcile.http_error",
+                        status=resp.status,
+                        body=txt[:200],
+                    )
+                    return {"status": "error", "http_status": resp.status}
+                data = await resp.json()
+        n_orders = len(data.get("orders", [])) if isinstance(data, dict) else 0
+        logger.info("scheduler.reconcile.done", orders=n_orders)
+        return {"status": "ok", "orders": n_orders}
+
+    except Exception as exc:
+        # profit_agent pode estar offline — logar warning, nao error,
+        # para nao spammar Sentry/alertas durante restart do agent.
+        logger.warning("scheduler.reconcile.failed", error=str(exc))
+        return {"status": "error", "error": str(exc)}
+
+
 async def run_once() -> None:
     """Executa ambos os jobs uma única vez e sai."""
     logger.info(
@@ -500,6 +556,7 @@ async def run_once() -> None:
         fintz_bulk=FINTZ_BULK_ENABLED,
         brapi_sync=BRAPI_SYNC_ENABLED,
         cleanup=CLEANUP_ENABLED,
+        reconcile=RECONCILE_ENABLED,
     )
     if MACRO_ENABLED:
         await macro_job()
@@ -511,6 +568,8 @@ async def run_once() -> None:
         await brapi_sync_job()
     if CLEANUP_ENABLED:
         await cleanup_event_records_job()
+    if RECONCILE_ENABLED:
+        await reconcile_job()
     logger.info("scheduler.run_once.done")
 
 
@@ -576,6 +635,20 @@ async def schedule_loop() -> None:
             await asyncio.sleep(wait)
             await cleanup_event_records_job()
 
+    async def reconcile_loop() -> None:
+        # V4: interval-based em vez de daily — roda a cada N min,
+        # silenciosamente skippa fora do pregao via reconcile_job().
+        interval_s = max(60, RECONCILE_INTERVAL_MIN * 60)
+        logger.info(
+            "scheduler.reconcile.start",
+            interval_min=RECONCILE_INTERVAL_MIN,
+            window=f"{RECONCILE_START_HOUR}h-{RECONCILE_END_HOUR}h BRT",
+            agent=PROFIT_AGENT_URL,
+        )
+        while True:
+            await reconcile_job()
+            await asyncio.sleep(interval_s)
+
     tasks: list[asyncio.Task[None]] = []
     if MACRO_ENABLED:
         tasks.append(asyncio.create_task(macro_loop()))
@@ -583,9 +656,11 @@ async def schedule_loop() -> None:
         tasks.append(asyncio.create_task(ohlcv_loop()))
     if CLEANUP_ENABLED:
         tasks.append(asyncio.create_task(cleanup_loop()))
+    if RECONCILE_ENABLED:
+        tasks.append(asyncio.create_task(reconcile_loop()))
 
     if not tasks:
-        logger.warning("scheduler.loop.no_jobs", hint="Set SCHEDULER_MACRO_ENABLED or SCHEDULER_OHLCV_ENABLED or SCHEDULER_CLEANUP_ENABLED=true")
+        logger.warning("scheduler.loop.no_jobs", hint="Set SCHEDULER_MACRO_ENABLED or SCHEDULER_OHLCV_ENABLED or SCHEDULER_CLEANUP_ENABLED or SCHEDULER_RECONCILE_ENABLED=true")
         return
 
     await asyncio.gather(*tasks)

@@ -1,0 +1,173 @@
+# Grafana Alerting — rule definitions (Sprint V3, 21/abr/2026)
+#
+# Cinco regras pinadas a metricas Prometheus que ja existem no app:
+#
+#  1. high_dead_letter_rate     — dead_letter_total cresce > 0.1/s
+#                                 em janela de 5m (eventos sendo
+#                                 movidos para DLQ — investigacao
+#                                 manual recomendada).
+#  2. di1_kafka_errors          — di1_worker_kafka_errors_total > 0
+#                                 em janela de 5m (publisher do
+#                                 worker DI1 falhando).
+#  3. profit_agent_db_disconnect — profit_agent_db_connected == 0
+#                                 por 2m (DLL desconectou do
+#                                 broker; ordens nao executam).
+#  4. di1_tick_age_high         — di1_worker_last_tick_age_seconds
+#                                 > 120s por 3m em horario de pregao
+#                                 (worker silencioso).
+#  5. probe_duration_spike      — p95 das probe_duration_seconds
+#                                 > 5s em janela de 10m (latencia
+#                                 da DLL anormal).
+#
+# Severidades: 1+3+4 = critical (vai para Slack). 2+5 = warning
+# (apenas painel interno).
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: finanalytics-core
+    folder: FinAnalytics
+    interval: 1m
+    rules:
+      # ── 1. Dead-letter spike ──
+      - uid: alert-dead-letter-rate
+        title: high_dead_letter_rate
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: PBFA97CFB590B2093  # Prometheus default uid
+            model:
+              editorMode: code
+              expr: 'sum(rate(finanalytics_dead_letter_total[5m])) > 0.1'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: 'Dead-letter rate > 0.1 evt/s nos ultimos 5min'
+          description: 'Eventos estao sendo movidos para DLQ. Verifique /hub events.'
+          runbook_url: 'https://github.com/MarceloAbiSquarisi/finanalytics_ai/blob/master/docs/runbook_dead_letter.md'
+        labels:
+          severity: critical
+          team: ops
+
+      # ── 2. DI1 Kafka publisher errors ──
+      - uid: alert-di1-kafka-errors
+        title: di1_kafka_errors
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              editorMode: code
+              expr: 'increase(di1_worker_kafka_errors_total[5m]) > 0'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: 'DI1 worker tem erros publicando no Kafka'
+          description: 'Verifique logs do container di1_worker.'
+        labels:
+          severity: warning
+          team: data
+
+      # ── 3. profit_agent DB disconnected ──
+      - uid: alert-profit-agent-db-down
+        title: profit_agent_db_disconnect
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 180
+              to: 0
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              editorMode: code
+              expr: 'profit_agent_db_connected == 0'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: 'profit_agent reporta DB desconectado'
+          description: 'DLL nao esta enviando ordens — verifique conexao Nelogica.'
+          runbook_url: 'https://github.com/MarceloAbiSquarisi/finanalytics_ai/blob/master/docs/runbook_profit_agent.md'
+        labels:
+          severity: critical
+          team: trading
+
+      # ── 4. DI1 tick age elevado durante pregao ──
+      - uid: alert-di1-tick-age
+        title: di1_tick_age_high
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              editorMode: code
+              # > 120s sem tick (worker congelou ou broker mudo).
+              # Sem horario filter — false-positive fora do pregao
+              # eh tolerado; deixar dispara durante feriados/madrugada.
+              expr: 'di1_worker_last_tick_age_seconds > 120'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+        noDataState: OK
+        execErrState: Error
+        for: 3m
+        annotations:
+          summary: 'Sem ticks DI1 ha mais de 2min'
+          description: 'di1_worker pode estar congelado ou broker desconectado.'
+        labels:
+          severity: critical
+          team: data
+
+      # ── 5. Probe duration spike ──
+      - uid: alert-probe-duration
+        title: probe_duration_spike
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              editorMode: code
+              expr: |
+                histogram_quantile(0.95,
+                  rate(profit_agent_probe_duration_seconds_bucket[10m])
+                ) > 5
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: 'P95 probe duration DLL > 5s em 10min'
+          description: 'Latencia da DLL elevada — verifique CPU host Windows.'
+        labels:
+          severity: warning
+          team: ops
