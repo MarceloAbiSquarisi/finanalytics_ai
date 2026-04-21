@@ -153,13 +153,21 @@ Auditoria de 26 paginas pouco visitadas. Top 3 problemas:
 
 - [x] **alert() calls** em 11 paginas (29 chamadas) — **DONE** (bulk
       replace por FAToast.err + toast.js garantido).
-- [ ] **Empty CTAs sem botao visivel** em 13 paginas: watchlist,
+- [~] **Empty CTAs sem botao visivel** em 13 paginas: infra criada
+      (commit abaixo — `empty_state.js` com FAEmpty.render/tableRow),
+      aplicado em **watchlist** como exemplo. Faltam aplicar case-by-case:
       screener, fundamental, anomaly, sentiment, backtest, performance,
-      crypto, dividendos, diario, laminas, daytrade_setups, whatsapp.
-      Mostram "Nenhum X..." sem botao CTA ao lado. Fix case-by-case:
-      identificar acao principal de cada pagina (ex: "+ Adicionar
-      watchlist", "+ Nova entrada diario") e injetar botao no empty
-      state. ~1.5h para todas.
+      crypto, dividendos, diario, laminas, daytrade_setups, whatsapp
+      (~5min por pagina). Padrao:
+      ```js
+      if (!list.length) {
+        FAEmpty.render(container, {
+          title: 'Nenhum X', text: 'Explicacao curta',
+          cta: {label: '+ Novo X', onClick: 'acao()', variant: 'primary'}
+        });
+        return;
+      }
+      ```
 - [ ] **Tickers hardcoded em JS** (10 paginas, pior: optimizer 5,
       var/tape 4, backtest/ml/dividendos 3): impede reutilizacao e
       dificulta manutencao. Refatorar para carregar de watchlist

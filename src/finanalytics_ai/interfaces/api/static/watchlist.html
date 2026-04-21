@@ -499,7 +499,15 @@ function renderList() {
   document.getElementById('wl-count').textContent = `${watchlistData.length}/50`;
 
   if (!watchlistData.length) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">📋</div>Lista vazia. Adicione um ticker acima.</div>`;
+    FAEmpty.render(el, {
+      title: 'Watchlist vazia',
+      text: 'Acompanhe tickers sem precisar abrir a carteira. Use o campo acima para adicionar o primeiro.',
+      cta: {
+        label: 'Focar campo de busca',
+        variant: 'primary',
+        onClick: "document.getElementById('wl-input')?.focus()"
+      }
+    });
     return;
   }
 
@@ -864,6 +872,7 @@ function faLogout() {
 </div><!-- /fa-page-content -->
 <script src="/static/sidebar.js"></script>
 <script src="/static/toast.js"></script>
+<script src="/static/empty_state.js"></script>
 <script src="/static/notifications.js"></script>
 </body>
 </html>
