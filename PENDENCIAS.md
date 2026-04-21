@@ -147,12 +147,12 @@ ETA 3-5 dias wall-clock, competindo com I/O concorrente).
 
 ---
 
-## 5. Sprint U8 — Hub frontend + observabilidade
+## 5. Sprint U8 — Hub frontend + observabilidade [DONE 21/abr/2026]
 
-- [ ] Cards dead-letter/failed na pagina `/hub` com botao "Reprocessar"
-- [ ] Metrica Prometheus `finanalytics_dead_letter_total` no Grafana
-- [ ] Cleanup job: DELETE `event_records` WHERE status = `completed` AND age > N dias
-- [ ] `correlation_id` propagado no tracing cross-service
+- [x] Cards dead-letter/failed na pagina `/hub` com botao "Reprocessar" — ja existia (`hub.html` + `POST /hub/events/{id}/reprocess`)
+- [x] Metrica Prometheus `finanalytics_dead_letter_total` no Grafana — paineis 15/16 em `data_quality.json` (commit `f8ccd89`)
+- [x] Cleanup job: DELETE `event_records` WHERE status terminal AND age > N — `cleanup_event_records_job` no scheduler 23:00 BRT (commit `aab3895`)
+- [x] `correlation_id` propagado no tracing cross-service — Kafka producer injeta header + consumer extrai + worker_v2 usa payload.cid (commit `0af1972`)
 
 ---
 
@@ -199,7 +199,7 @@ ETA 3-5 dias wall-clock, competindo com I/O concorrente).
 | 2. Nelogica DLL | 5 | Aguardando resposta |
 | 3. Bugs/bypasses | 0 | DONE |
 | 4. Sprint U7 | 0 | DONE |
-| 5. Sprint U8 | 4 | Proxima sprint |
+| 5. Sprint U8 | 0 | DONE |
 | 6. Multi-conta | 4 | Sprint dedicada |
 | 7. Backfill | 2 | Scripts prontos |
 | 8. Organizacao | 0 | DONE |
