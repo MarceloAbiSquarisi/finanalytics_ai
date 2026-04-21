@@ -246,6 +246,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     <button class="tab active" onclick="switchTab('overview')">📈 Overview</button>
     <button class="tab" onclick="switchTab('compare')">⚖️ Comparativo</button>
     <button class="tab" onclick="switchTab('catalog')">📚 Catálogo</button>
+    <button class="tab" onclick="switchTab('rebalance')">🔄 Rebalancer</button>
 </div>
 
   <!-- Overview -->
@@ -330,6 +331,48 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 </div>
 </div>
 </div>
+
+  <!-- Rebalancer (Sprint UX A — 21/abr) -->
+  <div id="tab-rebalance" class="tab-panel">
+    <div class="detail-panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:18px;font-weight:700;color:var(--text)">Rebalanceamento de Carteira</div>
+          <div style="font-size:14px;color:var(--muted);margin-top:2px">Calcula COMPRAR / VENDER / MANTER por ticker para atingir os pesos alvo.</div>
+        </div>
+        <button onclick="rbAddRow()" style="background:rgba(58,191,248,.1);border:1px solid rgba(58,191,248,.3);border-radius:5px;color:var(--blue);font-size:14px;font-weight:700;padding:5px 12px;cursor:pointer">+ Adicionar linha</button>
+      </div>
+      <table class="metrics-table" id="rb-table">
+        <thead>
+          <tr>
+            <th>Ticker</th>
+            <th>Valor atual (R$)</th>
+            <th>Peso alvo (%)</th>
+            <th style="width:60px"></th>
+          </tr>
+        </thead>
+        <tbody id="rb-tbody"></tbody>
+      </table>
+      <div style="display:flex;gap:14px;align-items:end;margin-top:14px;flex-wrap:wrap">
+        <div>
+          <label style="display:block;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Aporte novo (R$, opcional)</label>
+          <input type="number" id="rb-contribution" step="0.01" min="0" placeholder="0" style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:15px;padding:6px 10px;width:170px">
+        </div>
+        <button onclick="rbCalculate()" id="rb-calc-btn" style="background:linear-gradient(135deg,#00a8cc,#3ABFF8);border:none;border-radius:5px;color:#0a1628;font-size:15px;font-weight:700;padding:8px 18px;cursor:pointer">Calcular</button>
+        <span id="rb-sum-info" style="font-size:13px;color:var(--muted);font-family:monospace"></span>
+      </div>
+      <div id="rb-result" style="margin-top:18px;display:none">
+        <div style="font-size:15px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Acoes recomendadas</div>
+        <table class="metrics-table" id="rb-result-table">
+          <thead>
+            <tr><th>Ticker</th><th>Acao</th><th>Valor (R$)</th><th>Peso atual</th><th>Peso alvo</th></tr>
+          </thead>
+          <tbody id="rb-result-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+</div>
+
 </div>
 </div>
 
@@ -349,11 +392,109 @@ var _cmpChart = null;
 var _compareList = [];
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
+const TAB_ORDER = ['overview','compare','catalog','rebalance'];
 function switchTab(t) {
-  document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', ['overview','compare','catalog'][i]===t));
+  document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', TAB_ORDER[i]===t));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-'+t).classList.add('active');
   if(t==='catalog') loadCatalog();
+  if(t==='rebalance' && document.getElementById('rb-tbody').children.length === 0) {
+    rbAddRow(); rbAddRow();  // 2 linhas iniciais
+  }
+}
+
+// ── Rebalancer ────────────────────────────────────────────────────────────────
+function rbAddRow(ticker = '', current = '', weight = '') {
+  const tbody = document.getElementById('rb-tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" value="${ticker}" maxlength="10" placeholder="BOVA11" style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:14px;padding:5px 8px;width:120px;text-transform:uppercase;font-family:monospace" oninput="this.value=this.value.toUpperCase();rbUpdateSum()"></td>
+    <td><input type="number" value="${current}" step="0.01" min="0" placeholder="0" style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:14px;padding:5px 8px;width:140px" oninput="rbUpdateSum()"></td>
+    <td><input type="number" value="${weight}" step="0.01" min="0" max="100" placeholder="0" style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:14px;padding:5px 8px;width:90px" oninput="rbUpdateSum()"></td>
+    <td><button onclick="this.closest('tr').remove();rbUpdateSum()" style="background:transparent;border:1px solid rgba(224,85,85,.3);border-radius:4px;color:#E05555;font-size:13px;padding:4px 8px;cursor:pointer">×</button></td>`;
+  tbody.appendChild(tr);
+  rbUpdateSum();
+}
+
+function rbUpdateSum() {
+  const rows = document.querySelectorAll('#rb-tbody tr');
+  let sumValue = 0, sumWeight = 0, count = 0;
+  rows.forEach(tr => {
+    const inputs = tr.querySelectorAll('input');
+    const v = parseFloat(inputs[1].value) || 0;
+    const w = parseFloat(inputs[2].value) || 0;
+    sumValue += v;
+    sumWeight += w;
+    if (inputs[0].value.trim()) count++;
+  });
+  document.getElementById('rb-sum-info').textContent =
+    `${count} tickers · valor total R$ ${sumValue.toLocaleString('pt-BR',{minimumFractionDigits:2})} · soma pesos ${sumWeight.toFixed(1)}%`;
+}
+
+async function rbCalculate() {
+  const rows = document.querySelectorAll('#rb-tbody tr');
+  const positions = [];
+  const target_weights = {};
+  let weightSum = 0;
+  rows.forEach(tr => {
+    const inputs = tr.querySelectorAll('input');
+    const ticker = inputs[0].value.trim().toUpperCase();
+    const current = parseFloat(inputs[1].value) || 0;
+    const weight = parseFloat(inputs[2].value) || 0;
+    if (!ticker) return;
+    positions.push({ ticker, current_value: current });
+    target_weights[ticker] = weight;
+    weightSum += weight;
+  });
+  if (positions.length < 2) { alert('Adicione pelo menos 2 tickers.'); return; }
+  if (Math.abs(weightSum - 100) > 0.5) {
+    if (!confirm(`Soma dos pesos = ${weightSum.toFixed(1)}% (esperado 100%). Continuar mesmo assim?`)) return;
+  }
+  const new_contribution = parseFloat(document.getElementById('rb-contribution').value) || 0;
+  const btn = document.getElementById('rb-calc-btn');
+  btn.disabled = true; const oldText = btn.textContent; btn.textContent = '...';
+  try {
+    const r = await fetch('/api/v1/etf/rebalance', {
+      method: 'POST', headers: H(),
+      body: JSON.stringify({ positions, target_weights, new_contribution })
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || ('HTTP ' + r.status));
+    }
+    const data = await r.json();
+    rbRenderResult(data);
+  } catch (e) {
+    alert('Falha: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = oldText;
+  }
+}
+
+function rbRenderResult(data) {
+  const out = document.getElementById('rb-result');
+  const tb = document.getElementById('rb-result-tbody');
+  const actions = data.actions || data.recommendations || [];
+  if (!actions.length) {
+    tb.innerHTML = '<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:14px">Sem acoes recomendadas.</td></tr>';
+    out.style.display = 'block';
+    return;
+  }
+  tb.innerHTML = actions.map(a => {
+    const action = (a.action || '').toUpperCase();
+    const color = action.includes('COMPRAR') ? '#00c48c' : action.includes('VENDER') ? '#E05555' : 'var(--muted)';
+    const value = parseFloat(a.value || a.amount_brl || 0);
+    const wCurr = a.current_weight != null ? (a.current_weight*100).toFixed(2) + '%' : '—';
+    const wTgt  = a.target_weight  != null ? (a.target_weight*100).toFixed(2) + '%' : '—';
+    return `<tr>
+      <td style="color:var(--accent);font-family:monospace;font-weight:700">${a.ticker}</td>
+      <td style="color:${color};font-weight:700">${action}</td>
+      <td>R$ ${Math.abs(value).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td>${wCurr}</td>
+      <td>${wTgt}</td>
+    </tr>`;
+  }).join('');
+  out.style.display = 'block';
 }
 
 // ── Overview ──────────────────────────────────────────────────────────────────
