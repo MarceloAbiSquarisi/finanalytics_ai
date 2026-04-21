@@ -1,14 +1,19 @@
 /**
- * FinAnalytics AI — theme.css (Sprint UI M, 21/abr/2026)
+ * FinAnalytics AI — theme.css (Sprint UI M/S, 21/abr/2026)
  *
  * Variaveis CSS globais consolidadas. Carregar via:
  *   <link rel="stylesheet" href="/static/theme.css">
  *
- * Cada pagina pode sobrescrever pontualmente no seu :root, mas o
- * default vem daqui. Base para futuro theme switching (light/dark).
- *
- * A filosofia: se um valor eh usado em 3+ paginas, ele entra aqui.
+ * Sprint UI S: Google Fonts unificado. Import via @import garante
+ * que toda pagina com theme.css tem as fontes principais disponiveis,
+ * mesmo sem <link> Google Fonts proprio. Paginas podem continuar
+ * carregando outras fontes localmente.
  */
+
+/* Fonts unificadas: 3 mais usadas no app (Rajdhani display, DM Mono
+   monospace, Syne modern). Weights minimos para reduzir payload. */
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Rajdhani:wght@400;600;700&family=Syne:wght@400;600;700&display=swap');
+
 :root {
   /* Background / Surface */
   --bg:         #080b10;   /* page bg */
