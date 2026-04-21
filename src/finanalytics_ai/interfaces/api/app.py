@@ -171,6 +171,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _alert_service = AlertService(session_factory=get_session, notification_bus=bus)
     logger.info("alert_service.ready")
 
+    # ── Pushover subscriber (Sprint Fix Alerts D, 21/abr) ─────────────────────
+    # Background task que consome NotificationBus e encaminha alertas
+    # de indicador para Pushover. Nao-blocking: retorna None se
+    # PUSHOVER_USER_KEY/APP_TOKEN ausentes.
+    app.state.pushover_task = None
+    try:
+        from finanalytics_ai.infrastructure.notifications.pushover import (
+            subscribe_to_bus as _subscribe_pushover,
+        )
+
+        app.state.pushover_task = _subscribe_pushover(bus)
+        if app.state.pushover_task:
+            logger.info("pushover.subscriber.scheduled")
+    except Exception as _pe:
+        logger.warning("pushover.subscriber.FAILED", error=str(_pe))
+
     # ── AccountService ────────────────────────────────────────────────────────
     try:
         from finanalytics_ai.infrastructure.database.connection import (
@@ -656,6 +672,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         _ml_task.cancel()
         with suppress(asyncio.CancelledError):
             await _ml_task
+    # Cancela Pushover subscriber (Sprint Fix Alerts D)
+    _push_task = getattr(app.state, "pushover_task", None)
+    if _push_task:
+        _push_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await _push_task
     # Fecha pool TimescaleDB
     try:
         from finanalytics_ai.infrastructure.timescale.connection import close_ts_pool

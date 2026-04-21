@@ -699,6 +699,8 @@ async def schedule_loop() -> None:
     async def reconcile_loop() -> None:
         # V4: interval-based em vez de daily — roda a cada N min,
         # silenciosamente skippa fora do pregao via reconcile_job().
+        # Sprint Fix Alerts D (21/abr): apos 5 erros consecutivos
+        # em horario de pregao, escala via Pushover critical.
         interval_s = max(60, RECONCILE_INTERVAL_MIN * 60)
         logger.info(
             "scheduler.reconcile.start",
@@ -706,8 +708,33 @@ async def schedule_loop() -> None:
             window=f"{RECONCILE_START_HOUR}h-{RECONCILE_END_HOUR}h BRT",
             agent=PROFIT_AGENT_URL,
         )
+        consecutive_errors = 0
+        notified = False
         while True:
-            await reconcile_job()
+            result = await reconcile_job()
+            status = result.get("status") if isinstance(result, dict) else None
+            if status == "error":
+                consecutive_errors += 1
+                if consecutive_errors >= 5 and not notified:
+                    try:
+                        from finanalytics_ai.infrastructure.notifications.pushover import (
+                            notify_system,
+                        )
+
+                        await notify_system(
+                            title="Reconcile DLL <-> DB: 5+ falhas consecutivas",
+                            message=(
+                                f"profit_agent unreachable em pregao. "
+                                f"Agent={PROFIT_AGENT_URL}. Verificar host Windows."
+                            ),
+                            critical=True,
+                        )
+                        notified = True
+                    except Exception as _pex:
+                        logger.warning("reconcile.pushover_failed", error=str(_pex))
+            elif status == "ok":
+                consecutive_errors = 0
+                notified = False
             await asyncio.sleep(interval_s)
 
     tasks: list[asyncio.Task[None]] = []

@@ -339,6 +339,14 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_INSTALL_PLUGINS: "grafana-clock-panel,grafana-simple-json-datasource"
+      # Pushover credentials (Sprint Fix Alerts D, 21/abr).
+      # Placeholders 30 chars 'a' satisfazem validacao Grafana. Para
+      # entrega real: setar GRAFANA_PUSHOVER_USER_KEY e
+      # GRAFANA_PUSHOVER_APP_TOKEN no .env + `docker compose up -d
+      # grafana`. Sem real keys, Pushover API responde "invalid token"
+      # (logado no Grafana, nao crasha).
+      GRAFANA_PUSHOVER_USER_KEY:  ${GRAFANA_PUSHOVER_USER_KEY:-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
+      GRAFANA_PUSHOVER_APP_TOKEN: ${GRAFANA_PUSHOVER_APP_TOKEN:-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
