@@ -141,6 +141,7 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
   </div>
 
   <div class="toolbar">
+    <button class="btn" onclick="openCreate()" style="padding:7px 14px;background:rgba(0,230,118,.06);border-color:rgba(0,230,118,.3);color:var(--green)">+ Novo</button>
     <div class="toggle-wrap" onclick="toggleInactive()">
       <input type="checkbox" id="chkInactive">
       <label for="chkInactive">Mostrar inativos</label>
@@ -158,7 +159,7 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
           <th>Posicoes</th>
           <th>Caixa</th>
           <th>Status</th>
-          <th style="width:280px;text-align:right">Acoes</th>
+          <th style="width:360px;text-align:right">Acoes</th>
         </tr>
       </thead>
       <tbody id="pfList">
@@ -204,6 +205,37 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
     </div>
     <div class="history-list" id="hist-list">
       <div class="history-empty">Carregando...</div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Criar -->
+<div class="modal-overlay" id="modalCreate" onclick="if(event.target===this) closeModal('modalCreate')">
+  <div class="modal">
+    <div class="modal-title">
+      <span>Novo portfolio</span>
+      <button class="modal-close" onclick="closeModal('modalCreate')">&times;</button>
+    </div>
+    <label for="cr-name">Nome <span style="color:var(--red)">*</span></label>
+    <input type="text" id="cr-name" maxlength="200" placeholder="Ex: Long-term Equity" required>
+    <label for="cr-description" style="margin-top:12px">Descricao</label>
+    <input type="text" id="cr-description" maxlength="500" placeholder="Opcional">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+      <div>
+        <label for="cr-benchmark">Benchmark</label>
+        <input type="text" id="cr-benchmark" maxlength="20" placeholder="IBOV, CDI, IPCA">
+      </div>
+      <div>
+        <label for="cr-cash">Caixa inicial (R$)</label>
+        <input type="number" id="cr-cash" step="0.01" min="0" placeholder="0">
+      </div>
+    </div>
+    <div style="margin-top:12px;font-size:13px;color:var(--muted)">
+      Primeiro portfolio do usuario fica automaticamente como <b style="color:var(--gold)">DEFAULT</b>.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modalCreate')">Cancelar</button>
+      <button class="btn" id="cr-save-btn" onclick="saveCreate()">Criar</button>
     </div>
   </div>
 </div>
@@ -302,6 +334,9 @@ function renderList(list) {
     const renameBtn = p.is_active
       ? `<button class="btn-icon" title="Renomear" onclick="openRename('${p.portfolio_id}','${escapeJs(p.name)}')">Renomear</button>`
       : '';
+    const setDefaultBtn = (p.is_active && !p.is_default)
+      ? `<button class="btn-icon" title="Tornar default" onclick="setDefault('${p.portfolio_id}','${escapeJs(p.name)}')">Default</button>`
+      : '';
     const histBtn = `<button class="btn-icon" title="Historico de nomes" onclick="showHistory('${p.portfolio_id}','${escapeJs(p.name)}')">Hist.</button>`;
     const lifecycleBtn = p.is_active
       ? `<button class="btn btn-warn" onclick="deactivate('${p.portfolio_id}','${escapeJs(p.name)}')">Desativar</button>`
@@ -315,7 +350,7 @@ function renderList(list) {
       <td style="font-family:monospace;font-size:14px">${p.positions}</td>
       <td class="cash">R$ ${cash}</td>
       <td>${statusPill}${defaultPill}</td>
-      <td><div class="actions" style="justify-content:flex-end;flex-wrap:wrap">${renameBtn}${histBtn}${lifecycleBtn}</div></td>
+      <td><div class="actions" style="justify-content:flex-end;flex-wrap:wrap">${renameBtn}${setDefaultBtn}${histBtn}${lifecycleBtn}</div></td>
     </tr>`;
   }).join('');
 }
@@ -408,6 +443,70 @@ async function saveRename() {
   }
 }
 
+// ── Set default ──────────────────────────────────────────────────────────────
+async function setDefault(id, name) {
+  try {
+    const r = await fetch(API + '/portfolios/' + encodeURIComponent(id) + '/set-default', {
+      method: 'POST', headers: H()
+    });
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.detail || ('HTTP ' + r.status));
+    }
+    toast(`"${name}" agora e o default.`, 'ok');
+    await loadPortfolios();
+  } catch (e) {
+    toast('Falha: ' + e.message, 'err');
+  }
+}
+
+// ── Criar ────────────────────────────────────────────────────────────────────
+function openCreate() {
+  document.getElementById('cr-name').value = '';
+  document.getElementById('cr-description').value = '';
+  document.getElementById('cr-benchmark').value = '';
+  document.getElementById('cr-cash').value = '';
+  openModal('modalCreate');
+  setTimeout(() => document.getElementById('cr-name').focus(), 50);
+}
+
+async function saveCreate() {
+  const name        = document.getElementById('cr-name').value.trim();
+  const description = document.getElementById('cr-description').value.trim();
+  const benchmark   = document.getElementById('cr-benchmark').value.trim();
+  const cashStr     = document.getElementById('cr-cash').value.trim();
+
+  if (!name) {
+    toast('Nome e obrigatorio.', 'err');
+    return;
+  }
+  const body = { name };
+  if (description) body.description = description;
+  if (benchmark)   body.benchmark   = benchmark;
+  if (cashStr)     body.initial_cash = parseFloat(cashStr);
+
+  const btn = document.getElementById('cr-save-btn');
+  btn.disabled = true;
+  btn.textContent = '...';
+  try {
+    const r = await fetch(API + '/portfolios', {
+      method: 'POST', headers: H(), body: JSON.stringify(body)
+    });
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.detail || ('HTTP ' + r.status));
+    }
+    closeModal('modalCreate');
+    toast(`"${name}" criado.`, 'ok');
+    await loadPortfolios();
+  } catch (e) {
+    toast('Falha: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Criar';
+  }
+}
+
 // ── Historico ────────────────────────────────────────────────────────────────
 async function showHistory(id, currentName) {
   document.getElementById('hist-current-name').textContent = currentName;
@@ -452,6 +551,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeModal('modalRename');
     closeModal('modalHistory');
+    closeModal('modalCreate');
   }
 });
 
