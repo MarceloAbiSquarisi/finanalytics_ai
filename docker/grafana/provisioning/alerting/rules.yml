@@ -38,7 +38,7 @@ groups:
             relativeTimeRange:
               from: 600
               to: 0
-            datasourceUid: PBFA97CFB590B2093  # Prometheus default uid
+            datasourceUid: prometheus_main  # Prometheus default uid
             model:
               editorMode: code
               expr: 'sum(rate(finanalytics_dead_letter_total[5m])) > 0.1'
@@ -66,7 +66,7 @@ groups:
             relativeTimeRange:
               from: 300
               to: 0
-            datasourceUid: PBFA97CFB590B2093
+            datasourceUid: prometheus_main
             model:
               editorMode: code
               expr: 'increase(di1_worker_kafka_errors_total[5m]) > 0'
@@ -93,7 +93,7 @@ groups:
             relativeTimeRange:
               from: 180
               to: 0
-            datasourceUid: PBFA97CFB590B2093
+            datasourceUid: prometheus_main
             model:
               editorMode: code
               expr: 'profit_agent_db_connected == 0'
@@ -121,7 +121,7 @@ groups:
             relativeTimeRange:
               from: 300
               to: 0
-            datasourceUid: PBFA97CFB590B2093
+            datasourceUid: prometheus_main
             model:
               editorMode: code
               # > 120s sem tick (worker congelou ou broker mudo).
@@ -151,7 +151,7 @@ groups:
             relativeTimeRange:
               from: 600
               to: 0
-            datasourceUid: PBFA97CFB590B2093
+            datasourceUid: prometheus_main
             model:
               editorMode: code
               expr: |
@@ -181,7 +181,7 @@ groups:
             relativeTimeRange:
               from: 600
               to: 0
-            datasourceUid: PBFA97CFB590B2093
+            datasourceUid: prometheus_main
             model:
               editorMode: code
               expr: |
@@ -211,7 +211,7 @@ groups:
             relativeTimeRange:
               from: 300
               to: 0
-            datasourceUid: PBFA97CFB590B2093
+            datasourceUid: prometheus_main
             model:
               editorMode: code
               expr: |
@@ -241,7 +241,7 @@ groups:
             relativeTimeRange:
               from: 900
               to: 0
-            datasourceUid: PBFA97CFB590B2093
+            datasourceUid: prometheus_main
             model:
               editorMode: code
               expr: |
@@ -269,7 +269,7 @@ groups:
             relativeTimeRange:
               from: 300
               to: 0
-            datasourceUid: PBFA97CFB590B2093
+            datasourceUid: prometheus_main
             model:
               editorMode: code
               expr: |
@@ -299,7 +299,7 @@ groups:
             relativeTimeRange:
               from: 600
               to: 0
-            datasourceUid: PBFA97CFB590B2093
+            datasourceUid: prometheus_main
             model:
               editorMode: code
               expr: 'finanalytics_ml_drift_count > 5'
@@ -328,7 +328,7 @@ groups:
             relativeTimeRange:
               from: 600
               to: 0
-            datasourceUid: PBFA97CFB590B2093
+            datasourceUid: prometheus_main
             model:
               editorMode: code
               expr: 'finanalytics_ml_snapshot_age_days > 2'
@@ -360,7 +360,7 @@ groups:
             relativeTimeRange:
               from: 1800
               to: 0
-            datasourceUid: PBFA97CFB590B2093
+            datasourceUid: prometheus_main
             model:
               editorMode: code
               expr: 'increase(scheduler_reconcile_errors_total[30m]) > 3'
