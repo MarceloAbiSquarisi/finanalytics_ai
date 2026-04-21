@@ -57,12 +57,18 @@ def _mock_pool(mock_conn):
 class TestFetchCandlesFallback:
     @pytest.mark.asyncio
     async def test_fallback_from_daily_bars_to_trades(self):
-        """When daily_bars is empty, should fall back to market_history_trades."""
+        """When upstream sources are empty, should fall back to market_history_trades.
+
+        Sprint OHLC (20/abr): cadeia atual e profit_daily_bars -> ohlc_1m ->
+        market_history_trades -> profit_ticks -> fintz_cotacoes_ts. O mock
+        retorna [] nas duas primeiras (daily_bars + ohlc_1m) e dados na
+        terceira (trades).
+        """
         mock_conn = AsyncMock()
         trade_rows = _make_trade_rows(5)
 
-        # First call (daily_bars) returns empty, second call (trades) returns data
-        mock_conn.fetch = AsyncMock(side_effect=[[], trade_rows])
+        # daily_bars empty, ohlc_1m empty, trades has data
+        mock_conn.fetch = AsyncMock(side_effect=[[], [], trade_rows])
 
         pool = _mock_pool(mock_conn)
 
