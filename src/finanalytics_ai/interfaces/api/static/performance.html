@@ -440,6 +440,15 @@ async function loadPortfolios() {
     const sel = document.getElementById('portfolio-sel');
     if (!list.length) {
       sel.innerHTML = '<option value="">Nenhum portfolio encontrado</option>';
+      // CTA visivel acima do select
+      const main = document.getElementById('main-content');
+      if (main && window.FAEmpty) {
+        FAEmpty.render(main, {
+          title: 'Voce ainda nao tem portfolios',
+          text: 'Performance precisa de um portfolio com posicoes registradas. Crie o primeiro para comecar.',
+          cta: { label: 'Ir para Portfolios', variant: 'primary', onClick: "window.location.href='/portfolios'" }
+        });
+      }
       return;
     }
     sel.innerHTML = list.map(p =>

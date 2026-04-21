@@ -324,7 +324,18 @@ async function loadAlertas(){
   try{
     var r=await fetch(API+'/api/v1/whatsapp/alertas');
     var d=await r.json();
-    if(!d.alertas||!d.alertas.length){list.innerHTML='<div class="empty-msg">Nenhum alerta configurado</div>';return;}
+    if(!d.alertas||!d.alertas.length){
+      if(window.FAEmpty){
+        FAEmpty.render(list,{
+          title:'Nenhum alerta WhatsApp configurado',
+          text:'Crie alertas de preco ou setup acima para receber notificacoes diretamente no seu WhatsApp.',
+          cta:{label:'+ Criar Alerta de Preco',variant:'primary',onClick:"showTab('alerta-preco',document.querySelectorAll('.tab-btn')[0])"}
+        });
+      }else{
+        list.innerHTML='<div class="empty-msg">Nenhum alerta configurado</div>';
+      }
+      return;
+    }
     list.innerHTML='';
     d.alertas.forEach(function(a){
       var row=document.createElement('div');row.className='alerta-row';
