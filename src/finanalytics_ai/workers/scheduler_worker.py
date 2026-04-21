@@ -69,6 +69,12 @@ RECONCILE_END_HOUR = int(os.environ.get("SCHEDULER_RECONCILE_END_HOUR", "18"))  
 RECONCILE_INTERVAL_MIN = int(os.environ.get("SCHEDULER_RECONCILE_INTERVAL_MIN", "5"))
 PROFIT_AGENT_URL = os.environ.get("PROFIT_AGENT_URL", "http://host.docker.internal:8002")
 
+# F (Sprint Fix Alerts 21/abr): expor /metrics em :9102 para Prometheus
+# scrape — destrava alert rules de scheduler_reconcile_errors. Porta
+# interna do docker network; nao precisa expose: para o host. Setar
+# SCHEDULER_METRICS_PORT=0 desabilita o servidor HTTP.
+METRICS_PORT = int(os.environ.get("SCHEDULER_METRICS_PORT", "9102"))
+
 # ── Logger ────────────────────────────────────────────────────────────────────
 structlog.configure(
     processors=[
@@ -78,6 +84,42 @@ structlog.configure(
     ]
 )
 logger = structlog.get_logger("scheduler_worker")
+
+
+# ── Prometheus metrics (Sprint Fix Alerts F, 21/abr) ─────────────────────────
+# Counters por job + status para alertar em Grafana. Servidor HTTP
+# iniciado em start() abaixo se METRICS_PORT > 0.
+
+try:
+    from prometheus_client import Counter, start_http_server  # type: ignore[import-not-found]
+
+    _PROM_AVAILABLE = True
+except ImportError:
+    _PROM_AVAILABLE = False
+    Counter = None  # type: ignore[assignment,misc]
+
+if _PROM_AVAILABLE:
+    scheduler_job_runs_total = Counter(
+        "scheduler_job_runs_total",
+        "Total de execucoes de jobs do scheduler por status",
+        labelnames=["job", "status"],  # job: macro/ohlcv/cleanup/reconcile/etc; status: ok/error/skip
+    )
+    scheduler_reconcile_errors_total = Counter(
+        "scheduler_reconcile_errors_total",
+        "Total de falhas no reconcile_loop (HTTP errors no profit_agent)",
+    )
+else:
+    scheduler_job_runs_total = None  # type: ignore[assignment]
+    scheduler_reconcile_errors_total = None  # type: ignore[assignment]
+
+
+def _record(job: str, status: str) -> None:
+    """Incrementa counter de job runs (no-op se prometheus_client ausente)."""
+    if scheduler_job_runs_total is not None:
+        try:
+            scheduler_job_runs_total.labels(job=job, status=status).inc()
+        except Exception:
+            pass
 
 
 # ── Helpers de tempo ──────────────────────────────────────────────────────────
@@ -521,8 +563,10 @@ async def reconcile_job() -> dict[str, Any]:
     now_utc = datetime.now(UTC)
     local_hour = (now_utc.hour + TZ_OFFSET) % 24  # UTC + (-3) = BRT
     if not _is_weekday():
+        _record("reconcile", "skip")
         return {"status": "skip", "reason": "weekend"}
     if not (RECONCILE_START_HOUR <= local_hour < RECONCILE_END_HOUR):
+        _record("reconcile", "skip")
         return {"status": "skip", "reason": "outside_market_hours", "local_hour": local_hour}
 
     try:
@@ -540,16 +584,23 @@ async def reconcile_job() -> dict[str, Any]:
                         status=resp.status,
                         body=txt[:200],
                     )
+                    _record("reconcile", "error")
+                    if scheduler_reconcile_errors_total is not None:
+                        scheduler_reconcile_errors_total.inc()
                     return {"status": "error", "http_status": resp.status}
                 data = await resp.json()
         n_orders = len(data.get("orders", [])) if isinstance(data, dict) else 0
         logger.info("scheduler.reconcile.done", orders=n_orders)
+        _record("reconcile", "ok")
         return {"status": "ok", "orders": n_orders}
 
     except Exception as exc:
         # profit_agent pode estar offline — logar warning, nao error,
         # para nao spammar Sentry/alertas durante restart do agent.
         logger.warning("scheduler.reconcile.failed", error=str(exc))
+        _record("reconcile", "error")
+        if scheduler_reconcile_errors_total is not None:
+            scheduler_reconcile_errors_total.inc()
         return {"status": "error", "error": str(exc)}
 
 
@@ -686,7 +737,20 @@ def main() -> None:
         data_dir=DATA_DIR,
         run_once=RUN_ONCE,
         brapi_token_set=bool(BRAPI_TOKEN),
+        metrics_port=METRICS_PORT,
+        prom_available=_PROM_AVAILABLE,
     )
+    # F (21/abr): inicia servidor HTTP /metrics em thread separada.
+    # start_http_server cria background thread com daemon=True; nao
+    # impede shutdown do processo. Falha em bind (porta ocupada)
+    # apenas loga warning — scheduler segue sem metrics.
+    if _PROM_AVAILABLE and METRICS_PORT > 0 and not RUN_ONCE:
+        try:
+            start_http_server(METRICS_PORT)
+            logger.info("scheduler_worker.metrics.serving", port=METRICS_PORT)
+        except Exception as exc:
+            logger.warning("scheduler_worker.metrics.bind_failed", port=METRICS_PORT, error=str(exc))
+
     asyncio.run(run_once() if RUN_ONCE else schedule_loop())
 
 

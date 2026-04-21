@@ -345,3 +345,35 @@ groups:
         labels:
           severity: critical
           team: ml
+
+      # ── 12. Scheduler reconcile errors (Sprint Fix Alerts F, 21/abr) ──
+      # scheduler_reconcile_errors_total incrementa em qualquer falha
+      # do reconcile_loop (HTTP error 4xx/5xx do profit_agent ou network
+      # exception). Ate 3 erros em 30min e tolerado (profit_agent restart);
+      # acima disso, profit_agent provavelmente offline em horario de
+      # pregao — investigar.
+      - uid: alert-scheduler-reconcile-errors
+        title: scheduler_reconcile_errors_high
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              editorMode: code
+              expr: 'increase(scheduler_reconcile_errors_total[30m]) > 3'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: 'Reconcile DLL <-> DB: > 3 falhas em 30min'
+          description: 'Loop de reconciliacao do scheduler nao consegue contactar profit_agent. Verificar host Windows.'
+        labels:
+          severity: warning
+          team: trading

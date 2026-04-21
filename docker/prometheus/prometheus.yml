@@ -45,6 +45,18 @@ scrape_configs:
           service: 'di1_realtime_worker'
           component: 'rates'
 
+  # Sprint Fix Alerts F (21/abr): scheduler expoe scheduler_job_runs_total
+  # + scheduler_reconcile_errors_total para alert rules de reconcile/job
+  # failures. Container scheduler bind no docker network como
+  # 'finanalytics_scheduler' (container_name).
+  - job_name: 'scheduler_worker'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['finanalytics_scheduler:9102']
+        labels:
+          service: 'scheduler_worker'
+          component: 'jobs'
+
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
