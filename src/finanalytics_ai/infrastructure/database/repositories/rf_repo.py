@@ -96,7 +96,33 @@ class RFPortfolioRepository:
     # ── Portfolio ──────────────────────────────────────────────────────────────
 
     async def create_portfolio(self, user_id: str, name: str) -> RFPortfolio:
+        # Bug fix (21/abr): rf_holdings.portfolio_id tem FK para portfolios.id
+        # (sistema unificado), nao para rf_portfolios. Antes, rf_portfolios
+        # gerava UUID novo que nunca existia em portfolios — qualquer add_holding
+        # subsequente violava a FK. Solucao: criar entry em portfolios com
+        # mesmo PK e marcar nome como "RF: <name>" para distinguir na UI
+        # /portfolios. Followup ideal: migrar /fixed-income para usar
+        # portfolios direto e dropar rf_portfolios.
+        from finanalytics_ai.infrastructure.database.repositories.portfolio_repo import (
+            PortfolioModel,
+        )
+
         pid = str(uuid.uuid4())
+        # Cria portfolio "espelho" no sistema unificado primeiro
+        portfolio_mirror = PortfolioModel(
+            id=pid,
+            user_id=user_id,
+            name=f"RF: {name}",
+            description="Carteira de Renda Fixa (criada via /fixed-income)",
+            benchmark="CDI",
+            is_default=False,
+            is_active=True,
+            currency="BRL",
+            cash=0,
+        )
+        self._session.add(portfolio_mirror)
+        await self._session.flush()
+        # Cria rf_portfolios com mesmo PK
         model = RFPortfolioModel(
             portfolio_id=pid,
             user_id=user_id,
@@ -105,7 +131,7 @@ class RFPortfolioRepository:
         )
         self._session.add(model)
         await self._session.flush()
-        logger.info("rf_portfolio.created", portfolio_id=pid, user_id=user_id)
+        logger.info("rf_portfolio.created", portfolio_id=pid, user_id=user_id, mirror=True)
         return RFPortfolio(portfolio_id=pid, user_id=user_id, name=name, created_at=date.today())
 
     async def get_portfolio(self, portfolio_id: str) -> RFPortfolio | None:
