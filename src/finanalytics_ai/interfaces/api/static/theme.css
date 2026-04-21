@@ -1,0 +1,59 @@
+/**
+ * FinAnalytics AI — theme.css (Sprint UI M, 21/abr/2026)
+ *
+ * Variaveis CSS globais consolidadas. Carregar via:
+ *   <link rel="stylesheet" href="/static/theme.css">
+ *
+ * Cada pagina pode sobrescrever pontualmente no seu :root, mas o
+ * default vem daqui. Base para futuro theme switching (light/dark).
+ *
+ * A filosofia: se um valor eh usado em 3+ paginas, ele entra aqui.
+ */
+:root {
+  /* Background / Surface */
+  --bg:         #080b10;   /* page bg */
+  --s1:         #0d1117;   /* card bg primario */
+  --s2:         #111822;   /* card bg secundario (inputs, nested) */
+  --s3:         #0e1520;   /* hover suave */
+
+  /* Borders */
+  --border:     #1c2535;
+  --border2:    #253045;
+
+  /* Text */
+  --text:       #cdd6e0;
+  --muted:      #4a5e72;
+  --text-strong:#e2eaf4;
+
+  /* Accent / Status */
+  --accent:     #00d4ff;   /* cyan (links, foco, active) */
+  --blue:       #3ABFF8;   /* alternativo para charts */
+  --green:      #00e676;
+  --red:        #ff3d5a;
+  --gold:       #F0B429;   /* admin, master, highlights */
+  --yellow:     #fbbf24;
+  --orange:     #fb923c;
+  --purple:     #a855f7;   /* admin role badge */
+
+  /* Sidebar dimensions */
+  --sb-w:               220px;
+  --sb-w-collapsed:     52px;
+
+  /* Topbar */
+  --topbar-h:           52px;
+
+  /* Spacing / Radius (podem ser usados em novas paginas) */
+  --radius-sm:  4px;
+  --radius-md:  6px;
+  --radius-lg:  10px;
+  --gap-xs:     4px;
+  --gap-sm:     8px;
+  --gap-md:     12px;
+  --gap-lg:     16px;
+
+  /* Fonts */
+  --font-mono:  'DM Mono','JetBrains Mono',monospace;
+}
+
+/* Escopo futuro: light theme via class no body */
+/* body.theme-light { --bg: #f5f7fa; ... } */
