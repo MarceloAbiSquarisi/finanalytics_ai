@@ -485,7 +485,7 @@ function handleDrop(event){
   event.preventDefault();
   document.getElementById('import-zone').classList.remove('dragover');
   var file=event.dataTransfer.files[0];
-  if(!file||!file.name.endsWith('.csv')){alert('Apenas arquivos .csv');return;}
+  if(!file||!file.name.endsWith('.csv')){FAToast.err('Apenas arquivos .csv');return;}
   var reader=new FileReader();
   reader.onload=function(e){document.getElementById('csv-text').value=e.target.result;};
   reader.readAsText(file);
@@ -495,7 +495,7 @@ async function importCSV(){
   var text=document.getElementById('csv-text').value.trim();
   var cur=document.getElementById('import-currency').value;
   var res=document.getElementById('import-result');
-  if(!text){alert('Adicione conteudo CSV ou faca upload do arquivo');return;}
+  if(!text){FAToast.err('Adicione conteudo CSV ou faca upload do arquivo');return;}
   res.textContent='Calculando P&L...';res.style.color='var(--muted)';
 
   try{
@@ -526,6 +526,7 @@ loadMarket();
 loadFNG();
 </script>
 <script src="/static/sidebar.js"></script>
+<script src="/static/toast.js"></script>
 <script src="/static/notifications.js"></script>
 </body>
 </html>

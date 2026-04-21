@@ -268,7 +268,7 @@ function addPos(){
   var t=document.getElementById('add-ticker').value.trim().toUpperCase();
   var q=parseFloat(document.getElementById('add-qty').value)||0;
   var p=parseFloat(document.getElementById('add-price').value)||0;
-  if(!t||q<=0||p<=0){alert('Preencha ticker, quantidade e preco');return;}
+  if(!t||q<=0||p<=0){FAToast.err('Preencha ticker, quantidade e preco');return;}
   positions.push({ticker:t,quantity:q,average_price:p});
   renderPositions();
   document.getElementById('add-ticker').value='';
@@ -279,7 +279,7 @@ function addPos(){
 function removePos(i){positions.splice(i,1);renderPositions();}
 
 async function calcVaR(){
-  if(!positions.length){alert('Adicione pelo menos 1 posicao');return;}
+  if(!positions.length){FAToast.err('Adicione pelo menos 1 posicao');return;}
   var btn=document.getElementById('calc-btn');
   btn.disabled=true;btn.textContent='Calculando...';
   document.getElementById('results').style.display='none';
@@ -296,11 +296,11 @@ async function calcVaR(){
       body:JSON.stringify({positions:positions,confidence_level:confidence,lookback_days:lookback})
     });
     var d=await r.json();
-    if(d.detail){alert('Erro: '+d.detail);return;}
+    if(d.detail){FAToast.err('Erro: '+d.detail);return;}
     renderResults(d);
     document.getElementById('results').style.display='block';
   }catch(e){
-    alert('Erro: '+e.message);
+    FAToast.err('Erro: '+e.message);
     document.getElementById('empty').style.display='block';
   }finally{
     btn.disabled=false;btn.textContent='\u{1F6E1}\uFE0F Calcular VaR';
@@ -361,6 +361,7 @@ function renderResults(d){
 renderPositions();
 </script>
 <script src="/static/sidebar.js"></script>
+<script src="/static/toast.js"></script>
 <script src="/static/notifications.js"></script>
 </body>
 </html>

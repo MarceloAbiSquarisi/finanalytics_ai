@@ -2163,8 +2163,8 @@ updateMultiPills();
 function runMultiTicker() {
   var raw = document.getElementById('multi-tickers').value;
   var tickers = raw.split(',').map(function(t){ return t.trim().toUpperCase(); }).filter(Boolean);
-  if (!tickers.length) { alert('Informe ao menos 1 ticker.'); return; }
-  if (tickers.length > 10) { alert('Maximo 10 tickers.'); return; }
+  if (!tickers.length) { FAToast.err('Informe ao menos 1 ticker.'); return; }
+  if (tickers.length > 10) { FAToast.err('Maximo 10 tickers.'); return; }
 
   var strategy  = document.getElementById('multi-strategy').value;
   var range     = document.getElementById('multi-range').value;
@@ -2580,4 +2580,5 @@ function faDTToggle(btn){var s=document.getElementById('dt-submenu');btn.classLi
 function faOptToggle(btn){var s=document.getElementById('opt-submenu');btn.classList.toggle('open');s.classList.toggle('open');}
 </script>
 <script src="/static/sidebar.js"></script>
+<script src="/static/toast.js"></script>
 <script src="/static/notifications.js"></script>

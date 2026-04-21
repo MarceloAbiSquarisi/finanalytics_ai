@@ -248,7 +248,7 @@ function calcPosicao(){
   var stop=parseFloat(document.getElementById('preco-stop').value)||0;
   var alvo=parseFloat(document.getElementById('preco-alvo').value)||0;
 
-  if(!entrada||!stop||entrada<=0||stop<=0){alert('Preencha entrada e stop');return;}
+  if(!entrada||!stop||entrada<=0||stop<=0){FAToast.err('Preencha entrada e stop');return;}
 
   var riscoReais=cap*(riscoPct/100);
   var riscoUni=Math.abs(entrada-stop);
@@ -314,6 +314,7 @@ function checkRegras(){
 }
 </script>
 <script src="/static/sidebar.js"></script>
+<script src="/static/toast.js"></script>
 <script src="/static/notifications.js"></script>
 </body>
 </html>

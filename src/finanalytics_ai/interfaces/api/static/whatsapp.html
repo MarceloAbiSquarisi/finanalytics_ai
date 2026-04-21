@@ -273,7 +273,7 @@ async function enviarMensagem(){
   var number=document.getElementById('send-number').value.trim();
   var msg=document.getElementById('send-msg').value.trim();
   var res=document.getElementById('send-result');
-  if(!number||!msg){alert('Preencha numero e mensagem');return;}
+  if(!number||!msg){FAToast.err('Preencha numero e mensagem');return;}
   res.textContent='Enviando...';res.style.color='var(--muted)';
   try{
     var r=await fetch(API+'/api/v1/whatsapp/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({number:number,message:msg})});
@@ -292,7 +292,7 @@ async function criarAlertaPreco(){
     number:document.getElementById('ap-number').value.trim(),
     mensagem_extra:document.getElementById('ap-msg').value.trim(),
   };
-  if(!body.ticker||!body.preco_alvo||!body.number){alert('Preencha ticker, preco e numero');return;}
+  if(!body.ticker||!body.preco_alvo||!body.number){FAToast.err('Preencha ticker, preco e numero');return;}
   try{
     var r=await fetch(API+'/api/v1/whatsapp/alerta/preco',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     var d=await r.json();
@@ -306,7 +306,7 @@ async function criarAlertaSetup(){
   var setups=document.getElementById('as-setups').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
   var number=document.getElementById('as-number').value.trim();
   var intervalo=parseInt(document.getElementById('as-intervalo').value)||60;
-  if(!tickers.length||!number){alert('Preencha tickers e numero');return;}
+  if(!tickers.length||!number){FAToast.err('Preencha tickers e numero');return;}
   try{
     var r=await fetch(API+'/api/v1/whatsapp/alerta/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tickers:tickers,setups:setups,number:number,intervalo_min:intervalo})});
     var d=await r.json();
@@ -339,13 +339,14 @@ async function removerAlerta(id){
   try{
     await fetch(API+'/api/v1/whatsapp/alertas/'+id,{method:'DELETE'});
     loadAlertas();
-  }catch(e){alert('Erro: '+e.message);}
+  }catch(e){FAToast.err('Erro: '+e.message);}
 }
 
 checkStatus();
 setInterval(checkStatus,30000);
 </script>
 <script src="/static/sidebar.js"></script>
+<script src="/static/toast.js"></script>
 <script src="/static/notifications.js"></script>
 </body>
 </html>

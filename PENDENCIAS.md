@@ -147,6 +147,24 @@ ETA 3-5 dias wall-clock, competindo com I/O concorrente).
 
 ---
 
+## 5c. Follow-ups Sprint UI H (21/abr/2026) — auditoria UX
+
+Auditoria de 26 paginas pouco visitadas. Top 3 problemas:
+
+- [x] **alert() calls** em 11 paginas (29 chamadas) — **DONE** (bulk
+      replace por FAToast.err + toast.js garantido).
+- [ ] **Empty CTAs sem botao visivel** em 13 paginas: watchlist,
+      screener, fundamental, anomaly, sentiment, backtest, performance,
+      crypto, dividendos, diario, laminas, daytrade_setups, whatsapp.
+      Mostram "Nenhum X..." sem botao CTA ao lado. Fix case-by-case:
+      identificar acao principal de cada pagina (ex: "+ Adicionar
+      watchlist", "+ Nova entrada diario") e injetar botao no empty
+      state. ~1.5h para todas.
+- [ ] **Tickers hardcoded em JS** (10 paginas, pior: optimizer 5,
+      var/tape 4, backtest/ml/dividendos 3): impede reutilizacao e
+      dificulta manutencao. Refatorar para carregar de watchlist
+      ou input dinamico. Escopo medio (~2h).
+
 ## 5b. Follow-ups Sprint UX C (21/abr/2026) — gaps menores
 
 Levantamento UX cobriu 25+ endpoints de mutação user-facing em

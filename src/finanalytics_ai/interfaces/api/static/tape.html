@@ -467,7 +467,7 @@ async function startSim(){
     setTimeout(function(){simRunning=false;dot.className='status-dot';txt.textContent='Simulador encerrado';},300000);
   }catch(e){
     simRunning=false;
-    alert('Erro ao iniciar simulador: '+e.message);
+    FAToast.err('Erro ao iniciar simulador: '+e.message);
   }
 }
 
@@ -539,6 +539,7 @@ function updateConfluence(c){
 })();
 </script>
 <script src="/static/sidebar.js"></script>
+<script src="/static/toast.js"></script>
 <script src="/static/notifications.js"></script>
 </body>
 </html>

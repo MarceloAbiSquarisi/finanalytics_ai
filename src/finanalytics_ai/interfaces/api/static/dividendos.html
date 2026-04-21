@@ -228,7 +228,7 @@ function showHistTicker(ticker){
 // ── Historico ──────────────────────────────────────────────────────────────
 async function loadHistorico(){
   var ticker=document.getElementById('hist-ticker').value.trim().toUpperCase();
-  if(!ticker){alert('Digite um ticker');return;}
+  if(!ticker){FAToast.err('Digite um ticker');return;}
   var area=document.getElementById('historico-area');
   area.innerHTML='<div class="loading"><span class="spin">&#9696;</span> Carregando historico de '+ticker+'...</div>';
   try{
@@ -277,7 +277,7 @@ function addCartTicker(){var v=document.getElementById('cart-ticker').value.trim
 function rmCartTicker(i){cartTickers.splice(i,1);renderCartTags();}
 
 async function loadCarteira(){
-  if(!cartTickers.length){alert('Adicione tickers');return;}
+  if(!cartTickers.length){FAToast.err('Adicione tickers');return;}
   var area=document.getElementById('carteira-area');
   area.innerHTML='<div class="loading"><span class="spin">&#9696;</span> Carregando DY da carteira...</div>';
   try{
@@ -314,6 +314,7 @@ renderCartTags();
 loadRanking();
 </script>
 <script src="/static/sidebar.js"></script>
+<script src="/static/toast.js"></script>
 <script src="/static/notifications.js"></script>
 </body>
 </html>

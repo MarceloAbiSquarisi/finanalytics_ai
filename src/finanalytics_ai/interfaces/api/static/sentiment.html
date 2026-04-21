@@ -256,7 +256,7 @@ function impactClass(i){return 'impact-'+(i||'baixo');}
 function fmt2(v){return parseFloat(v||0).toFixed(2);}
 
 async function runScan(){
-  if(!tickers.length){alert('Adicione pelo menos 1 ticker');return;}
+  if(!tickers.length){FAToast.err('Adicione pelo menos 1 ticker');return;}
   var btn=document.getElementById('scan-btn');
   btn.disabled=true;btn.textContent='Analisando...';
 
@@ -344,6 +344,7 @@ async function runScan(){
 renderTickers();
 </script>
 <script src="/static/sidebar.js"></script>
+<script src="/static/toast.js"></script>
 <script src="/static/notifications.js"></script>
 </body>
 </html>

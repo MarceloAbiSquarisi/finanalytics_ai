@@ -633,8 +633,8 @@ function onDrop2(e){e.preventDefault();document.getElementById('drop-zone2')?.cl
 function onFileSelect2(e){if(e.target.files[0])processFile(e.target.files[0],true);}
 
 async function processFile(file, fromDetail) {
-  if(!file.name.toLowerCase().endsWith('.pdf')){alert('Somente PDFs aceitos.');return;}
-  if(file.size>20*1024*1024){alert('PDF muito grande. Máximo: 20MB.');return;}
+  if(!file.name.toLowerCase().endsWith('.pdf')){FAToast.err('Somente PDFs aceitos.');return;}
+  if(file.size>20*1024*1024){FAToast.err('PDF muito grande. Máximo: 20MB.');return;}
 
   const statusEl = fromDetail
     ? document.getElementById('upload-status2')
@@ -772,6 +772,7 @@ function faLogout() {
 }
 </script>
 <script src="/static/sidebar.js"></script>
+<script src="/static/toast.js"></script>
 <script src="/static/notifications.js"></script>
 </body>
 </html>

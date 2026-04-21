@@ -1088,7 +1088,7 @@ async function saveEntry() {
   var entryDate  = document.getElementById('m-entry-date').value;
 
   if (!ticker || isNaN(entryPrice) || isNaN(quantity) || !entryDate) {
-    alert('Preencha: Ticker, Preço de Entrada, Quantidade e Data de Entrada.');
+    FAToast.err('Preencha: Ticker, Preço de Entrada, Quantidade e Data de Entrada.');
     return;
   }
 
@@ -1128,7 +1128,7 @@ async function saveEntry() {
     closeModal();
     await Promise.all([loadEntries(), loadStats()]);
   } catch(e) {
-    alert('Erro ao salvar: ' + e.message);
+    FAToast.err('Erro ao salvar: ' + e.message);
   }
 }
 
@@ -1213,6 +1213,7 @@ var EMOTION_COLORS = {
 init();
 </script>
 <script src="/static/sidebar.js"></script>
+<script src="/static/toast.js"></script>
 <script src="/static/notifications.js"></script>
 </body>
 </html>

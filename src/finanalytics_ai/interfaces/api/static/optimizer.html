@@ -274,7 +274,7 @@ function renderViews(){
 function addView(){
   var t=document.getElementById('view-ticker').value.trim().toUpperCase();
   var r=parseFloat(document.getElementById('view-ret').value)||0;
-  if(!t||!r){alert('Preencha ticker e retorno esperado');return;}
+  if(!t||!r){FAToast.err('Preencha ticker e retorno esperado');return;}
   views.push({ticker:t,returns:r/100});
   renderViews();
   document.getElementById('view-ticker').value='';
@@ -343,7 +343,7 @@ function renderCompare(d){
 }
 
 async function runOptimizer(){
-  if(tickers.length<2){alert('Adicione pelo menos 2 tickers');return;}
+  if(tickers.length<2){FAToast.err('Adicione pelo menos 2 tickers');return;}
   var btn=document.getElementById('run-btn');
   btn.disabled=true;btn.textContent='Otimizando...';
   var area=document.getElementById('results-area');
@@ -384,6 +384,7 @@ renderTickers();
 renderViews();
 </script>
 <script src="/static/sidebar.js"></script>
+<script src="/static/toast.js"></script>
 <script src="/static/notifications.js"></script>
 </body>
 </html>

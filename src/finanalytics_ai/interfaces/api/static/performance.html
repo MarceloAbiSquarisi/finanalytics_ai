@@ -452,7 +452,7 @@ function onPortfolioChange() {
 // ── Load performance ──────────────────────────────────────────────────────────
 async function loadPerformance() {
   const portfolioId = document.getElementById('portfolio-sel').value;
-  if (!portfolioId) { alert('Selecione um portfólio'); return; }
+  if (!portfolioId) { FAToast.err('Selecione um portfólio'); return; }
 
   document.getElementById('main-content').innerHTML = `
     <div class="loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
@@ -752,6 +752,7 @@ function faLogout() {
 </script>
 </div><!-- /fa-page-content -->
 <script src="/static/sidebar.js"></script>
+<script src="/static/toast.js"></script>
 <script src="/static/notifications.js"></script>
 </body>
 </html>

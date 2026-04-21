@@ -599,7 +599,7 @@ var ICONS = {
 function runScan() {
   var tickers = document.getElementById('inp-tickers').value
     .split(',').map(function(t) { return t.trim().toUpperCase(); }).filter(Boolean);
-  if (!tickers.length) { alert('Informe ao menos 1 ticker.'); return; }
+  if (!tickers.length) { FAToast.err('Informe ao menos 1 ticker.'); return; }
 
   var body = {
     tickers:          tickers,
@@ -771,6 +771,7 @@ function faLogout() {
 </script>
 </div><!-- /fa-page-content -->
 <script src="/static/sidebar.js"></script>
+<script src="/static/toast.js"></script>
 <script src="/static/notifications.js"></script>
 </body>
 </html>

@@ -274,7 +274,7 @@ function saveSetups(){var checks=document.querySelectorAll('#setups-list input[t
 function loadSetups(){var saved=localStorage.getItem('fa_setup_state');if(!saved)return;var state=JSON.parse(saved);var checks=document.querySelectorAll('#setups-list input[type=checkbox]');checks.forEach(function(c,i){if(state['setup_'+i]!==undefined)c.checked=state['setup_'+i];});}
 
 async function runScan(){
-  if(!tickers.length){alert('Adicione pelo menos 1 ticker');return;}
+  if(!tickers.length){FAToast.err('Adicione pelo menos 1 ticker');return;}
   var area=document.getElementById('results-area');
   area.innerHTML='<div class="empty-msg">Escaneando...</div>';
   try{
@@ -309,6 +309,7 @@ renderTickers();
 loadSetups();
 </script>
 <script src="/static/sidebar.js"></script>
+<script src="/static/toast.js"></script>
 <script src="/static/notifications.js"></script>
 </body>
 </html>

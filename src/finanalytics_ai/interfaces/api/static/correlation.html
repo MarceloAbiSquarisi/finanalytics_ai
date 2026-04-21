@@ -563,8 +563,8 @@ function runCorrelation() {
   var raw = document.getElementById('inp-tickers').value;
   var tickers = raw.split(',').map(function(t) { return t.trim().toUpperCase(); }).filter(Boolean);
 
-  if (tickers.length < 2) { alert('Informe ao menos 2 tickers.'); return; }
-  if (tickers.length > 10) { alert('Maximo 10 tickers.'); return; }
+  if (tickers.length < 2) { FAToast.err('Informe ao menos 2 tickers.'); return; }
+  if (tickers.length > 10) { FAToast.err('Maximo 10 tickers.'); return; }
 
   var range  = document.getElementById('sel-range').value;
   var window = parseInt(document.getElementById('sel-window').value, 10);
@@ -876,6 +876,7 @@ function faLogout() {
 </script>
 </div><!-- /fa-page-content -->
 <script src="/static/sidebar.js"></script>
+<script src="/static/toast.js"></script>
 <script src="/static/notifications.js"></script>
 </body>
 </html>
