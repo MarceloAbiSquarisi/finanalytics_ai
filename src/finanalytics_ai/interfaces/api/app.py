@@ -1025,6 +1025,10 @@ def create_app() -> FastAPI:
     async def serve_portfolios() -> HTMLResponse:
         return _html("portfolios.html")
 
+    @app.get("/fundos", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_fundos() -> HTMLResponse:
+        return _html("fundos.html")
+
     
     @app.get("/daytrade/setups", response_class=HTMLResponse, include_in_schema=False)
     async def serve_daytrade_setups() -> HTMLResponse:
