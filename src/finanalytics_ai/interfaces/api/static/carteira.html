@@ -269,8 +269,10 @@ tr:hover td{background:rgba(0,212,255,.02)}
 
 <div class="fa-page-content">
 <div class="main">
-  <div class="page-title">Carteira
-</div>
+  <div class="page-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+    <span>Carteira</span>
+    <button class="btn btn-ghost btn-sm" onclick="FAPrint.print('Carteira')" aria-label="Imprimir carteira" title="Imprimir (Ctrl+P)">🖨 Imprimir</button>
+  </div>
   <div class="page-sub">Gerencie seus ativos, contas de investimento e acompanhe o preço médio.
 </div>
 
@@ -834,37 +836,31 @@ async function loadAccounts() {
 }
 
 async function saveAccount() {
-  const titular = document.getElementById('acc-titular').value.trim();
-  const cpf     = document.getElementById('acc-cpf').value.trim();
-  const apelido = document.getElementById('acc-apelido').value.trim();
-  const code    = document.getElementById('acc-code').value.trim();
-  const inst    = document.getElementById('acc-institution').value.trim();
-  const agency  = document.getElementById('acc-agency').value.trim();
-  const num     = document.getElementById('acc-number').value.trim();
-
-  // Validacoes basicas
-  const missing = [];
-  if (!titular) missing.push('Titular');
-  if (!cpf)     missing.push('CPF');
-  if (!apelido) missing.push('Apelido');
-  if (!code)    missing.push('Cód. Instituição');
-  if (!inst)    missing.push('Nome Instituição');
-  if (!agency)  missing.push('Cód. Agência');
-  if (!num)     missing.push('Número da Conta');
-  if (missing.length) {
-    showMsg('msg-account', 'Campos obrigatórios: ' + missing.join(', '));
-    return;
-  }
+  // Sprint UI I (21/abr): valida via FAForm — declarativo, marca inputs
+  // com erro + mostra primeiro erro em FAToast.warn.
+  const form = document.getElementById('modal-account');
+  FAForm.clearErrors(form);
+  const res = FAForm.validate(form, {
+    'acc-titular':     ['required'],
+    'acc-cpf':         ['required', 'cpf'],
+    'acc-apelido':     ['required'],
+    'acc-code':        ['required'],
+    'acc-institution': ['required'],
+    'acc-agency':      ['required'],
+    'acc-number':      ['required'],
+  });
+  if (!res.ok) { FAForm.showErrors(form, res.errors); return; }
+  const v = res.values;
 
   try {
     await api('/accounts', { method:'POST', body: JSON.stringify({
-      titular: titular,
-      cpf: cpf,
-      apelido: apelido,
-      institution_code: code,
-      institution_name: inst,
-      agency: agency,
-      account_number: num,
+      titular: v['acc-titular'],
+      cpf: v['acc-cpf'],
+      apelido: v['acc-apelido'],
+      institution_code: v['acc-code'],
+      institution_name: v['acc-institution'],
+      agency: v['acc-agency'],
+      account_number: v['acc-number'],
       account_type: document.getElementById('acc-type').value,
       country: document.getElementById('acc-country').value.toUpperCase()||'BRA',
       currency: document.getElementById('acc-currency').value,
@@ -1107,6 +1103,7 @@ loadSummary();
   <script src="/static/sidebar.js"></script>
   <script src="/static/pwa_register.js"></script>
   <script src="/static/modal.js"></script>
+  <script src="/static/form_validate.js"></script>
   <script src="/static/table_utils.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
@@ -1115,6 +1112,7 @@ loadSummary();
 <script src="/static/toast.js"></script>
   <script src="/static/error_handler.js"></script>
   <script src="/static/loading.js"></script>
+  <script src="/static/print_helper.js"></script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
 </body>

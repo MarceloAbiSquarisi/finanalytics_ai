@@ -158,6 +158,7 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
       </div>
       <div class="page-sub">Gerencia carteiras nomeadas. Inativacao preserva historico — exige saldo zero em todas as aplicacoes.</div>
     </div>
+    <button class="btn btn-ghost btn-sm" onclick="FAPrint.print('Portfolios')" aria-label="Imprimir" title="Imprimir (Ctrl+P)" style="align-self:flex-start">🖨 Imprimir</button>
   </div>
 
   <div class="toolbar">
@@ -349,6 +350,7 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
 <script src="/static/toast.js"></script>
   <script src="/static/error_handler.js"></script>
   <script src="/static/loading.js"></script>
+  <script src="/static/print_helper.js"></script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
 <script src="/static/table_utils.js"></script>
@@ -781,6 +783,7 @@ init();
 </script>
 <script src="/static/sidebar.js"></script>
   <script src="/static/modal.js"></script>
+  <script src="/static/form_validate.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>

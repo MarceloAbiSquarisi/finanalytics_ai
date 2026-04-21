@@ -1,6 +1,6 @@
 # UI helpers compartilhados — `interfaces/api/static/`
 
-> **Sprint UI 21/abr/2026** — 13 assets globais consumidos pelas 39 páginas HTML.
+> **Sprint UI 21/abr/2026** — 19 assets globais consumidos pelas 39 páginas HTML.
 > Todos servidos via rota `/static/{filename}` (whitelist `.js`/`.css`/`.svg`/`.png`/`.ico` + `_ALLOWED_PARTIALS = {sidebar.html}`).
 
 ## Tabela de assets
@@ -18,6 +18,9 @@
 | `error_handler.js` | `FAErr.{handle,fetchJson}` | Boundary global: captura `unhandledrejection`/`window.onerror` → `FAToast.err`. `fetchJson()` faz fetch + parse + erro padronizado com `correlation_id` |
 | `loading.js` | `FALoading.{skeleton,tableRows,spinner,clear}` | Skeletons shimmer + spinner inline/block. Respeita `prefers-reduced-motion` |
 | `a11y.js` | `FAA11y.{init,trapFocus,labelIconButtons}` | Auto-init: skip-link, lang=pt-BR, focus-visible, ARIA em botoes-icone. `trapFocus` usado pelo FAModal |
+| `print_helper.js` | `FAPrint.print(title?)` | Botao imprimir + seta `body[data-print-date]` para rodape CSS. `@media print` em `theme.css` esconde nav + forca contraste |
+| `charts.js` | `FACharts.{apply,opts,palette,load}` | Chart.js defaults com cores do theme.css. Patch do construtor injeta scales/grid padrão. `load()` lazy-load via CDN |
+| `form_validate.js` | `FAForm.{validate,markError,clearErrors,showErrors,isEmail,isCpf,isUrl}` | Validação declarativa — regras `required`/`email`/`cpf`/`url`/`integer`/`number`/`min`/`max`/`regex`. Marca input + toast no primeiro erro |
 | `onboarding.js` | `FAOnboarding.{start,dismiss}` | Wizard 3 etapas (welcome → criar portfolio → tour); auto-start em `/dashboard` na 1ª visita (`fa_onboarded`) |
 | `breadcrumbs.js` | `FABreadcrumbs.{render,set}` | Breadcrumbs no topo do `.main` baseado em `PATH_MAP` (40 rotas → secção/label) |
 | `command_palette.js` | `FAPalette.{open,close,register}` | Modal Cmd+K / `/` com busca fuzzy em 40 páginas + 3 ações |

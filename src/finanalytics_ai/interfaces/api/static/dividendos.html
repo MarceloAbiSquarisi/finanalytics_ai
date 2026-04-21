@@ -127,7 +127,10 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 </aside>
 
 <div class="fa-page-content">
-  <div class="page-title">&#128184; Painel de Dividendos</div>
+  <div class="page-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+    <span>&#128184; Painel de Dividendos</span>
+    <button class="btn btn-ghost btn-sm" onclick="FAPrint.print('Dividendos')" aria-label="Imprimir" title="Imprimir (Ctrl+P)" style="font-size:14px;font-weight:400">🖨 Imprimir</button>
+  </div>
   <div class="page-sub">Dividend Yield historico e ranking com dados do Fintz</div>
 
   <div class="tab-bar">
@@ -331,6 +334,7 @@ loadRanking();
 <script src="/static/toast.js"></script>
   <script src="/static/error_handler.js"></script>
   <script src="/static/loading.js"></script>
+  <script src="/static/print_helper.js"></script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
 <script src="/static/notifications.js"></script>

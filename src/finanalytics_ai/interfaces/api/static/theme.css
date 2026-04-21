@@ -62,3 +62,156 @@
 
 /* Escopo futuro: light theme via class no body */
 /* body.theme-light { --bg: #f5f7fa; ... } */
+
+/* ───────────────────────────────────────────────────────────────────
+ * Sprint UI H (21/abr/2026) — Print stylesheet
+ *
+ * Objetivo: gerar relatorios imprimiveis (carteira, performance,
+ * dividendos, etc) sem navegacao, forcando contraste alto em papel.
+ *
+ * Regras:
+ *  - Esconde: sidebar, topbar, notificações, modals, toasts, onboarding,
+ *    breadcrumbs, command palette, botoes/CTAs de acao.
+ *  - Expande area principal ocupando 100% da pagina.
+ *  - Forca fundo branco + texto preto (economia de toner e contraste).
+ *  - Tabelas: quebras limpas entre paginas, bordas 1px em cinza.
+ *  - Links: mostra URL entre parenteses (except .fa-logo, tabs internas).
+ * ──────────────────────────────────────────────────────────────── */
+@media print {
+  @page { size: A4; margin: 14mm 12mm; }
+
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 10pt !important;
+    line-height: 1.4 !important;
+  }
+
+  /* Esconde navegacao e overlays */
+  .fa-sidebar,
+  .fa-topbar,
+  .fa-skip-link,
+  .fa-notif-bell,
+  .fa-notif-dropdown,
+  .fa-breadcrumbs,
+  .fa-palette-backdrop,
+  .fa-modal-backdrop,
+  .fa-toast,
+  .fa-toast-container,
+  .fa-onboarding-backdrop,
+  .fa-shortcuts-help,
+  nav,
+  .topbar,
+  .sidebar,
+  .sidenav,
+  #sidebar,
+  [role="navigation"] {
+    display: none !important;
+  }
+
+  /* Expande area principal */
+  .fa-page-content,
+  .main,
+  main,
+  #main-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  body.sb-open .fa-page-content { margin-left: 0 !important; }
+
+  /* Esconde botoes/CTAs — nao fazem sentido em papel */
+  button,
+  .btn,
+  .fa-empty-cta,
+  .btn-primary,
+  .btn-danger,
+  .btn-ghost,
+  .btn-sm,
+  .btn-warn,
+  input[type="button"],
+  input[type="submit"],
+  .modal-close,
+  [onclick] {
+    display: none !important;
+  }
+
+  /* Mantem tabelas — sao o core do relatorio */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+  thead { display: table-header-group !important; }
+  tr    { page-break-inside: avoid !important; page-break-after: auto !important; }
+  th, td {
+    border: 1px solid #aaa !important;
+    padding: 4px 6px !important;
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 9pt !important;
+  }
+  th {
+    background: #eee !important;
+    font-weight: 700 !important;
+  }
+  tbody tr:nth-child(even) td { background: #fafafa !important; }
+
+  /* Titulos — cor preta, sem sombras */
+  h1, h2, h3, h4, h5, h6,
+  .page-title, .sec-title, .card-title {
+    color: #000 !important;
+    text-shadow: none !important;
+    page-break-after: avoid !important;
+  }
+  .page-sub, .muted, .fa-empty-text { color: #555 !important; }
+
+  /* Cards/paineis — bordas simples */
+  .card, .panel, .section, .tbl-wrap, .fa-panel {
+    background: #fff !important;
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Pills/badges em papel: apenas borda, sem fundo colorido */
+  .badge, .pill, .fa-pill, [class*="badge-"], [class*="pill-"] {
+    background: transparent !important;
+    color: #000 !important;
+    border: 1px solid #888 !important;
+    font-weight: 600 !important;
+  }
+
+  /* Links: exibe URL entre parenteses (exceto ancoras internas) */
+  a[href]:not(.fa-logo):not(.tab):not([href^="#"]):not([href^="javascript:"])::after {
+    content: " (" attr(href) ")";
+    font-size: 8pt;
+    color: #666;
+  }
+
+  /* Skeletons / loading — nao imprime */
+  .fa-skeleton, .fa-sk-bar, .fa-sk-cell,
+  .fa-spinner-inline, .fa-spinner-block {
+    display: none !important;
+  }
+
+  /* Charts: tenta manter canvas/svg visivel; Chart.js respeita */
+  canvas, svg { max-width: 100% !important; height: auto !important; }
+
+  /* Rodape imprimivel — definir data no body via JS para aparecer:
+     document.body.dataset.printDate = new Date().toLocaleString('pt-BR') */
+  body[data-print-date]::after {
+    content: "FinAnalytics AI — " attr(data-print-date);
+    display: block;
+    text-align: center;
+    font-size: 8pt;
+    color: #888;
+    margin-top: 20px;
+    padding-top: 8px;
+    border-top: 1px solid #ccc;
+  }
+}
+
