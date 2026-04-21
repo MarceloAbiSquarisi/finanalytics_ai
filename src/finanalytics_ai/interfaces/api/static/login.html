@@ -209,9 +209,9 @@ body{
       </div>
       <!-- Lembrar-me + Esqueci a senha -->
       <div class="form-row">
-        <label class="remember">
-          <input type="checkbox" id="remember-me">
-          <span>Lembrar de mim</span>
+        <label class="remember" title="Permanece logado por 7 dias — refresh token automatico">
+          <input type="checkbox" id="remember-me" checked>
+          <span>Lembrar de mim (7 dias)</span>
         </label>
         <a href="/reset-password" class="forgot-link">Esqueci a senha</a>
       </div>
@@ -247,8 +247,40 @@ body{
 const API = '/api/v1/auth';
 const REMEMBER_KEY = 'fa_remember_email';
 
+// Sprint UI R (21/abr): se ja logado E remember_me valido, pula pro dashboard
+// (tenta refresh silencioso se access_token expirou).
+async function _skipIfLoggedIn() {
+  const tok = localStorage.getItem('access_token');
+  if (!tok) return false;
+  try {
+    let r = await fetch(API + '/me', { headers: { 'Authorization': 'Bearer ' + tok } });
+    if (r.status === 401 && localStorage.getItem('fa_remember_me') === '1') {
+      const rt = localStorage.getItem('refresh_token');
+      if (rt) {
+        const rr = await fetch(API + '/refresh', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: rt })
+        });
+        if (rr.ok) {
+          const data = await rr.json();
+          localStorage.setItem('access_token', data.access_token);
+          localStorage.setItem('refresh_token', data.refresh_token);
+          localStorage.setItem('token_expires_at', String(Date.now() + (data.expires_in || 1800) * 1000));
+          r = await fetch(API + '/me', { headers: { 'Authorization': 'Bearer ' + data.access_token } });
+        }
+      }
+    }
+    if (r.ok) {
+      window.location.href = '/dashboard';
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
 // Pré-preenche email se lembrado
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
+  if (await _skipIfLoggedIn()) return;
   const saved = localStorage.getItem(REMEMBER_KEY);
   if (saved) {
     document.getElementById('login-email').value = saved;
@@ -287,15 +319,19 @@ async function doLogin() {
     const res  = await fetch(`${API}/login`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({email, password}),
+      // Sprint UI R (21/abr): envia remember_me; backend devolve access de
+      // 24h (vs 30min padrao) + refresh 7 dias quando true.
+      body: JSON.stringify({email, password, remember_me: remember}),
     });
     const data = await res.json();
     if (!res.ok) { showError(data.detail || 'Credenciais inválidas.'); return; }
-    // Lembrar email
+    // Lembrar email + flag de auto-refresh
     if (remember) {
       localStorage.setItem(REMEMBER_KEY, email);
+      localStorage.setItem('fa_remember_me', '1');
     } else {
       localStorage.removeItem(REMEMBER_KEY);
+      localStorage.removeItem('fa_remember_me');
     }
     storeTokens(data, remember);
     showSuccess('Login realizado! Redirecionando...');
