@@ -510,5 +510,7 @@ function toast(msg, type) {
 </script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
+<script src="/static/auth_guard.js"></script>
+<script>(function(){function go(){if(window.FAAuth)FAAuth.requireAuth({});else setTimeout(go,30);}if(document.readyState!=="loading")go();else document.addEventListener("DOMContentLoaded",go);})();</script>
 </body>
 </html>
