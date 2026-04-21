@@ -64,22 +64,25 @@
     var title = opts.title || (variant === 'danger' ? 'Confirmar exclusão' : 'Confirmar');
 
     return new Promise(function (resolve) {
+      var _release = null;
       var bd = document.createElement('div');
       bd.className = 'fa-modal-backdrop';
       bd.setAttribute('role', 'dialog');
       bd.setAttribute('aria-modal', 'true');
+      bd.setAttribute('aria-labelledby', 'fa-modal-title-' + Date.now());
       bd.innerHTML =
         '<div class="fa-modal-box">' +
-        '<h3 class="fa-modal-title">' + _esc(title) + '</h3>' +
+        '<h3 class="fa-modal-title" id="' + bd.getAttribute('aria-labelledby') + '">' + _esc(title) + '</h3>' +
         '<p class="fa-modal-text">' + _esc(opts.text || '') + '</p>' +
         '<div class="fa-modal-actions">' +
-        '<button class="fa-modal-btn fa-modal-btn-cancel" data-act="cancel">' + _esc(cancelLabel) + '</button>' +
+        (cancelLabel ? '<button class="fa-modal-btn fa-modal-btn-cancel" data-act="cancel">' + _esc(cancelLabel) + '</button>' : '') +
         '<button class="fa-modal-btn fa-modal-btn-ok ' + variant + '" data-act="ok">' + _esc(okLabel) + '</button>' +
         '</div></div>';
 
       function cleanup(result) {
         document.removeEventListener('keydown', onKey);
         bd.removeEventListener('click', onClick);
+        if (_release) { try { _release(); } catch (_) {} }
         if (bd.parentNode) bd.parentNode.removeChild(bd);
         resolve(result);
       }
@@ -95,8 +98,12 @@
       bd.addEventListener('click', onClick);
       document.addEventListener('keydown', onKey);
       document.body.appendChild(bd);
-      var okBtn = bd.querySelector('[data-act="ok"]');
-      if (okBtn) okBtn.focus();
+      if (global.FAA11y && global.FAA11y.trapFocus) {
+        _release = global.FAA11y.trapFocus(bd);
+      } else {
+        var okBtn = bd.querySelector('[data-act="ok"]');
+        if (okBtn) okBtn.focus();
+      }
     });
   }
 

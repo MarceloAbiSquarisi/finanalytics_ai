@@ -16,6 +16,8 @@
 | `empty_state.js` | `FAEmpty.{render,tableRow}` | Empty state com CTA (3 variantes: primary/success/warn) |
 | `modal.js` | `FAModal.{confirm,alert}` | Modal Promise-based — substitui `confirm()`/`alert()` nativos. Esc=cancel, Enter=ok, click no backdrop=cancel |
 | `error_handler.js` | `FAErr.{handle,fetchJson}` | Boundary global: captura `unhandledrejection`/`window.onerror` → `FAToast.err`. `fetchJson()` faz fetch + parse + erro padronizado com `correlation_id` |
+| `loading.js` | `FALoading.{skeleton,tableRows,spinner,clear}` | Skeletons shimmer + spinner inline/block. Respeita `prefers-reduced-motion` |
+| `a11y.js` | `FAA11y.{init,trapFocus,labelIconButtons}` | Auto-init: skip-link, lang=pt-BR, focus-visible, ARIA em botoes-icone. `trapFocus` usado pelo FAModal |
 | `onboarding.js` | `FAOnboarding.{start,dismiss}` | Wizard 3 etapas (welcome → criar portfolio → tour); auto-start em `/dashboard` na 1ª visita (`fa_onboarded`) |
 | `breadcrumbs.js` | `FABreadcrumbs.{render,set}` | Breadcrumbs no topo do `.main` baseado em `PATH_MAP` (40 rotas → secção/label) |
 | `command_palette.js` | `FAPalette.{open,close,register}` | Modal Cmd+K / `/` com busca fuzzy em 40 páginas + 3 ações |
@@ -154,6 +156,24 @@ try { ... } catch (e) { FAErr.handle(e, 'loadPortfolios'); }
 
 Throttling: mesma mensagem em janela de 3s não re-toasta.
 
+### Loading skeletons
+
+```js
+// Skeleton em container generico (4 barras shimmer)
+FALoading.skeleton(document.getElementById('panel'), { rows: 4 });
+
+// Linhas de tabela durante fetch (substitui "Carregando...")
+FALoading.tableRows(tbody, { rows: 5, cols: 8 });
+
+// Spinner block centralizado
+FALoading.spinner(container, 'Sincronizando...');
+
+// Limpar antes de renderizar dados reais
+FALoading.clear(container);
+```
+
+`prefers-reduced-motion` é respeitado (animação substituída por opacity).
+
 ### Notificações realtime (auto-init)
 
 `notifications.js` auto-conecta SSE em `/api/v1/alerts/stream?token=<JWT>`. Sino aparece no topbar antes do `.fa-user-chip`. Click abre dropdown com últimas 30. Eventos:
@@ -243,6 +263,10 @@ FABreadcrumbs.set([
 | `favicon.svg` + meta tags | `b4b9f67` |
 | Lembre-me 7d (auth_guard auto-refresh) | `3589dbf` |
 | `STATIC_HELPERS.md` + cache TTL + FAEmpty screener (W+Z+Y+AA) | `848aaf2` |
-| `table_utils.js` auto-init + 44 tabelas + carteira FAEmpty (Sprint UI A) | _pendente_ |
-| `modal.js` + bulk replace alert/confirm em 26 paginas (Sprint UI B) | _pendente_ |
-| `error_handler.js` boundary global (Sprint UI D) | _pendente_ |
+| `table_utils.js` auto-init + 44 tabelas + carteira FAEmpty (Sprint UI A) | `6bfee75` |
+| `modal.js` + bulk replace alert/confirm em 26 paginas (Sprint UI B) | `6bfee75` |
+| `error_handler.js` boundary global (Sprint UI D) | `6bfee75` |
+| `loading.js` skeletons + carteira/tickers/alerts (Sprint UI C) | _pendente_ |
+| `a11y.js` skip-link + focus trap + ARIA (Sprint UI E) | _pendente_ |
+| `manifest.json` + `sw.js` + `pwa_register.js` PWA (Sprint UI F) | _pendente_ |
+| Migracao carteira/dashboard/fintz `api()` -> FAErr.fetchJson (Sprint UI G) | _pendente_ |

@@ -9,6 +9,8 @@
 <meta name="robots" content="noindex, nofollow">
 <meta property="og:title" content="FinAnalytics AI"><meta property="og:description" content="Plataforma quant para análise financeira, gestão de carteira e day trade."><meta property="og:type" content="website">
 <link rel="stylesheet" href="/static/theme.css">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#00d4ff">
 <style>
 :root {
   --bg:#080b10;--s1:#0d1117;--s2:#111822;--s3:#0e1520;--border:#1c2535;--border2:#253045;
@@ -693,12 +695,12 @@ function _maybeInjectPortfolioInBody(path, opts) {
 }
 
 async function api(path, opts={}) {
+  // Sprint UI G (21/abr): delega para FAErr.fetchJson — error toast
+  // + correlation_id automaticos. Mantem injecao de portfolio_id local.
   const finalPath = _appendPortfolioQS(path);
   const finalOpts = _maybeInjectPortfolioInBody(path, opts);
-  const r = await fetch(API + finalPath, { headers: authHeader(), ...finalOpts });
-  if (!r.ok) { const e = await r.json().catch(()=>({detail:r.statusText})); throw new Error(e.detail||r.statusText); }
-  if (r.status === 204) return null;
-  return r.json();
+  finalOpts.headers = { ...authHeader(), ...(finalOpts.headers || {}) };
+  return FAErr.fetchJson(API + finalPath, finalOpts);
 }
 
 async function loadPortfoliosForSelector() {
@@ -801,9 +803,10 @@ async function loadAll() {
 
 // ── Accounts ──────────────────────────────────────────────────────────────
 async function loadAccounts() {
+  const tbody = document.getElementById('tbody-accounts');
+  FALoading.tableRows(tbody, { rows: 3, cols: 8 });
   try {
     accounts = await api('/accounts');
-    const tbody = document.getElementById('tbody-accounts');
     if (!accounts.length) {
       FAEmpty.tableRow(tbody, { colspan: 8, title: 'Nenhuma conta cadastrada',
         text: 'Cadastre sua primeira conta de corretora ou banco para começar.',
@@ -887,9 +890,10 @@ function populateAccountSelects() {
 
 // ── Trades ────────────────────────────────────────────────────────────────
 async function loadTrades() {
+  const tbody = document.getElementById('tbody-trades');
+  FALoading.tableRows(tbody, { rows: 5, cols: 10 });
   try {
     const trades = await api('/trades');
-    const tbody = document.getElementById('tbody-trades');
     if (!trades.length) {
       FAEmpty.tableRow(tbody, { colspan: 10, title: 'Nenhum trade registrado',
         text: 'Registre compras e vendas para gerar posições e histórico.',
@@ -949,10 +953,11 @@ function updateTradeTotal() {
 
 // ── Positions ─────────────────────────────────────────────────────────────
 async function loadPositions() {
+  const tbody = document.getElementById('tbody-positions');
+  FALoading.tableRows(tbody, { rows: 4, cols: 6 });
   try {
     const cls = document.getElementById('filter-class')?.value||'';
     const positions = await api('/positions' + (cls?`?asset_class=${cls}`:''));
-    const tbody = document.getElementById('tbody-positions');
     if (!positions.length) {
       FAEmpty.tableRow(tbody, { colspan: 6, title: 'Nenhuma posição',
         text: 'Posições são derivadas dos trades. Registre seu primeiro trade.',
@@ -977,6 +982,8 @@ async function loadPositions() {
 
 // ── Crypto ────────────────────────────────────────────────────────────────
 async function loadCrypto() {
+  const _tb = document.getElementById('tbody-crypto');
+  FALoading.tableRows(_tb, { rows: 3, cols: 7 });
   try {
     const crypto = await api('/crypto');
     const tbody = document.getElementById('tbody-crypto');
@@ -1026,6 +1033,8 @@ async function deleteCrypto(id) {
 
 // ── Other Assets ──────────────────────────────────────────────────────────
 async function loadOther() {
+  const _tb = document.getElementById('tbody-outros');
+  FALoading.tableRows(_tb, { rows: 3, cols: 9 });
   try {
     const other = await api('/other');
     const tbody = document.getElementById('tbody-outros');
@@ -1094,7 +1103,9 @@ document.getElementById('tr-date').valueAsDate = new Date();
 loadAll();
 loadSummary();
 </script>
-<script src="/static/sidebar.js"></script>
+<script src="/static/a11y.js"></script>
+  <script src="/static/sidebar.js"></script>
+  <script src="/static/pwa_register.js"></script>
   <script src="/static/modal.js"></script>
   <script src="/static/table_utils.js"></script>
 <script src="/static/breadcrumbs.js"></script>
@@ -1103,6 +1114,7 @@ loadSummary();
 <script src="/static/notifications.js"></script>
 <script src="/static/toast.js"></script>
   <script src="/static/error_handler.js"></script>
+  <script src="/static/loading.js"></script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
 </body>

@@ -9,6 +9,8 @@
 <meta name="robots" content="noindex, nofollow">
 <meta property="og:title" content="FinAnalytics AI"><meta property="og:description" content="Plataforma quant para análise financeira, gestão de carteira e day trade."><meta property="og:type" content="website">
 <link rel="stylesheet" href="/static/theme.css">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#00d4ff">
 <style>
 :root{
   --bg:#080b10;--s1:#0d1117;--s2:#111822;--border:#1c2535;--border2:#253045;
@@ -360,7 +362,9 @@ tr:hover td{background:rgba(0,212,255,.015)}
       </div>
     </div>
 
-<script src="/static/auth_guard.js"></script>
+<script src="/static/a11y.js"></script>
+  <script src="/static/auth_guard.js"></script>
+  <script src="/static/pwa_register.js"></script>
 <script>
 var API = '/api/v1';
 
@@ -660,6 +664,7 @@ init();
   <script src="/static/modal.js"></script>
   <script src="/static/toast.js"></script>
   <script src="/static/error_handler.js"></script>
+  <script src="/static/loading.js"></script>
   <script src="/static/table_utils.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>

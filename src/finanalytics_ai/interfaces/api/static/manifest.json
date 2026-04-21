@@ -1,0 +1,37 @@
+{
+  "name": "FinAnalytics AI",
+  "short_name": "FinAnalytics",
+  "description": "Plataforma quant para analise financeira, gestao de carteira e day trade",
+  "lang": "pt-BR",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#080b10",
+  "theme_color": "#00d4ff",
+  "icons": [
+    {
+      "src": "/static/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "url": "/dashboard"
+    },
+    {
+      "name": "Portfolios",
+      "short_name": "Portfolios",
+      "url": "/portfolios"
+    },
+    {
+      "name": "Alertas",
+      "short_name": "Alertas",
+      "url": "/alerts"
+    }
+  ]
+}

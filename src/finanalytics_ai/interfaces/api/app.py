@@ -994,7 +994,7 @@ def create_app() -> FastAPI:
         Path traversal bloqueado por comparacao do parent resolvido.
         """
         is_partial = filename in _ALLOWED_PARTIALS
-        if not (is_partial or filename.endswith((".js", ".css", ".svg", ".png", ".ico"))):
+        if not (is_partial or filename.endswith((".js", ".css", ".svg", ".png", ".ico", ".json"))):
             return _StaticResponse(status_code=404)
         target = (_static / filename).resolve()
         if _static.resolve() not in target.parents and target.parent != _static.resolve():
@@ -1011,6 +1011,8 @@ def create_app() -> FastAPI:
             media = "image/png"
         elif filename.endswith(".ico"):
             media = "image/x-icon"
+        elif filename.endswith(".json"):
+            media = "application/json"
         else:
             media = "text/html; charset=utf-8"
         # Cache-Control: assets sem versionamento por hash; TTL 1h para
@@ -1022,6 +1024,35 @@ def create_app() -> FastAPI:
             content=target.read_bytes(),
             media_type=media,
             headers={"Cache-Control": f"public, max-age={max_age}"},
+        )
+
+    # PWA — Sprint UI F (21/abr/2026): manifest e service worker
+    # servidos no root para que SW tenha scope='/' (sem precisar
+    # do header Service-Worker-Allowed). SW: cache-control: no-store
+    # para que browser sempre veja a versao mais recente do scope/sw.js.
+    @app.get("/manifest.json", include_in_schema=False)
+    async def serve_manifest() -> _StaticResponse:
+        target = (_static / "manifest.json").resolve()
+        if not target.is_file():
+            return _StaticResponse(status_code=404)
+        return _StaticResponse(
+            content=target.read_bytes(),
+            media_type="application/manifest+json",
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+
+    @app.get("/sw.js", include_in_schema=False)
+    async def serve_service_worker() -> _StaticResponse:
+        target = (_static / "sw.js").resolve()
+        if not target.is_file():
+            return _StaticResponse(status_code=404)
+        return _StaticResponse(
+            content=target.read_bytes(),
+            media_type="application/javascript",
+            headers={
+                "Cache-Control": "no-store, max-age=0",
+                "Service-Worker-Allowed": "/",
+            },
         )
 
     @app.get("/carteira", response_class=HTMLResponse, include_in_schema=False)

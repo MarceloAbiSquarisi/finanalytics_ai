@@ -9,6 +9,8 @@
 <meta name="robots" content="noindex, nofollow">
 <meta property="og:title" content="FinAnalytics AI"><meta property="og:description" content="Plataforma quant para análise financeira, gestão de carteira e day trade."><meta property="og:type" content="website">
 <link rel="stylesheet" href="/static/theme.css">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#00d4ff">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#060810;--s1:#0e1420;--s2:#141d2b;--border:#243045;--border2:#2e3d55;--text:#e2eaf4;--muted:#7a95b0;--accent:#00d4ff;--green:#00e676;--red:#ff3d5a;--yellow:#ffd740;--orange:#ff8c00;--mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif}
@@ -607,7 +609,9 @@ async function computeFeatures() {
   }
 }
 </script>
-<script src="/static/auth_guard.js"></script>
+<script src="/static/a11y.js"></script>
+  <script src="/static/auth_guard.js"></script>
+  <script src="/static/pwa_register.js"></script>
 <script src="/static/sidebar.js"></script>
   <script src="/static/table_utils.js"></script>
 <script src="/static/breadcrumbs.js"></script>
@@ -615,6 +619,7 @@ async function computeFeatures() {
 <script src="/static/shortcuts.js"></script>
 <script src="/static/toast.js"></script>
   <script src="/static/error_handler.js"></script>
+  <script src="/static/loading.js"></script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
 <script src="/static/notifications.js"></script>
