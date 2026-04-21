@@ -324,7 +324,13 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 16. ~~Sprint U8 — Hub frontend + observabilidade~~ — **DONE 21/abr** (cleanup scheduler 23h BRT + correlation_id Kafka cross-service + 3 painéis Grafana dead_letter)
 17. ~~Sprint UX — RBAC backend + UI portfolios CRUD + alertas indicador + sidebar shared~~ — **DONE 21/abr** (helper `auth_guard.js`, hub admin-only via `_require_admin`, página `/alerts`, soft-delete portfolios via `is_active`, `portfolio_name_history`, `sidebar.js` auto-replace em 38 páginas; commits `49f2ca5`, `5e8ebb1`, `ef71e6a`, `2b59225`, `00b21d6`, `9d2e07f`)
 18. ~~Sprint UI 21/abr — Helper-driven UI completa~~ — **DONE 21/abr** — 24 helpers em `static/`, 9 commits (`848aaf2`→`afd7ecb`): toast queue/pause, FAModal Promise, FAErr global boundary, FATable auto-init, FAEmpty CTAs, FALoading skeletons, FAA11y skip-link/focus-trap, FAPrint stylesheets, FACharts theming, FAForm validation, FAI18n PT/EN scaffold + sidebar i18n, FATheme dark/light toggle, FALocale PT/EN switcher, PWA (manifest+sw.js), 343 cores hex→var, 11 fetch boilerplate→FAErr.fetchJson. Decisões 16-19 imutaveis. Ver `STATIC_HELPERS.md`.
-19. Aguardando arquivo Nelogica 1m (~2 dias) → rodar `runbook_import_dados_historicos.md`
+19. ~~Sprint Backend 21/abr — V1+V2+V3+V4+Z3+Z4~~ — **DONE 21/abr** — 3 commits (`83ae2c8`, `c4113ab`, `de57c44`):
+    - **V1** profit_agent: 3 silent excepts → log throttled (tick_v1 callback, asset valid_date parse, DBPool.is_connected).
+    - **V2** `/api/v1/ml/metrics` novo — config_count, pickle_count, drift_count, last_calibration_at, snapshot_age_days, signals_24h. Live: 118 configs, snapshot=hoje, signals {BUY:20, HOLD:76, SELL:20}.
+    - **V3** Grafana alerting provisionado: `docker/grafana/provisioning/alerting/{contact-points,policies,rules}.yml`. 5 rules iniciais + 4 Z3 = **9 alert rules ativos**: high_dead_letter_rate (critical), di1_kafka_errors (warn), profit_agent_db_disconnect (critical), di1_tick_age_high (critical), probe_duration_spike (warn), api_latency_p95_high (warn), api_5xx_rate_high (critical), brapi_errors_high (warn), portfolio_ops_burst (warn). Roteamento severity=critical → slack-ops (placeholder URL), demais → default-internal (email noop).
+    - **V4** Reconciliação cron em `scheduler_worker.py`: `reconcile_loop` a cada `SCHEDULER_RECONCILE_INTERVAL_MIN` (default 5min) chama `GET /positions/dll` no profit_agent dentro de 10h-18h BRT (handler já faz UPDATE em profit_orders). Skip silencioso fora pregão/weekend. Validado live.
+    - **Z4** `/api/v1/ml/predict_ensemble/{ticker}` — agrega predicoes de TODOS pickles do ticker (multi-horizon), pondera por `test_sharpe` (fallback uniforme). Annualiza linearmente (`pred_log/horizon_days`) antes de agregar. Pronto para quando pickles 3d/5d forem treinados (hoje só h21 existe).
+20. Aguardando arquivo Nelogica 1m (~2 dias) → rodar `runbook_import_dados_historicos.md`
 
 ## Decisões Arquiteturais (Imutáveis)
 
@@ -391,6 +397,44 @@ Origem: Sprint UI T (`afd7ecb`) — auditoria das 60+ páginas.
 
 **Não migrar** automaticamente para os vars globais — quebraria visual identity. Páginas redesenhadas devem fazer cleanup deliberado, não bulk migration. Light mode funciona via fall-through nos vars que NÃO foram redefinidos localmente (que são a maioria, após Sprint UI P migrar 343 cores hardcoded).
 
+## Observabilidade (Sprint V3+Z3, 21/abr/2026)
+
+**Grafana** :3000 (admin/admin) — provisionado via `docker/grafana/provisioning/`:
+- **Datasources**: Prometheus :9090
+- **Dashboards**: 17 painéis em `data_quality.json` (DI1, dead_letter, market_data, yield curve, TSMOM, HMM)
+- **Alert rules**: 9 (`provisioning/alerting/rules.yml`) — recarregam sem restart Grafana via `docker restart finanalytics_grafana`
+
+**Tabela de alerts ativos:**
+
+| # | Alert | Severity | Condição | Team |
+|---|---|---|---|---|
+| 1 | `high_dead_letter_rate` | critical | `rate(finanalytics_dead_letter_total[5m]) > 0.1` por 5min | ops |
+| 2 | `di1_kafka_errors` | warning | `increase(di1_worker_kafka_errors_total[5m]) > 0` por 5min | data |
+| 3 | `profit_agent_db_disconnect` | critical | `profit_agent_db_connected == 0` por 2min | trading |
+| 4 | `di1_tick_age_high` | critical | `di1_worker_last_tick_age_seconds > 120` por 3min | data |
+| 5 | `probe_duration_spike` | warning | p95 `profit_agent_probe_duration_seconds > 5` em 10min | ops |
+| 6 | `api_latency_p95_high` | warning | p95 `finanalytics_http_request_duration_seconds > 2s` em 10min | api |
+| 7 | `api_5xx_rate_high` | critical | rate 5xx > 5% em 5min | api |
+| 8 | `brapi_errors_high` | warning | `>10 BRAPI errors` em 15min | data |
+| 9 | `portfolio_ops_burst` | warning | rate `portfolio_operations > 10/s` em 5min | security |
+
+**Roteamento** (`policies.yml`):
+- `severity=critical` → `slack-ops` (URL placeholder; setar `GRAFANA_SLACK_WEBHOOK` no env do container Grafana para ativar)
+- Demais → `default-internal` (email noop sem SMTP — visível em /alerting/list)
+
+**Endpoints `/api/v1/ml/*`** (Sprint V2+Z4):
+- `/api/v1/ml/signals` — batch de 118 tickers calibrados
+- `/api/v1/ml/predict_mvp/{ticker}` — single horizon (h21 default)
+- `/api/v1/ml/predict_ensemble/{ticker}` — multi-horizon agregado por sharpe
+- `/api/v1/ml/signal_history` + `/changes` — auditoria histórica
+- `/api/v1/ml/metrics` — saúde do pipeline (drift, snapshot age, signals 24h)
+
+**Scheduler jobs** (`scheduler_worker.py`):
+- 06:00 BRT — `macro_job` (SELIC, IPCA, FX, IBOV, VIX)
+- 07:00 BRT — `ohlcv_job` + `brapi_sync_job` (delta diário, idempotente)
+- 23:00 BRT — `cleanup_event_records_job` (retention 7d/30d)
+- A cada 5min em 10h-18h BRT — `reconcile_loop` (DLL ↔ DB, skip silencioso fora pregão/weekend)
+
 ## Convenções do Projeto
 
 - **Logging**: `structlog` no FastAPI, `logging` padrão no profit_agent
@@ -404,6 +448,12 @@ Origem: Sprint UI T (`afd7ecb`) — auditoria das 60+ páginas.
 ```
 Remote: https://github.com/MarceloAbiSquarisi/finanalytics_ai
 Branch: master
+Últimos commits (21/abr — Sprint Backend V1-V4 + Z3-Z4):
+  de57c44 feat(infra): Z3 (4 alert rules adicionais) + Z4 (ensemble multi-horizon)
+  c4113ab fix(grafana): ajusta contact-points.yml para provisionar sem erro
+  83ae2c8 feat(infra): V1+V2+V3+V4 — DLL logging + ML metrics + Grafana alerts + reconcile cron
+  ae6fb7c docs(claude): atualiza CLAUDE.md com Sprint UI 21/abr (24 helpers + Decisoes 16-19)
+
 Últimos commits (21/abr — Sprint UI):
   afd7ecb feat(ui): S (locale switcher PT/EN + sidebar i18n) + T (no-op)
   24b1d9e feat(ui): P (cores hardcoded -> var) + R (selectors)
