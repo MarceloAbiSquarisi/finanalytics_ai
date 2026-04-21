@@ -12,9 +12,9 @@ Decisão de design:
 
 from __future__ import annotations
 
-import time
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+import time
 
 from finanalytics_ai.config import Settings
 
@@ -62,9 +62,7 @@ class PrometheusObservability:
 
     def record_retry(self, event_type: str, attempt: int) -> None:
         if self._enabled:
-            self._retries_total.labels(
-                event_type=event_type, attempt=str(attempt)
-            ).inc()
+            self._retries_total.labels(event_type=event_type, attempt=str(attempt)).inc()
 
 
 class NoOpObservability:

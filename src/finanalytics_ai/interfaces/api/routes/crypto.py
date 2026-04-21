@@ -10,11 +10,12 @@ GET  /api/v1/crypto/technical/{sym} -- analise tecnica
 POST /api/v1/crypto/portfolio       -- calcula P&L da carteira
 POST /api/v1/crypto/import          -- importa CSV de posicoes
 """
+
 from typing import Any
 
-import structlog
-from fastapi import APIRouter, HTTPException, Query, Request, UploadFile, File
+from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, Field
+import structlog
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/crypto", tags=["Crypto"])
@@ -24,6 +25,7 @@ DEFAULT_SYMBOLS = ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "DOGE", "AVAX", "LI
 
 def _svc(request: Request):
     from finanalytics_ai.application.services.crypto_service import CryptoService
+
     svc = getattr(request.app.state, "crypto_service", None)
     if svc is None:
         svc = CryptoService()
@@ -48,7 +50,7 @@ async def get_prices(
     request: Request,
     symbols: str = Query(
         ",".join(DEFAULT_SYMBOLS[:10]),
-        description="Simbolos separados por virgula (ex: BTC,ETH,SOL)"
+        description="Simbolos separados por virgula (ex: BTC,ETH,SOL)",
     ),
     vs_currency: str = Query("brl", description="Moeda de cotacao: brl ou usd"),
 ) -> dict[str, Any]:
@@ -104,8 +106,12 @@ async def get_technical(
 async def calc_portfolio(body: PortfolioRequest, request: Request) -> dict[str, Any]:
     svc = _svc(request)
     positions = [
-        {"symbol": p.symbol, "quantity": p.quantity,
-         "avg_price": p.avg_price, "currency": p.currency}
+        {
+            "symbol": p.symbol,
+            "quantity": p.quantity,
+            "avg_price": p.avg_price,
+            "currency": p.currency,
+        }
         for p in body.positions
     ]
     try:

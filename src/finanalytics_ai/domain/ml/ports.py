@@ -14,10 +14,10 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 if TYPE_CHECKING:
     from datetime import datetime
 from finanalytics_ai.domain.ml.entities import (
-        ReturnForecast,
-        RiskMetrics,
-        TickerFeatures,
-    )
+    ReturnForecast,
+    RiskMetrics,
+    TickerFeatures,
+)
 
 
 @runtime_checkable
@@ -70,5 +70,4 @@ class RiskStore(Protocol):
     async def get_latest_risk(
         self,
         tickers: list[str],
-    ) -> list[RiskMetrics]:
-        ...
+    ) -> list[RiskMetrics]: ...

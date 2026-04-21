@@ -9,18 +9,19 @@ Endpoints:
   GET    /alerts/status        — status do bus de notificações
 """
 
+from datetime import datetime
 from typing import Any
 
-import structlog
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from datetime import datetime
+import structlog
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)
 
 # ── Schemas de entrada/saída ──────────────────────────────────────────────────
+
 
 class CreateAlertRequest(BaseModel):
     ticker: str = Field(..., min_length=1, max_length=10)
@@ -30,6 +31,7 @@ class CreateAlertRequest(BaseModel):
     note: str = Field(default="", max_length=200)
     user_id: str = Field(default="user-demo")
     expires_at: datetime | None = None
+
 
 class AlertResponse(BaseModel):
     alert_id: str
@@ -43,7 +45,9 @@ class AlertResponse(BaseModel):
     created_at: str
     triggered_at: str | None
 
+
 # ── Dependency: AlertService ──────────────────────────────────────────────────
+
 
 def _get_alert_service() -> Any:
     from finanalytics_ai.interfaces.api.app import get_alert_service
@@ -53,7 +57,9 @@ def _get_alert_service() -> Any:
         raise HTTPException(503, detail="AlertService não disponível")
     return svc
 
+
 # ── CRUD ─────────────────────────────────────────────────────────────────────
+
 
 @router.post("/", response_model=AlertResponse, status_code=201)
 async def create_alert(body: CreateAlertRequest) -> AlertResponse:
@@ -66,24 +72,21 @@ async def create_alert(body: CreateAlertRequest) -> AlertResponse:
         threshold=body.threshold,
         reference_price=body.reference_price,
         note=body.note,
-        expires_at=body.expires_at
+        expires_at=body.expires_at,
     )
     return _to_response(alert)
 
+
 @router.get("/", response_model=list[AlertResponse])
-async def list_alerts(
-    user_id: str = Query(default="user-demo")
-) -> list[AlertResponse]:
+async def list_alerts(user_id: str = Query(default="user-demo")) -> list[AlertResponse]:
     """Lista todos os alertas do usuário."""
     svc = _get_alert_service()
     alerts = await svc.list_alerts(user_id)
     return [_to_response(a) for a in alerts]
 
+
 @router.delete("/{alert_id}")
-async def cancel_alert(
-    alert_id: str,
-    user_id: str = Query(default="user-demo")
-) -> dict:
+async def cancel_alert(alert_id: str, user_id: str = Query(default="user-demo")) -> dict:
     """Cancela um alerta ativo."""
     svc = _get_alert_service()
     cancelled = await svc.cancel_alert(alert_id, user_id)
@@ -91,11 +94,13 @@ async def cancel_alert(
         raise HTTPException(404, detail="Alerta não encontrado ou já inativo")
     return {"cancelled": True, "alert_id": alert_id}
 
+
 # ── SSE Stream ────────────────────────────────────────────────────────────────
+
 
 @router.get("/stream")
 async def alerts_stream(
-    user_id: str | None = Query(default=None, description="Filtrar por user_id")
+    user_id: str | None = Query(default=None, description="Filtrar por user_id"),
 ) -> StreamingResponse:
     """
     SSE — stream de notificações de alertas disparados em tempo real.
@@ -122,8 +127,9 @@ async def alerts_stream(
     return StreamingResponse(
         _generator(),
         media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
 
 @router.get("/status")
 async def alerts_status() -> dict:
@@ -136,6 +142,7 @@ async def alerts_status() -> dict:
         "service_available": get_alert_service_status(),
     }
 
+
 def get_alert_service_status() -> bool:
     try:
         from finanalytics_ai.interfaces.api.app import get_alert_service
@@ -144,7 +151,9 @@ def get_alert_service_status() -> bool:
     except Exception:
         return False
 
+
 # ── Helper ────────────────────────────────────────────────────────────────────
+
 
 def _to_response(alert: Any) -> AlertResponse:
     return AlertResponse(
@@ -157,5 +166,5 @@ def _to_response(alert: Any) -> AlertResponse:
         note=alert.note,
         user_id=alert.user_id,
         created_at=alert.created_at.isoformat(),
-        triggered_at=alert.triggered_at.isoformat() if alert.triggered_at else None
+        triggered_at=alert.triggered_at.isoformat() if alert.triggered_at else None,
     )

@@ -24,8 +24,8 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
+import structlog
 
 from finanalytics_ai.domain.entities.alert import Alert, AlertType
 from finanalytics_ai.infrastructure.database.repositories.alert_repo import SQLAlertRepository

@@ -1,4 +1,4 @@
-﻿"""
+"""
 finanalytics_ai.application.ml.risk_estimator
 Estimador de risco probabilistico em 4 camadas:
   1. Historico      — nao-parametrico, sem suposicoes de distribuicao
@@ -9,11 +9,12 @@ Estimador de risco probabilistico em 4 camadas:
 Todas as metricas expressam perda como valor positivo.
 Ex: var_95_historical=0.032 = perda maxima de 3.2% com 95% de confianca.
 """
+
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, date, datetime
 import math
-from datetime import date, datetime, timezone
 from typing import Any
 
 import numpy as np
@@ -42,8 +43,12 @@ class RiskEstimator:
         window_days: int = 252,
     ) -> RiskMetrics | None:
         if len(returns) < _MIN_RETURNS:
-            log.warning("risk_estimator.insufficient_data",
-                        ticker=ticker, n=len(returns), needed=_MIN_RETURNS)
+            log.warning(
+                "risk_estimator.insufficient_data",
+                ticker=ticker,
+                n=len(returns),
+                needed=_MIN_RETURNS,
+            )
             return None
 
         ref = reference_date or date.today()
@@ -60,7 +65,7 @@ class RiskEstimator:
 
         return RiskMetrics(
             ticker=ticker,
-            date=datetime.combine(ref, datetime.min.time()).replace(tzinfo=timezone.utc),
+            date=datetime.combine(ref, datetime.min.time()).replace(tzinfo=UTC),
             window_days=window_days,
             var_95_historical=hist["var"],
             cvar_95_historical=hist["cvar"],
@@ -114,9 +119,10 @@ def _garch(arr: np.ndarray, ticker: str) -> dict[str, Any]:
         return null
     try:
         from arch import arch_model
-        res = arch_model(
-            arr * 100, vol="Garch", p=1, q=1, dist="t", rescale=False
-        ).fit(disp="off", show_warning=False)
+
+        res = arch_model(arr * 100, vol="Garch", p=1, q=1, dist="t", rescale=False).fit(
+            disp="off", show_warning=False
+        )
         fcast = res.forecast(horizon=1, reindex=False)
         vol_d = float(np.sqrt(fcast.variance.values[-1, 0])) / 100.0
         nu = max(float(res.params.get("nu", 6.0)), 2.01)
@@ -124,8 +130,7 @@ def _garch(arr: np.ndarray, ticker: str) -> dict[str, Any]:
         var_g = float(-vol_d * t_q)
         pdf_q = float(st.t.pdf(t_q, nu))
         cvar_g = float(vol_d * pdf_q / _ALPHA * (nu + t_q**2) / (nu - 1))
-        log.debug("risk_estimator.garch_ok", ticker=ticker,
-                  vol_d=round(vol_d, 5), nu=round(nu, 1))
+        log.debug("risk_estimator.garch_ok", ticker=ticker, vol_d=round(vol_d, 5), nu=round(nu, 1))
         return {
             "var": max(var_g, 0.0),
             "cvar": max(cvar_g, max(var_g, 0.0)),
@@ -141,8 +146,11 @@ def _garch(arr: np.ndarray, ticker: str) -> dict[str, Any]:
 def _monte_carlo(arr: np.ndarray, param: dict[str, float]) -> dict[str, float]:
     """100k simulacoes t-Student com parametros ajustados. Seed=42 para reproducibilidade."""
     sim = st.t.rvs(
-        param["df"], loc=param["loc"], scale=param["scale"],
-        size=_MC_PATHS, random_state=np.random.default_rng(42),
+        param["df"],
+        loc=param["loc"],
+        scale=param["scale"],
+        size=_MC_PATHS,
+        random_state=np.random.default_rng(42),
     )
     cutoff = max(int(_MC_PATHS * _ALPHA), 1)
     s = np.sort(sim)

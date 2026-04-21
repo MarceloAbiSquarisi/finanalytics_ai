@@ -20,13 +20,13 @@ Design decisions:
 
 from __future__ import annotations
 
-import json
 from datetime import datetime
+import json
 from typing import TYPE_CHECKING
 
-import structlog
 from sqlalchemy import DateTime, ForeignKey, String, Text, delete, select
 from sqlalchemy.orm import Mapped, mapped_column
+import structlog
 
 from finanalytics_ai.domain.watchlist.entities import (
     SmartAlert,
@@ -107,7 +107,9 @@ class WatchlistRepository:
 
     async def delete_item(self, item_id: str) -> None:
         """Remove item e seus alertas (CASCADE no FK)."""
-        await self._session.execute(delete(WatchlistItemModel).where(WatchlistItemModel.item_id == item_id))
+        await self._session.execute(
+            delete(WatchlistItemModel).where(WatchlistItemModel.item_id == item_id)
+        )
 
     async def find_item(self, item_id: str) -> WatchlistItem | None:
         model = await self._session.get(WatchlistItemModel, item_id)

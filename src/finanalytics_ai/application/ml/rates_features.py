@@ -9,15 +9,18 @@ listas de dicts para estas funções.
 
 Referência: Melhorias/melhorias_renda_fixa.md §1.3 + §2.2.
 """
+
 from __future__ import annotations
 
 import math
 from typing import Any
 
-
 # ── Busca em curva (lista de dicts {dias_uteis, taxa_aa}) ─────────────────────
 
-def _sorted_curve(curve: list[dict], key_du: str = "dias_uteis", key_tx: str = "taxa_aa") -> list[tuple[int, float]]:
+
+def _sorted_curve(
+    curve: list[dict], key_du: str = "dias_uteis", key_tx: str = "taxa_aa"
+) -> list[tuple[int, float]]:
     pairs: list[tuple[int, float]] = []
     for r in curve:
         du = r.get(key_du)
@@ -32,8 +35,9 @@ def _sorted_curve(curve: list[dict], key_du: str = "dias_uteis", key_tx: str = "
     return pairs
 
 
-def taxa_em_vertice(curve: list[dict], du: int,
-                    key_du: str = "dias_uteis", key_tx: str = "taxa_aa") -> float | None:
+def taxa_em_vertice(
+    curve: list[dict], du: int, key_du: str = "dias_uteis", key_tx: str = "taxa_aa"
+) -> float | None:
     """
     Interpolação flat-forward (convenção 252 d.u./ano) para obter a taxa no
     vértice `du`. Fora do range: clamp ao extremo mais próximo.
@@ -97,6 +101,7 @@ def breakeven_em_vertice(be_curve: list[dict], du: int) -> float | None:
 
 # ── Nelson-Siegel ──────────────────────────────────────────────────────────────
 
+
 def nelson_siegel_fit(vertice_du: list[int], taxa_pct: list[float]) -> dict[str, float] | None:
     """
     Ajuste Nelson-Siegel paramétrico:
@@ -129,19 +134,22 @@ def nelson_siegel_fit(vertice_du: list[int], taxa_pct: list[float]) -> dict[str,
     except Exception:
         return None
     return {
-        "beta0":  float(params[0]),
-        "beta1":  float(params[1]),
-        "beta2":  float(params[2]),
+        "beta0": float(params[0]),
+        "beta1": float(params[1]),
+        "beta2": float(params[2]),
         "lambda": float(params[3]),
     }
 
 
 # ── F2: Time Series Momentum (Moskowitz et al. 2012) ─────────────────────────
 
-def tsmom_signal(taxa_series: list[float],
-                 lookback_dias: int = 63,
-                 vol_target: float = 0.10,
-                 vol_clip_upper: float = 2.0) -> float | None:
+
+def tsmom_signal(
+    taxa_series: list[float],
+    lookback_dias: int = 63,
+    vol_target: float = 0.10,
+    vol_clip_upper: float = 2.0,
+) -> float | None:
     """
     TSMOM na taxa DI1. Retorna sinal escalonado por vol-target (range -2..+2).
 
@@ -157,7 +165,7 @@ def tsmom_signal(taxa_series: list[float],
     """
     if len(taxa_series) < lookback_dias + 1:
         return None
-    t_now  = taxa_series[-1]
+    t_now = taxa_series[-1]
     t_back = taxa_series[-lookback_dias - 1]
     if t_back is None or t_back == 0:
         return None
@@ -174,7 +182,7 @@ def tsmom_signal(taxa_series: list[float],
         return None
     mean = sum(returns_1d) / len(returns_1d)
     var = sum((r - mean) ** 2 for r in returns_1d) / max(1, len(returns_1d) - 1)
-    vol_ann = (var ** 0.5) * (252 ** 0.5)
+    vol_ann = (var**0.5) * (252**0.5)
     if vol_ann <= 0:
         return None
     escala = min(vol_clip_upper, vol_target / max(vol_ann, 0.01))
@@ -184,14 +192,16 @@ def tsmom_signal(taxa_series: list[float],
 
 # ── F3: Carry (Koijen, Moskowitz, Pedersen, Vrugt 2018) ──────────────────────
 
+
 def carry_ntnb_over_cdi(taxa_ntnb_real_aa: float, cdi_aa: float) -> float:
     """Carry real NTN-B: taxa real - CDI (ambas em % a.a.). Em juro alto
     tipicamente negativo; sinal para reversão quando muito negativo."""
     return float(taxa_ntnb_real_aa) - float(cdi_aa)
 
 
-def carry_roll_down(taxa_longa: float, taxa_curta: float,
-                    du_longo: int, du_curto: int) -> float | None:
+def carry_roll_down(
+    taxa_longa: float, taxa_curta: float, du_longo: int, du_curto: int
+) -> float | None:
     """Roll-down: ganho anualizado por 'descer' na curva inclinada positivamente.
     Curva positiva → roll-down > 0 (carry favorável ao long)."""
     if du_longo == du_curto:
@@ -200,6 +210,7 @@ def carry_roll_down(taxa_longa: float, taxa_curta: float,
 
 
 # ── F4: Value via z-score do histórico ─────────────────────────────────────────
+
 
 def value_zscore(taxa_atual: float, historico: list[float]) -> float | None:
     """Z-score da taxa atual vs histórico. Z > +1 = 'barato' (taxa alta),
@@ -210,7 +221,7 @@ def value_zscore(taxa_atual: float, historico: list[float]) -> float | None:
         return None
     mu = sum(clean) / len(clean)
     var = sum((x - mu) ** 2 for x in clean) / max(1, len(clean) - 1)
-    std = var ** 0.5
+    std = var**0.5
     if std == 0:
         return None
     return (float(taxa_atual) - mu) / std
@@ -225,10 +236,13 @@ def value_breakeven_vs_focus(breakeven_aa: float, focus_ipca_aa: float) -> float
 
 # ── F5: Combinação Value + Momentum (Asness et al. 2013) ──────────────────────
 
-def value_momentum_combined(value_z: float | None,
-                            momentum_z: float | None,
-                            weight_value: float = 0.5,
-                            weight_momentum: float = 0.5) -> float | None:
+
+def value_momentum_combined(
+    value_z: float | None,
+    momentum_z: float | None,
+    weight_value: float = 0.5,
+    weight_momentum: float = 0.5,
+) -> float | None:
     """Value + momentum com pesos iguais. Correlação negativa V-M (~-0.4 a -0.6)
     → combinação reduz vol sem derrubar retorno (√2 Sharpe boost)."""
     if value_z is None or momentum_z is None:
@@ -238,8 +252,15 @@ def value_momentum_combined(value_z: float | None,
 
 # ── F6: Butterfly e FRA (Litterman & Scheinkman 1991) ────────────────────────
 
-def butterfly_duration_neutral(taxa_curta: float, taxa_media: float, taxa_longa: float,
-                               du_curto: int, du_medio: int, du_longo: int) -> float | None:
+
+def butterfly_duration_neutral(
+    taxa_curta: float,
+    taxa_media: float,
+    taxa_longa: float,
+    du_curto: int,
+    du_medio: int,
+    du_longo: int,
+) -> float | None:
     """Butterfly duration-neutral: taxa_media - (w1·taxa_curta + w2·taxa_longa).
     w1, w2 garantem duration neutra. Positivo = corpo caro → short corpo,
     long wings. Negativo = corpo barato → inverso."""
@@ -251,13 +272,14 @@ def butterfly_duration_neutral(taxa_curta: float, taxa_media: float, taxa_longa:
     return taxa_media - (w1 * taxa_curta + w2 * taxa_longa)
 
 
-def fra_implied(taxa_longa_aa: float, taxa_curta_aa: float,
-                du_longo: int, du_curto: int) -> float | None:
+def fra_implied(
+    taxa_longa_aa: float, taxa_curta_aa: float, du_longo: int, du_curto: int
+) -> float | None:
     """FRA: taxa forward implícita no intervalo [du_curto, du_longo].
     Taxas em % a.a. (decimal = /100 internamente)."""
     if du_longo <= du_curto:
         return None
-    r_long  = taxa_longa_aa / 100.0
+    r_long = taxa_longa_aa / 100.0
     r_short = taxa_curta_aa / 100.0
     fator_longo = (1 + r_long) ** (du_longo / 252.0)
     fator_curto = (1 + r_short) ** (du_curto / 252.0)
@@ -269,8 +291,8 @@ def fra_implied(taxa_longa_aa: float, taxa_curta_aa: float,
 
 # ── F9: Quality cross-asset (§7 melhorias_renda_fixa_2.md) ───────────────────
 
-def quality_ntnb_vs_div_yield(taxa_real_ntnb_aa: float,
-                              div_yield_setor_aa: float) -> float:
+
+def quality_ntnb_vs_div_yield(taxa_real_ntnb_aa: float, div_yield_setor_aa: float) -> float:
     """
     Quality sinal: taxa real NTN-B − div_yield setor. Positivo = renda fixa
     paga mais que equity do setor sensível a juros (utilities, bancos,
@@ -289,7 +311,10 @@ def quality_bank_equity_credit(bank_spread_bps: float, vol_ibov: float) -> float
 
 # ── PCA da curva (histórico multi-day) ────────────────────────────────────────
 
-def yield_curve_pca(yield_matrix: list[list[float]], n_components: int = 3) -> dict[str, Any] | None:
+
+def yield_curve_pca(
+    yield_matrix: list[list[float]], n_components: int = 3
+) -> dict[str, Any] | None:
     """
     Decompõe uma matriz (n_dias × n_vertices) nos 3 fatores clássicos:
       PC1 = level (movimento paralelo)
@@ -314,16 +339,18 @@ def yield_curve_pca(yield_matrix: list[list[float]], n_components: int = 3) -> d
     pca = PCA(n_components=n_components)
     factors = pca.fit_transform(X)
     return {
-        "components":         [row.tolist() for row in pca.components_],
+        "components": [row.tolist() for row in pca.components_],
         "explained_variance": pca.explained_variance_ratio_.tolist(),
-        "factors":            factors.tolist(),
+        "factors": factors.tolist(),
     }
 
 
 # ── Feature builder (consumido por build_features_daily / XGBoost factor) ────
 
-def build_rate_features(curve_pre: list[dict], curve_ipca: list[dict],
-                        breakeven: list[dict] | None = None) -> dict[str, float | None]:
+
+def build_rate_features(
+    curve_pre: list[dict], curve_ipca: list[dict], breakeven: list[dict] | None = None
+) -> dict[str, float | None]:
     """
     Features cross-asset consumidas pelo XGBoostFactorModel / LightGBM DI1.
 
@@ -336,26 +363,25 @@ def build_rate_features(curve_pre: list[dict], curve_ipca: list[dict],
     # Normaliza para que ambas as curvas usem 'taxa_aa' como rate
     curve_ipca_norm = [
         {"dias_uteis": r["dias_uteis"], "taxa_aa": r.get("taxa_real_aa", r.get("taxa_aa"))}
-        for r in curve_ipca if r.get("dias_uteis") is not None
+        for r in curve_ipca
+        if r.get("dias_uteis") is not None
     ]
 
     feats: dict[str, float | None] = {
         # Pré-fixada
-        "slope_2y_10y":         slope(curve_pre, 504,  2520),
-        "slope_1y_5y":          slope(curve_pre, 252,  1260),
-        "curvatura_butterfly":  butterfly(curve_pre, 252, 1260, 2520),
-        "taxa_pre_3m":          taxa_em_vertice(curve_pre, 63),
-        "taxa_pre_1y":          taxa_em_vertice(curve_pre, 252),
-        "taxa_pre_5y":          taxa_em_vertice(curve_pre, 1260),
-
+        "slope_2y_10y": slope(curve_pre, 504, 2520),
+        "slope_1y_5y": slope(curve_pre, 252, 1260),
+        "curvatura_butterfly": butterfly(curve_pre, 252, 1260, 2520),
+        "taxa_pre_3m": taxa_em_vertice(curve_pre, 63),
+        "taxa_pre_1y": taxa_em_vertice(curve_pre, 252),
+        "taxa_pre_5y": taxa_em_vertice(curve_pre, 1260),
         # IPCA (taxa real)
-        "taxa_real_1y":         taxa_em_vertice(curve_ipca_norm, 252),
-        "taxa_real_5y":         taxa_em_vertice(curve_ipca_norm, 1260),
-
+        "taxa_real_1y": taxa_em_vertice(curve_ipca_norm, 252),
+        "taxa_real_5y": taxa_em_vertice(curve_ipca_norm, 1260),
         # Breakeven (inflação implícita em %)
-        "breakeven_1y":         None,
-        "breakeven_2y":         None,
-        "breakeven_5y":         None,
+        "breakeven_1y": None,
+        "breakeven_2y": None,
+        "breakeven_5y": None,
     }
 
     if breakeven:
@@ -366,13 +392,13 @@ def build_rate_features(curve_pre: list[dict], curve_ipca: list[dict],
     # Nelson-Siegel (pré) — 4 fatores paramétricos
     ns = nelson_siegel_fit(
         [r["dias_uteis"] for r in curve_pre if r.get("taxa_aa") is not None],
-        [r["taxa_aa"]    for r in curve_pre if r.get("taxa_aa") is not None],
+        [r["taxa_aa"] for r in curve_pre if r.get("taxa_aa") is not None],
     )
     if ns:
-        feats["ns_level"]     = ns["beta0"]
-        feats["ns_slope"]     = ns["beta1"]
+        feats["ns_level"] = ns["beta0"]
+        feats["ns_slope"] = ns["beta1"]
         feats["ns_curvature"] = ns["beta2"]
-        feats["ns_lambda"]    = ns["lambda"]
+        feats["ns_lambda"] = ns["lambda"]
     else:
         feats["ns_level"] = feats["ns_slope"] = feats["ns_curvature"] = feats["ns_lambda"] = None
 

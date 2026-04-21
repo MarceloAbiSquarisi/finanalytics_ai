@@ -16,7 +16,9 @@ from finanalytics_ai.domain.portfolio_optimizer.engine import (
 
 random.seed(42)
 N, T = 4, 252
-_rets_mat = [[random.gauss(0.0004 * (i + 1), 0.012 + i * 0.003) for _ in range(T)] for i in range(N)]
+_rets_mat = [
+    [random.gauss(0.0004 * (i + 1), 0.012 + i * 0.003) for _ in range(T)] for i in range(N)
+]
 _means = [sum(r) / T for r in _rets_mat]
 _cov = _covariance_matrix(_rets_mat)
 _tkrs = ["BOVA11", "IVVB11", "SMAL11", "NTNB11"]
@@ -60,7 +62,9 @@ def test_frontier_has_vol_ret_sharpe():
 
 def test_markowitz_to_dict():
     d = _mz.to_dict()
-    assert all(k in d for k in ["method", "sharpe", "weights", "annual_return_pct", "volatility_pct"])
+    assert all(
+        k in d for k in ["method", "sharpe", "weights", "annual_return_pct", "volatility_pct"]
+    )
 
 
 def test_risk_parity_contributions_uniform():

@@ -8,17 +8,16 @@ Decisão de design: use cases são classes, não funções.
 Motivo: facilita mock parcial em testes e permite estado efêmero
 (ex: cache de conta ativa dentro de uma request).
 """
+
 from __future__ import annotations
 
-import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Optional, Sequence
+import logging
 
 from finanalytics_ai.domain.accounts import (
     AccountDomainError,
-    AccountNotFoundError,
     AccountRepository,
-    AccountStatus,
     AccountType,
     DuplicateAccountError,
     NoActiveAccountError,
@@ -32,27 +31,29 @@ logger = logging.getLogger(__name__)
 # DTOs de entrada (evita acoplar o use case ao schema HTTP)
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class CreateAccountCmd:
     broker_id: str
     account_id: str
     account_type: AccountType
     label: str
-    routing_password: Optional[str] = None
-    sub_account_id: Optional[str] = None
+    routing_password: str | None = None
+    sub_account_id: str | None = None
 
 
 @dataclass(frozen=True)
 class UpdateAccountCmd:
     account_uuid: str
-    label: Optional[str] = None
-    routing_password: Optional[str] = None
-    broker_name: Optional[str] = None
+    label: str | None = None
+    routing_password: str | None = None
+    broker_name: str | None = None
 
 
 # ---------------------------------------------------------------------------
 # Use cases
 # ---------------------------------------------------------------------------
+
 
 class CreateAccount:
     """
@@ -97,20 +98,16 @@ class CreateAccount:
 
 
 class ListAccounts:
-
     def __init__(self, repo: AccountRepository) -> None:
         self._repo = repo
 
-    async def execute(
-        self, account_type: Optional[AccountType] = None
-    ) -> Sequence[TradingAccount]:
+    async def execute(self, account_type: AccountType | None = None) -> Sequence[TradingAccount]:
         if account_type:
             return await self._repo.list_by_type(account_type)
         return await self._repo.list_all()
 
 
 class GetAccount:
-
     def __init__(self, repo: AccountRepository) -> None:
         self._repo = repo
 
@@ -159,14 +156,11 @@ class GetActiveAccount:
     async def execute(self) -> TradingAccount:
         account = await self._repo.get_active()
         if not account:
-            raise NoActiveAccountError(
-                "Nenhuma conta ativa. Selecione uma conta antes de operar."
-            )
+            raise NoActiveAccountError("Nenhuma conta ativa. Selecione uma conta antes de operar.")
         return account
 
 
 class UpdateAccount:
-
     def __init__(self, repo: AccountRepository) -> None:
         self._repo = repo
 
@@ -186,7 +180,6 @@ class UpdateAccount:
 
 
 class DeleteAccount:
-
     def __init__(self, repo: AccountRepository) -> None:
         self._repo = repo
 

@@ -2,13 +2,17 @@
 finanalytics_ai.infrastructure.database.repositories.admin_repo
 Admin repository: financial_agents ORM + CRUD
 """
+
 from __future__ import annotations
+
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 import uuid
-import structlog
-from sqlalchemy import Boolean, DateTime, String, Text, func, select, update as sa_update
+
+from sqlalchemy import Boolean, DateTime, String, Text, func, select
 from sqlalchemy.orm import Mapped, mapped_column
+import structlog
+
 from finanalytics_ai.infrastructure.database.connection import Base
 
 if TYPE_CHECKING:
@@ -37,9 +41,13 @@ class FinancialAgentRepository:
 
     def _row(self, m: FinancialAgentModel) -> dict:
         return {
-            "id": m.id, "name": m.name, "code": m.code,
-            "agent_type": m.agent_type, "country": m.country,
-            "website": m.website, "is_active": m.is_active,
+            "id": m.id,
+            "name": m.name,
+            "code": m.code,
+            "agent_type": m.agent_type,
+            "country": m.country,
+            "website": m.website,
+            "is_active": m.is_active,
             "note": m.note,
             "created_at": m.created_at.isoformat() if m.created_at else None,
         }
@@ -49,7 +57,9 @@ class FinancialAgentRepository:
         return [self._row(m) for m in res.scalars().all()]
 
     async def get(self, agent_id: str) -> dict | None:
-        res = await self._s.execute(select(FinancialAgentModel).where(FinancialAgentModel.id == agent_id))
+        res = await self._s.execute(
+            select(FinancialAgentModel).where(FinancialAgentModel.id == agent_id)
+        )
         m = res.scalar_one_or_none()
         return self._row(m) if m else None
 
@@ -70,7 +80,9 @@ class FinancialAgentRepository:
         return self._row(m)
 
     async def update(self, agent_id: str, data: dict) -> dict | None:
-        res = await self._s.execute(select(FinancialAgentModel).where(FinancialAgentModel.id == agent_id))
+        res = await self._s.execute(
+            select(FinancialAgentModel).where(FinancialAgentModel.id == agent_id)
+        )
         m = res.scalar_one_or_none()
         if not m:
             return None
@@ -82,7 +94,9 @@ class FinancialAgentRepository:
         return self._row(m)
 
     async def delete(self, agent_id: str) -> bool:
-        res = await self._s.execute(select(FinancialAgentModel).where(FinancialAgentModel.id == agent_id))
+        res = await self._s.execute(
+            select(FinancialAgentModel).where(FinancialAgentModel.id == agent_id)
+        )
         m = res.scalar_one_or_none()
         if not m:
             return False

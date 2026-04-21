@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import time
 from datetime import UTC
+import time
 from typing import TYPE_CHECKING, Any
 
-import structlog
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+import structlog
 
 from finanalytics_ai.domain.indicators.ohlc_aggregator import aggregate_bars, filter_by_range
 from finanalytics_ai.domain.value_objects.money import Ticker
@@ -35,7 +35,9 @@ def _ttl() -> int:
 
 
 class OHLC1mService:
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession], brapi_client: BrapiClient) -> None:
+    def __init__(
+        self, session_factory: async_sessionmaker[AsyncSession], brapi_client: BrapiClient
+    ) -> None:
         self._sf = session_factory
         self._brapi = brapi_client
 
@@ -47,7 +49,9 @@ class OHLC1mService:
             return await self._daily(ticker, interval, range_period)
         async with self._sf() as s:
             meta = await self._meta(s, ticker)
-            stale = not meta or not meta.last_fetch_at or (time.time() - meta.last_fetch_at) > _ttl()
+            stale = (
+                not meta or not meta.last_fetch_at or (time.time() - meta.last_fetch_at) > _ttl()
+            )
             if stale:
                 await self._refresh(s, ticker)
             bars = await self._load(s, ticker, range_period)

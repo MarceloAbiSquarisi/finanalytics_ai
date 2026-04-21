@@ -27,11 +27,11 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import signal
 from dataclasses import dataclass
+import signal
 
-import structlog
 from opentelemetry import trace
+import structlog
 
 from finanalytics_ai.application.commands.process_event import ProcessMarketEventCommand
 from finanalytics_ai.application.services.alert_service import AlertService

@@ -4,6 +4,7 @@ Testes do EventProcessorService com tracing injetado.
 Verifica que o tracing e chamado corretamente sem acoplamento ao OTEL real.
 Usa um FakeTracing que registra as chamadas para inspecao.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -132,9 +133,7 @@ class TestServiceWithTracing:
         assert span.attributes.get("event.result") == "completed"
 
     async def test_failed_rule_span_has_result_failed(self) -> None:
-        svc, _, _, _, tracing = make_service_with_tracing(
-            rules=[FailureRule("bad")], max_retries=0
-        )
+        svc, _, _, _, tracing = make_service_with_tracing(rules=[FailureRule("bad")], max_retries=0)
         event = make_event()
         # max_retries=0 -> vai para dead_letter e levanta MaxRetriesExceededError
         try:
@@ -171,6 +170,7 @@ class TestServiceWithTracing:
     async def test_backward_compat_no_tracing_arg(self) -> None:
         """Testes existentes continuam funcionando sem passar tracing."""
         from finanalytics_ai.application.event_processor.config import EventProcessorConfig
+
         cfg = EventProcessorConfig(max_retries=3, concurrency=10)
         svc = create_event_processor_service(
             repository=FakeEventRepository(),

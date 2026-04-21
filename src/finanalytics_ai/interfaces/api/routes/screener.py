@@ -8,18 +8,19 @@ GET  /api/v1/screener/fields — descreve os campos disponiveis e seus intervalo
 
 from typing import Any
 
-import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
+import structlog
 
 from finanalytics_ai.application.services.backtest_service import BacktestError
+from finanalytics_ai.application.services.screener_service import ScreenerService
 from finanalytics_ai.domain.screener.engine import FilterCriteria
 from finanalytics_ai.infrastructure.cache.dependencies import cached_route, rate_limit
-from finanalytics_ai.application.services.screener_service import ScreenerService
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/screener", tags=["Screener"])
+
 
 class ScreenerRequest(BaseModel):
     # Filtros de valuation
@@ -54,18 +55,20 @@ class ScreenerRequest(BaseModel):
     extra_tickers: list[str] = Field(default_factory=list)
     use_universe: bool = True
 
+
 def _get_service(request: Request) -> ScreenerService:
     svc = getattr(request.app.state, "screener_service", None)
     if svc is None:
         raise HTTPException(503, "ScreenerService nao inicializado")
     return svc
 
+
 @router.post("/run")
 async def run_screener(
     body: ScreenerRequest,
     request: Request,
     response: Response,
-    _rl: None = Depends(rate_limit(limit=5, window=60))
+    _rl: None = Depends(rate_limit(limit=5, window=60)),
 ) -> dict[str, Any]:
     """
     Executa o screener com criterios fundamentalistas.
@@ -97,13 +100,11 @@ async def run_screener(
         market_cap_min=body.market_cap_min,
         market_cap_max=body.market_cap_max,
         sector=body.sector,
-        volume_min=body.volume_min
+        volume_min=body.volume_min,
     )
     try:
         result = await svc.screen(
-            criteria=criteria,
-            extra_tickers=body.extra_tickers,
-            use_universe=body.use_universe
+            criteria=criteria, extra_tickers=body.extra_tickers, use_universe=body.use_universe
         )
         return result.to_dict()
     except BacktestError as exc:
@@ -111,6 +112,7 @@ async def run_screener(
     except Exception as exc:
         logger.error("screener.unexpected_error", error=str(exc))
         raise HTTPException(500, "Erro interno no screener") from exc
+
 
 @router.get("/run")
 @cached_route(ttl=300, prefix="screener_run")
@@ -124,7 +126,7 @@ async def run_screener_get(
     debt_equity_max: float | None = Query(None),
     sector: str | None = Query(None),
     extra_tickers: str | None = Query(None),
-    _rl: None = Depends(rate_limit(limit=10, window=60))
+    _rl: None = Depends(rate_limit(limit=10, window=60)),
 ) -> dict[str, Any]:
     """Screener via GET — subset de filtros para uso rapido."""
     extras = [t.strip() for t in extra_tickers.split(",")] if extra_tickers else []
@@ -135,7 +137,7 @@ async def run_screener_get(
         dy_min=dy_min,
         roe_min=roe_min,
         debt_equity_max=debt_equity_max,
-        sector=sector
+        sector=sector,
     )
     try:
         result = await svc.screen(criteria=criteria, extra_tickers=extras)
@@ -145,6 +147,7 @@ async def run_screener_get(
     except Exception as exc:
         logger.error("screener.unexpected_error", error=str(exc))
         raise HTTPException(500, "Erro interno no screener") from exc
+
 
 @router.get("/fields")
 async def screener_fields() -> dict[str, Any]:

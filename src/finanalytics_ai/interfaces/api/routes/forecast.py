@@ -15,11 +15,12 @@ Design:
 import time
 from typing import Annotated, Any
 
-import structlog
 from fastapi import APIRouter, HTTPException, Query, Request
+import structlog
 
 from finanalytics_ai.config import get_settings
 from finanalytics_ai.domain.value_objects.money import Ticker
+
 # get_brapi_client substituido por market_client do app.state
 
 logger = structlog.get_logger(__name__)
@@ -28,27 +29,32 @@ router = APIRouter(prefix="/api/v1/forecast", tags=["Forecast"])
 # Simple in-memory cache: key → (timestamp, result_dict)
 _cache: dict[str, tuple[float, dict[str, Any]]] = {}
 
+
 def _get_forecast_service(request: Request) -> Any:
     svc = getattr(request.app.state, "forecast_service", None)
     if svc is None:
         from finanalytics_ai.application.services.forecast_service import ForecastService
+
         settings = get_settings()
         svc = ForecastService(data_dir=settings.data_dir)
         request.app.state.forecast_service = svc
     return svc
 
+
 def _get_narrative_service(request: Request) -> Any:
     svc = getattr(request.app.state, "narrative_service", None)
     if svc is None:
         from finanalytics_ai.application.services.narrative_service import NarrativeService
+
         settings = get_settings()
         svc = NarrativeService(
             ollama_url=settings.ollama_url,
             ollama_model=settings.ollama_model,
-            anthropic_api_key=settings.anthropic_api_key
+            anthropic_api_key=settings.anthropic_api_key,
         )
         request.app.state.narrative_service = svc
     return svc
+
 
 @router.get("/{ticker}")
 async def run_forecast(
@@ -56,7 +62,7 @@ async def run_forecast(
     request: Request,
     horizon: Annotated[int, Query(ge=5, le=90, description="Dias de forecast")] = 30,
     range_period: Annotated[str, Query(description="Histórico")] = "2y",
-    models: Annotated[str, Query(description="all | prophet | lstm | tft")] = "all"
+    models: Annotated[str, Query(description="all | prophet | lstm | tft")] = "all",
 ) -> dict[str, Any]:
     """
     Run ensemble price forecast for a ticker.
@@ -79,7 +85,7 @@ async def run_forecast(
             logger.info("forecast.cache_hit", ticker=ticker)
             return {**data, "cached": True}
 
-    market_data = getattr(request.app.state, 'market_client', None)
+    market_data = getattr(request.app.state, "market_client", None)
 
     # Fetch historical bars — use 2y for enough training data
     try:
@@ -92,28 +98,33 @@ async def run_forecast(
     if not bars or len(bars) < 60:
         raise HTTPException(
             status_code=422,
-            detail=f"Dados insuficientes para {ticker} ({len(bars or [])} barras). Mínimo: 60 dias."
+            detail=f"Dados insuficientes para {ticker} ({len(bars or [])} barras). Mínimo: 60 dias.",
         )
 
     # Fetch indicators in parallel for narrative context
     indicators: dict[str, Any] = {}
     try:
         from finanalytics_ai.domain.indicators.technical import compute_all
+
         ind = compute_all(bars)
         rsi_vals = [v for v in (ind.get("rsi", {}).get("values") or []) if v is not None]
         macd_data = ind.get("macd", {})
         bb_data = ind.get("bollinger", {})
 
         rsi_last = round(rsi_vals[-1], 1) if rsi_vals else None
-        macd_hist = (macd_data.get("histogram") or [])
+        macd_hist = macd_data.get("histogram") or []
         macd_last = [h for h in macd_hist if h is not None]
         macd_signal_str = "Alta" if macd_last and macd_last[-1] > 0 else "Baixa"
 
-        bb_pctb = (bb_data.get("pct_b") or [])
+        bb_pctb = bb_data.get("pct_b") or []
         bb_last = [v for v in bb_pctb if v is not None]
         if bb_last:
             pb = bb_last[-1]
-            bb_pos = "Acima superior" if pb > 0.8 else ("Abaixo inferior" if pb < 0.2 else f"Central ({pb:.2f})")
+            bb_pos = (
+                "Acima superior"
+                if pb > 0.8
+                else ("Abaixo inferior" if pb < 0.2 else f"Central ({pb:.2f})")
+            )
         else:
             bb_pos = "N/A"
 
@@ -128,11 +139,7 @@ async def run_forecast(
     # Run forecast
     forecast_svc = _get_forecast_service(request)
     try:
-        result = await forecast_svc.forecast(
-            ticker=ticker.upper(),
-            bars=bars,
-            horizon=horizon
-        )
+        result = await forecast_svc.forecast(ticker=ticker.upper(), bars=bars, horizon=horizon)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     except RuntimeError as e:
@@ -149,7 +156,9 @@ async def run_forecast(
         "ci_lower": result.ci_lower,
         "ci_upper": result.ci_upper,
         "models": ", ".join(k for k, v in result.models.items() if v.get("available")),
-        "weights": str({k: v.get("weight", 0) for k, v in result.models.items() if v.get("available")}),
+        "weights": str(
+            {k: v.get("weight", 0) for k, v in result.models.items() if v.get("available")}
+        ),
         **indicators,
         "patterns": "Não disponível nesta requisição",
     }
@@ -169,9 +178,10 @@ async def run_forecast(
         horizon=horizon,
         signal=result.signal,
         change_pct=result.change_pct,
-        provider=result.narrative_provider
+        provider=result.narrative_provider,
     )
     return {**data, "cached": False}
+
 
 @router.get("/{ticker}/models")
 async def get_model_status(ticker: str, request: Request) -> dict[str, Any]:
@@ -185,9 +195,14 @@ async def get_model_status(ticker: str, request: Request) -> dict[str, Any]:
             available[name] = {"available": False, "install": f"pip install {lib}"}
 
     import torch
-    available["cuda"] = {
-        "available": torch.cuda.is_available() if "torch" in dir() else False,
-        "device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU",
-    } if available.get("lstm", {}).get("available") else {"available": False}
+
+    available["cuda"] = (
+        {
+            "available": torch.cuda.is_available() if "torch" in dir() else False,
+            "device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU",
+        }
+        if available.get("lstm", {}).get("available")
+        else {"available": False}
+    )
 
     return {"ticker": ticker.upper(), "models": available}

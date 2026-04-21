@@ -29,31 +29,33 @@ Design decisions:
     - Sem herança — composição via dataclasses
     - Testável com TapeMetrics sintético, sem dependências de infra
 """
+
 from __future__ import annotations
 
-import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
+import math
 from typing import NamedTuple
-
 
 # ── Enums ─────────────────────────────────────────────────────────────────────
 
+
 class Direction(str, Enum):
-    LONG   = "LONG"
-    SHORT  = "SHORT"
+    LONG = "LONG"
+    SHORT = "SHORT"
     NEUTRO = "NEUTRO"
 
 
 class Strength(str, Enum):
-    EXTREMO  = "EXTREMO"   # score >= 85
-    FORTE    = "FORTE"     # score >= 70
+    EXTREMO = "EXTREMO"  # score >= 85
+    FORTE = "FORTE"  # score >= 70
     MODERADO = "MODERADO"  # score >= 50
-    FRACO    = "FRACO"     # score >= 30
-    NEUTRO   = "NEUTRO"    # score <  30
+    FRACO = "FRACO"  # score >= 30
+    NEUTRO = "NEUTRO"  # score <  30
 
 
 # ── Configuração ───────────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class ConflunceConfig:
@@ -73,8 +75,8 @@ class ConflunceConfig:
     speed_min_relevant: float = 3.0
 
     # Pesos de cada fator (devem somar 1.0)
-    weight_cv: float    = 0.40
-    weight_flow: float  = 0.40
+    weight_cv: float = 0.40
+    weight_flow: float = 0.40
     weight_speed: float = 0.20
 
     # Mínimo de trades para considerar o sinal válido
@@ -83,16 +85,19 @@ class ConflunceConfig:
 
 # ── Tipos internos ─────────────────────────────────────────────────────────────
 
+
 class FactorScore(NamedTuple):
     """Score normalizado (0-100) de um fator individual."""
+
     name: str
-    raw_value: float       # valor bruto (ratio, saldo, tpm)
-    score: float           # 0-100
-    direction: Direction   # contribuição direcional deste fator
-    reason: str            # texto legível para debug/UI
+    raw_value: float  # valor bruto (ratio, saldo, tpm)
+    score: float  # 0-100
+    direction: Direction  # contribuição direcional deste fator
+    reason: str  # texto legível para debug/UI
 
 
 # ── Sinal de saída ─────────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class ConflunceSignal:
@@ -100,37 +105,40 @@ class ConflunceSignal:
     Sinal de confluência calculado para um ticker.
     Imutável — calculado uma vez por snapshot de TapeMetrics.
     """
+
     ticker: str
-    score: float           # 0-100 ponderado
+    score: float  # 0-100 ponderado
     direction: Direction
     strength: Strength
     factors: list[FactorScore]
-    is_valid: bool         # False se dados insuficientes
-    reason: str            # motivo de invalidação (se is_valid=False)
+    is_valid: bool  # False se dados insuficientes
+    reason: str  # motivo de invalidação (se is_valid=False)
 
     @property
     def is_actionable(self) -> bool:
         """True se o sinal justifica uma entrada."""
         return self.is_valid and self.strength in (
-            Strength.FORTE, Strength.MODERADO, Strength.EXTREMO
+            Strength.FORTE,
+            Strength.MODERADO,
+            Strength.EXTREMO,
         )
 
     def to_dict(self) -> dict:
         return {
-            "ticker":    self.ticker,
-            "score":     round(self.score, 1),
+            "ticker": self.ticker,
+            "score": round(self.score, 1),
             "direction": self.direction.value,
-            "strength":  self.strength.value,
+            "strength": self.strength.value,
             "actionable": self.is_actionable,
-            "valid":     self.is_valid,
-            "reason":    self.reason,
+            "valid": self.is_valid,
+            "reason": self.reason,
             "factors": [
                 {
-                    "name":      f.name,
-                    "raw":       round(f.raw_value, 3),
-                    "score":     round(f.score, 1),
+                    "name": f.name,
+                    "raw": round(f.raw_value, 3),
+                    "score": round(f.score, 1),
                     "direction": f.direction.value,
-                    "reason":    f.reason,
+                    "reason": f.reason,
                 }
                 for f in self.factors
             ],
@@ -138,6 +146,7 @@ class ConflunceSignal:
 
 
 # ── Engine ─────────────────────────────────────────────────────────────────────
+
 
 class ConflunceEngine:
     """
@@ -175,15 +184,11 @@ class ConflunceEngine:
         # ── Validação de dados mínimos ────────────────────────────────────────
         if total_trades < cfg.min_trades:
             return self._invalid(
-                ticker,
-                f"dados insuficientes: {total_trades} trades (mínimo {cfg.min_trades})"
+                ticker, f"dados insuficientes: {total_trades} trades (mínimo {cfg.min_trades})"
             )
 
         if trades_por_min < cfg.speed_min_relevant:
-            return self._invalid(
-                ticker,
-                f"mercado muito lento: {trades_por_min:.1f} trades/min"
-            )
+            return self._invalid(ticker, f"mercado muito lento: {trades_por_min:.1f} trades/min")
 
         # ── Fator 1: C/V Ratio ────────────────────────────────────────────────
         cv_factor = self._score_cv(ratio_cv)
@@ -198,9 +203,9 @@ class ConflunceEngine:
 
         # ── Score ponderado ───────────────────────────────────────────────────
         weighted = (
-            cv_factor.score    * cfg.weight_cv    +
-            flow_factor.score  * cfg.weight_flow  +
-            speed_factor.score * cfg.weight_speed
+            cv_factor.score * cfg.weight_cv
+            + flow_factor.score * cfg.weight_flow
+            + speed_factor.score * cfg.weight_speed
         )
 
         # ── Direção por votação ponderada ─────────────────────────────────────
@@ -270,10 +275,7 @@ class ConflunceEngine:
         total_vol = vol_compra + vol_venda
 
         if total_vol == 0:
-            return FactorScore(
-                "saldo_fluxo", 0.0, 0.0, Direction.NEUTRO,
-                "sem volume negociado"
-            )
+            return FactorScore("saldo_fluxo", 0.0, 0.0, Direction.NEUTRO, "sem volume negociado")
 
         # Normaliza pelo volume total para ser relativo (não absoluto)
         pct_saldo = saldo_fluxo / total_vol  # -1.0 a +1.0
@@ -284,10 +286,10 @@ class ConflunceEngine:
 
         if saldo_fluxo > 0:
             direction = Direction.LONG
-            reason = f"saldo={saldo_fluxo:+.0f} — acumulação ({pct_saldo*100:.1f}% do volume)"
+            reason = f"saldo={saldo_fluxo:+.0f} — acumulação ({pct_saldo * 100:.1f}% do volume)"
         elif saldo_fluxo < 0:
             direction = Direction.SHORT
-            reason = f"saldo={saldo_fluxo:+.0f} — distribuição ({pct_saldo*100:.1f}% do volume)"
+            reason = f"saldo={saldo_fluxo:+.0f} — distribuição ({pct_saldo * 100:.1f}% do volume)"
         else:
             direction = Direction.NEUTRO
             reason = "saldo nulo — fluxo perfeitamente equilibrado"
@@ -333,9 +335,7 @@ class ConflunceEngine:
         """
         cfg = self.config
         weights = {"cv_ratio": cfg.weight_cv, "saldo_fluxo": cfg.weight_flow}
-        long_weight = sum(
-            weights.get(f.name, 0) for f in factors if f.direction == Direction.LONG
-        )
+        long_weight = sum(weights.get(f.name, 0) for f in factors if f.direction == Direction.LONG)
         short_weight = sum(
             weights.get(f.name, 0) for f in factors if f.direction == Direction.SHORT
         )

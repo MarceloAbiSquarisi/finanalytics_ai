@@ -17,10 +17,11 @@ Configuração no .env:
 
 from __future__ import annotations
 
-import smtplib
-import structlog
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+import smtplib
+
+import structlog
 
 logger = structlog.get_logger(__name__)
 
@@ -45,8 +46,7 @@ class EmailSender:
     def is_configured(self) -> bool:
         return self._enabled
 
-    def send_reset_password(self, to_email: str, full_name: str,
-                             reset_url: str) -> bool:
+    def send_reset_password(self, to_email: str, full_name: str, reset_url: str) -> bool:
         """
         Envia e-mail de redefinição de senha.
         Retorna True se enviado, False se em modo dry-run.
@@ -79,8 +79,10 @@ class EmailSender:
           </p>
         </div>
         """
-        text = (f"Olá {full_name},\n\nRedefinição de senha:\n{reset_url}\n\n"
-                f"Este link expira em 30 minutos.")
+        text = (
+            f"Olá {full_name},\n\nRedefinição de senha:\n{reset_url}\n\n"
+            f"Este link expira em 30 minutos."
+        )
 
         if not self._enabled:
             logger.warning("email.dry_run", to=to_email, reset_url=reset_url)
@@ -89,8 +91,8 @@ class EmailSender:
         try:
             msg = MIMEMultipart("alternative")
             msg["Subject"] = subject
-            msg["From"]    = self._from
-            msg["To"]      = to_email
+            msg["From"] = self._from
+            msg["To"] = to_email
             msg.attach(MIMEText(text, "plain"))
             msg.attach(MIMEText(html, "html"))
 
@@ -114,6 +116,7 @@ def get_email_sender() -> EmailSender:
     global _sender
     if _sender is None:
         from finanalytics_ai.config import get_settings
+
         s = get_settings()
         _sender = EmailSender(
             host=s.smtp_host,

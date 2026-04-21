@@ -121,7 +121,8 @@ def _make_composite(brapi_bars=None, yahoo_bars=None, brapi_raises=False, yahoo_
 
 def _make_bars(n: int) -> list[dict]:
     return [
-        {"time": i, "open": 10.0, "high": 11.0, "low": 9.0, "close": 10.5, "volume": 1000} for i in range(n)
+        {"time": i, "open": 10.0, "high": 11.0, "low": 9.0, "close": 10.5, "volume": 1000}
+        for i in range(n)
     ]
 
 
@@ -230,7 +231,9 @@ class TestCompositeMarketDataClient:
     async def test_get_quote_delegates_to_brapi(self) -> None:
         """get_quote sempre usa BRAPI (cotação em tempo real)."""
         from finanalytics_ai.domain.value_objects.money import Money, Ticker
-        from finanalytics_ai.infrastructure.adapters.market_data_client import CompositeMarketDataClient
+        from finanalytics_ai.infrastructure.adapters.market_data_client import (
+            CompositeMarketDataClient,
+        )
 
         brapi = MagicMock()
         brapi.get_quote = AsyncMock(return_value=Money.of("38.50"))
@@ -246,7 +249,9 @@ class TestCompositeMarketDataClient:
     @pytest.mark.asyncio
     async def test_is_healthy_true_if_either_available(self) -> None:
         """is_healthy retorna True se pelo menos um provider está up."""
-        from finanalytics_ai.infrastructure.adapters.market_data_client import CompositeMarketDataClient
+        from finanalytics_ai.infrastructure.adapters.market_data_client import (
+            CompositeMarketDataClient,
+        )
 
         brapi = MagicMock()
         brapi.is_healthy = AsyncMock(return_value=False)
@@ -259,7 +264,9 @@ class TestCompositeMarketDataClient:
 
     @pytest.mark.asyncio
     async def test_is_healthy_false_if_both_down(self) -> None:
-        from finanalytics_ai.infrastructure.adapters.market_data_client import CompositeMarketDataClient
+        from finanalytics_ai.infrastructure.adapters.market_data_client import (
+            CompositeMarketDataClient,
+        )
 
         brapi = MagicMock()
         brapi.is_healthy = AsyncMock(return_value=False)
@@ -283,26 +290,36 @@ class TestCompositeMarketDataClient:
 
 class TestYahooPreferredRanges:
     def test_5y_in_preferred(self) -> None:
-        from finanalytics_ai.infrastructure.adapters.market_data_client import YAHOO_PREFERRED_RANGES
+        from finanalytics_ai.infrastructure.adapters.market_data_client import (
+            YAHOO_PREFERRED_RANGES,
+        )
 
         assert "5y" in YAHOO_PREFERRED_RANGES
 
     def test_10y_in_preferred(self) -> None:
-        from finanalytics_ai.infrastructure.adapters.market_data_client import YAHOO_PREFERRED_RANGES
+        from finanalytics_ai.infrastructure.adapters.market_data_client import (
+            YAHOO_PREFERRED_RANGES,
+        )
 
         assert "10y" in YAHOO_PREFERRED_RANGES
 
     def test_max_in_preferred(self) -> None:
-        from finanalytics_ai.infrastructure.adapters.market_data_client import YAHOO_PREFERRED_RANGES
+        from finanalytics_ai.infrastructure.adapters.market_data_client import (
+            YAHOO_PREFERRED_RANGES,
+        )
 
         assert "max" in YAHOO_PREFERRED_RANGES
 
     def test_1y_not_in_preferred(self) -> None:
-        from finanalytics_ai.infrastructure.adapters.market_data_client import YAHOO_PREFERRED_RANGES
+        from finanalytics_ai.infrastructure.adapters.market_data_client import (
+            YAHOO_PREFERRED_RANGES,
+        )
 
         assert "1y" not in YAHOO_PREFERRED_RANGES
 
     def test_2y_not_in_preferred(self) -> None:
-        from finanalytics_ai.infrastructure.adapters.market_data_client import YAHOO_PREFERRED_RANGES
+        from finanalytics_ai.infrastructure.adapters.market_data_client import (
+            YAHOO_PREFERRED_RANGES,
+        )
 
         assert "2y" not in YAHOO_PREFERRED_RANGES

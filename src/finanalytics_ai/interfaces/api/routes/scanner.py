@@ -107,10 +107,17 @@ async def scan_setups(
         duracao_ms=result.duracao_ms,
         signals=[
             SetupDetectionSchema(
-                ticker=s.ticker, tipo=s.tipo, setup_name=s.setup_name,
-                descricao=s.descricao, direcao=s.direcao, timeframe=s.timeframe,
-                strength=s.strength, date=s.date, details=s.details,
-                entry_price=s.entry_price, stop_price=s.stop_price,
+                ticker=s.ticker,
+                tipo=s.tipo,
+                setup_name=s.setup_name,
+                descricao=s.descricao,
+                direcao=s.direcao,
+                timeframe=s.timeframe,
+                strength=s.strength,
+                date=s.date,
+                details=s.details,
+                entry_price=s.entry_price,
+                stop_price=s.stop_price,
             )
             for s in result.signals
         ],
@@ -185,18 +192,24 @@ async def scan_history(
                 curr = indicators[i]
                 window_candles = candles[: i + 1]
                 detections = scan_ticker(
-                    window_candles, ticker.upper(),
-                    setups=list(daily_wanted), cache_ttl=0,
+                    window_candles,
+                    ticker.upper(),
+                    setups=list(daily_wanted),
+                    cache_ttl=0,
                 )
                 for d in detections:
                     if d.date == curr.date:
                         all_detections.append(
                             HistoryEntrySchema(
-                                setup_name=d.setup_name, descricao=d.descricao,
-                                direcao=d.direcao, timeframe=d.timeframe,
-                                strength=d.strength, date=d.date,
+                                setup_name=d.setup_name,
+                                descricao=d.descricao,
+                                direcao=d.direcao,
+                                timeframe=d.timeframe,
+                                strength=d.strength,
+                                date=d.date,
                                 details=d.details,
-                                entry_price=d.entry_price, stop_price=d.stop_price,
+                                entry_price=d.entry_price,
+                                stop_price=d.stop_price,
                             )
                         )
 
@@ -215,11 +228,15 @@ async def scan_history(
                 if d.date == window[-1].date:
                     all_detections.append(
                         HistoryEntrySchema(
-                            setup_name=d.setup_name, descricao=d.descricao,
-                            direcao=d.direcao, timeframe=d.timeframe,
-                            strength=d.strength, date=d.date,
+                            setup_name=d.setup_name,
+                            descricao=d.descricao,
+                            direcao=d.direcao,
+                            timeframe=d.timeframe,
+                            strength=d.strength,
+                            date=d.date,
                             details=d.details,
-                            entry_price=d.entry_price, stop_price=d.stop_price,
+                            entry_price=d.entry_price,
+                            stop_price=d.stop_price,
                         )
                     )
 

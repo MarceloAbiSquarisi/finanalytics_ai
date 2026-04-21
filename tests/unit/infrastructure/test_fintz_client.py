@@ -12,15 +12,13 @@ from __future__ import annotations
 
 import hashlib
 import io
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
 import pytest
 
 from finanalytics_ai.domain.fintz.entities import FintzDatasetSpec
-from finanalytics_ai.exceptions import FintzAPIError, FintzParseError
+from finanalytics_ai.exceptions import FintzParseError
 from finanalytics_ai.infrastructure.adapters.fintz_client import FintzClient
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -50,7 +48,7 @@ def _make_client() -> FintzClient:
 
 def test_parse_parquet_cotacoes_valid() -> None:
     """Parquet com colunas mínimas de cotações deve ser aceito."""
-    df  = pd.DataFrame({"ticker": ["PETR4"], "data": ["2024-01-01"], "preco_fechamento": [28.50]})
+    df = pd.DataFrame({"ticker": ["PETR4"], "data": ["2024-01-01"], "preco_fechamento": [28.50]})
     raw = _df_to_parquet_bytes(df)
     spec = _make_spec("cotacoes")
 
@@ -63,8 +61,8 @@ def test_parse_parquet_cotacoes_valid() -> None:
 
 def test_parse_parquet_missing_required_column_raises() -> None:
     """Parquet sem coluna obrigatória deve levantar FintzParseError."""
-    df   = pd.DataFrame({"ticker": ["PETR4"]})   # falta 'data'
-    raw  = _df_to_parquet_bytes(df)
+    df = pd.DataFrame({"ticker": ["PETR4"]})  # falta 'data'
+    raw = _df_to_parquet_bytes(df)
     spec = _make_spec("cotacoes")
 
     client = _make_client()
@@ -77,7 +75,7 @@ def test_parse_parquet_missing_required_column_raises() -> None:
 
 def test_parse_parquet_invalid_bytes_raises() -> None:
     """Bytes corrompidos devem levantar FintzParseError."""
-    spec   = _make_spec("cotacoes")
+    spec = _make_spec("cotacoes")
     client = _make_client()
 
     with pytest.raises(FintzParseError):
@@ -86,8 +84,8 @@ def test_parse_parquet_invalid_bytes_raises() -> None:
 
 def test_parse_parquet_empty_returns_empty_df() -> None:
     """Parquet vazio (0 linhas) deve retornar DataFrame vazio sem erro."""
-    df   = pd.DataFrame({"ticker": pd.Series([], dtype=str), "data": pd.Series([], dtype=str)})
-    raw  = _df_to_parquet_bytes(df)
+    df = pd.DataFrame({"ticker": pd.Series([], dtype=str), "data": pd.Series([], dtype=str)})
+    raw = _df_to_parquet_bytes(df)
     spec = _make_spec("cotacoes")
 
     client = _make_client()
@@ -98,13 +96,15 @@ def test_parse_parquet_empty_returns_empty_df() -> None:
 
 def test_parse_parquet_item_contabil_schema() -> None:
     """Parquet de item_contabil com colunas mínimas deve ser aceito."""
-    df = pd.DataFrame({
-        "ticker": ["VALE3"],
-        "item":   ["EBIT"],
-        "data":   ["2024-03-31"],
-        "valor":  [1_000_000.0],
-    })
-    raw  = _df_to_parquet_bytes(df)
+    df = pd.DataFrame(
+        {
+            "ticker": ["VALE3"],
+            "item": ["EBIT"],
+            "data": ["2024-03-31"],
+            "valor": [1_000_000.0],
+        }
+    )
+    raw = _df_to_parquet_bytes(df)
     spec = FintzDatasetSpec(
         key="item_EBIT_12M",
         endpoint="/any",
@@ -122,15 +122,15 @@ def test_parse_parquet_item_contabil_schema() -> None:
 
 def test_hash_is_sha256_of_raw_bytes() -> None:
     """O hash retornado em fetch_dataset deve ser SHA-256 dos bytes brutos."""
-    df   = pd.DataFrame({"ticker": ["PETR4"], "data": ["2024-01-01"], "preco_fechamento": [28.50]})
-    raw  = _df_to_parquet_bytes(df)
+    df = pd.DataFrame({"ticker": ["PETR4"], "data": ["2024-01-01"], "preco_fechamento": [28.50]})
+    raw = _df_to_parquet_bytes(df)
     expected_hash = hashlib.sha256(raw).hexdigest()
 
     client = _make_client()
     # Testa _parse_parquet + hash calculation isoladamente
-    spec   = _make_spec("cotacoes")
+    spec = _make_spec("cotacoes")
     result_df = client._parse_parquet(raw, spec)
-    computed  = hashlib.sha256(raw).hexdigest()
+    computed = hashlib.sha256(raw).hexdigest()
 
     assert computed == expected_hash
     assert len(computed) == 64  # SHA-256 hex = 64 chars
@@ -147,7 +147,7 @@ def test_different_content_produces_different_hash() -> None:
 
 
 def test_same_content_produces_same_hash() -> None:
-    df  = pd.DataFrame({"ticker": ["PETR4"], "data": ["2024-01-01"], "preco_fechamento": [28.50]})
+    df = pd.DataFrame({"ticker": ["PETR4"], "data": ["2024-01-01"], "preco_fechamento": [28.50]})
     raw = _df_to_parquet_bytes(df)
 
     h1 = hashlib.sha256(raw).hexdigest()

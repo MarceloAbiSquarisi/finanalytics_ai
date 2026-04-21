@@ -22,13 +22,11 @@ Configuração via .env:
   HISTORY_TIMEOUT       = 300
   TIMESCALE_DSN         = postgresql://...
 """
+
 from __future__ import annotations
 
 import asyncio
 import ctypes
-import os
-import sys
-import threading
 from ctypes import (
     POINTER,
     WINFUNCTYPE,
@@ -45,7 +43,9 @@ from ctypes import (
 )
 from dataclasses import dataclass
 from datetime import datetime
+import os
 from pathlib import Path
+import threading
 from typing import Any
 
 import structlog
@@ -56,6 +56,7 @@ for _env in (_ROOT / ".env", _ROOT / ".env.local"):
     if _env.exists():
         try:
             from dotenv import load_dotenv
+
             load_dotenv(_env, override=False)
         except ImportError:
             pass
@@ -72,28 +73,28 @@ log = structlog.get_logger("profit_history_worker")
 
 # ── constantes ────────────────────────────────────────────────────────────────
 TC_LAST_PACKET = 0x02
-TC_IS_EDIT     = 0x01
-NL_OK          = 0
+TC_IS_EDIT = 0x01
+NL_OK = 0
 
 
 # ── estruturas C ─────────────────────────────────────────────────────────────
 class SystemTime(Structure):
     _fields_ = [
-        ("wYear",         c_ushort),
-        ("wMonth",        c_ushort),
-        ("wDayOfWeek",    c_ushort),
-        ("wDay",          c_ushort),
-        ("wHour",         c_ushort),
-        ("wMinute",       c_ushort),
-        ("wSecond",       c_ushort),
+        ("wYear", c_ushort),
+        ("wMonth", c_ushort),
+        ("wDayOfWeek", c_ushort),
+        ("wDay", c_ushort),
+        ("wHour", c_ushort),
+        ("wMinute", c_ushort),
+        ("wSecond", c_ushort),
         ("wMilliseconds", c_ushort),
     ]
 
 
 class TConnectorAssetIdentifier(Structure):
     _fields_ = [
-        ("Version",  c_ubyte),
-        ("Ticker",   c_wchar_p),
+        ("Version", c_ubyte),
+        ("Ticker", c_wchar_p),
         ("Exchange", c_wchar_p),
         ("FeedType", c_ubyte),
     ]
@@ -101,30 +102,30 @@ class TConnectorAssetIdentifier(Structure):
 
 class TConnectorTrade(Structure):
     _fields_ = [
-        ("Version",     c_ubyte),
-        ("TradeDate",   SystemTime),
+        ("Version", c_ubyte),
+        ("TradeDate", SystemTime),
         ("TradeNumber", c_uint),
-        ("Price",       c_double),
-        ("Quantity",    c_int64),
-        ("Volume",      c_double),
-        ("TradeType",   c_int),
-        ("BuyAgent",    c_int),
-        ("SellAgent",   c_int),
+        ("Price", c_double),
+        ("Quantity", c_int64),
+        ("Volume", c_double),
+        ("TradeType", c_int),
+        ("BuyAgent", c_int),
+        ("SellAgent", c_int),
     ]
 
 
 # ── dataclass resultado ───────────────────────────────────────────────────────
 @dataclass
 class HistoryTick:
-    ticker:       str
-    trade_date:   datetime
+    ticker: str
+    trade_date: datetime
     trade_number: int
-    price:        float
-    quantity:     int
-    volume:       float
-    trade_type:   int
-    buy_agent:    int
-    sell_agent:   int
+    price: float
+    quantity: int
+    volume: float
+    trade_type: int
+    buy_agent: int
+    sell_agent: int
 
 
 # ── worker ────────────────────────────────────────────────────────────────────
@@ -135,43 +136,43 @@ class ProfitHistoryWorker:
     """
 
     def __init__(self) -> None:
-        self.dll_path      = os.getenv("PROFIT_DLL_PATH", r"C:\Nelogica\profitdll.dll")
-        self.act_key       = os.getenv("PROFIT_ACTIVATION_KEY", "")
-        self.username      = os.getenv("PROFIT_USERNAME", "")
-        self.password      = os.getenv("PROFIT_PASSWORD", "")
+        self.dll_path = os.getenv("PROFIT_DLL_PATH", r"C:\Nelogica\profitdll.dll")
+        self.act_key = os.getenv("PROFIT_ACTIVATION_KEY", "")
+        self.username = os.getenv("PROFIT_USERNAME", "")
+        self.password = os.getenv("PROFIT_PASSWORD", "")
         self.timescale_dsn = os.getenv("TIMESCALE_DSN", "")
-        self.timeout       = int(os.getenv("HISTORY_TIMEOUT", "300"))
+        self.timeout = int(os.getenv("HISTORY_TIMEOUT", "300"))
 
         # Ticker: "WINFUT:F" → ticker="WINFUT", exchange="B"
         raw = os.getenv("PROFIT_TICKERS", "WINFUT:F").split(",")[0].strip()
-        self.ticker   = raw.split(":")[0].strip()
+        self.ticker = raw.split(":")[0].strip()
         self.exchange = "B"
 
         self.dt_start = os.getenv("HISTORY_DATE_START", "01/04/2026 09:00:00")
-        self.dt_end   = os.getenv("HISTORY_DATE_END",   "11/04/2026 18:00:00")
+        self.dt_end = os.getenv("HISTORY_DATE_END", "11/04/2026 18:00:00")
 
         # estado
-        self._routing_done     = False
+        self._routing_done = False
         self._market_connected = False
         self._ticks: list[HistoryTick] = []
         self._history_done = threading.Event()
         self._dll: Any = None
 
         # mantém referência para evitar GC dos callbacks
-        self._state_cb_ref:   Any = None
+        self._state_cb_ref: Any = None
         self._history_cb_ref: Any = None
 
     # ── setup DLL ─────────────────────────────────────────────────────────────
     def _load_dll(self) -> None:
         log.info("carregando DLL", path=self.dll_path)
         self._dll = ctypes.WinDLL(self.dll_path)
-        self._dll.GetHistoryTrades.argtypes  = [c_wchar_p, c_wchar_p, c_wchar_p, c_wchar_p]
-        self._dll.GetHistoryTrades.restype   = c_int
-        self._dll.TranslateTrade.argtypes    = [c_size_t, POINTER(TConnectorTrade)]
-        self._dll.TranslateTrade.restype     = c_int
+        self._dll.GetHistoryTrades.argtypes = [c_wchar_p, c_wchar_p, c_wchar_p, c_wchar_p]
+        self._dll.GetHistoryTrades.restype = c_int
+        self._dll.TranslateTrade.argtypes = [c_size_t, POINTER(TConnectorTrade)]
+        self._dll.TranslateTrade.restype = c_int
         self._dll.SetHistoryTradeCallbackV2.restype = None
-        self._dll.DLLInitializeLogin.restype  = c_int
-        self._dll.DLLFinalize.restype         = None
+        self._dll.DLLInitializeLogin.restype = c_int
+        self._dll.DLLFinalize.restype = None
 
     # ── callbacks ─────────────────────────────────────────────────────────────
     def _make_state_cb(self) -> Any:
@@ -186,18 +187,19 @@ class ProfitHistoryWorker:
                 log.info("market_connected", t=t, r=r)
             if t == 2 and r == 1:
                 log.warning("market_data login inválido (t=2 r=1)", t=t, r=r)
+
         return state_cb
 
     def _make_history_cb(self) -> Any:
-        dll        = self._dll
-        ticks      = self._ticks
+        dll = self._dll
+        ticks = self._ticks
         done_event = self._history_done
 
         @WINFUNCTYPE(None, TConnectorAssetIdentifier, c_size_t, c_uint)
         def history_cb(
             asset_id: TConnectorAssetIdentifier,
-            p_trade:  int,
-            flags:    int,
+            p_trade: int,
+            flags: int,
         ) -> None:
             is_last = bool(flags & TC_LAST_PACKET)
             if not bool(flags & TC_IS_EDIT) and p_trade:
@@ -206,23 +208,29 @@ class ProfitHistoryWorker:
                     st = trade.TradeDate
                     try:
                         trade_date = datetime(
-                            st.wYear, st.wMonth, st.wDay,
-                            st.wHour, st.wMinute, st.wSecond,
+                            st.wYear,
+                            st.wMonth,
+                            st.wDay,
+                            st.wHour,
+                            st.wMinute,
+                            st.wSecond,
                         )
                     except ValueError:
                         trade_date = datetime(2000, 1, 1)
 
-                    ticks.append(HistoryTick(
-                        ticker=asset_id.Ticker or "",
-                        trade_date=trade_date,
-                        trade_number=int(trade.TradeNumber),
-                        price=trade.Price / 100.0,
-                        quantity=int(trade.Quantity),
-                        volume=trade.Volume / 100.0,
-                        trade_type=int(trade.TradeType),
-                        buy_agent=int(trade.BuyAgent),
-                        sell_agent=int(trade.SellAgent),
-                    ))
+                    ticks.append(
+                        HistoryTick(
+                            ticker=asset_id.Ticker or "",
+                            trade_date=trade_date,
+                            trade_number=int(trade.TradeNumber),
+                            price=trade.Price / 100.0,
+                            quantity=int(trade.Quantity),
+                            volume=trade.Volume / 100.0,
+                            trade_type=int(trade.TradeType),
+                            buy_agent=int(trade.BuyAgent),
+                            sell_agent=int(trade.SellAgent),
+                        )
+                    )
                     if len(ticks) % 1000 == 0:
                         log.info("ticks acumulados", count=len(ticks))
 
@@ -270,9 +278,17 @@ class ProfitHistoryWorker:
         try:
             await conn.execute(CREATE)
             rows = [
-                (t.ticker, t.trade_date, t.trade_number,
-                 t.price, t.quantity, t.volume,
-                 t.trade_type, t.buy_agent, t.sell_agent)
+                (
+                    t.ticker,
+                    t.trade_date,
+                    t.trade_number,
+                    t.price,
+                    t.quantity,
+                    t.volume,
+                    t.trade_type,
+                    t.buy_agent,
+                    t.sell_agent,
+                )
                 for t in ticks
             ]
             await conn.executemany(UPSERT, rows)
@@ -285,15 +301,17 @@ class ProfitHistoryWorker:
     async def run(self) -> None:
         log.info(
             "worker iniciado",
-            ticker=self.ticker, exchange=self.exchange,
-            dt_start=self.dt_start, dt_end=self.dt_end,
+            ticker=self.ticker,
+            exchange=self.exchange,
+            dt_start=self.dt_start,
+            dt_end=self.dt_end,
             timeout_s=self.timeout,
         )
 
         self._load_dll()
 
         # Cria callbacks e guarda referência (evita GC)
-        self._state_cb_ref   = self._make_state_cb()
+        self._state_cb_ref = self._make_state_cb()
         self._history_cb_ref = self._make_history_cb()
 
         # ── 1. DLLInitializeLogin ─────────────────────────────────────────────
@@ -305,16 +323,16 @@ class ProfitHistoryWorker:
             c_wchar_p(self.username),
             c_wchar_p(self.password),
             self._state_cb_ref,  # pos 4: state_cb
-            None,                # pos 5: history_cb (não usar aqui)
-            None,                # pos 6: order_change_cb
-            None,                # pos 7: account_cb
-            None,                # pos 8: trade_v1   ← None (crítico)
-            None,                # pos 9: daily_v1   ← None (crítico)
-            None,                # pos 10: price_book
-            None,                # pos 11: offer_book
-            None,                # pos 12: history_trade_cb
-            None,                # pos 13: progress
-            None,                # pos 14: tiny
+            None,  # pos 5: history_cb (não usar aqui)
+            None,  # pos 6: order_change_cb
+            None,  # pos 7: account_cb
+            None,  # pos 8: trade_v1   ← None (crítico)
+            None,  # pos 9: daily_v1   ← None (crítico)
+            None,  # pos 10: price_book
+            None,  # pos 11: offer_book
+            None,  # pos 12: history_trade_cb
+            None,  # pos 13: progress
+            None,  # pos 14: tiny
         )
         log.info("DLLInitializeLogin", ret=ret)
 
@@ -325,7 +343,7 @@ class ProfitHistoryWorker:
 
         # ── 3. Aguarda routing (t=1 r>=4) ─────────────────────────────────────
         log.info("aguardando routing (t=1 r>=4)...")
-        for _ in range(120):   # 60s
+        for _ in range(120):  # 60s
             if self._routing_done:
                 break
             await asyncio.sleep(0.5)
@@ -336,7 +354,7 @@ class ProfitHistoryWorker:
 
         # ── 4. Aguarda market data (t=2 r=4) ─────────────────────────────────
         log.info("aguardando market_connected (t=2 r=4)...")
-        for i in range(120):   # 60s
+        for i in range(120):  # 60s
             if self._market_connected:
                 log.info("market_connected", after_s=f"{i * 0.5:.1f}")
                 break
@@ -352,8 +370,10 @@ class ProfitHistoryWorker:
         # ── 5. GetHistoryTrades ───────────────────────────────────────────────
         log.info(
             "chamando GetHistoryTrades",
-            ticker=self.ticker, exchange=self.exchange,
-            dt_start=self.dt_start, dt_end=self.dt_end,
+            ticker=self.ticker,
+            exchange=self.exchange,
+            dt_start=self.dt_start,
+            dt_end=self.dt_end,
         )
         ret = self._dll.GetHistoryTrades(
             c_wchar_p(self.ticker),
@@ -375,7 +395,7 @@ class ProfitHistoryWorker:
             log.info("✓ coleta concluída", ticks=len(self._ticks))
             if self._ticks:
                 log.info("primeiro", tick=self._ticks[0])
-                log.info("último",   tick=self._ticks[-1])
+                log.info("último", tick=self._ticks[-1])
         else:
             log.warning("✗ TIMEOUT — coleta parcial", ticks=len(self._ticks))
 

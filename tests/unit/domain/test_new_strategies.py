@@ -327,4 +327,3 @@ class TestGetStrategyNewStrategies:
             s = get_strategy(name)
             assert isinstance(s.params, dict), f"{name}: params must be dict"
             assert len(s.params) > 0, f"{name}: params must not be empty"
-

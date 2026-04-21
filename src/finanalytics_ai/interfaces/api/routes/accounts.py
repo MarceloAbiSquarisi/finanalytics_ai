@@ -15,9 +15,9 @@ from __future__ import annotations
 
 from typing import Any
 
-import structlog
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
+import structlog
 
 from finanalytics_ai.domain.accounts import (
     AccountDomainError,
@@ -34,6 +34,7 @@ logger = structlog.get_logger(__name__)
 # ---------------------------------------------------------------------------
 # Schemas
 # ---------------------------------------------------------------------------
+
 
 class AccountCreateRequest(BaseModel):
     broker_id: str = Field(..., min_length=1, description="Código da corretora (ex: '227')")
@@ -67,6 +68,7 @@ class AccountResponse(BaseModel):
 # Dependency
 # ---------------------------------------------------------------------------
 
+
 def _get_service() -> Any:
     from finanalytics_ai.interfaces.api.app import get_account_service
 
@@ -79,6 +81,7 @@ def _get_service() -> Any:
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.post("/", response_model=AccountResponse, status_code=201)
 async def create_account(body: AccountCreateRequest) -> AccountResponse:
@@ -159,6 +162,7 @@ async def delete_account(account_uuid: str) -> None:
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
+
 
 def _to_response(account: Any) -> AccountResponse:
     return AccountResponse(

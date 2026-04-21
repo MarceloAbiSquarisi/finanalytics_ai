@@ -8,15 +8,15 @@ GET /api/v1/live/ticks/{ticker}              — últimos N ticks brutos
 GET /api/v1/live/ohlc/{ticker}               — barras OHLCV por resolução
 GET /api/v1/live/ohlc/{ticker}/latest        — última barra (preço atual + contexto)
 """
+
 from __future__ import annotations
 
-import os
 from datetime import datetime
-from typing import Optional
+import os
 
 import asyncpg
-import structlog
 from fastapi import APIRouter, HTTPException, Query
+import structlog
 
 logger = structlog.get_logger(__name__)
 
@@ -36,6 +36,7 @@ async def _conn() -> asyncpg.Connection:
 
 
 # ── Tickers ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/tickers", summary="Tickers ativos com último preço")
 async def list_tickers() -> list[dict]:
@@ -63,11 +64,14 @@ async def list_tickers() -> list[dict]:
 
 # ── Ticks brutos ──────────────────────────────────────────────────────────────
 
+
 @router.get("/ticks/{ticker}", summary="Últimos N ticks brutos")
 async def get_ticks(
     ticker: str,
     limit: int = Query(100, ge=1, le=5000, description="Número de ticks a retornar"),
-    since: Optional[datetime] = Query(None, description="Retorna apenas ticks após este timestamp (ISO8601)"),
+    since: datetime | None = Query(
+        None, description="Retorna apenas ticks após este timestamp (ISO8601)"
+    ),
 ) -> dict:
     """
     Retorna os últimos ticks de um ticker em ordem cronológica inversa.
@@ -77,23 +81,32 @@ async def get_ticks(
     conn = await _conn()
     try:
         if since:
-            rows = await conn.fetch("""
+            rows = await conn.fetch(
+                """
                 SELECT ticker, exchange, ts, trade_number,
                        price, quantity, volume, trade_type
                 FROM ticks
                 WHERE ticker = $1 AND ts >= $2
                 ORDER BY ts DESC
                 LIMIT $3
-            """, ticker, since, limit)
+            """,
+                ticker,
+                since,
+                limit,
+            )
         else:
-            rows = await conn.fetch("""
+            rows = await conn.fetch(
+                """
                 SELECT ticker, exchange, ts, trade_number,
                        price, quantity, volume, trade_type
                 FROM ticks
                 WHERE ticker = $1
                 ORDER BY ts DESC
                 LIMIT $2
-            """, ticker, limit)
+            """,
+                ticker,
+                limit,
+            )
 
         if not rows:
             raise HTTPException(404, detail=f"Nenhum tick encontrado para '{ticker}'")
@@ -109,12 +122,13 @@ async def get_ticks(
 
 # ── OHLC ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/ohlc/{ticker}", summary="Barras OHLCV por resolução")
 async def get_ohlc(
     ticker: str,
     resolution: str = Query("1", description="Resolução em minutos: 1, 5, 15, 60 ou D"),
     limit: int = Query(100, ge=1, le=2000, description="Número de barras"),
-    since: Optional[datetime] = Query(None, description="Barras a partir deste timestamp"),
+    since: datetime | None = Query(None, description="Barras a partir deste timestamp"),
 ) -> dict:
     """
     Barras OHLCV agregadas pelo tape_service.
@@ -127,7 +141,8 @@ async def get_ohlc(
     conn = await _conn()
     try:
         if since:
-            rows = await conn.fetch("""
+            rows = await conn.fetch(
+                """
                 SELECT ticker, exchange, ts, resolution,
                        open, high, low, close,
                        volume, quantity, trade_count
@@ -135,9 +150,15 @@ async def get_ohlc(
                 WHERE ticker = $1 AND resolution = $2 AND ts >= $3
                 ORDER BY ts DESC
                 LIMIT $4
-            """, ticker, resolution, since, limit)
+            """,
+                ticker,
+                resolution,
+                since,
+                limit,
+            )
         else:
-            rows = await conn.fetch("""
+            rows = await conn.fetch(
+                """
                 SELECT ticker, exchange, ts, resolution,
                        open, high, low, close,
                        volume, quantity, trade_count
@@ -145,12 +166,15 @@ async def get_ohlc(
                 WHERE ticker = $1 AND resolution = $2
                 ORDER BY ts DESC
                 LIMIT $3
-            """, ticker, resolution, limit)
+            """,
+                ticker,
+                resolution,
+                limit,
+            )
 
         if not rows:
             raise HTTPException(
-                404,
-                detail=f"Sem dados OHLC para '{ticker}' resolução={resolution}"
+                404, detail=f"Sem dados OHLC para '{ticker}' resolução={resolution}"
             )
 
         # Retorna em ordem cronológica (mais antigo primeiro) para facilitar charting
@@ -176,7 +200,8 @@ async def get_ohlc_latest(
     ticker = ticker.upper()
     conn = await _conn()
     try:
-        row = await conn.fetchrow("""
+        row = await conn.fetchrow(
+            """
             SELECT ticker, exchange, ts, resolution,
                    open, high, low, close,
                    volume, quantity, trade_count
@@ -184,7 +209,10 @@ async def get_ohlc_latest(
             WHERE ticker = $1 AND resolution = $2
             ORDER BY ts DESC
             LIMIT 1
-        """, ticker, resolution)
+        """,
+            ticker,
+            resolution,
+        )
 
         if not row:
             raise HTTPException(404, detail=f"Sem dados para '{ticker}'")
@@ -193,52 +221,72 @@ async def get_ohlc_latest(
     finally:
         await conn.close()
 
+
 import asyncio as _aio
 import json as _json
+
 from fastapi.responses import StreamingResponse
+
 
 @router.get("/sse/tickers", summary="SSE stream de precos ao vivo")
 async def sse_tickers(interval: float = Query(1.0, ge=0.2, le=60.0)) -> StreamingResponse:
     async def gen():
         while True:
             try:
-                rows = await _aio.to_thread(_live_query,
+                rows = await _aio.to_thread(
+                    _live_query,
                     "SELECT DISTINCT ON (ticker) ticker, exchange, "
                     "price::text AS last_price, ts::text AS last_ts "
-                    "FROM ticks WHERE ticker != '__warmup__' ORDER BY ticker, ts DESC"
+                    "FROM ticks WHERE ticker != '__warmup__' ORDER BY ticker, ts DESC",
                 )
                 for r in rows:
-                    try: r["last_price"] = float(r["last_price"])
-                    except: pass
+                    try:
+                        r["last_price"] = float(r["last_price"])
+                    except:
+                        pass
                 yield f"data: {_json.dumps(rows)}\n\n"
             except Exception:
                 yield "data: []\n\n"
             await _aio.sleep(interval)
-    return StreamingResponse(gen(), media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/sse/ticks/{ticker}", summary="SSE stream de ticks de um ticker")
-async def sse_ticks(ticker: str, interval: float = Query(0.5, ge=0.2, le=60.0)) -> StreamingResponse:
+async def sse_ticks(
+    ticker: str, interval: float = Query(0.5, ge=0.2, le=60.0)
+) -> StreamingResponse:
     t = _sanitize_ticker(ticker)
+
     async def gen():
         last_ts = None
         while True:
             try:
-                rows = await _aio.to_thread(_live_query,
+                rows = await _aio.to_thread(
+                    _live_query,
                     f"SELECT ticker, exchange, ts::text AS ts, "
                     f"price::text AS price, quantity, volume::text AS volume "
-                    f"FROM ticks WHERE ticker='{t}' ORDER BY ts DESC LIMIT 1"
+                    f"FROM ticks WHERE ticker='{t}' ORDER BY ts DESC LIMIT 1",
                 )
                 if rows:
                     r = rows[0]
                     if r.get("ts") != last_ts:
                         last_ts = r.get("ts")
-                        try: r["price"] = float(r["price"])
-                        except: pass
+                        try:
+                            r["price"] = float(r["price"])
+                        except:
+                            pass
                         yield f"data: {_json.dumps(r)}\n\n"
             except Exception:
                 pass
             await _aio.sleep(interval)
-    return StreamingResponse(gen(), media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

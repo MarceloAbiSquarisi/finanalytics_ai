@@ -2,14 +2,18 @@
 infrastructure/database/repositories/wallet_repo.py
 Repositório para contas de investimento, trades, cripto e outros ativos.
 """
+
 from __future__ import annotations
-import uuid
-from datetime import datetime, date
+
+from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional, Any
-import structlog
-from sqlalchemy import String, Boolean, Numeric, Date, DateTime, Text, func, select, delete, text
+from typing import Any
+import uuid
+
+from sqlalchemy import Boolean, Date, DateTime, Numeric, String, Text, func, select, text
 from sqlalchemy.orm import Mapped, mapped_column
+import structlog
+
 from finanalytics_ai.infrastructure.database.connection import Base, get_session
 
 log = structlog.get_logger(__name__)
@@ -17,32 +21,35 @@ log = structlog.get_logger(__name__)
 
 # ── SQLAlchemy Models ─────────────────────────────────────────────────────
 
+
 class InvestmentAccountModel(Base):
     __tablename__ = "investment_accounts"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    titular: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
-    cpf: Mapped[Optional[str]] = mapped_column(String(14), nullable=True)
-    apelido: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    titular: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    cpf: Mapped[str | None] = mapped_column(String(14), nullable=True)
+    apelido: Mapped[str | None] = mapped_column(String(100), nullable=True)
     institution_name: Mapped[str] = mapped_column(String(200), nullable=False)
-    institution_code: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    agency: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    account_number: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    institution_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    agency: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    account_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
     country: Mapped[str] = mapped_column(String(3), nullable=False, default="BRA")
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="BRL")
     account_type: Mapped[str] = mapped_column(String(30), nullable=False, default="corretora")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class TradeModel(Base):
     __tablename__ = "trades"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    investment_account_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
-    portfolio_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    investment_account_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    portfolio_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     ticker: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     asset_class: Mapped[str] = mapped_column(String(30), nullable=False)
     operation: Mapped[str] = mapped_column(String(10), nullable=False)
@@ -52,7 +59,7 @@ class TradeModel(Base):
     fees: Mapped[Decimal] = mapped_column(Numeric(24, 8), nullable=False, default=Decimal("0"))
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="BRL")
     trade_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
-    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -60,38 +67,43 @@ class CryptoHoldingModel(Base):
     __tablename__ = "crypto_holdings"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    investment_account_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
-    portfolio_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    investment_account_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    portfolio_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     symbol: Mapped[str] = mapped_column(String(20), nullable=False)
     quantity: Mapped[Decimal] = mapped_column(Numeric(30, 12), nullable=False)
     average_price_brl: Mapped[Decimal] = mapped_column(Numeric(24, 8), nullable=False)
-    average_price_usd: Mapped[Optional[Decimal]] = mapped_column(Numeric(24, 8), nullable=True)
-    exchange: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    wallet_address: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
-    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    average_price_usd: Mapped[Decimal | None] = mapped_column(Numeric(24, 8), nullable=True)
+    exchange: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    wallet_address: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class OtherAssetModel(Base):
     __tablename__ = "other_assets"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    investment_account_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
-    portfolio_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    investment_account_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    portfolio_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     asset_type: Mapped[str] = mapped_column(String(50), nullable=False)
     current_value: Mapped[Decimal] = mapped_column(Numeric(24, 8), nullable=False)
-    invested_value: Mapped[Optional[Decimal]] = mapped_column(Numeric(24, 8), nullable=True)
+    invested_value: Mapped[Decimal | None] = mapped_column(Numeric(24, 8), nullable=True)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="BRL")
-    acquisition_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
-    maturity_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    acquisition_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    maturity_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     ir_exempt: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 # ── Helper ────────────────────────────────────────────────────────────────
+
 
 def _model_to_dict(m: Any) -> dict:
     d = {}
@@ -107,6 +119,7 @@ def _model_to_dict(m: Any) -> dict:
 
 # ── WalletRepository ──────────────────────────────────────────────────────
 
+
 class WalletRepository:
     """Repo unificado para carteira multi-usuário."""
 
@@ -115,8 +128,13 @@ class WalletRepository:
     async def create_account(self, data: dict) -> dict:
         data.setdefault("id", str(uuid.uuid4()))
         async with get_session() as s:
-            m = InvestmentAccountModel(**{k: v for k, v in data.items()
-                                         if k in InvestmentAccountModel.__table__.columns.keys()})
+            m = InvestmentAccountModel(
+                **{
+                    k: v
+                    for k, v in data.items()
+                    if k in InvestmentAccountModel.__table__.columns.keys()
+                }
+            )
             s.add(m)
             await s.commit()
             await s.refresh(m)
@@ -176,8 +194,7 @@ class WalletRepository:
             q = select(InvestmentAccountModel)
             if not include_inactive:
                 q = q.where(InvestmentAccountModel.is_active.is_(True))
-            q = q.order_by(InvestmentAccountModel.user_id,
-                           InvestmentAccountModel.institution_name)
+            q = q.order_by(InvestmentAccountModel.user_id, InvestmentAccountModel.institution_name)
             rows = (await s.execute(q)).scalars().all()
             return [_model_to_dict(r) for r in rows]
 
@@ -212,15 +229,17 @@ class WalletRepository:
     async def get_default_portfolio_id(self, user_id: str) -> str | None:
         """Retorna id do portfolio default do usuario, ou None se nao existir."""
         async with get_session() as s:
-            r = await s.execute(text(
-                "SELECT id FROM portfolios WHERE user_id=:u AND is_default=true LIMIT 1"
-            ), {"u": user_id})
+            r = await s.execute(
+                text("SELECT id FROM portfolios WHERE user_id=:u AND is_default=true LIMIT 1"),
+                {"u": user_id},
+            )
             row = r.first()
             if row:
                 return row[0]
-            r2 = await s.execute(text(
-                "SELECT id FROM portfolios WHERE user_id=:u ORDER BY created_at LIMIT 1"
-            ), {"u": user_id})
+            r2 = await s.execute(
+                text("SELECT id FROM portfolios WHERE user_id=:u ORDER BY created_at LIMIT 1"),
+                {"u": user_id},
+            )
             row2 = r2.first()
             return row2[0] if row2 else None
 
@@ -232,18 +251,22 @@ class WalletRepository:
             return existing
         new_id = str(uuid.uuid4())
         async with get_session() as s:
-            await s.execute(text("""
+            await s.execute(
+                text("""
                 INSERT INTO portfolios (id, user_id, name, currency, cash, is_default)
                 VALUES (:id, :u, :n, 'BRL', 0, true)
-            """), {"id": new_id, "u": user_id, "n": name})
+            """),
+                {"id": new_id, "u": user_id, "n": name},
+            )
             await s.commit()
         return new_id
 
     async def validate_portfolio_belongs_to_user(self, portfolio_id: str, user_id: str) -> bool:
         async with get_session() as s:
-            r = await s.execute(text(
-                "SELECT 1 FROM portfolios WHERE id=:p AND user_id=:u"
-            ), {"p": portfolio_id, "u": user_id})
+            r = await s.execute(
+                text("SELECT 1 FROM portfolios WHERE id=:p AND user_id=:u"),
+                {"p": portfolio_id, "u": user_id},
+            )
             return r.first() is not None
 
     # ── Trades ────────────────────────────────────────────────────────────
@@ -251,19 +274,26 @@ class WalletRepository:
     async def create_trade(self, data: dict) -> dict:
         data.setdefault("id", str(uuid.uuid4()))
         if "total_cost" not in data:
-            data["total_cost"] = float(data["quantity"]) * float(data["unit_price"]) + float(data.get("fees", 0))
+            data["total_cost"] = float(data["quantity"]) * float(data["unit_price"]) + float(
+                data.get("fees", 0)
+            )
         async with get_session() as s:
-            m = TradeModel(**{k: v for k, v in data.items()
-                              if k in TradeModel.__table__.columns.keys()})
+            m = TradeModel(
+                **{k: v for k, v in data.items() if k in TradeModel.__table__.columns.keys()}
+            )
             s.add(m)
             await s.commit()
             await s.refresh(m)
             return _model_to_dict(m)
 
-    async def list_trades(self, user_id: str, ticker: str | None = None,
-                          asset_class: str | None = None,
-                          account_id: str | None = None,
-                          portfolio_id: str | None = None) -> list[dict]:
+    async def list_trades(
+        self,
+        user_id: str,
+        ticker: str | None = None,
+        asset_class: str | None = None,
+        account_id: str | None = None,
+        portfolio_id: str | None = None,
+    ) -> list[dict]:
         async with get_session() as s:
             q = select(TradeModel).where(TradeModel.user_id == user_id)
             if ticker:
@@ -280,8 +310,7 @@ class WalletRepository:
 
     async def delete_trade(self, trade_id: str, user_id: str) -> bool:
         async with get_session() as s:
-            q = select(TradeModel).where(
-                TradeModel.id == trade_id, TradeModel.user_id == user_id)
+            q = select(TradeModel).where(TradeModel.id == trade_id, TradeModel.user_id == user_id)
             m = (await s.execute(q)).scalar_one_or_none()
             if not m:
                 return False
@@ -289,14 +318,13 @@ class WalletRepository:
             await s.commit()
             return True
 
-    async def get_positions_summary(self, user_id: str,
-                                    asset_class: str | None = None,
-                                    portfolio_id: str | None = None) -> list[dict]:
+    async def get_positions_summary(
+        self, user_id: str, asset_class: str | None = None, portfolio_id: str | None = None
+    ) -> list[dict]:
         """Calcula posição consolidada (preço médio) por ticker."""
-        trades = await self.list_trades(
-            user_id, asset_class=asset_class, portfolio_id=portfolio_id
-        )
+        trades = await self.list_trades(user_id, asset_class=asset_class, portfolio_id=portfolio_id)
         from collections import defaultdict
+
         by_ticker: dict[str, list] = defaultdict(list)
         for t in trades:
             by_ticker[t["ticker"]].append(t)
@@ -319,14 +347,16 @@ class WalletRepository:
                     total_qty += qty
             if total_qty > 0:
                 avg_price = float(total_cost / total_qty)
-                result.append({
-                    "ticker": ticker,
-                    "asset_class": tlist[0]["asset_class"],
-                    "quantity": float(total_qty),
-                    "average_price": round(avg_price, 6),
-                    "total_invested": float(total_cost),
-                    "trade_count": len(tlist),
-                })
+                result.append(
+                    {
+                        "ticker": ticker,
+                        "asset_class": tlist[0]["asset_class"],
+                        "quantity": float(total_qty),
+                        "average_price": round(avg_price, 6),
+                        "total_invested": float(total_cost),
+                        "trade_count": len(tlist),
+                    }
+                )
         return result
 
     # ── Crypto ────────────────────────────────────────────────────────────
@@ -346,18 +376,21 @@ class WalletRepository:
                         setattr(m, k, v)
             else:
                 data["symbol"] = data["symbol"].upper()
-                m = CryptoHoldingModel(**{k: v for k, v in data.items()
-                                          if k in CryptoHoldingModel.__table__.columns.keys()})
+                m = CryptoHoldingModel(
+                    **{
+                        k: v
+                        for k, v in data.items()
+                        if k in CryptoHoldingModel.__table__.columns.keys()
+                    }
+                )
                 s.add(m)
             await s.commit()
             await s.refresh(m)
             return _model_to_dict(m)
 
-    async def list_crypto(self, user_id: str,
-                          portfolio_id: str | None = None) -> list[dict]:
+    async def list_crypto(self, user_id: str, portfolio_id: str | None = None) -> list[dict]:
         async with get_session() as s:
-            q = select(CryptoHoldingModel).where(
-                CryptoHoldingModel.user_id == user_id)
+            q = select(CryptoHoldingModel).where(CryptoHoldingModel.user_id == user_id)
             if portfolio_id:
                 q = q.where(CryptoHoldingModel.portfolio_id == portfolio_id)
             q = q.order_by(CryptoHoldingModel.symbol)
@@ -367,8 +400,8 @@ class WalletRepository:
     async def delete_crypto(self, crypto_id: str, user_id: str) -> bool:
         async with get_session() as s:
             q = select(CryptoHoldingModel).where(
-                CryptoHoldingModel.id == crypto_id,
-                CryptoHoldingModel.user_id == user_id)
+                CryptoHoldingModel.id == crypto_id, CryptoHoldingModel.user_id == user_id
+            )
             m = (await s.execute(q)).scalar_one_or_none()
             if not m:
                 return False
@@ -376,14 +409,12 @@ class WalletRepository:
             await s.commit()
             return True
 
-    async def redeem_crypto(
-        self, crypto_id: str, user_id: str, qty: float
-    ) -> dict | None:
+    async def redeem_crypto(self, crypto_id: str, user_id: str, qty: float) -> dict | None:
         """Decrementa quantity. Se chegar a zero ou negativo, remove o holding."""
         async with get_session() as s:
             q = select(CryptoHoldingModel).where(
-                CryptoHoldingModel.id == crypto_id,
-                CryptoHoldingModel.user_id == user_id)
+                CryptoHoldingModel.id == crypto_id, CryptoHoldingModel.user_id == user_id
+            )
             m = (await s.execute(q)).scalar_one_or_none()
             if not m:
                 return None
@@ -402,16 +433,17 @@ class WalletRepository:
     async def create_other_asset(self, data: dict) -> dict:
         data.setdefault("id", str(uuid.uuid4()))
         async with get_session() as s:
-            m = OtherAssetModel(**{k: v for k, v in data.items()
-                                   if k in OtherAssetModel.__table__.columns.keys()})
+            m = OtherAssetModel(
+                **{k: v for k, v in data.items() if k in OtherAssetModel.__table__.columns.keys()}
+            )
             s.add(m)
             await s.commit()
             await s.refresh(m)
             return _model_to_dict(m)
 
-    async def list_other_assets(self, user_id: str,
-                                 asset_type: str | None = None,
-                                 portfolio_id: str | None = None) -> list[dict]:
+    async def list_other_assets(
+        self, user_id: str, asset_type: str | None = None, portfolio_id: str | None = None
+    ) -> list[dict]:
         async with get_session() as s:
             q = select(OtherAssetModel).where(OtherAssetModel.user_id == user_id)
             if asset_type:
@@ -425,7 +457,8 @@ class WalletRepository:
     async def update_other_asset(self, asset_id: str, user_id: str, data: dict) -> dict | None:
         async with get_session() as s:
             q = select(OtherAssetModel).where(
-                OtherAssetModel.id == asset_id, OtherAssetModel.user_id == user_id)
+                OtherAssetModel.id == asset_id, OtherAssetModel.user_id == user_id
+            )
             m = (await s.execute(q)).scalar_one_or_none()
             if not m:
                 return None
@@ -439,7 +472,8 @@ class WalletRepository:
     async def delete_other_asset(self, asset_id: str, user_id: str) -> bool:
         async with get_session() as s:
             q = select(OtherAssetModel).where(
-                OtherAssetModel.id == asset_id, OtherAssetModel.user_id == user_id)
+                OtherAssetModel.id == asset_id, OtherAssetModel.user_id == user_id
+            )
             m = (await s.execute(q)).scalar_one_or_none()
             if not m:
                 return False
@@ -453,6 +487,7 @@ class WalletRepository:
         """Visão master: totais consolidados por usuário (somente leitura)."""
         async with get_session() as s:
             from sqlalchemy import text
+
             sql = text("""
                 SELECT u.user_id,
                        COUNT(DISTINCT ia.id) as num_accounts,

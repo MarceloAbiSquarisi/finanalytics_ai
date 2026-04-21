@@ -53,7 +53,9 @@ class ETFInfo:
 ETF_CATALOG: list[ETFInfo] = [
     # ── Ações Brasil ──────────────────────────────────────────────────────────
     ETFInfo("BOVA11", "iShares Ibovespa", "^BVSP", "Ações BR", 0.10, "BRL", "Replica o Ibovespa"),
-    ETFInfo("SMAL11", "iShares Small Cap", "SMLL", "Ações BR", 0.50, "BRL", "Small caps brasileiras"),
+    ETFInfo(
+        "SMAL11", "iShares Small Cap", "SMLL", "Ações BR", 0.50, "BRL", "Small caps brasileiras"
+    ),
     ETFInfo(
         "DIVO11",
         "iShares Dividendos",
@@ -73,7 +75,9 @@ ETF_CATALOG: list[ETFInfo] = [
         "BRL",
         "Materiais básicos B3",
     ),
-    ETFInfo("UTIP11", "iShares Utilidade Pública", "UTIL", "Ações BR", 0.50, "BRL", "Utilidades B3"),
+    ETFInfo(
+        "UTIP11", "iShares Utilidade Pública", "UTIL", "Ações BR", 0.50, "BRL", "Utilidades B3"
+    ),
     ETFInfo(
         "ECOO11",
         "iShares Carbono Eficiente",
@@ -84,12 +88,16 @@ ETF_CATALOG: list[ETFInfo] = [
         "Empresas de baixo carbono",
     ),
     ETFInfo("BOVV11", "IT Now Ibovespa", "^BVSP", "Ações BR", 0.05, "BRL", "Ibovespa - menor TER"),
-    ETFInfo("XBOV11", "Xtrackers Ibovespa", "^BVSP", "Ações BR", 0.07, "BRL", "Ibovespa - Deutsche Bank"),
+    ETFInfo(
+        "XBOV11", "Xtrackers Ibovespa", "^BVSP", "Ações BR", 0.07, "BRL", "Ibovespa - Deutsche Bank"
+    ),
     # ── Ações EUA ─────────────────────────────────────────────────────────────
     ETFInfo("IVVB11", "iShares S&P 500", "^GSPC", "Ações EUA", 0.23, "BRL", "S&P 500 em BRL"),
     ETFInfo("SPXI11", "IT Now S&P 500", "^GSPC", "Ações EUA", 0.15, "BRL", "S&P 500 em BRL"),
     ETFInfo("NASD11", "Invesco Nasdaq 100", "QQQ", "Ações EUA", 0.35, "BRL", "Nasdaq 100 em BRL"),
-    ETFInfo("ACWI11", "iShares MSCI ACWI", "ACWI", "Ações Global", 0.30, "BRL", "Mercado global ex-BR"),
+    ETFInfo(
+        "ACWI11", "iShares MSCI ACWI", "ACWI", "Ações Global", 0.30, "BRL", "Mercado global ex-BR"
+    ),
     ETFInfo("EURP11", "iShares Europa", "EZU", "Ações Global", 0.40, "BRL", "Mercado europeu"),
     # ── Cripto ────────────────────────────────────────────────────────────────
     ETFInfo(
@@ -106,14 +114,18 @@ ETF_CATALOG: list[ETFInfo] = [
     # ── Renda Fixa ────────────────────────────────────────────────────────────
     ETFInfo("NTNB11", "iShares NTN-B", "IMA-B", "Renda Fixa", 0.25, "BRL", "Tesouro IPCA+ (IMA-B)"),
     ETFInfo("IMAB11", "iShares IMA-B", "IMA-B", "Renda Fixa", 0.20, "BRL", "IMA-B completo"),
-    ETFInfo("B5P211", "iShares IMA-B 5+", "IMA-B5+", "Renda Fixa", 0.20, "BRL", "NTN-B prazo longo"),
+    ETFInfo(
+        "B5P211", "iShares IMA-B 5+", "IMA-B5+", "Renda Fixa", 0.20, "BRL", "NTN-B prazo longo"
+    ),
     ETFInfo("IRFM11", "iShares IRF-M", "IRF-M", "Renda Fixa", 0.20, "BRL", "Prefixados (IRF-M)"),
     # ── Commodities/Ouro ──────────────────────────────────────────────────────
     ETFInfo("GOLD11", "iShares Ouro", "GLD", "Commodities", 0.20, "BRL", "Ouro em BRL"),
     ETFInfo("OGLD11", "Trend ETF Ouro", "GLD", "Commodities", 0.30, "BRL", "Ouro — Trend"),
     # ── FIIs ──────────────────────────────────────────────────────────────────
     ETFInfo("XFIX11", "iShares FIIs", "IFIX", "FIIs", 0.30, "BRL", "Fundo de FIIs (IFIX)"),
-    ETFInfo("VISC11", "Vinci Shopping Centers", "IFIX", "FIIs", 0.00, "BRL", "FII tijolo — shoppings"),
+    ETFInfo(
+        "VISC11", "Vinci Shopping Centers", "IFIX", "FIIs", 0.00, "BRL", "FII tijolo — shoppings"
+    ),
 ]
 
 ETF_BY_TICKER: dict[str, ETFInfo] = {e.ticker: e for e in ETF_CATALOG}

@@ -44,6 +44,7 @@ def _make_tick_rows():
 
 def _mock_pool(mock_conn):
     """Create a properly mocked asyncpg pool with async context manager support."""
+
     @asynccontextmanager
     async def _acquire():
         yield mock_conn

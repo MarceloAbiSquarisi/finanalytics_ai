@@ -7,13 +7,13 @@ Design decision: Repository Pattern — o domínio nunca importa SQLAlchemy.
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
+import json
 from typing import TYPE_CHECKING
 
-import structlog
 from sqlalchemy import DateTime, Integer, String, Text, select, update
 from sqlalchemy.orm import Mapped, mapped_column
+import structlog
 
 from finanalytics_ai.domain.entities.event import EventStatus, EventType, MarketEvent
 from finanalytics_ai.infrastructure.database.connection import Base

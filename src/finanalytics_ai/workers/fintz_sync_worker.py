@@ -8,23 +8,25 @@ Idempotencia garantida pelo SHA-256 por dataset no fintz_sync_log.
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass, field
 import os
 import signal
-import sys
 import time
-from dataclasses import dataclass, field
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from finanalytics_ai.application.services.event_publisher import EventPublisher
 from finanalytics_ai.config import Settings, get_settings
-from finanalytics_ai.container_v2 import bootstrap_v2 as bootstrap
-from finanalytics_ai.container_v2 import build_engine_v2 as build_engine
-from finanalytics_ai.container_v2 import build_session_factory_v2 as build_session_factory
+from finanalytics_ai.container_v2 import (
+    bootstrap_v2 as bootstrap,
+    build_engine_v2 as build_engine,
+    build_session_factory_v2 as build_session_factory,
+)
 from finanalytics_ai.infrastructure.database.repositories.timescale_writer import (
     NoOpTimescaleWriter,
 )
+
 
 def build_timescale_writer(settings, timescale_session_factory=None):
     """
@@ -32,13 +34,21 @@ def build_timescale_writer(settings, timescale_session_factory=None):
     Tenta PgTimescaleWriter com DSN do settings/env; fallback NoOp.
     """
     if timescale_session_factory is not None:
-        from finanalytics_ai.infrastructure.database.repositories.timescale_writer import PgTimescaleWriter
+        from finanalytics_ai.infrastructure.database.repositories.timescale_writer import (
+            PgTimescaleWriter,
+        )
+
         return PgTimescaleWriter(timescale_session_factory)
     ts_dsn = getattr(settings, "profit_timescale_dsn", None) or os.getenv("PROFIT_TIMESCALE_DSN")
     if ts_dsn:
-        from finanalytics_ai.infrastructure.database.repositories.timescale_writer import PgTimescaleWriter
+        from finanalytics_ai.infrastructure.database.repositories.timescale_writer import (
+            PgTimescaleWriter,
+        )
+
         return PgTimescaleWriter(ts_dsn)
     return NoOpTimescaleWriter()
+
+
 from finanalytics_ai.observability.logging import get_logger
 
 log = get_logger(__name__)
@@ -93,16 +103,24 @@ class SyncSession:
         return time.perf_counter() - self.started_at
 
 
-
-
 async def _publish_result(result, publisher) -> None:
     try:
         if result.succeeded:
-            await publisher.publish_fintz_sync_completed(dataset=result.dataset, rows_synced=result.rows_synced, errors=result.errors, duration_s=result.duration_s)
+            await publisher.publish_fintz_sync_completed(
+                dataset=result.dataset,
+                rows_synced=result.rows_synced,
+                errors=result.errors,
+                duration_s=result.duration_s,
+            )
         else:
-            await publisher.publish_fintz_sync_failed(dataset=result.dataset, error_type=result.error_type or 'UnknownError', error_message=result.error_message or '')
+            await publisher.publish_fintz_sync_failed(
+                dataset=result.dataset,
+                error_type=result.error_type or "UnknownError",
+                error_message=result.error_message or "",
+            )
     except Exception:
         pass
+
 
 async def run_sync(
     session_factory: async_sessionmaker[AsyncSession],
@@ -116,9 +134,9 @@ async def run_sync(
     datasets=['cotacoes_ohlc', ...] -> apenas esses.
     """
     from finanalytics_ai.application.services.fintz_sync_service import FintzSyncService
+    from finanalytics_ai.domain.fintz.entities import ALL_DATASETS
     from finanalytics_ai.infrastructure.adapters.fintz_client import FintzClient
     from finanalytics_ai.infrastructure.database.repositories.fintz_repo import FintzRepo
-    from finanalytics_ai.domain.fintz.entities import ALL_DATASETS
 
     sync_session = SyncSession()
 
@@ -138,37 +156,41 @@ async def run_sync(
 
     ts_writer = build_timescale_writer(settings)
 
-    async with FintzClient(
-        api_key=settings.fintz_api_key,
-        base_url=settings.fintz_base_url,
-        api_timeout_s=30.0,
-        link_timeout_s=300.0,
-        max_retries=3,
-    ) as client:
-        async with session_factory() as db_session:
-            async with db_session.begin():
-                publisher = EventPublisher(db_session)
-                service = FintzSyncService(
-                    client=client,
-                    repo=FintzRepo(),
-                    event_publisher=publisher,
-                    timescale_writer=ts_writer,
-                    datasets=specs,
-                )
-                summary = await service.sync_all()
+    async with (
+        FintzClient(
+            api_key=settings.fintz_api_key,
+            base_url=settings.fintz_base_url,
+            api_timeout_s=30.0,
+            link_timeout_s=300.0,
+            max_retries=3,
+        ) as client,
+        session_factory() as db_session,
+        db_session.begin(),
+    ):
+        publisher = EventPublisher(db_session)
+        service = FintzSyncService(
+            client=client,
+            repo=FintzRepo(),
+            event_publisher=publisher,
+            timescale_writer=ts_writer,
+            datasets=specs,
+        )
+        summary = await service.sync_all()
 
     # Converte summary -> SyncSession
     for key, result in summary.get("datasets", {}).items():
         status = result.get("status", "error")
-        sync_session.results.append(DatasetSyncResult(
-            dataset=key,
-            rows_synced=result.get("rows", 0),
-            errors=0 if status != "error" else 1,
-            duration_s=0.0,
-            status=status,
-            error_type="SyncError" if status == "error" else None,
-            error_message=result.get("error") if status == "error" else None,
-        ))
+        sync_session.results.append(
+            DatasetSyncResult(
+                dataset=key,
+                rows_synced=result.get("rows", 0),
+                errors=0 if status != "error" else 1,
+                duration_s=0.0,
+                status=status,
+                error_type="SyncError" if status == "error" else None,
+                error_message=result.get("error") if status == "error" else None,
+            )
+        )
 
     log.info(
         "fintz_sync.session_completed",
@@ -194,14 +216,13 @@ async def run_once(settings: Settings, datasets: list[str] | None = None) -> Non
 
 async def run_scheduled(stop_event: asyncio.Event, settings: Settings) -> None:
     import datetime
+
     engine = build_engine(settings)
     session_factory = build_session_factory(engine)
     log.info("fintz_sync_worker.scheduled_started")
 
     while not stop_event.is_set():
-        now = datetime.datetime.now(
-            tz=datetime.timezone(datetime.timedelta(hours=-3))
-        )
+        now = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=-3)))
         target = now.replace(hour=22, minute=5, second=0, microsecond=0)
         if now >= target:
             target += datetime.timedelta(days=1)
@@ -213,7 +234,7 @@ async def run_scheduled(stop_event: asyncio.Event, settings: Settings) -> None:
         )
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=wait_seconds)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass
 
         if stop_event.is_set():
@@ -225,10 +246,14 @@ async def run_scheduled(stop_event: asyncio.Event, settings: Settings) -> None:
             # Hook pos-sync: manutencao completa de dados
             try:
                 from finanalytics_ai.workers.maintenance_worker import run_maintenance
+
                 log.info("fintz_sync.maintenance_started")
                 report = await run_maintenance(skip_ml=False)
-                log.info("fintz_sync.maintenance_completed",
-                         errors=report.total_errors, steps=len(report.steps))
+                log.info(
+                    "fintz_sync.maintenance_completed",
+                    errors=report.total_errors,
+                    steps=len(report.steps),
+                )
             except Exception as maint_exc:
                 log.warning("fintz_sync.maintenance_error", error=str(maint_exc))
         except Exception as exc:
@@ -263,4 +288,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -1,4 +1,4 @@
-﻿"""
+"""
 infrastructure/timescale/connection.py
 ──────────────────────────────────────
 Pool asyncpg para o TimescaleDB (porta 5433).
@@ -13,6 +13,7 @@ ts_pool_available() — probe de conectividade sem lançar exceção.
 Timeout de 5s no probe: suficiente para detectar porta fechada (imediato)
 ou host inacessível (TCP timeout). Não bloqueia o startup da API.
 """
+
 from __future__ import annotations
 
 import asyncio

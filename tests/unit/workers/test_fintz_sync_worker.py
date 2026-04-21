@@ -8,16 +8,12 @@ Não testa I/O real (Fintz API, banco) — apenas o comportamento do orquestrado
 from __future__ import annotations
 
 import time
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
+from unittest.mock import AsyncMock, MagicMock
 
 from finanalytics_ai.workers.fintz_sync_worker import (
     DatasetSyncResult,
     SyncSession,
     _publish_result,
-    run_sync,
 )
 
 
@@ -28,8 +24,12 @@ class TestDatasetSyncResult:
 
     def test_succeeded_false_when_error_type_set(self) -> None:
         r = DatasetSyncResult(
-            "cotacoes", rows_synced=0, errors=1, duration_s=0.5,
-            error_type="APIError", error_message="timeout",
+            "cotacoes",
+            rows_synced=0,
+            errors=1,
+            duration_s=0.5,
+            error_type="APIError",
+            error_message="timeout",
         )
         assert r.succeeded is False
 
@@ -77,7 +77,10 @@ class TestPublishResult:
         publisher = MagicMock()
         publisher.publish_fintz_sync_failed = AsyncMock(return_value=MagicMock())
         result = DatasetSyncResult(
-            "cotacoes", 0, 1, 0.5,
+            "cotacoes",
+            0,
+            1,
+            0.5,
             error_type="APIError",
             error_message="HTTP 503",
         )

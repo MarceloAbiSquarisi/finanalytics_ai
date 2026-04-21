@@ -3,6 +3,7 @@ sync_brapi_to_ohlc.py
 Sincroniza dados OHLCV dos Parquets BRAPI (/data/ohlcv) direto para ohlc_prices.
 Usa asyncpg — compatível com o container finanalytics_scheduler.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -43,10 +44,7 @@ async def sync() -> None:
     max_dates: dict = {r[0]: r[1] for r in rows_max}
     print(f"Tickers já em ohlc_prices: {len(max_dates)}")
 
-    tickers = sorted(
-        d for d in os.listdir(OHLCV_DIR)
-        if os.path.isdir(os.path.join(OHLCV_DIR, d))
-    )
+    tickers = sorted(d for d in os.listdir(OHLCV_DIR) if os.path.isdir(os.path.join(OHLCV_DIR, d)))
     print(f"Tickers no data lake: {len(tickers)}")
 
     total_rows = total_tickers = total_errors = 0
@@ -74,10 +72,10 @@ async def sync() -> None:
                 (
                     ticker,
                     row["date"],
-                    float(row["open"])   if pd.notna(row["open"])   else None,
-                    float(row["high"])   if pd.notna(row["high"])   else None,
-                    float(row["low"])    if pd.notna(row["low"])    else None,
-                    float(row["close"])  if pd.notna(row["close"])  else None,
+                    float(row["open"]) if pd.notna(row["open"]) else None,
+                    float(row["high"]) if pd.notna(row["high"]) else None,
+                    float(row["low"]) if pd.notna(row["low"]) else None,
+                    float(row["close"]) if pd.notna(row["close"]) else None,
                     None,  # adj_close não disponível na BRAPI
                     float(row["volume"]) if pd.notna(row["volume"]) else None,
                 )
@@ -85,7 +83,7 @@ async def sync() -> None:
             ]
 
             for i in range(0, len(records), BATCH):
-                await conn.executemany(SQL_UPSERT, records[i:i + BATCH])
+                await conn.executemany(SQL_UPSERT, records[i : i + BATCH])
 
             print(f"  {ticker}: +{len(records)} linhas")
             total_rows += len(records)

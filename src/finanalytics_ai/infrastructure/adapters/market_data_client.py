@@ -1,4 +1,4 @@
-﻿"""
+"""
 finanalytics_ai.infrastructure.adapters.market_data_client
 ────────────────────────────────────────────────────────────
 CompositeMarketDataClient: BRAPI como primário, Yahoo como fallback.
@@ -174,7 +174,9 @@ class CompositeMarketDataClient:
         interval: str | None,
     ) -> list[dict[str, Any]]:
         try:
-            return await self._fintz.get_ohlc_bars(ticker, range_period=range_period, interval=interval)
+            return await self._fintz.get_ohlc_bars(
+                ticker, range_period=range_period, interval=interval
+            )
         except Exception as exc:
             logger.warning("market_data.fintz_error", ticker=str(ticker), error=str(exc))
             return []
@@ -186,7 +188,9 @@ class CompositeMarketDataClient:
         interval: str | None,
     ) -> list[dict[str, Any]]:
         try:
-            return await self._brapi.get_ohlc_bars(ticker, range_period=range_period, interval=interval)
+            return await self._brapi.get_ohlc_bars(
+                ticker, range_period=range_period, interval=interval
+            )
         except Exception as exc:
             logger.warning("market_data.brapi_error", ticker=str(ticker), error=str(exc))
             return []
@@ -198,7 +202,9 @@ class CompositeMarketDataClient:
         interval: str | None,
     ) -> list[dict[str, Any]]:
         try:
-            return await self._yahoo.get_ohlc_bars(ticker, range_period=range_period, interval=interval)
+            return await self._yahoo.get_ohlc_bars(
+                ticker, range_period=range_period, interval=interval
+            )
         except Exception as exc:
             logger.warning("market_data.yahoo_error", ticker=str(ticker), error=str(exc))
             return []

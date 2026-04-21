@@ -1,4 +1,4 @@
-﻿"""
+"""
 Configuração centralizada via pydantic-settings.
 """
 
@@ -11,7 +11,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-
     # ── Campos legados / opcionais ────────────────────────────────────────────
     redis_url: str = Field(default="redis://localhost:6379/0")
     brapi_token: str = Field(default="")
@@ -22,7 +21,9 @@ class Settings(BaseSettings):
     kafka_consumer_group: str = Field(default="finanalytics")
     kafka_topic_market_events: str = Field(default="market_events")
     kafka_topic_price_updates: str = Field(default="price_updates")
-    kafka_bootstrap_servers: str = Field(default="", description="Kafka broker. Vazio = Kafka desabilitado.")
+    kafka_bootstrap_servers: str = Field(
+        default="", description="Kafka broker. Vazio = Kafka desabilitado."
+    )
     kafka_auto_offset_reset: str = Field(default="latest", description="earliest | latest")
     event_queue_backend: str = Field(default="memory")
     otel_service_name: str = Field(default="finanalytics-ai")
@@ -84,7 +85,7 @@ class Settings(BaseSettings):
     data_dir: str = Field(default="/data")
 
     # ── GPU / Processamento (i9-14900K + 2x RTX 4090) ───────────────────────
-    cuda_visible_devices: str = Field(default="1")     # GPU2 dedicada
+    cuda_visible_devices: str = Field(default="1")  # GPU2 dedicada
     polars_max_threads: int = Field(default=16, ge=1, le=32)
 
     # ── Analytics ─────────────────────────────────────────────────────────────

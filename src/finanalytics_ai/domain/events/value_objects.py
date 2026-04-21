@@ -4,6 +4,7 @@ Value Objects do dominio de eventos.
 Decisao: usar dataclasses frozen=True para imutabilidade garantida em runtime.
 Constantes de tipo sao ClassVar para nao participarem do __init__ do dataclass.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

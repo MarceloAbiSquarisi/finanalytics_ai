@@ -13,6 +13,7 @@ Mitigamos isso com testes unitarios que verificam a interface explicitamente.
 Todas as regras sao async por padrao: uma regra pode precisar consultar o banco
 (ex: verificar historico de trades) e nao queremos two-tier design (sync/async).
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol, runtime_checkable

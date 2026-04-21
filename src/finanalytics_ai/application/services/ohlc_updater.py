@@ -1,4 +1,4 @@
-﻿"""
+"""
 application/services/ohlc_updater.py
 ──────────────────────────────────────
 Servico de atualizacao diaria de barras OHLC no TimescaleDB.
@@ -19,10 +19,11 @@ Tickers default: universo IBOV reduzido para nao sobrecarregar a API.
   Configuravel via OHLC_UPDATER_TICKERS no .env — permite override sem
   alterar codigo.
 """
+
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import structlog
@@ -35,8 +36,16 @@ _UPDATE_MINUTE_UTC = 30
 
 # Tickers padrao — subset do IBOV para atualizacao diaria
 _DEFAULT_TICKERS = [
-    "PETR4", "VALE3", "ITUB4", "BBDC4", "BBAS3",
-    "WEGE3", "ABEV3", "RENT3", "MGLU3", "LREN3",
+    "PETR4",
+    "VALE3",
+    "ITUB4",
+    "BBDC4",
+    "BBAS3",
+    "WEGE3",
+    "ABEV3",
+    "RENT3",
+    "MGLU3",
+    "LREN3",
     "IBOV",
 ]
 
@@ -53,7 +62,7 @@ class OHLCUpdaterService:
 
     def __init__(
         self,
-        repo: Any,           # OHLCTimescaleRepo
+        repo: Any,  # OHLCTimescaleRepo
         market_client: Any,  # MarketDataClient
         tickers: list[str] | None = None,
     ) -> None:
@@ -77,12 +86,14 @@ class OHLCUpdaterService:
 
         while self._running:
             next_run = self._next_run_time()
-            wait_seconds = (next_run - datetime.now(tz=timezone.utc)).total_seconds()
+            wait_seconds = (next_run - datetime.now(tz=UTC)).total_seconds()
             wait_seconds = max(wait_seconds, 0)
 
-            log.info("ohlc_updater.sleeping",
-                     next_run=next_run.isoformat(),
-                     wait_hours=round(wait_seconds / 3600, 1))
+            log.info(
+                "ohlc_updater.sleeping",
+                next_run=next_run.isoformat(),
+                wait_hours=round(wait_seconds / 3600, 1),
+            )
 
             await asyncio.sleep(wait_seconds)
 
@@ -103,12 +114,12 @@ class OHLCUpdaterService:
                     log.debug("ohlc_updater.ticker.updated", ticker=ticker, bars=n)
             except Exception as exc:
                 errors += 1
-                log.warning("ohlc_updater.ticker.error",
-                            ticker=ticker, error=str(exc))
+                log.warning("ohlc_updater.ticker.error", ticker=ticker, error=str(exc))
 
-        self._last_run = datetime.now(tz=timezone.utc)
-        log.info("ohlc_updater.cycle.done",
-                 updated=updated, errors=errors, total=len(self._tickers))
+        self._last_run = datetime.now(tz=UTC)
+        log.info(
+            "ohlc_updater.cycle.done", updated=updated, errors=errors, total=len(self._tickers)
+        )
 
     async def _update_ticker(self, ticker: str) -> int:
         """
@@ -117,7 +128,7 @@ class OHLCUpdaterService:
         """
         # Verifica ultima barra armazenada
         last_date = await self._repo.get_last_date(ticker, timeframe="1d")
-        today = datetime.now(tz=timezone.utc).date()
+        today = datetime.now(tz=UTC).date()
 
         # Se a ultima barra for de hoje, nao precisa atualizar
         if last_date and last_date.date() >= today:
@@ -138,8 +149,7 @@ class OHLCUpdaterService:
                 return 0
             return await self._repo.save_bars(bars)
         except Exception as exc:
-            log.debug("ohlc_updater.fetch.failed",
-                      ticker=ticker, days=days_back, error=str(exc))
+            log.debug("ohlc_updater.fetch.failed", ticker=ticker, days=days_back, error=str(exc))
             return 0
 
     async def _fetch_bars(self, ticker: str, days: int) -> list[dict[str, Any]]:
@@ -165,21 +175,23 @@ class OHLCUpdaterService:
                     continue
                 ts = item.get("time") or item.get("timestamp")
                 if isinstance(ts, (int, float)):
-                    ts = datetime.fromtimestamp(ts, tz=timezone.utc)
+                    ts = datetime.fromtimestamp(ts, tz=UTC)
                 elif ts is None:
-                    ts = datetime.now(tz=timezone.utc)
+                    ts = datetime.now(tz=UTC)
 
-                bars.append({
-                    "time": ts,
-                    "ticker": ticker,
-                    "timeframe": "1d",
-                    "open": item["open"],
-                    "high": item["high"],
-                    "low": item["low"],
-                    "close": item["close"],
-                    "volume": item.get("volume", 0),
-                    "source": "market_client",
-                })
+                bars.append(
+                    {
+                        "time": ts,
+                        "ticker": ticker,
+                        "timeframe": "1d",
+                        "open": item["open"],
+                        "high": item["high"],
+                        "low": item["low"],
+                        "close": item["close"],
+                        "volume": item.get("volume", 0),
+                        "source": "market_client",
+                    }
+                )
             return bars
 
         except AttributeError:
@@ -189,7 +201,7 @@ class OHLCUpdaterService:
     @staticmethod
     def _next_run_time() -> datetime:
         """Calcula o proximo horario de execucao (18:30 BRT diariamente)."""
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         target = now.replace(
             hour=_UPDATE_HOUR_UTC,
             minute=_UPDATE_MINUTE_UTC,

@@ -10,13 +10,14 @@ Usamos dataclasses em vez de Pydantic no dominio por principio:
 o dominio nao deve saber nada sobre serializacao. Pydantic entra
 na borda (HTTP, Kafka deserialization) — veja infrastructure/event_processor.
 """
+
 from __future__ import annotations
 
-import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
+import uuid
 
 if TYPE_CHECKING:
     from finanalytics_ai.domain.events.value_objects import CorrelationId, EventType
@@ -131,9 +132,7 @@ class ProcessingResult:
     error: str | None = None
 
     @classmethod
-    def success(
-        cls, event_id: uuid.UUID, output: dict[str, Any] | None = None
-    ) -> ProcessingResult:
+    def success(cls, event_id: uuid.UUID, output: dict[str, Any] | None = None) -> ProcessingResult:
         return cls(event_id=event_id, status=EventStatus.COMPLETED, output=output)
 
     @classmethod

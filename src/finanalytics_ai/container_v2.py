@@ -1,4 +1,4 @@
-﻿"""
+"""
 Container V2 — injecao de dependencias para o EventProcessorService.
 
 Diferenca do container.py original:
@@ -10,10 +10,11 @@ Diferenca do container.py original:
 Regra de uso:
     - container_v2.py: event processor pipeline (workers, event routes)
     - container.py: servicos legados (FintzSync, alertas, portfolios)
-    
+
 Os dois containers coexistem durante a migracao incremental.
 Quando todos os servicos migrarem para V2, container.py sera removido.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -47,9 +48,10 @@ if TYPE_CHECKING:
 # Engine / Session
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def build_engine_v2(settings: Settings):  # type: ignore[return]
     """Engine principal para o event processor (PostgreSQL)."""
-    from sqlalchemy.ext.asyncio import create_async_engine
+
     return create_async_engine(
         str(settings.database_url),
         pool_size=settings.database_pool_size,
@@ -70,6 +72,7 @@ def build_session_factory_v2(engine) -> async_sessionmaker[AsyncSession]:  # typ
 # A escolha e feita aqui (na borda), nunca no dominio.
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def build_idempotency_store(settings: Settings):  # type: ignore[return]
     """
     Seleciona backend de idempotencia baseado na configuracao.
@@ -84,6 +87,7 @@ def build_idempotency_store(settings: Settings):  # type: ignore[return]
     if redis_url and str(redis_url) not in ("", "None"):
         try:
             import redis.asyncio as aioredis
+
             client = aioredis.from_url(
                 str(redis_url),
                 encoding="utf-8",
@@ -99,7 +103,8 @@ def build_idempotency_store(settings: Settings):  # type: ignore[return]
 # Tracing
 # ─────────────────────────────────────────────────────────────────────────────
 
-def build_tracing(settings: Settings) -> "TracingPort":
+
+def build_tracing(settings: Settings) -> TracingPort:
     """
     OtelTracing se TRACING_ENABLED=true, NullTracing caso contrario.
     NullTracing tem zero overhead (sem imports OTEL em dev).
@@ -114,11 +119,12 @@ def build_tracing(settings: Settings) -> "TracingPort":
 # Observability
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def build_observability_v2(settings: Settings):  # type: ignore[return]
     from finanalytics_ai.infrastructure.event_processor.observability import (
         NoOpObservability,
-        PrometheusObservability,
     )
+
     if settings.metrics_enabled:
         return PrometheusObservability()
     return NoOpObservability()
@@ -128,6 +134,7 @@ def build_observability_v2(settings: Settings):  # type: ignore[return]
 # Rules
 # Ordem importa: validacao ANTES de persistencia.
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def build_rules(timescale_pool=None) -> list:  # type: ignore[type-arg]
     """
@@ -149,11 +156,12 @@ def build_rules(timescale_pool=None) -> list:  # type: ignore[type-arg]
 # EventProcessorService — composicao final
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def build_event_processor_service_v2(
     session_factory: async_sessionmaker[AsyncSession],
     settings: Settings,
     timescale_pool=None,  # type: ignore[type-arg]
-) -> "EventProcessorService":
+) -> EventProcessorService:
     """
     Monta o EventProcessorService V2 com todas as dependencias.
 
@@ -181,6 +189,7 @@ def build_event_processor_service_v2(
 # ─────────────────────────────────────────────────────────────────────────────
 # Bootstrap
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def bootstrap_v2(settings: Settings) -> None:
     """Inicializacao do sistema V2: logging estruturado."""

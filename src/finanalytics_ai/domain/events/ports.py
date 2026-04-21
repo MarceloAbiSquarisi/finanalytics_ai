@@ -38,9 +38,7 @@ class EventRepository(Protocol):
         """Persiste o evento (idempotente por event.id)."""
         ...
 
-    async def get_processing_record(
-        self, event_id: EventId
-    ) -> EventProcessingRecord | None:
+    async def get_processing_record(self, event_id: EventId) -> EventProcessingRecord | None:
         """Retorna o registro de processamento ou None se não existir."""
         ...
 
@@ -76,9 +74,7 @@ class BusinessRule(Protocol):
         """Tipos de evento que esta regra processa."""
         ...
 
-    async def apply(
-        self, event: Event
-    ) -> dict[str, Any]:
+    async def apply(self, event: Event) -> dict[str, Any]:
         """Aplica a regra e retorna metadados do resultado.
 
         Deve lançar BusinessRuleError em caso de violação de regra (não infra).

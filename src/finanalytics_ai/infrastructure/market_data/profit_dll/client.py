@@ -40,12 +40,12 @@ Uso:
 from __future__ import annotations
 
 import asyncio
-import threading
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from datetime import UTC, datetime
 import sys
-import time
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Callable, Awaitable
+import threading
+from typing import Any
 
 from finanalytics_ai.observability.logging import get_logger
 
@@ -59,23 +59,20 @@ if sys.platform != "win32":
         "Em Linux/Mac use NoOpProfitClient para testes."
     )
 
-from ctypes import WINFUNCTYPE, byref, c_int32, c_int64, c_double, c_uint, WinDLL  # noqa: E402
+from ctypes import WINFUNCTYPE, WinDLL, byref, c_double, c_int32, c_int64, c_uint  # noqa: E402
+
 from finanalytics_ai.infrastructure.market_data.profit_dll.types import (  # noqa: E402
     TAssetID,
-    TNewTradeCallback,
-    TNewDailyCallback,
-    TTheoreticalPriceCallback,
     TConnectorAssetIdentifier,
-    TConnectorPriceGroup,
-    SystemTime,
 )
 
-
 # ── Tick domain object ────────────────────────────────────────────────────────
+
 
 @dataclass
 class PriceTick:
     """Trade em tempo real recebido via callback da ProfitDLL."""
+
     ticker: str
     exchange: str
     price: float
@@ -93,6 +90,7 @@ class PriceTick:
 @dataclass
 class DailyBar:
     """Candle diário agregado recebido via callback."""
+
     ticker: str
     exchange: str
     open: float
@@ -109,6 +107,7 @@ class DailyBar:
 
 # ── Connection state ──────────────────────────────────────────────────────────
 
+
 @dataclass
 class ConnectionState:
     login_connected: bool = False
@@ -124,6 +123,7 @@ class ConnectionState:
 
 
 # ── ProfitDLLClient ───────────────────────────────────────────────────────────
+
 
 class ProfitDLLClient:
     """
@@ -181,7 +181,12 @@ class ProfitDLLClient:
         # Recria o Event dentro do loop ativo (Python 3.12 requer isso)
         self._connected_event = asyncio.Event()
 
-        from ctypes import WinDLL as _WinDLL, WINFUNCTYPE as _WFTYPE, c_int as _cint, c_wchar_p as _wstr
+        from ctypes import (
+            WINFUNCTYPE as _WFTYPE,
+            WinDLL as _WinDLL,
+            c_int as _cint,
+            c_wchar_p as _wstr,
+        )
 
         # Se DLL ja foi pre-conectada (evita conflito ProactorEventLoop vs ConnectorThread)
         if self._dll is not None:
@@ -210,15 +215,20 @@ class ProfitDLLClient:
 
         # state_cb com latch para market_connected + file log para conn_type=2.
         import builtins as _bi2
-        _log2 = r'C:\\Temp\\market_cb.log'
+
+        _log2 = r"C:\\Temp\\market_cb.log"
+
         @_WFTYPE(None, _cint, _cint)
         def _state_cb(t, r):
             try:
-                with _bi2.open(_log2, 'a') as _f2:
-                    _f2.write('t=%d r=%d\n' % (t, r))
-            except Exception: pass
-            if t == 0:   _state.login_connected    = (r == 0)
-            elif t == 1: _state.routing_connected  = (r >= 4)
+                with _bi2.open(_log2, "a") as _f2:
+                    _f2.write("t=%d r=%d\n" % (t, r))
+            except Exception:
+                pass
+            if t == 0:
+                _state.login_connected = r == 0
+            elif t == 1:
+                _state.routing_connected = r >= 4
             elif t == 2:
                 if r >= 4:
                     _state.market_connected = True
@@ -227,7 +237,8 @@ class ProfitDLLClient:
                     except Exception:
                         pass
                 # latch: nao resetar market_connected
-            elif t == 3: _state.market_login_valid = (r == 0)
+            elif t == 3:
+                _state.market_login_valid = r == 0
 
         self._cb_state = _state_cb  # evita GC
 
@@ -236,12 +247,15 @@ class ProfitDLLClient:
         # que por sua vez ativa o stream de market data (conn_type=2).
         # DLLInitializeMarketLogin pulava o roteamento e exigia Profit Pro.
         # Referencia: exemplo oficial Delphi Nelogica (frmClientU.pas:362)
-        from ctypes import WINFUNCTYPE as _WFT2, c_size_t as _csz
-        from ctypes import cast as _cast2, POINTER as _PTR2, byref as _byref2
+        from ctypes import (
+            WINFUNCTYPE as _WFT2,
+            byref as _byref2,
+            c_size_t as _csz,
+        )
 
-        _loop_t  = self._loop
+        _loop_t = self._loop
         _queue_t = self._tick_queue
-        _dll_t   = self._dll
+        _dll_t = self._dll
 
         @_WFT2(None, _csz, _csz, _cint)
         def _trade_cb(asset_id_raw, trade_ptr, flags):
@@ -254,25 +268,28 @@ class ProfitDLLClient:
                 from finanalytics_ai.infrastructure.market_data.profit_dll.types import (
                     TConnectorAssetIdentifier as _AI,
                 )
+
                 # from_address() aceita int Python diretamente (cast nao aceita).
                 _ai = _AI.from_address(asset_id_raw)
-                ticker   = _ai.Ticker   or ""
+                ticker = _ai.Ticker or ""
                 exchange = _ai.Exchange or "B"
             except Exception as _e:
                 # full_login: asset_id pode ser passado by value (primeiro campo = ptr Ticker)
                 try:
                     import ctypes as _ct
+
                     ticker = _ct.wstring_at(asset_id_raw) if asset_id_raw else ""
                     exchange = "B"
                 except Exception:
                     ticker, exchange = "", "B"
 
             # Decodifica TConnectorTrade via TranslateTrade
+            from ctypes import c_size_t as _csz2
+            from datetime import datetime
+
             from finanalytics_ai.infrastructure.market_data.profit_dll.types import (
                 TConnectorTrade as _CT,
             )
-            from ctypes import c_size_t as _csz2
-            from datetime import datetime, timezone
 
             trade = _CT()
             ret = _dll_t.TranslateTrade(_csz2(trade_ptr), _byref2(trade))
@@ -280,44 +297,50 @@ class ProfitDLLClient:
                 return
 
             tick = PriceTick(
-                ticker       = ticker,
-                exchange     = exchange,
-                price        = trade.Price,
-                volume       = trade.Volume,
-                quantity     = int(trade.Quantity),
-                trade_number = int(trade.TradeNumber),
-                trade_type   = int(trade.TradeType),
-                buy_agent    = int(trade.BuyAgent),
-                sell_agent   = int(trade.SellAgent),
-                timestamp    = datetime.now(tz=timezone.utc),
-                is_edit      = bool(flags & 1),
+                ticker=ticker,
+                exchange=exchange,
+                price=trade.Price,
+                volume=trade.Volume,
+                quantity=int(trade.Quantity),
+                trade_number=int(trade.TradeNumber),
+                trade_type=int(trade.TradeType),
+                buy_agent=int(trade.BuyAgent),
+                sell_agent=int(trade.SellAgent),
+                timestamp=datetime.now(tz=UTC),
+                is_edit=bool(flags & 1),
             )
             try:
                 _loop_t.call_soon_threadsafe(_queue_t.put_nowait, tick)
             except Exception:
                 pass
 
-        self._cb_trade = _trade_cb           # mantém referência (evita GC ctypes)
+        self._cb_trade = _trade_cb  # mantém referência (evita GC ctypes)
 
         # ── Callback com assinatura CORRETA para SetTradeCallbackV2 ───────────
         # O exemplo oficial Nelogica usa (TConnectorAssetIdentifier, c_size_t, c_uint)
         # passado by-value — asset_id.Ticker funciona diretamente.
         # _trade_cb minimal acima tem assinatura errada: lê Exchange ptr como trade_ptr.
+        from ctypes import (
+            WINFUNCTYPE as _WFT_v2,
+            byref as _byref_v2,
+            c_size_t as _csz_v2,
+            c_uint as _cuint_v2,
+        )
+        from datetime import datetime
+
         from finanalytics_ai.infrastructure.market_data.profit_dll.types import (
             TConnectorAssetIdentifier as _AI_v2,
             TConnectorTrade as _CT_v2,
         )
-        from ctypes import WINFUNCTYPE as _WFT_v2, c_size_t as _csz_v2, c_uint as _cuint_v2
-        from ctypes import byref as _byref_v2
-        from datetime import datetime, timezone as _tz_v2
 
         _queue_v2 = self._tick_queue
-        _loop_v2  = self._loop
-        _dll_v2   = self._dll
+        _loop_v2 = self._loop
+        _dll_v2 = self._dll
 
         @_WFT_v2(None, _AI_v2, _csz_v2, _cuint_v2)
         def _trade_cb_v2(asset_id, trade_ptr, flags):
             import os as _os
+
             _log = r"C:\Temp\trade_diag.log"
             try:
                 _os.makedirs(r"C:\Temp", exist_ok=True)
@@ -325,7 +348,9 @@ class ProfitDLLClient:
                 trade = _CT_v2(Version=0)
                 translate_ret = _dll_v2.TranslateTrade(_csz_v2(trade_ptr), _byref_v2(trade))
                 with open(_log, "a") as _f:
-                    _f.write(f"ticker={ticker!r} ptr={trade_ptr} translate={translate_ret} price={trade.Price}\n")
+                    _f.write(
+                        f"ticker={ticker!r} ptr={trade_ptr} translate={translate_ret} price={trade.Price}\n"
+                    )
                 if not ticker or not translate_ret or trade.Price <= 0:
                     return
                 tick = PriceTick(
@@ -338,7 +363,7 @@ class ProfitDLLClient:
                     trade_type=int(trade.TradeType),
                     buy_agent=int(trade.BuyAgent),
                     sell_agent=int(trade.SellAgent),
-                    timestamp=datetime.now(tz=_tz_v2.utc),
+                    timestamp=datetime.now(tz=UTC),
                     is_edit=bool(flags & 1),
                 )
                 _loop_v2.call_soon_threadsafe(_queue_v2.put_nowait, tick)
@@ -361,22 +386,22 @@ class ProfitDLLClient:
         # DLLInitializeMarketLogin exige assinatura API standalone.
         # DLLInitializeLogin ativa conn_type=1 (routing) que libera
         # conn_type=2 (market data) — igual ao exemplo oficial Delphi.
-        from ctypes import c_wchar_p as _wstr
+
         ret = self._dll.DLLInitializeLogin(
             _wstr(self._activation_key),
             _wstr(self._username),
             _wstr(self._password),
             _state_cb,  # StateCallback
-            None,       # HistoryCallback
-            None,       # OrderChangeCallback
-            None,       # AccountCallback
-            None,       # TradeCallback (via SetTradeCallbackV2 apos routing)
-            None,       # DailyCallback
-            None,       # PriceBookCallback
-            None,       # OfferBookCallback
-            None,       # HistoryTradeCallback
-            None,       # ProgressCallback
-            None,       # TinyBookCallback
+            None,  # HistoryCallback
+            None,  # OrderChangeCallback
+            None,  # AccountCallback
+            None,  # TradeCallback (via SetTradeCallbackV2 apos routing)
+            None,  # DailyCallback
+            None,  # PriceBookCallback
+            None,  # OfferBookCallback
+            None,  # HistoryTradeCallback
+            None,  # ProgressCallback
+            None,  # TinyBookCallback
         )
         if ret != 0:
             raise RuntimeError(f"DLLInitializeMarketLogin falhou: {ret}")
@@ -398,15 +423,18 @@ class ProfitDLLClient:
 
     def start_subscribe_thread(self, tickers: list[str], exchange: str = DEFAULT_EXCHANGE) -> None:
         """Thread separada: aguarda t=2 r=4 e chama SubscribeTicker fora do callback."""
-        import threading as _threading, time as _time
         from ctypes import c_wchar_p as _cwp
+        import threading as _threading
+        import time as _time
+
         _dll, _log = self._dll, log
         _tevent = _threading.Event()
         self._subscribe_event = _tevent  # referencia para state_cb sinalizar
 
         def _sub():
             if not _tevent.wait(timeout=90):
-                _log.warning("profit_dll.subscribe_thread_timeout"); return
+                _log.warning("profit_dll.subscribe_thread_timeout")
+                return
             _time.sleep(0.5)
             for ticker in tickers:
                 ret = _dll.SubscribeTicker(_cwp(ticker), _cwp(exchange))
@@ -415,10 +443,7 @@ class ProfitDLLClient:
         _threading.Thread(target=_sub, daemon=True).start()
         log.info("profit_dll.subscribe_thread_started", tickers=tickers)
 
-
-    async def subscribe_tickers(
-        self, tickers: list[str], exchange: str = DEFAULT_EXCHANGE
-    ) -> None:
+    async def subscribe_tickers(self, tickers: list[str], exchange: str = DEFAULT_EXCHANGE) -> None:
         """Inscreve uma lista de tickers para receber trades em tempo real."""
         if self._dll is None:
             raise RuntimeError("DLL não inicializada. Chame start() primeiro.")
@@ -433,8 +458,7 @@ class ProfitDLLClient:
                 log.info("profit_dll.subscribed", ticker=ticker, exchange=exchange)
             else:
                 log.warning(
-                    "profit_dll.subscribe_failed",
-                    ticker=ticker, exchange=exchange, ret=ret
+                    "profit_dll.subscribe_failed", ticker=ticker, exchange=exchange, ret=ret
                 )
 
     async def unsubscribe_tickers(
@@ -446,15 +470,11 @@ class ProfitDLLClient:
             self._dll.UnsubscribeTicker(ticker, exchange)
             self._subscribed.discard(f"{ticker}:{exchange}")
 
-    def add_tick_handler(
-        self, handler: Callable[[PriceTick], Awaitable[None]]
-    ) -> None:
+    def add_tick_handler(self, handler: Callable[[PriceTick], Awaitable[None]]) -> None:
         """Registra handler async chamado para cada trade recebido."""
         self._on_tick_handlers.append(handler)
 
-    def add_daily_handler(
-        self, handler: Callable[[DailyBar], Awaitable[None]]
-    ) -> None:
+    def add_daily_handler(self, handler: Callable[[DailyBar], Awaitable[None]]) -> None:
         """Registra handler async chamado para cada candle diário."""
         self._on_daily_handlers.append(handler)
 
@@ -499,17 +519,17 @@ class ProfitDLLClient:
             _wstr(self._activation_key),
             _wstr(self._username),
             _wstr(self._password),
-            _state_cb,      # StateCallback
-            None,           # HistoryCallback
-            None,           # OrderChangeCallback
-            None,           # AccountCallback
-            None,           # TradeCallback
-            None,           # DailyCallback
-            None,           # PriceBookCallback
-            None,           # OfferBookCallback
-            None,           # HistoryTradeCallback
-            None,           # ProgressCallback
-            None,           # TinyBookCallback
+            _state_cb,  # StateCallback
+            None,  # HistoryCallback
+            None,  # OrderChangeCallback
+            None,  # AccountCallback
+            None,  # TradeCallback
+            None,  # DailyCallback
+            None,  # PriceBookCallback
+            None,  # OfferBookCallback
+            None,  # HistoryTradeCallback
+            None,  # ProgressCallback
+            None,  # TinyBookCallback
         )
 
         log.info("profit_dll.started", dll_path=self._dll_path)
@@ -539,15 +559,16 @@ class ProfitDLLClient:
         @WINFUNCTYPE(None, c_int32, c_int32)
         def state_callback(conn_type: int, result: int) -> None:
             if conn_type == 0:
-                _state_ref.login_connected = (result == 0)
+                _state_ref.login_connected = result == 0
             elif conn_type == 2:
-                if result == 4: _state_ref.market_connected = True  # latch
+                if result == 4:
+                    _state_ref.market_connected = True  # latch
                 try:
                     open(r"C:\\Temp\\market_cb2.log", "a").write(f"t={conn_type} r={result}\n")
                 except:
                     pass
             elif conn_type == 3:
-                _state_ref.market_login_valid = (result == 0)
+                _state_ref.market_login_valid = result == 0
             if _state_ref.ready and _loop_ref:
                 _loop_ref.call_soon_threadsafe(_event_ref.set)
             if _loop_ref:
@@ -560,9 +581,6 @@ class ProfitDLLClient:
         # Trade callback V2 (preferencial)
         # Assinatura: (AssetID, pTrade pointer, flags)
         from ctypes import POINTER, c_size_t
-        from finanalytics_ai.infrastructure.market_data.profit_dll.types import (
-            TConnectorAssetIdentifierOut,
-        )
 
         @WINFUNCTYPE(None, TConnectorAssetIdentifier, c_size_t, c_uint)
         def trade_callback_v2(asset_id: Any, trade_ptr: int, flags: int) -> None:
@@ -570,19 +588,47 @@ class ProfitDLLClient:
 
         # Daily callback
         @WINFUNCTYPE(
-            None, TAssetID,  # assetId
-            c_size_t,        # date ptr
-            c_double, c_double, c_double, c_double,  # open/high/low/close
-            c_double, c_double,  # vol, adjust
-            c_double, c_double,  # maxLimit, minLimit
-            c_double, c_double,  # volBuyer, volSeller
-            c_int32, c_int32, c_int32,  # qtd, negocios, contratosOpen
-            c_int32, c_int32, c_int32, c_int32,  # qtdBuyer, qtdSeller, negBuyer, negSeller
+            None,
+            TAssetID,  # assetId
+            c_size_t,  # date ptr
+            c_double,
+            c_double,
+            c_double,
+            c_double,  # open/high/low/close
+            c_double,
+            c_double,  # vol, adjust
+            c_double,
+            c_double,  # maxLimit, minLimit
+            c_double,
+            c_double,  # volBuyer, volSeller
+            c_int32,
+            c_int32,
+            c_int32,  # qtd, negocios, contratosOpen
+            c_int32,
+            c_int32,
+            c_int32,
+            c_int32,  # qtdBuyer, qtdSeller, negBuyer, negSeller
         )
         def daily_callback(
-            asset_id, date_ptr, open_, high, low, close,
-            vol, adjust, max_lim, min_lim, vol_buyer, vol_seller,
-            qtd, negocios, contratos_open, qtd_buyer, qtd_seller, neg_buyer, neg_seller
+            asset_id,
+            date_ptr,
+            open_,
+            high,
+            low,
+            close,
+            vol,
+            adjust,
+            max_lim,
+            min_lim,
+            vol_buyer,
+            vol_seller,
+            qtd,
+            negocios,
+            contratos_open,
+            qtd_buyer,
+            qtd_seller,
+            neg_buyer,
+            neg_seller,
         ) -> None:
             self._on_daily(asset_id, open_, high, low, close, vol, adjust, qtd, negocios)
 
@@ -597,27 +643,69 @@ class ProfitDLLClient:
             pass  # noop para Market Data
 
         # PriceBook e OfferBook (obrigatórios na init, mas usamos SubscribePriceDepth depois)
-        from ctypes import POINTER, c_int
-        @WINFUNCTYPE(None, TAssetID, c_int32, c_int32, c_int32, c_int32, c_int32, c_double, POINTER(c_int), POINTER(c_int))
+        from ctypes import c_int
+
+        @WINFUNCTYPE(
+            None,
+            TAssetID,
+            c_int32,
+            c_int32,
+            c_int32,
+            c_int32,
+            c_int32,
+            c_double,
+            POINTER(c_int),
+            POINTER(c_int),
+        )
         def price_book_callback(*args) -> None:
             pass
 
-        @WINFUNCTYPE(None, TAssetID, c_int32, c_int32, c_int32, c_int32, c_int32, c_int64, c_double, c_int32, c_int32, c_int32, c_int32, c_int32, c_size_t, POINTER(c_int), POINTER(c_int))
+        @WINFUNCTYPE(
+            None,
+            TAssetID,
+            c_int32,
+            c_int32,
+            c_int32,
+            c_int32,
+            c_int32,
+            c_int64,
+            c_double,
+            c_int32,
+            c_int32,
+            c_int32,
+            c_int32,
+            c_int32,
+            c_size_t,
+            POINTER(c_int),
+            POINTER(c_int),
+        )
         def offer_book_callback(*args) -> None:
             pass
 
-        @WINFUNCTYPE(None, TAssetID, c_size_t, c_uint, c_double, c_double, c_int32, c_int32, c_int32, c_int32, c_int32)
+        @WINFUNCTYPE(
+            None,
+            TAssetID,
+            c_size_t,
+            c_uint,
+            c_double,
+            c_double,
+            c_int32,
+            c_int32,
+            c_int32,
+            c_int32,
+            c_int32,
+        )
         def history_trade_callback(*args) -> None:
             pass
 
         # Guarda referências (evita GC)
-        self._cb_state        = state_callback
-        self._cb_trade        = trade_callback_v2  # callback correto: TConnectorAssetIdentifier by value
-        self._cb_daily        = daily_callback
-        self._cb_progress     = progress_callback
-        self._cb_tiny_book    = tiny_book_callback
-        self._cb_price_book   = price_book_callback
-        self._cb_offer_book   = offer_book_callback
+        self._cb_state = state_callback
+        self._cb_trade = trade_callback_v2  # callback correto: TConnectorAssetIdentifier by value
+        self._cb_daily = daily_callback
+        self._cb_progress = progress_callback
+        self._cb_tiny_book = tiny_book_callback
+        self._cb_price_book = price_book_callback
+        self._cb_offer_book = offer_book_callback
         self._cb_history_trade = history_trade_callback
 
     def _initialize(self) -> None:
@@ -634,6 +722,7 @@ class ProfitDLLClient:
         assert self._dll is not None
 
         from ctypes import c_wchar_p as _wstr
+
         ret = self._dll.DLLInitializeLogin(
             _wstr(self._activation_key),
             _wstr(self._username),
@@ -660,15 +749,18 @@ class ProfitDLLClient:
         """Atualiza estado de conexão. Chamado na ConnectorThread."""
         # CONNECTION_STATE_LOGIN = 0, LOGIN_CONNECTED = 0
         if conn_type == 0:
-            self._state.login_connected = (result == 0)
+            self._state.login_connected = result == 0
             log.info("profit_dll.login_state", connected=self._state.login_connected, result=result)
         # CONNECTION_STATE_MARKET_DATA = 2, MARKET_CONNECTED = 4
         elif conn_type == 2:
-            if result == 4: self._state.market_connected = True  # latch
-            log.info("profit_dll.market_state", connected=self._state.market_connected, result=result)
+            if result == 4:
+                self._state.market_connected = True  # latch
+            log.info(
+                "profit_dll.market_state", connected=self._state.market_connected, result=result
+            )
         # CONNECTION_STATE_MARKET_LOGIN = 3, CONNECTION_ACTIVATE_VALID = 0
         elif conn_type == 3:
-            self._state.market_login_valid = (result == 0)
+            self._state.market_login_valid = result == 0
             log.info("profit_dll.market_login", valid=self._state.market_login_valid, result=result)
 
         if self._state.ready and self._loop:
@@ -682,15 +774,16 @@ class ProfitDLLClient:
         if self._dll is None or self._loop is None:
             return
 
-        from finanalytics_ai.infrastructure.market_data.profit_dll.types import TConnectorTrade
         from ctypes import c_size_t
+
+        from finanalytics_ai.infrastructure.market_data.profit_dll.types import TConnectorTrade
 
         trade = TConnectorTrade(Version=0)
         ret = self._dll.TranslateTrade(c_size_t(trade_ptr), byref(trade))
         if not ret:  # TranslateTrade retorna nao-zero em sucesso (igual exemplo oficial)
             return
 
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         ticker = getattr(asset_id, "Ticker", "") or ""
         exchange = getattr(asset_id, "Exchange", "B") or "B"
 
@@ -710,16 +803,21 @@ class ProfitDLLClient:
 
         # Thread-safe: enfileira para o loop asyncio processar
         try:
-            self._loop.call_soon_threadsafe(
-                self._tick_queue.put_nowait, tick
-            )
+            self._loop.call_soon_threadsafe(self._tick_queue.put_nowait, tick)
         except asyncio.QueueFull:
             log.warning("profit_dll.queue_full", ticker=ticker)
 
     def _on_daily(
-        self, asset_id: Any,
-        open_: float, high: float, low: float, close: float,
-        vol: float, adjust: float, qtd: int, negocios: int,
+        self,
+        asset_id: Any,
+        open_: float,
+        high: float,
+        low: float,
+        close: float,
+        vol: float,
+        adjust: float,
+        qtd: int,
+        negocios: int,
     ) -> None:
         """Callback de candle diário (ConnectorThread)."""
         if self._loop is None:
@@ -731,16 +829,19 @@ class ProfitDLLClient:
         bar = DailyBar(
             ticker=ticker,
             exchange=exchange,
-            open=open_, high=high, low=low, close=close,
-            volume=vol, adjust=adjust,
-            quantity=qtd, trades=negocios,
-            timestamp=datetime.now(tz=timezone.utc),
+            open=open_,
+            high=high,
+            low=low,
+            close=close,
+            volume=vol,
+            adjust=adjust,
+            quantity=qtd,
+            trades=negocios,
+            timestamp=datetime.now(tz=UTC),
         )
 
         try:
-            self._loop.call_soon_threadsafe(
-                self._tick_queue.put_nowait, bar
-            )
+            self._loop.call_soon_threadsafe(self._tick_queue.put_nowait, bar)
         except asyncio.QueueFull:
             pass
 
@@ -755,7 +856,7 @@ class ProfitDLLClient:
         while True:
             try:
                 item = await asyncio.wait_for(self._tick_queue.get(), timeout=1.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
             except asyncio.CancelledError:
                 break
@@ -773,11 +874,3 @@ class ProfitDLLClient:
                 self._tick_queue.task_done()
 
         log.info("profit_dll.consumer_stopped")
-
-
-
-
-
-
-
-

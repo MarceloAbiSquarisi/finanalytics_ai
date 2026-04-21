@@ -8,26 +8,25 @@ compatíveis com aiohttp e facilmente adaptáveis para FastAPI.
 `routing_password` nunca aparece em respostas de listagem (apenas confirma
 se está cadastrada via campo booleano `has_routing_password`).
 """
-from __future__ import annotations
 
-from typing import List, Optional
+from __future__ import annotations
 
 from pydantic import BaseModel, Field, field_validator
 
 from finanalytics_ai.domain.accounts import AccountType, TradingAccount
 
-
 # ---------------------------------------------------------------------------
 # Schemas
 # ---------------------------------------------------------------------------
+
 
 class AccountCreateRequest(BaseModel):
     broker_id: str = Field(..., min_length=1, description="Código da corretora (ex: '227')")
     account_id: str = Field(..., min_length=1, description="Número da conta na corretora")
     account_type: AccountType
     label: str = Field(..., min_length=1, max_length=100, description="Nome amigável")
-    routing_password: Optional[str] = Field(None, description="Senha de roteamento")
-    sub_account_id: Optional[str] = Field(None, description="Sub-conta, se houver")
+    routing_password: str | None = Field(None, description="Senha de roteamento")
+    sub_account_id: str | None = Field(None, description="Sub-conta, se houver")
 
     @field_validator("broker_id", "account_id")
     @classmethod
@@ -36,8 +35,8 @@ class AccountCreateRequest(BaseModel):
 
 
 class AccountUpdateRequest(BaseModel):
-    label: Optional[str] = Field(None, min_length=1, max_length=100)
-    routing_password: Optional[str] = None
+    label: str | None = Field(None, min_length=1, max_length=100)
+    routing_password: str | None = None
 
 
 class AccountResponse(BaseModel):
@@ -47,14 +46,14 @@ class AccountResponse(BaseModel):
     account_type: AccountType
     label: str
     status: str
-    broker_name: Optional[str]
-    sub_account_id: Optional[str]
+    broker_name: str | None
+    sub_account_id: str | None
     has_routing_password: bool
     created_at: str
     updated_at: str
 
     @classmethod
-    def from_domain(cls, acc: TradingAccount) -> "AccountResponse":
+    def from_domain(cls, acc: TradingAccount) -> AccountResponse:
         return cls(
             uuid=acc.uuid,
             broker_id=acc.broker_id,
@@ -71,7 +70,7 @@ class AccountResponse(BaseModel):
 
 
 class AccountListResponse(BaseModel):
-    accounts: List[AccountResponse]
+    accounts: list[AccountResponse]
     total: int
 
 
@@ -79,7 +78,7 @@ class AccountListResponse(BaseModel):
 # Container de use cases (injetado no startup via DI manual)
 # ---------------------------------------------------------------------------
 
-from finanalytics_ai.application.use_cases import (  # noqa: E402
+from finanalytics_ai.application.use_cases import (
     CreateAccount,
     CreateAccountCmd,
     DeleteAccount,
@@ -129,7 +128,7 @@ class AccountHandlers:
         account = await self._create.execute(cmd)
         return AccountResponse.from_domain(account)
 
-    async def handle_list(self, account_type: Optional[str] = None) -> AccountListResponse:
+    async def handle_list(self, account_type: str | None = None) -> AccountListResponse:
         at = AccountType(account_type) if account_type else None
         accounts = await self._list.execute(at)
         items = [AccountResponse.from_domain(a) for a in accounts]

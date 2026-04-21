@@ -31,24 +31,32 @@ Design:
   - Campos None = empresa sem dado = nao rankeia naquele criterio
   - Top N configuravel
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
-import structlog
 from sqlalchemy import text
+import structlog
 
 logger = structlog.get_logger(__name__)
 
 # Indicadores necessarios por metodologia
 _INDICATORS_NEEDED = [
-    "ROE", "ROIC", "ROA",
+    "ROE",
+    "ROIC",
+    "ROA",
     "DividendYield",
-    "P_L", "P_VP",
-    "EV_EBITDA", "EV_EBIT",
-    "MargemEBITDA", "MargemLiquida", "MargemBruta",
-    "DividaLiquida_EBITDA", "DividaLiquida_PatrimonioLiquido",
+    "P_L",
+    "P_VP",
+    "EV_EBITDA",
+    "EV_EBIT",
+    "MargemEBITDA",
+    "MargemLiquida",
+    "MargemBruta",
+    "DividaLiquida_EBITDA",
+    "DividaLiquida_PatrimonioLiquido",
     "LiquidezCorrente",
     "ValorDeMercado",
     "GiroAtivos",
@@ -56,16 +64,21 @@ _INDICATORS_NEEDED = [
 
 # Indicadores em decimal que precisam x100
 _PCT_INDICATORS = {
-    "ROE", "ROIC", "ROA", "DividendYield",
-    "MargemEBITDA", "MargemLiquida", "MargemBruta",
+    "ROE",
+    "ROIC",
+    "ROA",
+    "DividendYield",
+    "MargemEBITDA",
+    "MargemLiquida",
+    "MargemBruta",
 }
 
 METODOLOGIAS = {
     "magic_formula": "Greenblatt: ROIC alto + EV/EBIT baixo",
-    "barsi":         "Barsi: DY alto + ROE solido + divida controlada",
-    "quality":       "Qualidade: ROE, ROIC, margens e liquidez",
-    "value":         "Value: P/L, P/VP, EV/EBITDA baixos",
-    "composite":     "Composto: qualidade (40%) + value (30%) + proventos (30%)",
+    "barsi": "Barsi: DY alto + ROE solido + divida controlada",
+    "quality": "Qualidade: ROE, ROIC, margens e liquidez",
+    "value": "Value: P/L, P/VP, EV/EBITDA baixos",
+    "composite": "Composto: qualidade (40%) + value (30%) + proventos (30%)",
 }
 
 
@@ -73,7 +86,7 @@ METODOLOGIAS = {
 class RankedStock:
     ticker: str
     rank: int
-    score: float              # 0-100 (percentil)
+    score: float  # 0-100 (percentil)
     metodologia: str
     indicadores: dict[str, float | None] = field(default_factory=dict)
 
@@ -83,8 +96,7 @@ class RankedStock:
             "ticker": self.ticker,
             "score": round(self.score, 2),
             "metodologia": self.metodologia,
-            **{k: (round(v, 4) if v is not None else None)
-               for k, v in self.indicadores.items()},
+            **{k: (round(v, 4) if v is not None else None) for k, v in self.indicadores.items()},
         }
 
 
@@ -133,8 +145,7 @@ class RankingService:
         """
         if metodologia not in METODOLOGIAS:
             raise ValueError(
-                f"Metodologia '{metodologia}' invalida. "
-                f"Use: {', '.join(METODOLOGIAS)}"
+                f"Metodologia '{metodologia}' invalida. Use: {', '.join(METODOLOGIAS)}"
             )
 
         top_n = min(top_n, 100)
@@ -148,7 +159,8 @@ class RankingService:
         # Filtra por market cap minimo
         if min_market_cap_bi > 0:
             raw = {
-                t: v for t, v in raw.items()
+                t: v
+                for t, v in raw.items()
                 if (v.get("ValorDeMercado") or 0) >= min_market_cap_bi * 1e9
             }
             log.info("ranking.after_mcap_filter", tickers=len(raw))
@@ -164,13 +176,15 @@ class RankingService:
         result_stocks = []
         for i, (ticker, raw_score, indicators) in enumerate(scored[:top_n]):
             percentil = (1 - i / max(universe_size - 1, 1)) * 100
-            result_stocks.append(RankedStock(
-                ticker=ticker,
-                rank=i + 1,
-                score=round(percentil, 2),
-                metodologia=metodologia,
-                indicadores=indicators,
-            ))
+            result_stocks.append(
+                RankedStock(
+                    ticker=ticker,
+                    rank=i + 1,
+                    score=round(percentil, 2),
+                    metodologia=metodologia,
+                    indicadores=indicators,
+                )
+            )
 
         log.info("ranking.done", ranked=len(result_stocks), universe=universe_size)
 
@@ -232,6 +246,7 @@ class RankingService:
 # Funcoes de scoring por metodologia
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _get(d: dict, key: str) -> float | None:
     v = d.get(key)
     if v is None or (isinstance(v, float) and v != v):
@@ -246,10 +261,10 @@ def _score_all(
     """Calcula score de todos os tickers para a metodologia."""
     fn = {
         "magic_formula": _score_magic_formula,
-        "barsi":         _score_barsi,
-        "quality":       _score_quality,
-        "value":         _score_value,
-        "composite":     _score_composite,
+        "barsi": _score_barsi,
+        "quality": _score_quality,
+        "value": _score_value,
+        "composite": _score_composite,
     }[metodologia]
 
     # Para magic_formula: precisa de rank relativo (dois passes)
@@ -275,7 +290,7 @@ def _score_magic_formula(d: dict) -> float | None:
 
 
 def _rank_magic_formula(
-    raw: dict[str, dict[str, float | None]]
+    raw: dict[str, dict[str, float | None]],
 ) -> list[tuple[str, float, dict[str, float | None]]]:
     """
     Greenblatt Magic Formula:
@@ -285,7 +300,8 @@ def _rank_magic_formula(
     """
     # Filtra empresas com ambos os indicadores positivos
     valid = [
-        (t, v) for t, v in raw.items()
+        (t, v)
+        for t, v in raw.items()
         if _get(v, "ROIC") is not None
         and _get(v, "EV_EBIT") is not None
         and _get(v, "EV_EBIT") > 0  # type: ignore
@@ -328,14 +344,14 @@ def _score_barsi(d: dict) -> float | None:
 
     score = 0.0
     if dy is not None and dy > 0:
-        score += dy * 3.0       # DY e o fator principal
+        score += dy * 3.0  # DY e o fator principal
     if roe is not None and roe > 0:
         score += roe * 1.0
     if div_ebitda is not None:
         if div_ebitda > 0:
             score -= div_ebitda * 2.0  # penalidade por alavancagem
         else:
-            score += 5.0        # bonus: caixa liquido
+            score += 5.0  # bonus: caixa liquido
 
     return score
 

@@ -4,22 +4,19 @@ Testes unitários do hub router.
 Usa FakeEventRepository e TestClient do FastAPI para teste HTTP completo
 sem banco de dados real. Cada teste monta um app mínimo com dependency override.
 """
+
 from __future__ import annotations
 
-import uuid
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
+import uuid
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from finanalytics_ai.domain.events.models import DomainEvent, EventPayload, EventStatus
 from finanalytics_ai.domain.events.value_objects import EventType
 from finanalytics_ai.interfaces.api.routes import hub
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Fake session that wraps FakeRepo — simula AsyncSession para dependency
@@ -38,9 +35,7 @@ class FakeRepo:
     async def find_by_id(self, event_id: uuid.UUID) -> DomainEvent | None:
         return self.store.get(event_id)
 
-    async def find_by_status(
-        self, status: EventStatus, *, limit: int = 100
-    ) -> list[DomainEvent]:
+    async def find_by_status(self, status: EventStatus, *, limit: int = 100) -> list[DomainEvent]:
         return [e for e in self.store.values() if e.status == status][:limit]
 
     async def find_filtered(
@@ -411,7 +406,7 @@ class TestCleanup:
         repo = FakeRepo()
         old_event = _make_event(
             status=EventStatus.COMPLETED,
-            created_at=datetime.now(timezone.utc) - timedelta(days=60),
+            created_at=datetime.now(UTC) - timedelta(days=60),
         )
         repo.store[old_event.event_id] = old_event
 
@@ -431,7 +426,7 @@ class TestCleanup:
         repo = FakeRepo()
         recent_event = _make_event(
             status=EventStatus.COMPLETED,
-            created_at=datetime.now(timezone.utc) - timedelta(days=60),
+            created_at=datetime.now(UTC) - timedelta(days=60),
         )
         repo.store[recent_event.event_id] = recent_event
 
@@ -450,15 +445,15 @@ class TestCleanup:
         repo = FakeRepo()
         old_failed = _make_event(
             status=EventStatus.FAILED,
-            created_at=datetime.now(timezone.utc) - timedelta(days=60),
+            created_at=datetime.now(UTC) - timedelta(days=60),
         )
         old_pending = _make_event(
             status=EventStatus.PENDING,
-            created_at=datetime.now(timezone.utc) - timedelta(days=60),
+            created_at=datetime.now(UTC) - timedelta(days=60),
         )
         old_dead = _make_event(
             status=EventStatus.DEAD_LETTER,
-            created_at=datetime.now(timezone.utc) - timedelta(days=60),
+            created_at=datetime.now(UTC) - timedelta(days=60),
         )
         repo.store[old_failed.event_id] = old_failed
         repo.store[old_pending.event_id] = old_pending

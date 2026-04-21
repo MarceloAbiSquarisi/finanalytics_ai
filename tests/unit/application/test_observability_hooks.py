@@ -14,18 +14,16 @@ Cobertura:
 
 from __future__ import annotations
 
-from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock
 
-import pytest
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+import pytest
 
 from finanalytics_ai.application.services.event_processor import EventProcessorService
 from finanalytics_ai.domain.entities.event import EventType, MarketEvent
-
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
@@ -106,8 +104,6 @@ def _ohlc_event() -> MarketEvent:
     )
 
 
-
-
 # ── Métricas Prometheus ────────────────────────────────────────────────────────
 
 
@@ -138,7 +134,6 @@ class TestHandlerMetrics:
         after = handler_events_total.labels(handler="ohlc_bar", status="ok")._value.get()
 
         assert after == before + 1
-
 
     @pytest.mark.asyncio
     async def test_error_status_incremented_on_handler_exception(
@@ -228,7 +223,9 @@ class TestTracingSpans:
         span_exporter: InMemorySpanExporter,
     ) -> None:
         await processor_with_tracer._handle_price_update(_price_event("45.00"))
-        span = next(s for s in span_exporter.get_finished_spans() if s.name == "handler.price_update")
+        span = next(
+            s for s in span_exporter.get_finished_spans() if s.name == "handler.price_update"
+        )
 
         assert span.attributes.get("event.ticker") == "PETR4"
         assert span.attributes.get("price.value") == pytest.approx(45.0)
@@ -245,7 +242,6 @@ class TestTracingSpans:
         assert span.attributes.get("ohlc.close") == pytest.approx(71.8)
         assert span.attributes.get("ohlc.volume") == 150000
         assert span.attributes.get("ohlc.persisted") is False
-
 
     @pytest.mark.asyncio
     async def test_dispatch_emits_parent_span(

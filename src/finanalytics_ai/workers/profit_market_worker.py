@@ -28,14 +28,15 @@ Startup:
 Shutdown gracioso:
 - SIGTERM/SIGINT: para o consumer, aguarda processamento atual, fecha conexoes
 """
+
 from __future__ import annotations
 
 import asyncio
-from ctypes import WINFUNCTYPE
+import json as _json
 import os
 import signal
 import sys
-import json as _json
+
 # Publisher Redis para TapeService — inicializado dentro de run_profit_worker()
 # como cliente ASSÍNCRONO (redis.asyncio) para não bloquear o event loop.
 # Declarado no módulo para ser acessível dentro da closure _publish_tick.
@@ -59,7 +60,6 @@ from finanalytics_ai.infrastructure.market_data.profit_dll.message_source import
     ProfitDLLMessageSource,
 )
 from finanalytics_ai.observability.logging import get_logger
-from finanalytics_ai.infrastructure.market_data.tick_anomaly_bridge import TickAnomalyBridge
 
 log = get_logger(__name__)
 
@@ -74,6 +74,7 @@ def _get_profit_client() -> Any:
         from finanalytics_ai.infrastructure.market_data.profit_dll.noop_client import (
             NoOpProfitClient,
         )
+
         return NoOpProfitClient()
 
     dll_path = os.getenv("PROFIT_DLL_PATH", r"C:\Nelogica\ProfitDLL64.dll")
@@ -85,12 +86,13 @@ def _get_profit_client() -> Any:
         from finanalytics_ai.infrastructure.market_data.profit_dll.noop_client import (
             NoOpProfitClient,
         )
+
         return NoOpProfitClient()
 
     from finanalytics_ai.infrastructure.market_data.profit_dll.client import ProfitDLLClient
-
     import finanalytics_ai.workers.profit_market_worker as _wmod
-    _preloaded = getattr(_wmod, '_GLOBAL_PRELOADED_DLL', None)
+
+    _preloaded = getattr(_wmod, "_GLOBAL_PRELOADED_DLL", None)
     return ProfitDLLClient(
         dll_path=dll_path,
         activation_key=os.getenv("PROFIT_ACTIVATION_KEY", ""),
@@ -113,14 +115,17 @@ async def _build_processor(settings: Any, session_factory: Any) -> Any:
     repo = SqlEventRepository(session_factory)
 
     from redis.asyncio import from_url as redis_from_url
+
     redis = redis_from_url(str(settings.redis_url))
     idem = RedisIdempotencyStore(redis)
 
     # TimescaleDB pool (opcional)
     ts_pool: Any = None
     try:
-        import asyncpg
         import re as _re
+
+        import asyncpg
+
         ts_url = str(getattr(settings, "timescale_url", "") or "")
         if ts_url:
             # asyncpg.create_pool aceita apenas "postgresql://" ou "postgres://".
@@ -156,9 +161,11 @@ async def _build_processor(settings: Any, session_factory: Any) -> Any:
     obs = PrometheusObservability()
 
     from finanalytics_ai.application.event_processor.tracing import OtelTracing
+
     tracing = OtelTracing("finanalytics.profit_worker")
 
     from finanalytics_ai.application.event_processor.config import EventProcessorConfig
+
     config = EventProcessorConfig()
 
     service = create_event_processor_service(
@@ -175,18 +182,20 @@ async def _build_processor(settings: Any, session_factory: Any) -> Any:
 
 async def run_profit_worker() -> None:
     """Entry point principal do worker."""
-    from finanalytics_ai.config import get_settings
-    from finanalytics_ai.infrastructure.database.connection import get_session_factory
-    from finanalytics_ai.observability.logging import configure_logging
-
-    from dotenv import load_dotenv
     # .env.local (localhost, dev) tem prioridade sobre .env (Docker hostnames).
     # load_dotenv com override=True sobrescreve variáveis já carregadas.
     # Ordem: .env.local → .env → variáveis do sistema operacional (maior prioridade).
     import pathlib as _pl
+
+    from dotenv import load_dotenv
+
+    from finanalytics_ai.config import get_settings
+    from finanalytics_ai.infrastructure.database.connection import get_session_factory
+    from finanalytics_ai.observability.logging import configure_logging
+
     _root = _pl.Path(__file__).resolve().parents[3]
     _env_local = _root / ".env.local"
-    _env_main  = _root / ".env"
+    _env_main = _root / ".env"
     if _env_local.exists():
         load_dotenv(_env_local, override=True)
         log.debug("profit_market_worker.env_loaded", file=str(_env_local))
@@ -237,7 +246,7 @@ async def run_profit_worker() -> None:
     # Espera routing + broker (crBrokerConnected) antes de registrar callback.
     # Delphi mostra: cstMarketData so fica cmdConnectedLogged APOS crBrokerConnected.
     for _ri in range(20):  # max 10s nao-bloqueante
-        if getattr(profit_client.state, 'routing_connected', False):
+        if getattr(profit_client.state, "routing_connected", False):
             log.info("profit_market_worker.routing_connected", attempts=_ri)
             break
         await asyncio.sleep(0.5)
@@ -247,8 +256,10 @@ async def run_profit_worker() -> None:
     # patch_worker_subscribe_thread_applied
     # callbacks ja registrados no client.py apos DLLInitializeLogin
     await asyncio.sleep(1.0)  # yield para callbacks pendentes
-    log.info("profit_market_worker.market_data_proceeding",
-             market_connected=profit_client.state.market_connected)
+    log.info(
+        "profit_market_worker.market_data_proceeding",
+        market_connected=profit_client.state.market_connected,
+    )
     # Aguarda market_connected antes de iniciar DB/Redis.
     # ProactorEventLoop usa IOCP — DB/Redis competem com market data da DLL.
     # Iniciar DB/Redis antes impede t=2 r=4 de chegar.
@@ -268,7 +279,10 @@ async def run_profit_worker() -> None:
         concurrency=_worker_concurrency,
         max_retries=_worker_max_retries,
     )
-    log.info("profit_market_worker.market_connected_status", connected=profit_client.state.market_connected)
+    log.info(
+        "profit_market_worker.market_connected_status",
+        connected=profit_client.state.market_connected,
+    )
 
     # Redis publisher para TapeService — cliente ASSÍNCRONO obrigatório aqui.
     # O handler _publish_tick é chamado via "await handler(item)" no _consume_loop,
@@ -278,6 +292,7 @@ async def run_profit_worker() -> None:
     _redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     try:
         from redis.asyncio import from_url as _aio_redis_from_url
+
         _REDIS_PUB_ASYNC = _aio_redis_from_url(_redis_url, decode_responses=True)
         log.info("profit_worker.redis_publisher_ready", url=_redis_url)
     except Exception as _re:
@@ -287,16 +302,21 @@ async def run_profit_worker() -> None:
         if _REDIS_PUB_ASYNC is None:
             return
         try:
-            await _REDIS_PUB_ASYNC.publish("tape:ticks", _json.dumps({
-                "ticker":     getattr(tick, "ticker", ""),
-                "price":      getattr(tick, "price", 0.0),
-                "volume":     getattr(tick, "volume", 0.0),
-                "quantity":   getattr(tick, "quantity", 0),
-                "trade_type": getattr(tick, "trade_type", 0),
-                "buy_agent":  getattr(tick, "buy_agent", 0),
-                "sell_agent": getattr(tick, "sell_agent", 0),
-                "ts": str(getattr(tick, "timestamp", "")),
-            }))
+            await _REDIS_PUB_ASYNC.publish(
+                "tape:ticks",
+                _json.dumps(
+                    {
+                        "ticker": getattr(tick, "ticker", ""),
+                        "price": getattr(tick, "price", 0.0),
+                        "volume": getattr(tick, "volume", 0.0),
+                        "quantity": getattr(tick, "quantity", 0),
+                        "trade_type": getattr(tick, "trade_type", 0),
+                        "buy_agent": getattr(tick, "buy_agent", 0),
+                        "sell_agent": getattr(tick, "sell_agent", 0),
+                        "ts": str(getattr(tick, "timestamp", "")),
+                    }
+                ),
+            )
         except Exception:
             pass
 
@@ -347,18 +367,21 @@ if __name__ == "__main__":
     # ProactorEventLoop (IOCP) interfere com ConnectorThread da DLL Nelogica.
     # SelectorEventLoop dentro do asyncio tambem interfere.
     # Unica solucao: DLL conectada (t=2 r=4) antes de qualquer event loop.
-    import sys, threading, os
-    from ctypes import WinDLL, WINFUNCTYPE as _WFT, c_int, c_wchar_p
+    from ctypes import WINFUNCTYPE as _WFT, WinDLL, c_int, c_wchar_p
+    import os
     from pathlib import Path
+    import sys
+    import threading
+
     from dotenv import load_dotenv
 
     load_dotenv(Path(".env.local"), override=True)
     load_dotenv(Path(".env"), override=False)
 
     _dll_path = os.getenv("PROFIT_DLL_PATH", r"C:\Nelogica\profitdll.dll")
-    _key      = os.getenv("PROFIT_ACTIVATION_KEY", "")
-    _usr      = os.getenv("PROFIT_USERNAME", "")
-    _pwd      = os.getenv("PROFIT_PASSWORD", "")
+    _key = os.getenv("PROFIT_ACTIVATION_KEY", "")
+    _usr = os.getenv("PROFIT_USERNAME", "")
+    _pwd = os.getenv("PROFIT_PASSWORD", "")
 
     _market_ready = threading.Event()
     _PRELOADED_DLL = WinDLL(_dll_path)
@@ -371,8 +394,20 @@ if __name__ == "__main__":
     _PRELOADED_DLL.SetTradeCallback(_pre_state_cb)
     _PRELOADED_DLL.SetChangeCotationCallback(_pre_state_cb)
     _PRELOADED_DLL.DLLInitializeLogin(
-        c_wchar_p(_key), c_wchar_p(_usr), c_wchar_p(_pwd),
-        _pre_state_cb, None, None, None, None, None, None, None, None, None, None,
+        c_wchar_p(_key),
+        c_wchar_p(_usr),
+        c_wchar_p(_pwd),
+        _pre_state_cb,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
     )
     print("DLL pre-init: aguardando market connected (t=2 r=4)...", flush=True)
     connected = _market_ready.wait(timeout=90)
@@ -383,14 +418,8 @@ if __name__ == "__main__":
         _PRELOADED_DLL = None
 
     # Injeta no modulo atual sem duplo import
-    globals()['_GLOBAL_PRELOADED_DLL'] = _PRELOADED_DLL
+    globals()["_GLOBAL_PRELOADED_DLL"] = _PRELOADED_DLL
 
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     asyncio.run(run_profit_worker())
-
-
-
-
-
-

@@ -13,9 +13,9 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-import structlog
 from sqlalchemy import DateTime, Numeric, String, Text, select, update
 from sqlalchemy.orm import Mapped, mapped_column
+import structlog
 
 from finanalytics_ai.domain.entities.alert import Alert, AlertStatus, AlertType
 from finanalytics_ai.infrastructure.database.connection import Base
@@ -35,9 +35,13 @@ class AlertModel(Base):
     alert_type: Mapped[str] = mapped_column(String(30), nullable=False)
     threshold: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
     reference_price: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False, default=0)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default=AlertStatus.ACTIVE, index=True)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=AlertStatus.ACTIVE, index=True
+    )
     note: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=lambda: datetime.now(UTC)
+    )
     triggered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
@@ -80,7 +84,11 @@ class SQLAlertRepository:
         return [self._to_domain(m) for m in result.scalars()]
 
     async def find_by_user(self, user_id: str) -> list[Alert]:
-        stmt = select(AlertModel).where(AlertModel.user_id == user_id).order_by(AlertModel.created_at.desc())
+        stmt = (
+            select(AlertModel)
+            .where(AlertModel.user_id == user_id)
+            .order_by(AlertModel.created_at.desc())
+        )
         result = await self._session.execute(stmt)
         return [self._to_domain(m) for m in result.scalars()]
 

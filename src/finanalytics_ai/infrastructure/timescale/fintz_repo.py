@@ -16,7 +16,7 @@ Design:
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 
 import asyncpg
@@ -50,10 +50,10 @@ class TimescaleFintzRepository:
         params: list[Any] = [ticker.upper()]
 
         if start:
-            params.append(datetime(start.year, start.month, start.day, tzinfo=timezone.utc))
+            params.append(datetime(start.year, start.month, start.day, tzinfo=UTC))
             where += f" AND time >= ${len(params)}"
         if end:
-            params.append(datetime(end.year, end.month, end.day, 23, 59, 59, tzinfo=timezone.utc))
+            params.append(datetime(end.year, end.month, end.day, 23, 59, 59, tzinfo=UTC))
             where += f" AND time <= ${len(params)}"
 
         params.append(limit)
@@ -90,7 +90,7 @@ class TimescaleFintzRepository:
 
         bucket: '1 week' | '1 month' | '3 months' | '1 year'
         """
-        start_ts = datetime(start.year, start.month, start.day, tzinfo=timezone.utc) if start else None
+        start_ts = datetime(start.year, start.month, start.day, tzinfo=UTC) if start else None
         where = "WHERE ticker = $2"
         params: list[Any] = [bucket, ticker.upper()]
 
@@ -139,7 +139,7 @@ class TimescaleFintzRepository:
             params.append(indicadores)
             where += f" AND indicador = ANY(${len(params)})"
         if start:
-            params.append(datetime(start.year, start.month, start.day, tzinfo=timezone.utc))
+            params.append(datetime(start.year, start.month, start.day, tzinfo=UTC))
             where += f" AND time >= ${len(params)}"
 
         params.append(limit)
@@ -203,7 +203,7 @@ class TimescaleFintzRepository:
         params: list[Any] = [ticker.upper(), indicador]
 
         if start:
-            params.append(datetime(start.year, start.month, start.day, tzinfo=timezone.utc))
+            params.append(datetime(start.year, start.month, start.day, tzinfo=UTC))
             where += f" AND time >= ${len(params)}"
 
         params.append(limit)
@@ -215,8 +215,10 @@ class TimescaleFintzRepository:
             LIMIT ${len(params)}
         """
         rows = await self._pool.fetch(query, *params)
-        return [{"data": str(r["data"]), "valor": float(r["valor"]) if r["valor"] else None}
-                for r in rows]
+        return [
+            {"data": str(r["data"]), "valor": float(r["valor"]) if r["valor"] else None}
+            for r in rows
+        ]
 
     # ── Itens Contábeis ───────────────────────────────────────────────────────
 
@@ -244,7 +246,7 @@ class TimescaleFintzRepository:
             params.append(tipo_periodo)
             where += f" AND tipo_periodo = ${len(params)}"
         if start:
-            params.append(datetime(start.year, start.month, start.day, tzinfo=timezone.utc))
+            params.append(datetime(start.year, start.month, start.day, tzinfo=UTC))
             where += f" AND time >= ${len(params)}"
 
         params.append(limit)
@@ -300,14 +302,12 @@ class TimescaleFintzRepository:
     async def list_tickers(self, dataset: str = "cotacoes") -> list[str]:
         """Lista tickers disponíveis em uma hypertable."""
         table_map = {
-            "cotacoes":    "fintz_cotacoes_ts",
+            "cotacoes": "fintz_cotacoes_ts",
             "indicadores": "fintz_indicadores_ts",
-            "itens":       "fintz_itens_contabeis_ts",
+            "itens": "fintz_itens_contabeis_ts",
         }
         table = table_map.get(dataset, "fintz_cotacoes_ts")
-        rows = await self._pool.fetch(
-            f"SELECT DISTINCT ticker FROM {table} ORDER BY ticker"
-        )
+        rows = await self._pool.fetch(f"SELECT DISTINCT ticker FROM {table} ORDER BY ticker")
         return [r["ticker"] for r in rows]
 
     async def get_coverage(self, ticker: str) -> dict[str, Any]:

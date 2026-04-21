@@ -3,13 +3,11 @@ Testes unitarios da PriceUpdateRule.
 
 Usa um pool fake para verificar a persistencia sem TimescaleDB real.
 """
+
 from __future__ import annotations
 
-import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
 from typing import Any
-from unittest.mock import AsyncMock
 
 import pytest
 

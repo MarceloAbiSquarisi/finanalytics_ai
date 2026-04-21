@@ -47,15 +47,21 @@ try:
     from finanalytics_ai.observability_legacy import setup_metrics, setup_tracing
 except Exception:
     try:
-        import sys, importlib.util
+        import importlib.util
+        import sys
+
         spec = importlib.util.spec_from_file_location(
             "observability_legacy",
-            __file__.replace("__init__.py", "").rstrip("/\\") + "/../observability.py"
+            __file__.replace("__init__.py", "").rstrip("/\\") + "/../observability.py",
         )
         _mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(_mod)
         setup_metrics = getattr(_mod, "setup_metrics", lambda *a, **kw: None)
         setup_tracing = getattr(_mod, "setup_tracing", lambda *a, **kw: None)
     except Exception:
-        def setup_metrics(*a, **kw): pass
-        def setup_tracing(*a, **kw): return None
+
+        def setup_metrics(*a, **kw):
+            pass
+
+        def setup_tracing(*a, **kw):
+            return None

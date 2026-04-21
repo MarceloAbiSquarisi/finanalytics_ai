@@ -21,7 +21,7 @@ Notas de design:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from finanalytics_ai.domain.backtesting.engine import Signal
@@ -31,8 +31,8 @@ from finanalytics_ai.domain.indicators.technical import (
     compute_rsi,
 )
 
-
 # ── Helpers privados ──────────────────────────────────────────────────────────
+
 
 def _ema(values: list[float], period: int) -> list[float | None]:
     """EMA local — evita importar privado do módulo de indicadores."""
@@ -179,8 +179,12 @@ class CombinedStrategy:
     macd_signal: int = 9
 
     def generate_signals(self, bars: list[dict[str, Any]]) -> list[Signal]:
-        rsi_s = RSIStrategy(period=self.rsi_period, oversold=self.rsi_oversold, overbought=self.rsi_overbought)
-        macd_s = MACDCrossStrategy(fast=self.macd_fast, slow=self.macd_slow, signal_period=self.macd_signal)
+        rsi_s = RSIStrategy(
+            period=self.rsi_period, oversold=self.rsi_oversold, overbought=self.rsi_overbought
+        )
+        macd_s = MACDCrossStrategy(
+            fast=self.macd_fast, slow=self.macd_slow, signal_period=self.macd_signal
+        )
         rs = rsi_s.generate_signals(bars)
         ms = macd_s.generate_signals(bars)
         out = [Signal.HOLD] * len(bars)
@@ -194,9 +198,12 @@ class CombinedStrategy:
     @property
     def params(self) -> dict[str, Any]:
         return {
-            "rsi_period": self.rsi_period, "rsi_oversold": self.rsi_oversold,
-            "rsi_overbought": self.rsi_overbought, "macd_fast": self.macd_fast,
-            "macd_slow": self.macd_slow, "macd_signal": self.macd_signal,
+            "rsi_period": self.rsi_period,
+            "rsi_oversold": self.rsi_oversold,
+            "rsi_overbought": self.rsi_overbought,
+            "macd_fast": self.macd_fast,
+            "macd_slow": self.macd_slow,
+            "macd_signal": self.macd_signal,
         }
 
 
@@ -338,8 +345,8 @@ class PinBarStrategy:
     """
 
     name: str = "Pin Bar"
-    wick_ratio: float = 0.6      # pavio mínimo como fração do range
-    trend_filter: bool = True    # confirmar direção via EMA50
+    wick_ratio: float = 0.6  # pavio mínimo como fração do range
+    trend_filter: bool = True  # confirmar direção via EMA50
     trend_period: int = 50
 
     def generate_signals(self, bars: list[dict[str, Any]]) -> list[Signal]:
@@ -386,7 +393,11 @@ class PinBarStrategy:
 
     @property
     def params(self) -> dict[str, Any]:
-        return {"wick_ratio": self.wick_ratio, "trend_filter": self.trend_filter, "trend_period": self.trend_period}
+        return {
+            "wick_ratio": self.wick_ratio,
+            "trend_filter": self.trend_filter,
+            "trend_period": self.trend_period,
+        }
 
 
 @dataclass
@@ -465,7 +476,7 @@ class EngulfingStrategy:
     """
 
     name: str = "Engulfing"
-    body_ratio: float = 1.1    # corpo atual deve ser >= X × corpo anterior
+    body_ratio: float = 1.1  # corpo atual deve ser >= X × corpo anterior
     volume_filter: bool = False
     volume_period: int = 20
 
@@ -492,11 +503,25 @@ class EngulfingStrategy:
                 vol_ok = vols[i] >= vol_ma[i]  # type: ignore[operator]
 
             # Bullish engulfing
-            if pc < po and c > o and o <= pc and c >= po and curr_body >= self.body_ratio * prev_body and vol_ok:
+            if (
+                pc < po
+                and c > o
+                and o <= pc
+                and c >= po
+                and curr_body >= self.body_ratio * prev_body
+                and vol_ok
+            ):
                 signals[i] = Signal.BUY
 
             # Bearish engulfing
-            elif pc > po and c < o and o >= pc and c <= po and curr_body >= self.body_ratio * prev_body and vol_ok:
+            elif (
+                pc > po
+                and c < o
+                and o >= pc
+                and c <= po
+                and curr_body >= self.body_ratio * prev_body
+                and vol_ok
+            ):
                 signals[i] = Signal.SELL
 
         return signals
@@ -523,7 +548,7 @@ class FakeyStrategy:
     """
 
     name: str = "Fakey (False Breakout)"
-    confirm_bars: int = 1   # barras para confirmar reversão
+    confirm_bars: int = 1  # barras para confirmar reversão
 
     def generate_signals(self, bars: list[dict[str, Any]]) -> list[Signal]:
         n = len(bars)
@@ -589,7 +614,7 @@ class Setup91Strategy:
     name: str = "Setup 9.1 (Stormer)"
     fast_period: int = 9
     slow_period: int = 21
-    rsi_filter: float = 70.0   # não compra se RSI > este valor
+    rsi_filter: float = 70.0  # não compra se RSI > este valor
 
     def generate_signals(self, bars: list[dict[str, Any]]) -> list[Signal]:
         n = len(bars)
@@ -627,7 +652,11 @@ class Setup91Strategy:
 
     @property
     def params(self) -> dict[str, Any]:
-        return {"fast_period": self.fast_period, "slow_period": self.slow_period, "rsi_filter": self.rsi_filter}
+        return {
+            "fast_period": self.fast_period,
+            "slow_period": self.slow_period,
+            "rsi_filter": self.rsi_filter,
+        }
 
 
 @dataclass
@@ -646,7 +675,7 @@ class LarryWilliamsStrategy:
     name: str = "Larry Williams"
     trend_fast: int = 9
     trend_slow: int = 21
-    lookback: int = 1   # barras atrás para buscar a mínima de referência
+    lookback: int = 1  # barras atrás para buscar a mínima de referência
 
     def generate_signals(self, bars: list[dict[str, Any]]) -> list[Signal]:
         n = len(bars)
@@ -684,7 +713,11 @@ class LarryWilliamsStrategy:
 
     @property
     def params(self) -> dict[str, Any]:
-        return {"trend_fast": self.trend_fast, "trend_slow": self.trend_slow, "lookback": self.lookback}
+        return {
+            "trend_fast": self.trend_fast,
+            "trend_slow": self.trend_slow,
+            "lookback": self.lookback,
+        }
 
 
 @dataclass
@@ -704,8 +737,8 @@ class TurtleSoupStrategy:
     """
 
     name: str = "Turtle Soup"
-    lookback: int = 20            # período para máxima/mínima
-    confirm_bars: int = 2         # barras para confirmar reversão após falso break
+    lookback: int = 20  # período para máxima/mínima
+    confirm_bars: int = 2  # barras para confirmar reversão após falso break
 
     def generate_signals(self, bars: list[dict[str, Any]]) -> list[Signal]:
         n = len(bars)
@@ -838,7 +871,7 @@ class BreakoutStrategy:
     period: int = 20
     atr_filter: bool = True
     atr_period: int = 14
-    atr_multiplier: float = 0.5    # rompimento deve ter range >= X * ATR
+    atr_multiplier: float = 0.5  # rompimento deve ter range >= X * ATR
 
     def generate_signals(self, bars: list[dict[str, Any]]) -> list[Signal]:
         n = len(bars)
@@ -872,8 +905,9 @@ class BreakoutStrategy:
             c = closes[i]
             bar_range = highs[i] - lows[i]
             atr_val = atr[i]
-            atr_ok = (not self.atr_filter or atr_val is None
-                      or bar_range >= self.atr_multiplier * atr_val)
+            atr_ok = (
+                not self.atr_filter or atr_val is None or bar_range >= self.atr_multiplier * atr_val
+            )
 
             if c > rm and atr_ok:
                 signals[i] = Signal.BUY
@@ -884,7 +918,11 @@ class BreakoutStrategy:
 
     @property
     def params(self) -> dict[str, Any]:
-        return {"period": self.period, "atr_filter": self.atr_filter, "atr_multiplier": self.atr_multiplier}
+        return {
+            "period": self.period,
+            "atr_filter": self.atr_filter,
+            "atr_multiplier": self.atr_multiplier,
+        }
 
 
 @dataclass
@@ -907,10 +945,10 @@ class PullbackTrendStrategy:
     trend_fast: int = 9
     trend_slow: int = 21
     rsi_period: int = 14
-    pullback_low: float = 40.0   # RSI deve tocar abaixo disto (uptrend)
+    pullback_low: float = 40.0  # RSI deve tocar abaixo disto (uptrend)
     pullback_high: float = 60.0  # RSI deve tocar acima disto (downtrend)
-    resume_up: float = 50.0      # cruzar acima → BUY
-    resume_down: float = 50.0    # cruzar abaixo → SELL
+    resume_up: float = 50.0  # cruzar acima → BUY
+    resume_down: float = 50.0  # cruzar abaixo → SELL
 
     def generate_signals(self, bars: list[dict[str, Any]]) -> list[Signal]:
         n = len(bars)
@@ -920,7 +958,7 @@ class PullbackTrendStrategy:
         ema_s = _ema(closes, self.trend_slow)
         rsi_vals = compute_rsi(closes, self.rsi_period)["values"]
 
-        pullback_seen_up = False    # RSI tocou zona de pullback em uptrend
+        pullback_seen_up = False  # RSI tocou zona de pullback em uptrend
         pullback_seen_dn = False
 
         for i in range(1, n):
@@ -957,9 +995,11 @@ class PullbackTrendStrategy:
     @property
     def params(self) -> dict[str, Any]:
         return {
-            "trend_fast": self.trend_fast, "trend_slow": self.trend_slow,
+            "trend_fast": self.trend_fast,
+            "trend_slow": self.trend_slow,
             "rsi_period": self.rsi_period,
-            "pullback_low": self.pullback_low, "pullback_high": self.pullback_high,
+            "pullback_low": self.pullback_low,
+            "pullback_high": self.pullback_high,
         }
 
 
@@ -977,9 +1017,9 @@ class FirstPullbackStrategy:
     """
 
     name: str = "First Pullback"
-    strength_ratio: float = 0.6   # corpo deve ser >= X do range total
-    ema_period: int = 9            # EMA de suporte/resistência
-    max_pullback_bars: int = 3     # máximo de barras de pullback esperado
+    strength_ratio: float = 0.6  # corpo deve ser >= X do range total
+    ema_period: int = 9  # EMA de suporte/resistência
+    max_pullback_bars: int = 3  # máximo de barras de pullback esperado
 
     def generate_signals(self, bars: list[dict[str, Any]]) -> list[Signal]:
         n = len(bars)
@@ -1001,9 +1041,9 @@ class FirstPullbackStrategy:
 
             # Identifica barra forte
             if rng > 0 and body / rng >= self.strength_ratio:
-                if c > o:   # bullish forte
+                if c > o:  # bullish forte
                     strong_up_idx = i
-                else:       # bearish forte
+                else:  # bearish forte
                     strong_dn_idx = i
 
             # First pullback após barra bullish forte
@@ -1049,7 +1089,7 @@ class GapAndGoStrategy:
     """
 
     name: str = "Gap and Go"
-    gap_pct: float = 0.5        # gap mínimo em % (0.5 = 0.5%)
+    gap_pct: float = 0.5  # gap mínimo em % (0.5 = 0.5%)
     volume_filter: bool = True
     volume_period: int = 20
 
@@ -1107,8 +1147,8 @@ class BollingerSqueezeStrategy:
     name: str = "Bollinger Squeeze"
     period: int = 20
     std_dev: float = 2.0
-    squeeze_threshold: float = 0.05   # bandwidth < 5% → squeeze
-    lookback_squeeze: int = 5         # squeeze deve durar ao menos N barras
+    squeeze_threshold: float = 0.05  # bandwidth < 5% → squeeze
+    lookback_squeeze: int = 5  # squeeze deve durar ao menos N barras
 
     def generate_signals(self, bars: list[dict[str, Any]]) -> list[Signal]:
         n = len(bars)
@@ -1131,7 +1171,8 @@ class BollingerSqueezeStrategy:
 
             # Verifica squeeze nas últimas N barras
             squeeze_bars = sum(
-                1 for j in range(i - self.lookback_squeeze, i)
+                1
+                for j in range(i - self.lookback_squeeze, i)
                 if bw[j] is not None and bw[j] < self.squeeze_threshold  # type: ignore[operator]
             )
             in_squeeze = squeeze_bars >= self.lookback_squeeze
@@ -1155,7 +1196,8 @@ class BollingerSqueezeStrategy:
     @property
     def params(self) -> dict[str, Any]:
         return {
-            "period": self.period, "std_dev": self.std_dev,
+            "period": self.period,
+            "std_dev": self.std_dev,
             "squeeze_threshold": self.squeeze_threshold,
             "lookback_squeeze": self.lookback_squeeze,
         }
@@ -1167,29 +1209,29 @@ class BollingerSqueezeStrategy:
 
 STRATEGIES: dict[str, Any] = {
     # Existentes
-    "rsi":              RSIStrategy,
-    "macd":             MACDCrossStrategy,
-    "combined":         CombinedStrategy,
-    "bollinger":        BollingerBandsStrategy,
-    "ema_cross":        EMACrossStrategy,
-    "momentum":         MomentumStrategy,
+    "rsi": RSIStrategy,
+    "macd": MACDCrossStrategy,
+    "combined": CombinedStrategy,
+    "bollinger": BollingerBandsStrategy,
+    "ema_cross": EMACrossStrategy,
+    "momentum": MomentumStrategy,
     # Price Action
-    "pin_bar":          PinBarStrategy,
-    "inside_bar":       InsideBarStrategy,
-    "engulfing":        EngulfingStrategy,
-    "fakey":            FakeyStrategy,
+    "pin_bar": PinBarStrategy,
+    "inside_bar": InsideBarStrategy,
+    "engulfing": EngulfingStrategy,
+    "fakey": FakeyStrategy,
     # BR Clássicos
-    "setup_91":         Setup91Strategy,
-    "larry_williams":   LarryWilliamsStrategy,
-    "turtle_soup":      TurtleSoupStrategy,
-    "hilo":             HiloActivatorStrategy,
+    "setup_91": Setup91Strategy,
+    "larry_williams": LarryWilliamsStrategy,
+    "turtle_soup": TurtleSoupStrategy,
+    "hilo": HiloActivatorStrategy,
     # Trend / Breakout
-    "breakout":         BreakoutStrategy,
-    "pullback_trend":   PullbackTrendStrategy,
-    "first_pullback":   FirstPullbackStrategy,
+    "breakout": BreakoutStrategy,
+    "pullback_trend": PullbackTrendStrategy,
+    "first_pullback": FirstPullbackStrategy,
     # Outros
-    "gap_and_go":       GapAndGoStrategy,
-    "bollinger_squeeze":BollingerSqueezeStrategy,
+    "gap_and_go": GapAndGoStrategy,
+    "bollinger_squeeze": BollingerSqueezeStrategy,
 }
 
 
@@ -1198,7 +1240,6 @@ def get_strategy(name: str, params: dict[str, Any] | None = None) -> Any:
     cls = STRATEGIES.get(name.lower())
     if cls is None:
         raise ValueError(
-            f"Estratégia '{name}' não encontrada. "
-            f"Disponíveis: {sorted(STRATEGIES.keys())}"
+            f"Estratégia '{name}' não encontrada. Disponíveis: {sorted(STRATEGIES.keys())}"
         )
     return cls(**(params or {}))

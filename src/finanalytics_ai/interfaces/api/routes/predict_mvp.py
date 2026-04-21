@@ -18,22 +18,21 @@ Quando usar:
 Pós-Sprint 1 completo, este endpoint será substituído pelo fluxo
 produção (MLStrategy + RiskEstimator) — ver runbook_R10_modelos.md §6.
 """
+
 from __future__ import annotations
 
+from datetime import UTC, date
 import json
-import pickle
-from datetime import date
 from pathlib import Path
+import pickle
 from typing import Any
 
+from fastapi import APIRouter, HTTPException, Query
 import numpy as np
 import psycopg2
-from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from finanalytics_ai.config import get_settings
 from finanalytics_ai.observability.logging import get_logger
-
 
 log = get_logger(__name__)
 
@@ -41,29 +40,54 @@ router = APIRouter(prefix="/api/v1/ml", tags=["ML Probabilistico"])
 
 
 import os as _os_mod
+
 _default_models = Path(__file__).resolve().parents[5] / "models"
 MODELS_DIR = Path(_os_mod.environ.get("FINANALYTICS_MODELS_DIR", str(_default_models)))
 
 FEATURES_DEFAULT = [
     "close",
-    "r_1d", "r_5d", "r_21d",
-    "atr_14", "vol_21d", "vol_rel_20",
-    "sma_50", "sma_200", "rsi_14",
+    "r_1d",
+    "r_5d",
+    "r_21d",
+    "atr_14",
+    "vol_21d",
+    "vol_rel_20",
+    "sma_50",
+    "sma_200",
+    "rsi_14",
 ]
 
 # Features RF adicionais (MVP v2 cross-asset). Carregadas via JOIN em
 # features_daily_full quando o pickle declarar essas colunas.
 RF_FEATURES_AVAILABLE = {
-    "slope_1y_5y", "slope_2y_10y", "curvatura_butterfly",
-    "tsmom_di1_1y_3m", "tsmom_di1_2y_3m", "tsmom_di1_5y_3m",
-    "tsmom_di1_1y_12m", "tsmom_di1_2y_12m", "tsmom_di1_5y_12m",
-    "carry_roll_di1_2y", "carry_roll_di1_5y",
-    "value_di1_1y_z", "value_di1_2y_z", "value_di1_5y_z",
-    "value_ntnb_2y_z", "value_ntnb_5y_z",
-    "breakeven_1y", "breakeven_2y", "breakeven_5y",
-    "ns_level", "ns_slope", "ns_curvature", "ns_lambda",
-    "vm_combo_1y", "vm_combo_2y", "vm_combo_5y",
-    "fra_1y2y", "fra_2y5y",
+    "slope_1y_5y",
+    "slope_2y_10y",
+    "curvatura_butterfly",
+    "tsmom_di1_1y_3m",
+    "tsmom_di1_2y_3m",
+    "tsmom_di1_5y_3m",
+    "tsmom_di1_1y_12m",
+    "tsmom_di1_2y_12m",
+    "tsmom_di1_5y_12m",
+    "carry_roll_di1_2y",
+    "carry_roll_di1_5y",
+    "value_di1_1y_z",
+    "value_di1_2y_z",
+    "value_di1_5y_z",
+    "value_ntnb_2y_z",
+    "value_ntnb_5y_z",
+    "breakeven_1y",
+    "breakeven_2y",
+    "breakeven_5y",
+    "ns_level",
+    "ns_slope",
+    "ns_curvature",
+    "ns_lambda",
+    "vm_combo_1y",
+    "vm_combo_2y",
+    "vm_combo_5y",
+    "fra_1y2y",
+    "fra_2y5y",
 }
 
 
@@ -89,9 +113,7 @@ class PredictResponse(BaseModel):
     model_trained_at: str | None = None
     model_metrics: dict[str, Any] | None = None
     features_used: dict[str, Any]
-    signal: str | None = Field(
-        None, description="BUY | SELL | HOLD | None (se sem calibração)"
-    )
+    signal: str | None = Field(None, description="BUY | SELL | HOLD | None (se sem calibração)")
     signal_method: str | None = Field(
         None,
         description=(
@@ -153,19 +175,21 @@ def _load_calibration(ticker: str, dsn: str) -> dict[str, Any] | None:
     if not row:
         return None
     return {
-        "th_buy":         float(row[0]),
-        "th_sell":        float(row[1]),
-        "horizon_days":   int(row[2]),
-        "best_sharpe":    float(row[3]) if row[3] is not None else None,
+        "th_buy": float(row[0]),
+        "th_sell": float(row[1]),
+        "horizon_days": int(row[2]),
+        "best_sharpe": float(row[3]) if row[3] is not None else None,
         "best_return_pct": float(row[4]) if row[4] is not None else None,
-        "best_trades":    int(row[5]) if row[5] is not None else None,
-        "best_win_rate":  float(row[6]) if row[6] is not None else None,
-        "calibrated_at":  row[7].isoformat() if row[7] is not None else None,
+        "best_trades": int(row[5]) if row[5] is not None else None,
+        "best_win_rate": float(row[6]) if row[6] is not None else None,
+        "calibrated_at": row[7].isoformat() if row[7] is not None else None,
     }
 
 
 def _signal_from_prediction(
-    pred_log: float, cfg: dict[str, Any], model_horizon: int | None = None,
+    pred_log: float,
+    cfg: dict[str, Any],
+    model_horizon: int | None = None,
 ) -> tuple[str, str]:
     """Deriva BUY/SELL/HOLD comparando prediction com thresholds calibrados.
 
@@ -178,7 +202,7 @@ def _signal_from_prediction(
         th_sell = float(cfg["th_sell"])
         method = "direct_match_horizon"
     else:
-        th_buy  = float(cfg["th_buy"])  / cfg_h
+        th_buy = float(cfg["th_buy"]) / cfg_h
         th_sell = float(cfg["th_sell"]) / cfg_h
         method = "scaled_linear_1d"
 
@@ -222,6 +246,7 @@ async def predict_mvp(ticker: str) -> PredictResponse:
     ticker_u = ticker.upper()
 
     import os as _os
+
     dsn_early = (
         _os.environ.get("TIMESCALE_URL")
         or _os.environ.get("PROFIT_TIMESCALE_DSN")
@@ -235,7 +260,7 @@ async def predict_mvp(ticker: str) -> PredictResponse:
         raise HTTPException(
             404,
             detail=f"No MVP model found in models/ for {ticker_u}. "
-                   f"Train first: python scripts/train_petr4_mvp.py --ticker {ticker_u}",
+            f"Train first: python scripts/train_petr4_mvp.py --ticker {ticker_u}",
         )
     pkl_path, meta = pkl_info
     features = list(meta.get("features") or FEATURES_DEFAULT)
@@ -251,8 +276,8 @@ async def predict_mvp(ticker: str) -> PredictResponse:
         raise HTTPException(
             404,
             detail=f"No features_daily row for {ticker_u}. Populate first: "
-                   f"python scripts/features_daily_builder.py --only {ticker_u} "
-                   f"--start 2020-01-02",
+            f"python scripts/features_daily_builder.py --only {ticker_u} "
+            f"--start 2020-01-02",
         )
 
     # Checa se todas as features têm valor
@@ -261,7 +286,7 @@ async def predict_mvp(ticker: str) -> PredictResponse:
         raise HTTPException(
             422,
             detail=f"features_daily latest row has nulls in: {missing}. "
-                   f"Ticker may have incomplete history.",
+            f"Ticker may have incomplete history.",
         )
 
     x_vec = np.array([[feats[f] for f in features]], dtype=float)
@@ -310,6 +335,7 @@ async def predict_mvp(ticker: str) -> PredictResponse:
 
 # ─── /signals batch ────────────────────────────────────────────────────────
 
+
 class SignalItem(BaseModel):
     ticker: str
     signal: str | None = None
@@ -333,10 +359,7 @@ class SignalsResponse(BaseModel):
 
 
 def _load_all_calibrations(dsn: str, min_sharpe: float | None) -> list[dict[str, Any]]:
-    sql = (
-        "SELECT ticker, th_buy, th_sell, horizon_days, best_sharpe "
-        "FROM ticker_ml_config"
-    )
+    sql = "SELECT ticker, th_buy, th_sell, horizon_days, best_sharpe FROM ticker_ml_config"
     params: tuple = ()
     if min_sharpe is not None:
         sql += " WHERE best_sharpe >= %s"
@@ -346,9 +369,13 @@ def _load_all_calibrations(dsn: str, min_sharpe: float | None) -> list[dict[str,
         cur.execute(sql, params)
         rows = cur.fetchall()
     return [
-        {"ticker": r[0], "th_buy": float(r[1]), "th_sell": float(r[2]),
-         "horizon_days": int(r[3]),
-         "best_sharpe": float(r[4]) if r[4] is not None else None}
+        {
+            "ticker": r[0],
+            "th_buy": float(r[1]),
+            "th_sell": float(r[2]),
+            "horizon_days": int(r[3]),
+            "best_sharpe": float(r[4]) if r[4] is not None else None,
+        }
         for r in rows
     ]
 
@@ -361,6 +388,7 @@ async def signals_batch(
     """Retorna signals em batch para todos os tickers calibrados com
     pickle disponivel. Tickers sem pickle retornam error='no_model'."""
     import os as _os
+
     dsn = (
         _os.environ.get("TIMESCALE_URL")
         or _os.environ.get("PROFIT_TIMESCALE_DSN")
@@ -377,13 +405,18 @@ async def signals_batch(
     for cfg in configs:
         t = cfg["ticker"]
         base = SignalItem(
-            ticker=t, th_buy=cfg["th_buy"], th_sell=cfg["th_sell"],
-            horizon_days=cfg["horizon_days"], best_sharpe=cfg["best_sharpe"],
+            ticker=t,
+            th_buy=cfg["th_buy"],
+            th_sell=cfg["th_sell"],
+            horizon_days=cfg["horizon_days"],
+            best_sharpe=cfg["best_sharpe"],
         )
         pkl_info = _find_latest_pickle(t, prefer_horizon=cfg["horizon_days"])
         if pkl_info is None:
             base.error = "no_model"
-            items.append(base); errors += 1; continue
+            items.append(base)
+            errors += 1
+            continue
         pkl_path, meta = pkl_info
         features = list(meta.get("features") or FEATURES_DEFAULT)
         model_horizon = int(meta.get("horizon_days", 1))
@@ -394,29 +427,39 @@ async def signals_batch(
                     model_cache[t] = (pickle.load(fh), meta, pkl_path)
             except Exception as exc:
                 base.error = f"load_fail:{type(exc).__name__}"
-                items.append(base); errors += 1; continue
+                items.append(base)
+                errors += 1
+                continue
         model, _meta, _pkl_path = model_cache[t]
 
         try:
             feats = _load_latest_features(t, dsn, features)
         except Exception as exc:
             base.error = f"features_fail:{type(exc).__name__}"
-            items.append(base); errors += 1; continue
+            items.append(base)
+            errors += 1
+            continue
         if feats is None:
             base.error = "no_features"
-            items.append(base); errors += 1; continue
+            items.append(base)
+            errors += 1
+            continue
 
         missing = [f for f in features if feats.get(f) is None]
         if missing:
             base.error = f"feature_nulls:{len(missing)}"
-            items.append(base); errors += 1; continue
+            items.append(base)
+            errors += 1
+            continue
 
         x_vec = np.array([[feats[f] for f in features]], dtype=float)
         try:
             pred_log = float(model.predict(x_vec)[0])
         except Exception as exc:
             base.error = f"inference_fail:{type(exc).__name__}"
-            items.append(base); errors += 1; continue
+            items.append(base)
+            errors += 1
+            continue
 
         sig, _method = _signal_from_prediction(pred_log, cfg, model_horizon=model_horizon)
         base.signal = sig
@@ -428,12 +471,16 @@ async def signals_batch(
 
     return SignalsResponse(
         count=len(items),
-        buy=counts["BUY"], sell=counts["SELL"], hold=counts["HOLD"],
-        errors=errors, items=items,
+        buy=counts["BUY"],
+        sell=counts["SELL"],
+        hold=counts["HOLD"],
+        errors=errors,
+        items=items,
     )
 
 
 # ─── /signal_history ──────────────────────────────────────────────────────
+
 
 class HistoryItem(BaseModel):
     snapshot_date: date
@@ -465,6 +512,7 @@ async def signal_history(
 ):
     """Retorna snapshots historicos de signals (ordenado snapshot_date DESC)."""
     import os as _os
+
     dsn = (
         _os.environ.get("TIMESCALE_URL")
         or _os.environ.get("PROFIT_TIMESCALE_DSN")
@@ -491,7 +539,9 @@ async def signal_history(
         rows = cur.fetchall()
     return [
         HistoryItem(
-            snapshot_date=r[0], ticker=r[1], signal=r[2],
+            snapshot_date=r[0],
+            ticker=r[1],
+            signal=r[2],
             predicted_log_return=float(r[3]) if r[3] is not None else None,
             predicted_return_pct=float(r[4]) if r[4] is not None else None,
             th_buy=float(r[5]) if r[5] is not None else None,
@@ -511,6 +561,7 @@ async def signal_history_changes(
 ):
     """Retorna tickers que mudaram de signal vs snapshot anterior."""
     import os as _os
+
     dsn = (
         _os.environ.get("TIMESCALE_URL")
         or _os.environ.get("PROFIT_TIMESCALE_DSN")
@@ -547,8 +598,11 @@ async def signal_history_changes(
         rows = cur.fetchall()
     return [
         ChangeItem(
-            ticker=r[0], snapshot_date=snapshot_date,
-            prev_signal=r[1], curr_signal=r[2], prev_date=r[3],
+            ticker=r[0],
+            snapshot_date=snapshot_date,
+            prev_signal=r[1],
+            curr_signal=r[2],
+            prev_date=r[3],
             best_sharpe=float(r[4]) if r[4] is not None else None,
         )
         for r in rows
@@ -557,16 +611,23 @@ async def signal_history_changes(
 
 # ─── /metrics — saude do pipeline ML (Sprint V2, 21/abr) ──────────────────
 
+
 class MLMetrics(BaseModel):
     config_count: int = Field(..., description="Linhas em ticker_ml_config")
     pickle_count: int = Field(..., description="Pickles MVP h21 disponiveis em models/")
     drift_count: int = Field(..., description="Tickers calibrados sem pickle (config - pickle)")
     drift_tickers: list[str] = Field(default_factory=list, description="Ate 10 tickers em drift")
-    last_calibration_at: str | None = Field(None, description="ticker_ml_config.MAX(updated_at) ISO")
+    last_calibration_at: str | None = Field(
+        None, description="ticker_ml_config.MAX(updated_at) ISO"
+    )
     last_snapshot_at: str | None = Field(None, description="signal_history.MAX(snapshot_date) ISO")
     snapshot_age_days: int | None = Field(None, description="Dias desde o ultimo snapshot")
-    latest_pickle_age_days: int | None = Field(None, description="Idade do pickle mais recente em models/")
-    signals_24h: dict[str, int] = Field(default_factory=dict, description="Contagem BUY/SELL/HOLD nas ultimas 24h em signal_history")
+    latest_pickle_age_days: int | None = Field(
+        None, description="Idade do pickle mais recente em models/"
+    )
+    signals_24h: dict[str, int] = Field(
+        default_factory=dict, description="Contagem BUY/SELL/HOLD nas ultimas 24h em signal_history"
+    )
 
 
 @router.get("/metrics", response_model=MLMetrics)
@@ -577,8 +638,8 @@ async def ml_metrics() -> MLMetrics:
     Util para Grafana (ml_calibration_age_days alertable),
     smoke test pos-deploy, e detectar regressoes silenciosas.
     """
+    from datetime import datetime as _dt
     import os as _os
-    from datetime import datetime as _dt, timezone as _tz
 
     dsn = (
         _os.environ.get("TIMESCALE_URL")
@@ -604,9 +665,7 @@ async def ml_metrics() -> MLMetrics:
     pickle_count = len(pickle_tickers)
     latest_pickle_age_days = None
     if latest_mtime is not None:
-        latest_pickle_age_days = max(
-            0, int((_dt.now().timestamp() - latest_mtime) // 86400)
-        )
+        latest_pickle_age_days = max(0, int((_dt.now().timestamp() - latest_mtime) // 86400))
 
     # ── Config + signal history em DB ──
     try:
@@ -614,9 +673,7 @@ async def ml_metrics() -> MLMetrics:
             cur.execute("SELECT ticker FROM ticker_ml_config")
             config_tickers = {r[0].upper() for r in cur.fetchall()}
 
-            cur.execute(
-                "SELECT MAX(calibrated_at) FROM ticker_ml_config"
-            )
+            cur.execute("SELECT MAX(calibrated_at) FROM ticker_ml_config")
             last_calib = cur.fetchone()[0]
 
             cur.execute("SELECT MAX(snapshot_date) FROM signal_history")
@@ -640,7 +697,7 @@ async def ml_metrics() -> MLMetrics:
     snapshot_age = None
     if last_snap is not None:
         try:
-            snapshot_age = (_dt.now(_tz.utc).date() - last_snap).days
+            snapshot_age = (_dt.now(UTC).date() - last_snap).days
         except Exception:
             snapshot_age = None
 
@@ -659,6 +716,7 @@ async def ml_metrics() -> MLMetrics:
 
 # ─── /predict_ensemble — multi-horizon ensemble (Sprint Z4, 21/abr) ──────
 
+
 class EnsembleHorizonItem(BaseModel):
     horizon_days: int
     model_file: str
@@ -673,7 +731,9 @@ class EnsembleResponse(BaseModel):
     reference_date: date
     ensemble_log_return: float
     ensemble_return_pct: float
-    weighting: str = Field(..., description="'sharpe' se todos models tem sharpe; 'uniform' caso contrario")
+    weighting: str = Field(
+        ..., description="'sharpe' se todos models tem sharpe; 'uniform' caso contrario"
+    )
     horizons: list[EnsembleHorizonItem]
     signal: str | None = None
     signal_method: str | None = None
@@ -724,6 +784,7 @@ async def predict_ensemble(ticker: str) -> EnsembleResponse:
     ticker_u = ticker.upper()
 
     import os as _os
+
     dsn = (
         _os.environ.get("TIMESCALE_URL")
         or _os.environ.get("PROFIT_TIMESCALE_DSN")
@@ -735,7 +796,7 @@ async def predict_ensemble(ticker: str) -> EnsembleResponse:
         raise HTTPException(
             404,
             detail=f"No MVP models found for {ticker_u}. Train at least one: "
-                   f"python scripts/train_petr4_mvp.py --ticker {ticker_u}",
+            f"python scripts/train_petr4_mvp.py --ticker {ticker_u}",
         )
 
     # Carrega features (assume primeiro pickle define schema)
@@ -767,18 +828,22 @@ async def predict_ensemble(ticker: str) -> EnsembleResponse:
             continue
         sharpe = None
         try:
-            sharpe = float(((meta.get("metrics") or {}).get("test_sharpe")) or
-                           ((meta.get("metrics") or {}).get("sharpe")))
+            sharpe = float(
+                ((meta.get("metrics") or {}).get("test_sharpe"))
+                or ((meta.get("metrics") or {}).get("sharpe"))
+            )
         except (TypeError, ValueError):
             sharpe = None
-        items.append({
-            "horizon_days": h,
-            "model_file": pkl.name,
-            "pred_log": pred_log,
-            "sharpe": sharpe,
-            # Annualiza para 1d para agregar comparavel
-            "pred_log_1d": pred_log / max(h, 1),
-        })
+        items.append(
+            {
+                "horizon_days": h,
+                "model_file": pkl.name,
+                "pred_log": pred_log,
+                "sharpe": sharpe,
+                # Annualiza para 1d para agregar comparavel
+                "pred_log_1d": pred_log / max(h, 1),
+            }
+        )
 
     if not items:
         raise HTTPException(500, detail="Todos pickles falharam na inferencia")
@@ -806,10 +871,14 @@ async def predict_ensemble(ticker: str) -> EnsembleResponse:
     if cfg is not None:
         signal, signal_method = _signal_from_prediction(ensemble_log_1d, cfg, model_horizon=1)
         calibration_obj = CalibrationInfo(
-            th_buy=cfg["th_buy"], th_sell=cfg["th_sell"],
-            horizon_days=cfg["horizon_days"], best_sharpe=cfg["best_sharpe"],
-            best_return_pct=cfg["best_return_pct"], best_trades=cfg["best_trades"],
-            best_win_rate=cfg["best_win_rate"], calibrated_at=cfg["calibrated_at"],
+            th_buy=cfg["th_buy"],
+            th_sell=cfg["th_sell"],
+            horizon_days=cfg["horizon_days"],
+            best_sharpe=cfg["best_sharpe"],
+            best_return_pct=cfg["best_return_pct"],
+            best_trades=cfg["best_trades"],
+            best_win_rate=cfg["best_win_rate"],
+            calibrated_at=cfg["calibrated_at"],
         )
 
     return EnsembleResponse(

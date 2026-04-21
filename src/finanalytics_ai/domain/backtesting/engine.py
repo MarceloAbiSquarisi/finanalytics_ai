@@ -1,4 +1,4 @@
-﻿"""
+"""
 Domínio de backtesting — entidades, Protocol e métricas.
 
 Design decisions:
@@ -31,10 +31,10 @@ Design decisions:
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
+import math
 from typing import Any, Protocol, runtime_checkable
 
 # ── Sinais ────────────────────────────────────────────────────────────────────
@@ -269,7 +269,9 @@ def run_backtest(
         # Equity mark-to-market (inclui posição aberta)
         current_equity = equity + (position * price if position > 0 else 0.0)
         peak_equity = max(peak_equity, current_equity)
-        drawdown_pct = (peak_equity - current_equity) / peak_equity * 100 if peak_equity > 0 else 0.0
+        drawdown_pct = (
+            (peak_equity - current_equity) / peak_equity * 100 if peak_equity > 0 else 0.0
+        )
 
         equity_curve.append(
             {
@@ -331,7 +333,9 @@ def _calc_metrics(
     final_equity: float,
 ) -> BacktestMetrics:
     """Calcula todas as métricas de performance."""
-    total_return = (final_equity - initial_capital) / initial_capital * 100 if initial_capital > 0 else 0.0
+    total_return = (
+        (final_equity - initial_capital) / initial_capital * 100 if initial_capital > 0 else 0.0
+    )
 
     winners = [t for t in trades if t.is_winner]
     losers = [t for t in trades if not t.is_winner]
@@ -343,7 +347,9 @@ def _calc_metrics(
 
     gross_profit = sum(t.pnl for t in winners)
     gross_loss = abs(sum(t.pnl for t in losers))
-    profit_factor = gross_profit / gross_loss if gross_loss > 0 else (999.0 if gross_profit > 0 else 0.0)
+    profit_factor = (
+        gross_profit / gross_loss if gross_loss > 0 else (999.0 if gross_profit > 0 else 0.0)
+    )
 
     # Max drawdown da equity curve
     max_dd = max((e["drawdown"] for e in equity_curve), default=0.0)

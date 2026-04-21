@@ -3,6 +3,7 @@ Testes unitarios dos endpoints de events_admin.
 
 Usa FakeEventRepository para evitar dependencia de banco.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -42,6 +43,7 @@ class TestReprocessEndpointLogic:
 
     def test_only_failed_and_dead_letter_are_reprocessable(self) -> None:
         from finanalytics_ai.interfaces.api.routes.events_admin import REPROCESSABLE_STATUSES
+
         assert EventStatus.FAILED in REPROCESSABLE_STATUSES
         assert EventStatus.DEAD_LETTER in REPROCESSABLE_STATUSES
         assert EventStatus.COMPLETED not in REPROCESSABLE_STATUSES
@@ -55,6 +57,7 @@ class TestReprocessEndpointLogic:
 
         async def _run() -> None:
             from fastapi import HTTPException
+
             with pytest.raises(HTTPException) as exc_info:
                 await reprocess_event(
                     event_id="not-a-uuid",
@@ -64,4 +67,3 @@ class TestReprocessEndpointLogic:
             assert exc_info.value.status_code == 422
 
         asyncio.get_event_loop().run_until_complete(_run())
-

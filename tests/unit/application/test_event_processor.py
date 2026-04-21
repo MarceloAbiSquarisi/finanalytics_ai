@@ -13,7 +13,8 @@ a leitura autocontida — o revisor vê tudo no mesmo arquivo.
 
 from __future__ import annotations
 
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 import pytest
 
@@ -32,7 +33,6 @@ from finanalytics_ai.exceptions import (
     TransientDatabaseError,
 )
 from finanalytics_ai.observability.metrics import NoOpObservability
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Fakes

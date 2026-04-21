@@ -4,6 +4,7 @@ Testes do TracingPort e implementacoes.
 Foco: garantir que NullTracing nao levanta excecoes e que
 OtelSpan fecha o span mesmo em caso de excecao.
 """
+
 from __future__ import annotations
 
 import pytest

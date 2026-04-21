@@ -11,6 +11,7 @@ Motivo:
 Trade-off: fakes requerem mais codigo inicial. Vale para ports que sao
 usados em muitos testes.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -39,9 +40,7 @@ class FakeEventRepository:
     async def find_by_id(self, event_id: uuid.UUID) -> DomainEvent | None:
         return self.store.get(event_id)
 
-    async def find_by_status(
-        self, status: EventStatus, *, limit: int = 100
-    ) -> list[DomainEvent]:
+    async def find_by_status(self, status: EventStatus, *, limit: int = 100) -> list[DomainEvent]:
         return [e for e in self.store.values() if e.status == status][:limit]
 
 
@@ -127,4 +126,3 @@ class ExplodingRule:
 
     async def apply(self, event: DomainEvent) -> ProcessingResult:
         raise self.exc
-

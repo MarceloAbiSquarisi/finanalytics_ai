@@ -1,4 +1,4 @@
-﻿"""
+"""
 finanalytics_ai.workers.maintenance_worker
 ==========================================
 
@@ -21,14 +21,15 @@ Idempotencia:
   - Todas as operacoes usam ON CONFLICT DO UPDATE/NOTHING
   - Re-executar e seguro
 """
+
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass, field
+from datetime import UTC, date, datetime, timedelta
 import os
 import sys
 import time
-from dataclasses import dataclass, field
-from datetime import date, datetime, timezone, timedelta
 from typing import Any
 
 import aiohttp
@@ -39,17 +40,23 @@ log = structlog.get_logger(__name__)
 
 # ── Configuracao ──────────────────────────────────────────────────────────────
 
-PG_DSN      = os.getenv("DATABASE_URL", "").replace("postgresql+asyncpg://", "postgresql://") \
-              or "postgresql://finanalytics:secret@postgres:5432/finanalytics"
-FINTZ_KEY   = os.getenv("FINTZ_API_KEY", "")
-FINTZ_BASE  = os.getenv("FINTZ_BASE_URL", "https://api.fintz.com.br")
-DRY_RUN     = os.getenv("MAINTENANCE_DRY_RUN", "false").lower() == "true"
+PG_DSN = (
+    os.getenv("DATABASE_URL", "").replace("postgresql+asyncpg://", "postgresql://")
+    or "postgresql://finanalytics:secret@postgres:5432/finanalytics"
+)
+FINTZ_KEY = os.getenv("FINTZ_API_KEY", "")
+FINTZ_BASE = os.getenv("FINTZ_BASE_URL", "https://api.fintz.com.br")
+DRY_RUN = os.getenv("MAINTENANCE_DRY_RUN", "false").lower() == "true"
 
 # Tickers monitorados pelo sistema (ampliavel via .env)
-TICKERS_ML  = [t.strip() for t in os.getenv(
-    "ML_TICKERS",
-    "PETR4,VALE3,ITUB4,BBDC4,ABEV3,WEGE3,BBAS3,LREN3,RENT3,ITSA4"
-).split(",") if t.strip()]
+TICKERS_ML = [
+    t.strip()
+    for t in os.getenv(
+        "ML_TICKERS", "PETR4,VALE3,ITUB4,BBDC4,ABEV3,WEGE3,BBAS3,LREN3,RENT3,ITSA4"
+    ).split(",")
+    if t.strip()
+]
+
 
 # Datas mensais para re-calculo de features (ultimos 2 anos)
 def _monthly_dates() -> list[date]:
@@ -57,13 +64,18 @@ def _monthly_dates() -> list[date]:
     dates = []
     today = date.today()
     for i in range(24):
-        d = (today.replace(day=1) - timedelta(days=1)) if i == 0 else dates[-1].replace(day=1) - timedelta(days=1)
+        d = (
+            (today.replace(day=1) - timedelta(days=1))
+            if i == 0
+            else dates[-1].replace(day=1) - timedelta(days=1)
+        )
         # Ultimo dia util aproximado do mes
         dates.append(d.replace(day=min(d.day, 28)))
     return sorted(dates)
 
 
 # ── Resultado de cada etapa ───────────────────────────────────────────────────
+
 
 @dataclass
 class StepResult:
@@ -77,7 +89,7 @@ class StepResult:
 
 @dataclass
 class MaintenanceReport:
-    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     steps: list[StepResult] = field(default_factory=list)
 
     def add(self, result: StepResult) -> None:
@@ -98,18 +110,24 @@ class MaintenanceReport:
     def summary(self) -> dict[str, Any]:
         return {
             "started_at": self.started_at.isoformat(),
-            "duration_s": round((datetime.now(timezone.utc) - self.started_at).total_seconds(), 2),
+            "duration_s": round((datetime.now(UTC) - self.started_at).total_seconds(), 2),
             "steps": len(self.steps),
             "errors": self.total_errors,
             "steps_detail": [
-                {"name": s.name, "ok": s.ok, "rows": s.rows_affected,
-                 "duration_s": round(s.duration_s, 2), "message": s.message}
+                {
+                    "name": s.name,
+                    "ok": s.ok,
+                    "rows": s.rows_affected,
+                    "duration_s": round(s.duration_s, 2),
+                    "message": s.message,
+                }
                 for s in self.steps
             ],
         }
 
 
 # ── Helpers de DB ─────────────────────────────────────────────────────────────
+
 
 def _pg_conn():
     return psycopg2.connect(PG_DSN)
@@ -123,6 +141,7 @@ def _execute(conn, sql: str, params=None) -> int:
 
 # ── ETAPA 1: IBOV via Fintz /indices/historico ────────────────────────────────
 
+
 async def sync_ibov(report: MaintenanceReport) -> None:
     t0 = time.perf_counter()
     step = StepResult(name="ibov_sync")
@@ -135,7 +154,7 @@ async def sync_ibov(report: MaintenanceReport) -> None:
             last_date = cur.fetchone()[0]
 
         start = (last_date + timedelta(days=1)).isoformat() if last_date else "2010-01-01"
-        end   = date.today().isoformat()
+        end = date.today().isoformat()
 
         if start > end:
             step.message = f"IBOV ja atualizado ate {last_date}"
@@ -150,8 +169,8 @@ async def sync_ibov(report: MaintenanceReport) -> None:
             rows_inserted = 0
             # Busca por chunks de 1 ano para evitar timeout
             from_date = date.fromisoformat(start)
-            to_date   = date.fromisoformat(end)
-            current   = from_date
+            to_date = date.fromisoformat(end)
+            current = from_date
 
             while current <= to_date:
                 chunk_end = min(current.replace(year=current.year + 1) - timedelta(days=1), to_date)
@@ -163,23 +182,31 @@ async def sync_ibov(report: MaintenanceReport) -> None:
                 }
                 headers = {"X-API-Key": FINTZ_KEY}
 
-                async with session.get(url, params=params, headers=headers,
-                                       timeout=aiohttp.ClientTimeout(total=30)) as r:
+                async with session.get(
+                    url, params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=30)
+                ) as r:
                     if r.status == 200:
                         data = await r.json()
-                        items = data if isinstance(data, list) else \
-                                data.get("historico", data.get("dados", []))
+                        items = (
+                            data
+                            if isinstance(data, list)
+                            else data.get("historico", data.get("dados", []))
+                        )
                         if not DRY_RUN:
                             for item in items:
-                                dt  = item.get("data") or item.get("date", "")
+                                dt = item.get("data") or item.get("date", "")
                                 val = item.get("valor") or item.get("fechamento")
                                 if dt and val:
-                                    _execute(conn, """
+                                    _execute(
+                                        conn,
+                                        """
                                         INSERT INTO fintz_cotacoes(ticker, data, preco_fechamento_ajustado)
                                         VALUES('IBOV', %s, %s)
                                         ON CONFLICT (ticker, data) DO UPDATE SET
                                             preco_fechamento_ajustado = EXCLUDED.preco_fechamento_ajustado
-                                    """, (str(dt)[:10], float(val)))
+                                    """,
+                                        (str(dt)[:10], float(val)),
+                                    )
                                     rows_inserted += 1
                     else:
                         step.warnings.append(f"IBOV chunk {current}: HTTP {r.status}")
@@ -201,6 +228,7 @@ async def sync_ibov(report: MaintenanceReport) -> None:
 
 # ── ETAPA 2: Sincroniza ohlc_prices a partir de fintz_cotacoes ───────────────
 
+
 def sync_ohlc_prices(report: MaintenanceReport) -> None:
     t0 = time.perf_counter()
     step = StepResult(name="ohlc_prices_sync")
@@ -208,7 +236,9 @@ def sync_ohlc_prices(report: MaintenanceReport) -> None:
         conn = _pg_conn()
 
         # Garante que a tabela existe
-        _execute(conn, """
+        _execute(
+            conn,
+            """
             CREATE TABLE IF NOT EXISTS ohlc_prices (
                 ticker    VARCHAR(20) NOT NULL,
                 date      DATE        NOT NULL,
@@ -220,11 +250,14 @@ def sync_ohlc_prices(report: MaintenanceReport) -> None:
                 volume    NUMERIC(24,2),
                 PRIMARY KEY (ticker, date)
             )
-        """)
+        """,
+        )
 
         # Insere/atualiza apenas registros novos (desde ultima data em ohlc_prices)
         if not DRY_RUN:
-            rows = _execute(conn, """
+            rows = _execute(
+                conn,
+                """
                 INSERT INTO ohlc_prices(ticker, date, open, high, low, close, adj_close, volume)
                 SELECT
                     fc.ticker,
@@ -248,7 +281,8 @@ def sync_ohlc_prices(report: MaintenanceReport) -> None:
                     close     = EXCLUDED.close,
                     adj_close = EXCLUDED.adj_close,
                     volume    = EXCLUDED.volume
-            """)
+            """,
+            )
             conn.commit()
             step.rows_affected = rows
 
@@ -256,7 +290,9 @@ def sync_ohlc_prices(report: MaintenanceReport) -> None:
         with conn.cursor() as cur:
             cur.execute("SELECT COUNT(DISTINCT ticker), COUNT(*) FROM ohlc_prices")
             tickers, total = cur.fetchone()
-        step.message = f"ohlc_prices: {tickers} tickers, {total:,} total linhas, {step.rows_affected} novos"
+        step.message = (
+            f"ohlc_prices: {tickers} tickers, {total:,} total linhas, {step.rows_affected} novos"
+        )
         conn.close()
     except Exception as exc:
         step.ok = False
@@ -268,6 +304,7 @@ def sync_ohlc_prices(report: MaintenanceReport) -> None:
 
 
 # ── ETAPA 3: Refresh fintz_indicadores_dedup ─────────────────────────────────
+
 
 def refresh_dedup_view(report: MaintenanceReport) -> None:
     t0 = time.perf_counter()
@@ -286,7 +323,9 @@ def refresh_dedup_view(report: MaintenanceReport) -> None:
         if not exists:
             # Cria a view se nao existir
             log.info("maintenance.dedup_view.creating")
-            _execute(conn, """
+            _execute(
+                conn,
+                """
                 CREATE MATERIALIZED VIEW IF NOT EXISTS fintz_indicadores_dedup AS
                 WITH ranked AS (
                     SELECT
@@ -301,11 +340,15 @@ def refresh_dedup_view(report: MaintenanceReport) -> None:
                 FROM ranked
                 WHERE valor_anterior IS NULL
                    OR ABS(COALESCE(valor,0) - COALESCE(valor_anterior,0)) > 0.000001
-            """)
-            _execute(conn, """
+            """,
+            )
+            _execute(
+                conn,
+                """
                 CREATE INDEX IF NOT EXISTS ix_fintz_ind_dedup_pit
                     ON fintz_indicadores_dedup (ticker, indicador, data_publicacao DESC)
-            """)
+            """,
+            )
             conn.commit()
             step.message = "View criada (primeira vez)"
         elif not DRY_RUN:
@@ -335,6 +378,7 @@ def refresh_dedup_view(report: MaintenanceReport) -> None:
 
 # ── ETAPA 4: Validacao de integridade ─────────────────────────────────────────
 
+
 def validate_data_integrity(report: MaintenanceReport) -> None:
     t0 = time.perf_counter()
     step = StepResult(name="integrity_check")
@@ -362,11 +406,14 @@ def validate_data_integrity(report: MaintenanceReport) -> None:
 
             # 2. Tickers ML — cobertura de features
             for ticker in TICKERS_ML[:5]:  # amostra
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT COUNT(*), COUNT(*) FILTER (WHERE beta_60d IS NOT NULL),
                            COUNT(*) FILTER (WHERE pe IS NOT NULL)
                     FROM ml_features WHERE ticker = %s
-                """, (ticker,))
+                """,
+                    (ticker,),
+                )
                 total, com_beta, com_pe = cur.fetchone()
                 if total == 0:
                     issues.append(f"{ticker}: sem features ML")
@@ -413,6 +460,7 @@ def validate_data_integrity(report: MaintenanceReport) -> None:
 
 # ── ETAPA 5: Re-computa ML features ──────────────────────────────────────────
 
+
 async def recompute_ml_features(report: MaintenanceReport) -> None:
     t0 = time.perf_counter()
     step = StepResult(name="ml_features_recompute")
@@ -424,9 +472,9 @@ async def recompute_ml_features(report: MaintenanceReport) -> None:
 
         # Importa dependencias ML
         sys.path.insert(0, "/app/src")
+        from finanalytics_ai.application.ml.feature_pipeline import build_features_from_ohlc
         from finanalytics_ai.infrastructure.database.connection import get_session_factory
         from finanalytics_ai.infrastructure.ml.feature_repo import SqlFeatureRepository
-        from finanalytics_ai.application.ml.feature_pipeline import build_features_from_ohlc
 
         factory = get_session_factory()
         total_ok = 0
@@ -436,9 +484,9 @@ async def recompute_ml_features(report: MaintenanceReport) -> None:
         today = date.today()
         dates_to_compute = []
         for i in range(12):
-            d = (today.replace(day=1) - timedelta(days=1))
+            d = today.replace(day=1) - timedelta(days=1)
             for _ in range(i):
-                d = (d.replace(day=1) - timedelta(days=1))
+                d = d.replace(day=1) - timedelta(days=1)
             dates_to_compute.append(d)
         dates_to_compute = sorted(set(dates_to_compute))
 
@@ -455,13 +503,14 @@ async def recompute_ml_features(report: MaintenanceReport) -> None:
                         ohlc = await repo.get_ohlc_window(ticker, ref)
                         if len(ohlc) < 30:
                             continue
-                        closes  = [float(r["close"])  for r in ohlc if r["close"]  is not None]
-                        volumes = [float(r["volume"]) if r["volume"] is not None else None
-                                   for r in ohlc]
-                        fund    = await repo.get_fundamental_features(ticker, ref)
+                        closes = [float(r["close"]) for r in ohlc if r["close"] is not None]
+                        volumes = [
+                            float(r["volume"]) if r["volume"] is not None else None for r in ohlc
+                        ]
+                        fund = await repo.get_fundamental_features(ticker, ref)
                         features = build_features_from_ohlc(
                             ticker=ticker,
-                            date=datetime.combine(ref, datetime.min.time()).replace(tzinfo=timezone.utc),
+                            date=datetime.combine(ref, datetime.min.time()).replace(tzinfo=UTC),
                             closes=closes,
                             volumes=volumes,
                             ibov_rets=ibov_rets_cache[ref],
@@ -471,8 +520,9 @@ async def recompute_ml_features(report: MaintenanceReport) -> None:
                         total_ok += 1
                     except Exception as e:
                         total_err += 1
-                        log.warning("maintenance.ml.feature_error",
-                                    ticker=ticker, date=ref, error=str(e))
+                        log.warning(
+                            "maintenance.ml.feature_error", ticker=ticker, date=ref, error=str(e)
+                        )
 
         step.rows_affected = total_ok
         step.message = f"Features: {total_ok} ok, {total_err} erros"
@@ -486,9 +536,8 @@ async def recompute_ml_features(report: MaintenanceReport) -> None:
         report.add(step)
 
 
-
-
 # ── ETAPA 6: Sync macro (indices, taxas, cambio, tesouro) ─────────────────────
+
 
 async def sync_macro_data(report: MaintenanceReport) -> None:
     """Atualiza indices, taxas, cambio e tesouro direto via Fintz."""
@@ -496,53 +545,86 @@ async def sync_macro_data(report: MaintenanceReport) -> None:
     step = StepResult(name="macro_sync")
     try:
         import aiohttp as _aiohttp
+
         FINTZ_BASE_URL = os.getenv("FINTZ_BASE_URL", "https://api.fintz.com.br")
         headers = {"X-API-Key": FINTZ_KEY}
         conn = _pg_conn()
 
-        INDICES = ["IBOV","IFIX","IDIV","IGCT","SMLL","IBXX","IBXL","IGCX","ITAG","MLCX"]
-        TAXAS   = [{"codigo": 12, "nome": "CDI"}, {"codigo": 11, "nome": "Selic"},
-                   {"codigo": 4391, "nome": "CDI acum"}, {"codigo": 4390, "nome": "Selic acum"}]
-        MOEDAS  = ["USD","EUR","GBP","JPY","ARS","CHF","CNY"]
+        INDICES = ["IBOV", "IFIX", "IDIV", "IGCT", "SMLL", "IBXX", "IBXL", "IGCX", "ITAG", "MLCX"]
+        TAXAS = [
+            {"codigo": 12, "nome": "CDI"},
+            {"codigo": 11, "nome": "Selic"},
+            {"codigo": 4391, "nome": "CDI acum"},
+            {"codigo": 4390, "nome": "Selic acum"},
+        ]
+        MOEDAS = ["USD", "EUR", "GBP", "JPY", "ARS", "CHF", "CNY"]
 
         total = 0
         today = date.today().isoformat()
 
         async with _aiohttp.ClientSession() as session:
-
             # Indices — apenas dados novos
             for indice in INDICES:
                 with conn.cursor() as c:
                     c.execute("SELECT MAX(data) FROM fintz_indices WHERE indice=%s", (indice,))
                     last = c.fetchone()[0]
                 start = (last + timedelta(days=1)).isoformat() if last else "2010-01-01"
-                if start > today: continue
-                async with session.get(f"{FINTZ_BASE_URL}/indices/historico",
-                    headers=headers, params={"indice":indice,"dataInicio":start,"dataFim":today,"ordem":"ASC"},
-                    timeout=_aiohttp.ClientTimeout(total=30)) as r:
+                if start > today:
+                    continue
+                async with session.get(
+                    f"{FINTZ_BASE_URL}/indices/historico",
+                    headers=headers,
+                    params={
+                        "indice": indice,
+                        "dataInicio": start,
+                        "dataFim": today,
+                        "ordem": "ASC",
+                    },
+                    timeout=_aiohttp.ClientTimeout(total=30),
+                ) as r:
                     if r.status == 200:
                         for row in await r.json():
                             with conn.cursor() as c:
-                                c.execute("INSERT INTO fintz_indices(indice,data,valor) VALUES(%s,%s,%s) ON CONFLICT DO NOTHING",
-                                    (row["indice"],row["data"],row["valor"]))
+                                c.execute(
+                                    "INSERT INTO fintz_indices(indice,data,valor) VALUES(%s,%s,%s) ON CONFLICT DO NOTHING",
+                                    (row["indice"], row["data"], row["valor"]),
+                                )
                                 total += c.rowcount
                 conn.commit()
 
             # Taxas
             for taxa in TAXAS:
                 with conn.cursor() as c:
-                    c.execute("SELECT MAX(data) FROM fintz_taxas WHERE codigo=%s", (taxa["codigo"],))
+                    c.execute(
+                        "SELECT MAX(data) FROM fintz_taxas WHERE codigo=%s", (taxa["codigo"],)
+                    )
                     last = c.fetchone()[0]
                 start = (last + timedelta(days=1)).isoformat() if last else "2010-01-01"
-                if start > today: continue
-                async with session.get(f"{FINTZ_BASE_URL}/taxas/historico",
-                    headers=headers, params={"codigo":str(taxa["codigo"]),"dataInicio":start,"dataFim":today,"ordem":"ASC"},
-                    timeout=_aiohttp.ClientTimeout(total=30)) as r:
+                if start > today:
+                    continue
+                async with session.get(
+                    f"{FINTZ_BASE_URL}/taxas/historico",
+                    headers=headers,
+                    params={
+                        "codigo": str(taxa["codigo"]),
+                        "dataInicio": start,
+                        "dataFim": today,
+                        "ordem": "ASC",
+                    },
+                    timeout=_aiohttp.ClientTimeout(total=30),
+                ) as r:
                     if r.status == 200:
                         for row in await r.json():
                             with conn.cursor() as c:
-                                c.execute("INSERT INTO fintz_taxas(codigo,nome,data,valor) VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING",
-                                    (taxa["codigo"],row.get("nome",taxa["nome"]),row["data"][:10],row["valor"]))
+                                c.execute(
+                                    "INSERT INTO fintz_taxas(codigo,nome,data,valor) VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                                    (
+                                        taxa["codigo"],
+                                        row.get("nome", taxa["nome"]),
+                                        row["data"][:10],
+                                        row["valor"],
+                                    ),
+                                )
                                 total += c.rowcount
                 conn.commit()
 
@@ -552,43 +634,69 @@ async def sync_macro_data(report: MaintenanceReport) -> None:
                     c.execute("SELECT MAX(data) FROM fintz_cambio WHERE codigo=%s", (moeda,))
                     last = c.fetchone()[0]
                 start = (last + timedelta(days=1)).isoformat() if last else "2010-01-01"
-                if start > today: continue
-                async with session.get(f"{FINTZ_BASE_URL}/cambio/ptax/historico",
-                    headers=headers, params={"codigo":moeda,"dataInicio":start,"dataFim":today,"ordem":"ASC"},
-                    timeout=_aiohttp.ClientTimeout(total=30)) as r:
+                if start > today:
+                    continue
+                async with session.get(
+                    f"{FINTZ_BASE_URL}/cambio/ptax/historico",
+                    headers=headers,
+                    params={"codigo": moeda, "dataInicio": start, "dataFim": today, "ordem": "ASC"},
+                    timeout=_aiohttp.ClientTimeout(total=30),
+                ) as r:
                     if r.status == 200:
                         for row in await r.json():
-                            if row.get("tipoBoletim","") != "Fechamento": continue
+                            if row.get("tipoBoletim", "") != "Fechamento":
+                                continue
                             with conn.cursor() as c:
-                                c.execute("""INSERT INTO fintz_cambio(codigo,nome,data,cotacao_compra,cotacao_venda,tipo_boletim)
+                                c.execute(
+                                    """INSERT INTO fintz_cambio(codigo,nome,data,cotacao_compra,cotacao_venda,tipo_boletim)
                                     VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
-                                    (row["codigo"],row.get("nome",""),row["data"][:10],
-                                     row.get("cotacaoCompra"),row.get("cotacaoVenda"),row.get("tipoBoletim","")))
+                                    (
+                                        row["codigo"],
+                                        row.get("nome", ""),
+                                        row["data"][:10],
+                                        row.get("cotacaoCompra"),
+                                        row.get("cotacaoVenda"),
+                                        row.get("tipoBoletim", ""),
+                                    ),
+                                )
                                 total += c.rowcount
                 conn.commit()
 
             # Tesouro — precos atuais
-            async with session.get(f"{FINTZ_BASE_URL}/titulos-publicos/tesouro",
-                headers=headers, params={"pagina":"1","tamanho":"100"},
-                timeout=_aiohttp.ClientTimeout(total=30)) as r:
+            async with session.get(
+                f"{FINTZ_BASE_URL}/titulos-publicos/tesouro",
+                headers=headers,
+                params={"pagina": "1", "tamanho": "100"},
+                timeout=_aiohttp.ClientTimeout(total=30),
+            ) as r:
                 if r.status == 200:
                     data = await r.json()
-                    titulos = data.get("dados",[]) if isinstance(data,dict) else []
-                    for t in [x for x in titulos if not x.get("vencido",True)]:
+                    titulos = data.get("dados", []) if isinstance(data, dict) else []
+                    for t in [x for x in titulos if not x.get("vencido", True)]:
                         async with session.get(
                             f"{FINTZ_BASE_URL}/titulos-publicos/tesouro/{t['codigo']}/precos/atual",
-                            headers=headers, timeout=_aiohttp.ClientTimeout(total=15)) as pr:
+                            headers=headers,
+                            timeout=_aiohttp.ClientTimeout(total=15),
+                        ) as pr:
                             if pr.status == 200:
                                 p = await pr.json()
-                                if isinstance(p,dict) and p.get("dataUltAtualizacao"):
+                                if isinstance(p, dict) and p.get("dataUltAtualizacao"):
                                     with conn.cursor() as c:
-                                        c.execute("""INSERT INTO fintz_tesouro_precos
+                                        c.execute(
+                                            """INSERT INTO fintz_tesouro_precos
                                             (codigo,data_atualizacao,taxa_juros_compra,taxa_juros_venda,pu_compra,pu_venda,possivel_investir,possivel_resgatar)
                                             VALUES(%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
-                                            (t["codigo"],p["dataUltAtualizacao"],
-                                             p.get("taxaJurosCompra"),p.get("taxaJurosVenda"),
-                                             p.get("puCompra"),p.get("puVenda"),
-                                             p.get("possivelInvestir"),p.get("possivelResgatar")))
+                                            (
+                                                t["codigo"],
+                                                p["dataUltAtualizacao"],
+                                                p.get("taxaJurosCompra"),
+                                                p.get("taxaJurosVenda"),
+                                                p.get("puCompra"),
+                                                p.get("puVenda"),
+                                                p.get("possivelInvestir"),
+                                                p.get("possivelResgatar"),
+                                            ),
+                                        )
                                     total += 1
                     conn.commit()
 
@@ -604,10 +712,11 @@ async def sync_macro_data(report: MaintenanceReport) -> None:
         step.duration_s = time.perf_counter() - t0
         report.add(step)
 
+
 # ── Orquestrador principal ────────────────────────────────────────────────────
 
 
-def compute_derived_indicators(report: "MaintenanceReport") -> None:
+def compute_derived_indicators(report: MaintenanceReport) -> None:
     """
     Calcula indicadores derivados localmente quando a Fintz não os atualiza.
 
@@ -655,9 +764,9 @@ def compute_derived_indicators(report: "MaintenanceReport") -> None:
         """
 
         indicators = [
-            {"indicador": "P_L",  "base": "LPA", "formula": "o.close / base_val.valor"},
+            {"indicador": "P_L", "base": "LPA", "formula": "o.close / base_val.valor"},
             {"indicador": "P_VP", "base": "VPA", "formula": "o.close / base_val.valor"},
-            {"indicador": "L_P",  "base": "LPA", "formula": "base_val.valor / o.close"},
+            {"indicador": "L_P", "base": "LPA", "formula": "base_val.valor / o.close"},
         ]
 
         total_rows = 0
@@ -740,6 +849,7 @@ async def run_maintenance(skip_ml: bool = False) -> MaintenanceReport:
 def main() -> None:
     """Ponto de entrada standalone."""
     import logging
+
     logging.basicConfig(level=logging.INFO)
 
     skip_ml = os.getenv("MAINTENANCE_SKIP_ML", "false").lower() == "true"
@@ -755,9 +865,9 @@ def main() -> None:
         print(f"  [{status}] {s.name}: {s.message} ({s.duration_s:.1f}s)")
         for w in s.warnings:
             print(f"       AVISO: {w}")
-    print(f"\nTotal: {summary['steps']} etapas | "
-          f"{summary['errors']} erros | "
-          f"{summary['duration_s']}s")
+    print(
+        f"\nTotal: {summary['steps']} etapas | {summary['errors']} erros | {summary['duration_s']}s"
+    )
     print("=" * 50)
 
     sys.exit(1 if report.total_errors > 0 else 0)

@@ -111,7 +111,9 @@ class BrapiClient:
         Para persistência usar OHLCBar do domínio.
         """
         resolved_interval = interval or RANGE_INTERVAL_MAP.get(range_period, "1d")
-        path = f"/quote/{ticker}?range={range_period}&interval={resolved_interval}&fundamental=false"
+        path = (
+            f"/quote/{ticker}?range={range_period}&interval={resolved_interval}&fundamental=false"
+        )
 
         data = await self._request_with_retry(path)
 

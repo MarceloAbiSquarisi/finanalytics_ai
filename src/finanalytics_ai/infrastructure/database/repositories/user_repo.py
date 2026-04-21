@@ -21,9 +21,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-import structlog
 from sqlalchemy import Boolean, DateTime, String, func, select
 from sqlalchemy.orm import Mapped, mapped_column
+import structlog
 
 from finanalytics_ai.domain.auth.entities import User, UserRole
 from finanalytics_ai.infrastructure.database.connection import Base
@@ -46,7 +46,9 @@ class UserModel(Base):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     role: Mapped[str] = mapped_column(String(20), nullable=False, default=UserRole.USER.value)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
     totp_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -161,6 +163,7 @@ class UserRepository:
     async def update_totp(self, user_id: str, secret: str | None, enabled: bool) -> None:
         """Atualiza secret e status TOTP do usuário."""
         from sqlalchemy import update as sa_update
+
         stmt = (
             sa_update(UserModel)
             .where(UserModel.user_id == user_id)
@@ -171,8 +174,6 @@ class UserRepository:
 
     async def get_by_id(self, user_id: str) -> User | None:
         """Busca usuário por ID."""
-        result = await self._session.execute(
-            select(UserModel).where(UserModel.user_id == user_id)
-        )
+        result = await self._session.execute(select(UserModel).where(UserModel.user_id == user_id))
         model = result.scalar_one_or_none()
         return self._to_domain(model) if model else None

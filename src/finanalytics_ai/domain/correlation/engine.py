@@ -35,8 +35,8 @@ Design decisions:
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
+import math
 from typing import Any
 
 # ── Tipos ──────────────────────────────────────────────────────────────────────
@@ -312,7 +312,9 @@ def build_correlation_result(
         series_a = aligned[pair.ticker_a]
         series_b = aligned[pair.ticker_b]
         key = f"{pair.ticker_a}/{pair.ticker_b}"
-        rolling_pairs[key] = rolling_correlation(series_a, series_b, timestamps, window=rolling_window)
+        rolling_pairs[key] = rolling_correlation(
+            series_a, series_b, timestamps, window=rolling_window
+        )
 
     # 6. Score de diversificacao
     off_diagonal = [abs(p.correlation) for p in pairs]

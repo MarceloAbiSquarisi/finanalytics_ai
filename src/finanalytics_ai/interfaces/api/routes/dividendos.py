@@ -7,10 +7,12 @@ GET /api/v1/dividendos/ranking      -- ranking por DY
 GET /api/v1/dividendos/historico    -- DY historico de um ticker
 GET /api/v1/dividendos/carteira     -- DY dos tickers da carteira
 """
+
 from typing import Any
-import structlog
+
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import text
+import structlog
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/dividendos", tags=["Dividendos"])
@@ -20,6 +22,7 @@ async def _get_session(request: Request):
     sf = getattr(request.app.state, "session_factory", None)
     if sf is None:
         from finanalytics_ai.infrastructure.database.connection import get_session_factory
+
         sf = get_session_factory()
     return sf
 
@@ -54,7 +57,10 @@ async def ranking_dy(
 
         # Ordena por DY desc e pega top N
         data = sorted(
-            [{"ticker": r[0], "dy_pct": round(float(r[1]) * 100, 2), "data": str(r[2])[:10]} for r in rows],
+            [
+                {"ticker": r[0], "dy_pct": round(float(r[1]) * 100, 2), "data": str(r[2])[:10]}
+                for r in rows
+            ],
             key=lambda x: x["dy_pct"],
             reverse=True,
         )[:limit]
@@ -104,11 +110,11 @@ async def historico_dy(
 
         historico = [
             {
-                "ano":          row[0],
+                "ano": row[0],
                 "dy_medio_pct": round(float(row[1]) * 100, 2),
-                "dy_max_pct":   round(float(row[2]) * 100, 2),
-                "dy_min_pct":   round(float(row[3]) * 100, 2),
-                "observacoes":  row[4],
+                "dy_max_pct": round(float(row[2]) * 100, 2),
+                "dy_min_pct": round(float(row[3]) * 100, 2),
+                "observacoes": row[4],
             }
             for row in rows
         ]
@@ -117,10 +123,10 @@ async def historico_dy(
         media_5a = sum(h["dy_medio_pct"] for h in historico[:5]) / min(5, len(historico))
 
         return {
-            "ticker":     ticker,
-            "dy_atual":   dy_atual,
-            "media_5a":   round(media_5a, 2),
-            "historico":  historico,
+            "ticker": ticker,
+            "dy_atual": dy_atual,
+            "media_5a": round(media_5a, 2),
+            "historico": historico,
         }
     except HTTPException:
         raise
@@ -163,7 +169,7 @@ async def carteira_dy(
             r[0]: {
                 "ticker": r[0],
                 "dy_pct": round(float(r[1]) * 100, 2),
-                "data":   str(r[2])[:10],
+                "data": str(r[2])[:10],
             }
             for r in rows
         }
@@ -171,9 +177,11 @@ async def carteira_dy(
         dy_medio = sum(v["dy_pct"] for v in data.values()) / len(data) if data else 0
 
         return {
-            "tickers":  ticker_list,
+            "tickers": ticker_list,
             "dy_medio_carteira": round(dy_medio, 2),
-            "ativos":   [data.get(t, {"ticker": t, "dy_pct": None, "data": None}) for t in ticker_list],
+            "ativos": [
+                data.get(t, {"ticker": t, "dy_pct": None, "data": None}) for t in ticker_list
+            ],
         }
     except Exception as exc:
         logger.exception("dividendos.carteira.error", error=str(exc))

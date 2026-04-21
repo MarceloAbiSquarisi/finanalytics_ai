@@ -25,12 +25,13 @@ na fila interna. Esta classe e responsavel pela semantica de evento.
 Stop gracioso: stop() sinaliza o iterador. O loop do worker para apos
 a mensagem atual e aguarda a fila esvaziar.
 """
+
 from __future__ import annotations
 
 import asyncio
-import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
+import uuid
 
 import structlog
 
@@ -145,4 +146,3 @@ def _tick_to_event(tick: Any) -> dict[str, Any] | None:
     except Exception as exc:
         logger.warning("profit_dll_source.tick_conversion_error", error=str(exc))
         return None
-

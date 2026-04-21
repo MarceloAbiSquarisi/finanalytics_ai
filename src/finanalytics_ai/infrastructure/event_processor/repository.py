@@ -13,16 +13,16 @@ Se performance se tornar gargalo: trocar para execute(
 session_factory: callable que retorna AsyncSession. Padrao do projeto
 (veja infrastructure/database.py existente).
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING
-
-import structlog
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+import structlog
 
 from finanalytics_ai.domain.events.exceptions import DatabaseError
 from finanalytics_ai.infrastructure.event_processor.mapper import (
@@ -56,10 +56,9 @@ class SqlEventRepository:
 
     async def upsert(self, event: DomainEvent) -> None:
         try:
-            async with self._session_factory() as session:
-                async with session.begin():
-                    record = domain_to_record(event)
-                    await session.merge(record)
+            async with self._session_factory() as session, session.begin():
+                record = domain_to_record(event)
+                await session.merge(record)
         except Exception as exc:
             logger.error(
                 "repository.upsert_failed",
@@ -112,10 +111,7 @@ class SqlEventRepository:
         """Retorna contagem de eventos agrupados por status."""
         try:
             async with self._session_factory() as session:
-                stmt = (
-                    select(EventRecord.status, func.count())
-                    .group_by(EventRecord.status)
-                )
+                stmt = select(EventRecord.status, func.count()).group_by(EventRecord.status)
                 result = await session.execute(stmt)
                 return dict(result.all())
         except Exception as exc:
@@ -127,15 +123,14 @@ class SqlEventRepository:
     async def delete_completed_before(self, cutoff: datetime) -> int:
         """Deleta event_records completed mais antigos que cutoff. Retorna contagem."""
         try:
-            async with self._session_factory() as session:
-                async with session.begin():
-                    stmt = (
-                        delete(EventRecord)
-                        .where(EventRecord.status == EventStatus.COMPLETED.value)
-                        .where(EventRecord.created_at < cutoff)
-                    )
-                    result = await session.execute(stmt)
-                    return result.rowcount  # type: ignore[return-value]
+            async with self._session_factory() as session, session.begin():
+                stmt = (
+                    delete(EventRecord)
+                    .where(EventRecord.status == EventStatus.COMPLETED.value)
+                    .where(EventRecord.created_at < cutoff)
+                )
+                result = await session.execute(stmt)
+                return result.rowcount  # type: ignore[return-value]
         except Exception as exc:
             raise DatabaseError(
                 f"Falha ao deletar eventos completed antes de {cutoff}: {exc}",

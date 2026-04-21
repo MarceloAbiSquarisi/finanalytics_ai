@@ -4,9 +4,11 @@ tests/unit/application/conftest.py
 Fixtures compartilhadas para testes da camada application.
 Resolve: mock_event_store e mock_market_data ausentes em test_ohlc_handler.py
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
+
 import pytest
 
 

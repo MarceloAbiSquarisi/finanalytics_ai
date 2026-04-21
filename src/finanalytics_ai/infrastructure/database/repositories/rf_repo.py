@@ -25,11 +25,10 @@ Design decisions:
 
 from __future__ import annotations
 
-import uuid
 from datetime import date
 from typing import TYPE_CHECKING
+import uuid
 
-import structlog
 from sqlalchemy import (
     Boolean,
     Date,
@@ -40,6 +39,7 @@ from sqlalchemy import (
     select,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+import structlog
 
 from finanalytics_ai.domain.fixed_income.portfolio import RFHolding, RFPortfolio
 
@@ -170,7 +170,9 @@ class RFPortfolioRepository:
         return portfolios
 
     async def delete_portfolio(self, portfolio_id: str) -> None:
-        await self._session.execute(delete(RFHoldingModel).where(RFHoldingModel.portfolio_id == portfolio_id))
+        await self._session.execute(
+            delete(RFHoldingModel).where(RFHoldingModel.portfolio_id == portfolio_id)
+        )
         await self._session.execute(
             delete(RFPortfolioModel).where(RFPortfolioModel.portfolio_id == portfolio_id)
         )

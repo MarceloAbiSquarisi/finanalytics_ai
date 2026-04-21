@@ -10,11 +10,12 @@ POST   /api/v1/alerts/indicator/evaluate -- dispara avaliacao manual (admin/debu
 Os alertas disparados chegam pelo mesmo SSE stream de precos:
 GET /alerts/stream
 """
+
 from typing import Any
 
-import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+import structlog
 
 from finanalytics_ai.application.services.indicator_alert_service import (
     SUPPORTED_INDICATORS,
@@ -65,13 +66,9 @@ def _to_response(alert: Any) -> IndicatorAlertResponse:
         status=alert.status,
         note=alert.note,
         last_triggered_at=(
-            alert.last_triggered_at.isoformat()
-            if alert.last_triggered_at else None
+            alert.last_triggered_at.isoformat() if alert.last_triggered_at else None
         ),
-        created_at=(
-            alert.created_at.isoformat()
-            if alert.created_at else None
-        ),
+        created_at=(alert.created_at.isoformat() if alert.created_at else None),
     )
 
 
@@ -135,13 +132,10 @@ async def cancel_indicator_alert(
 async def get_indicator_fields() -> dict[str, Any]:
     """Lista os indicadores disponíveis para criacao de alertas."""
     return {
-        "indicators": [
-            {"key": k, "description": v}
-            for k, v in SUPPORTED_INDICATORS.items()
-        ],
+        "indicators": [{"key": k, "description": v} for k, v in SUPPORTED_INDICATORS.items()],
         "operators": {
-            "gt":  "maior que (>)",
-            "lt":  "menor que (<)",
+            "gt": "maior que (>)",
+            "lt": "menor que (<)",
             "gte": "maior ou igual (>=)",
             "lte": "menor ou igual (<=)",
         },
@@ -164,9 +158,9 @@ async def evaluate_now(request: Request) -> dict[str, Any]:
         return {
             "status": "ok",
             "triggered": triggered,
-            "evaluated_at": __import__("datetime").datetime.now(
-                __import__("datetime").timezone.utc
-            ).isoformat(),
+            "evaluated_at": __import__("datetime")
+            .datetime.now(__import__("datetime").timezone.utc)
+            .isoformat(),
         }
     except Exception as exc:
         logger.exception("indicator_alert.evaluate_error", error=str(exc))

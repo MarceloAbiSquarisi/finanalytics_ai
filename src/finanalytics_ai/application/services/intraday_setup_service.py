@@ -24,11 +24,12 @@ Design:
   - Cache de 60s para evitar spam de alertas
   - Suporta multiplos timeframes: 5min, 15min, 60min, diario
 """
+
 from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import structlog
@@ -40,63 +41,64 @@ logger = structlog.get_logger(__name__)
 
 # Timeframes suportados -> range_period para busca de dados
 _TIMEFRAME_TO_RANGE: dict[str, str] = {
-    "5min":  "5d",
+    "5min": "5d",
     "15min": "5d",
     "60min": "1mo",
     "diario": "3mo",
-    "daily":  "3mo",
+    "daily": "3mo",
 }
 
 # Setups disponiveis e seus nomes amigaveis
 AVAILABLE_SETUPS: dict[str, str] = {
-    "setup_91":      "Setup 9.1 (Stormer)",
-    "pin_bar":       "Pin Bar",
-    "inside_bar":    "Inside Bar",
-    "gap_and_go":    "Gap and Go",
+    "setup_91": "Setup 9.1 (Stormer)",
+    "pin_bar": "Pin Bar",
+    "inside_bar": "Inside Bar",
+    "gap_and_go": "Gap and Go",
     "larry_williams": "Larry Williams",
     "hilo_activator": "Hilo Activator",
-    "macd":          "MACD Crossover",
-    "rsi":           "RSI Reversal",
-    "bollinger":     "Bollinger Bands",
-    "ema_cross":     "EMA Cross",
+    "macd": "MACD Crossover",
+    "rsi": "RSI Reversal",
+    "bollinger": "Bollinger Bands",
+    "ema_cross": "EMA Cross",
 }
 
 
 @dataclass
 class SetupAlert:
     """Um setup detectado em um ticker."""
+
     ticker: str
     setup_name: str
     setup_key: str
-    signal: str          # "BUY" ou "SELL"
+    signal: str  # "BUY" ou "SELL"
     timeframe: str
     detected_at: str
     last_close: float
     last_high: float
     last_low: float
     bar_index: int
-    stop_loss: float | None = None    # preco de stop loss
+    stop_loss: float | None = None  # preco de stop loss
     take_profit: float | None = None  # preco de take profit
     risk_reward: float | None = None  # ratio risco/retorno
-    stop_pct: float | None = None     # distancia do stop em %
+    stop_pct: float | None = None  # distancia do stop em %
     context: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "ticker":       self.ticker,
-            "setup_name":   self.setup_name,
-            "setup_key":    self.setup_key,
-            "signal":       self.signal,
-            "timeframe":    self.timeframe,
-            "detected_at":  self.detected_at,
-            "last_close":   self.last_close,
-            "last_high":    self.last_high,
-            "last_low":     self.last_low,
-            "bar_index":    self.bar_index,
-            "stop_loss":   self.stop_loss,
+            "ticker": self.ticker,
+            "setup_name": self.setup_name,
+            "setup_key": self.setup_key,
+            "signal": self.signal,
+            "timeframe": self.timeframe,
+            "detected_at": self.detected_at,
+            "last_close": self.last_close,
+            "last_high": self.last_high,
+            "last_low": self.last_low,
+            "bar_index": self.bar_index,
+            "stop_loss": self.stop_loss,
             "take_profit": self.take_profit,
             "risk_reward": self.risk_reward,
-            "stop_pct":    self.stop_pct,
+            "stop_pct": self.stop_pct,
             **self.context,
         }
 
@@ -104,6 +106,7 @@ class SetupAlert:
 @dataclass
 class SetupScanResult:
     """Resultado de um scan de setups em N tickers."""
+
     tickers_scanned: int
     setups_found: int
     alerts: list[SetupAlert]
@@ -113,10 +116,10 @@ class SetupScanResult:
     def to_dict(self) -> dict[str, Any]:
         return {
             "tickers_scanned": self.tickers_scanned,
-            "setups_found":    self.setups_found,
-            "alerts":          [a.to_dict() for a in self.alerts],
-            "errors":          self.errors,
-            "scanned_at":      self.scanned_at,
+            "setups_found": self.setups_found,
+            "alerts": [a.to_dict() for a in self.alerts],
+            "errors": self.errors,
+            "scanned_at": self.scanned_at,
         }
 
 
@@ -162,7 +165,7 @@ class IntradaySetupService:
             raise ValueError(f"Nenhum setup valido. Use: {list(AVAILABLE_SETUPS)}")
 
         range_period = _TIMEFRAME_TO_RANGE.get(timeframe, "3mo")
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         log = logger.bind(tickers=tickers, setups=valid_setups, timeframe=timeframe)
         log.info("intraday_setup.scan.starting")
@@ -181,10 +184,12 @@ class IntradaySetupService:
                         range_period=range_period,
                     )
                     if not bars or len(bars) < 10:
-                        errors.append({
-                            "ticker": ticker,
-                            "error": f"Dados insuficientes: {len(bars or [])} barras",
-                        })
+                        errors.append(
+                            {
+                                "ticker": ticker,
+                                "error": f"Dados insuficientes: {len(bars or [])} barras",
+                            }
+                        )
                         return
 
                     ticker_alerts = _detect_setups(ticker, bars, valid_setups, timeframe, now)
@@ -246,10 +251,10 @@ class IntradaySetupService:
                 user_id="system",
                 triggered_at=alert.detected_at,
                 context={
-                    "setup_key":  alert.setup_key,
+                    "setup_key": alert.setup_key,
                     "setup_name": alert.setup_name,
-                    "timeframe":  alert.timeframe,
-                    "signal":     alert.signal,
+                    "timeframe": alert.timeframe,
+                    "signal": alert.signal,
                 },
             )
             await self._bus.broadcast(notification)
@@ -266,7 +271,6 @@ class IntradaySetupService:
 # ─────────────────────────────────────────────────────────────────────────────
 # Deteccao pura (sem I/O)
 # ─────────────────────────────────────────────────────────────────────────────
-
 
 
 def _calc_stops(
@@ -300,33 +304,35 @@ def _calc_stops(
         return None, None, None, None
 
     prev = bars[-2] if len(bars) >= 2 else bars[-1]
-    prev_low  = float(prev.get("low",  close) or close)
+    prev_low = float(prev.get("low", close) or close)
     prev_high = float(prev.get("high", close) or close)
 
     # ATR simples (media dos ranges das ultimas 14 barras)
     atr_bars = bars[-14:] if len(bars) >= 14 else bars
-    atr = sum(
-        abs(float(b.get("high", 0) or 0) - float(b.get("low", 0) or 0))
-        for b in atr_bars
-    ) / len(atr_bars) if atr_bars else close * 0.02
+    atr = (
+        sum(abs(float(b.get("high", 0) or 0) - float(b.get("low", 0) or 0)) for b in atr_bars)
+        / len(atr_bars)
+        if atr_bars
+        else close * 0.02
+    )
 
     stop = None
     target = None
 
     if setup_key == "setup_91":
         if signal == "BUY":
-            stop  = low - atr * 0.5
+            stop = low - atr * 0.5
             target = close + (close - stop) * 2
         else:
-            stop  = high + atr * 0.5
+            stop = high + atr * 0.5
             target = close - (stop - close) * 2
 
     elif setup_key == "larry_williams":
         if signal == "BUY":
-            stop  = prev_low - atr * 0.1
+            stop = prev_low - atr * 0.1
             target = prev_high
         else:
-            stop  = prev_high + atr * 0.1
+            stop = prev_high + atr * 0.1
             target = prev_low
 
     elif setup_key == "ema_cross":
@@ -334,36 +340,36 @@ def _calc_stops(
         ema21_bars = bars[-21:] if len(bars) >= 21 else bars
         ema21 = sum(float(b.get("close", close) or close) for b in ema21_bars) / len(ema21_bars)
         if signal == "BUY":
-            stop  = ema21 - atr * 0.2
+            stop = ema21 - atr * 0.2
             target = close + (close - stop) * 2
         else:
-            stop  = ema21 + atr * 0.2
+            stop = ema21 + atr * 0.2
             target = close - (stop - close) * 2
 
     elif setup_key == "inside_bar":
         # Candle mae = bars[-2]
         if signal == "BUY":
-            stop  = prev_low - atr * 0.1
+            stop = prev_low - atr * 0.1
             target = prev_high
         else:
-            stop  = prev_high + atr * 0.1
+            stop = prev_high + atr * 0.1
             target = prev_low
 
     elif setup_key == "pin_bar":
         if signal == "BUY":
-            stop  = low - atr * 0.1
+            stop = low - atr * 0.1
             target = close + (close - stop) * 2
         else:
-            stop  = high + atr * 0.1
+            stop = high + atr * 0.1
             target = close - (stop - close) * 2
 
     else:
         # Default: 1 ATR de stop, alvo 2x
         if signal == "BUY":
-            stop  = close - atr
+            stop = close - atr
             target = close + atr * 2
         else:
-            stop  = close + atr
+            stop = close + atr
             target = close - atr * 2
 
     if stop is None or target is None or stop <= 0:
@@ -375,6 +381,8 @@ def _calc_stops(
     stop_pct = round(abs(close - stop) / close * 100, 2) if close > 0 else None
 
     return round(stop, 4), round(target, 4), rr, stop_pct
+
+
 def _detect_setups(
     ticker: str,
     bars: list[dict[str, Any]],
@@ -395,8 +403,8 @@ def _detect_setups(
 
     try:
         close = float(last_bar.get("close", 0) or 0)
-        high  = float(last_bar.get("high",  close) or close)
-        low   = float(last_bar.get("low",   close) or close)
+        high = float(last_bar.get("high", close) or close)
+        low = float(last_bar.get("low", close) or close)
     except (TypeError, ValueError):
         return []
 
@@ -417,25 +425,26 @@ def _detect_setups(
             else:
                 continue  # HOLD - sem setup
 
-
             sl, tp, rr, sp = _calc_stops(setup_key, signal_str, bars, close, high, low)
-            alerts.append(SetupAlert(
-                ticker=ticker,
-                setup_name=AVAILABLE_SETUPS.get(setup_key, setup_key),
-                setup_key=setup_key,
-                signal=signal_str,
-                timeframe=timeframe,
-                detected_at=now,
-                last_close=close,
-                last_high=high,
-                last_low=low,
-                bar_index=len(bars) - 1,
-                stop_loss=sl,
-                take_profit=tp,
-                risk_reward=rr,
-                stop_pct=sp,
-                context={"bars_analyzed": len(bars)},
-            ))
+            alerts.append(
+                SetupAlert(
+                    ticker=ticker,
+                    setup_name=AVAILABLE_SETUPS.get(setup_key, setup_key),
+                    setup_key=setup_key,
+                    signal=signal_str,
+                    timeframe=timeframe,
+                    detected_at=now,
+                    last_close=close,
+                    last_high=high,
+                    last_low=low,
+                    bar_index=len(bars) - 1,
+                    stop_loss=sl,
+                    take_profit=tp,
+                    risk_reward=rr,
+                    stop_pct=sp,
+                    context={"bars_analyzed": len(bars)},
+                )
+            )
 
         except Exception as exc:
             logger.debug(

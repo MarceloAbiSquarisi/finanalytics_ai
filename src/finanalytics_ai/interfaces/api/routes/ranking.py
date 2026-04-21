@@ -9,10 +9,11 @@ Exemplos:
   GET /api/v1/ranking/run?metodologia=barsi&top_n=20&min_market_cap_bi=5
   GET /api/v1/ranking/run?metodologia=composite&tickers=PETR4,VALE3,ITUB4
 """
+
 from typing import Any
 
-import structlog
 from fastapi import APIRouter, HTTPException, Query, Request
+import structlog
 
 from finanalytics_ai.application.services.ranking_service import METODOLOGIAS
 
@@ -80,9 +81,6 @@ async def run_ranking(
 async def get_metodologias() -> dict[str, Any]:
     """Lista as metodologias de ranking disponíveis."""
     return {
-        "metodologias": [
-            {"key": k, "descricao": v}
-            for k, v in METODOLOGIAS.items()
-        ],
+        "metodologias": [{"key": k, "descricao": v} for k, v in METODOLOGIAS.items()],
         "nota": "Todos os dados sao de fintz_indicadores (banco local, zero latencia)",
     }

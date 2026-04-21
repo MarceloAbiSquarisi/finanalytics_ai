@@ -17,7 +17,11 @@ from finanalytics_ai.domain.analytics.models import CandleData
 
 
 def _make_candles(
-    n: int, *, trend: float = 0.3, noise: float = 1.0, base: float = 50.0,
+    n: int,
+    *,
+    trend: float = 0.3,
+    noise: float = 1.0,
+    base: float = 50.0,
     start_date: date | None = None,
 ) -> list[CandleData]:
     """Generate synthetic OHLCV candles with optional trend."""

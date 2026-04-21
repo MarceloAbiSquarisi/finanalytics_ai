@@ -6,6 +6,7 @@ Sao pulados automaticamente se a infraestrutura nao estiver disponivel.
 
 Para rodar: DATABASE_URL=postgresql+asyncpg://... uv run pytest tests/integration -v
 """
+
 from __future__ import annotations
 
 import os

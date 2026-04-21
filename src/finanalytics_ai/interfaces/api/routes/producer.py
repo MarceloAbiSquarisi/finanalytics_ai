@@ -7,20 +7,23 @@ Rotas do BRAPI Producer — controle e observabilidade.
   GET  /producer/status   — métricas
 """
 
-import structlog
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+import structlog
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)
 
+
 class TriggerRequest(BaseModel):
     tickers: list[str] | None = None
+
 
 def _get_producer():
     from finanalytics_ai.interfaces.api.app import get_price_producer
 
     return get_price_producer()
+
 
 @router.post("/start")
 async def start_producer() -> dict:
@@ -39,17 +42,17 @@ async def start_producer() -> dict:
         if not settings.brapi_token:
             raise HTTPException(400, detail="BRAPI_TOKEN não configurado no .env")
         try:
-            import finanalytics_ai.interfaces.api.app as _app
             from finanalytics_ai.application.services.price_producer import BrapiPriceProducer
             from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
             from finanalytics_ai.infrastructure.queue.kafka_adapter import KafkaMarketEventProducer
+            import finanalytics_ai.interfaces.api.app as _app
 
             tickers = [t.strip() for t in settings.producer_tickers.split(",") if t.strip()]
             p = BrapiPriceProducer(
                 tickers=tickers,
                 poll_interval=settings.producer_poll_interval_seconds,
                 brapi_client=BrapiClient(),
-                kafka_producer=KafkaMarketEventProducer()
+                kafka_producer=KafkaMarketEventProducer(),
             )
             await p.start()
             _app._price_producer = p
@@ -61,6 +64,7 @@ async def start_producer() -> dict:
     await producer.start()
     return {"started": True, "tickers": producer.state.tickers}
 
+
 @router.post("/stop")
 async def stop_producer() -> dict:
     producer = _get_producer()
@@ -68,6 +72,7 @@ async def stop_producer() -> dict:
         return {"stopped": False, "message": "Producer não estava rodando"}
     await producer.stop()
     return {"stopped": True}
+
 
 @router.post("/trigger")
 async def trigger_cycle(body: TriggerRequest = TriggerRequest()) -> dict:
@@ -86,6 +91,7 @@ async def trigger_cycle(body: TriggerRequest = TriggerRequest()) -> dict:
         }
     except Exception as exc:
         raise HTTPException(502, detail=f"Erro ao buscar cotações BRAPI: {exc}") from exc
+
 
 @router.get("/status")
 async def producer_status() -> dict:

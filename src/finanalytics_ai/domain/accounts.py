@@ -7,18 +7,20 @@ Regras centrais:
 - Conta de simulador nunca envia ordens reais à DLL.
 - Idempotência no cadastro: mesma (broker_id, account_id, type) não duplica.
 """
+
 from __future__ import annotations
 
-import uuid
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from collections.abc import Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Optional, Protocol, Sequence
-
+from typing import Protocol
+import uuid
 
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
+
 
 class AccountType(str, Enum):
     REAL = "real"
@@ -33,6 +35,7 @@ class AccountStatus(str, Enum):
 # ---------------------------------------------------------------------------
 # Exceções de domínio
 # ---------------------------------------------------------------------------
+
 
 class AccountDomainError(Exception):
     """Base para erros de domínio de contas."""
@@ -66,6 +69,7 @@ class NoActiveAccountError(AccountDomainError):
 # Entidade
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class TradingAccount:
     """
@@ -74,19 +78,20 @@ class TradingAccount:
     `broker_id` + `account_id` + `account_type` formam a chave de negócio.
     `uuid` é o identificador interno do sistema.
     """
+
     uuid: str
-    broker_id: str          # Ex: "227" (XP), "386" (Clear)
-    account_id: str         # Número da conta na corretora
+    broker_id: str  # Ex: "227" (XP), "386" (Clear)
+    account_id: str  # Número da conta na corretora
     account_type: AccountType
-    label: str              # Nome amigável definido pelo usuário
+    label: str  # Nome amigável definido pelo usuário
     status: AccountStatus
-    routing_password: Optional[str]   # Senha de roteamento (nunca exposta em logs)
+    routing_password: str | None  # Senha de roteamento (nunca exposta em logs)
     created_at: datetime
     updated_at: datetime
 
     # Metadados opcionais vindos da DLL após sync
-    broker_name: Optional[str] = None
-    sub_account_id: Optional[str] = None
+    broker_name: str | None = None
+    sub_account_id: str | None = None
 
     @classmethod
     def create(
@@ -95,10 +100,10 @@ class TradingAccount:
         account_id: str,
         account_type: AccountType,
         label: str,
-        routing_password: Optional[str] = None,
-        sub_account_id: Optional[str] = None,
-    ) -> "TradingAccount":
-        now = datetime.now(timezone.utc)
+        routing_password: str | None = None,
+        sub_account_id: str | None = None,
+    ) -> TradingAccount:
+        now = datetime.now(UTC)
         return cls(
             uuid=str(uuid.uuid4()),
             broker_id=broker_id,
@@ -114,11 +119,11 @@ class TradingAccount:
 
     def activate(self) -> None:
         self.status = AccountStatus.ACTIVE
-        self.updated_at = datetime.now(timezone.utc)
+        self.updated_at = datetime.now(UTC)
 
     def deactivate(self) -> None:
         self.status = AccountStatus.INACTIVE
-        self.updated_at = datetime.now(timezone.utc)
+        self.updated_at = datetime.now(UTC)
 
     @property
     def is_real(self) -> bool:
@@ -147,8 +152,8 @@ class TradingAccount:
 # Repository protocol (porta — implementado na infra)
 # ---------------------------------------------------------------------------
 
-class AccountRepository(Protocol):
 
+class AccountRepository(Protocol):
     async def save(self, account: TradingAccount) -> None:
         """Persiste nova conta. Levanta DuplicateAccountError se já existe."""
         ...
@@ -162,16 +167,13 @@ class AccountRepository(Protocol):
         broker_id: str,
         account_id: str,
         account_type: AccountType,
-    ) -> Optional[TradingAccount]:
-        ...
+    ) -> TradingAccount | None: ...
 
-    async def list_all(self) -> Sequence[TradingAccount]:
-        ...
+    async def list_all(self) -> Sequence[TradingAccount]: ...
 
-    async def list_by_type(self, account_type: AccountType) -> Sequence[TradingAccount]:
-        ...
+    async def list_by_type(self, account_type: AccountType) -> Sequence[TradingAccount]: ...
 
-    async def get_active(self) -> Optional[TradingAccount]:
+    async def get_active(self) -> TradingAccount | None:
         """Retorna a conta atualmente ativa, se houver."""
         ...
 
@@ -183,8 +185,6 @@ class AccountRepository(Protocol):
         """
         ...
 
-    async def update(self, account: TradingAccount) -> None:
-        ...
+    async def update(self, account: TradingAccount) -> None: ...
 
-    async def delete(self, account_uuid: str) -> None:
-        ...
+    async def delete(self, account_uuid: str) -> None: ...

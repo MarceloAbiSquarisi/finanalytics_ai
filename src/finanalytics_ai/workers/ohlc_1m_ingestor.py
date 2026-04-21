@@ -6,10 +6,10 @@ Rodar: python -m finanalytics_ai.workers.ohlc_1m_ingestor
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 import os
 import signal
 import time
-from datetime import UTC, datetime
 
 import structlog
 

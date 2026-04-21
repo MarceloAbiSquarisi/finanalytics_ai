@@ -19,13 +19,12 @@ Design:
   - httpx async para todas as chamadas
   - Cache em memoria como fallback se Redis nao disponivel
 """
+
 from __future__ import annotations
 
-import asyncio
+from datetime import UTC, datetime
 import math
 import time
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -38,13 +37,26 @@ FNG_URL = "https://api.alternative.me/fng/?limit=7"
 
 # Mapa de simbolo -> id CoinGecko
 COIN_IDS: dict[str, str] = {
-    "BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana",
-    "BNB": "binancecoin", "XRP": "ripple", "ADA": "cardano",
-    "DOGE": "dogecoin", "DOT": "polkadot", "LINK": "chainlink",
-    "AVAX": "avalanche-2", "MATIC": "matic-network", "UNI": "uniswap",
-    "ATOM": "cosmos", "LTC": "litecoin", "BCH": "bitcoin-cash",
-    "NEAR": "near", "OP": "optimism", "ARB": "arbitrum",
-    "SHIB": "shiba-inu", "PEPE": "pepe",
+    "BTC": "bitcoin",
+    "ETH": "ethereum",
+    "SOL": "solana",
+    "BNB": "binancecoin",
+    "XRP": "ripple",
+    "ADA": "cardano",
+    "DOGE": "dogecoin",
+    "DOT": "polkadot",
+    "LINK": "chainlink",
+    "AVAX": "avalanche-2",
+    "MATIC": "matic-network",
+    "UNI": "uniswap",
+    "ATOM": "cosmos",
+    "LTC": "litecoin",
+    "BCH": "bitcoin-cash",
+    "NEAR": "near",
+    "OP": "optimism",
+    "ARB": "arbitrum",
+    "SHIB": "shiba-inu",
+    "PEPE": "pepe",
 }
 
 # Cache em memoria simples
@@ -69,13 +81,14 @@ def symbol_to_id(symbol: str) -> str:
 
 # ── Analise Tecnica (stdlib puro) ─────────────────────────────────────────────
 
+
 def _sma(prices: list[float], period: int) -> list[float]:
     result = []
     for i in range(len(prices)):
         if i < period - 1:
             result.append(float("nan"))
         else:
-            result.append(sum(prices[i - period + 1:i + 1]) / period)
+            result.append(sum(prices[i - period + 1 : i + 1]) / period)
     return result
 
 
@@ -110,9 +123,9 @@ def _rsi(prices: list[float], period: int = 14) -> list[float]:
     return result
 
 
-def _macd(prices: list[float],
-          fast: int = 12, slow: int = 26, signal: int = 9
-          ) -> tuple[list[float], list[float], list[float]]:
+def _macd(
+    prices: list[float], fast: int = 12, slow: int = 26, signal: int = 9
+) -> tuple[list[float], list[float], list[float]]:
     ema_fast = _ema(prices, fast)
     ema_slow = _ema(prices, slow)
     macd_line = [
@@ -134,8 +147,9 @@ def _macd(prices: list[float],
     return macd_line, signal_line, histogram
 
 
-def _bollinger(prices: list[float], period: int = 20,
-               std_mult: float = 2.0) -> tuple[list[float], list[float], list[float]]:
+def _bollinger(
+    prices: list[float], period: int = 20, std_mult: float = 2.0
+) -> tuple[list[float], list[float], list[float]]:
     mid = _sma(prices, period)
     upper, lower = [], []
     for i, m in enumerate(mid):
@@ -143,7 +157,7 @@ def _bollinger(prices: list[float], period: int = 20,
             upper.append(float("nan"))
             lower.append(float("nan"))
         else:
-            window = prices[i - period + 1:i + 1]
+            window = prices[i - period + 1 : i + 1]
             mean = m
             std = math.sqrt(sum((x - mean) ** 2 for x in window) / period)
             upper.append(m + std_mult * std)
@@ -203,22 +217,26 @@ def _calc_technical(closes: list[float]) -> dict[str, Any]:
             signals.append("Abaixo da Banda Inferior")
 
     return {
-        "rsi":         round(rsi_val, 2) if not math.isnan(rsi_val) else None,
-        "macd":        round(macd_val, 4) if not math.isnan(macd_val) else None,
+        "rsi": round(rsi_val, 2) if not math.isnan(rsi_val) else None,
+        "macd": round(macd_val, 4) if not math.isnan(macd_val) else None,
         "macd_signal": round(sig_val, 4) if not math.isnan(sig_val) else None,
-        "macd_hist":   round(_last_valid(macd_h), 4),
-        "ema9":        round(e9, 2) if not math.isnan(e9) else None,
-        "ema21":       round(e21, 2) if not math.isnan(e21) else None,
-        "ema50":       round(_last_valid(ema50), 2),
-        "bb_upper":    round(bb_u, 2) if not math.isnan(bb_u) else None,
-        "bb_mid":      round(_last_valid(bb_mid), 2),
-        "bb_lower":    round(bb_l, 2) if not math.isnan(bb_l) else None,
-        "signals":     signals,
-        "bias":        "ALTA" if signals.count("bullish") + signals.count("alta") > signals.count("bearish") + signals.count("baixa") else "BAIXA",
+        "macd_hist": round(_last_valid(macd_h), 4),
+        "ema9": round(e9, 2) if not math.isnan(e9) else None,
+        "ema21": round(e21, 2) if not math.isnan(e21) else None,
+        "ema50": round(_last_valid(ema50), 2),
+        "bb_upper": round(bb_u, 2) if not math.isnan(bb_u) else None,
+        "bb_mid": round(_last_valid(bb_mid), 2),
+        "bb_lower": round(bb_l, 2) if not math.isnan(bb_l) else None,
+        "signals": signals,
+        "bias": "ALTA"
+        if signals.count("bullish") + signals.count("alta")
+        > signals.count("bearish") + signals.count("baixa")
+        else "BAIXA",
     }
 
 
 # ── CryptoService ─────────────────────────────────────────────────────────────
+
 
 class CryptoService:
     """Servico de criptoativos via CoinGecko + alternative.me."""
@@ -259,25 +277,29 @@ class CryptoService:
 
             result = []
             for coin in data:
-                result.append({
-                    "id":            coin.get("id"),
-                    "symbol":        coin.get("symbol", "").upper(),
-                    "name":          coin.get("name"),
-                    "image":         coin.get("image"),
-                    "price":         coin.get("current_price", 0),
-                    "market_cap":    coin.get("market_cap", 0),
-                    "volume_24h":    coin.get("total_volume", 0),
-                    "chg_1h":        round(coin.get("price_change_percentage_1h_in_currency") or 0, 2),
-                    "chg_24h":       round(coin.get("price_change_percentage_24h") or 0, 2),
-                    "chg_7d":        round(coin.get("price_change_percentage_7d_in_currency") or 0, 2),
-                    "chg_30d":       round(coin.get("price_change_percentage_30d_in_currency") or 0, 2),
-                    "high_24h":      coin.get("high_24h", 0),
-                    "low_24h":       coin.get("low_24h", 0),
-                    "ath":           coin.get("ath", 0),
-                    "ath_change_pct":round(coin.get("ath_change_percentage") or 0, 2),
-                    "rank":          coin.get("market_cap_rank"),
-                    "vs_currency":   vs_currency,
-                })
+                result.append(
+                    {
+                        "id": coin.get("id"),
+                        "symbol": coin.get("symbol", "").upper(),
+                        "name": coin.get("name"),
+                        "image": coin.get("image"),
+                        "price": coin.get("current_price", 0),
+                        "market_cap": coin.get("market_cap", 0),
+                        "volume_24h": coin.get("total_volume", 0),
+                        "chg_1h": round(coin.get("price_change_percentage_1h_in_currency") or 0, 2),
+                        "chg_24h": round(coin.get("price_change_percentage_24h") or 0, 2),
+                        "chg_7d": round(coin.get("price_change_percentage_7d_in_currency") or 0, 2),
+                        "chg_30d": round(
+                            coin.get("price_change_percentage_30d_in_currency") or 0, 2
+                        ),
+                        "high_24h": coin.get("high_24h", 0),
+                        "low_24h": coin.get("low_24h", 0),
+                        "ath": coin.get("ath", 0),
+                        "ath_change_pct": round(coin.get("ath_change_percentage") or 0, 2),
+                        "rank": coin.get("market_cap_rank"),
+                        "vs_currency": vs_currency,
+                    }
+                )
 
             _cache_set(cache_key, result)
             return result
@@ -311,22 +333,22 @@ class CryptoService:
                 return {}
 
             closes = [c[4] for c in ohlc]
-            highs  = [c[2] for c in ohlc]
-            lows   = [c[3] for c in ohlc]
-            times  = [c[0] for c in ohlc]
+            highs = [c[2] for c in ohlc]
+            lows = [c[3] for c in ohlc]
+            times = [c[0] for c in ohlc]
 
             technical = _calc_technical(closes)
 
             result = {
-                "symbol":     symbol.upper(),
-                "coin_id":    coin_id,
-                "days":       days,
+                "symbol": symbol.upper(),
+                "coin_id": coin_id,
+                "days": days,
                 "vs_currency": vs_currency,
-                "ohlc":       ohlc[-60:],  # ultimos 60 candles para o grafico
-                "closes":     closes,
-                "technical":  technical,
+                "ohlc": ohlc[-60:],  # ultimos 60 candles para o grafico
+                "closes": closes,
+                "technical": technical,
                 "last_price": closes[-1] if closes else 0,
-                "last_updated": datetime.now(timezone.utc).isoformat(),
+                "last_updated": datetime.now(UTC).isoformat(),
             }
             _cache_set(cache_key, result)
             return result
@@ -357,9 +379,9 @@ class CryptoService:
                     {
                         "value": int(d["value"]),
                         "classification": d["value_classification"],
-                        "date": datetime.fromtimestamp(
-                            int(d["timestamp"]), tz=timezone.utc
-                        ).strftime("%Y-%m-%d"),
+                        "date": datetime.fromtimestamp(int(d["timestamp"]), tz=UTC).strftime(
+                            "%Y-%m-%d"
+                        ),
                     }
                     for d in items
                 ],
@@ -383,13 +405,13 @@ class CryptoService:
             d = r.json().get("data", {})
 
             result = {
-                "total_market_cap_usd":   d.get("total_market_cap", {}).get("usd", 0),
-                "total_market_cap_brl":   d.get("total_market_cap", {}).get("brl", 0),
-                "total_volume_24h_usd":   d.get("total_volume", {}).get("usd", 0),
-                "btc_dominance":          round(d.get("market_cap_percentage", {}).get("btc", 0), 2),
-                "eth_dominance":          round(d.get("market_cap_percentage", {}).get("eth", 0), 2),
-                "active_coins":           d.get("active_cryptocurrencies", 0),
-                "chg_24h_pct":            round(d.get("market_cap_change_percentage_24h_usd", 0), 2),
+                "total_market_cap_usd": d.get("total_market_cap", {}).get("usd", 0),
+                "total_market_cap_brl": d.get("total_market_cap", {}).get("brl", 0),
+                "total_volume_24h_usd": d.get("total_volume", {}).get("usd", 0),
+                "btc_dominance": round(d.get("market_cap_percentage", {}).get("btc", 0), 2),
+                "eth_dominance": round(d.get("market_cap_percentage", {}).get("eth", 0), 2),
+                "active_coins": d.get("active_cryptocurrencies", 0),
+                "chg_24h_pct": round(d.get("market_cap_change_percentage_24h_usd", 0), 2),
             }
             _cache_set("global", result)
             return result
@@ -409,7 +431,13 @@ class CryptoService:
         positions: [{"symbol": "BTC", "quantity": 0.5, "avg_price": 280000, "currency": "brl"}]
         """
         if not positions:
-            return {"positions": [], "total_invested": 0, "total_current": 0, "pnl": 0, "pnl_pct": 0}
+            return {
+                "positions": [],
+                "total_invested": 0,
+                "total_current": 0,
+                "pnl": 0,
+                "pnl_pct": 0,
+            }
 
         symbols = list({p["symbol"].upper() for p in positions})
         prices_data = await self.get_prices(symbols, vs_currency)
@@ -435,36 +463,40 @@ class CryptoService:
 
             coin_data = next((c for c in prices_data if c["symbol"] == sym), {})
 
-            result_positions.append({
-                "symbol":        sym,
-                "name":          coin_data.get("name", sym),
-                "image":         coin_data.get("image", ""),
-                "quantity":      qty,
-                "avg_price":     avg_price,
-                "current_price": current_price,
-                "invested":      round(invested, 2),
-                "current_value": round(current, 2),
-                "pnl":           round(pnl, 2),
-                "pnl_pct":       round(pnl_pct, 2),
-                "chg_24h":       coin_data.get("chg_24h", 0),
-                "weight_pct":    0,  # calculado abaixo
-            })
+            result_positions.append(
+                {
+                    "symbol": sym,
+                    "name": coin_data.get("name", sym),
+                    "image": coin_data.get("image", ""),
+                    "quantity": qty,
+                    "avg_price": avg_price,
+                    "current_price": current_price,
+                    "invested": round(invested, 2),
+                    "current_value": round(current, 2),
+                    "pnl": round(pnl, 2),
+                    "pnl_pct": round(pnl_pct, 2),
+                    "chg_24h": coin_data.get("chg_24h", 0),
+                    "weight_pct": 0,  # calculado abaixo
+                }
+            )
 
         # Calcula peso
         for p in result_positions:
-            p["weight_pct"] = round(p["current_value"] / total_current * 100, 2) if total_current > 0 else 0
+            p["weight_pct"] = (
+                round(p["current_value"] / total_current * 100, 2) if total_current > 0 else 0
+            )
 
         total_pnl = total_current - total_invested
         total_pnl_pct = (total_pnl / total_invested * 100) if total_invested > 0 else 0
 
         return {
-            "positions":      sorted(result_positions, key=lambda x: x["current_value"], reverse=True),
-            "total_invested":  round(total_invested, 2),
-            "total_current":   round(total_current, 2),
-            "pnl":             round(total_pnl, 2),
-            "pnl_pct":         round(total_pnl_pct, 2),
-            "vs_currency":     vs_currency,
-            "calculated_at":   datetime.now(timezone.utc).isoformat(),
+            "positions": sorted(result_positions, key=lambda x: x["current_value"], reverse=True),
+            "total_invested": round(total_invested, 2),
+            "total_current": round(total_current, 2),
+            "pnl": round(total_pnl, 2),
+            "pnl_pct": round(total_pnl_pct, 2),
+            "vs_currency": vs_currency,
+            "calculated_at": datetime.now(UTC).isoformat(),
         }
 
     async def parse_csv(self, content: str) -> list[dict]:
@@ -495,16 +527,20 @@ class CryptoService:
             if len(parts) < 3:
                 continue
             try:
-                symbol = parts[0].upper().replace("-USDT", "").replace("-BRL", "").replace("-USD", "")
+                symbol = (
+                    parts[0].upper().replace("-USDT", "").replace("-BRL", "").replace("-USD", "")
+                )
                 quantity = float(parts[1].replace(",", "."))
                 avg_price = float(parts[2].replace(",", "."))
                 currency = parts[3].lower() if len(parts) > 3 else "brl"
-                positions.append({
-                    "symbol": symbol,
-                    "quantity": quantity,
-                    "avg_price": avg_price,
-                    "currency": currency,
-                })
+                positions.append(
+                    {
+                        "symbol": symbol,
+                        "quantity": quantity,
+                        "avg_price": avg_price,
+                        "currency": currency,
+                    }
+                )
             except (ValueError, IndexError):
                 continue
 

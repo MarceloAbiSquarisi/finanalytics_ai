@@ -27,7 +27,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from finanalytics_ai.domain.events.entities import (
     Event,
-    EventId,
     EventProcessingRecord,
     EventStatus,
     EventType,

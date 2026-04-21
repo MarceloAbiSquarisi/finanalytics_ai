@@ -148,39 +148,55 @@ def aggregate_weekly(candles: list[CandleData]) -> list[CandleData]:
 
 
 def _detect_ifr2_oversold(
-    ind: IndicatorResult, ticker: str, tipo: str,
+    ind: IndicatorResult,
+    ticker: str,
+    tipo: str,
 ) -> SetupDetection | None:
     if ind.rsi_2 is None or ind.rsi_2 >= 25:
         return None
     strength = _clamp_strength((25 - ind.rsi_2) / 25)
     return SetupDetection(
-        ticker=ticker, tipo=tipo, setup_name="ifr2_oversold",
+        ticker=ticker,
+        tipo=tipo,
+        setup_name="ifr2_oversold",
         descricao=SETUP_DEFS["ifr2_oversold"]["descricao"],
-        direcao="long", timeframe="daily", strength=round(strength, 3),
+        direcao="long",
+        timeframe="daily",
+        strength=round(strength, 3),
         date=ind.date,
         details={"rsi_2": ind.rsi_2, "close": ind.close},
-        entry_price=ind.close, stop_price=ind.low,
+        entry_price=ind.close,
+        stop_price=ind.low,
     )
 
 
 def _detect_ifr2_overbought(
-    ind: IndicatorResult, ticker: str, tipo: str,
+    ind: IndicatorResult,
+    ticker: str,
+    tipo: str,
 ) -> SetupDetection | None:
     if ind.rsi_2 is None or ind.rsi_2 <= 80:
         return None
     strength = _clamp_strength((ind.rsi_2 - 80) / 20)
     return SetupDetection(
-        ticker=ticker, tipo=tipo, setup_name="ifr2_overbought",
+        ticker=ticker,
+        tipo=tipo,
+        setup_name="ifr2_overbought",
         descricao=SETUP_DEFS["ifr2_overbought"]["descricao"],
-        direcao="short", timeframe="daily", strength=round(strength, 3),
+        direcao="short",
+        timeframe="daily",
+        strength=round(strength, 3),
         date=ind.date,
         details={"rsi_2": ind.rsi_2, "close": ind.close},
-        entry_price=ind.close, stop_price=ind.high,
+        entry_price=ind.close,
+        stop_price=ind.high,
     )
 
 
 def _detect_parada_na_20(
-    ind: IndicatorResult, ticker: str, tipo: str,
+    ind: IndicatorResult,
+    ticker: str,
+    tipo: str,
 ) -> SetupDetection | None:
     if ind.ema_20 is None:
         return None
@@ -190,17 +206,25 @@ def _detect_parada_na_20(
     ema200_ok = ind.ema_200 is None or ind.close > ind.ema_200
     strength = 0.7 if ema200_ok else 0.5
     return SetupDetection(
-        ticker=ticker, tipo=tipo, setup_name="parada_na_20",
+        ticker=ticker,
+        tipo=tipo,
+        setup_name="parada_na_20",
         descricao=SETUP_DEFS["parada_na_20"]["descricao"],
-        direcao="long", timeframe="daily", strength=round(strength, 3),
+        direcao="long",
+        timeframe="daily",
+        strength=round(strength, 3),
         date=ind.date,
         details={"ema_20": ind.ema_20, "ema_200": ind.ema_200, "close": ind.close, "low": ind.low},
-        entry_price=ind.close, stop_price=ind.low,
+        entry_price=ind.close,
+        stop_price=ind.low,
     )
 
 
 def _detect_hdv(
-    ind: IndicatorResult, prev: IndicatorResult | None, ticker: str, tipo: str,
+    ind: IndicatorResult,
+    prev: IndicatorResult | None,
+    ticker: str,
+    tipo: str,
 ) -> SetupDetection | None:
     if ind.adx_8 is None or ind.adx_8 <= 20:
         return None
@@ -212,17 +236,24 @@ def _detect_hdv(
         return None
     strength = _clamp_strength((ind.adx_8 - 20) / 30)
     return SetupDetection(
-        ticker=ticker, tipo=tipo, setup_name="hdv",
+        ticker=ticker,
+        tipo=tipo,
+        setup_name="hdv",
         descricao=SETUP_DEFS["hdv"]["descricao"],
-        direcao="long", timeframe="daily", strength=round(strength, 3),
+        direcao="long",
+        timeframe="daily",
+        strength=round(strength, 3),
         date=ind.date,
         details={"adx_8": ind.adx_8, "prev_adx_8": prev.adx_8, "close": ind.close},
-        entry_price=ind.close, stop_price=ind.low,
+        entry_price=ind.close,
+        stop_price=ind.low,
     )
 
 
 def _detect_ema_alinhadas_alta(
-    ind: IndicatorResult, ticker: str, tipo: str,
+    ind: IndicatorResult,
+    ticker: str,
+    tipo: str,
 ) -> SetupDetection | None:
     if ind.ema_8 is None or ind.ema_20 is None or ind.ema_80 is None:
         return None
@@ -232,9 +263,13 @@ def _detect_ema_alinhadas_alta(
     spread = (ind.ema_8 - ind.ema_80) / ind.close if ind.close else 0
     strength = _clamp_strength(spread * 10)
     return SetupDetection(
-        ticker=ticker, tipo=tipo, setup_name="ema_alinhadas_alta",
+        ticker=ticker,
+        tipo=tipo,
+        setup_name="ema_alinhadas_alta",
         descricao=SETUP_DEFS["ema_alinhadas_alta"]["descricao"],
-        direcao="long", timeframe="daily", strength=round(strength, 3),
+        direcao="long",
+        timeframe="daily",
+        strength=round(strength, 3),
         date=ind.date,
         details={"ema_8": ind.ema_8, "ema_20": ind.ema_20, "ema_80": ind.ema_80},
         entry_price=ind.close,
@@ -242,7 +277,9 @@ def _detect_ema_alinhadas_alta(
 
 
 def _detect_bb_squeeze(
-    ind: IndicatorResult, ticker: str, tipo: str,
+    ind: IndicatorResult,
+    ticker: str,
+    tipo: str,
 ) -> SetupDetection | None:
     if ind.bb_upper is None or ind.bb_lower is None or ind.bb_middle is None:
         return None
@@ -253,17 +290,28 @@ def _detect_bb_squeeze(
         return None
     strength = _clamp_strength((0.05 - bandwidth) / 0.05)
     return SetupDetection(
-        ticker=ticker, tipo=tipo, setup_name="bb_squeeze",
+        ticker=ticker,
+        tipo=tipo,
+        setup_name="bb_squeeze",
         descricao=SETUP_DEFS["bb_squeeze"]["descricao"],
-        direcao="neutral", timeframe="daily", strength=round(strength, 3),
+        direcao="neutral",
+        timeframe="daily",
+        strength=round(strength, 3),
         date=ind.date,
-        details={"bb_upper": ind.bb_upper, "bb_lower": ind.bb_lower, "bb_middle": ind.bb_middle, "bandwidth": round(bandwidth, 6)},
+        details={
+            "bb_upper": ind.bb_upper,
+            "bb_lower": ind.bb_lower,
+            "bb_middle": ind.bb_middle,
+            "bandwidth": round(bandwidth, 6),
+        },
         entry_price=ind.close,
     )
 
 
 def _detect_candle_pavio(
-    ind: IndicatorResult, ticker: str, tipo: str,
+    ind: IndicatorResult,
+    ticker: str,
+    tipo: str,
 ) -> SetupDetection | None:
     amplitude = ind.high - ind.low
     if amplitude <= 0:
@@ -274,17 +322,27 @@ def _detect_candle_pavio(
         return None
     strength = _clamp_strength((0.30 - ratio) / 0.30)
     return SetupDetection(
-        ticker=ticker, tipo=tipo, setup_name="candle_pavio",
+        ticker=ticker,
+        tipo=tipo,
+        setup_name="candle_pavio",
         descricao=SETUP_DEFS["candle_pavio"]["descricao"],
-        direcao="neutral", timeframe="daily", strength=round(strength, 3),
+        direcao="neutral",
+        timeframe="daily",
+        strength=round(strength, 3),
         date=ind.date,
-        details={"corpo": round(corpo, 4), "amplitude": round(amplitude, 4), "ratio": round(ratio, 4)},
+        details={
+            "corpo": round(corpo, 4),
+            "amplitude": round(amplitude, 4),
+            "ratio": round(ratio, 4),
+        },
         entry_price=ind.close,
     )
 
 
 def _detect_inside_bar_weekly(
-    weekly_candles: list[CandleData], ticker: str, tipo: str,
+    weekly_candles: list[CandleData],
+    ticker: str,
+    tipo: str,
 ) -> SetupDetection | None:
     if len(weekly_candles) < 2:
         return None
@@ -293,13 +351,19 @@ def _detect_inside_bar_weekly(
     if curr.high < prev.high and curr.low > prev.low:
         strength = _clamp_strength(1.0 - (curr.high - curr.low) / (prev.high - prev.low))
         return SetupDetection(
-            ticker=ticker, tipo=tipo, setup_name="inside_bar",
+            ticker=ticker,
+            tipo=tipo,
+            setup_name="inside_bar",
             descricao=SETUP_DEFS["inside_bar"]["descricao"],
-            direcao="neutral", timeframe="weekly", strength=round(strength, 3),
+            direcao="neutral",
+            timeframe="weekly",
+            strength=round(strength, 3),
             date=curr.date,
             details={
-                "curr_high": curr.high, "curr_low": curr.low,
-                "prev_high": prev.high, "prev_low": prev.low,
+                "curr_high": curr.high,
+                "curr_low": curr.low,
+                "prev_high": prev.high,
+                "prev_low": prev.low,
             },
             entry_price=curr.close,
         )
@@ -307,7 +371,9 @@ def _detect_inside_bar_weekly(
 
 
 def _detect_ifr14_weekly_oversold(
-    weekly_indicators: list[IndicatorResult], ticker: str, tipo: str,
+    weekly_indicators: list[IndicatorResult],
+    ticker: str,
+    tipo: str,
 ) -> SetupDetection | None:
     if not weekly_indicators:
         return None
@@ -316,9 +382,13 @@ def _detect_ifr14_weekly_oversold(
         return None
     strength = _clamp_strength((30 - last.rsi_14) / 30)
     return SetupDetection(
-        ticker=ticker, tipo=tipo, setup_name="ifr14_weekly_oversold",
+        ticker=ticker,
+        tipo=tipo,
+        setup_name="ifr14_weekly_oversold",
         descricao=SETUP_DEFS["ifr14_weekly_oversold"]["descricao"],
-        direcao="long", timeframe="weekly", strength=round(strength, 3),
+        direcao="long",
+        timeframe="weekly",
+        strength=round(strength, 3),
         date=last.date,
         details={"rsi_14": last.rsi_14, "close": last.close},
         entry_price=last.close,

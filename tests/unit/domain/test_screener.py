@@ -459,7 +459,9 @@ class TestScreenerService:
         svc = self._make_svc()
         raw = [_brapi_raw(f"T{i}") for i in range(5)]
         self._patch_brapi(svc, raw)
-        r = await svc.screen(FilterCriteria(), extra_tickers=[f"T{i}" for i in range(5)], use_universe=False)
+        r = await svc.screen(
+            FilterCriteria(), extra_tickers=[f"T{i}" for i in range(5)], use_universe=False
+        )
         assert r.total_universe == 5
 
     @pytest.mark.asyncio

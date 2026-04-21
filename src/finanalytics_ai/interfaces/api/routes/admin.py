@@ -13,19 +13,19 @@ Endpoints:
   DELETE /api/v1/admin/agents/{id}
   POST   /api/v1/admin/bootstrap
 """
-import secrets
+
 import uuid
 
-import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
+import structlog
 
 from finanalytics_ai.domain.auth.entities import User, UserRole
 from finanalytics_ai.infrastructure.auth.password_hasher import get_password_hasher
 from finanalytics_ai.infrastructure.database.repositories.admin_repo import FinancialAgentRepository
 from finanalytics_ai.infrastructure.database.repositories.user_repo import UserModel, UserRepository
 from finanalytics_ai.interfaces.api.dependencies import get_current_user, get_db_session
-from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/admin", tags=["Admin"])
@@ -34,12 +34,15 @@ MASTER_EMAIL = "marceloabisquarisi@gmail.com"
 
 # ── Guard ─────────────────────────────────────────────────────────────────────
 
+
 def require_master(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role not in (UserRole.MASTER, UserRole.ADMIN):
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Acesso restrito a administradores.")
     return current_user
 
+
 # ── Schemas ───────────────────────────────────────────────────────────────────
+
 
 class CreateUserRequest(BaseModel):
     email: str = Field(..., min_length=5)
@@ -47,11 +50,14 @@ class CreateUserRequest(BaseModel):
     password: str = Field(..., min_length=8)
     role: str = Field(default="user")
 
+
 class ChangeRoleRequest(BaseModel):
     role: str
 
+
 class ResetPasswordRequest(BaseModel):
     new_password: str = Field(..., min_length=8)
+
 
 class AgentCreate(BaseModel):
     name: str = Field(..., min_length=2)
@@ -62,6 +68,7 @@ class AgentCreate(BaseModel):
     is_active: bool = True
     note: str | None = None
 
+
 class AgentUpdate(BaseModel):
     name: str | None = None
     code: str | None = None
@@ -71,14 +78,15 @@ class AgentUpdate(BaseModel):
     is_active: bool | None = None
     note: str | None = None
 
+
 # ── Bootstrap ─────────────────────────────────────────────────────────────────
+
 
 async def run_bootstrap(session: AsyncSession) -> dict:
     """Garante que marceloabisquarisi é sempre MASTER."""
     from sqlalchemy import select, update as sa_update
-    res = await session.execute(
-        select(UserModel).where(UserModel.email == MASTER_EMAIL)
-    )
+
+    res = await session.execute(select(UserModel).where(UserModel.email == MASTER_EMAIL))
     user = res.scalar_one_or_none()
     if not user:
         return {"status": "not_found", "email": MASTER_EMAIL}
@@ -93,21 +101,22 @@ async def run_bootstrap(session: AsyncSession) -> dict:
     logger.info("bootstrap.master_promoted", email=MASTER_EMAIL)
     return {"status": "promoted", "user_id": user.user_id}
 
+
 @router.post("/bootstrap", status_code=200, include_in_schema=False)
 async def bootstrap(session: AsyncSession = Depends(get_db_session)) -> dict:
     return await run_bootstrap(session)
 
+
 # ── Users ─────────────────────────────────────────────────────────────────────
+
 
 @router.get("/users")
 async def list_users(
-    _: User = Depends(require_master),
-    session: AsyncSession = Depends(get_db_session)
+    _: User = Depends(require_master), session: AsyncSession = Depends(get_db_session)
 ) -> list[dict]:
     from sqlalchemy import select
-    res = await session.execute(
-        select(UserModel).order_by(UserModel.created_at.desc())
-    )
+
+    res = await session.execute(select(UserModel).order_by(UserModel.created_at.desc()))
     users = res.scalars().all()
     return [
         {
@@ -123,11 +132,12 @@ async def list_users(
         for u in users
     ]
 
+
 @router.post("/users", status_code=201)
 async def create_user(
     body: CreateUserRequest,
     _: User = Depends(require_master),
-    session: AsyncSession = Depends(get_db_session)
+    session: AsyncSession = Depends(get_db_session),
 ) -> dict:
     repo = UserRepository(session)
     if await repo.email_exists(body.email):
@@ -135,7 +145,9 @@ async def create_user(
     try:
         role = UserRole(body.role)
     except ValueError:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Role inválido: {body.role}")
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Role inválido: {body.role}"
+        )
     hasher = get_password_hasher()
     user = User(
         user_id=str(uuid.uuid4()),
@@ -143,33 +155,41 @@ async def create_user(
         hashed_password=hasher.hash(body.password),
         full_name=body.full_name,
         role=role,
-        is_active=True
+        is_active=True,
     )
     created = await repo.create(user)
     await session.commit()
     return {"user_id": created.user_id, "email": created.email, "role": created.role.value}
+
 
 @router.patch("/users/{user_id}/role")
 async def change_role(
     user_id: str,
     body: ChangeRoleRequest,
     actor: User = Depends(require_master),
-    session: AsyncSession = Depends(get_db_session)
+    session: AsyncSession = Depends(get_db_session),
 ) -> dict:
     from sqlalchemy import update as sa_update
+
     # Protege o dono do sistema
     res = await session.execute(
-        __import__("sqlalchemy", fromlist=["select"]).select(UserModel).where(UserModel.user_id == user_id)
+        __import__("sqlalchemy", fromlist=["select"])
+        .select(UserModel)
+        .where(UserModel.user_id == user_id)
     )
     target = res.scalar_one_or_none()
     if not target:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado.")
     if target.email == MASTER_EMAIL and body.role != UserRole.MASTER.value:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Não é possível rebaixar o usuário master do sistema.")
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, detail="Não é possível rebaixar o usuário master do sistema."
+        )
     try:
         UserRole(body.role)
     except ValueError:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Role inválido: {body.role}")
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Role inválido: {body.role}"
+        )
     await session.execute(
         sa_update(UserModel).where(UserModel.user_id == user_id).values(role=body.role)
     )
@@ -177,19 +197,23 @@ async def change_role(
     logger.info("admin.role_changed", target=user_id, role=body.role, actor=actor.user_id)
     return {"user_id": user_id, "role": body.role}
 
+
 @router.patch("/users/{user_id}/active")
 async def toggle_active(
     user_id: str,
     actor: User = Depends(require_master),
-    session: AsyncSession = Depends(get_db_session)
+    session: AsyncSession = Depends(get_db_session),
 ) -> dict:
     from sqlalchemy import select, update as sa_update
+
     res = await session.execute(select(UserModel).where(UserModel.user_id == user_id))
     target = res.scalar_one_or_none()
     if not target:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado.")
     if target.email == MASTER_EMAIL:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Não é possível desativar o usuário master.")
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, detail="Não é possível desativar o usuário master."
+        )
     new_status = not target.is_active
     await session.execute(
         sa_update(UserModel).where(UserModel.user_id == user_id).values(is_active=new_status)
@@ -198,14 +222,16 @@ async def toggle_active(
     logger.info("admin.active_toggled", target=user_id, is_active=new_status, actor=actor.user_id)
     return {"user_id": user_id, "is_active": new_status}
 
+
 @router.post("/users/{user_id}/reset-password")
 async def admin_reset_password(
     user_id: str,
     body: ResetPasswordRequest,
     actor: User = Depends(require_master),
-    session: AsyncSession = Depends(get_db_session)
+    session: AsyncSession = Depends(get_db_session),
 ) -> dict:
     from sqlalchemy import select
+
     res = await session.execute(select(UserModel).where(UserModel.user_id == user_id))
     target = res.scalar_one_or_none()
     if not target:
@@ -218,43 +244,49 @@ async def admin_reset_password(
     logger.info("admin.password_reset", target=user_id, actor=actor.user_id)
     return {"message": "Senha redefinida com sucesso."}
 
+
 # ── Financial Agents ──────────────────────────────────────────────────────────
+
 
 @router.get("/agents")
 async def list_agents(
-    _: User = Depends(require_master),
-    session: AsyncSession = Depends(get_db_session)
+    _: User = Depends(require_master), session: AsyncSession = Depends(get_db_session)
 ) -> list[dict]:
     return await FinancialAgentRepository(session).list_all()
+
 
 @router.post("/agents", status_code=201)
 async def create_agent(
     body: AgentCreate,
     _: User = Depends(require_master),
-    session: AsyncSession = Depends(get_db_session)
+    session: AsyncSession = Depends(get_db_session),
 ) -> dict:
     agent = await FinancialAgentRepository(session).create(body.model_dump())
     await session.commit()
     return agent
+
 
 @router.patch("/agents/{agent_id}")
 async def update_agent(
     agent_id: str,
     body: AgentUpdate,
     _: User = Depends(require_master),
-    session: AsyncSession = Depends(get_db_session)
+    session: AsyncSession = Depends(get_db_session),
 ) -> dict:
-    updated = await FinancialAgentRepository(session).update(agent_id, body.model_dump(exclude_none=True))
+    updated = await FinancialAgentRepository(session).update(
+        agent_id, body.model_dump(exclude_none=True)
+    )
     if not updated:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Agente não encontrado.")
     await session.commit()
     return updated
 
+
 @router.delete("/agents/{agent_id}", status_code=204)
 async def delete_agent(
     agent_id: str,
     _: User = Depends(require_master),
-    session: AsyncSession = Depends(get_db_session)
+    session: AsyncSession = Depends(get_db_session),
 ) -> None:
     ok = await FinancialAgentRepository(session).delete(agent_id)
     if not ok:

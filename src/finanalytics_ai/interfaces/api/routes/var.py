@@ -6,11 +6,12 @@ Rotas de Value at Risk (VaR).
 POST /api/v1/var/calculate  -- calcula VaR para uma carteira
 GET  /api/v1/var/portfolio/{portfolio_id}  -- VaR da carteira do usuario
 """
+
 from typing import Any
 
-import structlog
-from fastapi import APIRouter, HTTPException, Path, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+import structlog
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/var", tags=["VaR"])
@@ -38,8 +39,10 @@ class VaRRequest(BaseModel):
 @router.post("/calculate", summary="Calcula VaR para uma lista de posicoes")
 async def calculate_var(body: VaRRequest, request: Request) -> dict[str, Any]:
     svc = _get_service(request)
-    positions = [{"ticker": p.ticker, "quantity": p.quantity, "average_price": p.average_price}
-                 for p in body.positions]
+    positions = [
+        {"ticker": p.ticker, "quantity": p.quantity, "average_price": p.average_price}
+        for p in body.positions
+    ]
     try:
         result = await svc.calculate(
             positions=positions,

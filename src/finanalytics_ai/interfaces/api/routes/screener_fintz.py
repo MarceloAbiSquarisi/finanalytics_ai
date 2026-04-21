@@ -12,11 +12,12 @@ Diferenca do screener BRAPI (/api/v1/screener/run):
   - Universo dinamico: todos os tickers com dados no banco
   - Resposta mais rapida (sem latencia de rede)
 """
+
 from typing import Any
 
-import structlog
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
+import structlog
 
 from finanalytics_ai.domain.screener.engine import FilterCriteria
 
@@ -177,15 +178,43 @@ async def get_fields() -> dict[str, Any]:
     """Descreve os campos de filtro e seus indicadores Fintz correspondentes."""
     return {
         "fields": [
-            {"field": "pe_min/pe_max",         "indicador": "P_L",                          "descricao": "Preco/Lucro"},
-            {"field": "pvp_min/pvp_max",        "indicador": "P_VP",                         "descricao": "Preco/Valor Patrimonial"},
-            {"field": "dy_min/dy_max",          "indicador": "DividendYield",                "descricao": "Dividend Yield (%)"},
-            {"field": "roe_min/roe_max",        "indicador": "ROE",                          "descricao": "Return on Equity (%)"},
-            {"field": "roic_min/roic_max",      "indicador": "ROIC",                         "descricao": "Return on Invested Capital (%)"},
-            {"field": "ebitda_margin_min/max",  "indicador": "MargemEBITDA",                 "descricao": "Margem EBITDA (%)"},
-            {"field": "net_margin_min/max",     "indicador": "MargemLiquida",                "descricao": "Margem Liquida (%)"},
-            {"field": "debt_equity_max",        "indicador": "DividaLiquida_PatrimonioLiquido", "descricao": "Divida Liquida / PL"},
-            {"field": "market_cap_min/max",     "indicador": "ValorDeMercado",               "descricao": "Market Cap (R$ bilhoes)"},
+            {"field": "pe_min/pe_max", "indicador": "P_L", "descricao": "Preco/Lucro"},
+            {
+                "field": "pvp_min/pvp_max",
+                "indicador": "P_VP",
+                "descricao": "Preco/Valor Patrimonial",
+            },
+            {
+                "field": "dy_min/dy_max",
+                "indicador": "DividendYield",
+                "descricao": "Dividend Yield (%)",
+            },
+            {"field": "roe_min/roe_max", "indicador": "ROE", "descricao": "Return on Equity (%)"},
+            {
+                "field": "roic_min/roic_max",
+                "indicador": "ROIC",
+                "descricao": "Return on Invested Capital (%)",
+            },
+            {
+                "field": "ebitda_margin_min/max",
+                "indicador": "MargemEBITDA",
+                "descricao": "Margem EBITDA (%)",
+            },
+            {
+                "field": "net_margin_min/max",
+                "indicador": "MargemLiquida",
+                "descricao": "Margem Liquida (%)",
+            },
+            {
+                "field": "debt_equity_max",
+                "indicador": "DividaLiquida_PatrimonioLiquido",
+                "descricao": "Divida Liquida / PL",
+            },
+            {
+                "field": "market_cap_min/max",
+                "indicador": "ValorDeMercado",
+                "descricao": "Market Cap (R$ bilhoes)",
+            },
         ],
         "source": "fintz_indicadores",
         "nota": "Dados PIT -- valor mais recente disponivel por ticker",

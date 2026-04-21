@@ -45,11 +45,11 @@ Design decisions:
 
 from __future__ import annotations
 
-import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
+import uuid
 
 # ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -154,7 +154,9 @@ class SmartAlert:
                 "price_threshold": self.config.price_threshold,
                 "cooldown_hours": self.config.cooldown_hours,
             },
-            "last_triggered_at": self.last_triggered_at.isoformat() if self.last_triggered_at else None,
+            "last_triggered_at": self.last_triggered_at.isoformat()
+            if self.last_triggered_at
+            else None,
             "created_at": self.created_at.isoformat(),
         }
 
@@ -186,7 +188,10 @@ class WatchlistItem:
     def add_smart_alert(self, alert: SmartAlert) -> None:
         # Evita duplicatas do mesmo tipo
         for existing in self.smart_alerts:
-            if existing.alert_type == alert.alert_type and existing.status != SmartAlertStatus.DELETED:
+            if (
+                existing.alert_type == alert.alert_type
+                and existing.status != SmartAlertStatus.DELETED
+            ):
                 raise ValueError(f"Alerta {alert.alert_type} já existe para {self.ticker}")
         self.smart_alerts.append(alert)
 

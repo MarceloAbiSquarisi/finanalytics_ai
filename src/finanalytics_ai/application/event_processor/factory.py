@@ -2,6 +2,7 @@
 Factory de injecao de dependencia.
 U6: adiciona tracing (opcional, default NullTracing).
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

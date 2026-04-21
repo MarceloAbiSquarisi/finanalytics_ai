@@ -7,11 +7,11 @@ Testes do catálogo de datasets e entidades de domínio Fintz.
 from __future__ import annotations
 
 from finanalytics_ai.domain.fintz.entities import (
-    ALL_DATASETS,
-    FintzDatasetSpec,
     _INDICADORES,
     _ITEMS_12M_AND_TRI,
     _ITEMS_TRI_ONLY,
+    ALL_DATASETS,
+    FintzDatasetSpec,
 )
 
 
@@ -34,7 +34,7 @@ def test_items_12m_and_tri_generate_two_specs_each() -> None:
     for item in _ITEMS_12M_AND_TRI:
         key_12m = f"item_{item}_12M"
         key_tri = f"item_{item}_TRIMESTRAL"
-        keys    = {d.key for d in ALL_DATASETS}
+        keys = {d.key for d in ALL_DATASETS}
         assert key_12m in keys, f"Faltando: {key_12m}"
         assert key_tri in keys, f"Faltando: {key_tri}"
 
@@ -80,7 +80,7 @@ def test_dataset_types_are_valid() -> None:
 def test_item_contabil_specs_have_required_params() -> None:
     item_specs = [d for d in ALL_DATASETS if d.dataset_type == "item_contabil"]
     for spec in item_specs:
-        assert "item" in spec.params,       f"{spec.key}: falta 'item' nos params"
+        assert "item" in spec.params, f"{spec.key}: falta 'item' nos params"
         assert "tipoPeriodo" in spec.params, f"{spec.key}: falta 'tipoPeriodo' nos params"
 
 
@@ -99,10 +99,10 @@ def test_total_dataset_count() -> None:
       - 36 indicadores
       Total = 80
     """
-    cotacoes     = sum(1 for d in ALL_DATASETS if d.dataset_type == "cotacoes")
-    itens        = sum(1 for d in ALL_DATASETS if d.dataset_type == "item_contabil")
-    indicadores  = sum(1 for d in ALL_DATASETS if d.dataset_type == "indicador")
+    cotacoes = sum(1 for d in ALL_DATASETS if d.dataset_type == "cotacoes")
+    itens = sum(1 for d in ALL_DATASETS if d.dataset_type == "item_contabil")
+    indicadores = sum(1 for d in ALL_DATASETS if d.dataset_type == "indicador")
 
-    assert cotacoes    == 1
-    assert itens       == len(_ITEMS_12M_AND_TRI) * 2 + len(_ITEMS_TRI_ONLY)
+    assert cotacoes == 1
+    assert itens == len(_ITEMS_12M_AND_TRI) * 2 + len(_ITEMS_TRI_ONLY)
     assert indicadores == len(_INDICADORES)

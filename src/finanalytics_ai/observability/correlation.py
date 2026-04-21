@@ -7,10 +7,11 @@ Uso na API:
 Uso no worker (por evento):
     bind_correlation_id(str(event.event_id))
 """
+
 from __future__ import annotations
 
-import uuid
 from typing import TYPE_CHECKING
+import uuid
 
 import structlog
 

@@ -27,10 +27,10 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-import structlog
 from sqlalchemy import DateTime, Float, Index, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Mapped, mapped_column
+import structlog
 
 from finanalytics_ai.domain.entities.event import OHLCBar
 from finanalytics_ai.infrastructure.database.connection import Base
@@ -63,7 +63,9 @@ class OHLCBarEventModel(Base):
     close: Mapped[float] = mapped_column(Float, nullable=False)
     volume: Mapped[float | None] = mapped_column(Float, nullable=True)
     source: Mapped[str] = mapped_column(String(50), nullable=False, default="unknown")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
 
     __table_args__ = (
         # Garante idempotência: mesma barra nunca é inserida duas vezes

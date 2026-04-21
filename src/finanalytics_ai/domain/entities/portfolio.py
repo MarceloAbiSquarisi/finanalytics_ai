@@ -10,10 +10,10 @@ Entidade Portfolio e Position — v2: múltiplas carteiras por usuário.
 
 from __future__ import annotations
 
-import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
+import uuid
 
 from finanalytics_ai.domain.value_objects.money import Currency, Money, Quantity, Ticker
 from finanalytics_ai.exceptions import InsufficientFundsError, PortfolioNotFoundError
@@ -98,7 +98,9 @@ class Portfolio:
         if existing:
             self.positions[ticker.symbol] = existing.update_with_purchase(quantity, price)
         else:
-            self.positions[ticker.symbol] = Position(ticker=ticker, quantity=quantity, average_price=price)
+            self.positions[ticker.symbol] = Position(
+                ticker=ticker, quantity=quantity, average_price=price
+            )
         self.cash = self.cash - cost
         self.updated_at = datetime.now(UTC)
 

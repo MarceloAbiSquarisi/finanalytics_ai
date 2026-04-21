@@ -12,24 +12,25 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from fastapi import APIRouter, HTTPException, Query
 import httpx
 import structlog
-from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import JSONResponse
 
 logger = structlog.get_logger(__name__)
 
 AGENT_URL = os.getenv("PROFIT_AGENT_URL", "http://host.docker.internal:8002")
-TIMEOUT   = httpx.Timeout(30.0, connect=5.0)
+TIMEOUT = httpx.Timeout(30.0, connect=5.0)
 
 router = APIRouter(prefix="/api/v1/agent")
 
 
 # ── Helper ────────────────────────────────────────────────────────────────────
 
+
 async def _inject_account(body: dict) -> dict:
     """Resolve conta ativa e injeta credenciais no body para o profit_agent."""
     from finanalytics_ai.interfaces.api.app import get_account_service
+
     svc = get_account_service()
     if not svc:
         return body
@@ -74,6 +75,7 @@ async def _post(path: str, body: dict | None = None) -> Any:
 
 # ── Status / Health ───────────────────────────────────────────────────────────
 
+
 @router.get("/health", tags=["Agent"])
 async def agent_health():
     """Health check do profit_agent."""
@@ -88,6 +90,7 @@ async def agent_status():
 
 # ── Quotes ────────────────────────────────────────────────────────────────────
 
+
 @router.get("/quotes", tags=["Agent"])
 async def agent_quotes():
     """Cotações em tempo real de todos os tickers subscritos."""
@@ -95,6 +98,7 @@ async def agent_quotes():
 
 
 # ── Ordens ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/orders", tags=["Agent"])
 async def agent_orders(
@@ -173,6 +177,7 @@ async def agent_zero_position(body: dict):
 
 # ── OCO ───────────────────────────────────────────────────────────────────────
 
+
 @router.post("/order/oco", tags=["Agent"])
 async def agent_send_oco(body: dict):
     """
@@ -213,6 +218,7 @@ async def agent_oco_status(
 
 # ── Posições ──────────────────────────────────────────────────────────────────
 
+
 @router.get("/positions", tags=["Agent"])
 async def agent_positions(
     env: str = Query("simulation"),
@@ -251,12 +257,13 @@ async def agent_position_ticker(
     Posição detalhada para ticker via GetPositionV2 (DLL).
     Retorna: open_qty, open_avg_price, open_side, daily_buy/sell_qty, etc.
     """
-    return await _get(f"/position/{ticker.upper()}", {
-        "exchange": exchange, "env": env, "type": type
-    })
+    return await _get(
+        f"/position/{ticker.upper()}", {"exchange": exchange, "env": env, "type": type}
+    )
 
 
 # ── Histórico e coleta ────────────────────────────────────────────────────────
+
 
 @router.post("/collect_history", tags=["Agent"])
 async def agent_collect_history(body: dict):
@@ -271,6 +278,3 @@ async def agent_ticks(
 ):
     """Últimos ticks em memória do agent para o ticker."""
     return await _get(f"/ticks/{ticker.upper()}", {"limit": limit})
-
-
-

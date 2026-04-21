@@ -15,15 +15,12 @@ Correções em relação ao v1:
 
 from __future__ import annotations
 
+from datetime import UTC, date as date_type, datetime
+from typing import Any
+
 import asyncpg
-from datetime import datetime, timezone, date as date_type
-from typing import TYPE_CHECKING, Any
 
 from finanalytics_ai.observability.logging import get_logger
-
-if TYPE_CHECKING:
-    import pandas as pd
-    from finanalytics_ai.domain.fintz.entities import FintzDatasetSpec
 
 log = get_logger(__name__)
 
@@ -33,22 +30,24 @@ def _to_utc_datetime(v: Any) -> datetime | None:
     if v is None:
         return None
     if isinstance(v, datetime):
-        return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+        return v if v.tzinfo else v.replace(tzinfo=UTC)
     if isinstance(v, date_type):
-        return datetime(v.year, v.month, v.day, tzinfo=timezone.utc)
+        return datetime(v.year, v.month, v.day, tzinfo=UTC)
     # Fallback: string ISO ou pandas Timestamp
     if isinstance(v, str):
         try:
             from datetime import datetime as _dt
+
             d = _dt.fromisoformat(v.replace("Z", "+00:00"))
-            return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+            return d if d.tzinfo else d.replace(tzinfo=UTC)
         except Exception:
             pass
     try:
         from pandas import Timestamp
+
         ts = Timestamp(v)
-        if ts is not None and not ts is ts.NaT:
-            return ts.to_pydatetime().replace(tzinfo=timezone.utc)
+        if ts is not None and ts is not ts.NaT:
+            return ts.to_pydatetime().replace(tzinfo=UTC)
     except Exception:
         pass
     return None
@@ -58,6 +57,7 @@ def _nan_to_none(v: Any) -> Any:
     """Converte NaN / pd.NA / pd.NaT para None."""
     try:
         import pandas as pd
+
         if pd.isna(v):
             return None
     except (TypeError, ValueError):
@@ -124,11 +124,18 @@ class PgTimescaleWriter:
           preco_fechamento_ajustado_desdobramentos
         """
         columns = [
-            "time", "ticker",
-            "preco_fechamento", "preco_fechamento_ajustado",
-            "preco_abertura", "preco_minimo", "preco_maximo",
-            "volume_negociado", "fator_ajuste", "preco_medio",
-            "quantidade_negociada", "quantidade_negocios",
+            "time",
+            "ticker",
+            "preco_fechamento",
+            "preco_fechamento_ajustado",
+            "preco_abertura",
+            "preco_minimo",
+            "preco_maximo",
+            "volume_negociado",
+            "fator_ajuste",
+            "preco_medio",
+            "quantidade_negociada",
+            "quantidade_negocios",
             "fator_ajuste_desdobramentos",
             "preco_fechamento_ajustado_desdobramentos",
         ]
@@ -137,7 +144,7 @@ class PgTimescaleWriter:
             df=df,
             table="fintz_cotacoes_ts",
             columns=columns,
-            time_col_src="data",      # nome no DataFrame
+            time_col_src="data",  # nome no DataFrame
             conflict_cols="(time, ticker)",
         )
 
@@ -211,8 +218,8 @@ class PgTimescaleWriter:
         df: Any,
         table: str,
         columns: list[str],
-        time_col_src: str,      # nome da coluna de tempo no DataFrame
-        conflict_cols: str,     # ex: "(time, ticker)" para ON CONFLICT
+        time_col_src: str,  # nome da coluna de tempo no DataFrame
+        conflict_cols: str,  # ex: "(time, ticker)" para ON CONFLICT
     ) -> int:
         """
         Fluxo de idempotência:
@@ -230,30 +237,26 @@ class PgTimescaleWriter:
                 return 0
 
             pool = await self._get_pool()
-            async with pool.acquire() as conn:
-                async with conn.transaction():
-                    # 1. Cria temp table
-                    temp = f"_ts_import_{table.replace('.', '_')}"
-                    await conn.execute(
-                        f"CREATE TEMP TABLE {temp} "
-                        f"(LIKE {table} INCLUDING DEFAULTS) ON COMMIT DROP"
-                    )
+            async with pool.acquire() as conn, conn.transaction():
+                # 1. Cria temp table
+                temp = f"_ts_import_{table.replace('.', '_')}"
+                await conn.execute(
+                    f"CREATE TEMP TABLE {temp} (LIKE {table} INCLUDING DEFAULTS) ON COMMIT DROP"
+                )
 
-                    # 2. COPY para temp
-                    await conn.copy_records_to_table(
-                        temp, records=records, columns=columns
-                    )
+                # 2. COPY para temp
+                await conn.copy_records_to_table(temp, records=records, columns=columns)
 
-                    # 3. INSERT hypertable com idempotência
-                    cols_str = ", ".join(columns)
-                    result = await conn.execute(
-                        f"INSERT INTO {table} ({cols_str}) "
-                        f"SELECT {cols_str} FROM {temp} "
-                        f"ON CONFLICT {conflict_cols} DO NOTHING"
-                    )
+                # 3. INSERT hypertable com idempotência
+                cols_str = ", ".join(columns)
+                result = await conn.execute(
+                    f"INSERT INTO {table} ({cols_str}) "
+                    f"SELECT {cols_str} FROM {temp} "
+                    f"ON CONFLICT {conflict_cols} DO NOTHING"
+                )
 
-                    # Extrai contagem do resultado "INSERT 0 N"
-                    inserted = int(result.split()[-1]) if result else len(records)
+                # Extrai contagem do resultado "INSERT 0 N"
+                inserted = int(result.split()[-1]) if result else len(records)
 
             log.info(
                 "timescale_writer.write_ok",
@@ -286,7 +289,6 @@ class PgTimescaleWriter:
         Renomeia time_col_src → "time" e converte date → datetime UTC.
         Converte NaN/NA → None.
         """
-        import pandas as pd
 
         df = df.copy()
 

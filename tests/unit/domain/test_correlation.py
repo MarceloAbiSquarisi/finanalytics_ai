@@ -599,7 +599,13 @@ class TestCorrelationService:
         d = r.to_dict()
         assert all(
             k in d
-            for k in ["matrix", "rolling_pairs", "diversification_score", "common_bars", "most_correlated"]
+            for k in [
+                "matrix",
+                "rolling_pairs",
+                "diversification_score",
+                "common_bars",
+                "most_correlated",
+            ]
         )
 
     @pytest.mark.asyncio

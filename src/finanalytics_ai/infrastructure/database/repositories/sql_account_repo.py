@@ -4,12 +4,13 @@ Repositório de contas de negociação — SQLAlchemy async + PostgreSQL.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional, Sequence
+from typing import TYPE_CHECKING
 
-import structlog
 from sqlalchemy import String, Text, UniqueConstraint, select, update
 from sqlalchemy.orm import Mapped, mapped_column
+import structlog
 
 from finanalytics_ai.domain.accounts import (
     AccountNotFoundError,
@@ -54,9 +55,7 @@ class SQLAccountRepository:
             account.broker_id, account.account_id, account.account_type
         )
         if existing:
-            raise DuplicateAccountError(
-                account.broker_id, account.account_id, account.account_type
-            )
+            raise DuplicateAccountError(account.broker_id, account.account_id, account.account_type)
         self._session.add(self._to_model(account))
         await self._session.flush()
         logger.info("account.created", account_uuid=account.uuid, account_type=account.account_type)
@@ -72,7 +71,7 @@ class SQLAccountRepository:
         broker_id: str,
         account_id: str,
         account_type: AccountType,
-    ) -> Optional[TradingAccount]:
+    ) -> TradingAccount | None:
         model = await self._get_by_broker_account_model(broker_id, account_id, account_type)
         return self._to_domain(model) if model else None
 
@@ -90,7 +89,7 @@ class SQLAccountRepository:
         result = await self._session.execute(stmt)
         return [self._to_domain(m) for m in result.scalars()]
 
-    async def get_active(self) -> Optional[TradingAccount]:
+    async def get_active(self) -> TradingAccount | None:
         stmt = (
             select(TradingAccountModel)
             .where(TradingAccountModel.status == AccountStatus.ACTIVE.value)
@@ -141,7 +140,7 @@ class SQLAccountRepository:
         broker_id: str,
         account_id: str,
         account_type: AccountType,
-    ) -> Optional[TradingAccountModel]:
+    ) -> TradingAccountModel | None:
         stmt = (
             select(TradingAccountModel)
             .where(TradingAccountModel.broker_id == broker_id)

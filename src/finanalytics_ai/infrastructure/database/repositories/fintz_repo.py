@@ -21,13 +21,13 @@ Schema real dos parquets (verificado em 2026-03-20):
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 import textwrap
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
-import structlog
 from sqlalchemy import text
+import structlog
 
 from finanalytics_ai.infrastructure.database.connection import get_session
 
@@ -49,8 +49,7 @@ class FintzRepo:
 
     async def get_last_hash(self, dataset_key: str) -> str | None:
         sql = text(
-            "SELECT file_hash FROM fintz_sync_log "
-            "WHERE dataset_key = :key AND status = 'ok'"
+            "SELECT file_hash FROM fintz_sync_log WHERE dataset_key = :key AND status = 'ok'"
         )
         async with get_session() as session:
             result = await session.execute(sql, {"key": dataset_key})
@@ -65,7 +64,8 @@ class FintzRepo:
         status: str,
         error_message: str | None = None,
     ) -> None:
-        sql = text(textwrap.dedent("""
+        sql = text(
+            textwrap.dedent("""
             INSERT INTO fintz_sync_log
                 (dataset_key, file_hash, rows_upserted, status, error_message, synced_at)
             VALUES
@@ -76,16 +76,20 @@ class FintzRepo:
                 status        = EXCLUDED.status,
                 error_message = EXCLUDED.error_message,
                 synced_at     = EXCLUDED.synced_at
-        """))
+        """)
+        )
         async with get_session() as session:
-            await session.execute(sql, {
-                "key":    dataset_key,
-                "hash":   file_hash,
-                "rows":   rows_upserted,
-                "status": status,
-                "error":  error_message,
-                "now":    datetime.now(timezone.utc),
-            })
+            await session.execute(
+                sql,
+                {
+                    "key": dataset_key,
+                    "hash": file_hash,
+                    "rows": rows_upserted,
+                    "status": status,
+                    "error": error_message,
+                    "now": datetime.now(UTC),
+                },
+            )
 
     # ── Cotações OHLC ─────────────────────────────────────────────────────────
 
@@ -94,7 +98,8 @@ class FintzRepo:
         total = 0
         for chunk in self._chunks(df):
             rows = chunk.to_dict(orient="records")
-            sql = text(textwrap.dedent("""
+            sql = text(
+                textwrap.dedent("""
                 INSERT INTO fintz_cotacoes (
                     ticker, data,
                     preco_abertura, preco_fechamento, preco_maximo, preco_medio, preco_minimo,
@@ -121,7 +126,8 @@ class FintzRepo:
                     preco_fechamento_ajustado                = EXCLUDED.preco_fechamento_ajustado,
                     fator_ajuste_desdobramentos              = EXCLUDED.fator_ajuste_desdobramentos,
                     preco_fechamento_ajustado_desdobramentos = EXCLUDED.preco_fechamento_ajustado_desdobramentos
-            """))
+            """)
+            )
             async with get_session() as session:
                 await session.execute(sql, rows)
             total += len(rows)
@@ -134,21 +140,22 @@ class FintzRepo:
         total = 0
         for chunk in self._chunks(df):
             rows = chunk.to_dict(orient="records")
-            sql = text(textwrap.dedent("""
+            sql = text(
+                textwrap.dedent("""
                 INSERT INTO fintz_itens_contabeis
                     (ticker, item, tipo_periodo, data_publicacao, valor)
                 VALUES
                     (:ticker, :item, :tipo_periodo, :data_publicacao, :valor)
                 ON CONFLICT (ticker, item, tipo_periodo, data_publicacao) DO UPDATE SET
                     valor = EXCLUDED.valor
-            """))
+            """)
+            )
             async with get_session() as session:
                 await session.execute(sql, rows)
             total += len(rows)
         return total
 
     # ── Indicadores PIT ───────────────────────────────────────────────────────
-
 
     # ── Metodos de leitura para FundamentalAnalysisService ───────────────────
 
@@ -211,11 +218,13 @@ class FintzRepo:
             result = await session.execute(sql, params)
             rows = result.fetchall()
         return [
-            {"indicador": r.indicador, "data": str(r.data),
-             "valor": float(r.valor) if r.valor is not None else None}
+            {
+                "indicador": r.indicador,
+                "data": str(r.data),
+                "valor": float(r.valor) if r.valor is not None else None,
+            }
             for r in rows
         ]
-
 
     async def get_indicador_serie(
         self,
@@ -241,8 +250,7 @@ class FintzRepo:
             result = await session.execute(sql, params)
             rows = result.fetchall()
         return [
-            {"data": str(r.data),
-             "valor": float(r.valor) if r.valor is not None else None}
+            {"data": str(r.data), "valor": float(r.valor) if r.valor is not None else None}
             for r in rows
         ]
 
@@ -278,9 +286,12 @@ class FintzRepo:
             result = await session.execute(sql, params)
             rows = result.fetchall()
         return [
-            {"item": r.item, "tipo_periodo": r.tipo_periodo,
-             "data_publicacao": str(r.data_publicacao),
-             "valor": float(r.valor) if r.valor is not None else None}
+            {
+                "item": r.item,
+                "tipo_periodo": r.tipo_periodo,
+                "data_publicacao": str(r.data_publicacao),
+                "valor": float(r.valor) if r.valor is not None else None,
+            }
             for r in rows
         ]
 
@@ -318,11 +329,16 @@ class FintzRepo:
             result = await session.execute(sql, params)
             rows = result.fetchall()
         return [
-            {"data": str(r.data), "ticker": r.ticker,
-             "fechamento": float(r.fechamento) if r.fechamento else None,
-             "fechamento_ajustado": float(r.fechamento_ajustado) if r.fechamento_ajustado else None,
-             "abertura": float(r.abertura) if r.abertura else None,
-             "volume": float(r.volume) if r.volume else None}
+            {
+                "data": str(r.data),
+                "ticker": r.ticker,
+                "fechamento": float(r.fechamento) if r.fechamento else None,
+                "fechamento_ajustado": float(r.fechamento_ajustado)
+                if r.fechamento_ajustado
+                else None,
+                "abertura": float(r.abertura) if r.abertura else None,
+                "volume": float(r.volume) if r.volume else None,
+            }
             for r in rows
         ]
 
@@ -331,14 +347,16 @@ class FintzRepo:
         total = 0
         for chunk in self._chunks(df):
             rows = chunk.to_dict(orient="records")
-            sql = text(textwrap.dedent("""
+            sql = text(
+                textwrap.dedent("""
                 INSERT INTO fintz_indicadores
                     (ticker, indicador, data_publicacao, valor)
                 VALUES
                     (:ticker, :indicador, :data_publicacao, :valor)
                 ON CONFLICT (ticker, indicador, data_publicacao) DO UPDATE SET
                     valor = EXCLUDED.valor
-            """))
+            """)
+            )
             async with get_session() as session:
                 await session.execute(sql, rows)
             total += len(rows)
@@ -357,9 +375,14 @@ class FintzRepo:
 
         # Colunas numéricas — converte para float (aceita NaN)
         float_cols = [
-            "preco_abertura", "preco_fechamento", "preco_maximo",
-            "preco_medio", "preco_minimo", "volume_negociado",
-            "fator_ajuste", "preco_fechamento_ajustado",
+            "preco_abertura",
+            "preco_fechamento",
+            "preco_maximo",
+            "preco_medio",
+            "preco_minimo",
+            "volume_negociado",
+            "fator_ajuste",
+            "preco_fechamento_ajustado",
             "fator_ajuste_desdobramentos",
             "preco_fechamento_ajustado_desdobramentos",
         ]
@@ -377,11 +400,20 @@ class FintzRepo:
 
         # Garante colunas ausentes com None
         todas = [
-            "ticker", "data", "preco_abertura", "preco_fechamento",
-            "preco_maximo", "preco_medio", "preco_minimo",
-            "volume_negociado", "quantidade_negociada", "quantidade_negocios",
-            "fator_ajuste", "preco_fechamento_ajustado",
-            "fator_ajuste_desdobramentos", "preco_fechamento_ajustado_desdobramentos",
+            "ticker",
+            "data",
+            "preco_abertura",
+            "preco_fechamento",
+            "preco_maximo",
+            "preco_medio",
+            "preco_minimo",
+            "volume_negociado",
+            "quantidade_negociada",
+            "quantidade_negocios",
+            "fator_ajuste",
+            "preco_fechamento_ajustado",
+            "fator_ajuste_desdobramentos",
+            "preco_fechamento_ajustado_desdobramentos",
         ]
         for col in todas:
             if col not in df.columns:
@@ -404,9 +436,9 @@ class FintzRepo:
         """
         df = df.rename(columns={"data": "data_publicacao"})
         df["data_publicacao"] = pd.to_datetime(df["data_publicacao"]).dt.date
-        df["valor"]           = pd.to_numeric(df["valor"], errors="coerce")
+        df["valor"] = pd.to_numeric(df["valor"], errors="coerce")
         df["valor"] = df["valor"].replace([float("inf"), float("-inf")], None)
-        df["tipo_periodo"]    = spec.params.get("tipoPeriodo", "")
+        df["tipo_periodo"] = spec.params.get("tipoPeriodo", "")
 
         return df[["ticker", "item", "tipo_periodo", "data_publicacao", "valor"]]
 
@@ -420,7 +452,7 @@ class FintzRepo:
         """
         df = df.rename(columns={"data": "data_publicacao"})
         df["data_publicacao"] = pd.to_datetime(df["data_publicacao"]).dt.date
-        df["valor"]           = pd.to_numeric(df["valor"], errors="coerce")
+        df["valor"] = pd.to_numeric(df["valor"], errors="coerce")
         df["valor"] = df["valor"].replace([float("inf"), float("-inf")], None)
 
         return df[["ticker", "indicador", "data_publicacao", "valor"]]
@@ -430,4 +462,4 @@ class FintzRepo:
     @staticmethod
     def _chunks(df: pd.DataFrame) -> Any:
         for start in range(0, len(df), CHUNK_SIZE):
-            yield df.iloc[start: start + CHUNK_SIZE]
+            yield df.iloc[start : start + CHUNK_SIZE]

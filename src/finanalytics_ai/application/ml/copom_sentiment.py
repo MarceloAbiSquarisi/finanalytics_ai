@@ -27,6 +27,7 @@ Dependências adicionais:
 Para rodar standalone, este scaffold retorna HOLD (neutro) hardcoded —
 placeholder até fine-tune estar pronto.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -35,7 +36,7 @@ from typing import Any
 
 @dataclass
 class COPOMSignal:
-    sinal: str               # "dovish" | "neutro" | "hawkish"
+    sinal: str  # "dovish" | "neutro" | "hawkish"
     proba_dovish: float
     proba_neutro: float
     proba_hawkish: float
@@ -64,7 +65,11 @@ class COPOMSentimentModel:
         if self._loaded:
             return True
         try:
-            from transformers import AutoModelForSequenceClassification, AutoTokenizer  # type: ignore
+            from transformers import (  # type: ignore
+                AutoModelForSequenceClassification,
+                AutoTokenizer,
+            )
+
             self._tokenizer = AutoTokenizer.from_pretrained(self.MODEL_NAME)
             self._model = AutoModelForSequenceClassification.from_pretrained(
                 self.MODEL_NAME, num_labels=3
@@ -82,8 +87,10 @@ class COPOMSentimentModel:
         loaded = self._lazy_load()
         if not loaded:
             return COPOMSignal(
-                sinal="neutro", proba_dovish=0.33,
-                proba_neutro=0.34, proba_hawkish=0.33,
+                sinal="neutro",
+                proba_dovish=0.33,
+                proba_neutro=0.34,
+                proba_hawkish=0.33,
                 raw={"note": "scaffold — modelo não carregado"},
             )
         # Fine-tuned pipeline iria aqui:
@@ -93,8 +100,10 @@ class COPOMSentimentModel:
         #   proba = softmax(logits)[0]
         # Por ora retorna neutro (modelo não fine-tuned).
         return COPOMSignal(
-            sinal="neutro", proba_dovish=0.33,
-            proba_neutro=0.34, proba_hawkish=0.33,
+            sinal="neutro",
+            proba_dovish=0.33,
+            proba_neutro=0.34,
+            proba_hawkish=0.33,
             raw={"note": "modelo base carregado mas sem fine-tune — neutral fallback"},
         )
 
@@ -106,8 +115,8 @@ class COPOMSentimentModel:
             return self.predict(texto_ata)
         probs = {"dovish": 0.0, "neutro": 0.0, "hawkish": 0.0}
         for s in signals:
-            probs["dovish"]  += s.proba_dovish
-            probs["neutro"]  += s.proba_neutro
+            probs["dovish"] += s.proba_dovish
+            probs["neutro"] += s.proba_neutro
             probs["hawkish"] += s.proba_hawkish
         for k in probs:
             probs[k] /= len(signals)

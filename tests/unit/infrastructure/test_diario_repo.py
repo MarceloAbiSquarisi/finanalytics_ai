@@ -12,11 +12,12 @@ Cobertura:
   - delete: remove e retorna bool
   - stats: equity_curve, by_setup, by_emotion, win_rate
 """
+
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from typing import Any
 import uuid
-from datetime import datetime, timezone
-from typing import Any, AsyncGenerator
 
 import pytest
 import pytest_asyncio
@@ -25,11 +26,14 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 # Importação condicional — o repo pode não estar disponível se o fix_diario ainda
 # não foi aplicado. Nesse caso, os testes são pulados graciosamente.
 try:
+    from finanalytics_ai.infrastructure.database.connection import (
+        Base as _FA_Base,  # noqa: F401  # ensure module importable; aborta import abaixo se faltar
+    )
     from finanalytics_ai.infrastructure.database.repositories.diario_repo import (
         DiarioModel,
         DiarioRepository,
     )
-    from finanalytics_ai.infrastructure.database.connection import Base as _FA_Base
+
     _AVAILABLE = True
 except ImportError:
     _AVAILABLE = False
@@ -37,6 +41,7 @@ except ImportError:
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest_asyncio.fixture
 async def session_factory():
@@ -78,8 +83,8 @@ def _entry(
         "user_id": "user-demo",
         "ticker": ticker,
         "direction": direction,
-        "entry_date": datetime(2026, 1, 10, 10, 0, tzinfo=timezone.utc),
-        "exit_date": datetime(2026, 1, 10, 15, 0, tzinfo=timezone.utc) if exit_price else None,
+        "entry_date": datetime(2026, 1, 10, 10, 0, tzinfo=UTC),
+        "exit_date": datetime(2026, 1, 10, 15, 0, tzinfo=UTC) if exit_price else None,
         "entry_price": entry_price,
         "exit_price": exit_price,
         "quantity": quantity,
@@ -93,6 +98,7 @@ def _entry(
 
 
 # ── Testes de CRUD ────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 class TestCreate:
@@ -189,8 +195,7 @@ class TestUpdate:
 
         updated = await repo.update(
             created["id"],
-            {"exit_price": 35.0,
-             "exit_date": datetime(2026, 1, 10, 15, 0, tzinfo=timezone.utc)},
+            {"exit_price": 35.0, "exit_date": datetime(2026, 1, 10, 15, 0, tzinfo=UTC)},
         )
         assert updated is not None
         assert updated["pnl"] == pytest.approx((35.0 - 30.0) * 100.0, abs=0.01)
@@ -260,8 +265,8 @@ class TestStats:
         assert setups["engulfing"]["win_rate"] == pytest.approx(0.0, abs=0.1)
 
     async def test_stats_by_emotion(self, repo) -> None:
-        await repo.create(_entry(emotional_state="calm",   entry_price=30.0, exit_price=33.0))
-        await repo.create(_entry(emotional_state="fomo",   entry_price=30.0, exit_price=27.0))
+        await repo.create(_entry(emotional_state="calm", entry_price=30.0, exit_price=33.0))
+        await repo.create(_entry(emotional_state="fomo", entry_price=30.0, exit_price=27.0))
         stats = await repo.stats()
         emotions = {e["state"]: e for e in stats["by_emotion"]}
         assert "calm" in emotions

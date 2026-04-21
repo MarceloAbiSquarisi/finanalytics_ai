@@ -114,7 +114,9 @@ class PortfolioOptimizerService:
                 continue
             dates, prices = _extract_prices(fetch_result)
             if len(prices) < MIN_BARS:
-                errors.append({"ticker": t, "error": f"Apenas {len(prices)} barras (mín. {MIN_BARS})"})
+                errors.append(
+                    {"ticker": t, "error": f"Apenas {len(prices)} barras (mín. {MIN_BARS})"}
+                )
                 continue
             price_series[t] = (dates, prices)
 
@@ -137,7 +139,9 @@ class PortfolioOptimizerService:
         )
 
         # ── Executa algoritmos em thread ──────────────────────────────────────
-        bl_views = [(v["ticker"], v["return"]) for v in (views or []) if v.get("ticker") in final_tickers]
+        bl_views = [
+            (v["ticker"], v["return"]) for v in (views or []) if v.get("ticker") in final_tickers
+        ]
 
         def _run_all() -> OptimizationComparison:
             mz, frontier = markowitz_optimize(final_tickers, mean_rets, cov, risk_free)

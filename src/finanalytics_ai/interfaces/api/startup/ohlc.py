@@ -1,7 +1,10 @@
 """startup/ohlc.py — OHLC services, Tape Service e servicos de dominio."""
+
 from __future__ import annotations
+
 import asyncio
 from typing import Any
+
 import structlog
 
 log = structlog.get_logger(__name__)
@@ -14,8 +17,11 @@ async def init_ohlc_services(app, timescale_ok: bool) -> asyncio.Task | None:
         from finanalytics_ai.infrastructure.database.connection import get_session_factory
 
         if timescale_ok:
-            from finanalytics_ai.infrastructure.timescale.ohlc_ts_repo import TimescaleOHLCRepository
+            from finanalytics_ai.infrastructure.timescale.ohlc_ts_repo import (
+                TimescaleOHLCRepository,
+            )
             from finanalytics_ai.infrastructure.timescale.repository import get_timescale_pool
+
             pool = await get_timescale_pool()
             ts_repo = TimescaleOHLCRepository(pool)
             app.state.ohlc_1m_service = OHLC1mService(get_session_factory(), brapi_client=None)
@@ -42,7 +48,7 @@ async def init_ohlc_services(app, timescale_ok: bool) -> asyncio.Task | None:
 async def init_tape_service(app, settings) -> None:
     try:
         from finanalytics_ai.application.services.tape_service import TapeService
-        from finanalytics_ai.infrastructure.database.connection import get_session_factory
+
         redis_url = str(settings.redis_url) if settings.redis_url else "redis://localhost:6379/0"
         svc = TapeService()
         app.state.tape_service = svc
@@ -55,16 +61,36 @@ async def init_tape_service(app, settings) -> None:
 
 async def init_domain_services(app, market_client: Any) -> None:
     import importlib
+
     from finanalytics_ai.infrastructure.database.connection import get_session_factory
+
     sf = get_session_factory()
     _map = {
-        "var_service":             ("finanalytics_ai.application.services.var_service",              "VaRService"),
-        "sentiment_service":       ("finanalytics_ai.application.services.sentiment_service",        "SentimentService"),
-        "options_service":         ("finanalytics_ai.application.services.options_service",          "OptionsService"),
-        "ranking_service":         ("finanalytics_ai.application.services.ranking_service",          "RankingService"),
-        "indicator_alert_service": ("finanalytics_ai.application.services.indicator_alert_service",  "IndicatorAlertService"),
-        "fintz_screener_service":  ("finanalytics_ai.application.services.fintz_screener_service",   "FintzScreenerService"),
-        "intraday_setup_service":  ("finanalytics_ai.application.services.intraday_setup_service",   "IntradaySetupService"),
+        "var_service": ("finanalytics_ai.application.services.var_service", "VaRService"),
+        "sentiment_service": (
+            "finanalytics_ai.application.services.sentiment_service",
+            "SentimentService",
+        ),
+        "options_service": (
+            "finanalytics_ai.application.services.options_service",
+            "OptionsService",
+        ),
+        "ranking_service": (
+            "finanalytics_ai.application.services.ranking_service",
+            "RankingService",
+        ),
+        "indicator_alert_service": (
+            "finanalytics_ai.application.services.indicator_alert_service",
+            "IndicatorAlertService",
+        ),
+        "fintz_screener_service": (
+            "finanalytics_ai.application.services.fintz_screener_service",
+            "FintzScreenerService",
+        ),
+        "intraday_setup_service": (
+            "finanalytics_ai.application.services.intraday_setup_service",
+            "IntradaySetupService",
+        ),
     }
     for attr, (mod_path, cls_name) in _map.items():
         try:
@@ -90,4 +116,3 @@ async def shutdown_ohlc(task: asyncio.Task | None) -> None:
             await task
         except asyncio.CancelledError:
             pass
-

@@ -18,23 +18,23 @@ Env vars:
   DI1_POLL_INTERVAL_S         2.0
   DI1_WORKER_METRICS_PORT     9101
 """
+
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import logging
 import os
 import signal
 import sys
-import time
-from datetime import datetime, timezone
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Thread
+import time
 
 import aiohttp
-import asyncpg
 from aiokafka import AIOKafkaProducer
-
+import asyncpg
 
 log = logging.getLogger("di1_realtime_worker")
 
@@ -46,8 +46,11 @@ DSN = os.environ.get(
 )
 KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "kafka:29092")
 KAFKA_TOPIC = os.environ.get("DI1_REALTIME_TOPIC", "market.rates.di1")
-CONTRACTS = [c.strip().upper() for c in os.environ.get(
-    "DI1_CONTRACTS", "DI1F27,DI1F28,DI1F29").split(",") if c.strip()]
+CONTRACTS = [
+    c.strip().upper()
+    for c in os.environ.get("DI1_CONTRACTS", "DI1F27,DI1F28,DI1F29").split(",")
+    if c.strip()
+]
 POLL_INTERVAL_S = float(os.environ.get("DI1_POLL_INTERVAL_S", "2.0"))
 METRICS_PORT = int(os.environ.get("DI1_WORKER_METRICS_PORT", "9101"))
 DEDUP_WINDOW_S = int(os.environ.get("DI1_DEDUP_WINDOW_S", "3600"))
@@ -101,7 +104,9 @@ def start_metrics_server(port: int) -> None:
     class H(BaseHTTPRequestHandler):
         def do_GET(self):
             if self.path != "/metrics":
-                self.send_response(404); self.end_headers(); return
+                self.send_response(404)
+                self.end_headers()
+                return
             body = METRICS.render_prom().encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/plain; version=0.0.4")
@@ -188,7 +193,8 @@ class DI1RealtimeWorker:
                          ORDER BY trade_number ASC
                          LIMIT 500
                         """,
-                        contract, last_tn,
+                        contract,
+                        last_tn,
                     )
             except Exception as exc:
                 METRICS.poll_errors_total += 1
@@ -200,21 +206,23 @@ class DI1RealtimeWorker:
 
             for r in rows:
                 msg = {
-                    "ticker":       r["ticker"],
-                    "time":         r["time"].isoformat(),
-                    "price":        float(r["price"]),
-                    "quantity":     int(r["quantity"]),
-                    "volume":       float(r["volume"]) if r["volume"] is not None else None,
-                    "buy_agent":    r["buy_agent"],
-                    "sell_agent":   r["sell_agent"],
+                    "ticker": r["ticker"],
+                    "time": r["time"].isoformat(),
+                    "price": float(r["price"]),
+                    "quantity": int(r["quantity"]),
+                    "volume": float(r["volume"]) if r["volume"] is not None else None,
+                    "buy_agent": r["buy_agent"],
+                    "sell_agent": r["sell_agent"],
                     "trade_number": int(r["trade_number"]),
-                    "trade_type":   r["trade_type"],
-                    "source":       "profit_agent.di1_realtime_worker",
-                    "published_at": datetime.now(timezone.utc).isoformat(),
+                    "trade_type": r["trade_type"],
+                    "source": "profit_agent.di1_realtime_worker",
+                    "published_at": datetime.now(UTC).isoformat(),
                 }
                 try:
                     await self._producer.send_and_wait(
-                        KAFKA_TOPIC, value=msg, key=contract.encode("utf-8"),
+                        KAFKA_TOPIC,
+                        value=msg,
+                        key=contract.encode("utf-8"),
                     )
                     METRICS.kafka_published_total += 1
                 except Exception as exc:
@@ -223,7 +231,9 @@ class DI1RealtimeWorker:
                     break
 
                 METRICS.ticks_total += 1
-                METRICS.ticks_per_contract[contract] = METRICS.ticks_per_contract.get(contract, 0) + 1
+                METRICS.ticks_per_contract[contract] = (
+                    METRICS.ticks_per_contract.get(contract, 0) + 1
+                )
                 METRICS.last_tick_ts = time.time()
                 self._last_trade_number[contract] = int(r["trade_number"])
 
@@ -248,23 +258,33 @@ class DI1RealtimeWorker:
                 log.exception("poll_once error: %s", exc)
             try:
                 await asyncio.wait_for(self._stop.wait(), timeout=POLL_INTERVAL_S)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass
 
         await self._shutdown()
 
     async def _shutdown(self) -> None:
-        log.info("shutdown: ticks_total=%d published=%d errors=%d",
-                 METRICS.ticks_total, METRICS.kafka_published_total, METRICS.kafka_errors_total)
+        log.info(
+            "shutdown: ticks_total=%d published=%d errors=%d",
+            METRICS.ticks_total,
+            METRICS.kafka_published_total,
+            METRICS.kafka_errors_total,
+        )
         if self._producer:
-            try: await self._producer.stop()
-            except Exception: pass
+            try:
+                await self._producer.stop()
+            except Exception:
+                pass
         if self._pool:
-            try: await self._pool.close()
-            except Exception: pass
+            try:
+                await self._pool.close()
+            except Exception:
+                pass
         if self._session:
-            try: await self._session.close()
-            except Exception: pass
+            try:
+                await self._session.close()
+            except Exception:
+                pass
 
     def stop(self) -> None:
         self._stop.set()
@@ -276,7 +296,8 @@ def main() -> int:
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
     if not CONTRACTS:
-        log.error("DI1_CONTRACTS vazio"); return 2
+        log.error("DI1_CONTRACTS vazio")
+        return 2
 
     worker = DI1RealtimeWorker()
     loop = asyncio.new_event_loop()

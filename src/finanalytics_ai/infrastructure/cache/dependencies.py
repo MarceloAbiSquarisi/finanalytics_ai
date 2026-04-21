@@ -46,9 +46,9 @@ import functools
 import json
 from typing import TYPE_CHECKING, Any
 
-import structlog
 from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse
+import structlog
 
 from finanalytics_ai.infrastructure.cache.backend import (
     CacheBackend,

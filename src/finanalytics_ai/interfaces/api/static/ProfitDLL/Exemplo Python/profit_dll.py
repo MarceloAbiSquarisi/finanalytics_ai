@@ -1,5 +1,18 @@
-from ctypes import POINTER, WinDLL, c_double, c_int, c_int64, c_long, c_longlong, c_size_t, c_ubyte, c_wchar_p
+from ctypes import (
+    POINTER,
+    WinDLL,
+    c_double,
+    c_int,
+    c_int64,
+    c_long,
+    c_longlong,
+    c_size_t,
+    c_ubyte,
+    c_wchar_p,
+)
+
 from profitTypes import *
+
 
 def initializeDll(path: str) -> WinDLL:
     profit_dll = WinDLL(path)
@@ -13,10 +26,28 @@ def initializeDll(path: str) -> WinDLL:
     profit_dll.SendMarketSellOrder.restype = c_int64
     profit_dll.SendMarketBuyOrder.restype = c_int64
 
-    profit_dll.SendStopSellOrder.argtypes = [c_wchar_p, c_wchar_p, c_wchar_p, c_wchar_p, c_wchar_p, c_double, c_double, c_int]
+    profit_dll.SendStopSellOrder.argtypes = [
+        c_wchar_p,
+        c_wchar_p,
+        c_wchar_p,
+        c_wchar_p,
+        c_wchar_p,
+        c_double,
+        c_double,
+        c_int,
+    ]
     profit_dll.SendStopSellOrder.restype = c_longlong
 
-    profit_dll.SendStopBuyOrder.argtypes = [c_wchar_p, c_wchar_p, c_wchar_p, c_wchar_p, c_wchar_p, c_double, c_double, c_int]
+    profit_dll.SendStopBuyOrder.argtypes = [
+        c_wchar_p,
+        c_wchar_p,
+        c_wchar_p,
+        c_wchar_p,
+        c_wchar_p,
+        c_double,
+        c_double,
+        c_int,
+    ]
     profit_dll.SendStopBuyOrder.restype = c_longlong
 
     profit_dll.SendOrder.argtypes = [POINTER(TConnectorSendOrder)]
@@ -49,7 +80,13 @@ def initializeDll(path: str) -> WinDLL:
     profit_dll.GetSubAccountCount.argtypes = [POINTER(TConnectorAccountIdentifier)]
     profit_dll.GetSubAccountCount.restype = c_int
 
-    profit_dll.GetSubAccounts.argtypes = [POINTER(TConnectorAccountIdentifier), c_int, c_int, c_int, POINTER(TConnectorAccountIdentifierOut)]
+    profit_dll.GetSubAccounts.argtypes = [
+        POINTER(TConnectorAccountIdentifier),
+        c_int,
+        c_int,
+        c_int,
+        POINTER(TConnectorAccountIdentifierOut),
+    ]
     profit_dll.GetSubAccounts.restype = c_int
 
     profit_dll.GetPositionV2.argtypes = [POINTER(TConnectorTradingAccountPosition)]
@@ -58,13 +95,29 @@ def initializeDll(path: str) -> WinDLL:
     profit_dll.GetOrderDetails.argtypes = [POINTER(TConnectorOrderOut)]
     profit_dll.GetOrderDetails.restype = c_int
 
-    profit_dll.HasOrdersInInterval.argtypes = [POINTER(TConnectorAccountIdentifier), SystemTime, SystemTime]
+    profit_dll.HasOrdersInInterval.argtypes = [
+        POINTER(TConnectorAccountIdentifier),
+        SystemTime,
+        SystemTime,
+    ]
     profit_dll.HasOrdersInInterval.restype = c_int
 
-    profit_dll.EnumerateOrdersByInterval.argtypes = [POINTER(TConnectorAccountIdentifier), c_ubyte, SystemTime, SystemTime, c_long, TConnectorEnumerateOrdersProc]
+    profit_dll.EnumerateOrdersByInterval.argtypes = [
+        POINTER(TConnectorAccountIdentifier),
+        c_ubyte,
+        SystemTime,
+        SystemTime,
+        c_long,
+        TConnectorEnumerateOrdersProc,
+    ]
     profit_dll.EnumerateOrdersByInterval.restype = c_int
 
-    profit_dll.EnumerateAllOrders.argtypes = [POINTER(TConnectorAccountIdentifier), c_ubyte, c_long, TConnectorEnumerateOrdersProc]
+    profit_dll.EnumerateAllOrders.argtypes = [
+        POINTER(TConnectorAccountIdentifier),
+        c_ubyte,
+        c_long,
+        TConnectorEnumerateOrdersProc,
+    ]
     profit_dll.EnumerateAllOrders.restype = c_int
 
     profit_dll.TranslateTrade.argtypes = [c_size_t, POINTER(TConnectorTrade)]
@@ -79,16 +132,31 @@ def initializeDll(path: str) -> WinDLL:
     profit_dll.GetPriceDepthSideCount.argtypes = [POINTER(TConnectorAssetIdentifier), c_ubyte]
     profit_dll.GetPriceDepthSideCount.restype = c_int
 
-    profit_dll.GetPriceGroup.argtypes = [POINTER(TConnectorAssetIdentifier), c_ubyte, c_int, POINTER(TConnectorPriceGroup)]
+    profit_dll.GetPriceGroup.argtypes = [
+        POINTER(TConnectorAssetIdentifier),
+        c_ubyte,
+        c_int,
+        POINTER(TConnectorPriceGroup),
+    ]
     profit_dll.GetPriceGroup.restype = c_int
 
-    profit_dll.GetTheoreticalValues.argtypes = [POINTER(TConnectorAssetIdentifier), POINTER(c_double), POINTER(c_int64)]
+    profit_dll.GetTheoreticalValues.argtypes = [
+        POINTER(TConnectorAssetIdentifier),
+        POINTER(c_double),
+        POINTER(c_int64),
+    ]
     profit_dll.GetTheoreticalValues.restype = c_int
 
     profit_dll.GetAccountCountByBroker.argtypes = [c_int]
     profit_dll.GetAccountCountByBroker.restype = c_int
 
-    profit_dll.GetAccountsByBroker.argtypes = [c_int, c_int, c_int, c_int, POINTER(TConnectorAccountIdentifierOut)]
+    profit_dll.GetAccountsByBroker.argtypes = [
+        c_int,
+        c_int,
+        c_int,
+        c_int,
+        POINTER(TConnectorAccountIdentifierOut),
+    ]
     profit_dll.GetAccountsByBroker.restype = c_int
 
     profit_dll.GetAgentNameLength.argtypes = [c_int, c_int]
@@ -97,7 +165,12 @@ def initializeDll(path: str) -> WinDLL:
     profit_dll.GetAgentName.argtypes = [c_int, c_int, c_wchar_p, c_int]
     profit_dll.GetAgentName.restype = c_int
 
-    profit_dll.EnumerateAllPositionAssets.argtypes = [POINTER(TConnectorAccountIdentifier), c_ubyte, c_long, TConnectorEnumerateAssetProc]
+    profit_dll.EnumerateAllPositionAssets.argtypes = [
+        POINTER(TConnectorAccountIdentifier),
+        c_ubyte,
+        c_long,
+        TConnectorEnumerateAssetProc,
+    ]
     profit_dll.EnumerateAllPositionAssets.restype = c_int
 
     return profit_dll

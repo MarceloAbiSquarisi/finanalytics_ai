@@ -224,20 +224,24 @@ class FintzSyncService:
 
     @staticmethod
     def _build_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
-        ok    = sum(1 for r in results if r["status"] == "ok")
-        skip  = sum(1 for r in results if r["status"] == "skip")
+        ok = sum(1 for r in results if r["status"] == "ok")
+        skip = sum(1 for r in results if r["status"] == "skip")
         error = sum(1 for r in results if r["status"] == "error")
         total_rows = sum(r.get("rows", 0) for r in results)
         failed = [r["key"] for r in results if r["status"] == "error"]
 
         logger.info(
             "fintz_sync.complete",
-            ok=ok, skip=skip, error=error,
+            ok=ok,
+            skip=skip,
+            error=error,
             total_rows=total_rows,
             failed_count=len(failed),
         )
         return {
-            "ok": ok, "skip": skip, "error": error,
+            "ok": ok,
+            "skip": skip,
+            "error": error,
             "total": len(results),
             "total_rows": total_rows,
             "failed_keys": failed,
@@ -247,17 +251,21 @@ class FintzSyncService:
 
 # ── Helpers de métricas ───────────────────────────────────────────────────────
 
+
 def _inc_metric(name: str, label: str) -> None:
     try:
         from finanalytics_ai.metrics import (
-            fintz_sync_attempts_total, fintz_sync_errors_total,
-            fintz_sync_skips_total, fintz_sync_success_total,
+            fintz_sync_attempts_total,
+            fintz_sync_errors_total,
+            fintz_sync_skips_total,
+            fintz_sync_success_total,
         )
+
         metric_map = {
             "fintz_sync_attempts_total": fintz_sync_attempts_total,
-            "fintz_sync_success_total":  fintz_sync_success_total,
-            "fintz_sync_skips_total":    fintz_sync_skips_total,
-            "fintz_sync_errors_total":   fintz_sync_errors_total,
+            "fintz_sync_success_total": fintz_sync_success_total,
+            "fintz_sync_skips_total": fintz_sync_skips_total,
+            "fintz_sync_errors_total": fintz_sync_errors_total,
         }
         m = metric_map.get(name)
         if m is not None:
@@ -269,6 +277,7 @@ def _inc_metric(name: str, label: str) -> None:
 def _observe_rows_metric(rows: int, label: str) -> None:
     try:
         from finanalytics_ai.metrics import fintz_rows_upserted_total
+
         fintz_rows_upserted_total.labels(dataset_type=label).inc(rows)
     except Exception:
         pass

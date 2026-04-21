@@ -4,6 +4,7 @@ Aceita formatos: '12345678909', '123.456.789-09', '123 456 789 09'.
 Rejeita: tamanho != 11, sequencias repetidas (00000000000, 11111111111...),
 DV invalido.
 """
+
 from __future__ import annotations
 
 import re

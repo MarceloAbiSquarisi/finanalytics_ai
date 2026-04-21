@@ -25,14 +25,14 @@ Design:
   - Resumo em 1 linha gerado pelo modelo
   - Cache Redis de 1h para evitar re-analise da mesma noticia
 """
+
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 import hashlib
 import json
-import time
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -69,6 +69,7 @@ Regras:
 @dataclass
 class NewsItem:
     """Uma noticia a ser analisada."""
+
     title: str
     content: str
     source: str = ""
@@ -88,64 +89,66 @@ class NewsItem:
 @dataclass
 class SentimentResult:
     """Resultado da analise de sentimento."""
+
     title: str
     source: str
     url: str
     published_at: str
-    sentimento: str          # positivo | negativo | neutro
-    score: float             # -1.0 a +1.0
-    confianca: float         # 0.0 a 1.0
+    sentimento: str  # positivo | negativo | neutro
+    score: float  # -1.0 a +1.0
+    confianca: float  # 0.0 a 1.0
     resumo: str
     tickers_mencionados: list[str]
     categorias: list[str]
-    impacto: str             # alto | medio | baixo
-    analyzed_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    impacto: str  # alto | medio | baixo
+    analyzed_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     model: str = CLAUDE_MODEL
     cached: bool = False
     error: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "title":               self.title,
-            "source":              self.source,
-            "url":                 self.url,
-            "published_at":        self.published_at,
-            "sentimento":          self.sentimento,
-            "score":               round(self.score, 4),
-            "confianca":           round(self.confianca, 4),
-            "resumo":              self.resumo,
+            "title": self.title,
+            "source": self.source,
+            "url": self.url,
+            "published_at": self.published_at,
+            "sentimento": self.sentimento,
+            "score": round(self.score, 4),
+            "confianca": round(self.confianca, 4),
+            "resumo": self.resumo,
             "tickers_mencionados": self.tickers_mencionados,
-            "categorias":          self.categorias,
-            "impacto":             self.impacto,
-            "analyzed_at":         self.analyzed_at,
-            "model":               self.model,
-            "cached":              self.cached,
-            "error":               self.error,
+            "categorias": self.categorias,
+            "impacto": self.impacto,
+            "analyzed_at": self.analyzed_at,
+            "model": self.model,
+            "cached": self.cached,
+            "error": self.error,
         }
 
 
 @dataclass
 class SentimentScanResult:
     """Resultado de um scan de multiplas noticias."""
+
     total: int
     positivas: int
     negativas: int
     neutras: int
     score_medio: float
     results: list[SentimentResult]
-    tickers_impactados: dict[str, float]   # ticker -> score medio
-    scanned_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    tickers_impactados: dict[str, float]  # ticker -> score medio
+    scanned_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "total":              self.total,
-            "positivas":          self.positivas,
-            "negativas":          self.negativas,
-            "neutras":            self.neutras,
-            "score_medio":        round(self.score_medio, 4),
+            "total": self.total,
+            "positivas": self.positivas,
+            "negativas": self.negativas,
+            "neutras": self.neutras,
+            "score_medio": round(self.score_medio, 4),
             "tickers_impactados": {k: round(v, 4) for k, v in self.tickers_impactados.items()},
-            "scanned_at":         self.scanned_at,
-            "results":            [r.to_dict() for r in self.results],
+            "scanned_at": self.scanned_at,
+            "results": [r.to_dict() for r in self.results],
         }
 
 
@@ -190,9 +193,7 @@ class SentimentService:
             "model": CLAUDE_MODEL,
             "max_tokens": 512,
             "system": SYSTEM_PROMPT,
-            "messages": [
-                {"role": "user", "content": news.text}
-            ],
+            "messages": [{"role": "user", "content": news.text}],
         }
 
         try:
@@ -223,11 +224,18 @@ class SentimentService:
         except Exception as exc:
             logger.error("sentiment.analyze.error", error=str(exc), title=news.title[:50])
             return SentimentResult(
-                title=news.title, source=news.source, url=news.url,
+                title=news.title,
+                source=news.source,
+                url=news.url,
                 published_at=news.published_at,
-                sentimento="neutro", score=0.0, confianca=0.0,
-                resumo="Erro na analise", tickers_mencionados=[],
-                categorias=[], impacto="baixo", error=str(exc),
+                sentimento="neutro",
+                score=0.0,
+                confianca=0.0,
+                resumo="Erro na analise",
+                tickers_mencionados=[],
+                categorias=[],
+                impacto="baixo",
+                error=str(exc),
             )
 
     # ─── Analise em lote ───────────────────────────────────────────────────────
@@ -293,7 +301,8 @@ class SentimentService:
         if tickers:
             tickers_upper = [t.upper() for t in tickers]
             filtered = [
-                n for n in news_items
+                n
+                for n in news_items
                 if any(t in n.title.upper() or t in n.content.upper() for t in tickers_upper)
             ]
             # Se filtro zerou tudo, retorna as mais recentes sem filtro
@@ -304,38 +313,46 @@ class SentimentService:
     def _parse_rss(self, xml_text: str, max_items: int) -> list[NewsItem]:
         """Parse simples de RSS sem dependencia de biblioteca externa."""
         import re
+
         items = []
 
         # Extrai itens do RSS
-        item_pattern = re.compile(r'<item>(.*?)</item>', re.DOTALL)
-        title_pattern = re.compile(r'<title><!\[CDATA\[(.*?)\]\]></title>|<title>(.*?)</title>', re.DOTALL)
-        desc_pattern  = re.compile(r'<description><!\[CDATA\[(.*?)\]\]></description>|<description>(.*?)</description>', re.DOTALL)
-        link_pattern  = re.compile(r'<link>(.*?)</link>', re.DOTALL)
-        date_pattern  = re.compile(r'<pubDate>(.*?)</pubDate>', re.DOTALL)
+        item_pattern = re.compile(r"<item>(.*?)</item>", re.DOTALL)
+        title_pattern = re.compile(
+            r"<title><!\[CDATA\[(.*?)\]\]></title>|<title>(.*?)</title>", re.DOTALL
+        )
+        desc_pattern = re.compile(
+            r"<description><!\[CDATA\[(.*?)\]\]></description>|<description>(.*?)</description>",
+            re.DOTALL,
+        )
+        link_pattern = re.compile(r"<link>(.*?)</link>", re.DOTALL)
+        date_pattern = re.compile(r"<pubDate>(.*?)</pubDate>", re.DOTALL)
 
         for m in item_pattern.finditer(xml_text):
             block = m.group(1)
             title_m = title_pattern.search(block)
-            desc_m  = desc_pattern.search(block)
-            link_m  = link_pattern.search(block)
-            date_m  = date_pattern.search(block)
+            desc_m = desc_pattern.search(block)
+            link_m = link_pattern.search(block)
+            date_m = date_pattern.search(block)
 
             title = (title_m.group(1) or title_m.group(2) or "").strip() if title_m else ""
-            desc  = (desc_m.group(1) or desc_m.group(2) or "").strip() if desc_m else ""
-            link  = link_m.group(1).strip() if link_m else ""
-            date  = date_m.group(1).strip() if date_m else ""
+            desc = (desc_m.group(1) or desc_m.group(2) or "").strip() if desc_m else ""
+            link = link_m.group(1).strip() if link_m else ""
+            date = date_m.group(1).strip() if date_m else ""
 
             # Remove tags HTML residuais
-            desc = re.sub(r'<[^>]+>', '', desc)
+            desc = re.sub(r"<[^>]+>", "", desc)
 
             if title:
-                items.append(NewsItem(
-                    title=title,
-                    content=desc,
-                    url=link,
-                    published_at=date,
-                    source=link.split('/')[2] if link else "",
-                ))
+                items.append(
+                    NewsItem(
+                        title=title,
+                        content=desc,
+                        url=link,
+                        published_at=date,
+                        source=link.split("/")[2] if link else "",
+                    )
+                )
 
             if len(items) >= max_items:
                 break
@@ -357,27 +374,31 @@ class SentimentService:
         try:
             data = json.loads(text)
             return {
-                "sentimento":          data.get("sentimento", "neutro"),
-                "score":               float(data.get("score", 0.0)),
-                "confianca":           float(data.get("confianca", 0.5)),
-                "resumo":              str(data.get("resumo", ""))[:150],
+                "sentimento": data.get("sentimento", "neutro"),
+                "score": float(data.get("score", 0.0)),
+                "confianca": float(data.get("confianca", 0.5)),
+                "resumo": str(data.get("resumo", ""))[:150],
                 "tickers_mencionados": data.get("tickers_mencionados", []),
-                "categorias":          data.get("categorias", []),
-                "impacto":             data.get("impacto", "baixo"),
+                "categorias": data.get("categorias", []),
+                "impacto": data.get("impacto", "baixo"),
             }
         except (json.JSONDecodeError, ValueError) as exc:
             logger.warning("sentiment.parse.error", error=str(exc), text=text[:100])
             return {
-                "sentimento": "neutro", "score": 0.0, "confianca": 0.0,
-                "resumo": "Erro ao interpretar resposta", "tickers_mencionados": [],
-                "categorias": [], "impacto": "baixo",
+                "sentimento": "neutro",
+                "score": 0.0,
+                "confianca": 0.0,
+                "resumo": "Erro ao interpretar resposta",
+                "tickers_mencionados": [],
+                "categorias": [],
+                "impacto": "baixo",
             }
 
     def _build_scan_result(self, results: list[SentimentResult]) -> SentimentScanResult:
         """Agrega resultados de multiplas noticias."""
         positivas = sum(1 for r in results if r.sentimento == "positivo")
         negativas = sum(1 for r in results if r.sentimento == "negativo")
-        neutras   = sum(1 for r in results if r.sentimento == "neutro")
+        neutras = sum(1 for r in results if r.sentimento == "neutro")
         score_medio = sum(r.score for r in results) / len(results) if results else 0.0
 
         # Agrega score por ticker
@@ -386,10 +407,7 @@ class SentimentService:
             for ticker in r.tickers_mencionados:
                 ticker_scores.setdefault(ticker, []).append(r.score)
 
-        tickers_impactados = {
-            t: sum(scores) / len(scores)
-            for t, scores in ticker_scores.items()
-        }
+        tickers_impactados = {t: sum(scores) / len(scores) for t, scores in ticker_scores.items()}
 
         return SentimentScanResult(
             total=len(results),

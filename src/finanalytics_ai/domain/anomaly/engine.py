@@ -60,9 +60,9 @@ Design decisions:
 
 from __future__ import annotations
 
-import statistics
 from dataclasses import dataclass, field
 from enum import StrEnum
+import statistics
 from typing import Any
 
 # ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -552,7 +552,9 @@ def analyze_ticker(
         config = DetectorConfig()
 
     if not bars:
-        return AnomalyResult(ticker=ticker, bars_analyzed=0, anomalies=[], error="Sem barras para analisar")
+        return AnomalyResult(
+            ticker=ticker, bars_analyzed=0, anomalies=[], error="Sem barras para analisar"
+        )
 
     # Limita ao lookback configurado
     bars_used = bars[-config.lookback_bars :]
@@ -569,7 +571,9 @@ def analyze_ticker(
         anomalies.sort(key=lambda a: (order[a.severity], abs(a.score)), reverse=True)
 
     except Exception as exc:
-        return AnomalyResult(ticker=ticker, bars_analyzed=len(bars_used), anomalies=[], error=str(exc))
+        return AnomalyResult(
+            ticker=ticker, bars_analyzed=len(bars_used), anomalies=[], error=str(exc)
+        )
 
     return AnomalyResult(
         ticker=ticker,

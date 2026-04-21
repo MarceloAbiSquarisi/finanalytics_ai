@@ -9,6 +9,7 @@ Design:
   - QR code gerado como base64 PNG (embutível em <img src="data:...">)
   - Secret armazenado criptografado na coluna totp_secret (Base32)
 """
+
 from __future__ import annotations
 
 import base64
@@ -20,12 +21,14 @@ log = structlog.get_logger(__name__)
 
 try:
     import pyotp
+
     _PYOTP_AVAILABLE = True
 except ImportError:
     _PYOTP_AVAILABLE = False
 
 try:
     import qrcode
+
     _QRCODE_AVAILABLE = True
 except ImportError:
     _QRCODE_AVAILABLE = False

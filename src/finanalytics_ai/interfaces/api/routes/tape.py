@@ -10,13 +10,14 @@ GET  /api/v1/tape/trades/{ticker}     -- ultimos negocios
 GET  /api/v1/tape/stream/{ticker}     -- SSE stream em tempo real
 POST /api/v1/tape/simulate            -- inicia simulacao (para testes)
 """
+
 import asyncio
 import json
 from typing import Any
 
-import structlog
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
+import structlog
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/tape", tags=["Tape Reading"])
@@ -85,8 +86,8 @@ async def stream_tape(ticker: str, request: Request) -> StreamingResponse:
                 try:
                     event = await asyncio.wait_for(q.get(), timeout=5.0)
                     yield f"data: {json.dumps({'type': 'tick', **event})}\n\n"
-                except asyncio.TimeoutError:
-                    yield "data: {\"type\":\"heartbeat\"}\n\n"
+                except TimeoutError:
+                    yield 'data: {"type":"heartbeat"}\n\n'
         finally:
             tape.unsubscribe(ticker, q)
 
@@ -114,9 +115,7 @@ async def start_simulation(
     tape = _get_tape(request)
     ticker_list = [t.strip().upper() for t in tickers.split(",") if t.strip()]
 
-    asyncio.create_task(
-        tape.simulate(ticker_list, duration_seconds=duration, tps=tps)
-    )
+    asyncio.create_task(tape.simulate(ticker_list, duration_seconds=duration, tps=tps))
 
     return {
         "started": True,

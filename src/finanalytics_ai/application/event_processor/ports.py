@@ -11,6 +11,7 @@ a infraestrutura e livre para implementar sem heranca.
 
 Todos os ports sao async — a aplicacao nao conhece detalhes de IO.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol, runtime_checkable

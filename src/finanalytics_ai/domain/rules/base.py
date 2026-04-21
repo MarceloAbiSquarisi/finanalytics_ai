@@ -31,7 +31,9 @@ class RuleResult:
         return cls(is_valid=True, rule_name=rule_name)
 
     @classmethod
-    def violation(cls, rule_name: str, message: str, context: dict[str, Any] | None = None) -> RuleResult:
+    def violation(
+        cls, rule_name: str, message: str, context: dict[str, Any] | None = None
+    ) -> RuleResult:
         return cls(is_valid=False, rule_name=rule_name, message=message, context=context)
 
 

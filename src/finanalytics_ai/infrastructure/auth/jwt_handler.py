@@ -25,9 +25,9 @@ Design decision — não usar cookies httpOnly por padrão:
 
 from __future__ import annotations
 
-import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
+import uuid
 
 import structlog
 
@@ -83,12 +83,11 @@ class JWTHandler:
             expires_in=self.access_expire_minutes * 60,
         )
 
-
     def create_totp_pending_token(self, user: User) -> str:
         """Token temporário (5min) para aguardar código TOTP."""
         return self._create_token(user, "totp_pending", timedelta(minutes=5))
 
-    def create_token_pair_remember(self, user: User) -> "TokenPair":
+    def create_token_pair_remember(self, user: User) -> TokenPair:
         """Token pair com access de 24h para remember_me=True."""
         access = self._create_token(user, "access", timedelta(hours=24))
         refresh = self._create_token(user, "refresh", timedelta(days=7))
@@ -165,7 +164,9 @@ class JWTHandler:
 
         header = base64.urlsafe_b64encode(b'{"alg":"HS256"}').rstrip(b"=").decode()
         payload = (
-            base64.urlsafe_b64encode(json.dumps(claims, separators=(",", ":")).encode()).rstrip(b"=").decode()
+            base64.urlsafe_b64encode(json.dumps(claims, separators=(",", ":")).encode())
+            .rstrip(b"=")
+            .decode()
         )
         msg = f"{header}.{payload}".encode()
         sig = _hmac.new(self.secret_key.encode(), msg, hashlib.sha256).digest()

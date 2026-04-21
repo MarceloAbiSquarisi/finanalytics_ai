@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
+import uuid
 
-import structlog
 from sqlalchemy import (
     Boolean,
     DateTime,
@@ -21,6 +20,7 @@ from sqlalchemy import (
     update,
 )
 from sqlalchemy.orm import Mapped, mapped_column
+import structlog
 
 from finanalytics_ai.domain.entities.portfolio import Portfolio, Position
 from finanalytics_ai.domain.value_objects.money import Currency, Money, Quantity, Ticker
@@ -44,9 +44,13 @@ class PortfolioModel(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="BRL")
     cash: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
 
@@ -135,9 +139,7 @@ class SQLPortfolioRepository:
             return None
         return await self._hydrate(pm)
 
-    async def find_by_user(
-        self, user_id: str, include_inactive: bool = False
-    ) -> list[Portfolio]:
+    async def find_by_user(self, user_id: str, include_inactive: bool = False) -> list[Portfolio]:
         stmt = select(PortfolioModel).where(PortfolioModel.user_id == user_id)
         if not include_inactive:
             stmt = stmt.where(PortfolioModel.is_active.is_(True))

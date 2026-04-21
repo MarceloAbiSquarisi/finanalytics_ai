@@ -1,6 +1,7 @@
 """
 Testes de integracao do RedisIdempotencyStore com Redis real.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -47,10 +48,9 @@ class TestRedisIdempotencyStoreIntegration:
         key = "test:concurrent_atomic"
         await redis_client.delete(key)
 
-        results = await asyncio.gather(*[
-            store.check_and_set(key, ttl_seconds=60)
-            for _ in range(10)
-        ])
+        results = await asyncio.gather(
+            *[store.check_and_set(key, ttl_seconds=60) for _ in range(10)]
+        )
         # Exatamente 1 False (primeiro) e 9 True (ja existia)
         assert results.count(False) == 1
         assert results.count(True) == 9

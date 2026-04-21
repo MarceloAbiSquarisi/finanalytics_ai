@@ -102,7 +102,9 @@ def test_excess_score_reduced():
 
 
 # ── analyze_fgc — sem cobertura (CRI/CRA/Debênture) ──────────────────────────
-_unc = analyze_fgc("p1", [_h("h1", "CRI", "Fundo X", 50_000), _h("h2", "Debênture", "Empresa", 30_000)])
+_unc = analyze_fgc(
+    "p1", [_h("h1", "CRI", "Fundo X", 50_000), _h("h2", "Debênture", "Empresa", 30_000)]
+)
 
 
 def test_uncovered_total():

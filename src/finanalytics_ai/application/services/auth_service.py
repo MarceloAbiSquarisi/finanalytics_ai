@@ -8,8 +8,8 @@ e à infra (hasher, JWT, repositório). Camada de aplicação correta.
 """
 
 from __future__ import annotations
-from dataclasses import dataclass
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import structlog
@@ -31,13 +31,13 @@ if TYPE_CHECKING:
 logger = structlog.get_logger(__name__)
 
 
-
-
 @dataclass
 class TOTPPendingResult:
     """Retorno do login quando 2FA está ativo."""
+
     totp_required: bool = True
     totp_token: str = ""
+
 
 class AuthService:
     def __init__(
@@ -113,7 +113,6 @@ class AuthService:
         user.ensure_active()
         return user
 
-
     async def change_password(
         self,
         user_id: str,
@@ -130,15 +129,14 @@ class AuthService:
         hashed = self._hasher.hash(new_password)
         await self._repo.update_password(user_id, hashed)
 
-    async def save_totp_secret(
-        self, user_id: str, secret: str, enabled: bool = False
-    ) -> None:
+    async def save_totp_secret(self, user_id: str, secret: str, enabled: bool = False) -> None:
         """Salva secret TOTP (pendente de confirmação ou ativo)."""
         await self._repo.update_totp(user_id, secret=secret, enabled=enabled)
 
     async def verify_and_enable_totp(self, user_id: str, code: str) -> bool:
         """Verifica código TOTP e ativa 2FA se correto."""
         from finanalytics_ai.infrastructure.auth.totp_handler import get_totp_handler
+
         user = await self._repo.find_by_id(user_id)
         if not user or not user.totp_secret:
             return False
@@ -151,6 +149,7 @@ class AuthService:
     async def disable_totp(self, user_id: str, code: str) -> bool:
         """Desativa 2FA após verificação do código atual."""
         from finanalytics_ai.infrastructure.auth.totp_handler import get_totp_handler
+
         user = await self._repo.find_by_id(user_id)
         if not user or not user.totp_secret or not user.totp_enabled:
             return False
@@ -160,9 +159,10 @@ class AuthService:
         await self._repo.update_totp(user_id, secret=None, enabled=False)
         return True
 
-    async def authenticate_totp(self, totp_token: str, code: str) -> "TokenPair":
+    async def authenticate_totp(self, totp_token: str, code: str) -> TokenPair:
         """Valida token temporário de TOTP e retorna tokens reais."""
         from finanalytics_ai.infrastructure.auth.totp_handler import get_totp_handler
+
         # Decodifica token temporário (tipo "totp_pending")
         try:
             payload = self._jwt.decode(totp_token)
@@ -170,19 +170,23 @@ class AuthService:
                 raise TokenInvalidError("Token inválido para 2FA.")
         except Exception as exc:
             from finanalytics_ai.domain.auth.entities import TokenInvalidError as TIE
+
             raise TIE("Token de 2FA inválido ou expirado.") from exc
 
         user = await self._repo.get_by_id(payload.sub)
         if not user or not user.is_active:
             from finanalytics_ai.domain.auth.entities import UserNotFoundError
+
             raise UserNotFoundError()
         if not user.totp_secret or not user.totp_enabled:
             from finanalytics_ai.domain.auth.entities import TokenInvalidError as TIE
+
             raise TIE("2FA não ativo para este usuário.")
 
         handler = get_totp_handler()
         if not handler.verify(user.totp_secret, code):
             from finanalytics_ai.domain.auth.entities import InvalidCredentialsError
+
             raise InvalidCredentialsError()
 
         logger.info("auth.totp.authenticated", user_id=user.user_id)

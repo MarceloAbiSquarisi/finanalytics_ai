@@ -17,8 +17,8 @@ Por que não usar o ORM do SQLAlchemy aqui?
 
 from __future__ import annotations
 
+from datetime import UTC
 import json
-from datetime import datetime, timezone
 from typing import Any
 
 import asyncpg
@@ -64,9 +64,7 @@ class PostgresEventRepository:
             },
         )
 
-    async def get_processing_record(
-        self, event_id: EventId
-    ) -> EventProcessingRecord | None:
+    async def get_processing_record(self, event_id: EventId) -> EventProcessingRecord | None:
         stmt = text("""
             SELECT event_id, status, attempt, last_error, processed_at, result_metadata
             FROM event_processing_records
@@ -225,7 +223,7 @@ class PostgresEventRepository:
             event_type=EventType(row.event_type),
             payload=row.payload if isinstance(row.payload, dict) else json.loads(row.payload),
             source=row.source,
-            created_at=row.created_at.replace(tzinfo=timezone.utc)
+            created_at=row.created_at.replace(tzinfo=UTC)
             if row.created_at.tzinfo is None
             else row.created_at,
             correlation_id=row.correlation_id,

@@ -563,7 +563,9 @@ class TestMultiTickerService:
         tickers = [f"T{i}" for i in range(8)]
         await svc.compare(tickers, "rsi")
 
-        assert max_seen[0] <= MAX_CONCURRENT, f"Max simultaneous: {max_seen[0]}, expected <= {MAX_CONCURRENT}"
+        assert max_seen[0] <= MAX_CONCURRENT, (
+            f"Max simultaneous: {max_seen[0]}, expected <= {MAX_CONCURRENT}"
+        )
 
     @pytest.mark.asyncio
     async def test_result_metadata_correct(self):

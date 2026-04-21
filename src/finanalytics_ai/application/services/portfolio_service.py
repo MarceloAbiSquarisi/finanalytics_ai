@@ -218,7 +218,9 @@ class PortfolioService:
         logger.info("portfolio.set_default", portfolio_id=portfolio_id, user_id=user_id)
         return portfolio
 
-    async def compare_portfolios(self, portfolio_ids: list[str], user_id: str) -> PortfolioComparison:
+    async def compare_portfolios(
+        self, portfolio_ids: list[str], user_id: str
+    ) -> PortfolioComparison:
         """
         Compara performance entre carteiras do usuário.
         Busca cotações em paralelo e retorna resumo comparativo.
@@ -292,7 +294,9 @@ class PortfolioService:
         price = Money.of(cmd.price)
         portfolio.remove_position(ticker, quantity, price)
         await self._repo.save(portfolio)
-        logger.info("portfolio.sell", ticker=cmd.ticker, qty=str(cmd.quantity), price=str(cmd.price))
+        logger.info(
+            "portfolio.sell", ticker=cmd.ticker, qty=str(cmd.quantity), price=str(cmd.price)
+        )
         return portfolio
 
     async def get_snapshot(self, portfolio_id: str) -> PortfolioSnapshot:
@@ -337,7 +341,9 @@ class PortfolioService:
         total_invested = portfolio.total_invested()
         total_pl = total_current_value - total_invested
         total_pl_pct = (
-            (total_pl.amount / total_invested.amount * 100) if not total_invested.is_zero() else Decimal("0")
+            (total_pl.amount / total_invested.amount * 100)
+            if not total_invested.is_zero()
+            else Decimal("0")
         )
 
         return PortfolioSnapshot(

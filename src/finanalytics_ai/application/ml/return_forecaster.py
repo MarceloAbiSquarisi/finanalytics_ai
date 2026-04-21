@@ -24,12 +24,11 @@ Cross-validation:
   TimeSeriesSplit (purged) — sem vazamento de dados futuros.
   Purge gap = horizon_days para evitar sobreposicao de janelas.
 """
+
 from __future__ import annotations
 
-import math
-import pickle
 from dataclasses import dataclass
-from datetime import datetime, date
+import pickle
 from typing import Any
 
 import numpy as np
@@ -38,10 +37,21 @@ import structlog
 log = structlog.get_logger(__name__)
 
 FEATURE_COLS = [
-    "ret_5d", "ret_21d", "ret_63d", "volatility_21d", "rsi_14",
-    "beta_60d", "volume_ratio_21d",
-    "pe", "pvp", "roe", "roic", "ev_ebitda", "debt_ebitda",
-    "net_margin", "revenue_growth",
+    "ret_5d",
+    "ret_21d",
+    "ret_63d",
+    "volatility_21d",
+    "rsi_14",
+    "beta_60d",
+    "volume_ratio_21d",
+    "pe",
+    "pvp",
+    "roe",
+    "roic",
+    "ev_ebitda",
+    "debt_ebitda",
+    "net_margin",
+    "revenue_growth",
 ]
 
 QUANTILES = [0.10, 0.50, 0.90]
@@ -51,7 +61,7 @@ HORIZONS = [21, 63]  # dias uteis
 @dataclass
 class TrainingDataRow:
     features: dict[str, float | None]
-    target_21d: float | None   # retorno forward 21d
+    target_21d: float | None  # retorno forward 21d
     target_63d: float | None
 
 
@@ -98,26 +108,27 @@ class QuantileForecaster:
             import lightgbm as lgb
             from sklearn.model_selection import TimeSeriesSplit
         except ImportError:
-            log.error("return_forecaster.import_error",
-                      msg="Instale lightgbm e scikit-learn: uv pip install -e '.[dev]'")
+            log.error(
+                "return_forecaster.import_error",
+                msg="Instale lightgbm e scikit-learn: uv pip install -e '.[dev]'",
+            )
             return {}
 
         target_col = f"target_{horizon_days}d"
         valid_rows = [
-            r for r in rows
+            r
+            for r in rows
             if getattr(r, target_col) is not None
             and any(r.features.get(c) is not None for c in FEATURE_COLS[:7])
         ]
 
         if len(valid_rows) < 50:
-            log.warning("return_forecaster.insufficient_data",
-                        n=len(valid_rows), needed=50)
+            log.warning("return_forecaster.insufficient_data", n=len(valid_rows), needed=50)
             return {}
 
-        X = np.array([
-            [r.features.get(c) for c in FEATURE_COLS]
-            for r in valid_rows
-        ], dtype=np.float32)
+        X = np.array(
+            [[r.features.get(c) for c in FEATURE_COLS] for r in valid_rows], dtype=np.float32
+        )
         y = np.array([getattr(r, target_col) for r in valid_rows], dtype=np.float32)
 
         errors: dict[str, list[float]] = {f"q{q}": [] for q in QUANTILES}
@@ -127,23 +138,20 @@ class QuantileForecaster:
             X_tr, X_val = X[train_idx], X[val_idx]
             y_tr, y_val = y[train_idx], y[val_idx]
             for q in QUANTILES:
-                m = lgb.LGBMRegressor(
-                    objective="quantile", alpha=q, **self._params
+                m = lgb.LGBMRegressor(objective="quantile", alpha=q, **self._params)
+                m.fit(
+                    X_tr,
+                    y_tr,
+                    eval_set=[(X_val, y_val)],
+                    callbacks=[lgb.early_stopping(50, verbose=False), lgb.log_evaluation(-1)],
                 )
-                m.fit(X_tr, y_tr,
-                      eval_set=[(X_val, y_val)],
-                      callbacks=[lgb.early_stopping(50, verbose=False),
-                                 lgb.log_evaluation(-1)])
                 preds = m.predict(X_val)
-                mape = float(np.mean(np.abs(preds - y_val) /
-                                     (np.abs(y_val) + 1e-8)))
+                mape = float(np.mean(np.abs(preds - y_val) / (np.abs(y_val) + 1e-8)))
                 errors[f"q{q}"].append(mape)
 
         # Treino final em todos os dados
         for q in QUANTILES:
-            m = lgb.LGBMRegressor(
-                objective="quantile", alpha=q, **self._params
-            )
+            m = lgb.LGBMRegressor(objective="quantile", alpha=q, **self._params)
             m.fit(X, y)
             key = f"{horizon_days}d_q{q}"
             self._models[key] = m
@@ -152,8 +160,7 @@ class QuantileForecaster:
                 self._feature_importance.update(imp)
 
         self._trained = True
-        log.info("return_forecaster.trained",
-                 horizon=horizon_days, n_samples=len(valid_rows))
+        log.info("return_forecaster.trained", horizon=horizon_days, n_samples=len(valid_rows))
         return {k: float(np.mean(v)) for k, v in errors.items()}
 
     def predict(
@@ -167,8 +174,7 @@ class QuantileForecaster:
         """
         if not self._trained:
             return None
-        x = np.array([[features.get(c) for c in FEATURE_COLS]],
-                     dtype=np.float32)
+        x = np.array([[features.get(c) for c in FEATURE_COLS]], dtype=np.float32)
         results = {}
         for q in QUANTILES:
             key = f"{horizon_days}d_q{q}"
@@ -197,7 +203,7 @@ class QuantileForecaster:
         return pickle.dumps(self._models)
 
     @classmethod
-    def deserialize(cls, data: bytes, **kwargs: Any) -> "QuantileForecaster":
+    def deserialize(cls, data: bytes, **kwargs: Any) -> QuantileForecaster:
         obj = cls(**kwargs)
         obj._models = pickle.loads(data)
         obj._trained = bool(obj._models)
@@ -205,7 +211,10 @@ class QuantileForecaster:
 
     @property
     def feature_importance(self) -> dict[str, float]:
-        return dict(sorted(
-            self._feature_importance.items(),
-            key=lambda x: x[1], reverse=True,
-        ))
+        return dict(
+            sorted(
+                self._feature_importance.items(),
+                key=lambda x: x[1],
+                reverse=True,
+            )
+        )

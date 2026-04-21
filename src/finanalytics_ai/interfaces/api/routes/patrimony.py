@@ -1,11 +1,11 @@
 """finanalytics_ai.interfaces.api.routes.patrimony"""
 
-import structlog
 from fastapi import APIRouter, Depends, Query
-
-from finanalytics_ai.infrastructure.database.connection import get_session as get_db_session
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
+import structlog
+
+from finanalytics_ai.infrastructure.database.connection import get_session as get_db_session
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/patrimony", tags=["Patrimônio"])
@@ -14,12 +14,13 @@ DEFAULT_CDI = 10.65
 DEFAULT_SELIC = 10.65
 DEFAULT_IPCA = 4.83
 
+
 def _svc(request: Request, session: AsyncSession):
     from fastapi import HTTPException
 
     from finanalytics_ai.application.services.patrimony_service import PatrimonyService
     from finanalytics_ai.infrastructure.database.repositories.portfolio_repo import (
-        SQLPortfolioRepository as PortfolioRepository
+        SQLPortfolioRepository as PortfolioRepository,
     )
 
     market = getattr(request.app.state, "market_client", None)
@@ -35,6 +36,7 @@ def _svc(request: Request, session: AsyncSession):
 
     return PatrimonyService(port_repo, rf_repo, market)
 
+
 class _RFRepoAdapter:
     """Adapta RFPortfolioRepository para interface esperada pelo PatrimonyService."""
 
@@ -48,6 +50,7 @@ class _RFRepoAdapter:
     async def get_portfolio(self, portfolio_id: str):
         return await self._repo.get_portfolio(portfolio_id)
 
+
 @router.get("/consolidated/{user_id}")
 async def consolidated_snapshot(
     user_id: str,
@@ -59,7 +62,7 @@ async def consolidated_snapshot(
     selic: float = Query(default=DEFAULT_SELIC),
     ipca: float = Query(default=DEFAULT_IPCA),
     session: AsyncSession = Depends(get_db_session),
-    request: Request = None
+    request: Request = None,
 ) -> dict:
     """
     Patrimônio consolidado: Ações + ETFs + Renda Fixa + Caixa.
@@ -77,15 +80,12 @@ async def consolidated_snapshot(
             "Caixa": target_cash,
         }
         return await _svc(request, session).consolidated_snapshot(
-            user_id=user_id,
-            targets=targets,
-            cdi=cdi / 100,
-            selic=selic / 100,
-            ipca=ipca / 100
+            user_id=user_id, targets=targets, cdi=cdi / 100, selic=selic / 100, ipca=ipca / 100
         )
     except Exception as e:
         logger.error("patrimony.error", error=str(e))
         raise HTTPException(500, str(e)) from e
+
 
 @router.get("/ir-planning/{user_id}")
 async def ir_planning(
@@ -94,7 +94,7 @@ async def ir_planning(
     selic: float = Query(default=DEFAULT_SELIC),
     ipca: float = Query(default=DEFAULT_IPCA),
     session: AsyncSession = Depends(get_db_session),
-    request: Request = None
+    request: Request = None,
 ) -> list[dict]:
     """
     Planejamento tributário: para cada título RF, mostra quanto de IR
@@ -107,10 +107,7 @@ async def ir_planning(
         if request is None:
             raise HTTPException(503, "Request context unavailable")
         return await _svc(request, session).ir_planning(
-            user_id=user_id,
-            cdi=cdi / 100,
-            selic=selic / 100,
-            ipca=ipca / 100
+            user_id=user_id, cdi=cdi / 100, selic=selic / 100, ipca=ipca / 100
         )
     except Exception as e:
         logger.error("ir_planning.error", error=str(e))

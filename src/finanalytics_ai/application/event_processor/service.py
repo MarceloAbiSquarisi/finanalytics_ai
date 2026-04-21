@@ -9,6 +9,7 @@ Mudancas da U6:
 Compatibilidade: assinatura do __init__ mantem todos os parametros anteriores.
 Testes existentes continuam passando sem modificacao (NullTracing como default).
 """
+
 from __future__ import annotations
 
 import time
@@ -33,10 +34,10 @@ if TYPE_CHECKING:
 from collections.abc import Sequence
 
 from finanalytics_ai.application.event_processor.ports import (
-        EventRepository,
-        IdempotencyStore,
-        ObservabilityPort,
-    )
+    EventRepository,
+    IdempotencyStore,
+    ObservabilityPort,
+)
 from finanalytics_ai.domain.events.rules import BusinessRule
 
 logger = structlog.get_logger(__name__)
@@ -98,9 +99,7 @@ class EventProcessorService:
         ) as span:
             # 1. Idempotencia
             idem_key = self._idempotency_key(event.event_id)
-            already_done = await self._idempotency.check_and_set(
-                idem_key, self._idempotency_ttl
-            )
+            already_done = await self._idempotency.check_and_set(idem_key, self._idempotency_ttl)
             if already_done:
                 log.info("event.skipped.idempotent")
                 span.set_attribute("event.result", "skipped")
@@ -126,12 +125,8 @@ class EventProcessorService:
                 await self._repo.upsert(event)
 
                 duration_ms = (time.monotonic() - start) * 1000
-                self._obs.record_processing_time(
-                    str(event.payload.event_type), duration_ms
-                )
-                self._obs.record_event_status(
-                    str(event.payload.event_type), event.status.value
-                )
+                self._obs.record_processing_time(str(event.payload.event_type), duration_ms)
+                self._obs.record_event_status(str(event.payload.event_type), event.status.value)
                 span.set_attribute("event.result", event.status.value)
                 span.set_attribute("event.duration_ms", round(duration_ms, 2))
                 log.info(
@@ -145,9 +140,7 @@ class EventProcessorService:
                 await self._idempotency.release(idem_key)
                 event.mark_failed(str(exc))
                 await self._repo.upsert(event)
-                self._obs.record_retry(
-                    str(event.payload.event_type), event.retry_count
-                )
+                self._obs.record_retry(str(event.payload.event_type), event.retry_count)
                 span.record_exception(exc)
                 span.set_attribute("event.result", "transient_error")
                 log.warning(
@@ -160,9 +153,7 @@ class EventProcessorService:
             except PermanentError as exc:
                 event.mark_dead_letter(str(exc))
                 await self._repo.upsert(event)
-                self._obs.record_event_status(
-                    str(event.payload.event_type), "dead_letter"
-                )
+                self._obs.record_event_status(str(event.payload.event_type), "dead_letter")
                 self._obs.record_dead_letter(str(event.payload.event_type))
                 span.record_exception(exc)
                 span.set_attribute("event.result", "dead_letter")
@@ -207,9 +198,7 @@ class EventProcessorService:
 
         return ProcessingResult.success(event.event_id)
 
-    def _handle_failure(
-        self, event: DomainEvent, error: str, log: structlog.BoundLogger
-    ) -> None:
+    def _handle_failure(self, event: DomainEvent, error: str, log: structlog.BoundLogger) -> None:
         if event.retry_count >= self._max_retries:
             event.mark_dead_letter(error)
             self._obs.record_dead_letter(str(event.payload.event_type))

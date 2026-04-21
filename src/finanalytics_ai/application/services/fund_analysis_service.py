@@ -40,9 +40,9 @@ Design decisions:
 from __future__ import annotations
 
 import base64
+from datetime import UTC, datetime
 import json
 import os
-from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -208,7 +208,9 @@ class FundAnalysisService:
                 "ANTHROPIC_API_KEY não configurada. Adicione a variável ao seu .env e reinicie o container."
             )
         if len(pdf_bytes) > MAX_PDF_BYTES:
-            raise FundAnalysisError(f"PDF muito grande ({len(pdf_bytes) // 1024 // 1024}MB). Máximo: 20MB.")
+            raise FundAnalysisError(
+                f"PDF muito grande ({len(pdf_bytes) // 1024 // 1024}MB). Máximo: 20MB."
+            )
         if not pdf_bytes.startswith(b"%PDF"):
             raise FundAnalysisError("Arquivo não parece ser um PDF válido.")
 

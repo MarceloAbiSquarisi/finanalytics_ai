@@ -1,4 +1,4 @@
-﻿"""
+"""
 finanalytics_ai.application.ml.ml_strategy
 Combina ReturnForecast + RiskMetrics em sinal de estrategia acionavel.
 
@@ -13,6 +13,7 @@ Thresholds (calibrados para Ibovespa):
   SELL        score < -0.10
   STRONG_SELL score < -0.30
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -20,9 +21,9 @@ from typing import Any
 
 from finanalytics_ai.domain.ml.entities import ReturnForecast, RiskMetrics
 
-_STRONG_BUY_THRESHOLD  =  0.30
-_BUY_THRESHOLD         =  0.10
-_SELL_THRESHOLD        = -0.10
+_STRONG_BUY_THRESHOLD = 0.30
+_BUY_THRESHOLD = 0.10
+_SELL_THRESHOLD = -0.10
 _STRONG_SELL_THRESHOLD = -0.30
 
 
@@ -36,6 +37,7 @@ class StrategySignal:
     confidence: prob_positive do modelo (0-1)
     reasoning: componentes auditaveis sem recomputacao
     """
+
     ticker: str
     signal: str
     score: float
@@ -49,8 +51,10 @@ class StrategySignal:
 
     @property
     def direction(self) -> str:
-        if "BUY" in self.signal:  return "LONG"
-        if "SELL" in self.signal: return "SHORT"
+        if "BUY" in self.signal:
+            return "LONG"
+        if "SELL" in self.signal:
+            return "SHORT"
         return "NEUTRAL"
 
 
@@ -106,8 +110,12 @@ class MLStrategy:
 
     @staticmethod
     def _classify(score: float) -> str:
-        if score >= _STRONG_BUY_THRESHOLD:  return "STRONG_BUY"
-        if score >= _BUY_THRESHOLD:         return "BUY"
-        if score <= _STRONG_SELL_THRESHOLD: return "STRONG_SELL"
-        if score <= _SELL_THRESHOLD:        return "SELL"
+        if score >= _STRONG_BUY_THRESHOLD:
+            return "STRONG_BUY"
+        if score >= _BUY_THRESHOLD:
+            return "BUY"
+        if score <= _STRONG_SELL_THRESHOLD:
+            return "STRONG_SELL"
+        if score <= _SELL_THRESHOLD:
+            return "SELL"
         return "HOLD"

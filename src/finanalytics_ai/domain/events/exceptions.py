@@ -15,6 +15,7 @@ Hierarquia:
         ├── InvalidEventError
         └── IdempotencyConflict  (tecnico, nao um erro de negocio)
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -38,11 +39,7 @@ class EventProcessingError(Exception):
         self.original = original
 
     def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}("
-            f"message={str(self)!r}, "
-            f"event_id={self.event_id!r})"
-        )
+        return f"{self.__class__.__name__}(message={str(self)!r}, event_id={self.event_id!r})"
 
 
 class TransientError(EventProcessingError):

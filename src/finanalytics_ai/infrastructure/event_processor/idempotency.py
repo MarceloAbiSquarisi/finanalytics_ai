@@ -21,6 +21,7 @@ o sistema pode reprocessar eventos (comportamento seguro se as
 regras de negocio forem idempotentes). Para sistemas onde o reprocessamento
 e catastrofico, seria necessario fallback para banco.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -84,4 +85,3 @@ class InMemoryIdempotencyStore:
 
     async def release(self, key: str) -> None:
         self._store.pop(key, None)
-

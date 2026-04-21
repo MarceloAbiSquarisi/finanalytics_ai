@@ -30,14 +30,14 @@ Design:
   - Correlacao simples entre ativos (diversificacao)
   - Resultado em R$ e percentual da carteira
 """
+
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 import math
 import statistics
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any
-
 
 # Z-scores para niveis de confianca comuns
 _Z_SCORES = {
@@ -50,39 +50,40 @@ _Z_SCORES = {
 @dataclass
 class AssetVaR:
     """VaR de um ativo individual."""
+
     ticker: str
     quantity: float
     avg_price: float
     current_price: float
     position_value: float
-    weight: float           # % da carteira
+    weight: float  # % da carteira
     daily_returns: list[float]
-    var_hist_pct: float     # VaR historico em %
-    var_hist_brl: float     # VaR historico em R$
-    var_param_pct: float    # VaR parametrico em %
-    var_param_brl: float    # VaR parametrico em R$
-    cvar_pct: float         # CVaR em %
-    cvar_brl: float         # CVaR em R$
-    volatility_daily: float # Desvio padrao diario
-    volatility_annual: float# Volatilidade anualizada
+    var_hist_pct: float  # VaR historico em %
+    var_hist_brl: float  # VaR historico em R$
+    var_param_pct: float  # VaR parametrico em %
+    var_param_brl: float  # VaR parametrico em R$
+    cvar_pct: float  # CVaR em %
+    cvar_brl: float  # CVaR em R$
+    volatility_daily: float  # Desvio padrao diario
+    volatility_annual: float  # Volatilidade anualizada
     num_observations: int
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "ticker":           self.ticker,
-            "quantity":         round(self.quantity, 2),
-            "avg_price":        round(self.avg_price, 2),
-            "current_price":    round(self.current_price, 2),
-            "position_value":   round(self.position_value, 2),
-            "weight_pct":       round(self.weight * 100, 2),
-            "var_hist_pct":     round(self.var_hist_pct * 100, 2),
-            "var_hist_brl":     round(self.var_hist_brl, 2),
-            "var_param_pct":    round(self.var_param_pct * 100, 2),
-            "var_param_brl":    round(self.var_param_brl, 2),
-            "cvar_pct":         round(self.cvar_pct * 100, 2),
-            "cvar_brl":         round(self.cvar_brl, 2),
+            "ticker": self.ticker,
+            "quantity": round(self.quantity, 2),
+            "avg_price": round(self.avg_price, 2),
+            "current_price": round(self.current_price, 2),
+            "position_value": round(self.position_value, 2),
+            "weight_pct": round(self.weight * 100, 2),
+            "var_hist_pct": round(self.var_hist_pct * 100, 2),
+            "var_hist_brl": round(self.var_hist_brl, 2),
+            "var_param_pct": round(self.var_param_pct * 100, 2),
+            "var_param_brl": round(self.var_param_brl, 2),
+            "cvar_pct": round(self.cvar_pct * 100, 2),
+            "cvar_brl": round(self.cvar_brl, 2),
             "volatility_daily": round(self.volatility_daily * 100, 2),
-            "volatility_annual":round(self.volatility_annual * 100, 2),
+            "volatility_annual": round(self.volatility_annual * 100, 2),
             "num_observations": self.num_observations,
         }
 
@@ -90,8 +91,9 @@ class AssetVaR:
 @dataclass
 class PortfolioVaR:
     """VaR consolidado da carteira."""
+
     portfolio_value: float
-    confidence_level: float         # ex: 0.95
+    confidence_level: float  # ex: 0.95
     lookback_days: int
     assets: list[AssetVaR]
     # VaR da carteira (considera correlacao via retornos agregados)
@@ -105,27 +107,27 @@ class PortfolioVaR:
     diversification_benefit_brl: float
     portfolio_volatility_daily: float
     portfolio_volatility_annual: float
-    calculated_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    calculated_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "portfolio_value":              round(self.portfolio_value, 2),
-            "confidence_level":             round(self.confidence_level * 100, 1),
-            "lookback_days":                self.lookback_days,
-            "var_hist_pct":                 round(self.var_hist_pct * 100, 2),
-            "var_hist_brl":                 round(self.var_hist_brl, 2),
-            "var_param_pct":                round(self.var_param_pct * 100, 2),
-            "var_param_brl":                round(self.var_param_brl, 2),
-            "cvar_pct":                     round(self.cvar_pct * 100, 2),
-            "cvar_brl":                     round(self.cvar_brl, 2),
-            "diversification_benefit_brl":  round(self.diversification_benefit_brl, 2),
-            "portfolio_volatility_daily":   round(self.portfolio_volatility_daily * 100, 2),
-            "portfolio_volatility_annual":  round(self.portfolio_volatility_annual * 100, 2),
-            "calculated_at":                self.calculated_at,
-            "assets":                       [a.to_dict() for a in self.assets],
-            "interpretation": _interpret(self.var_hist_brl, self.portfolio_value, self.confidence_level),
+            "portfolio_value": round(self.portfolio_value, 2),
+            "confidence_level": round(self.confidence_level * 100, 1),
+            "lookback_days": self.lookback_days,
+            "var_hist_pct": round(self.var_hist_pct * 100, 2),
+            "var_hist_brl": round(self.var_hist_brl, 2),
+            "var_param_pct": round(self.var_param_pct * 100, 2),
+            "var_param_brl": round(self.var_param_brl, 2),
+            "cvar_pct": round(self.cvar_pct * 100, 2),
+            "cvar_brl": round(self.cvar_brl, 2),
+            "diversification_benefit_brl": round(self.diversification_benefit_brl, 2),
+            "portfolio_volatility_daily": round(self.portfolio_volatility_daily * 100, 2),
+            "portfolio_volatility_annual": round(self.portfolio_volatility_annual * 100, 2),
+            "calculated_at": self.calculated_at,
+            "assets": [a.to_dict() for a in self.assets],
+            "interpretation": _interpret(
+                self.var_hist_brl, self.portfolio_value, self.confidence_level
+            ),
         }
 
 
@@ -136,7 +138,7 @@ def _interpret(var_brl: float, portfolio_value: float, confidence: float) -> str
     return (
         f"Com {conf_pct}% de confianca, a perda maxima esperada em 1 dia "
         f"e de R$ {var_brl:,.2f} ({pct:.1f}% da carteira). "
-        f"Em media, 1 dia em cada {100//(100-conf_pct)} dias pode exceder esse valor."
+        f"Em media, 1 dia em cada {100 // (100 - conf_pct)} dias pode exceder esse valor."
     )
 
 
@@ -164,10 +166,11 @@ class VaRService:
         lookback_days: dias de historico (252 = 1 ano, 504 = 2 anos)
         """
         import asyncio
+
         from finanalytics_ai.domain.value_objects.money import Ticker
 
         if confidence_level not in _Z_SCORES:
-            raise ValueError(f"confidence_level deve ser 0.90, 0.95 ou 0.99")
+            raise ValueError("confidence_level deve ser 0.90, 0.95 ou 0.99")
 
         # Busca retornos historicos em paralelo
         sem = asyncio.Semaphore(5)
@@ -179,15 +182,13 @@ class VaRService:
             async with sem:
                 try:
                     range_p = "1y" if lookback_days <= 252 else "2y"
-                    bars = await self._market.get_ohlc_bars(
-                        Ticker(ticker), range_period=range_p
-                    )
+                    bars = await self._market.get_ohlc_bars(Ticker(ticker), range_period=range_p)
                     if bars and len(bars) >= 10:
                         closes = [float(b.get("close", 0) or 0) for b in bars if b.get("close")]
                         returns = [
-                            (closes[i] - closes[i-1]) / closes[i-1]
+                            (closes[i] - closes[i - 1]) / closes[i - 1]
                             for i in range(1, len(closes))
-                            if closes[i-1] > 0
+                            if closes[i - 1] > 0
                         ]
                         ticker_returns[ticker] = returns[-lookback_days:]
                         ticker_prices[ticker] = closes[-1]
@@ -195,11 +196,13 @@ class VaRService:
                     pass
 
         import asyncio
+
         await asyncio.gather(*[_fetch(p) for p in positions])
 
         # Calcula VaR por ativo
         total_value = sum(
-            float(p["quantity"]) * ticker_prices.get(p["ticker"].upper(), float(p.get("average_price", 0)))
+            float(p["quantity"])
+            * ticker_prices.get(p["ticker"].upper(), float(p.get("average_price", 0)))
             for p in positions
         )
 
@@ -246,9 +249,9 @@ class VaRService:
 
         # VaR consolidado da carteira
         port_var = _calc_var_from_returns(portfolio_weighted_returns, confidence_level)
-        port_var_hist_brl  = port_var["var_hist_pct"] * total_value
+        port_var_hist_brl = port_var["var_hist_pct"] * total_value
         port_var_param_brl = port_var["var_param_pct"] * total_value
-        port_cvar_brl      = port_var["cvar_pct"] * total_value
+        port_cvar_brl = port_var["cvar_pct"] * total_value
 
         # Beneficio de diversificacao
         sum_individual_var = sum(a.var_hist_brl for a in asset_vars)
@@ -308,8 +311,13 @@ def _calc_var_from_returns(
 ) -> dict[str, float]:
     """Calcula VaR historico, parametrico e CVaR de uma serie de retornos."""
     if not returns:
-        return {"var_hist_pct": 0, "var_param_pct": 0, "cvar_pct": 0,
-                "vol_daily": 0, "vol_annual": 0}
+        return {
+            "var_hist_pct": 0,
+            "var_param_pct": 0,
+            "cvar_pct": 0,
+            "vol_daily": 0,
+            "vol_annual": 0,
+        }
 
     sorted_returns = sorted(returns)
     n = len(sorted_returns)
@@ -319,7 +327,7 @@ def _calc_var_from_returns(
     var_hist = abs(sorted_returns[idx])
 
     # CVaR: media dos retornos piores que o VaR
-    tail = sorted_returns[:idx+1]
+    tail = sorted_returns[: idx + 1]
     cvar = abs(statistics.mean(tail)) if tail else var_hist
 
     # VaR Parametrico
@@ -333,13 +341,13 @@ def _calc_var_from_returns(
     var_param = abs(mean - z * std)
 
     # Volatilidade
-    vol_daily  = std
+    vol_daily = std
     vol_annual = std * math.sqrt(252)
 
     return {
-        "var_hist_pct":  var_hist,
+        "var_hist_pct": var_hist,
         "var_param_pct": var_param,
-        "cvar_pct":      cvar,
-        "vol_daily":     vol_daily,
-        "vol_annual":    vol_annual,
+        "cvar_pct": cvar,
+        "vol_daily": vol_daily,
+        "vol_annual": vol_annual,
     }

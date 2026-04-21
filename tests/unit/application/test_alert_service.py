@@ -146,7 +146,9 @@ class TestEvaluatePrice:
 
     @pytest.mark.asyncio
     async def test_pct_drop_triggers(self, service, mock_repo, mock_bus):
-        alert = _make_alert(alert_type=AlertType.PCT_DROP, threshold="10.0", reference_price="100.00")
+        alert = _make_alert(
+            alert_type=AlertType.PCT_DROP, threshold="10.0", reference_price="100.00"
+        )
         mock_repo.find_active_by_ticker.return_value = [alert]
         with patch(REPO_PATH, return_value=mock_repo):
             count = await service.evaluate_price("PETR4", 88.0)
@@ -154,7 +156,9 @@ class TestEvaluatePrice:
 
     @pytest.mark.asyncio
     async def test_pct_rise_triggers(self, service, mock_repo, mock_bus):
-        alert = _make_alert(alert_type=AlertType.PCT_RISE, threshold="10.0", reference_price="100.00")
+        alert = _make_alert(
+            alert_type=AlertType.PCT_RISE, threshold="10.0", reference_price="100.00"
+        )
         mock_repo.find_active_by_ticker.return_value = [alert]
         with patch(REPO_PATH, return_value=mock_repo):
             count = await service.evaluate_price("PETR4", 115.0)

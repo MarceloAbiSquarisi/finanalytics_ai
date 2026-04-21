@@ -1,47 +1,52 @@
 """
 domain/wallet/entities.py — entidades de domínio para carteira multi-usuário
 """
+
 from __future__ import annotations
-import uuid
-from dataclasses import dataclass, field
+
+from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Optional
-
+import uuid
 
 # ── Enums ──────────────────────────────────────────────────────────────────
 
+
 class AssetClass(StrEnum):
-    STOCK  = "stock"
-    ETF    = "etf"
+    STOCK = "stock"
+    ETF = "etf"
     CRYPTO = "crypto"
-    FII    = "fii"
-    BDR    = "bdr"
-    OTHER  = "other"
+    FII = "fii"
+    BDR = "bdr"
+    OTHER = "other"
+
 
 class TradeOperation(StrEnum):
-    BUY   = "buy"
-    SELL  = "sell"
+    BUY = "buy"
+    SELL = "sell"
     SPLIT = "split"
     BONUS = "bonus"
 
+
 class AccountType(StrEnum):
-    CORRETORA   = "corretora"
-    BANCO       = "banco"
-    EXCHANGE    = "exchange"  # cripto
+    CORRETORA = "corretora"
+    BANCO = "banco"
+    EXCHANGE = "exchange"  # cripto
     PREVIDENCIA = "previdencia"
-    OUTRO       = "outro"
+    OUTRO = "outro"
+
 
 class OtherAssetType(StrEnum):
-    IMOVEL      = "imovel"
+    IMOVEL = "imovel"
     PREVIDENCIA = "previdencia"
-    COE         = "coe"
-    DEBENTURE   = "debenture"
-    OUTRO       = "outro"
+    COE = "coe"
+    DEBENTURE = "debenture"
+    OUTRO = "outro"
 
 
 # ── Investment Account ─────────────────────────────────────────────────────
+
 
 @dataclass
 class InvestmentAccount:
@@ -51,13 +56,13 @@ class InvestmentAccount:
     country: str = "BRA"
     currency: str = "BRL"
     account_type: AccountType = AccountType.CORRETORA
-    institution_code: Optional[str] = None
-    agency: Optional[str] = None
-    account_number: Optional[str] = None
+    institution_code: str | None = None
+    agency: str | None = None
+    account_number: str | None = None
     is_active: bool = True
-    note: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    note: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     @staticmethod
     def new(
@@ -66,11 +71,11 @@ class InvestmentAccount:
         country: str = "BRA",
         currency: str = "BRL",
         account_type: AccountType = AccountType.CORRETORA,
-        institution_code: Optional[str] = None,
-        agency: Optional[str] = None,
-        account_number: Optional[str] = None,
-        note: Optional[str] = None,
-    ) -> "InvestmentAccount":
+        institution_code: str | None = None,
+        agency: str | None = None,
+        account_number: str | None = None,
+        note: str | None = None,
+    ) -> InvestmentAccount:
         return InvestmentAccount(
             id=str(uuid.uuid4()),
             user_id=user_id,
@@ -87,6 +92,7 @@ class InvestmentAccount:
 
 # ── Trade ─────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class Trade:
     id: str
@@ -100,10 +106,10 @@ class Trade:
     trade_date: date
     fees: Decimal = Decimal("0")
     currency: str = "BRL"
-    investment_account_id: Optional[str] = None
-    portfolio_id: Optional[str] = None
-    note: Optional[str] = None
-    created_at: Optional[datetime] = None
+    investment_account_id: str | None = None
+    portfolio_id: str | None = None
+    note: str | None = None
+    created_at: datetime | None = None
 
     @staticmethod
     def new(
@@ -116,10 +122,10 @@ class Trade:
         trade_date: date,
         fees: Decimal = Decimal("0"),
         currency: str = "BRL",
-        investment_account_id: Optional[str] = None,
-        portfolio_id: Optional[str] = None,
-        note: Optional[str] = None,
-    ) -> "Trade":
+        investment_account_id: str | None = None,
+        portfolio_id: str | None = None,
+        note: str | None = None,
+    ) -> Trade:
         total_cost = quantity * unit_price + fees
         return Trade(
             id=str(uuid.uuid4()),
@@ -139,22 +145,22 @@ class Trade:
         )
 
     @staticmethod
-    def calc_average_price(trades: list["Trade"]) -> Decimal:
+    def calc_average_price(trades: list[Trade]) -> Decimal:
         """
         Calcula preço médio ponderado considerando compras e vendas.
         Venda reduz posição; split/bonus ajusta quantidade sem custo.
         """
-        total_qty   = Decimal("0")
-        total_cost  = Decimal("0")
+        total_qty = Decimal("0")
+        total_cost = Decimal("0")
         for t in sorted(trades, key=lambda x: x.trade_date):
             if t.operation == TradeOperation.BUY:
-                total_qty  += t.quantity
+                total_qty += t.quantity
                 total_cost += t.total_cost
             elif t.operation == TradeOperation.SELL:
                 if total_qty > 0:
                     avg = total_cost / total_qty
-                    total_qty  -= t.quantity
-                    total_cost  = avg * total_qty
+                    total_qty -= t.quantity
+                    total_cost = avg * total_qty
             elif t.operation == TradeOperation.SPLIT:
                 total_qty += t.quantity  # bonus de split
             elif t.operation == TradeOperation.BONUS:
@@ -166,6 +172,7 @@ class Trade:
 
 # ── CryptoHolding ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class CryptoHolding:
     id: str
@@ -173,13 +180,13 @@ class CryptoHolding:
     symbol: str
     quantity: Decimal
     average_price_brl: Decimal
-    average_price_usd: Optional[Decimal] = None
-    investment_account_id: Optional[str] = None
-    portfolio_id: Optional[str] = None
-    exchange: Optional[str] = None
-    wallet_address: Optional[str] = None
-    note: Optional[str] = None
-    updated_at: Optional[datetime] = None
+    average_price_usd: Decimal | None = None
+    investment_account_id: str | None = None
+    portfolio_id: str | None = None
+    exchange: str | None = None
+    wallet_address: str | None = None
+    note: str | None = None
+    updated_at: datetime | None = None
 
     @staticmethod
     def new(
@@ -187,13 +194,13 @@ class CryptoHolding:
         symbol: str,
         quantity: Decimal,
         average_price_brl: Decimal,
-        average_price_usd: Optional[Decimal] = None,
-        investment_account_id: Optional[str] = None,
-        portfolio_id: Optional[str] = None,
-        exchange: Optional[str] = None,
-        wallet_address: Optional[str] = None,
-        note: Optional[str] = None,
-    ) -> "CryptoHolding":
+        average_price_usd: Decimal | None = None,
+        investment_account_id: str | None = None,
+        portfolio_id: str | None = None,
+        exchange: str | None = None,
+        wallet_address: str | None = None,
+        note: str | None = None,
+    ) -> CryptoHolding:
         return CryptoHolding(
             id=str(uuid.uuid4()),
             user_id=user_id,
@@ -211,6 +218,7 @@ class CryptoHolding:
 
 # ── OtherAsset ────────────────────────────────────────────────────────────
 
+
 @dataclass
 class OtherAsset:
     id: str
@@ -219,15 +227,15 @@ class OtherAsset:
     asset_type: OtherAssetType
     current_value: Decimal
     currency: str = "BRL"
-    invested_value: Optional[Decimal] = None
-    acquisition_date: Optional[date] = None
-    maturity_date: Optional[date] = None
+    invested_value: Decimal | None = None
+    acquisition_date: date | None = None
+    maturity_date: date | None = None
     ir_exempt: bool = False
-    investment_account_id: Optional[str] = None
-    portfolio_id: Optional[str] = None
-    note: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    investment_account_id: str | None = None
+    portfolio_id: str | None = None
+    note: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     @staticmethod
     def new(
@@ -236,14 +244,14 @@ class OtherAsset:
         asset_type: OtherAssetType,
         current_value: Decimal,
         currency: str = "BRL",
-        invested_value: Optional[Decimal] = None,
-        acquisition_date: Optional[date] = None,
-        maturity_date: Optional[date] = None,
+        invested_value: Decimal | None = None,
+        acquisition_date: date | None = None,
+        maturity_date: date | None = None,
         ir_exempt: bool = False,
-        investment_account_id: Optional[str] = None,
-        portfolio_id: Optional[str] = None,
-        note: Optional[str] = None,
-    ) -> "OtherAsset":
+        investment_account_id: str | None = None,
+        portfolio_id: str | None = None,
+        note: str | None = None,
+    ) -> OtherAsset:
         return OtherAsset(
             id=str(uuid.uuid4()),
             user_id=user_id,
@@ -261,13 +269,13 @@ class OtherAsset:
         )
 
     @property
-    def gain(self) -> Optional[Decimal]:
+    def gain(self) -> Decimal | None:
         if self.invested_value and self.current_value:
             return self.current_value - self.invested_value
         return None
 
     @property
-    def gain_pct(self) -> Optional[Decimal]:
+    def gain_pct(self) -> Decimal | None:
         if self.invested_value and self.invested_value > 0 and self.gain is not None:
             return self.gain / self.invested_value * 100
         return None

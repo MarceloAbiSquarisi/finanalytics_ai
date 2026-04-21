@@ -12,19 +12,23 @@ Comportamento real do servico (verificado em service.py):
 Testamos o comportamento OBSERVAVEL — o que o repositorio persiste
 e o que o servico retorna/lanca — nao a implementacao interna.
 """
-from __future__ import annotations
 
-import uuid
+from __future__ import annotations
 
 import pytest
 
 from finanalytics_ai.application.event_processor.factory import create_event_processor_service
 from finanalytics_ai.domain.events.exceptions import TransientError
-from finanalytics_ai.domain.events.models import DomainEvent, EventPayload, EventStatus, ProcessingResult
+from finanalytics_ai.domain.events.models import (
+    DomainEvent,
+    EventPayload,
+    EventStatus,
+    ProcessingResult,
+)
 from finanalytics_ai.domain.events.value_objects import EventType
 
-
 # ── Helpers ────────────────────────────────────────────────────────────────
+
 
 def _make_event(event_type: str = "price.update") -> DomainEvent:
     payload = EventPayload(
@@ -47,6 +51,7 @@ class _SuccessRule:
 
 class _AlwaysTransientRule:
     """Sempre lanca TransientError — simula servico externo indisponivel."""
+
     name = "always_transient"
 
     def __init__(self, message: str = "database timeout") -> None:
@@ -60,9 +65,14 @@ class _AlwaysTransientRule:
 
 
 class _NoOpObservability:
-    def record_processing_time(self, event_type: str, duration_ms: float) -> None: pass
-    def record_event_status(self, event_type: str, status: str) -> None: pass
-    def record_retry(self, event_type: str, retry_count: int) -> None: pass
+    def record_processing_time(self, event_type: str, duration_ms: float) -> None:
+        pass
+
+    def record_event_status(self, event_type: str, status: str) -> None:
+        pass
+
+    def record_retry(self, event_type: str, retry_count: int) -> None:
+        pass
 
 
 def _make_service(repository, idempotency_store, rules):
@@ -75,6 +85,7 @@ def _make_service(repository, idempotency_store, rules):
 
 
 # ── TestIdempotencia ───────────────────────────────────────────────────────
+
 
 class TestIdempotencia:
     async def test_segundo_processamento_retorna_skipped(
@@ -112,6 +123,7 @@ class TestIdempotencia:
 
 # ── TestRetry ─────────────────────────────────────────────────────────────
 
+
 class TestRetry:
     async def test_transient_error_re_raised_e_evento_marcado_failed(
         self, sql_repository, idempotency_store
@@ -127,9 +139,7 @@ class TestRetry:
             o worker nao saberia quando fazer o retry.
         """
         event = _make_event()
-        service = _make_service(
-            sql_repository, idempotency_store, [_AlwaysTransientRule()]
-        )
+        service = _make_service(sql_repository, idempotency_store, [_AlwaysTransientRule()])
 
         with pytest.raises(TransientError):
             await service.process(event)
@@ -150,8 +160,7 @@ class TestRetry:
         mensagem = "timeout conectando ao redis"
         event = _make_event()
         service = _make_service(
-            sql_repository, idempotency_store,
-            [_AlwaysTransientRule(message=mensagem)]
+            sql_repository, idempotency_store, [_AlwaysTransientRule(message=mensagem)]
         )
 
         with pytest.raises(TransientError):
@@ -164,6 +173,7 @@ class TestRetry:
 
 
 # ── TestSucessoCompleto ────────────────────────────────────────────────────
+
 
 class TestSucessoCompleto:
     async def test_evento_completo_persistido_no_banco(
@@ -181,9 +191,7 @@ class TestSucessoCompleto:
         assert persisted is not None
         assert persisted.status == EventStatus.COMPLETED
 
-    async def test_result_output_e_none_por_design(
-        self, sql_repository, idempotency_store
-    ) -> None:
+    async def test_result_output_e_none_por_design(self, sql_repository, idempotency_store) -> None:
         """
         ProcessingResult.output e sempre None — design do servico.
 

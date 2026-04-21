@@ -1,4 +1,5 @@
 """Fixtures compartilhadas dos testes de aplicacao."""
+
 from __future__ import annotations
 
 import pytest

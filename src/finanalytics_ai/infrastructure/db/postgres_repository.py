@@ -8,16 +8,17 @@ Decisão de design: `set_active` usa transação explícita com UPDATE em dois
 passos (deactivate all → activate one) para garantir atomicidade sem UPSERT
 condicional — mais legível e auditável em logs de banco.
 """
+
 from __future__ import annotations
 
+from collections.abc import Sequence
+from datetime import UTC
 import logging
-from typing import Optional, Sequence
 
 import asyncpg
 
 from finanalytics_ai.domain.accounts import (
     AccountNotFoundError,
-    AccountRepository,
     AccountStatus,
     AccountType,
     DuplicateAccountError,
@@ -61,9 +62,7 @@ FROM trading_accounts
 ORDER BY created_at
 """
 
-_SELECT_BY_TYPE = _SELECT_ALL.replace(
-    "ORDER BY", "WHERE account_type = $1\nORDER BY"
-)
+_SELECT_BY_TYPE = _SELECT_ALL.replace("ORDER BY", "WHERE account_type = $1\nORDER BY")
 
 _SELECT_BY_UUID = """
 SELECT uuid, broker_id, account_id, account_type, label, status,
@@ -88,7 +87,9 @@ LIMIT 1
 """
 
 _DEACTIVATE_ALL = "UPDATE trading_accounts SET status = 'inactive', updated_at = NOW()"
-_ACTIVATE_ONE   = "UPDATE trading_accounts SET status = 'active',   updated_at = NOW() WHERE uuid = $1"
+_ACTIVATE_ONE = (
+    "UPDATE trading_accounts SET status = 'active',   updated_at = NOW() WHERE uuid = $1"
+)
 
 _UPDATE = """
 UPDATE trading_accounts
@@ -103,6 +104,7 @@ _DELETE = "DELETE FROM trading_accounts WHERE uuid = $1"
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _row_to_account(row: asyncpg.Record) -> TradingAccount:
     return TradingAccount(
@@ -123,6 +125,7 @@ def _row_to_account(row: asyncpg.Record) -> TradingAccount:
 # ---------------------------------------------------------------------------
 # Implementação
 # ---------------------------------------------------------------------------
+
 
 class PostgresAccountRepository:
     """
@@ -158,9 +161,7 @@ class PostgresAccountRepository:
                     account.updated_at,
                 )
         except asyncpg.UniqueViolationError:
-            raise DuplicateAccountError(
-                account.broker_id, account.account_id, account.account_type
-            )
+            raise DuplicateAccountError(account.broker_id, account.account_id, account.account_type)
 
     async def get_by_uuid(self, account_uuid: str) -> TradingAccount:
         async with self._pool.acquire() as conn:
@@ -174,7 +175,7 @@ class PostgresAccountRepository:
         broker_id: str,
         account_id: str,
         account_type: AccountType,
-    ) -> Optional[TradingAccount]:
+    ) -> TradingAccount | None:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
                 _SELECT_BY_BROKER_ACCOUNT, broker_id, account_id, account_type.value
@@ -191,29 +192,29 @@ class PostgresAccountRepository:
             rows = await conn.fetch(_SELECT_BY_TYPE, account_type.value)
         return [_row_to_account(r) for r in rows]
 
-    async def get_active(self) -> Optional[TradingAccount]:
+    async def get_active(self) -> TradingAccount | None:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(_SELECT_ACTIVE)
         return _row_to_account(row) if row else None
 
     async def set_active(self, account_uuid: str) -> TradingAccount:
-        async with self._pool.acquire() as conn:
-            async with conn.transaction():
-                # Garante que o uuid existe antes de mexer em outras linhas
-                row = await conn.fetchrow(_SELECT_BY_UUID, account_uuid)
-                if not row:
-                    raise AccountNotFoundError(account_uuid)
+        async with self._pool.acquire() as conn, conn.transaction():
+            # Garante que o uuid existe antes de mexer em outras linhas
+            row = await conn.fetchrow(_SELECT_BY_UUID, account_uuid)
+            if not row:
+                raise AccountNotFoundError(account_uuid)
 
-                await conn.execute(_DEACTIVATE_ALL)
-                await conn.execute(_ACTIVATE_ONE, account_uuid)
+            await conn.execute(_DEACTIVATE_ALL)
+            await conn.execute(_ACTIVATE_ONE, account_uuid)
 
-                # Relê pós-update para retornar estado consistente
-                row = await conn.fetchrow(_SELECT_BY_UUID, account_uuid)
+            # Relê pós-update para retornar estado consistente
+            row = await conn.fetchrow(_SELECT_BY_UUID, account_uuid)
 
         return _row_to_account(row)
 
     async def update(self, account: TradingAccount) -> None:
-        from datetime import datetime, timezone
+        from datetime import datetime
+
         async with self._pool.acquire() as conn:
             await conn.execute(
                 _UPDATE,
@@ -222,7 +223,7 @@ class PostgresAccountRepository:
                 account.routing_password,
                 account.broker_name,
                 account.sub_account_id,
-                datetime.now(timezone.utc),
+                datetime.now(UTC),
             )
 
     async def delete(self, account_uuid: str) -> None:

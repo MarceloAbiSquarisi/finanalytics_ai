@@ -24,9 +24,7 @@ from structlog.types import EventDict, WrappedLogger
 from finanalytics_ai.config import Settings
 
 
-def _add_log_level(
-    logger: WrappedLogger, method_name: str, event_dict: EventDict
-) -> EventDict:
+def _add_log_level(logger: WrappedLogger, method_name: str, event_dict: EventDict) -> EventDict:
     """Adiciona campo 'level' explícito para facilitar filtragem."""
     event_dict["level"] = method_name.upper()
     return event_dict

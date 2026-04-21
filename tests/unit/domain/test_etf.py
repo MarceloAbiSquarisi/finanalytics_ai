@@ -123,7 +123,9 @@ def test_pearson_negative():
 
 
 def _te(pct):
-    return TrackingErrorResult("B", "B", "1y", pct, 0.5, 0.99, 1.0, 0.98, 0.1, 10.0, 10.5, -0.5, 200, [])
+    return TrackingErrorResult(
+        "B", "B", "1y", pct, 0.5, 0.99, 1.0, 0.98, 0.1, 10.0, 10.5, -0.5, 200, []
+    )
 
 
 def test_quality_excelente():
@@ -145,7 +147,21 @@ def test_quality_desvio():
 # ── ETFMetrics value object ───────────────────────────────────────────────────
 
 _M = ETFMetrics(
-    "BOVA11", "iShares", "1y", 0.15, 0.14, 0.18, 1.2, -0.12, 0.025, 1.16, 200, 100.0, 115.0, "Ações BR", 0.10
+    "BOVA11",
+    "iShares",
+    "1y",
+    0.15,
+    0.14,
+    0.18,
+    1.2,
+    -0.12,
+    0.025,
+    1.16,
+    200,
+    100.0,
+    115.0,
+    "Ações BR",
+    0.10,
 )
 
 
@@ -162,4 +178,6 @@ def test_metrics_sharpe_label():
 
 
 def test_metrics_to_dict_keys():
-    assert all(k in _M.to_dict() for k in ["ticker", "sharpe", "volatility_pct", "max_drawdown_pct"])
+    assert all(
+        k in _M.to_dict() for k in ["ticker", "sharpe", "volatility_pct", "max_drawdown_pct"]
+    )

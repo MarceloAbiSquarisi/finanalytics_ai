@@ -36,9 +36,9 @@ _RETRYABLE = (aiohttp.ClientError, TransientError, TimeoutError)
 
 # Colunas mínimas obrigatórias por tipo de dataset (schema real dos parquets)
 _REQUIRED_COLS: dict[str, list[str]] = {
-    "cotacoes":      ["ticker", "data", "preco_fechamento"],
+    "cotacoes": ["ticker", "data", "preco_fechamento"],
     "item_contabil": ["ticker", "item", "data", "valor"],
-    "indicador":     ["ticker", "indicador", "data", "valor"],
+    "indicador": ["ticker", "indicador", "data", "valor"],
 }
 
 
@@ -65,9 +65,9 @@ class FintzClient:
     ) -> None:
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
-        self._api_timeout  = aiohttp.ClientTimeout(total=api_timeout_s)
+        self._api_timeout = aiohttp.ClientTimeout(total=api_timeout_s)
         self._link_timeout = aiohttp.ClientTimeout(total=link_timeout_s)
-        self._max_retries  = max_retries
+        self._max_retries = max_retries
         self._session: aiohttp.ClientSession | None = None
 
     # ── Context manager ───────────────────────────────────────────────────────
@@ -87,8 +87,8 @@ class FintzClient:
 
     async def fetch_dataset(self, spec: FintzDatasetSpec) -> tuple[pd.DataFrame, str]:
         raw_bytes = await self._download_dataset(spec)
-        sha256    = hashlib.sha256(raw_bytes).hexdigest()
-        df        = self._parse_parquet(raw_bytes, spec)
+        sha256 = hashlib.sha256(raw_bytes).hexdigest()
+        df = self._parse_parquet(raw_bytes, spec)
         logger.info(
             "fintz_client.dataset_fetched",
             dataset_key=spec.key,
@@ -197,7 +197,7 @@ class FintzClient:
 
         # Valida colunas mínimas com schema real
         required = _REQUIRED_COLS.get(spec.dataset_type, [])
-        missing  = [c for c in required if c not in df.columns]
+        missing = [c for c in required if c not in df.columns]
         if missing:
             raise FintzParseError(
                 message=f"Colunas ausentes em {spec.key}: {missing}",
@@ -217,8 +217,10 @@ class FintzClient:
 
 # ── Factory ───────────────────────────────────────────────────────────────────
 
+
 def create_fintz_client() -> FintzClient:
     from finanalytics_ai.config import get_settings
+
     settings = get_settings()
     return FintzClient(
         api_key=settings.fintz_api_key,

@@ -1,4 +1,4 @@
-﻿"""
+"""
 finanalytics_ai.application.ml.ml_service
 
 Orquestrador: Feature Pipeline + Forecaster + Risk Estimator.
@@ -10,7 +10,7 @@ Fluxo:
       2. Computa features tecnicas
       3. Busca indicators Fintz (PIT)
       4. Salva em ml_features
-  
+
   run_forecasts(tickers, date) ->
     1. Carrega features de ml_features
     2. Carrega modelo serializado (ou treina novo)
@@ -26,10 +26,10 @@ Decisao: servico statefull com modelo em memoria.
   O forecaster e treinado uma vez e reutilizado por N previsoes.
   Retreino semanal via scheduler_worker.
 """
+
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime, date, timezone
+from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING
 
 import structlog
@@ -51,7 +51,7 @@ class MLService:
     forecaster e lazy — treinado no primeiro uso ou via force_retrain.
     """
 
-    def __init__(self, repo: "SqlFeatureRepository") -> None:
+    def __init__(self, repo: SqlFeatureRepository) -> None:
         self._repo = repo
         self._forecaster: QuantileForecaster | None = None
         self._model_version = "lgbm-quantile-v1"
@@ -73,8 +73,7 @@ class MLService:
             try:
                 ohlc = await self._repo.get_ohlc_window(ticker, ref)
                 if len(ohlc) < 30:
-                    log.debug("ml_service.insufficient_ohlc",
-                              ticker=ticker, n=len(ohlc))
+                    log.debug("ml_service.insufficient_ohlc", ticker=ticker, n=len(ohlc))
                     continue
 
                 closes = [float(r["close"]) for r in ohlc if r["close"] is not None]
@@ -83,8 +82,7 @@ class MLService:
 
                 features = build_features_from_ohlc(
                     ticker=ticker,
-                    date=datetime.combine(ref, datetime.min.time()).replace(
-                        tzinfo=timezone.utc),
+                    date=datetime.combine(ref, datetime.min.time()).replace(tzinfo=UTC),
                     closes=closes,
                     volumes=volumes,
                     ibov_rets=ibov_rets,
@@ -94,11 +92,9 @@ class MLService:
                 processed += 1
 
             except Exception as exc:
-                log.warning("ml_service.feature_error",
-                            ticker=ticker, error=str(exc))
+                log.warning("ml_service.feature_error", ticker=ticker, error=str(exc))
 
-        log.info("ml_service.features_computed",
-                 total=len(tickers), processed=processed)
+        log.info("ml_service.features_computed", total=len(tickers), processed=processed)
         return processed
 
     async def run_forecasts(
@@ -134,36 +130,42 @@ class MLService:
                 ibov_rets = await self._repo.get_ibov_returns(ref)
                 fundamental = await self._repo.get_fundamental_features(ticker, ref)
                 features = build_features_from_ohlc(
-                    ticker, datetime.now(timezone.utc),
-                    closes, volumes, ibov_rets, fundamental,
+                    ticker,
+                    datetime.now(UTC),
+                    closes,
+                    volumes,
+                    ibov_rets,
+                    fundamental,
                 )
                 result = self._forecaster.predict(
-                    features.__dict__, horizon_days=horizon_days,
+                    features.__dict__,
+                    horizon_days=horizon_days,
                 )
                 if result is None:
                     continue
                 p10, p50, p90, prob_pos = result
-                forecasts.append(ReturnForecast(
-                    ticker=ticker,
-                    forecast_date=datetime.combine(
-                        ref, datetime.min.time()).replace(tzinfo=timezone.utc),
-                    horizon_days=horizon_days,
-                    p10=round(p10, 4),
-                    p50=round(p50, 4),
-                    p90=round(p90, 4),
-                    prob_positive=round(prob_pos, 3),
-                    model_version=self._model_version,
-                ))
+                forecasts.append(
+                    ReturnForecast(
+                        ticker=ticker,
+                        forecast_date=datetime.combine(ref, datetime.min.time()).replace(
+                            tzinfo=UTC
+                        ),
+                        horizon_days=horizon_days,
+                        p10=round(p10, 4),
+                        p50=round(p50, 4),
+                        p90=round(p90, 4),
+                        prob_positive=round(prob_pos, 3),
+                        model_version=self._model_version,
+                    )
+                )
             except Exception as exc:
-                log.warning("ml_service.forecast_error",
-                            ticker=ticker, error=str(exc))
+                log.warning("ml_service.forecast_error", ticker=ticker, error=str(exc))
 
         if forecasts:
             await self._repo.save_forecasts(forecasts)
             log.info("ml_service.forecasts_persisted", count=len(forecasts))
 
-        log.info("ml_service.forecasts_done",
-                 total=len(tickers), forecasted=len(forecasts))
+        log.info("ml_service.forecasts_done", total=len(tickers), forecasted=len(forecasts))
         return forecasts
 
     async def _train_forecaster(self, horizon_days: int) -> None:
@@ -192,23 +194,33 @@ class MLService:
             ORDER BY f.date ASC
         """
         from sqlalchemy import text
+
         rows = await self._repo._session.execute(text(sql_text))
         training_data = []
         for row in rows.mappings():
-            training_data.append(TrainingDataRow(
-                features={
-                    "ret_5d": row.get("ret_5d"), "ret_21d": row.get("ret_21d"),
-                    "ret_63d": row.get("ret_63d"), "volatility_21d": row.get("volatility_21d"),
-                    "rsi_14": row.get("rsi_14"), "beta_60d": row.get("beta_60d"),
-                    "volume_ratio_21d": row.get("volume_ratio_21d"),
-                    "pe": row.get("pe"), "pvp": row.get("pvp"),
-                    "roe": row.get("roe"), "roic": row.get("roic"),
-                    "ev_ebitda": row.get("ev_ebitda"), "debt_ebitda": row.get("debt_ebitda"),
-                    "net_margin": row.get("net_margin"), "revenue_growth": row.get("revenue_growth"),
-                },
-                target_21d=row.get(f"target_{horizon_days}d") if horizon_days == 21 else None,
-                target_63d=row.get(f"target_{horizon_days}d") if horizon_days == 63 else None,
-            ))
+            training_data.append(
+                TrainingDataRow(
+                    features={
+                        "ret_5d": row.get("ret_5d"),
+                        "ret_21d": row.get("ret_21d"),
+                        "ret_63d": row.get("ret_63d"),
+                        "volatility_21d": row.get("volatility_21d"),
+                        "rsi_14": row.get("rsi_14"),
+                        "beta_60d": row.get("beta_60d"),
+                        "volume_ratio_21d": row.get("volume_ratio_21d"),
+                        "pe": row.get("pe"),
+                        "pvp": row.get("pvp"),
+                        "roe": row.get("roe"),
+                        "roic": row.get("roic"),
+                        "ev_ebitda": row.get("ev_ebitda"),
+                        "debt_ebitda": row.get("debt_ebitda"),
+                        "net_margin": row.get("net_margin"),
+                        "revenue_growth": row.get("revenue_growth"),
+                    },
+                    target_21d=row.get(f"target_{horizon_days}d") if horizon_days == 21 else None,
+                    target_63d=row.get(f"target_{horizon_days}d") if horizon_days == 63 else None,
+                )
+            )
 
         if len(training_data) < 50:
             log.warning("ml_service.insufficient_training_data", n=len(training_data))

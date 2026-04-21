@@ -9,6 +9,7 @@ Motivo: nem o dominio nem o ORM devem conhecer um ao outro.
 O mapper e o unico lugar com essa dependencia cruzada, facilitando
 identificar e controlar o acoplamento.
 """
+
 from __future__ import annotations
 
 from finanalytics_ai.domain.events.models import DomainEvent, EventPayload, EventStatus
@@ -22,9 +23,7 @@ def domain_to_record(event: DomainEvent) -> EventRecord:
         event_type=str(event.payload.event_type),
         source=event.payload.source,
         correlation_id=(
-            str(event.payload.correlation_id)
-            if event.payload.correlation_id
-            else None
+            str(event.payload.correlation_id) if event.payload.correlation_id else None
         ),
         status=event.status.value,
         payload_data=event.payload.data,
@@ -41,11 +40,7 @@ def record_to_domain(record: EventRecord) -> DomainEvent:
         event_type=EventType(record.event_type),
         data=record.payload_data,
         source=record.source,
-        correlation_id=(
-            CorrelationId(record.correlation_id)
-            if record.correlation_id
-            else None
-        ),
+        correlation_id=(CorrelationId(record.correlation_id) if record.correlation_id else None),
     )
     return DomainEvent(
         event_id=record.event_id,

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-
 from finanalytics_ai.application.services.event_publisher import EventPublisher
 from finanalytics_ai.domain.events.entities import EventStatus, EventType
 
@@ -23,6 +21,7 @@ class TestEventPublisher:
 
         # Patch o repositório interno
         import finanalytics_ai.application.services.event_publisher as mod
+
         original = mod.PostgresEventRepository
         mod.PostgresEventRepository = lambda s: _fake_repo()  # type: ignore[assignment]
 
@@ -41,6 +40,7 @@ class TestEventPublisher:
     async def test_publish_fintz_sync_completed_shortcut(self) -> None:
         session = MagicMock()
         import finanalytics_ai.application.services.event_publisher as mod
+
         original = mod.PostgresEventRepository
         fake = _fake_repo()
         mod.PostgresEventRepository = lambda s: fake  # type: ignore[assignment]
@@ -68,6 +68,7 @@ class TestEventPublisher:
     async def test_publish_fintz_sync_failed_shortcut(self) -> None:
         session = MagicMock()
         import finanalytics_ai.application.services.event_publisher as mod
+
         original = mod.PostgresEventRepository
         mod.PostgresEventRepository = lambda s: _fake_repo()  # type: ignore[assignment]
 

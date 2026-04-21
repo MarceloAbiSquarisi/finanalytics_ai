@@ -3,6 +3,7 @@ application/services/fundamental_analysis_service.py
 Serviço de análise fundamentalista — dados exclusivamente do Fintz (PostgreSQL).
 BRAPI suspenso.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -14,45 +15,55 @@ import structlog
 log = structlog.get_logger(__name__)
 
 # Nomes exatos do Fintz (verificados no banco)
-INDICADORES_VALUATION     = ["P_L", "P_VP", "EV_EBITDA", "P_EBITDA", "P_SR"]
+INDICADORES_VALUATION = ["P_L", "P_VP", "EV_EBITDA", "P_EBITDA", "P_SR"]
 INDICADORES_RENTABILIDADE = ["ROE", "ROIC", "ROA", "MargemLiquida", "MargemEBITDA"]
-INDICADORES_DIVIDENDOS    = ["DividendYield"]
-INDICADORES_ENDIVIDAMENTO = ["DividaLiquida_EBITDA", "DividaLiquida_PatrimonioLiquido",
-                              "DividaBruta_PatrimonioLiquido"]
+INDICADORES_DIVIDENDOS = ["DividendYield"]
+INDICADORES_ENDIVIDAMENTO = [
+    "DividaLiquida_EBITDA",
+    "DividaLiquida_PatrimonioLiquido",
+    "DividaBruta_PatrimonioLiquido",
+]
 ITENS_DRE = ["Receita Liquida", "EBITDA", "Lucro Liquido", "Divida Liquida"]
 
 # Mapa Fintz -> nome legível para o PDF
 INDICADOR_LABELS: dict[str, str] = {
-    "P_L":                              "Preço/Lucro (P/L)",
-    "P_VP":                             "Preço/Valor Patrimonial (P/VP)",
-    "EV_EBITDA":                        "EV/EBITDA",
-    "P_EBITDA":                         "Preço/EBITDA",
-    "P_SR":                             "Preço/Receita",
-    "ROE":                              "Retorno sobre Patrimônio (ROE)",
-    "ROIC":                             "Retorno sobre Capital Investido (ROIC)",
-    "ROA":                              "Retorno sobre Ativos (ROA)",
-    "MargemLiquida":                    "Margem Líquida",
-    "MargemEBITDA":                     "Margem EBITDA",
-    "MargemBruta":                      "Margem Bruta",
-    "MargemEBIT":                       "Margem EBIT",
-    "DividendYield":                    "Dividend Yield (DY)",
-    "DividaLiquida_EBITDA":             "Dívida Líquida / EBITDA",
-    "DividaLiquida_PatrimonioLiquido":  "Dívida Líquida / Patrimônio Líquido",
-    "DividaBruta_PatrimonioLiquido":    "Dívida Bruta / Patrimônio Líquido",
-    "ValorDeMercado":                   "Valor de Mercado",
-    "LPA":                              "Lucro por Ação (LPA)",
-    "VPA":                              "Valor Patrimonial por Ação (VPA)",
-    "EV":                               "Enterprise Value (EV)",
-    "EV_EBIT":                          "EV/EBIT",
-    "LiquidezCorrente":                 "Liquidez Corrente",
-    "GiroAtivos":                       "Giro dos Ativos",
+    "P_L": "Preço/Lucro (P/L)",
+    "P_VP": "Preço/Valor Patrimonial (P/VP)",
+    "EV_EBITDA": "EV/EBITDA",
+    "P_EBITDA": "Preço/EBITDA",
+    "P_SR": "Preço/Receita",
+    "ROE": "Retorno sobre Patrimônio (ROE)",
+    "ROIC": "Retorno sobre Capital Investido (ROIC)",
+    "ROA": "Retorno sobre Ativos (ROA)",
+    "MargemLiquida": "Margem Líquida",
+    "MargemEBITDA": "Margem EBITDA",
+    "MargemBruta": "Margem Bruta",
+    "MargemEBIT": "Margem EBIT",
+    "DividendYield": "Dividend Yield (DY)",
+    "DividaLiquida_EBITDA": "Dívida Líquida / EBITDA",
+    "DividaLiquida_PatrimonioLiquido": "Dívida Líquida / Patrimônio Líquido",
+    "DividaBruta_PatrimonioLiquido": "Dívida Bruta / Patrimônio Líquido",
+    "ValorDeMercado": "Valor de Mercado",
+    "LPA": "Lucro por Ação (LPA)",
+    "VPA": "Valor Patrimonial por Ação (VPA)",
+    "EV": "Enterprise Value (EV)",
+    "EV_EBIT": "EV/EBIT",
+    "LiquidezCorrente": "Liquidez Corrente",
+    "GiroAtivos": "Giro dos Ativos",
 }
 
 # Indicadores armazenados em decimal no Fintz que devem ser exibidos como %
 PCT_INDICATORS = {
-    "ROE", "ROIC", "ROA", "MargemLiquida", "MargemEBITDA",
-    "MargemBruta", "MargemEBIT", "DividendYield",
-    "EBIT_Ativos", "GiroAtivos",
+    "ROE",
+    "ROIC",
+    "ROA",
+    "MargemLiquida",
+    "MargemEBITDA",
+    "MargemBruta",
+    "MargemEBIT",
+    "DividendYield",
+    "EBIT_Ativos",
+    "GiroAtivos",
 }
 
 
@@ -80,16 +91,19 @@ class FundamentalAnalysisService:
         log.info("fundamental.single.start", ticker=ticker, anos=periodo_anos)
 
         # Busca todos os indicadores relevantes em paralelo (série por indicador)
-        all_indicators = (INDICADORES_VALUATION + INDICADORES_RENTABILIDADE +
-                          INDICADORES_DIVIDENDOS + INDICADORES_ENDIVIDAMENTO)
+        all_indicators = (
+            INDICADORES_VALUATION
+            + INDICADORES_RENTABILIDADE
+            + INDICADORES_DIVIDENDOS
+            + INDICADORES_ENDIVIDAMENTO
+        )
 
         tasks = [
             self._repo.get_indicadores_latest(ticker),
             self._repo.get_cotacoes(ticker, start=start, limit=limit_cot),
             self._repo.get_itens_contabeis(ticker, ITENS_DRE, "12M", start, 40),
         ] + [
-            self._repo.get_indicador_serie(ticker, ind, start, limit_ind)
-            for ind in all_indicators
+            self._repo.get_indicador_serie(ticker, ind, start, limit_ind) for ind in all_indicators
         ]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -98,8 +112,8 @@ class FundamentalAnalysisService:
             return default if isinstance(r, Exception) else r
 
         ind_latest = safe(results[0], {})
-        cotacoes    = safe(results[1], [])
-        dre_raw     = safe(results[2], [])
+        cotacoes = safe(results[1], [])
+        dre_raw = safe(results[2], [])
 
         # Mapeia séries por indicador
         series_map: dict[str, list] = {}
@@ -124,17 +138,21 @@ class FundamentalAnalysisService:
         mcap_entry = ind_latest.get("ValorDeMercado", {})
         mcap = mcap_entry.get("valor") if isinstance(mcap_entry, dict) else None
 
-        log.info("fundamental.single.ready", ticker=ticker,
-                 ind_count=len(ind_latest), cotacoes=len(cotacoes))
+        log.info(
+            "fundamental.single.ready",
+            ticker=ticker,
+            ind_count=len(ind_latest),
+            cotacoes=len(cotacoes),
+        )
 
         return {
             "ticker": ticker,
-            "nome": ticker,      # Fintz não fornece nome — será buscado pela UI
-            "setor": "—",        # Fintz não fornece setor
+            "nome": ticker,  # Fintz não fornece nome — será buscado pela UI
+            "setor": "—",  # Fintz não fornece setor
             "preco": preco,
             "market_cap": mcap,
             "indicadores_latest": ind_latest,
-            "series_map": series_map,          # {indicador: [{data, valor}]}
+            "series_map": series_map,  # {indicador: [{data, valor}]}
             "valuation_serie": self._merge_series(series_map, INDICADORES_VALUATION),
             "rentabilidade_serie": self._merge_series(series_map, INDICADORES_RENTABILIDADE),
             "dividendos_serie": self._merge_series(series_map, INDICADORES_DIVIDENDOS),
@@ -169,10 +187,10 @@ class FundamentalAnalysisService:
         empresas: dict[str, Any] = {}
         for ticker, result in zip(tickers, results):
             if isinstance(result, Exception):
-                log.warning("fundamental.comparative.ticker_failed",
-                            ticker=ticker, error=str(result))
-                empresas[ticker] = {"nome": ticker, "setor": "—",
-                                    "indicadores_latest": {}}
+                log.warning(
+                    "fundamental.comparative.ticker_failed", ticker=ticker, error=str(result)
+                )
+                empresas[ticker] = {"nome": ticker, "setor": "—", "indicadores_latest": {}}
             else:
                 empresas[ticker] = result
 

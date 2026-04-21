@@ -77,7 +77,9 @@ class AnomalyService:
         async def _fetch(ticker: str) -> tuple[str, list[dict] | Exception]:
             async with sem:
                 try:
-                    bars = await self._market.get_ohlc_bars(Ticker(ticker), range_period=range_period)
+                    bars = await self._market.get_ohlc_bars(
+                        Ticker(ticker), range_period=range_period
+                    )
                     return ticker, bars
                 except Exception as exc:
                     log.warning("anomaly.fetch_failed", ticker=ticker, error=str(exc))
@@ -146,9 +148,10 @@ class AnomalyService:
         ticker_bars: {ticker: [{"time": int, "open": float, ...}]}
         """
         import asyncio
+
         from finanalytics_ai.domain.anomaly.engine import (
-            build_multi_anomaly_result,
             DetectorConfig,
+            build_multi_anomaly_result,
         )
 
         config = DetectorConfig()
@@ -156,9 +159,7 @@ class AnomalyService:
 
         async def _detect(ticker: str, bars: list) -> None:
             try:
-                result = await asyncio.to_thread(
-                    self._run_detectors, ticker, bars, config
-                )
+                result = await asyncio.to_thread(self._run_detectors, ticker, bars, config)
                 ticker_results[ticker] = result
             except Exception as exc:
                 logger.warning("anomaly.scan_bars.failed", ticker=ticker, error=str(exc))
@@ -174,4 +175,5 @@ class AnomalyService:
     ) -> object:
         """Executa os 4 detectores de anomalia em uma serie de barras."""
         from finanalytics_ai.domain.anomaly.engine import detect_anomalies
+
         return detect_anomalies(ticker, bars, config)

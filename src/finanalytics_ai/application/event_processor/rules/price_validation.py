@@ -7,6 +7,7 @@ Demonstra o padrao correto:
 3. Retorna ProcessingResult para erros de negocio esperados
 4. Levanta excecao apenas para falhas de infraestrutura
 """
+
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable

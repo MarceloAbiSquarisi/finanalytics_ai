@@ -1,4 +1,4 @@
-﻿"""
+"""
 finanalytics_ai.infrastructure.adapters.fintz_market_client
 ------------------------------------------------------------
 FintzMarketDataClient: busca OHLC da tabela fintz_cotacoes (PostgreSQL).
@@ -23,11 +23,11 @@ Notas:
 from __future__ import annotations
 
 import calendar
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-import structlog
 from sqlalchemy import text
+import structlog
 
 from finanalytics_ai.infrastructure.database.connection import get_session
 
@@ -35,15 +35,15 @@ logger = structlog.get_logger(__name__)
 
 # Mapeamento range_period -> dias
 _RANGE_DAYS: dict[str, int] = {
-    "1mo":  30,
-    "3mo":  90,
-    "6mo":  180,
-    "1y":   365,
-    "2y":   730,
-    "5y":   1825,
-    "10y":  3650,
-    "ytd":  0,   # calculado dinamicamente
-    "max":  36500,
+    "1mo": 30,
+    "3mo": 90,
+    "6mo": 180,
+    "1y": 365,
+    "2y": 730,
+    "5y": 1825,
+    "10y": 3650,
+    "ytd": 0,  # calculado dinamicamente
+    "max": 36500,
 }
 
 # Minimo de barras para considerar resultado util
@@ -62,7 +62,7 @@ def _range_to_start_date(range_period: str) -> date:
 def _date_to_unix(d: Any) -> int:
     """Converte date/str para unix timestamp (UTC)."""
     if isinstance(d, datetime):
-        return int(d.replace(tzinfo=timezone.utc).timestamp())
+        return int(d.replace(tzinfo=UTC).timestamp())
     if isinstance(d, date):
         return calendar.timegm(d.timetuple())
     # string "YYYY-MM-DD"
@@ -118,10 +118,13 @@ class FintzMarketDataClient:
 
         try:
             async with get_session() as session:
-                result = await session.execute(sql, {
-                    "ticker": ticker_str,
-                    "start": start,
-                })
+                result = await session.execute(
+                    sql,
+                    {
+                        "ticker": ticker_str,
+                        "start": start,
+                    },
+                )
                 rows = result.fetchall()
         except Exception as exc:
             logger.warning(
@@ -145,14 +148,16 @@ class FintzMarketDataClient:
             close = float(row.fechamento) if row.fechamento is not None else None
             if close is None:
                 continue
-            bars.append({
-                "time":   _date_to_unix(row.data),
-                "open":   float(row.abertura)  if row.abertura  is not None else close,
-                "high":   float(row.maximo)    if row.maximo    is not None else close,
-                "low":    float(row.minimo)    if row.minimo    is not None else close,
-                "close":  close,
-                "volume": float(row.volume)    if row.volume    is not None else 0.0,
-            })
+            bars.append(
+                {
+                    "time": _date_to_unix(row.data),
+                    "open": float(row.abertura) if row.abertura is not None else close,
+                    "high": float(row.maximo) if row.maximo is not None else close,
+                    "low": float(row.minimo) if row.minimo is not None else close,
+                    "close": close,
+                    "volume": float(row.volume) if row.volume is not None else 0.0,
+                }
+            )
 
         logger.info(
             "fintz_market_client.ok",
@@ -166,9 +171,7 @@ class FintzMarketDataClient:
         """Verifica se fintz_cotacoes tem dados recentes (ultimos 10 dias)."""
         try:
             cutoff = date.today() - timedelta(days=10)
-            sql = text(
-                "SELECT COUNT(*) FROM fintz_cotacoes WHERE data >= :cutoff"
-            )
+            sql = text("SELECT COUNT(*) FROM fintz_cotacoes WHERE data >= :cutoff")
             async with get_session() as session:
                 result = await session.execute(sql, {"cutoff": cutoff})
                 count = result.scalar()
@@ -179,9 +182,7 @@ class FintzMarketDataClient:
     async def get_available_tickers(self) -> list[str]:
         """Lista tickers com dados em fintz_cotacoes."""
         try:
-            sql = text(
-                "SELECT DISTINCT ticker FROM fintz_cotacoes ORDER BY ticker"
-            )
+            sql = text("SELECT DISTINCT ticker FROM fintz_cotacoes ORDER BY ticker")
             async with get_session() as session:
                 result = await session.execute(sql)
                 return [r[0] for r in result.fetchall()]

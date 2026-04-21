@@ -1,4 +1,4 @@
-﻿"""
+"""
 finanalytics_ai.interfaces.api.routes.ml_forecasting
 
 Endpoints de ML Probabilistico:
@@ -9,13 +9,13 @@ Endpoints de ML Probabilistico:
   GET  /api/v1/ml/screener          — screener com score probabilistico
   GET  /api/v1/ml/feature-importance — importancia de features do modelo
 """
-import asyncio
-from datetime import date
+
+from datetime import UTC, date
 from typing import Any
 
-import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+import structlog
 
 from finanalytics_ai.domain.screener.engine import IBOV_UNIVERSE
 from finanalytics_ai.interfaces.api.dependencies import get_db_session
@@ -43,8 +43,9 @@ class RiskRequest(BaseModel):
 
 
 def _get_ml_service(session=Depends(get_db_session)):
-    from finanalytics_ai.infrastructure.ml.feature_repo import SqlFeatureRepository
     from finanalytics_ai.application.ml.ml_service import MLService
+    from finanalytics_ai.infrastructure.ml.feature_repo import SqlFeatureRepository
+
     repo = SqlFeatureRepository(session)
     return MLService(repo)
 
@@ -123,8 +124,9 @@ async def run_risk(
     Todos os valores expressam perda maxima como percentual positivo.
     Ex: var_95_historical=0.032 = perda maxima de 3.2% com 95% de confianca.
     """
-    from finanalytics_ai.application.ml.risk_estimator import RiskEstimator
     from sqlalchemy import text
+
+    from finanalytics_ai.application.ml.risk_estimator import RiskEstimator
 
     estimator = RiskEstimator()
     results = []
@@ -132,22 +134,28 @@ async def run_risk(
 
     for ticker in body.tickers:
         try:
-            rows = await session.execute(text("""
+            rows = await session.execute(
+                text(
+                    """
                 SELECT preco_fechamento_ajustado AS close
                 FROM fintz_cotacoes
                 WHERE ticker = :ticker
                   AND data <= CURRENT_DATE
                   AND data >= CURRENT_DATE - INTERVAL ':w days'
                 ORDER BY data ASC
-            """.replace(":w", str(body.window_days * 2))), {"ticker": ticker})
+            """.replace(":w", str(body.window_days * 2))
+                ),
+                {"ticker": ticker},
+            )
             closes = [r[0] for r in rows if r[0] is not None]
 
             if len(closes) < 30:
                 continue
 
             returns = [
-                (closes[i] - closes[i-1]) / closes[i-1]
-                for i in range(1, len(closes)) if closes[i-1] != 0
+                (closes[i] - closes[i - 1]) / closes[i - 1]
+                for i in range(1, len(closes))
+                if closes[i - 1] != 0
             ]
 
             metrics = await estimator.estimate(
@@ -160,38 +168,51 @@ async def run_risk(
                 continue
 
             metrics_to_save.append(metrics)
-            results.append({
-                "ticker": ticker,
-                "risk_level": metrics.risk_level,
-                "var_consensus_pct": round(metrics.var_consensus * 100, 2),
-                "historical": {
-                    "var_95_pct": round(metrics.var_95_historical * 100, 2),
-                    "cvar_95_pct": round(metrics.cvar_95_historical * 100, 2),
-                },
-                "parametric_t": {
-                    "var_95_pct": round(metrics.var_95_parametric * 100, 2),
-                    "cvar_95_pct": round(metrics.cvar_95_parametric * 100, 2),
-                    "degrees_of_freedom": round(metrics.t_degrees_of_freedom, 1),
-                    "note": "df < 6 indica caudas pesadas (fat tails)" if metrics.t_degrees_of_freedom < 6 else None,
-                },
-                "garch": {
-                    "var_95_pct": round(metrics.var_95_garch * 100, 2) if metrics.var_95_garch else None,
-                    "cvar_95_pct": round(metrics.cvar_95_garch * 100, 2) if metrics.cvar_95_garch else None,
-                    "vol_forecast_annual_pct": round(metrics.garch_volatility_forecast * 252**0.5 * 100, 2) if metrics.garch_volatility_forecast else None,
-                },
-                "monte_carlo": {
-                    "var_95_pct": round(metrics.var_95_mc * 100, 2),
-                    "cvar_95_pct": round(metrics.cvar_95_mc * 100, 2),
-                    "paths": 100000,
-                },
-                "volatility_annual_pct": round(metrics.volatility_annual * 100, 2),
-            })
+            results.append(
+                {
+                    "ticker": ticker,
+                    "risk_level": metrics.risk_level,
+                    "var_consensus_pct": round(metrics.var_consensus * 100, 2),
+                    "historical": {
+                        "var_95_pct": round(metrics.var_95_historical * 100, 2),
+                        "cvar_95_pct": round(metrics.cvar_95_historical * 100, 2),
+                    },
+                    "parametric_t": {
+                        "var_95_pct": round(metrics.var_95_parametric * 100, 2),
+                        "cvar_95_pct": round(metrics.cvar_95_parametric * 100, 2),
+                        "degrees_of_freedom": round(metrics.t_degrees_of_freedom, 1),
+                        "note": "df < 6 indica caudas pesadas (fat tails)"
+                        if metrics.t_degrees_of_freedom < 6
+                        else None,
+                    },
+                    "garch": {
+                        "var_95_pct": round(metrics.var_95_garch * 100, 2)
+                        if metrics.var_95_garch
+                        else None,
+                        "cvar_95_pct": round(metrics.cvar_95_garch * 100, 2)
+                        if metrics.cvar_95_garch
+                        else None,
+                        "vol_forecast_annual_pct": round(
+                            metrics.garch_volatility_forecast * 252**0.5 * 100, 2
+                        )
+                        if metrics.garch_volatility_forecast
+                        else None,
+                    },
+                    "monte_carlo": {
+                        "var_95_pct": round(metrics.var_95_mc * 100, 2),
+                        "cvar_95_pct": round(metrics.cvar_95_mc * 100, 2),
+                        "paths": 100000,
+                    },
+                    "volatility_annual_pct": round(metrics.volatility_annual * 100, 2),
+                }
+            )
         except Exception as exc:
             logger.warning("ml.risk_ticker_error", ticker=ticker, error=str(exc))
 
     # Persiste metricas calculadas em ml_risk
     if metrics_to_save:
         from finanalytics_ai.infrastructure.ml.feature_repo import SqlFeatureRepository
+
         repo = SqlFeatureRepository(session)
         try:
             await repo.save_risk_metrics(metrics_to_save)
@@ -220,7 +241,8 @@ async def ml_screener(
     if not ticker_list:
         ticker_list = IBOV_UNIVERSE[:30]
 
-    rows = await session.execute(text("""
+    rows = await session.execute(
+        text("""
         SELECT
             f.ticker,
             f.ret_21d     * 100 AS ret_21d_pct,
@@ -250,11 +272,13 @@ async def ml_screener(
           AND f.date = (SELECT MAX(date) FROM ml_features WHERE ticker = f.ticker)
           AND (fc.prob_positive IS NULL OR fc.prob_positive >= :min_prob)
         ORDER BY fc.prob_positive DESC NULLS LAST
-    """), {
-        "tickers": ticker_list,
-        "horizon": horizon_days,
-        "min_prob": min_prob_positive,
-    })
+    """),
+        {
+            "tickers": ticker_list,
+            "horizon": horizon_days,
+            "min_prob": min_prob_positive,
+        },
+    )
 
     items = []
     for row in rows.mappings():
@@ -265,16 +289,17 @@ async def ml_screener(
         items.append(d)
 
     # Computa MLStrategy signal para cada item com dados suficientes
+    from datetime import datetime
+
     from finanalytics_ai.application.ml.ml_strategy import MLStrategy
     from finanalytics_ai.domain.ml.entities import ReturnForecast, RiskMetrics
-    from datetime import datetime, timezone
 
     strategy = MLStrategy()
 
     for item in items:
-        p50  = (item.get("p50_pct")  or 0) / 100
-        p10  = (item.get("p10_pct")  or 0) / 100
-        p90  = (item.get("p90_pct")  or 0) / 100
+        p50 = (item.get("p50_pct") or 0) / 100
+        p10 = (item.get("p10_pct") or 0) / 100
+        p90 = (item.get("p90_pct") or 0) / 100
         prob = (item.get("prob_positive_pct") or 0) / 100
         var_c = item.get("var_consensus_approx") or 0
         # Fallback: estima VaR diario a partir da volatilidade anualizada
@@ -287,32 +312,37 @@ async def ml_screener(
             # Cria objetos minimos para MLStrategy
             fc = ReturnForecast(
                 ticker=item["ticker"],
-                forecast_date=datetime.now(timezone.utc),
+                forecast_date=datetime.now(UTC),
                 horizon_days=horizon_days,
-                p10=p10, p50=p50, p90=p90,
+                p10=p10,
+                p50=p50,
+                p90=p90,
                 prob_positive=prob,
             )
             # RiskMetrics minimo com var_consensus via historico+parametrico
             rm = RiskMetrics(
                 ticker=item["ticker"],
-                date=datetime.now(timezone.utc),
+                date=datetime.now(UTC),
                 window_days=252,
                 var_95_historical=var_c / 0.55 if var_c else 0.025,
                 cvar_95_historical=var_c / 0.55 * 1.3 if var_c else 0.033,
                 var_95_parametric=var_c / 0.45 if var_c else 0.027,
                 cvar_95_parametric=var_c / 0.45 * 1.3 if var_c else 0.035,
                 t_degrees_of_freedom=6.0,
-                var_95_garch=None, cvar_95_garch=None, garch_volatility_forecast=None,
-                var_95_mc=var_c, cvar_95_mc=var_c * 1.3,
+                var_95_garch=None,
+                cvar_95_garch=None,
+                garch_volatility_forecast=None,
+                var_95_mc=var_c,
+                cvar_95_mc=var_c * 1.3,
                 volatility_annual=var_c * 16,
             )
             sig = strategy.evaluate(fc, rm)
-            item["signal"]    = sig.signal
-            item["score"]     = sig.score
+            item["signal"] = sig.signal
+            item["score"] = sig.score
             item["direction"] = sig.direction
         else:
-            item["signal"]    = "HOLD"
-            item["score"]     = 0.0
+            item["signal"] = "HOLD"
+            item["score"] = 0.0
             item["direction"] = "NEUTRAL"
 
     # Reordena por score decrescente (MLStrategy > prob_positive)

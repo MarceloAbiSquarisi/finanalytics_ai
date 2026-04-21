@@ -18,6 +18,7 @@ O TimescaleDB esta na porta 5433 (separado do PostgreSQL principal).
 Fallback: se o TimescaleDB nao estiver disponivel, o preco e persistido
 apenas no PostgreSQL principal via SqlEventRepository (ja feito pelo servico).
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -92,6 +93,7 @@ class PriceUpdateRule:
             # Erro de persistencia e transitorio — o EventProcessorService
             # vai retry baseado na excecao TransientError levantada pelo handler
             from finanalytics_ai.domain.events.exceptions import DatabaseError
+
             raise DatabaseError(
                 f"Falha ao persistir preco de {ticker}: {exc}",
                 event_id=event.event_id,

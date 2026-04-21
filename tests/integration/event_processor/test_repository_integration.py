@@ -9,12 +9,12 @@ Estes testes verificam:
 
 Marcados como 'integration' -- so rodam com Docker disponivel.
 """
+
 from __future__ import annotations
 
 import uuid
 
 import pytest
-import pytest_asyncio
 
 from finanalytics_ai.domain.events.models import (
     DomainEvent,
@@ -23,7 +23,6 @@ from finanalytics_ai.domain.events.models import (
 )
 from finanalytics_ai.domain.events.value_objects import EventType
 from finanalytics_ai.infrastructure.event_processor.repository import SqlEventRepository
-
 
 pytestmark = pytest.mark.integration
 

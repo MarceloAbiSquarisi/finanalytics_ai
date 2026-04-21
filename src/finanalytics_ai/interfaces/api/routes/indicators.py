@@ -198,9 +198,7 @@ async def get_vwap_intraday(
     ticks, actual_date, mercado_aberto = await fetch_intraday_ticks(ticker, date_param)
 
     if not ticks or actual_date is None:
-        raise HTTPException(
-            status_code=404, detail=f"No intraday data for {ticker.upper()}"
-        )
+        raise HTTPException(status_code=404, detail=f"No intraday data for {ticker.upper()}")
 
     global_vwap, hourly_profile = compute_vwap_from_ticks(ticks)
 

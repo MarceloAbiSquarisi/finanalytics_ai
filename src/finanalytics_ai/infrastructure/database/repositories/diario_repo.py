@@ -4,33 +4,39 @@ Repositório do Diário de Trade.
 Modelo: trade_journal — armazena entradas qualitativas e quantitativas.
 Usa a mesma Base do resto do projeto para aproveitar o create_all() no startup.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-import structlog
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, select, func, desc
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, desc, func, select
 from sqlalchemy.orm import Mapped, mapped_column
+import structlog
 
-from finanalytics_ai.infrastructure.database.connection import Base, get_session
+from finanalytics_ai.infrastructure.database.connection import Base
 
 logger = structlog.get_logger(__name__)
 
 
 # ── Modelo ────────────────────────────────────────────────────────────────────
 
+
 class DiarioModel(Base):
     __tablename__ = "trade_journal"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    user_id: Mapped[str] = mapped_column(String(100), nullable=False, default="user-demo", index=True)
+    user_id: Mapped[str] = mapped_column(
+        String(100), nullable=False, default="user-demo", index=True
+    )
 
     # Dados quantitativos
     ticker: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     direction: Mapped[str] = mapped_column(String(4), nullable=False)  # BUY / SELL
-    entry_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    entry_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
     exit_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     entry_price: Mapped[float] = mapped_column(Float, nullable=False)
     exit_price: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -95,6 +101,7 @@ class DiarioModel(Base):
 
 
 # ── Repositório ───────────────────────────────────────────────────────────────
+
 
 class DiarioRepository:
     """CRUD assíncrono para o diário de trade."""
@@ -206,10 +213,22 @@ class DiarioRepository:
                 return None
 
             updatable = [
-                "ticker", "direction", "entry_date", "exit_date",
-                "entry_price", "exit_price", "quantity", "setup", "timeframe",
-                "reason_entry", "expectation", "what_happened", "emotional_state",
-                "mistakes", "lessons", "rating",
+                "ticker",
+                "direction",
+                "entry_date",
+                "exit_date",
+                "entry_price",
+                "exit_price",
+                "quantity",
+                "setup",
+                "timeframe",
+                "reason_entry",
+                "expectation",
+                "what_happened",
+                "emotional_state",
+                "mistakes",
+                "lessons",
+                "rating",
             ]
             for field in updatable:
                 if field in data:
@@ -258,9 +277,7 @@ class DiarioRepository:
         """Métricas agregadas para o dashboard do diário."""
         async with self._session() as session:
             # Totais
-            total = await session.scalar(
-                select(func.count()).where(DiarioModel.user_id == user_id)
-            )
+            total = await session.scalar(select(func.count()).where(DiarioModel.user_id == user_id))
             closed = await session.scalar(
                 select(func.count()).where(
                     DiarioModel.user_id == user_id,
@@ -356,11 +373,13 @@ class DiarioRepository:
             equity_curve = []
             for r in curve_q.all():
                 equity += float(r.pnl or 0)
-                equity_curve.append({
-                    "date": r.exit_date.isoformat() if r.exit_date else None,
-                    "equity": round(equity, 2),
-                    "pnl": round(float(r.pnl or 0), 2),
-                })
+                equity_curve.append(
+                    {
+                        "date": r.exit_date.isoformat() if r.exit_date else None,
+                        "equity": round(equity, 2),
+                        "pnl": round(float(r.pnl or 0), 2),
+                    }
+                )
 
             win_rate = round(float(winners or 0) / closed * 100, 1) if closed else 0.0
             return {

@@ -6,21 +6,13 @@ Estratégia: fake in-memory do AccountRepository.
 - Cobertura de: criação, duplicata, ativação, deleção de ativa, listagem por tipo.
 - Os testes de integração (com banco real) ficam em tests/integration/.
 """
+
 from __future__ import annotations
 
-import pytest
-from typing import Dict, Optional, Sequence
-from datetime import datetime, timezone
+from collections.abc import Sequence
 
-from finanalytics_ai.domain.accounts import (
-    AccountDomainError,
-    AccountNotFoundError,
-    AccountStatus,
-    AccountType,
-    DuplicateAccountError,
-    NoActiveAccountError,
-    TradingAccount,
-)
+import pytest
+
 from finanalytics_ai.application.use_cases import (
     CreateAccount,
     CreateAccountCmd,
@@ -31,15 +23,24 @@ from finanalytics_ai.application.use_cases import (
     UpdateAccount,
     UpdateAccountCmd,
 )
-
+from finanalytics_ai.domain.accounts import (
+    AccountDomainError,
+    AccountNotFoundError,
+    AccountStatus,
+    AccountType,
+    DuplicateAccountError,
+    NoActiveAccountError,
+    TradingAccount,
+)
 
 # ---------------------------------------------------------------------------
 # Fake repository (in-memory)
 # ---------------------------------------------------------------------------
 
+
 class FakeAccountRepository:
     def __init__(self) -> None:
-        self._store: Dict[str, TradingAccount] = {}
+        self._store: dict[str, TradingAccount] = {}
 
     async def save(self, account: TradingAccount) -> None:
         key = (account.broker_id, account.account_id, account.account_type)
@@ -55,7 +56,7 @@ class FakeAccountRepository:
 
     async def get_by_broker_account(
         self, broker_id: str, account_id: str, account_type: AccountType
-    ) -> Optional[TradingAccount]:
+    ) -> TradingAccount | None:
         for a in self._store.values():
             if (
                 a.broker_id == broker_id
@@ -71,7 +72,7 @@ class FakeAccountRepository:
     async def list_by_type(self, account_type: AccountType) -> Sequence[TradingAccount]:
         return [a for a in self._store.values() if a.account_type == account_type]
 
-    async def get_active(self) -> Optional[TradingAccount]:
+    async def get_active(self) -> TradingAccount | None:
         for a in self._store.values():
             if a.is_active:
                 return a
@@ -99,6 +100,7 @@ class FakeAccountRepository:
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def repo() -> FakeAccountRepository:
@@ -131,6 +133,7 @@ def _sim_cmd(**kwargs) -> CreateAccountCmd:
 # ---------------------------------------------------------------------------
 # Testes: CreateAccount
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_create_real_account(repo):
@@ -170,6 +173,7 @@ async def test_create_duplicate_raises(repo):
 # Testes: ListAccounts
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_list_all_empty(repo):
     uc = ListAccounts(repo)
@@ -195,6 +199,7 @@ async def test_list_by_type_filters_correctly(repo):
 # ---------------------------------------------------------------------------
 # Testes: SetActiveAccount / GetActiveAccount
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_set_active_switches_correctly(repo):
@@ -240,6 +245,7 @@ async def test_set_active_invalid_uuid_raises(repo):
 # Testes: UpdateAccount
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_update_label(repo):
     acc = await CreateAccount(repo).execute(_real_cmd())
@@ -263,6 +269,7 @@ async def test_update_routing_password(repo):
 # ---------------------------------------------------------------------------
 # Testes: DeleteAccount
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_delete_inactive_account(repo):
@@ -289,6 +296,7 @@ async def test_delete_nonexistent_raises(repo):
 # ---------------------------------------------------------------------------
 # Testes: propriedades de domínio
 # ---------------------------------------------------------------------------
+
 
 def test_account_is_real_property():
     acc = TradingAccount.create(

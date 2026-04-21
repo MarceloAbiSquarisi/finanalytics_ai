@@ -143,7 +143,9 @@ class TestBollingerSqueeze:
         assert last.bb_middle is not None
         # Bandwidth should be narrow for flat series
         bandwidth = last.bb_upper - last.bb_lower
-        assert bandwidth < 1.0, f"Bollinger bandwidth should be < 1 for flat series, got {bandwidth}"
+        assert bandwidth < 1.0, (
+            f"Bollinger bandwidth should be < 1 for flat series, got {bandwidth}"
+        )
 
 
 class TestSummarySignals:

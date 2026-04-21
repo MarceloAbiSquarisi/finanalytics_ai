@@ -133,7 +133,9 @@ def _noisy_bars(
     return _bars(closes)
 
 
-def _trend_bars(n_ref: int = 35, n_trend: int = 15, seed: int = 7, trend_pct: float = 2.0) -> list[dict]:
+def _trend_bars(
+    n_ref: int = 35, n_trend: int = 15, seed: int = 7, trend_pct: float = 2.0
+) -> list[dict]:
     """Barras com variancia na referencia e tendencia clara nos ultimos n_trend periodos."""
     import random
 
@@ -144,7 +146,9 @@ def _trend_bars(n_ref: int = 35, n_trend: int = 15, seed: int = 7, trend_pct: fl
     return _bars(ref + trend)
 
 
-def _downtrend_bars(n_ref: int = 35, n_trend: int = 15, seed: int = 7, trend_pct: float = 2.0) -> list[dict]:
+def _downtrend_bars(
+    n_ref: int = 35, n_trend: int = 15, seed: int = 7, trend_pct: float = 2.0
+) -> list[dict]:
     import random
 
     random.seed(seed)
@@ -199,14 +203,18 @@ class TestDetectZscore:
 
     def test_spike_up_triggers(self):
         result = detect_zscore(
-            _noisy_bars(40, seed=42, spike_pct=20), "T", _cfg(zscore_window=20, zscore_threshold=2.5)
+            _noisy_bars(40, seed=42, spike_pct=20),
+            "T",
+            _cfg(zscore_window=20, zscore_threshold=2.5),
         )
         assert len(result) == 1
         assert result[0].direction == AnomalyDirection.UP
 
     def test_spike_down_triggers(self):
         result = detect_zscore(
-            _noisy_bars(40, seed=42, crash_pct=25), "T", _cfg(zscore_window=20, zscore_threshold=2.5)
+            _noisy_bars(40, seed=42, crash_pct=25),
+            "T",
+            _cfg(zscore_window=20, zscore_threshold=2.5),
         )
         assert len(result) == 1
         assert result[0].direction == AnomalyDirection.DOWN
@@ -230,7 +238,9 @@ class TestDetectZscore:
 
     def test_anomaly_type_correct(self):
         result = detect_zscore(
-            _noisy_bars(40, seed=42, spike_pct=20), "T", _cfg(zscore_window=20, zscore_threshold=2.5)
+            _noisy_bars(40, seed=42, spike_pct=20),
+            "T",
+            _cfg(zscore_window=20, zscore_threshold=2.5),
         )
         if result:
             assert result[0].anomaly_type == AnomalyType.ZSCORE_SPIKE
@@ -243,7 +253,9 @@ class TestDetectZscore:
 
     def test_ticker_in_event(self):
         result = detect_zscore(
-            _noisy_bars(40, seed=42, spike_pct=20), "PETR4", _cfg(zscore_window=20, zscore_threshold=2.5)
+            _noisy_bars(40, seed=42, spike_pct=20),
+            "PETR4",
+            _cfg(zscore_window=20, zscore_threshold=2.5),
         )
         if result:
             assert result[0].ticker == "PETR4"
@@ -324,7 +336,9 @@ class TestDetectCusum:
         closes = [100.0]
         for _ in range(49):
             closes.append(closes[-1] * (1 + random.gauss(0, 0.002)))
-        result = detect_cusum(_bars(closes), "T", _cfg(cusum_window=25, cusum_k=0.5, cusum_threshold=5.0))
+        result = detect_cusum(
+            _bars(closes), "T", _cfg(cusum_window=25, cusum_k=0.5, cusum_threshold=5.0)
+        )
         # Pode ou nao disparar com dados aleatorios — apenas verifica sem crash
         assert isinstance(result, list)
 
@@ -481,7 +495,9 @@ class TestAnomalyResult:
         assert r.has_anomalies is False
 
     def test_has_anomalies_true(self):
-        r = AnomalyResult(ticker="T", bars_analyzed=50, anomalies=[self._event(AnomalySeverity.LOW)])
+        r = AnomalyResult(
+            ticker="T", bars_analyzed=50, anomalies=[self._event(AnomalySeverity.LOW)]
+        )
         assert r.has_anomalies is True
 
     def test_max_severity_none_when_empty(self):

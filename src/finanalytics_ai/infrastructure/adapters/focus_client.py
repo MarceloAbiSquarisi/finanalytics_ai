@@ -67,9 +67,9 @@ logger = structlog.get_logger(__name__)
 _OLINDA_BASE = "https://olinda.bcb.gov.br/olinda/servico/Expectativas/versao/v1/odata"
 
 _ENDPOINTS = {
-    "anual":       "ExpectativasMercadoAnuais",       # com 's' — nome correto da API BCB
-    "mensal":      "ExpectativasMercadoMensais",
-    "top5_anual":  "ExpectativasMercadoTop5Anuais",
+    "anual": "ExpectativasMercadoAnuais",  # com 's' — nome correto da API BCB
+    "mensal": "ExpectativasMercadoMensais",
+    "top5_anual": "ExpectativasMercadoTop5Anuais",
 }
 
 # Indicadores relevantes para o FinAnalytics
@@ -90,12 +90,14 @@ _INDICADOR_NORMALIZE: dict[str, str] = {
     "câmbio": "Cambio",
 }
 
-_CACHE_TTL = 14_400   # 4 horas
+_CACHE_TTL = 14_400  # 4 horas
 _HTTP_TIMEOUT = 30.0
 
 # Campos que queremos da API (reduz payload)
-_SELECT_ANUAL = "Indicador,Data,DataReferencia,Media,Mediana,DesvioPadrao,Minimo,Maximo,numeroRespondentes"
-_SELECT_TOP5  = "Indicador,Data,DataReferencia,Media,Mediana,tipoCalculo"
+_SELECT_ANUAL = (
+    "Indicador,Data,DataReferencia,Media,Mediana,DesvioPadrao,Minimo,Maximo,numeroRespondentes"
+)
+_SELECT_TOP5 = "Indicador,Data,DataReferencia,Media,Mediana,tipoCalculo"
 
 
 class FocusClient:
@@ -214,19 +216,20 @@ class FocusClient:
             return cached  # type: ignore[return-value]
 
         from datetime import date
+
         ano_atual = str(date.today().year)
 
         expectations = await self.get_latest_expectations(semanas=2)
 
         snapshot: dict[str, Any] = {}
         _key_map = {
-            "IPCA":      "ipca",
-            "Selic":     "selic",
+            "IPCA": "ipca",
+            "Selic": "selic",
             "PIB Total": "pib",
-            "Cambio":    "cambio",   # sem acento — nome aceito pela API
-            "Câmbio":    "cambio",   # compatibilidade com dados já coletados
-            "IGP-M":     "igpm",
-            "IPC-Fipe":  "ipc_fipe",
+            "Cambio": "cambio",  # sem acento — nome aceito pela API
+            "Câmbio": "cambio",  # compatibilidade com dados já coletados
+            "IGP-M": "igpm",
+            "IPC-Fipe": "ipc_fipe",
         }
 
         for row in expectations:
@@ -241,10 +244,10 @@ class FocusClient:
                 snap_key = f"{key_base}_ano_atual"
                 if snap_key not in snapshot:
                     snapshot[snap_key] = {
-                        "mediana":         row.get("mediana"),
-                        "media":           row.get("media"),
-                        "data":            row.get("data"),
-                        "n_respondentes":  row.get("n_respondentes"),
+                        "mediana": row.get("mediana"),
+                        "media": row.get("media"),
+                        "data": row.get("data"),
+                        "n_respondentes": row.get("n_respondentes"),
                     }
 
             # Próximo ano
@@ -252,9 +255,9 @@ class FocusClient:
                 snap_key = f"{key_base}_ano_seguinte"
                 if snap_key not in snapshot:
                     snapshot[snap_key] = {
-                        "mediana":        row.get("mediana"),
-                        "media":          row.get("media"),
-                        "data":           row.get("data"),
+                        "mediana": row.get("mediana"),
+                        "media": row.get("media"),
+                        "data": row.get("data"),
                         "n_respondentes": row.get("n_respondentes"),
                     }
 
@@ -271,16 +274,17 @@ class FocusClient:
     ) -> list[dict[str, Any]]:
         """Busca expectativas anuais de um indicador via API Olinda."""
         from datetime import date, timedelta
+
         # Normaliza nome do indicador (remove acentos problemáticos)
         ind_api = _INDICADOR_NORMALIZE.get(indicador, indicador)
         data_inicio = (date.today() - timedelta(weeks=semanas)).isoformat()
 
         params = {
-            "$filter":  f"Indicador eq '{ind_api}' and Data ge '{data_inicio}'",
-            "$select":  _SELECT_ANUAL,
+            "$filter": f"Indicador eq '{ind_api}' and Data ge '{data_inicio}'",
+            "$select": _SELECT_ANUAL,
             "$orderby": "Data desc",
-            "$top":     "500",
-            "$format":  "json",
+            "$top": "500",
+            "$format": "json",
         }
         endpoint = _ENDPOINTS["anual"]
         raw = await self._request(endpoint, params)
@@ -289,15 +293,16 @@ class FocusClient:
     async def _fetch_top5(self, indicador: str) -> list[dict[str, Any]]:
         """Busca expectativas Top5 de um indicador."""
         from datetime import date, timedelta
+
         ind_api = _INDICADOR_NORMALIZE.get(indicador, indicador)
         data_inicio = (date.today() - timedelta(weeks=8)).isoformat()
 
         params = {
-            "$filter":  f"Indicador eq '{ind_api}' and Data ge '{data_inicio}'",
-            "$select":  _SELECT_TOP5,
+            "$filter": f"Indicador eq '{ind_api}' and Data ge '{data_inicio}'",
+            "$select": _SELECT_TOP5,
             "$orderby": "Data desc",
-            "$top":     "100",
-            "$format":  "json",
+            "$top": "100",
+            "$format": "json",
         }
         endpoint = _ENDPOINTS["top5_anual"]
         raw = await self._request(endpoint, params)
@@ -387,30 +392,31 @@ class FocusClient:
 
 # ── Parsers ───────────────────────────────────────────────────────────────────
 
+
 def _parse_row_anual(item: dict[str, Any]) -> dict[str, Any]:
     return {
-        "indicador":       item.get("Indicador", ""),
-        "data":            item.get("Data", ""),
+        "indicador": item.get("Indicador", ""),
+        "data": item.get("Data", ""),
         "data_referencia": item.get("DataReferencia", ""),
-        "media":           _safe_float(item.get("Media")),
-        "mediana":         _safe_float(item.get("Mediana")),
-        "desvio_padrao":   _safe_float(item.get("DesvioPadrao")),
-        "minimo":          _safe_float(item.get("Minimo")),
-        "maximo":          _safe_float(item.get("Maximo")),
-        "n_respondentes":  _safe_int(item.get("numeroRespondentes")),
-        "base_calculo":    item.get("baseCalculo"),
+        "media": _safe_float(item.get("Media")),
+        "mediana": _safe_float(item.get("Mediana")),
+        "desvio_padrao": _safe_float(item.get("DesvioPadrao")),
+        "minimo": _safe_float(item.get("Minimo")),
+        "maximo": _safe_float(item.get("Maximo")),
+        "n_respondentes": _safe_int(item.get("numeroRespondentes")),
+        "base_calculo": item.get("baseCalculo"),
     }
 
 
 def _parse_row_top5(item: dict[str, Any]) -> dict[str, Any]:
     return {
-        "indicador":       item.get("Indicador", ""),
-        "data":            item.get("Data", ""),
+        "indicador": item.get("Indicador", ""),
+        "data": item.get("Data", ""),
         "data_referencia": item.get("DataReferencia", ""),
-        "media":           _safe_float(item.get("Media")),
-        "mediana":         _safe_float(item.get("Mediana")),
-        "tipo_calculo":    item.get("tipoCalculo", ""),
-        "fonte":           "top5",
+        "media": _safe_float(item.get("Media")),
+        "mediana": _safe_float(item.get("Mediana")),
+        "tipo_calculo": item.get("tipoCalculo", ""),
+        "fonte": "top5",
     }
 
 

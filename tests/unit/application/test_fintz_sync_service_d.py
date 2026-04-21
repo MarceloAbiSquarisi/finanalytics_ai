@@ -13,15 +13,16 @@ Cobre:
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
-import pytest
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
+
 def make_spec(key: str = "cotacoes", dataset_type: str = "cotacoes") -> Any:
     spec = MagicMock()
-    spec.key          = key
+    spec.key = key
     spec.dataset_type = dataset_type
     return spec
 
@@ -67,10 +68,9 @@ def mock_ts_writer() -> AsyncMock:
 
 # ── Testes ────────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
-async def test_sync_sucesso_completo(
-    mock_client, mock_repo, mock_publisher, mock_ts_writer
-):
+async def test_sync_sucesso_completo(mock_client, mock_repo, mock_publisher, mock_ts_writer):
     """Ciclo completo: upsert → timescale → evento publicado."""
     from finanalytics_ai.application.services.fintz_sync_service import FintzSyncService
 
@@ -183,9 +183,7 @@ async def test_skip_hash_identico_nao_grava_timescale(
 
 
 @pytest.mark.asyncio
-async def test_erro_api_publica_failed(
-    mock_client, mock_repo, mock_publisher, mock_ts_writer
-):
+async def test_erro_api_publica_failed(mock_client, mock_repo, mock_publisher, mock_ts_writer):
     """Erro de API publica FINTZ_SYNC_FAILED."""
     from finanalytics_ai.application.services.fintz_sync_service import FintzSyncService
     from finanalytics_ai.exceptions import FintzAPIError
@@ -214,14 +212,12 @@ async def test_erro_api_publica_failed(
 
 
 @pytest.mark.asyncio
-async def test_multiplos_datasets_isolados(
-    mock_client, mock_repo, mock_publisher, mock_ts_writer
-):
+async def test_multiplos_datasets_isolados(mock_client, mock_repo, mock_publisher, mock_ts_writer):
     """Erro em um dataset não afeta os outros."""
     from finanalytics_ai.application.services.fintz_sync_service import FintzSyncService
     from finanalytics_ai.exceptions import FintzAPIError
 
-    spec_ok  = make_spec("cotacoes", "cotacoes")
+    spec_ok = make_spec("cotacoes", "cotacoes")
     spec_err = make_spec("indicador_x", "indicador")
 
     error = FintzAPIError("Falha")

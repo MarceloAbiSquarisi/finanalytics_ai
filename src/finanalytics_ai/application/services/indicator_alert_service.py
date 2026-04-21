@@ -25,56 +25,61 @@ Design:
   - evaluate_all() idempotente: chama a cada N minutos, re-dispara so se
     o indicador cruzou o threshold (saiu e voltou)
 """
+
 from __future__ import annotations
 
-import json
-import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from decimal import Decimal
+import json
 from typing import Any
+import uuid
 
-import structlog
 from sqlalchemy import text
+import structlog
 
 logger = structlog.get_logger(__name__)
 
 _OPERATORS = {
-    "gt":  lambda v, t: v > t,
-    "lt":  lambda v, t: v < t,
+    "gt": lambda v, t: v > t,
+    "lt": lambda v, t: v < t,
     "gte": lambda v, t: v >= t,
     "lte": lambda v, t: v <= t,
 }
 
 # Indicadores suportados e seus nomes amigaveis
 SUPPORTED_INDICATORS: dict[str, str] = {
-    "ROE":                          "Return on Equity (%)",
-    "ROIC":                         "Return on Invested Capital (%)",
-    "ROA":                          "Return on Assets (%)",
-    "DividendYield":                "Dividend Yield (%)",
-    "P_L":                          "Preco/Lucro",
-    "P_VP":                         "Preco/Valor Patrimonial",
-    "MargemEBITDA":                 "Margem EBITDA (%)",
-    "MargemLiquida":                "Margem Liquida (%)",
-    "MargemBruta":                  "Margem Bruta (%)",
+    "ROE": "Return on Equity (%)",
+    "ROIC": "Return on Invested Capital (%)",
+    "ROA": "Return on Assets (%)",
+    "DividendYield": "Dividend Yield (%)",
+    "P_L": "Preco/Lucro",
+    "P_VP": "Preco/Valor Patrimonial",
+    "MargemEBITDA": "Margem EBITDA (%)",
+    "MargemLiquida": "Margem Liquida (%)",
+    "MargemBruta": "Margem Bruta (%)",
     "DividaLiquida_PatrimonioLiquido": "Divida Liquida/PL",
-    "DividaLiquida_EBITDA":         "Divida Liquida/EBITDA",
-    "LiquidezCorrente":             "Liquidez Corrente",
-    "EV_EBITDA":                    "EV/EBITDA",
-    "ValorDeMercado":               "Valor de Mercado (R$)",
+    "DividaLiquida_EBITDA": "Divida Liquida/EBITDA",
+    "LiquidezCorrente": "Liquidez Corrente",
+    "EV_EBITDA": "EV/EBITDA",
+    "ValorDeMercado": "Valor de Mercado (R$)",
 }
 
 # Indicadores que estao em decimal no banco e precisam x100
 _PCT_INDICATORS = {
-    "ROE", "ROIC", "ROA", "DividendYield",
-    "MargemEBITDA", "MargemLiquida", "MargemBruta",
+    "ROE",
+    "ROIC",
+    "ROA",
+    "DividendYield",
+    "MargemEBITDA",
+    "MargemLiquida",
+    "MargemBruta",
 }
 
 
 @dataclass
 class IndicatorAlertCondition:
     indicator: str
-    operator: str   # gt, lt, gte, lte
+    operator: str  # gt, lt, gte, lte
     threshold: float
     reference_value: float | None = None
 
@@ -142,8 +147,7 @@ class IndicatorAlertService:
         """Cria um smart_alert de indicador."""
         if indicator not in SUPPORTED_INDICATORS:
             raise ValueError(
-                f"Indicador '{indicator}' nao suportado. "
-                f"Use: {', '.join(SUPPORTED_INDICATORS)}"
+                f"Indicador '{indicator}' nao suportado. Use: {', '.join(SUPPORTED_INDICATORS)}"
             )
         if operator not in _OPERATORS:
             raise ValueError(f"Operador '{operator}' invalido. Use: gt, lt, gte, lte")
@@ -215,16 +219,18 @@ class IndicatorAlertService:
         for row in rows:
             try:
                 condition = IndicatorAlertCondition.from_dict(json.loads(row.conditions))
-                alerts.append(IndicatorAlert(
-                    alert_id=row.alert_id,
-                    ticker=row.ticker,
-                    user_id=row.user_id,
-                    condition=condition,
-                    status=row.status,
-                    note=row.note or "",
-                    last_triggered_at=row.last_triggered_at,
-                    created_at=row.created_at,
-                ))
+                alerts.append(
+                    IndicatorAlert(
+                        alert_id=row.alert_id,
+                        ticker=row.ticker,
+                        user_id=row.user_id,
+                        condition=condition,
+                        status=row.status,
+                        note=row.note or "",
+                        last_triggered_at=row.last_triggered_at,
+                        created_at=row.created_at,
+                    )
+                )
             except Exception as exc:
                 logger.warning("indicator_alert.parse_error", error=str(exc))
         return alerts
@@ -295,7 +301,8 @@ class IndicatorAlertService:
             ind_str = ", ".join(f"'{i}'" for i in all_indicators)
 
             async with self._sf() as session:
-                result = await session.execute(text(f"""
+                result = await session.execute(
+                    text(f"""
                     SELECT ticker, indicador, valor
                     FROM (
                         SELECT ticker, indicador, valor,
@@ -308,7 +315,8 @@ class IndicatorAlertService:
                           AND indicador IN ({ind_str})
                     ) ranked
                     WHERE rn = 1
-                """))
+                """)
+                )
                 for r in result.fetchall():
                     try:
                         val = float(r.valor)
@@ -335,8 +343,7 @@ class IndicatorAlertService:
                 if cond.evaluate(current_val):
                     triggered_count += 1
                     await self._on_triggered(
-                        row.alert_id, row.ticker, row.user_id,
-                        cond, current_val, now
+                        row.alert_id, row.ticker, row.user_id, cond, current_val, now
                     )
             except Exception as exc:
                 logger.warning(
@@ -387,7 +394,7 @@ class IndicatorAlertService:
             ticker=ticker,
             indicator=condition.indicator,
             current_price=current_value,
-                    user_id=user_id,
+            user_id=user_id,
             threshold=condition.threshold,
         )
 
@@ -395,6 +402,7 @@ class IndicatorAlertService:
         if self._bus is not None:
             try:
                 from finanalytics_ai.infrastructure.notifications import AlertNotification
+
                 notification = AlertNotification(
                     alert_id=alert_id,
                     ticker=ticker,

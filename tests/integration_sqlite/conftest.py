@@ -17,11 +17,12 @@ NOTA pytest-asyncio 1.x:
     - Fixtures async que nao fazem teardown usam yield mesmo assim
       para compatibilidade com pytest-asyncio 1.x.
 """
+
 from __future__ import annotations
 
-import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
+import uuid
 
 import pytest
 import pytest_asyncio
@@ -32,11 +33,12 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from finanalytics_ai.domain.events.models import DomainEvent, EventStatus
 from finanalytics_ai.infrastructure.event_processor.idempotency import InMemoryIdempotencyStore
 
-
 # ── Base SQLite-compativel (sem PG_UUID) ──────────────────────────────────────
+
 
 class TestBase(DeclarativeBase):
     """Base ORM exclusiva para testes — usa tipos portateis."""
+
     pass
 
 
@@ -45,6 +47,7 @@ class TestEventRecord(TestBase):
     Espelho do EventRecord de producao com tipos SQLite-compativeis.
     UUID como String(36) em vez de PG_UUID.
     """
+
     __tablename__ = "event_records"
 
     event_id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -61,17 +64,16 @@ class TestEventRecord(TestBase):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
     )
-    processed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 # IMPORTANTE: sem loop_scope nos decoradores.
 # O escopo e controlado globalmente por asyncio_default_fixture_loop_scope
 # no pyproject.toml. Duplicar aqui causa conflito no pytest-asyncio 1.x.
+
 
 @pytest_asyncio.fixture
 async def async_engine():
@@ -108,6 +110,7 @@ def idempotency_store():
 
 # ── Repositorio de teste ───────────────────────────────────────────────────────
 
+
 class TestSqlRepository:
     """
     EventRepository usando TestEventRecord (SQLite-compativel).
@@ -120,54 +123,49 @@ class TestSqlRepository:
         self._sf = session_factory
 
     async def upsert(self, event: DomainEvent) -> None:
-        async with self._sf() as session:
-            async with session.begin():
-                record = TestEventRecord(
-                    event_id=str(event.event_id),
-                    event_type=str(event.payload.event_type),
-                    source=event.payload.source,
-                    correlation_id=(
-                        str(event.payload.correlation_id)
-                        if event.payload.correlation_id else None
-                    ),
-                    status=str(event.status),
-                    payload_data=event.payload.data,
-                    error_message=event.error_message,
-                    retry_count=event.retry_count,
-                    metadata_=event.metadata,
-                    created_at=event.created_at,
-                    processed_at=event.processed_at,
-                )
-                await session.merge(record)
+        async with self._sf() as session, session.begin():
+            record = TestEventRecord(
+                event_id=str(event.event_id),
+                event_type=str(event.payload.event_type),
+                source=event.payload.source,
+                correlation_id=(
+                    str(event.payload.correlation_id) if event.payload.correlation_id else None
+                ),
+                status=str(event.status),
+                payload_data=event.payload.data,
+                error_message=event.error_message,
+                retry_count=event.retry_count,
+                metadata_=event.metadata,
+                created_at=event.created_at,
+                processed_at=event.processed_at,
+            )
+            await session.merge(record)
 
     async def find_by_id(self, event_id: uuid.UUID) -> DomainEvent | None:
         from sqlalchemy import select
+
         async with self._sf() as session:
             result = await session.execute(
-                select(TestEventRecord).where(
-                    TestEventRecord.event_id == str(event_id)
-                )
+                select(TestEventRecord).where(TestEventRecord.event_id == str(event_id))
             )
             row = result.scalar_one_or_none()
             if row is None:
                 return None
             return self._to_domain(row)
 
-    async def find_by_status(
-        self, status: EventStatus, *, limit: int = 100
-    ) -> list[DomainEvent]:
+    async def find_by_status(self, status: EventStatus, *, limit: int = 100) -> list[DomainEvent]:
         from sqlalchemy import select
+
         async with self._sf() as session:
             result = await session.execute(
-                select(TestEventRecord)
-                .where(TestEventRecord.status == str(status))
-                .limit(limit)
+                select(TestEventRecord).where(TestEventRecord.status == str(status)).limit(limit)
             )
             return [self._to_domain(r) for r in result.scalars().all()]
 
     def _to_domain(self, row: TestEventRecord) -> DomainEvent:
         from finanalytics_ai.domain.events.models import EventPayload
         from finanalytics_ai.domain.events.value_objects import EventType
+
         payload = EventPayload(
             event_type=EventType(row.event_type),
             data=row.payload_data or {},

@@ -16,17 +16,18 @@ ate MAX_CONNECT_RETRIES antes de levantar.
 Graceful shutdown: o metodo stop() sinaliza para o iterador parar apos
 a mensagem atual. O consumer do aiokafka faz commit antes de fechar.
 """
+
 from __future__ import annotations
-import contextlib
 
 import asyncio
+import contextlib
 import json
 from typing import TYPE_CHECKING, Any
 
-import structlog
-import tenacity
 from aiokafka import AIOKafkaConsumer
 from aiokafka.errors import KafkaConnectionError, KafkaError
+import structlog
+import tenacity
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -186,4 +187,3 @@ class InMemoryMessageSource:
             if item is None:
                 break
             yield item
-

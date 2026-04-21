@@ -23,7 +23,6 @@ from finanalytics_ai.domain.events.entities import (
     InvalidStatusTransitionError,
 )
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # EventId
 # ──────────────────────────────────────────────────────────────────────────────

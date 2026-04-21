@@ -71,8 +71,12 @@ def test_ir_exempt_pct():
 def test_avg_rate_weighted():
     p = _portfolio(
         [
-            RFHolding("1", "p1", "b1", "CDB", "CDB", "CDI", "Itaú", 8000, 0.10, False, date(2024, 1, 1)),
-            RFHolding("2", "p1", "b2", "LCI", "LCI", "CDI", "BTG", 2000, 0.20, False, date(2024, 1, 1)),
+            RFHolding(
+                "1", "p1", "b1", "CDB", "CDB", "CDI", "Itaú", 8000, 0.10, False, date(2024, 1, 1)
+            ),
+            RFHolding(
+                "2", "p1", "b2", "LCI", "LCI", "CDI", "BTG", 2000, 0.20, False, date(2024, 1, 1)
+            ),
         ]
     )
     # (8000×0.10 + 2000×0.20) / 10000 = 1200/10000 = 0.12 → 12%

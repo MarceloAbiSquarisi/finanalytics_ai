@@ -5,8 +5,8 @@ Regras OHLC: open=primeiro, high=MAX, low=MIN, close=ultimo, volume=SUM
 
 from __future__ import annotations
 
-import datetime
 from collections import defaultdict
+import datetime
 from typing import Any
 
 INTERVAL_MINUTES: dict[str, int] = {

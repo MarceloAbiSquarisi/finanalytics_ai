@@ -10,11 +10,12 @@ Exemplos:
   GET /api/v1/setups/scan?tickers=PETR4&timeframe=diario
   POST /api/v1/setups/scan  {"tickers":["PETR4"],"setups":["setup_91"]}
 """
+
 from typing import Any
 
-import structlog
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+import structlog
 
 from finanalytics_ai.application.services.intraday_setup_service import (
     AVAILABLE_SETUPS,
@@ -97,18 +98,15 @@ async def scan_setups_get(
 async def get_available_setups() -> dict[str, Any]:
     """Lista todos os setups disponíveis para deteccao."""
     return {
-        "setups": [
-            {"key": k, "nome": v}
-            for k, v in AVAILABLE_SETUPS.items()
-        ],
+        "setups": [{"key": k, "nome": v} for k, v in AVAILABLE_SETUPS.items()],
         "timeframes": {
-            "5min":  "Intraday 5 minutos (requer ProfitDLL)",
+            "5min": "Intraday 5 minutos (requer ProfitDLL)",
             "15min": "Intraday 15 minutos (requer ProfitDLL)",
             "60min": "Intraday 60 minutos",
             "diario": "Grafico diario (dados Fintz)",
         },
         "sinais": {
-            "BUY":  "Sinal de compra — setup formado na ultima barra",
+            "BUY": "Sinal de compra — setup formado na ultima barra",
             "SELL": "Sinal de venda — setup formado na ultima barra",
         },
         "nota": (

@@ -1,4 +1,4 @@
-﻿"""
+"""
 finanalytics_ai.application.ml.feature_pipeline
 
 Computa features tecnicas a partir de series OHLC.
@@ -16,10 +16,11 @@ Beta(60d): regressao OLS simples (sem biblioteca)
 Volatilidade anualizada: std(retornos_21d) * sqrt(252)
   Usa retornos logaritmicos para propriedade de aditividade.
 """
+
 from __future__ import annotations
 
-import math
 from datetime import datetime
+import math
 
 
 def compute_returns(closes: list[float], window: int) -> float | None:
@@ -52,14 +53,14 @@ def compute_rsi_14(closes: list[float]) -> float | None:
 
     # Primeira media simples (seed do EMA de Wilder)
     seed = closes[-28:]
-    gains = [max(seed[i] - seed[i-1], 0) for i in range(1, 15)]
-    losses = [max(seed[i-1] - seed[i], 0) for i in range(1, 15)]
+    gains = [max(seed[i] - seed[i - 1], 0) for i in range(1, 15)]
+    losses = [max(seed[i - 1] - seed[i], 0) for i in range(1, 15)]
     avg_gain = sum(gains) / 14
     avg_loss = sum(losses) / 14
 
     # EMA suavizada de Wilder para o restante
     for i in range(15, len(seed)):
-        delta = seed[i] - seed[i-1]
+        delta = seed[i] - seed[i - 1]
         avg_gain = (avg_gain * 13 + max(delta, 0)) / 14
         avg_loss = (avg_loss * 13 + max(-delta, 0)) / 14
 
@@ -93,7 +94,7 @@ def compute_volume_ratio(volumes: list[float | None], window: int = 21) -> float
     vols = [v for v in volumes if v is not None]
     if len(vols) < window + 1:
         return None
-    avg = sum(vols[-window-1:-1]) / window
+    avg = sum(vols[-window - 1 : -1]) / window
     if avg == 0:
         return None
     return vols[-1] / avg
@@ -106,7 +107,7 @@ def build_features_from_ohlc(
     volumes: list[float | None],
     ibov_rets: list[float],
     fundamental: dict[str, float | None],
-) -> "TickerFeatures":
+) -> TickerFeatures:
     """
     Monta TickerFeatures a partir de dados brutos.
 
@@ -117,8 +118,9 @@ def build_features_from_ohlc(
     from finanalytics_ai.domain.ml.entities import TickerFeatures
 
     ticker_rets = [
-        (closes[i] - closes[i-1]) / closes[i-1]
-        for i in range(1, len(closes)) if closes[i-1] != 0
+        (closes[i] - closes[i - 1]) / closes[i - 1]
+        for i in range(1, len(closes))
+        if closes[i - 1] != 0
     ]
 
     return TickerFeatures(

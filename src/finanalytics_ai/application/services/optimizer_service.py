@@ -73,7 +73,9 @@ class OptimizerService:
           top_n:        Numero de melhores resultados a retornar (max 20)
           custom_space: Espaco de parametros customizado (opcional)
         """
-        log = logger.bind(ticker=ticker, strategy=strategy_name, range=range_period, objective=objective)
+        log = logger.bind(
+            ticker=ticker, strategy=strategy_name, range=range_period, objective=objective
+        )
 
         # Valida objetivo
         try:

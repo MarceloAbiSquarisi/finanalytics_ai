@@ -8,11 +8,12 @@ GET  /api/v1/opcoes/iv              -- volatilidade implicita
 POST /api/v1/opcoes/estrategia      -- precifica estrategia composta
 GET  /api/v1/opcoes/estrategias     -- lista estrategias disponiveis
 """
+
 from typing import Any
 
-import structlog
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+import structlog
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/opcoes", tags=["Opcoes"])
@@ -27,16 +28,17 @@ def _get_service(request: Request) -> Any:
 
 # ─── Greeks ──────────────────────────────────────────────────────────────────
 
+
 @router.get("/greeks", summary="Greeks Black-Scholes (call ou put)")
 async def get_greeks(
     request: Request,
-    option_type: str = Query(...,  description="call ou put"),
-    spot:        float = Query(...,  description="Preco atual do ativo (R$)"),
-    strike:      float = Query(...,  description="Preco de exercicio (R$)"),
-    expiry_days: int   = Query(...,  description="Dias ate o vencimento"),
-    volatility:  float = Query(...,  description="Volatilidade anualizada (ex: 0.35 = 35%)"),
-    rate:        float = Query(None, description="Taxa livre de risco anualizada (padrao: SELIC)"),
-    dividend:    float = Query(0.0,  description="Dividend yield anualizado"),
+    option_type: str = Query(..., description="call ou put"),
+    spot: float = Query(..., description="Preco atual do ativo (R$)"),
+    strike: float = Query(..., description="Preco de exercicio (R$)"),
+    expiry_days: int = Query(..., description="Dias ate o vencimento"),
+    volatility: float = Query(..., description="Volatilidade anualizada (ex: 0.35 = 35%)"),
+    rate: float = Query(None, description="Taxa livre de risco anualizada (padrao: SELIC)"),
+    dividend: float = Query(0.0, description="Dividend yield anualizado"),
 ) -> dict[str, Any]:
     """
     Calcula preco teorico e greeks de uma opcao europeia via Black-Scholes.
@@ -64,15 +66,16 @@ async def get_greeks(
 
 # ─── Volatilidade Implicita ───────────────────────────────────────────────────
 
+
 @router.get("/iv", summary="Volatilidade implicita")
 async def get_implied_vol(
     request: Request,
-    option_type:  str   = Query(...,  description="call ou put"),
-    market_price: float = Query(...,  description="Premio de mercado da opcao (R$)"),
-    spot:         float = Query(...,  description="Preco atual do ativo (R$)"),
-    strike:       float = Query(...,  description="Preco de exercicio (R$)"),
-    expiry_days:  int   = Query(...,  description="Dias ate o vencimento"),
-    rate:         float = Query(None, description="Taxa livre de risco anualizada"),
+    option_type: str = Query(..., description="call ou put"),
+    market_price: float = Query(..., description="Premio de mercado da opcao (R$)"),
+    spot: float = Query(..., description="Preco atual do ativo (R$)"),
+    strike: float = Query(..., description="Preco de exercicio (R$)"),
+    expiry_days: int = Query(..., description="Dias ate o vencimento"),
+    rate: float = Query(None, description="Taxa livre de risco anualizada"),
 ) -> dict[str, Any]:
     """
     Calcula a volatilidade implicita dado o preco de mercado da opcao.
@@ -98,24 +101,28 @@ async def get_implied_vol(
 
 # ─── Estrategias ─────────────────────────────────────────────────────────────
 
+
 class EstrategyRequest(BaseModel):
-    strategy:     str   = Field(..., description="straddle|strangle|bull_call_spread|bear_put_spread|iron_condor|butterfly|covered_call")
-    spot:         float = Field(..., description="Preco atual do ativo (R$)")
-    expiry_days:  int   = Field(..., description="Dias ate o vencimento")
-    volatility:   float = Field(..., description="Volatilidade anualizada (ex: 0.35)")
-    rate:         float = Field(None, description="Taxa livre de risco")
+    strategy: str = Field(
+        ...,
+        description="straddle|strangle|bull_call_spread|bear_put_spread|iron_condor|butterfly|covered_call",
+    )
+    spot: float = Field(..., description="Preco atual do ativo (R$)")
+    expiry_days: int = Field(..., description="Dias ate o vencimento")
+    volatility: float = Field(..., description="Volatilidade anualizada (ex: 0.35)")
+    rate: float = Field(None, description="Taxa livre de risco")
     # Parametros especificos por estrategia
-    strike:       float | None = None   # straddle, covered_call
-    strike_low:   float | None = None   # spread, butterfly, iron_condor
-    strike_mid:   float | None = None   # butterfly
-    strike_high:  float | None = None   # spread, butterfly, iron_condor
-    strike_put:   float | None = None   # strangle
-    strike_call:  float | None = None   # strangle
-    strike_put_low:   float | None = None  # iron_condor
-    strike_put_high:  float | None = None  # iron_condor
-    strike_call_low:  float | None = None  # iron_condor
+    strike: float | None = None  # straddle, covered_call
+    strike_low: float | None = None  # spread, butterfly, iron_condor
+    strike_mid: float | None = None  # butterfly
+    strike_high: float | None = None  # spread, butterfly, iron_condor
+    strike_put: float | None = None  # strangle
+    strike_call: float | None = None  # strangle
+    strike_put_low: float | None = None  # iron_condor
+    strike_put_high: float | None = None  # iron_condor
+    strike_call_low: float | None = None  # iron_condor
     strike_call_high: float | None = None  # iron_condor
-    option_type:  str = "call"  # butterfly
+    option_type: str = "call"  # butterfly
 
 
 @router.post("/estrategia", summary="Precifica estrategia composta")
@@ -164,22 +171,40 @@ async def get_strategy(
             result = svc.bear_put_spread(spot, body.strike_high, body.strike_low, exp, vol, r)
 
         elif s == "iron_condor":
-            if not all([body.strike_put_low, body.strike_put_high,
-                        body.strike_call_low, body.strike_call_high]):
-                raise ValueError("iron_condor requer: strike_put_low, strike_put_high, strike_call_low, strike_call_high")
+            if not all(
+                [
+                    body.strike_put_low,
+                    body.strike_put_high,
+                    body.strike_call_low,
+                    body.strike_call_high,
+                ]
+            ):
+                raise ValueError(
+                    "iron_condor requer: strike_put_low, strike_put_high, strike_call_low, strike_call_high"
+                )
             result = svc.iron_condor(
                 spot,
-                body.strike_put_low, body.strike_put_high,
-                body.strike_call_low, body.strike_call_high,
-                exp, vol, r,
+                body.strike_put_low,
+                body.strike_put_high,
+                body.strike_call_low,
+                body.strike_call_high,
+                exp,
+                vol,
+                r,
             )
 
         elif s == "butterfly":
             if not all([body.strike_low, body.strike_mid, body.strike_high]):
                 raise ValueError("butterfly requer: strike_low, strike_mid, strike_high")
             result = svc.butterfly(
-                spot, body.strike_low, body.strike_mid, body.strike_high,
-                exp, vol, r, body.option_type,
+                spot,
+                body.strike_low,
+                body.strike_mid,
+                body.strike_high,
+                exp,
+                vol,
+                r,
+                body.option_type,
             )
 
         elif s == "covered_call":
@@ -188,7 +213,9 @@ async def get_strategy(
             result = svc.covered_call(spot, body.strike, exp, vol, r)
 
         else:
-            raise ValueError(f"Estrategia '{s}' nao suportada. Use: straddle, strangle, bull_call_spread, bear_put_spread, iron_condor, butterfly, covered_call")
+            raise ValueError(
+                f"Estrategia '{s}' nao suportada. Use: straddle, strangle, bull_call_spread, bear_put_spread, iron_condor, butterfly, covered_call"
+            )
 
         return result.to_dict()
 
@@ -235,7 +262,12 @@ async def list_strategies() -> dict[str, Any]:
                 "key": "iron_condor",
                 "nome": "Iron Condor",
                 "descricao": "4 pernas: vende call spread + put spread. Recebe credito, ativo em range.",
-                "parametros": ["strike_put_low", "strike_put_high", "strike_call_low", "strike_call_high"],
+                "parametros": [
+                    "strike_put_low",
+                    "strike_put_high",
+                    "strike_call_low",
+                    "strike_call_high",
+                ],
                 "mercado": "Baixa volatilidade, ativo em range",
             },
             {

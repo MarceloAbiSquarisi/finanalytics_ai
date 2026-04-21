@@ -13,10 +13,12 @@ def get_client_class():
     if sys.platform == "win32":
         try:
             from finanalytics_ai.infrastructure.market_data.profit_dll.client import ProfitDLLClient
+
             return ProfitDLLClient
         except ImportError:
             pass
     from finanalytics_ai.infrastructure.market_data.profit_dll.noop_client import NoOpProfitClient
+
     return NoOpProfitClient
 
 

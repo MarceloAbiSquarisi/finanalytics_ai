@@ -29,13 +29,14 @@ from finanalytics_ai.observability.logging import get_logger
 
 if TYPE_CHECKING:
     from finanalytics_ai.domain.events.models import DomainEvent
-from finanalytics_ai.infrastructure.timescale.fintz_repo import TimescaleFintzRepository
 from finanalytics_ai.infrastructure.cache.backend import CacheBackend
+from finanalytics_ai.infrastructure.timescale.fintz_repo import TimescaleFintzRepository
 
 log = get_logger(__name__)
 
 
 # ── Resultado agregado ────────────────────────────────────────────────────────
+
 
 @dataclass
 class PostSyncResult:
@@ -50,6 +51,7 @@ class PostSyncResult:
 
 # ── 1. Anomaly Detector ───────────────────────────────────────────────────────
 
+
 class FintzAnomalyDetector:
     """
     Detecta indicadores fora dos limites históricos após sync.
@@ -63,12 +65,12 @@ class FintzAnomalyDetector:
     """
 
     THRESHOLDS: dict[str, float] = {
-        "P/L":           3.0,   # P/L raramente muda >3σ num sync
-        "ROE":           2.5,
-        "ROIC":          2.5,
-        "Margem Líquida":2.5,
-        "DY":            3.0,
-        "EV/EBITDA":     3.0,
+        "P/L": 3.0,  # P/L raramente muda >3σ num sync
+        "ROE": 2.5,
+        "ROIC": 2.5,
+        "Margem Líquida": 2.5,
+        "DY": 3.0,
+        "EV/EBITDA": 3.0,
         "Dívida Líquida/EBITDA": 2.0,  # mais sensível — risco de crédito
     }
 
@@ -99,9 +101,7 @@ class FintzAnomalyDetector:
 
         for ticker in sample:
             try:
-                ticker_anomalies = await self._check_ticker(
-                    ticker, indicadores_to_check
-                )
+                ticker_anomalies = await self._check_ticker(ticker, indicadores_to_check)
                 anomalies += ticker_anomalies
             except Exception as exc:
                 log.warning(
@@ -129,10 +129,7 @@ class FintzAnomalyDetector:
                 if len(serie) < self.MIN_HISTORY:
                     continue
 
-                valores = [
-                    float(r["valor"]) for r in serie
-                    if r.get("valor") is not None
-                ]
+                valores = [float(r["valor"]) for r in serie if r.get("valor") is not None]
                 if len(valores) < self.MIN_HISTORY:
                     continue
 
@@ -142,7 +139,7 @@ class FintzAnomalyDetector:
 
                 mean = sum(history) / len(history)
                 variance = sum((v - mean) ** 2 for v in history) / len(history)
-                std = variance ** 0.5
+                std = variance**0.5
 
                 if std == 0:
                     # std=0: historico constante — usa desvio relativo
@@ -184,9 +181,7 @@ class FintzAnomalyDetector:
 
         return anomalies
 
-    async def _try_trigger_alert(
-        self, ticker: str, indicador: str, z_score: float
-    ) -> None:
+    async def _try_trigger_alert(self, ticker: str, indicador: str, z_score: float) -> None:
         """Dispara alerta via AlertService se disponível."""
         if self._alert_service is None:
             return
@@ -205,6 +200,7 @@ class FintzAnomalyDetector:
 
 
 # ── 2. Integrity Validator ────────────────────────────────────────────────────
+
 
 class FintzIntegrityValidator:
     """
@@ -262,9 +258,7 @@ class FintzIntegrityValidator:
             sample = tickers[:50]  # amostra de 50 tickers
             for ticker in sample:
                 rows = await self._repo.get_cotacoes(ticker, limit=5)
-                if rows and all(
-                    (r.get("volume") or 0) == 0 for r in rows
-                ):
+                if rows and all((r.get("volume") or 0) == 0 for r in rows):
                     zero_vol += 1
 
             pct_zero = zero_vol / len(sample) if sample else 0
@@ -308,15 +302,11 @@ class FintzIntegrityValidator:
             sample = tickers[:30]
             extreme = 0
             for ticker in sample:
-                snapshot = await self._repo.get_indicadores_latest(
-                    ticker, ["P/L"]
-                )
+                snapshot = await self._repo.get_indicadores_latest(ticker, ["P/L"])
                 pl = snapshot.get("P/L", {})
                 if isinstance(pl, dict):
                     val = pl.get("valor")
-                    if val is not None and (
-                        float(val) > 1000 or float(val) < -1000
-                    ):
+                    if val is not None and (float(val) > 1000 or float(val) < -1000):
                         extreme += 1
             if extreme > 5:
                 issues.append(
@@ -329,6 +319,7 @@ class FintzIntegrityValidator:
 
 
 # ── 3. Cache Warmer ───────────────────────────────────────────────────────────
+
 
 class FintzCacheWarmer:
     """
@@ -343,8 +334,18 @@ class FintzCacheWarmer:
     """
 
     TTL = 3600  # 1 hora
-    TOP_TICKERS = ["PETR4", "VALE3", "ITUB4", "BBDC4", "ABEV3",
-                   "WEGE3", "RENT3", "RADL3", "EQTL3", "SUZB3"]
+    TOP_TICKERS = [
+        "PETR4",
+        "VALE3",
+        "ITUB4",
+        "BBDC4",
+        "ABEV3",
+        "WEGE3",
+        "RENT3",
+        "RADL3",
+        "EQTL3",
+        "SUZB3",
+    ]
 
     def __init__(
         self,
@@ -382,6 +383,7 @@ class FintzCacheWarmer:
 
     async def _warm_ticker_list(self, dataset: str) -> int:
         import json
+
         ds_map = {
             "cotacoes": "cotacoes",
             "indicador": "indicadores",
@@ -400,6 +402,7 @@ class FintzCacheWarmer:
 
     async def _warm_indicadores_snapshot(self) -> int:
         import json
+
         keys = 0
         grupos = ["valuation", "rentabilidade", "dividendos", "endividamento"]
         for ticker in self.TOP_TICKERS:
@@ -417,6 +420,7 @@ class FintzCacheWarmer:
 
     async def _warm_cotacoes_coverage(self) -> int:
         import json
+
         keys = 0
         for ticker in self.TOP_TICKERS:
             try:
@@ -430,6 +434,7 @@ class FintzCacheWarmer:
 
 
 # ── 4. Model Staleness Flagger ────────────────────────────────────────────────
+
 
 class ModelStalenessFlagge:
     """
@@ -449,11 +454,11 @@ class ModelStalenessFlagge:
     FLAG_TTL = 86400  # 24 horas
 
     DATASET_MODELS: dict[str, list[str]] = {
-        "cotacoes":    ["backtest", "correlation", "anomaly_price", "ohlc_forecast"],
-        "indicador":   ["screener", "valuation_model", "anomaly_fundamental"],
+        "cotacoes": ["backtest", "correlation", "anomaly_price", "ohlc_forecast"],
+        "indicador": ["screener", "valuation_model", "anomaly_fundamental"],
         "indicadores": ["screener", "valuation_model", "anomaly_fundamental"],
         "item_contabil": ["credit_model", "fundamental_analysis"],
-        "itens":       ["credit_model", "fundamental_analysis"],
+        "itens": ["credit_model", "fundamental_analysis"],
     }
 
     def __init__(self, cache: CacheBackend) -> None:
@@ -490,6 +495,7 @@ class ModelStalenessFlagge:
 
 
 # ── PostSyncOrchestrator — BusinessRule ───────────────────────────────────────
+
 
 class PostSyncOrchestrator:
     """
@@ -553,7 +559,7 @@ class PostSyncOrchestrator:
         # Trata exceptions de gather (não deveriam ocorrer pois
         # cada handler tem try/except, mas por segurança)
         result = PostSyncResult(dataset=dataset)
-        result.anomalies_found    = anomalies if isinstance(anomalies, int) else 0
+        result.anomalies_found = anomalies if isinstance(anomalies, int) else 0
         result.cache_keys_updated = cache_keys if isinstance(cache_keys, int) else 0
 
         if isinstance(integrity, tuple):
@@ -572,11 +578,11 @@ class PostSyncOrchestrator:
 
         return {
             "post_sync": {
-                "anomalies_found":    result.anomalies_found,
-                "integrity_ok":       result.integrity_ok,
-                "integrity_issues":   result.integrity_issues,
+                "anomalies_found": result.anomalies_found,
+                "integrity_ok": result.integrity_ok,
+                "integrity_issues": result.integrity_issues,
                 "cache_keys_updated": result.cache_keys_updated,
-                "model_stale_flags":  result.model_stale_flags,
+                "model_stale_flags": result.model_stale_flags,
             }
         }
 

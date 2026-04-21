@@ -253,7 +253,9 @@ class PatrimonyService:
         result["equity_details"] = equity_details
         result["rf_details"] = rf_details
 
-        log.info("patrimony.done", total=round(snap.total_value, 2), pl_pct=round(snap.total_pl_pct, 2))
+        log.info(
+            "patrimony.done", total=round(snap.total_value, 2), pl_pct=round(snap.total_pl_pct, 2)
+        )
         return result
 
     async def ir_planning(

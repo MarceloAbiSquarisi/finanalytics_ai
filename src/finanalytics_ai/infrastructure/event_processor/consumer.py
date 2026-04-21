@@ -14,6 +14,7 @@ mas Semaphore oferece controle mais fino e backpressure natural.
 O consumer nao conhece as regras de negocio — apenas orquestra o fluxo
 de mensagens e delega ao servico.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -91,9 +92,7 @@ class EventConsumerWorker:
                 if not self._running:
                     break
 
-                task = asyncio.create_task(
-                    self._process_with_semaphore(raw_message)
-                )
+                task = asyncio.create_task(self._process_with_semaphore(raw_message))
                 tasks.add(task)
                 task.add_done_callback(tasks.discard)
 
@@ -147,17 +146,17 @@ def _deserialize_event(raw: dict) -> DomainEvent:  # type: ignore[type-arg]
 
     try:
         import uuid
+
         payload = EventPayload(
             event_type=EventType(raw["event_type"]),
             data=raw["data"],
             source=raw["source"],
             correlation_id=(
-                CorrelationId(raw["correlation_id"])
-                if raw.get("correlation_id")
-                else None
+                CorrelationId(raw["correlation_id"]) if raw.get("correlation_id") else None
             ),
         )
         from datetime import datetime
+
         return DomainEvent(
             event_id=uuid.UUID(raw["event_id"]),
             payload=payload,

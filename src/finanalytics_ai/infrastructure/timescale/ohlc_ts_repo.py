@@ -1,4 +1,4 @@
-﻿"""
+"""
 infrastructure/timescale/ohlc_ts_repo.py
 ──────────────────────────────────────────
 Repositorio OHLC sobre TimescaleDB via asyncpg.
@@ -11,9 +11,10 @@ Separado de repository.py (que contem TimescaleOHLCRepository) para manter
 compatibilidade com o contrato esperado pelo app.py sem modificar codigo
 existente.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import structlog
@@ -44,7 +45,7 @@ class OHLCTimescaleRepo:
 
         rows = [
             (
-                b.get("time", datetime.now(timezone.utc)),
+                b.get("time", datetime.now(UTC)),
                 b["ticker"].upper(),
                 b.get("timeframe", "1d"),
                 float(b["open"]),

@@ -15,14 +15,13 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from decimal import Decimal
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
 from finanalytics_ai.application.services.event_processor import EventProcessorService
 from finanalytics_ai.domain.entities.event import EventType, MarketEvent, OHLCBar
 from finanalytics_ai.domain.ports.ohlc_repository import OHLCBarRepository
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 

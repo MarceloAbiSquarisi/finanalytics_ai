@@ -10,22 +10,24 @@ GET  /api/v1/diario/stats            estatísticas agregadas
 
 GET  /diario                         página HTML
 """
+
 from __future__ import annotations
 
-import pathlib
 from datetime import datetime
+import pathlib
 from typing import Any
 
-import structlog
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
+import structlog
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/diario", tags=["Diário de Trade"])
 
 
 # ── Schemas Pydantic ──────────────────────────────────────────────────────────
+
 
 class EntryCreate(BaseModel):
     ticker: str
@@ -70,6 +72,7 @@ class EntryUpdate(BaseModel):
 
 # ── Dependency ────────────────────────────────────────────────────────────────
 
+
 def _repo(request: Request) -> Any:
     repo = getattr(request.app.state, "diario_repo", None)
     if repo is None:
@@ -78,6 +81,7 @@ def _repo(request: Request) -> Any:
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+
 
 @router.get("/entries")
 async def list_entries(
@@ -91,8 +95,12 @@ async def list_entries(
 ) -> dict[str, Any]:
     repo = _repo(request)
     entries = await repo.list(
-        user_id=user_id, ticker=ticker, setup=setup,
-        direction=direction, limit=limit, offset=offset,
+        user_id=user_id,
+        ticker=ticker,
+        setup=setup,
+        direction=direction,
+        limit=limit,
+        offset=offset,
     )
     return {"entries": entries, "count": len(entries)}
 
@@ -118,7 +126,9 @@ async def get_entry(
 
 @router.put("/entries/{entry_id}")
 async def update_entry(
-    entry_id: str, body: EntryUpdate, request: Request,
+    entry_id: str,
+    body: EntryUpdate,
+    request: Request,
     user_id: str = Query("user-demo"),
 ) -> dict[str, Any]:
     repo = _repo(request)
@@ -130,9 +140,7 @@ async def update_entry(
 
 
 @router.delete("/entries/{entry_id}", status_code=204)
-async def delete_entry(
-    entry_id: str, request: Request, user_id: str = Query("user-demo")
-) -> None:
+async def delete_entry(entry_id: str, request: Request, user_id: str = Query("user-demo")) -> None:
     repo = _repo(request)
     deleted = await repo.delete(entry_id, user_id=user_id)
     if not deleted:
@@ -140,14 +148,13 @@ async def delete_entry(
 
 
 @router.get("/stats")
-async def get_stats(
-    request: Request, user_id: str = Query("user-demo")
-) -> dict[str, Any]:
+async def get_stats(request: Request, user_id: str = Query("user-demo")) -> dict[str, Any]:
     repo = _repo(request)
     return await repo.stats(user_id=user_id)
 
 
 # ── Página HTML ───────────────────────────────────────────────────────────────
+
 
 @router.get("/page", response_class=HTMLResponse, include_in_schema=False)
 async def diario_page() -> HTMLResponse:

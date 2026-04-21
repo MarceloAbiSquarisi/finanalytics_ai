@@ -18,31 +18,32 @@ no proximo ciclo. Isso evita:
 3. Problemas de timeout em eventos lentos
 """
 
-import uuid
 from typing import Any
+import uuid
 
-import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
+import structlog
 
 from finanalytics_ai.domain.auth.entities import User, UserRole
 from finanalytics_ai.domain.events.models import EventStatus
 from finanalytics_ai.infrastructure.event_processor.idempotency import RedisIdempotencyStore
 from finanalytics_ai.infrastructure.event_processor.repository import SqlEventRepository
 from finanalytics_ai.interfaces.api.dependencies import get_current_user, get_db_session
-from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/events", tags=["Events Admin"])
 
 REPROCESSABLE_STATUSES = {EventStatus.FAILED, EventStatus.DEAD_LETTER}
 
+
 def _require_admin(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role not in (UserRole.ADMIN, UserRole.MASTER):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acesso restrito a administradores."
+            status_code=status.HTTP_403_FORBIDDEN, detail="Acesso restrito a administradores."
         )
     return current_user
+
 
 @router.post(
     "/{event_id}/reprocess",
@@ -51,19 +52,19 @@ def _require_admin(current_user: User = Depends(get_current_user)) -> User:
     description=(
         "Marca um evento FAILED ou DEAD_LETTER como PENDING e libera a "
         "chave de idempotencia. O worker reprocessara no proximo ciclo."
-    )
+    ),
 )
 async def reprocess_event(
     event_id: str,
     _: User = Depends(_require_admin),
-    session: AsyncSession = Depends(get_db_session)
+    session: AsyncSession = Depends(get_db_session),
 ) -> dict[str, Any]:
     try:
         eid = uuid.UUID(event_id)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"event_id invalido: {event_id!r}"
+            detail=f"event_id invalido: {event_id!r}",
         ) from None
 
     repo = SqlEventRepository(session)
@@ -71,8 +72,7 @@ async def reprocess_event(
 
     if event is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Evento {event_id} nao encontrado."
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Evento {event_id} nao encontrado."
         )
 
     if event.status not in REPROCESSABLE_STATUSES:
@@ -81,26 +81,24 @@ async def reprocess_event(
             detail=(
                 f"Evento esta com status '{event.status.value}'. "
                 f"Apenas {[s.value for s in REPROCESSABLE_STATUSES]} podem ser reprocessados."
-            )
+            ),
         )
 
     # Libera idempotencia para permitir reprocessamento
     try:
         from finanalytics_ai.config import get_settings
+
         settings = get_settings()
         redis_url = str(settings.redis_url)
         from redis.asyncio import from_url
+
         redis = from_url(redis_url)
         idem_store = RedisIdempotencyStore(redis)
         idem_key = f"evt_idem:{event_id}"
         await idem_store.release(idem_key)
         await redis.aclose()
     except Exception as exc:
-        logger.warning(
-            "reprocess.idempotency_release_failed",
-            event_id=event_id,
-            error=str(exc)
-        )
+        logger.warning("reprocess.idempotency_release_failed", event_id=event_id, error=str(exc))
         # Nao bloqueia o reprocessamento se o Redis falhar
 
     # Reseta o estado para PENDING
@@ -109,11 +107,7 @@ async def reprocess_event(
     event.error_message = None
     await repo.upsert(event)
 
-    logger.info(
-        "event.requeued",
-        event_id=event_id,
-        previous_status=previous_status.value
-    )
+    logger.info("event.requeued", event_id=event_id, previous_status=previous_status.value)
 
     return {
         "event_id": event_id,
@@ -122,14 +116,12 @@ async def reprocess_event(
         "message": "Evento marcado como PENDING. O worker reprocessara no proximo ciclo.",
     }
 
-@router.get(
-    "/dead-letter",
-    summary="Listar eventos dead-letter"
-)
+
+@router.get("/dead-letter", summary="Listar eventos dead-letter")
 async def list_dead_letter(
     limit: int = Query(default=50, ge=1, le=200),
     _: User = Depends(_require_admin),
-    session: AsyncSession = Depends(get_db_session)
+    session: AsyncSession = Depends(get_db_session),
 ) -> dict[str, Any]:
     repo = SqlEventRepository(session)
     events = await repo.find_by_status(EventStatus.DEAD_LETTER, limit=limit)
@@ -151,14 +143,12 @@ async def list_dead_letter(
         ],
     }
 
-@router.get(
-    "/failed",
-    summary="Listar eventos com falha (retriaveis)"
-)
+
+@router.get("/failed", summary="Listar eventos com falha (retriaveis)")
 async def list_failed(
     limit: int = Query(default=50, ge=1, le=200),
     _: User = Depends(_require_admin),
-    session: AsyncSession = Depends(get_db_session)
+    session: AsyncSession = Depends(get_db_session),
 ) -> dict[str, Any]:
     repo = SqlEventRepository(session)
     events = await repo.find_by_status(EventStatus.FAILED, limit=limit)
@@ -178,4 +168,3 @@ async def list_failed(
             for e in events
         ],
     }
-

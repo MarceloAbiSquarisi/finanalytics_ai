@@ -128,7 +128,9 @@ class TestEngine:
                 sigs[15] = Signal.SELL
                 return sigs
 
-        result = run_backtest(bars, SimpleStrategy(), "TEST", initial_capital=10_000.0, commission_pct=0.0)
+        result = run_backtest(
+            bars, SimpleStrategy(), "TEST", initial_capital=10_000.0, commission_pct=0.0
+        )
         assert len(result.trades) == 1
 
     def test_commission_reduces_pnl(self):

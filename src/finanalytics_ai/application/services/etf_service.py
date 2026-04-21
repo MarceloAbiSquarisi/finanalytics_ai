@@ -333,7 +333,9 @@ class ETFService:
         etf_dates, etf_prices = _extract_prices(etf_bars)
         bench_dates, bench_prices = _extract_prices(bench_bars)
 
-        aligned_etf, aligned_bench = _align_series((etf_dates, etf_prices), (bench_dates, bench_prices))
+        aligned_etf, aligned_bench = _align_series(
+            (etf_dates, etf_prices), (bench_dates, bench_prices)
+        )
 
         if len(aligned_etf) < 10:
             raise ValueError("Datas comuns insuficientes para calcular tracking error.")
@@ -498,7 +500,9 @@ class ETFService:
             "matrix": matrix,
             "period": period,
             "top_correlated": pairs_sorted[:3],
-            "least_correlated": sorted(pairs_sorted, key=lambda p: abs(float(p["correlation"])))[:3],
+            "least_correlated": sorted(pairs_sorted, key=lambda p: abs(float(p["correlation"])))[
+                :3
+            ],
             "errors": errors,
         }
 
@@ -642,12 +646,12 @@ def _te_interpretation(r: TrackingErrorResult) -> dict[str, str]:
     elif te < 3.0:
         te_msg = f"Tracking error de {te:.2f}% — desvio moderado. Verifique erros de replicação."
     else:
-        te_msg = f"Tracking error de {te:.2f}% — desvio elevado. ETF pode ter problemas de liquidez."
+        te_msg = (
+            f"Tracking error de {te:.2f}% — desvio elevado. ETF pode ter problemas de liquidez."
+        )
 
     if td > 0:
-        td_msg = (
-            f"Custo implícito de {td:.2f}% no período (benchmark superou o ETF). Normal para ETFs com TER."
-        )
+        td_msg = f"Custo implícito de {td:.2f}% no período (benchmark superou o ETF). Normal para ETFs com TER."
     else:
         td_msg = f"ETF superou o benchmark em {abs(td):.2f}% (tracking difference positiva — raro)."
 

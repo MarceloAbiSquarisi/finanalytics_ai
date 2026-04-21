@@ -17,12 +17,12 @@ Design decisions:
 
 from __future__ import annotations
 
-import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
+import uuid
 
 
 class AlertType(StrEnum):
@@ -126,7 +126,9 @@ class Alert:
                     loss = ((ref - price) / ref * 100) if ref > 0 else Decimal("0")
                     return (
                         True,
-                        (f"🔴 STOP LOSS {self.ticker}: R$ {price:.2f} ≤ R$ {t:.2f} (queda de {loss:.1f}%)"),
+                        (
+                            f"🔴 STOP LOSS {self.ticker}: R$ {price:.2f} ≤ R$ {t:.2f} (queda de {loss:.1f}%)"
+                        ),
                         {"loss_pct": str(loss)},
                     )
 
@@ -135,7 +137,9 @@ class Alert:
                     gain = ((price - ref) / ref * 100) if ref > 0 else Decimal("0")
                     return (
                         True,
-                        (f"🟢 TAKE PROFIT {self.ticker}: R$ {price:.2f} ≥ R$ {t:.2f} (ganho de {gain:.1f}%)"),
+                        (
+                            f"🟢 TAKE PROFIT {self.ticker}: R$ {price:.2f} ≥ R$ {t:.2f} (ganho de {gain:.1f}%)"
+                        ),
                         {"gain_pct": str(gain)},
                     )
 

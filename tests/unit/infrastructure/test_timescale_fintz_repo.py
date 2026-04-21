@@ -6,7 +6,8 @@ Usa mock do asyncpg.Pool — sem banco real.
 from __future__ import annotations
 
 from datetime import date
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 
 
@@ -27,15 +28,25 @@ def make_row(**kwargs):
 
 
 class TestTimescaleFintzRepository:
-
     @pytest.mark.asyncio
     async def test_get_cotacoes_sem_filtros(self):
         from finanalytics_ai.infrastructure.timescale.fintz_repo import TimescaleFintzRepository
 
-        rows = [{"data": date(2025, 1, 2), "ticker": "PETR4", "fechamento": 35.0,
-                 "fechamento_ajustado": 35.0, "abertura": 34.0, "minimo": 33.5,
-                 "maximo": 35.5, "volume": 1000000, "medio": 34.8,
-                 "fator_ajuste": 1.0, "negocios": 5000}]
+        rows = [
+            {
+                "data": date(2025, 1, 2),
+                "ticker": "PETR4",
+                "fechamento": 35.0,
+                "fechamento_ajustado": 35.0,
+                "abertura": 34.0,
+                "minimo": 33.5,
+                "maximo": 35.5,
+                "volume": 1000000,
+                "medio": 34.8,
+                "fator_ajuste": 1.0,
+                "negocios": 5000,
+            }
+        ]
         pool = make_pool(fetch_return=rows)
         repo = TimescaleFintzRepository(pool)
 

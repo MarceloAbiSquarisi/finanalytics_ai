@@ -15,12 +15,13 @@ Design:
   - Configurável via env: SCHEDULER_MACRO_HOUR, SCHEDULER_OHLCV_HOUR, SCHEDULER_TZ_OFFSET
   - RUN_ONCE=true para execução pontual (útil em CI e first-run)
 """
+
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime, timedelta
 import os
 import sys
-from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import structlog
@@ -28,22 +29,20 @@ import structlog
 # ── Configuração via env ──────────────────────────────────────────────────────
 DATA_DIR = os.environ.get("DATA_DIR", "/data")
 BRAPI_TOKEN = os.environ.get("BRAPI_TOKEN", "")
-MACRO_HOUR = int(os.environ.get("SCHEDULER_MACRO_HOUR", "6"))   # 06:00 local
-OHLCV_HOUR = int(os.environ.get("SCHEDULER_OHLCV_HOUR", "7"))   # 07:00 local
-TZ_OFFSET = int(os.environ.get("SCHEDULER_TZ_OFFSET", "-3"))    # UTC-3 Brasília
+MACRO_HOUR = int(os.environ.get("SCHEDULER_MACRO_HOUR", "6"))  # 06:00 local
+OHLCV_HOUR = int(os.environ.get("SCHEDULER_OHLCV_HOUR", "7"))  # 07:00 local
+TZ_OFFSET = int(os.environ.get("SCHEDULER_TZ_OFFSET", "-3"))  # UTC-3 Brasília
 RUN_ONCE = os.environ.get("RUN_ONCE", "false").lower() == "true"
 BRAPI_SYNC_ENABLED = os.environ.get("SCHEDULER_BRAPI_SYNC_ENABLED", "true").lower() == "true"
 # DSN aceita DATABASE_URL (asyncpg) ou DATABASE_DSN (psycopg2-style)
 _raw_dsn = os.environ.get("DATABASE_DSN") or os.environ.get("DATABASE_URL", "")
-PG_DSN_SYNC = (
-    _raw_dsn
-    .replace("postgresql+asyncpg://", "postgresql://")
-    .replace("postgresql+psycopg2://", "postgresql://")
+PG_DSN_SYNC = _raw_dsn.replace("postgresql+asyncpg://", "postgresql://").replace(
+    "postgresql+psycopg2://", "postgresql://"
 )
 
 FINTZ_API_KEY = os.environ.get("FINTZ_API_KEY", "")
 FINTZ_BASE_URL = os.environ.get("FINTZ_BASE_URL", "https://api.fintz.com.br")
-FINTZ_BULK_HOUR = int(os.environ.get("SCHEDULER_FINTZ_BULK_HOUR", "8"))   # 08:00 local
+FINTZ_BULK_HOUR = int(os.environ.get("SCHEDULER_FINTZ_BULK_HOUR", "8"))  # 08:00 local
 FINTZ_BULK_ENABLED = os.environ.get("SCHEDULER_FINTZ_BULK_ENABLED", "true").lower() == "true"
 PG_DSN = os.environ.get("DATABASE_DSN", os.environ.get("DATABASE_URL", ""))
 
@@ -65,8 +64,8 @@ CLEANUP_DEAD_LETTER_RETENTION_DAYS = int(
 # Chama GET /positions/dll no profit_agent — handler ja faz o UPDATE
 # em profit_orders quando ordens DLL diferem do DB.
 RECONCILE_ENABLED = os.environ.get("SCHEDULER_RECONCILE_ENABLED", "true").lower() == "true"
-RECONCILE_START_HOUR = int(os.environ.get("SCHEDULER_RECONCILE_START_HOUR", "10"))   # 10:00 BRT
-RECONCILE_END_HOUR = int(os.environ.get("SCHEDULER_RECONCILE_END_HOUR", "18"))       # 18:00 BRT
+RECONCILE_START_HOUR = int(os.environ.get("SCHEDULER_RECONCILE_START_HOUR", "10"))  # 10:00 BRT
+RECONCILE_END_HOUR = int(os.environ.get("SCHEDULER_RECONCILE_END_HOUR", "18"))  # 18:00 BRT
 RECONCILE_INTERVAL_MIN = int(os.environ.get("SCHEDULER_RECONCILE_INTERVAL_MIN", "5"))
 PROFIT_AGENT_URL = os.environ.get("PROFIT_AGENT_URL", "http://host.docker.internal:8002")
 
@@ -83,10 +82,11 @@ logger = structlog.get_logger("scheduler_worker")
 
 # ── Helpers de tempo ──────────────────────────────────────────────────────────
 
+
 def _next_run_utc(local_hour: int, tz_offset: int = TZ_OFFSET) -> datetime:
     """Calcula próxima execução em UTC dado um horário local (e.g. 06:00 BRT = 09:00 UTC)."""
     now_utc = datetime.now(UTC)
-    utc_hour = (local_hour - tz_offset) % 24   # converte para UTC
+    utc_hour = (local_hour - tz_offset) % 24  # converte para UTC
     next_run = now_utc.replace(hour=utc_hour, minute=0, second=0, microsecond=0)
     if next_run <= now_utc:
         next_run += timedelta(days=1)
@@ -103,6 +103,7 @@ def _is_weekday() -> bool:
 
 
 # ── Jobs ──────────────────────────────────────────────────────────────────────
+
 
 async def macro_job() -> dict[str, Any]:
     """Coleta todas as séries macro e persiste no data lake."""
@@ -166,6 +167,7 @@ async def ohlcv_job() -> dict[str, Any]:
 
 # ── Run-once (first-run / CI) ─────────────────────────────────────────────────
 
+
 async def fintz_bulk_job() -> dict:
     """
     Atualiza ohlc_prices via download bulk Fintz.
@@ -197,6 +199,7 @@ async def fintz_bulk_job() -> dict:
 
     try:
         import io
+
         import aiohttp
         import asyncpg
         import pandas as pd
@@ -265,10 +268,8 @@ async def fintz_bulk_job() -> dict:
             df["volume"] = None
 
         # ── 4. Upsert incremental em ohlc_prices via asyncpg ────────────────
-        dsn = (
-            PG_DSN
-            .replace("postgresql+asyncpg://", "postgresql://")
-            .replace("postgresql+psycopg2://", "postgresql://")
+        dsn = PG_DSN.replace("postgresql+asyncpg://", "postgresql://").replace(
+            "postgresql+psycopg2://", "postgresql://"
         )
         conn = await asyncpg.connect(dsn)
 
@@ -291,12 +292,12 @@ async def fintz_bulk_job() -> dict:
                 (
                     ticker,
                     row["date"],
-                    float(row["open"])      if pd.notna(row["open"])      else None,
-                    float(row["high"])      if pd.notna(row["high"])      else None,
-                    float(row["low"])       if pd.notna(row["low"])       else None,
-                    float(row["close"])     if pd.notna(row["close"])     else None,
+                    float(row["open"]) if pd.notna(row["open"]) else None,
+                    float(row["high"]) if pd.notna(row["high"]) else None,
+                    float(row["low"]) if pd.notna(row["low"]) else None,
+                    float(row["close"]) if pd.notna(row["close"]) else None,
                     float(row["adj_close"]) if pd.notna(row.get("adj_close")) else None,
-                    float(row["volume"])    if pd.notna(row.get("volume")) else None,
+                    float(row["volume"]) if pd.notna(row.get("volume")) else None,
                 )
                 for _, row in grp.iterrows()
             ]
@@ -313,7 +314,7 @@ async def fintz_bulk_job() -> dict:
                     volume    = EXCLUDED.volume
             """
             for i in range(0, len(records), BATCH):
-                await conn.executemany(sql, records[i:i+BATCH])
+                await conn.executemany(sql, records[i : i + BATCH])
 
             total_rows += len(records)
             tickers_updated += 1
@@ -355,6 +356,7 @@ async def brapi_sync_job() -> dict:
 
     try:
         import glob
+
         import asyncpg
         import pandas as pd
 
@@ -365,8 +367,7 @@ async def brapi_sync_job() -> dict:
         max_dates: dict = {r[0]: r[1] for r in rows_max}
 
         tickers = sorted(
-            d for d in os.listdir(ohlcv_dir)
-            if os.path.isdir(os.path.join(ohlcv_dir, d))
+            d for d in os.listdir(ohlcv_dir) if os.path.isdir(os.path.join(ohlcv_dir, d))
         )
 
         sql = """
@@ -402,17 +403,17 @@ async def brapi_sync_job() -> dict:
                     (
                         ticker,
                         row["date"],
-                        float(row["open"])   if pd.notna(row["open"])   else None,
-                        float(row["high"])   if pd.notna(row["high"])   else None,
-                        float(row["low"])    if pd.notna(row["low"])    else None,
-                        float(row["close"])  if pd.notna(row["close"])  else None,
+                        float(row["open"]) if pd.notna(row["open"]) else None,
+                        float(row["high"]) if pd.notna(row["high"]) else None,
+                        float(row["low"]) if pd.notna(row["low"]) else None,
+                        float(row["close"]) if pd.notna(row["close"]) else None,
                         None,
                         float(row["volume"]) if pd.notna(row["volume"]) else None,
                     )
                     for _, row in df.iterrows()
                 ]
                 for i in range(0, len(records), BATCH):
-                    await conn.executemany(sql, records[i:i + BATCH])
+                    await conn.executemany(sql, records[i : i + BATCH])
                 total_rows += len(records)
                 total_tickers += 1
             except Exception as e:
@@ -428,7 +429,12 @@ async def brapi_sync_job() -> dict:
             errors=total_errors,
             elapsed_s=elapsed,
         )
-        return {"status": "ok", "tickers": total_tickers, "rows": total_rows, "errors": total_errors}
+        return {
+            "status": "ok",
+            "tickers": total_tickers,
+            "rows": total_rows,
+            "errors": total_errors,
+        }
 
     except Exception as exc:
         logger.error("scheduler.brapi_sync_job.failed", error=str(exc), exc_info=True)
@@ -575,6 +581,7 @@ async def run_once() -> None:
 
 # ── Schedule loop ─────────────────────────────────────────────────────────────
 
+
 async def schedule_loop() -> None:
     """
     Loop principal.
@@ -660,13 +667,17 @@ async def schedule_loop() -> None:
         tasks.append(asyncio.create_task(reconcile_loop()))
 
     if not tasks:
-        logger.warning("scheduler.loop.no_jobs", hint="Set SCHEDULER_MACRO_ENABLED or SCHEDULER_OHLCV_ENABLED or SCHEDULER_CLEANUP_ENABLED or SCHEDULER_RECONCILE_ENABLED=true")
+        logger.warning(
+            "scheduler.loop.no_jobs",
+            hint="Set SCHEDULER_MACRO_ENABLED or SCHEDULER_OHLCV_ENABLED or SCHEDULER_CLEANUP_ENABLED or SCHEDULER_RECONCILE_ENABLED=true",
+        )
         return
 
     await asyncio.gather(*tasks)
 
 
 # ── Entrypoint ────────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     sys.path.insert(0, "/app/src")

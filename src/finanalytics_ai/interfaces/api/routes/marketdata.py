@@ -9,6 +9,7 @@ Melhorias (2026-04-11):
 - SSE: intervalo minimo 0.2s para nao sobrecarregar docker exec
 - pattern= substituiu regex= deprecado
 """
+
 from __future__ import annotations
 
 import asyncio as _aio
@@ -26,9 +27,9 @@ router = APIRouter()
 
 
 # ── /bars/{ticker} - resampled OHLC (5m, 15m, 30m, 60m...) ─────────────────
-from datetime import date as _date  # noqa: E402
+from datetime import date as _date
 
-from finanalytics_ai.infrastructure.market_data.resampled_repository import (  # noqa: E402
+from finanalytics_ai.infrastructure.market_data.resampled_repository import (
     fetch_resampled,
 )
 
@@ -53,7 +54,9 @@ async def get_bars(
             raise HTTPException(400, detail=f"since invalido (YYYY-MM-DD): {since}")
     try:
         bars, source = await fetch_resampled(
-            ticker=t, interval_minutes=interval, since=since_dt,
+            ticker=t,
+            interval_minutes=interval,
+            since=since_dt,
             allow_on_the_fly=not materialized_only,
         )
     except ValueError as exc:
@@ -61,24 +64,36 @@ async def get_bars(
 
     bars = bars[-limit:] if len(bars) > limit else bars
     return {
-        "ticker": t, "interval_minutes": interval,
-        "source": source, "count": len(bars),
+        "ticker": t,
+        "interval_minutes": interval,
+        "source": source,
+        "count": len(bars),
         "bars": [
-            {**b, "time": b["time"].isoformat() if hasattr(b["time"], "isoformat") else str(b["time"])}
+            {
+                **b,
+                "time": b["time"].isoformat()
+                if hasattr(b["time"], "isoformat")
+                else str(b["time"]),
+            }
             for b in bars
         ],
     }
 
+
 # ── Constantes ────────────────────────────────────────────────────────────────
 _LIVE_CONTAINER = os.getenv("TIMESCALE_CONTAINER", "finanalytics_timescale")
-_LIVE_USER      = os.getenv("TIMESCALE_USER",      "finanalytics")
-_LIVE_DB        = os.getenv("TIMESCALE_DB",        "market_data")
-_VALID_RES      = {"1", "5", "15", "60", "D"}
-_TICKER_RE      = re.compile(r"^[A-Z0-9]{1,12}$")
+_LIVE_USER = os.getenv("TIMESCALE_USER", "finanalytics")
+_LIVE_DB = os.getenv("TIMESCALE_DB", "market_data")
+_VALID_RES = {"1", "5", "15", "60", "D"}
+_TICKER_RE = re.compile(r"^[A-Z0-9]{1,12}$")
 
 _INTERVALS = {
-    "1m": "1 minute", "5m": "5 minutes", "15m": "15 minutes",
-    "30m": "30 minutes", "1h": "1 hour", "1d": "1 day",
+    "1m": "1 minute",
+    "5m": "5 minutes",
+    "15m": "15 minutes",
+    "30m": "30 minutes",
+    "1h": "1 hour",
+    "1d": "1 day",
 }
 
 
@@ -130,7 +145,8 @@ async def get_ticks(ticker: str, limit: int = Query(500, le=1000)) -> Any:
         rows = await conn.fetch(
             "SELECT time, price, quantity, volume, trade_type "
             "FROM profit_ticks WHERE ticker=$1 ORDER BY time DESC LIMIT $2",
-            t, limit,
+            t,
+            limit,
         )
         await conn.close()
         return {"ticker": t, "count": len(rows), "ticks": [dict(r) for r in rows]}
@@ -149,7 +165,8 @@ async def get_candles(
     try:
         conn = await _conn()
         # Une dados históricos (market_history_trades) + live (profit_ticks)
-        rows = await conn.fetch(f"""
+        rows = await conn.fetch(
+            f"""
             WITH combined AS (
                 -- Dados históricos
                 SELECT trade_date AS ts_raw,
@@ -186,7 +203,10 @@ async def get_candles(
                 LIMIT $2
             ) sub
             ORDER BY ts ASC
-        """, t, limit)
+        """,
+            t,
+            limit,
+        )
         await conn.close()
         return {"ticker": t, "resolution": resolution, "candles": [dict(r) for r in rows]}
     except Exception as e:
@@ -212,11 +232,14 @@ async def get_volume(ticker: str) -> Any:
 @router.get("/status")
 async def get_agent_status() -> Any:
     import aiohttp
+
     agent_url = os.getenv("PROFIT_AGENT_URL", "http://localhost:8001")
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"{agent_url}/status", timeout=aiohttp.ClientTimeout(total=3)) as r:
-                return await r.json()
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(f"{agent_url}/status", timeout=aiohttp.ClientTimeout(total=3)) as r,
+        ):
+            return await r.json()
     except Exception as e:
         return {"status": "unavailable", "error": str(e)}
 
@@ -230,7 +253,8 @@ async def get_last_candle(
     bucket = _INTERVALS.get(resolution, "1 minute")
     try:
         conn = await _conn()
-        row = await conn.fetchrow(f"""
+        row = await conn.fetchrow(
+            f"""
             SELECT time_bucket('{bucket}', time) AS ts,
                 (array_agg(price ORDER BY time ASC))[1]  AS open,
                 MAX(price) AS high, MIN(price) AS low,
@@ -239,7 +263,9 @@ async def get_last_candle(
             FROM profit_ticks
             WHERE ticker=$1 AND time >= NOW() - INTERVAL '2 hours'
             GROUP BY 1 ORDER BY 1 DESC LIMIT 1
-        """, t)
+        """,
+            t,
+        )
         await conn.close()
         if not row:
             return {"ticker": t, "candle": None}
@@ -250,12 +276,27 @@ async def get_last_candle(
 
 # ── Live Market Data (docker exec psql) ───────────────────────────────────────
 
+
 def _live_query(sql: str) -> list[dict]:
     result = subprocess.run(
-        ["docker", "exec", _LIVE_CONTAINER,
-         "psql", "-U", _LIVE_USER, "-d", _LIVE_DB,
-         "--no-psqlrc", "-A", "--csv", "-c", sql],
-        capture_output=True, text=True, timeout=15,
+        [
+            "docker",
+            "exec",
+            _LIVE_CONTAINER,
+            "psql",
+            "-U",
+            _LIVE_USER,
+            "-d",
+            _LIVE_DB,
+            "--no-psqlrc",
+            "-A",
+            "--csv",
+            "-c",
+            sql,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=15,
     )
     if result.returncode != 0 or not result.stdout.strip():
         return []
@@ -334,15 +375,17 @@ def live_ohlc(
 
 # ── SSE Streaming ─────────────────────────────────────────────────────────────
 
+
 @router.get("/live/sse/tickers", summary="SSE stream de precos ao vivo")
 async def sse_tickers(interval: float = Query(1.0, ge=0.2, le=60.0)) -> StreamingResponse:
     async def gen():
         while True:
             try:
-                rows = await _aio.to_thread(_live_query,
+                rows = await _aio.to_thread(
+                    _live_query,
                     "SELECT DISTINCT ON (ticker) ticker, exchange, "
                     "price::text AS last_price, ts::text AS last_ts "
-                    "FROM ticks WHERE ticker != '__warmup__' ORDER BY ticker, ts DESC"
+                    "FROM ticks WHERE ticker != '__warmup__' ORDER BY ticker, ts DESC",
                 )
                 _parse_floats(rows, ("last_price",))
                 yield f"data: {_json.dumps(rows)}\n\n"
@@ -350,8 +393,11 @@ async def sse_tickers(interval: float = Query(1.0, ge=0.2, le=60.0)) -> Streamin
                 yield "data: []\n\n"
             await _aio.sleep(interval)
 
-    return StreamingResponse(gen(), media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/live/sse/ticks/{ticker}", summary="SSE stream de ticks de um ticker")
@@ -365,10 +411,11 @@ async def sse_ticks(
         last_ts = None
         while True:
             try:
-                rows = await _aio.to_thread(_live_query,
+                rows = await _aio.to_thread(
+                    _live_query,
                     f"SELECT ticker, exchange, ts::text AS ts, "
                     f"price::text AS price, quantity, volume::text AS volume "
-                    f"FROM ticks WHERE ticker='{t}' ORDER BY ts DESC LIMIT 1"
+                    f"FROM ticks WHERE ticker='{t}' ORDER BY ts DESC LIMIT 1",
                 )
                 if rows:
                     r = rows[0]
@@ -380,9 +427,8 @@ async def sse_ticks(
                 pass
             await _aio.sleep(interval)
 
-    return StreamingResponse(gen(), media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
-
-
-
-
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

@@ -24,18 +24,18 @@ Design decisions:
 
 from __future__ import annotations
 
-import uuid
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING
+import uuid
 
 if TYPE_CHECKING:
     from datetime import datetime
 
 
 class UserRole(StrEnum):
-    USER   = "user"
-    ADMIN  = "admin"
+    USER = "user"
+    ADMIN = "admin"
     MASTER = "master"  # pode ver carteiras de outros usuarios, sem movimentacao
 
 
@@ -118,7 +118,9 @@ class User:
     totp_enabled: bool = False
 
     @staticmethod
-    def new(email: str, hashed_password: str, full_name: str, role: UserRole = UserRole.USER) -> User:
+    def new(
+        email: str, hashed_password: str, full_name: str, role: UserRole = UserRole.USER
+    ) -> User:
         """Factory: cria novo usuário com UUID gerado no domínio."""
         return User(
             user_id=str(uuid.uuid4()),

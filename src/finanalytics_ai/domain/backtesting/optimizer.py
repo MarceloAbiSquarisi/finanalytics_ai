@@ -33,9 +33,9 @@ Design decisions:
 
 from __future__ import annotations
 
-import itertools
 from dataclasses import dataclass, field
 from enum import StrEnum
+import itertools
 from typing import Any
 
 from finanalytics_ai.domain.backtesting.engine import BacktestMetrics, run_backtest
@@ -630,7 +630,9 @@ def walk_forward(
     avg_is = sum(all_is_scores) / len(all_is_scores) if all_is_scores else 0.0
     eff_ratio = avg_oos / avg_is if avg_is > 0 else 0.0
     consistency = (
-        sum(1 for s in all_oos_scores if s > 0) / len(all_oos_scores) * 100 if all_oos_scores else 0.0
+        sum(1 for s in all_oos_scores if s > 0) / len(all_oos_scores) * 100
+        if all_oos_scores
+        else 0.0
     )
     degradation = sum(f.best_is_score - f.oos_score for f in folds) / len(folds) if folds else 0.0
 

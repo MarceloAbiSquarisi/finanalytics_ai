@@ -83,6 +83,4 @@ class FintzSyncFailedRule:
     def _validate_payload(self, payload: dict[str, Any]) -> None:
         missing = _REQUIRED_FIELDS - set(payload.keys())
         if missing:
-            raise BusinessRuleError(
-                f"Payload de FINTZ_SYNC_FAILED incompleto, faltando: {missing}"
-            )
+            raise BusinessRuleError(f"Payload de FINTZ_SYNC_FAILED incompleto, faltando: {missing}")

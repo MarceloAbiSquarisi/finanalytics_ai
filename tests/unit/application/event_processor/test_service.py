@@ -9,6 +9,7 @@ Cobertura alvo: todos os caminhos do fluxo de processamento.
 - Erro permanente: vai para dead-letter, sem release de idempotencia
 - Max retries: dead-letter apos esgotar tentativas
 """
+
 from __future__ import annotations
 
 import pytest
@@ -111,9 +112,7 @@ class TestIdempotency:
         assert len(repo.upsert_calls) == 0  # NAO persistiu
 
     async def test_idempotency_key_released_on_transient_error(self) -> None:
-        svc, _, idem, _ = make_service(
-            rules=[ExplodingRule(TransientError("timeout"))]
-        )
+        svc, _, idem, _ = make_service(rules=[ExplodingRule(TransientError("timeout"))])
         event = make_event()
 
         with pytest.raises(TransientError):
@@ -123,9 +122,7 @@ class TestIdempotency:
         assert key in idem.release_calls  # chave liberada para retry
 
     async def test_idempotency_key_NOT_released_on_permanent_error(self) -> None:
-        svc, _, idem, _ = make_service(
-            rules=[ExplodingRule(PermanentError("bad data"))]
-        )
+        svc, _, idem, _ = make_service(rules=[ExplodingRule(PermanentError("bad data"))])
         event = make_event()
 
         with pytest.raises(PermanentError):
@@ -202,4 +199,3 @@ class TestRetryAndDeadLetter:
             await svc.process(event)
 
         assert repo.store[event.event_id].status == EventStatus.DEAD_LETTER
-

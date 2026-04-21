@@ -14,9 +14,7 @@ class InsufficientDataError(AnalyticsError):
         self.ticker = ticker
         self.required = required
         self.available = available
-        super().__init__(
-            f"{ticker}: need {required} candles, only {available} available"
-        )
+        super().__init__(f"{ticker}: need {required} candles, only {available} available")
 
 
 class PairNotCointegrated(AnalyticsError):

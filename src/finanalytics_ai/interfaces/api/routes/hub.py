@@ -14,9 +14,10 @@ Design:
 - get_db é placeholder substituído via dependency_overrides no app.py
 - Resposta com Pydantic models para validação e documentação automática
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 import uuid
 
@@ -116,9 +117,7 @@ def _serialize_event(e: DomainEvent) -> EventResponse:
         event_id=str(e.event_id),
         event_type=str(e.payload.event_type),
         source=e.payload.source,
-        correlation_id=(
-            str(e.payload.correlation_id) if e.payload.correlation_id else None
-        ),
+        correlation_id=(str(e.payload.correlation_id) if e.payload.correlation_id else None),
         status=e.status.value,
         error_message=e.error_message,
         retry_count=e.retry_count,
@@ -148,9 +147,7 @@ async def create_event(
             event_type=EventType(body.event_type),
             data=body.data,
             source=body.source,
-            correlation_id=(
-                CorrelationId(body.correlation_id) if body.correlation_id else None
-            ),
+            correlation_id=(CorrelationId(body.correlation_id) if body.correlation_id else None),
         )
     except (ValueError, TypeError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -236,9 +233,7 @@ async def reprocess_event(
     try:
         eid = uuid.UUID(event_id)
     except ValueError:
-        raise HTTPException(
-            status_code=422, detail=f"event_id inválido: {event_id!r}"
-        ) from None
+        raise HTTPException(status_code=422, detail=f"event_id inválido: {event_id!r}") from None
 
     repo = _make_repo(session)
     event = await repo.find_by_id(eid)
@@ -288,7 +283,7 @@ async def cleanup_completed(
     session: AsyncSession = Depends(get_db),
 ) -> CleanupResponse:
     """Deleta event_records COMPLETED mais antigos que retention_days."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+    cutoff = datetime.now(UTC) - timedelta(days=retention_days)
     repo = _make_repo(session)
     deleted = await repo.delete_completed_before(cutoff)
 

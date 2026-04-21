@@ -20,9 +20,10 @@ Séries coletadas:
 
 Todos salvos como /data/macro/{series}.parquet com colunas [date, value].
 """
+
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -38,17 +39,17 @@ logger = structlog.get_logger(__name__)
 
 # BCB SGS series: nome → código
 _BCB_SERIES: dict[str, int] = {
-    "selic":  11,
-    "ipca":   433,
+    "selic": 11,
+    "ipca": 433,
     "usd_brl": 1,
     "eur_brl": 21619,
-    "igpm":   189,
+    "igpm": 189,
 }
 
 # Yahoo Finance series: nome → símbolo
 _YAHOO_SERIES: dict[str, str] = {
-    "ibov":  "^BVSP",
-    "vix":   "^VIX",
+    "ibov": "^BVSP",
+    "vix": "^VIX",
     "sp500": "^GSPC",
 }
 
@@ -118,12 +119,14 @@ class MacroCollector:
             mediana = exp.get("mediana")
             if mediana is None:
                 continue
-            rows.append({
-                "date":  pd.to_datetime(exp.get("data", datetime.now(timezone.utc).date().isoformat())),
-                "value": float(mediana),
-                "indicador": exp.get("indicador", ""),
-                "data_referencia": str(exp.get("data_referencia", "")),
-            })
+            rows.append(
+                {
+                    "date": pd.to_datetime(exp.get("data", datetime.now(UTC).date().isoformat())),
+                    "value": float(mediana),
+                    "indicador": exp.get("indicador", ""),
+                    "data_referencia": str(exp.get("data_referencia", "")),
+                }
+            )
 
         if not rows:
             return 0
@@ -135,11 +138,11 @@ class MacroCollector:
 
         # Salva séries individuais por indicador (ex: focus_ipca, focus_selic)
         _indicator_keys = {
-            "IPCA":      "focus_ipca",
-            "Selic":     "focus_selic",
+            "IPCA": "focus_ipca",
+            "Selic": "focus_selic",
             "PIB Total": "focus_pib",
-            "Câmbio":    "focus_cambio",
-            "IGP-M":     "focus_igpm",
+            "Câmbio": "focus_cambio",
+            "IGP-M": "focus_igpm",
         }
         for indicador, col_key in _indicator_keys.items():
             df_ind = df[df["indicador"] == indicador][["date", "value"]].copy()
@@ -197,7 +200,7 @@ class MacroCollector:
         for ts, close in zip(timestamps, closes):
             if close is None:
                 continue
-            d = datetime.fromtimestamp(ts, tz=timezone.utc).date()
+            d = datetime.fromtimestamp(ts, tz=UTC).date()
             rows.append({"date": d, "value": float(close)})
 
         if not rows:

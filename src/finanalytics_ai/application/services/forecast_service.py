@@ -9,14 +9,14 @@ Architecture:
   - Ensemble weights are computed dynamically from each model's MAPE
     on a holdout window (last 15% of data).
 """
+
 from __future__ import annotations
 
 import asyncio
-import logging
-import math
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+import logging
 from typing import Any
 
 import numpy as np
@@ -30,6 +30,7 @@ _EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="forecast")
 # ---------------------------------------------------------------------------
 # Data containers
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ForecastPoint:
@@ -95,9 +96,10 @@ class ForecastResult:
 # Prophet Forecaster
 # ---------------------------------------------------------------------------
 
+
 class ProphetForecaster:
     def fit_predict(self, df: pd.DataFrame, horizon: int, holdout: int) -> ModelResult:
-        from prophet import Prophet  # noqa: PLC0415
+        from prophet import Prophet
 
         pdf = df[["ds", "y"]].dropna().copy()
         split = len(pdf) - holdout
@@ -105,16 +107,24 @@ class ProphetForecaster:
         logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
 
         m = Prophet(
-            daily_seasonality=False, weekly_seasonality=True, yearly_seasonality=True,
-            changepoint_prior_scale=0.05, interval_width=0.80, uncertainty_samples=300,
+            daily_seasonality=False,
+            weekly_seasonality=True,
+            yearly_seasonality=True,
+            changepoint_prior_scale=0.05,
+            interval_width=0.80,
+            uncertainty_samples=300,
         )
         m.fit(pdf.iloc[:split])
         hfc = m.predict(m.make_future_dataframe(periods=holdout, freq="B"))
         mape = _mape(pdf.iloc[split:]["y"].values, hfc.tail(holdout)["yhat"].values)
 
         m2 = Prophet(
-            daily_seasonality=False, weekly_seasonality=True, yearly_seasonality=True,
-            changepoint_prior_scale=0.05, interval_width=0.80, uncertainty_samples=300,
+            daily_seasonality=False,
+            weekly_seasonality=True,
+            yearly_seasonality=True,
+            changepoint_prior_scale=0.05,
+            interval_width=0.80,
+            uncertainty_samples=300,
         )
         m2.fit(pdf)
         fc = m2.predict(m2.make_future_dataframe(periods=horizon, freq="B"))
@@ -134,6 +144,7 @@ class ProphetForecaster:
 # ---------------------------------------------------------------------------
 # LSTM Forecaster
 # ---------------------------------------------------------------------------
+
 
 class LSTMForecaster:
     WINDOW = 60
@@ -156,16 +167,18 @@ class LSTMForecaster:
         def seqs(arr: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
             X, Y = [], []
             for i in range(len(arr) - W - horizon + 1):
-                X.append(arr[i:i+W]); Y.append(arr[i+W:i+W+horizon])
+                X.append(arr[i : i + W])
+                Y.append(arr[i + W : i + W + horizon])
             return np.array(X, dtype=np.float32), np.array(Y, dtype=np.float32)
 
-        Xtr, Ytr = seqs(pn[:len(pn) - holdout])
+        Xtr, Ytr = seqs(pn[: len(pn) - holdout])
 
         class Net(nn.Module):
             def __init__(self_) -> None:
                 super().__init__()
                 self_.lstm = nn.LSTM(1, self.HIDDEN, self.LAYERS, batch_first=True, dropout=0.2)
                 self_.fc = nn.Linear(self.HIDDEN, horizon)
+
             def forward(self_, x: torch.Tensor) -> torch.Tensor:
                 out, _ = self_.lstm(x.unsqueeze(-1))
                 return self_.fc(out[:, -1, :])
@@ -180,7 +193,7 @@ class LSTMForecaster:
             net.train()
             perm = torch.randperm(len(Xt))
             for i in range(0, len(Xt), self.BATCH):
-                idx = perm[i:i+self.BATCH]
+                idx = perm[i : i + self.BATCH]
                 opt.zero_grad()
                 loss = loss_fn(net(Xt[idx]), Yt[idx])
                 loss.backward()
@@ -190,10 +203,10 @@ class LSTMForecaster:
         split = len(pn) - holdout
         net.eval()
         with torch.no_grad():
-            seq_h = pn[max(0, split - W):split]
+            seq_h = pn[max(0, split - W) : split]
             if len(seq_h) == W:
                 ph = net(torch.from_numpy(seq_h).unsqueeze(0).to(device)).cpu().numpy()[0] * scale
-                mape = _mape(prices[split:split+horizon], ph[:min(horizon, holdout)])
+                mape = _mape(prices[split : split + horizon], ph[: min(horizon, holdout)])
             else:
                 mape = 99.0
 
@@ -201,23 +214,31 @@ class LSTMForecaster:
             preds = net(torch.from_numpy(last_seq).unsqueeze(0).to(device)).cpu().numpy()[0] * scale
 
         std_est = np.std(np.diff(prices[-60:])) * np.sqrt(np.arange(1, horizon + 1))
-        today = datetime.now(tz=timezone.utc).date()
+        today = datetime.now(tz=UTC).date()
         points, boff = [], 0
         for i in range(horizon):
             d = today + timedelta(days=boff + 1)
             while d.weekday() >= 5:
-                boff += 1; d = today + timedelta(days=boff + 1)
+                boff += 1
+                d = today + timedelta(days=boff + 1)
             boff += 1
             yhat = max(0.01, float(preds[i]))
             ci = float(std_est[i]) if i < len(std_est) else float(std_est[-1])
-            points.append(ForecastPoint(ds=d.isoformat(), yhat=yhat,
-                                        yhat_lower=max(0.01, yhat - ci), yhat_upper=yhat + ci))
+            points.append(
+                ForecastPoint(
+                    ds=d.isoformat(),
+                    yhat=yhat,
+                    yhat_lower=max(0.01, yhat - ci),
+                    yhat_upper=yhat + ci,
+                )
+            )
         return ModelResult(name="lstm", points=points, mape=mape)
 
 
 # ---------------------------------------------------------------------------
 # TFT Forecaster
 # ---------------------------------------------------------------------------
+
 
 class TFTForecaster:
     MAX_ENCODER = 90
@@ -226,82 +247,116 @@ class TFTForecaster:
     BATCH = 64
 
     def fit_predict(self, df: pd.DataFrame, horizon: int, holdout: int) -> ModelResult:
-        import torch
         from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet
         from pytorch_forecasting.metrics import QuantileLoss
         import pytorch_lightning as pl  # type: ignore[import]
+        import torch
 
         device = "gpu" if torch.cuda.is_available() else "cpu"
         prices = df["y"].dropna().values.astype(np.float32)
         n = len(prices)
 
-        tdf = pd.DataFrame({
-            "time_idx": np.arange(n),
-            "group": "asset",
-            "value": prices.tolist(),
-            "log_ret": np.concatenate([[0.0], np.diff(np.log(prices + 1e-6)).tolist()]).tolist(),
-        })
+        tdf = pd.DataFrame(
+            {
+                "time_idx": np.arange(n),
+                "group": "asset",
+                "value": prices.tolist(),
+                "log_ret": np.concatenate(
+                    [[0.0], np.diff(np.log(prices + 1e-6)).tolist()]
+                ).tolist(),
+            }
+        )
 
         enc = min(self.MAX_ENCODER, n - horizon - 10)
         split = n - holdout - horizon
 
         train_ds = TimeSeriesDataSet(
-            tdf.iloc[:split + enc], time_idx="time_idx", target="value", group_ids=["group"],
-            max_encoder_length=enc, max_prediction_length=horizon,
+            tdf.iloc[: split + enc],
+            time_idx="time_idx",
+            target="value",
+            group_ids=["group"],
+            max_encoder_length=enc,
+            max_prediction_length=horizon,
             time_varying_known_reals=["time_idx"],
             time_varying_unknown_reals=["value", "log_ret"],
         )
-        val_df = tdf.iloc[split:split + enc + holdout]
-        val_ds = TimeSeriesDataSet.from_dataset(train_ds, val_df, predict=False, stop_randomization=True)
+        val_df = tdf.iloc[split : split + enc + holdout]
+        val_ds = TimeSeriesDataSet.from_dataset(
+            train_ds, val_df, predict=False, stop_randomization=True
+        )
 
         tft = TemporalFusionTransformer.from_dataset(
-            train_ds, learning_rate=self.LR, hidden_size=32,
-            attention_head_size=2, dropout=0.1, hidden_continuous_size=16,
+            train_ds,
+            learning_rate=self.LR,
+            hidden_size=32,
+            attention_head_size=2,
+            dropout=0.1,
+            hidden_continuous_size=16,
             loss=QuantileLoss(quantiles=[0.1, 0.5, 0.9]),
-            log_interval=999, reduce_on_plateau_patience=3,
+            log_interval=999,
+            reduce_on_plateau_patience=3,
         )
 
         trainer = pl.Trainer(
-            max_epochs=self.EPOCHS, accelerator=device, devices=1,
-            enable_progress_bar=False, enable_model_summary=False, logger=False,
+            max_epochs=self.EPOCHS,
+            accelerator=device,
+            devices=1,
+            enable_progress_bar=False,
+            enable_model_summary=False,
+            logger=False,
         )
-        trainer.fit(tft,
-                    train_dataloaders=train_ds.to_dataloader(train=True, batch_size=self.BATCH, num_workers=0),
-                    val_dataloaders=val_ds.to_dataloader(train=False, batch_size=self.BATCH, num_workers=0))
+        trainer.fit(
+            tft,
+            train_dataloaders=train_ds.to_dataloader(
+                train=True, batch_size=self.BATCH, num_workers=0
+            ),
+            val_dataloaders=val_ds.to_dataloader(train=False, batch_size=self.BATCH, num_workers=0),
+        )
 
         try:
-            raw, _ = tft.predict(val_ds.to_dataloader(train=False, batch_size=self.BATCH, num_workers=0), return_x=True)
+            raw, _ = tft.predict(
+                val_ds.to_dataloader(train=False, batch_size=self.BATCH, num_workers=0),
+                return_x=True,
+            )
             ph = raw[:, 1, :].cpu().numpy().flatten()[:holdout]
-            ah = prices[split + enc:split + enc + holdout]
-            mape = _mape(ah[:len(ph)], ph)
+            ah = prices[split + enc : split + enc + holdout]
+            mape = _mape(ah[: len(ph)], ph)
         except Exception:
             mape = 50.0
 
-        full_ds = TimeSeriesDataSet.from_dataset(train_ds, tdf, predict=True, stop_randomization=True)
-        raw2, _ = tft.predict(full_ds.to_dataloader(train=False, batch_size=1, num_workers=0), return_x=True)
+        full_ds = TimeSeriesDataSet.from_dataset(
+            train_ds, tdf, predict=True, stop_randomization=True
+        )
+        raw2, _ = tft.predict(
+            full_ds.to_dataloader(train=False, batch_size=1, num_workers=0), return_x=True
+        )
         q10 = raw2[:, 0, :].cpu().numpy().flatten()[:horizon]
         q50 = raw2[:, 1, :].cpu().numpy().flatten()[:horizon]
         q90 = raw2[:, 2, :].cpu().numpy().flatten()[:horizon]
 
-        today = datetime.now(tz=timezone.utc).date()
+        today = datetime.now(tz=UTC).date()
         points, boff = [], 0
         for i in range(min(horizon, len(q50))):
             d = today + timedelta(days=boff + 1)
             while d.weekday() >= 5:
-                boff += 1; d = today + timedelta(days=boff + 1)
+                boff += 1
+                d = today + timedelta(days=boff + 1)
             boff += 1
-            points.append(ForecastPoint(
-                ds=d.isoformat(),
-                yhat=max(0.01, float(q50[i])),
-                yhat_lower=max(0.01, float(q10[i])),
-                yhat_upper=max(0.01, float(q90[i])),
-            ))
+            points.append(
+                ForecastPoint(
+                    ds=d.isoformat(),
+                    yhat=max(0.01, float(q50[i])),
+                    yhat_lower=max(0.01, float(q10[i])),
+                    yhat_upper=max(0.01, float(q90[i])),
+                )
+            )
         return ModelResult(name="tft", points=points, mape=mape)
 
 
 # ---------------------------------------------------------------------------
 # Ensemble
 # ---------------------------------------------------------------------------
+
 
 class EnsembleAggregator:
     def aggregate(self, results: list[ModelResult], horizon: int) -> list[ForecastPoint]:
@@ -325,6 +380,7 @@ class EnsembleAggregator:
 # Main service
 # ---------------------------------------------------------------------------
 
+
 class ForecastService:
     HOLDOUT_RATIO = 0.15
 
@@ -339,7 +395,10 @@ class ForecastService:
     def _get_storage(self):  # type: ignore[return]
         if self._storage is None and self._storage_dir:
             try:
-                from finanalytics_ai.infrastructure.storage.data_storage_service import DataStorageService
+                from finanalytics_ai.infrastructure.storage.data_storage_service import (
+                    DataStorageService,
+                )
+
                 self._storage = DataStorageService(self._storage_dir)
             except Exception:
                 pass
@@ -362,8 +421,13 @@ class ForecastService:
         for b in api_bars:
             seen[b.get("time", 0)] = b
         merged = sorted(seen.values(), key=lambda x: x.get("time", 0))
-        logger.info("forecast.enriched", ticker=ticker,
-                    api_bars=len(api_bars), local_bars=len(local_bars), merged=len(merged))
+        logger.info(
+            "forecast.enriched",
+            ticker=ticker,
+            api_bars=len(api_bars),
+            local_bars=len(local_bars),
+            merged=len(merged),
+        )
         return merged
 
     async def forecast(
@@ -383,8 +447,8 @@ class ForecastService:
 
         tasks = [
             loop.run_in_executor(_EXECUTOR, self._prophet.fit_predict, df.copy(), horizon, holdout),
-            loop.run_in_executor(_EXECUTOR, self._lstm.fit_predict,    df.copy(), horizon, holdout),
-            loop.run_in_executor(_EXECUTOR, self._tft.fit_predict,     df.copy(), horizon, holdout),
+            loop.run_in_executor(_EXECUTOR, self._lstm.fit_predict, df.copy(), horizon, holdout),
+            loop.run_in_executor(_EXECUTOR, self._tft.fit_predict, df.copy(), horizon, holdout),
         ]
         names = ["prophet", "lstm", "tft"]
         results: list[ModelResult] = []
@@ -397,11 +461,15 @@ class ForecastService:
                 details[name] = {"mape": round(r.mape, 2), "weight": 0.0, "available": True}
                 logger.info("forecast.model.ok", model=name, mape=f"{r.mape:.2f}", ticker=ticker)
             except Exception as e:
-                logger.warning("forecast.model.failed", model=name, error=str(e)[:120], ticker=ticker)
+                logger.warning(
+                    "forecast.model.failed", model=name, error=str(e)[:120], ticker=ticker
+                )
                 details[name] = {"available": False, "error": str(e)[:120]}
 
         if not results:
-            raise RuntimeError("Todos os modelos falharam. Instale prophet, torch e pytorch-forecasting.")
+            raise RuntimeError(
+                "Todos os modelos falharam. Instale prophet, torch e pytorch-forecasting."
+            )
 
         pts = self._ensemble.aggregate(results, horizon)
         for r in results:
@@ -434,6 +502,7 @@ class ForecastService:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _bars_to_df(bars: list[dict[str, Any]]) -> pd.DataFrame:
     rows = []
     for b in bars:
@@ -441,7 +510,7 @@ def _bars_to_df(bars: list[dict[str, Any]]) -> pd.DataFrame:
         if raw is None:
             continue
         if isinstance(raw, (int, float)):
-            ds = datetime.fromtimestamp(raw, tz=timezone.utc).date()
+            ds = datetime.fromtimestamp(raw, tz=UTC).date()
         else:
             try:
                 ds = pd.to_datetime(str(raw)).date()

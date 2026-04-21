@@ -12,6 +12,7 @@ Cobertura por estratégia:
 Design: barras sintéticas com padrões explícitos, não aleatórios.
 Cada serie é construída para ativar a condição exata que o setup exige.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -21,7 +22,6 @@ from finanalytics_ai.domain.backtesting.strategies.technical import (
     STRATEGIES,
     BollingerSqueezeStrategy,
     BreakoutStrategy,
-    EMACrossStrategy,
     EngulfingStrategy,
     FakeyStrategy,
     FirstPullbackStrategy,
@@ -35,7 +35,6 @@ from finanalytics_ai.domain.backtesting.strategies.technical import (
     TurtleSoupStrategy,
     get_strategy,
 )
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -92,6 +91,7 @@ def _has_sell(signals: list[Signal]) -> bool:
 
 # ── 1. Pin Bar ────────────────────────────────────────────────────────────────
 
+
 class TestPinBarStrategy:
     def test_contract_flat(self) -> None:
         s = PinBarStrategy(trend_filter=False)
@@ -126,6 +126,7 @@ class TestPinBarStrategy:
 
 # ── 2. Inside Bar ─────────────────────────────────────────────────────────────
 
+
 class TestInsideBarStrategy:
     def test_contract_flat(self) -> None:
         _check_contract(InsideBarStrategy(trend_filter=False), _flat(60))
@@ -147,6 +148,7 @@ class TestInsideBarStrategy:
 
 
 # ── 3. Engulfing ──────────────────────────────────────────────────────────────
+
 
 class TestEngulfingStrategy:
     def test_contract_flat(self) -> None:
@@ -176,6 +178,7 @@ class TestEngulfingStrategy:
 
 # ── 4. Fakey ──────────────────────────────────────────────────────────────────
 
+
 class TestFakeyStrategy:
     def test_contract_flat(self) -> None:
         _check_contract(FakeyStrategy(), _flat(80))
@@ -194,6 +197,7 @@ class TestFakeyStrategy:
 
 
 # ── 5. Setup 9.1 (Stormer) ───────────────────────────────────────────────────
+
 
 class TestSetup91Strategy:
     def test_contract_flat(self) -> None:
@@ -220,6 +224,7 @@ class TestSetup91Strategy:
 
 # ── 6. Larry Williams ─────────────────────────────────────────────────────────
 
+
 class TestLarryWilliamsStrategy:
     def test_contract(self) -> None:
         _check_contract(LarryWilliamsStrategy(), _flat(80))
@@ -238,6 +243,7 @@ class TestLarryWilliamsStrategy:
 
 
 # ── 7. Turtle Soup ───────────────────────────────────────────────────────────
+
 
 class TestTurtleSoupStrategy:
     def test_contract_flat(self) -> None:
@@ -261,6 +267,7 @@ class TestTurtleSoupStrategy:
 
 # ── 8. Hilo Activator ────────────────────────────────────────────────────────
 
+
 class TestHiloActivatorStrategy:
     def test_contract_flat(self) -> None:
         _check_contract(HiloActivatorStrategy(), _flat(80))
@@ -268,14 +275,14 @@ class TestHiloActivatorStrategy:
     def test_uptrend_generates_buy(self) -> None:
         s = HiloActivatorStrategy(period=3)
         down = [_bar(50.0 - i, i) for i in range(20)]
-        up   = [_bar(30.0 + j, 20 + j) for j in range(20)]
+        up = [_bar(30.0 + j, 20 + j) for j in range(20)]
         bars = down + up
         sigs = s.generate_signals(bars)
         assert _has_buy(sigs)
 
     def test_downtrend_generates_sell(self) -> None:
         s = HiloActivatorStrategy(period=3)
-        up   = [_bar(30.0 + i, i) for i in range(20)]
+        up = [_bar(30.0 + i, i) for i in range(20)]
         down = [_bar(50.0 - j, 20 + j) for j in range(20)]
         bars = up + down
         sigs = s.generate_signals(bars)
@@ -290,6 +297,7 @@ class TestHiloActivatorStrategy:
 
 
 # ── 9. Breakout Range ────────────────────────────────────────────────────────
+
 
 class TestBreakoutStrategy:
     def test_contract_flat(self) -> None:
@@ -317,6 +325,7 @@ class TestBreakoutStrategy:
 
 # ── 10. Pullback in Trend ────────────────────────────────────────────────────
 
+
 class TestPullbackTrendStrategy:
     def test_contract(self) -> None:
         _check_contract(PullbackTrendStrategy(), _flat(120))
@@ -334,6 +343,7 @@ class TestPullbackTrendStrategy:
 
 # ── 11. First Pullback ───────────────────────────────────────────────────────
 
+
 class TestFirstPullbackStrategy:
     def test_contract(self) -> None:
         _check_contract(FirstPullbackStrategy(), _flat(80))
@@ -345,6 +355,7 @@ class TestFirstPullbackStrategy:
 
 
 # ── 12. Gap and Go ───────────────────────────────────────────────────────────
+
 
 class TestGapAndGoStrategy:
     def test_contract_flat(self) -> None:
@@ -373,6 +384,7 @@ class TestGapAndGoStrategy:
 
 # ── 13. Bollinger Squeeze ────────────────────────────────────────────────────
 
+
 class TestBollingerSqueezeStrategy:
     def test_contract_flat(self) -> None:
         _check_contract(BollingerSqueezeStrategy(), _flat(100))
@@ -383,7 +395,8 @@ class TestBollingerSqueezeStrategy:
         Após N barras de squeeze, o rompimento para cima deve gerar BUY.
         """
         s = BollingerSqueezeStrategy(
-            period=10, std_dev=2.0,
+            period=10,
+            std_dev=2.0,
             squeeze_threshold=0.10,  # threshold maior para capturar série flat
             lookback_squeeze=5,
         )
@@ -403,14 +416,29 @@ class TestBollingerSqueezeStrategy:
 
 # ── Registro e factory ────────────────────────────────────────────────────────
 
+
 class TestStrategyRegistry:
     def test_all_19_strategies_registered(self) -> None:
         expected = {
-            "rsi", "macd", "combined", "bollinger", "ema_cross", "momentum",
-            "pin_bar", "inside_bar", "engulfing", "fakey",
-            "setup_91", "larry_williams", "turtle_soup", "hilo",
-            "breakout", "pullback_trend", "first_pullback",
-            "gap_and_go", "bollinger_squeeze",
+            "rsi",
+            "macd",
+            "combined",
+            "bollinger",
+            "ema_cross",
+            "momentum",
+            "pin_bar",
+            "inside_bar",
+            "engulfing",
+            "fakey",
+            "setup_91",
+            "larry_williams",
+            "turtle_soup",
+            "hilo",
+            "breakout",
+            "pullback_trend",
+            "first_pullback",
+            "gap_and_go",
+            "bollinger_squeeze",
         }
         assert expected.issubset(set(STRATEGIES.keys())), (
             f"Estratégias faltando: {expected - set(STRATEGIES.keys())}"
@@ -446,4 +474,3 @@ class TestStrategyRegistry:
         result = run_backtest(bars, s, ticker="TEST", initial_capital=10_000.0)
         assert result.metrics.total_trades >= 0
         assert result.bars_count == 150
-

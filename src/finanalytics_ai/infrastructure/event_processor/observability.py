@@ -1,4 +1,4 @@
-﻿"""
+"""
 Implementacoes do ObservabilityPort.
 
 Tres implementacoes:
@@ -8,6 +8,7 @@ Tres implementacoes:
 
 Decisao: implementacoes separadas + Protocol para composicao sem heranca.
 """
+
 from __future__ import annotations
 
 from typing import Protocol
@@ -22,6 +23,7 @@ class _ObservabilityBackend(Protocol):
     Protocol interno para backends do CompositeObservability.
     Garante que o mypy valide cada backend sem precisar de type: ignore.
     """
+
     def record_processing_time(self, event_type: str, duration_ms: float) -> None: ...
     def record_event_status(self, event_type: str, status: str) -> None: ...
     def record_retry(self, event_type: str, retry_count: int) -> None: ...
@@ -148,6 +150,7 @@ class CompositeObservability:
     def record_dead_letter(self, event_type: str) -> None:
         for b in self._backends:
             b.record_dead_letter(event_type)
+
 
 class NoOpObservability:
     """Observabilidade no-op para desenvolvimento sem Prometheus configurado."""

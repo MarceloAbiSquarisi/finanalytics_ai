@@ -7,9 +7,10 @@ precisam ser strings reais resoluveis no namespace do modulo.
 Com PEP 563 (from __future__ import annotations), tudo vira string e
 o SQLAlchemy nao consegue resolver 'datetime', 'uuid.UUID', etc.
 """
-import uuid
+
 from datetime import datetime
 from typing import Any
+import uuid
 
 from sqlalchemy import JSON, DateTime, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -48,12 +49,8 @@ class EventRecord(Base):
     metadata_: Mapped[dict[str, Any]] = mapped_column(
         "metadata", JSON, nullable=False, default=dict
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
-    processed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
         Index("idx_event_records_status", "status"),

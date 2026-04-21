@@ -32,8 +32,8 @@ Design decisions:
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
+import math
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:

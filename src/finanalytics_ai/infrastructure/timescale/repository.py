@@ -141,7 +141,9 @@ async def _ensure_schema(pool: Any) -> None:
             );
         """)
         with contextlib.suppress(Exception):
-            await conn.execute("SELECT create_hypertable('price_ticks','time',if_not_exists=>true);")
+            await conn.execute(
+                "SELECT create_hypertable('price_ticks','time',if_not_exists=>true);"
+            )
 
         await conn.execute("""
             CREATE INDEX IF NOT EXISTS price_ticks_ticker_time

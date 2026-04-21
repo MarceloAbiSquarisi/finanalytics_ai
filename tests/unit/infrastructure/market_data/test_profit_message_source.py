@@ -4,13 +4,14 @@ Testes unitarios do ProfitDLLMessageSource.
 Usa NoOpProfitClient + InMemoryQueue para simular ticks sem DLL.
 Todos os testes rodam em qualquer SO.
 """
+
 from __future__ import annotations
 
 import asyncio
-import uuid
-from datetime import datetime, timezone
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
+import uuid
 
 import pytest
 
@@ -23,6 +24,7 @@ from finanalytics_ai.infrastructure.market_data.profit_dll.message_source import
 @dataclass
 class FakeTick:
     """Simula o dataclass de tick do ProfitDLLClient."""
+
     ticker: str
     price: float
     volume: float
@@ -79,7 +81,7 @@ class TestTickToEvent:
         assert result is None
 
     def test_timestamp_preserved(self) -> None:
-        ts = datetime(2025, 1, 15, 10, 30, tzinfo=timezone.utc)
+        ts = datetime(2025, 1, 15, 10, 30, tzinfo=UTC)
         tick = FakeTick("PETR4", 38.5, 0.0, timestamp=ts)
         result = _tick_to_event(tick)
         assert result is not None
@@ -127,7 +129,7 @@ class TestProfitDLLMessageSource:
         client = FakeProfitClient()
         source = ProfitDLLMessageSource(client, poll_timeout=0.05)
 
-        await client.put_tick(FakeTick("", 0.0, 0.0))    # invalido
+        await client.put_tick(FakeTick("", 0.0, 0.0))  # invalido
         await client.put_tick(FakeTick("VALE3", 95.0, 0.0))  # valido
 
         messages: list[dict] = []

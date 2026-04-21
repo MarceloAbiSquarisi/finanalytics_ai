@@ -39,9 +39,9 @@ Design decisions:
 from __future__ import annotations
 
 import asyncio
-import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
+import uuid
 
 import structlog
 
@@ -215,7 +215,9 @@ class BrapiPriceProducer:
                 )
 
                 await self._kafka.publish(event)
-                self._stats[ticker].record_success(float(price), float(change_pct) if change_pct else None)
+                self._stats[ticker].record_success(
+                    float(price), float(change_pct) if change_pct else None
+                )
 
                 logger.debug(
                     "price_producer.published",

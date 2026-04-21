@@ -11,20 +11,26 @@ class TestStopLossRule:
     @pytest.mark.asyncio
     async def test_no_violation_above_stop(self) -> None:
         rule = StopLossRule(stop_percentage=Decimal("5.0"))
-        result = await rule.evaluate({"ticker": "PETR4", "entry_price": "30.00", "current_price": "29.00"})
+        result = await rule.evaluate(
+            {"ticker": "PETR4", "entry_price": "30.00", "current_price": "29.00"}
+        )
         assert result.is_valid  # 29 > 28.5 (stop)
 
     @pytest.mark.asyncio
     async def test_violation_at_stop(self) -> None:
         rule = StopLossRule(stop_percentage=Decimal("5.0"))
-        result = await rule.evaluate({"ticker": "PETR4", "entry_price": "30.00", "current_price": "28.50"})
+        result = await rule.evaluate(
+            {"ticker": "PETR4", "entry_price": "30.00", "current_price": "28.50"}
+        )
         assert result.is_violation
         assert result.rule_name == "stop_loss"
 
     @pytest.mark.asyncio
     async def test_violation_below_stop(self) -> None:
         rule = StopLossRule(stop_percentage=Decimal("10.0"))
-        result = await rule.evaluate({"ticker": "VALE3", "entry_price": "100.00", "current_price": "85.00"})
+        result = await rule.evaluate(
+            {"ticker": "VALE3", "entry_price": "100.00", "current_price": "85.00"}
+        )
         assert result.is_violation
         assert "loss_pct" in (result.context or {})
 
@@ -33,11 +39,15 @@ class TestTrailingStopRule:
     @pytest.mark.asyncio
     async def test_no_violation(self) -> None:
         rule = TrailingStopRule(trail_percentage=Decimal("5.0"))
-        result = await rule.evaluate({"ticker": "VALE3", "max_price": "100.00", "current_price": "96.00"})
+        result = await rule.evaluate(
+            {"ticker": "VALE3", "max_price": "100.00", "current_price": "96.00"}
+        )
         assert result.is_valid
 
     @pytest.mark.asyncio
     async def test_violation(self) -> None:
         rule = TrailingStopRule(trail_percentage=Decimal("5.0"))
-        result = await rule.evaluate({"ticker": "VALE3", "max_price": "100.00", "current_price": "94.00"})
+        result = await rule.evaluate(
+            {"ticker": "VALE3", "max_price": "100.00", "current_price": "94.00"}
+        )
         assert result.is_violation

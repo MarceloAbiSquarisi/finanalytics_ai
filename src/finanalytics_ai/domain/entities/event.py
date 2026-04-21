@@ -8,12 +8,12 @@ dois eventos com o mesmo ID nunca serão processados duas vezes.
 
 from __future__ import annotations
 
-import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
+import uuid
 
 
 class EventType(StrEnum):

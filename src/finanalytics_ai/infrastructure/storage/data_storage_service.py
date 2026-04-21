@@ -20,12 +20,13 @@ Design decisions:
   - DATA_DIR is configurable via env var DATA_DIR (default: /data).
     On Windows host: E:\finanalytics_data → mounted as /data in Docker.
 """
+
 from __future__ import annotations
 
+from datetime import UTC, date, datetime, timedelta
 import os
-import threading
-from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+import threading
 from typing import Any
 
 import pandas as pd
@@ -87,7 +88,9 @@ class DataStorageService:
                 if path.exists():
                     existing = pd.read_parquet(path)
                     merged = pd.concat([existing, group.drop("year", axis=1)], ignore_index=True)
-                    merged = merged.drop_duplicates("date").sort_values("date").reset_index(drop=True)
+                    merged = (
+                        merged.drop_duplicates("date").sort_values("date").reset_index(drop=True)
+                    )
                     new_rows = len(merged) - len(existing)
                 else:
                     merged = group.drop("year", axis=1).sort_values("date").reset_index(drop=True)
@@ -195,8 +198,8 @@ class DataStorageService:
         if not intraday_dir.exists():
             return []
 
-        start = start or (datetime.now(tz=timezone.utc).date() - timedelta(days=90))
-        end = end or datetime.now(tz=timezone.utc).date()
+        start = start or (datetime.now(tz=UTC).date() - timedelta(days=90))
+        end = end or datetime.now(tz=UTC).date()
 
         files = []
         current = start
@@ -215,7 +218,7 @@ class DataStorageService:
 
     def cleanup_old_intraday(self, keep_days: int = 90) -> int:
         """Delete intraday partitions older than keep_days. Returns deleted count."""
-        cutoff = datetime.now(tz=timezone.utc).date() - timedelta(days=keep_days)
+        cutoff = datetime.now(tz=UTC).date() - timedelta(days=keep_days)
         intraday_dir = self._root / "intraday"
         if not intraday_dir.exists():
             return 0
@@ -226,6 +229,7 @@ class DataStorageService:
                 day = date.fromisoformat(day_dir.name)
                 if day < cutoff:
                     import shutil
+
                     shutil.rmtree(day_dir)
                     deleted += 1
             except (ValueError, OSError):
@@ -275,13 +279,14 @@ class DataStorageService:
         path = self.model_path(ticker, model_name, ext)
         if not path.exists():
             return None
-        mtime = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
-        return (datetime.now(tz=timezone.utc) - mtime).total_seconds() / 3600
+        mtime = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
+        return (datetime.now(tz=UTC) - mtime).total_seconds() / 3600
 
     # ── Storage stats ────────────────────────────────────────────────────────
 
     def stats(self) -> dict[str, Any]:
         """Return storage usage statistics."""
+
         def _dir_size_gb(p: Path) -> float:
             if not p.exists():
                 return 0.0
@@ -302,6 +307,7 @@ class DataStorageService:
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+
 def _bars_to_df(bars: list[dict[str, Any]], intraday: bool = False) -> pd.DataFrame:
     rows = []
     for b in bars:
@@ -310,20 +316,22 @@ def _bars_to_df(bars: list[dict[str, Any]], intraday: bool = False) -> pd.DataFr
             continue
         try:
             if isinstance(raw, (int, float)):
-                ts = datetime.fromtimestamp(raw, tz=timezone.utc)
+                ts = datetime.fromtimestamp(raw, tz=UTC)
             else:
                 ts = pd.to_datetime(str(raw), utc=True)
         except Exception:
             continue
 
-        rows.append({
-            "ts" if intraday else "date": ts if intraday else ts.date(),
-            "open":   float(b.get("open", 0) or 0),
-            "high":   float(b.get("high", 0) or 0),
-            "low":    float(b.get("low", 0) or 0),
-            "close":  float(b.get("close", 0) or 0),
-            "volume": int(b.get("volume", 0) or 0),
-        })
+        rows.append(
+            {
+                "ts" if intraday else "date": ts if intraday else ts.date(),
+                "open": float(b.get("open", 0) or 0),
+                "high": float(b.get("high", 0) or 0),
+                "low": float(b.get("low", 0) or 0),
+                "close": float(b.get("close", 0) or 0),
+                "volume": int(b.get("volume", 0) or 0),
+            }
+        )
 
     if not rows:
         return pd.DataFrame()
@@ -341,16 +349,18 @@ def _df_to_bars(df: pd.DataFrame, intraday: bool = False) -> list[dict[str, Any]
         if hasattr(ts, "timestamp"):
             unix = int(ts.timestamp())
         else:
-            unix = int(datetime.combine(ts, datetime.min.time(), tzinfo=timezone.utc).timestamp())
-        bars.append({
-            "time":   unix,
-            "date":   ts.isoformat() if hasattr(ts, "isoformat") else str(ts),
-            "open":   round(float(row["open"]), 4),
-            "high":   round(float(row["high"]), 4),
-            "low":    round(float(row["low"]), 4),
-            "close":  round(float(row["close"]), 4),
-            "volume": int(row.get("volume", 0)),
-        })
+            unix = int(datetime.combine(ts, datetime.min.time(), tzinfo=UTC).timestamp())
+        bars.append(
+            {
+                "time": unix,
+                "date": ts.isoformat() if hasattr(ts, "isoformat") else str(ts),
+                "open": round(float(row["open"]), 4),
+                "high": round(float(row["high"]), 4),
+                "low": round(float(row["low"]), 4),
+                "close": round(float(row["close"]), 4),
+                "volume": int(row.get("volume", 0)),
+            }
+        )
     return bars
 
 

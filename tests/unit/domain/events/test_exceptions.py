@@ -1,4 +1,5 @@
 """Testes para a hierarquia de excecoes."""
+
 from __future__ import annotations
 
 import uuid
@@ -16,6 +17,7 @@ from finanalytics_ai.domain.events.exceptions import (
 
 def test_transient_is_event_processing_error() -> None:
     from finanalytics_ai.domain.events.exceptions import EventProcessingError
+
     exc = DatabaseError("timeout")
     assert isinstance(exc, EventProcessingError)
     assert isinstance(exc, TransientError)

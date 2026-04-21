@@ -9,11 +9,11 @@ Usa um fake de AsyncSession para verificar que o repositório:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 import json
-import uuid
-from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
+import uuid
 
 import pytest
 
@@ -27,7 +27,6 @@ from finanalytics_ai.domain.events.entities import (
 from finanalytics_ai.infrastructure.database.repositories.event_repository import (
     PostgresEventRepository,
 )
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -64,7 +63,7 @@ def _make_record_row(
     row.status = status
     row.attempt = attempt
     row.last_error = None
-    row.processed_at = datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
+    row.processed_at = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
     row.result_metadata = json.dumps({"rows": 100})
     return row
 
@@ -187,6 +186,7 @@ class TestGetPendingEvents:
 class TestErrorTranslation:
     async def test_connection_error_becomes_transient(self) -> None:
         import asyncpg
+
         from finanalytics_ai.exceptions import TransientDatabaseError
 
         session = MagicMock()
@@ -200,12 +200,11 @@ class TestErrorTranslation:
 
     async def test_deadlock_becomes_transient(self) -> None:
         import asyncpg
+
         from finanalytics_ai.exceptions import TransientDatabaseError
 
         session = MagicMock()
-        session.execute = AsyncMock(
-            side_effect=asyncpg.DeadlockDetectedError()
-        )
+        session.execute = AsyncMock(side_effect=asyncpg.DeadlockDetectedError())
         repo = PostgresEventRepository(session)
 
         with pytest.raises(TransientDatabaseError, match="Deadlock"):

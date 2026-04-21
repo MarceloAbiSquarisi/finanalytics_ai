@@ -111,7 +111,9 @@ class FundAnalysis:
 
     @property
     def recommendation_color(self) -> str:
-        return {"INVESTIR": "#00c48c", "NÃO INVESTIR": "#ff4757"}.get(self.recommendation, "#ffb300")
+        return {"INVESTIR": "#00c48c", "NÃO INVESTIR": "#ff4757"}.get(
+            self.recommendation, "#ffb300"
+        )
 
     @property
     def score_label(self) -> str:

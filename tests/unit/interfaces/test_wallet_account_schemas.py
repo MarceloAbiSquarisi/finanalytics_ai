@@ -1,11 +1,11 @@
 """Schemas Pydantic AccountCreate / AccountUpdate (validacao CPF)."""
+
 from __future__ import annotations
 
-import pytest
 from pydantic import ValidationError
+import pytest
 
 from finanalytics_ai.interfaces.api.routes.wallet import AccountCreate, AccountUpdate
-
 
 _BASE = {
     "titular": "Marcelo Abi Squarisi",

@@ -21,11 +21,12 @@ Design decisions:
     - Rodar a cada 60s: balanco entre latencia e carga de CPU
     - Desacoplado do EventProcessorService: bridge separado, sem acoplamento
 """
+
 from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import structlog
@@ -70,11 +71,11 @@ class OHLCVWindow:
             return None
         o = self.open or self.close
         return {
-            "time":   int(self.timestamp.timestamp()),
-            "open":   o,
-            "high":   self.high or self.close,
-            "low":    self.low or self.close,
-            "close":  self.close,
+            "time": int(self.timestamp.timestamp()),
+            "open": o,
+            "high": self.high or self.close,
+            "low": self.low or self.close,
+            "close": self.close,
             "volume": self.volume,
         }
 
@@ -147,7 +148,7 @@ class TickAnomalyBridge:
         if not price or price <= 0:
             return
 
-        now = timestamp or datetime.now(timezone.utc)
+        now = timestamp or datetime.now(UTC)
         # Chave de minuto (trunca segundos)
         window_key = now.replace(second=0, microsecond=0)
 
@@ -239,9 +240,8 @@ class TickAnomalyBridge:
         """Carrega historico de 3 meses do Fintz para um ticker."""
         try:
             from finanalytics_ai.domain.value_objects.money import Ticker as TickerVO
-            bars = await self._market.get_ohlc_bars(
-                TickerVO(ticker), range_period="3mo"
-            )
+
+            bars = await self._market.get_ohlc_bars(TickerVO(ticker), range_period="3mo")
             self._fintz_history[ticker] = bars
             logger.info(
                 "tick_anomaly_bridge.history_loaded",
@@ -285,7 +285,7 @@ class TickAnomalyBridge:
                     current_price=float(value),
                     threshold=float(threshold),
                     user_id="system",
-                    triggered_at=datetime.now(timezone.utc).isoformat(),
+                    triggered_at=datetime.now(UTC).isoformat(),
                     context={
                         "detector": detector,
                         "severity": severity,

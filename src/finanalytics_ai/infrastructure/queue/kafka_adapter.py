@@ -26,10 +26,10 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import json
-import uuid
 from datetime import UTC, datetime
+import json
 from typing import TYPE_CHECKING, Any
+import uuid
 
 import structlog
 
@@ -328,7 +328,9 @@ class KafkaMarketEventConsumer:
                     try:
                         await handler(event)
                     except Exception as exc:
-                        log.error("kafka.event.handler_error", error=str(exc), event_id=event.event_id)
+                        log.error(
+                            "kafka.event.handler_error", error=str(exc), event_id=event.event_id
+                        )
                     finally:
                         if bound_cid:
                             clear_correlation_id()

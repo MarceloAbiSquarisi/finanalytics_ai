@@ -8,9 +8,6 @@ Mesma interface que ProfitDLLClient — zero dependências Windows.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Callable, Awaitable
-import asyncio
 
 from finanalytics_ai.observability.logging import get_logger
 

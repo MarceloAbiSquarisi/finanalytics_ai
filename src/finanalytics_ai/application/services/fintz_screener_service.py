@@ -23,13 +23,13 @@ Mapeamento BRAPI -> Fintz (para compatibilidade com FilterCriteria existente):
   debt_equity     -> DividaLiquida_PatrimonioLiquido
   market_cap      -> ValorDeMercado (em bilhoes R$)
 """
+
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
-import structlog
 from sqlalchemy import text
+import structlog
 
 from finanalytics_ai.domain.screener.engine import (
     FilterCriteria,
@@ -41,22 +41,22 @@ logger = structlog.get_logger(__name__)
 
 # Mapeamento: campo FundamentalData -> nome do indicador em fintz_indicadores
 _FIELD_TO_INDICADOR: dict[str, str] = {
-    "pe":             "P_L",
-    "pvp":            "P_VP",
-    "dy":             "DividendYield",
-    "roe":            "ROE",
-    "roic":           "ROIC",
-    "ebitda_margin":  "MargemEBITDA",
-    "net_margin":     "MargemLiquida",
-    "debt_equity":    "DividaLiquida_PatrimonioLiquido",
-    "market_cap":     "ValorDeMercado",
-    "ev_ebitda":      "EV_EBITDA",
-    "roa":            "ROA",
-    "margem_bruta":   "MargemBruta",
-    "margem_ebit":    "MargemEBIT",
+    "pe": "P_L",
+    "pvp": "P_VP",
+    "dy": "DividendYield",
+    "roe": "ROE",
+    "roic": "ROIC",
+    "ebitda_margin": "MargemEBITDA",
+    "net_margin": "MargemLiquida",
+    "debt_equity": "DividaLiquida_PatrimonioLiquido",
+    "market_cap": "ValorDeMercado",
+    "ev_ebitda": "EV_EBITDA",
+    "roa": "ROA",
+    "margem_bruta": "MargemBruta",
+    "margem_ebit": "MargemEBIT",
     "div_liq_ebitda": "DividaLiquida_EBITDA",
-    "liquidez":       "LiquidezCorrente",
-    "giro_ativos":    "GiroAtivos",
+    "liquidez": "LiquidezCorrente",
+    "giro_ativos": "GiroAtivos",
 }
 
 _INDICADORES_NEEDED = list(_FIELD_TO_INDICADOR.values())
@@ -169,8 +169,10 @@ class FintzScreenerService:
 
 def _pct(val: float | None) -> float | None:
     """Converte decimal para percentual. 0.163 -> 16.3"""
-    if val is None: return None
+    if val is None:
+        return None
     return round(val * 100, 4)
+
 
 def _to_fundamental_data(
     ticker: str,

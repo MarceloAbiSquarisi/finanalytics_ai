@@ -31,9 +31,8 @@ from __future__ import annotations
 
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from finanalytics_ai.application.services.event_processor import EventProcessor
 from finanalytics_ai.application.services.event_publisher import EventPublisher
 from finanalytics_ai.config import Settings
 from finanalytics_ai.container import build_event_processor
@@ -149,7 +148,7 @@ class TestEventProcessorIntegration:
         event = await publisher.publish_fintz_sync_completed(
             dataset="cotacoes",
             rows_synced=10,
-            errors=990,   # 99% de erro — acima do threshold de 10%
+            errors=990,  # 99% de erro — acima do threshold de 10%
             duration_s=1.0,
         )
 
@@ -169,17 +168,13 @@ class TestEventProcessorIntegration:
         assert record_after.status == EventStatus.PENDING
         assert record_after.attempt == 0
 
-    async def test_get_pending_events_returns_published(
-        self, session: AsyncSession
-    ) -> None:
+    async def test_get_pending_events_returns_published(self, session: AsyncSession) -> None:
         publisher = EventPublisher(session)
         await publisher.publish_fintz_sync_completed(
             dataset="cotacoes", rows_synced=1, errors=0, duration_s=0.1
         )
 
         repo = PostgresEventRepository(session)
-        pending = await repo.get_pending_events(
-            event_type=EventType.FINTZ_SYNC_COMPLETED, limit=10
-        )
+        pending = await repo.get_pending_events(event_type=EventType.FINTZ_SYNC_COMPLETED, limit=10)
         assert len(pending) >= 1
         assert all(e.event_type == EventType.FINTZ_SYNC_COMPLETED for e in pending)

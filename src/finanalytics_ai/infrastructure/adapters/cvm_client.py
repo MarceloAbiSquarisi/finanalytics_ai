@@ -52,9 +52,9 @@ Design decisions:
 from __future__ import annotations
 
 import asyncio
+from datetime import date
 import io
 import time
-from datetime import date, datetime
 from typing import Any
 
 import httpx
@@ -69,21 +69,21 @@ _CVM_BASE = "https://dados.cvm.gov.br/dados/FI"
 _CAD_URL = f"{_CVM_BASE}/CAD/DADOS/cad_fi.csv"
 _INF_DIARIO_BASE = f"{_CVM_BASE}/DOC/INF_DIARIO/DADOS"
 
-_CACHE_CAD_TTL = 43_200   # 12h — cadastro muda raramente
-_CACHE_INF_TTL = 1_800    # 30min — informe do mês atual atualizado ao longo do dia
+_CACHE_CAD_TTL = 43_200  # 12h — cadastro muda raramente
+_CACHE_INF_TTL = 1_800  # 30min — informe do mês atual atualizado ao longo do dia
 _CACHE_HIST_TTL = 86_400  # 24h — meses passados são imutáveis
 
-_HTTP_TIMEOUT = 120.0     # CSVs grandes (cadastro ~150MB) precisam de timeout generoso
-_CHUNK_SIZE = 50_000      # linhas por chunk ao processar CSV grande
-_MAX_RETRIES = 3          # tentativas para arquivos grandes
+_HTTP_TIMEOUT = 120.0  # CSVs grandes (cadastro ~150MB) precisam de timeout generoso
+_CHUNK_SIZE = 50_000  # linhas por chunk ao processar CSV grande
+_MAX_RETRIES = 3  # tentativas para arquivos grandes
 
 # Situações de fundo ativo na CVM — filtro robusto com strip e casefold
 # Os valores reais no CSV podem ter espaços extras ou capitalização diferente
 _SITUACOES_ATIVAS = {
     "EM FUNCIONAMENTO NORMAL",
     "FASE PRÉ-OPERACIONAL",
-    "FASE PRE-OPERACIONAL",   # sem acento (encoding alternativo)
-    "EM FUNCIONAMENTO",       # versão abreviada que alguns registros usam
+    "FASE PRE-OPERACIONAL",  # sem acento (encoding alternativo)
+    "EM FUNCIONAMENTO",  # versão abreviada que alguns registros usam
     "NORMAL",
 }
 
@@ -124,9 +124,7 @@ class CvmClient:
         logger.info("cvm.cadastro.fetching")
         try:
             csv_bytes = await self._download(_CAD_URL)
-            result = await asyncio.to_thread(
-                self._parse_cadastro, csv_bytes, only_active
-            )
+            result = await asyncio.to_thread(self._parse_cadastro, csv_bytes, only_active)
             self._set_cache(cache_key, result)
             logger.info("cvm.cadastro.ok", fundos=len(result), only_active=only_active)
             return result
@@ -134,9 +132,7 @@ class CvmClient:
             logger.warning("cvm.cadastro.failed", error=str(exc)[:120])
             return []
 
-    def _parse_cadastro(
-        self, csv_bytes: bytes, only_active: bool
-    ) -> list[dict[str, Any]]:
+    def _parse_cadastro(self, csv_bytes: bytes, only_active: bool) -> list[dict[str, Any]]:
         df = pd.read_csv(
             io.BytesIO(csv_bytes),
             sep=";",
@@ -155,27 +151,30 @@ class CvmClient:
                     or "PRÉ-OPERACIONAL" in s
                     or "PRE-OPERACIONAL" in s
                 )
+
             df = df[df["SIT"].apply(is_active)]
 
         result = []
         for _, row in df.iterrows():
-            result.append({
-                "cnpj":               row.get("CNPJ_FUNDO", ""),
-                "nome":               row.get("DENOM_SOCIAL", ""),
-                "tipo":               row.get("TP_FUNDO", ""),
-                "classe":             row.get("CLASSE", ""),
-                "situacao":           row.get("SIT", ""),
-                "data_inicio":        row.get("DT_INI_ATIV", ""),
-                "data_cancelamento":  row.get("DT_CANCEL", ""),
-                "administrador":      row.get("ADMIN", ""),
-                "gestor":             row.get("GESTOR", ""),
-                "auditor":            row.get("AUDITOR", ""),
-                "custodiante":        row.get("CUSTODIANTE", ""),
-                "cnpj_admin":         row.get("CNPJ_ADMIN", ""),
-                "cnpj_gestor":        row.get("CNPJ_GESTOR", ""),
-                "taxa_adm":           _safe_float(row.get("TAXA_ADM")),
-                "taxa_perfm":         _safe_float(row.get("TAXA_PERFM")),
-            })
+            result.append(
+                {
+                    "cnpj": row.get("CNPJ_FUNDO", ""),
+                    "nome": row.get("DENOM_SOCIAL", ""),
+                    "tipo": row.get("TP_FUNDO", ""),
+                    "classe": row.get("CLASSE", ""),
+                    "situacao": row.get("SIT", ""),
+                    "data_inicio": row.get("DT_INI_ATIV", ""),
+                    "data_cancelamento": row.get("DT_CANCEL", ""),
+                    "administrador": row.get("ADMIN", ""),
+                    "gestor": row.get("GESTOR", ""),
+                    "auditor": row.get("AUDITOR", ""),
+                    "custodiante": row.get("CUSTODIANTE", ""),
+                    "cnpj_admin": row.get("CNPJ_ADMIN", ""),
+                    "cnpj_gestor": row.get("CNPJ_GESTOR", ""),
+                    "taxa_adm": _safe_float(row.get("TAXA_ADM")),
+                    "taxa_perfm": _safe_float(row.get("TAXA_PERFM")),
+                }
+            )
         return result
 
     # ── Informe Diário ────────────────────────────────────────────────────────
@@ -229,7 +228,7 @@ class CvmClient:
 
         # Meses passados: TTL longo (imutáveis)
         today = date.today()
-        is_current = (year == today.year and month == today.month)
+        is_current = year == today.year and month == today.month
         ttl = _CACHE_INF_TTL if is_current else _CACHE_HIST_TTL
 
         cached = self._get_cache(cache_key, ttl)
@@ -242,9 +241,7 @@ class CvmClient:
         try:
             csv_bytes = await self._download(url)
             cnpj_clean = _clean_cnpj(cnpj) if cnpj else None
-            result = await asyncio.to_thread(
-                self._parse_informe, csv_bytes, cnpj_clean, limit
-            )
+            result = await asyncio.to_thread(self._parse_informe, csv_bytes, cnpj_clean, limit)
             self._set_cache(cache_key, result)
             logger.info("cvm.informe_diario.ok", ym=ym, rows=len(result))
             return result
@@ -274,15 +271,17 @@ class CvmClient:
                 chunk = chunk[mask]
 
             for _, row in chunk.iterrows():
-                rows.append({
-                    "cnpj":           row.get("CNPJ_FUNDO", ""),
-                    "data":           row.get("DT_COMPTC", ""),
-                    "vl_quota":       _safe_float(row.get("VL_QUOTA")),
-                    "vl_patrim_liq":  _safe_float(row.get("VL_PATRIM_LIQ")),
-                    "captacao_dia":   _safe_float(row.get("CAPTC_DIA")),
-                    "resgate_dia":    _safe_float(row.get("RESG_DIA")),
-                    "nr_cotistas":    _safe_int(row.get("NR_COTST")),
-                })
+                rows.append(
+                    {
+                        "cnpj": row.get("CNPJ_FUNDO", ""),
+                        "data": row.get("DT_COMPTC", ""),
+                        "vl_quota": _safe_float(row.get("VL_QUOTA")),
+                        "vl_patrim_liq": _safe_float(row.get("VL_PATRIM_LIQ")),
+                        "captacao_dia": _safe_float(row.get("CAPTC_DIA")),
+                        "resgate_dia": _safe_float(row.get("RESG_DIA")),
+                        "nr_cotistas": _safe_int(row.get("NR_COTST")),
+                    }
+                )
                 if len(rows) >= limit:
                     return rows
 
@@ -436,6 +435,7 @@ class CvmClient:
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _safe_float(value: Any) -> float | None:
     if value is None or str(value).strip() in ("", "nan", "NaN", "None"):
         return None
@@ -453,6 +453,7 @@ def _safe_int(value: Any) -> int | None:
 def _clean_cnpj(cnpj: str) -> str:
     """Remove caracteres não-numéricos do CNPJ."""
     import re
+
     return re.sub(r"\D", "", cnpj)
 
 

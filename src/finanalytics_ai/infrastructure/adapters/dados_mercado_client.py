@@ -72,17 +72,17 @@ logger = structlog.get_logger(__name__)
 _BASE_URL = "https://api.dadosdemercado.com.br/v1"
 
 _CACHE_TTLS = {
-    "tickers":     300,    # 5 min
-    "companies":   3_600,  # 60 min
-    "macro":       14_400, # 4h
-    "focus":       14_400, # 4h
-    "treasuries":  1_800,  # 30 min
-    "risk":        900,    # 15 min
-    "indices":     300,    # 5 min
+    "tickers": 300,  # 5 min
+    "companies": 3_600,  # 60 min
+    "macro": 14_400,  # 4h
+    "focus": 14_400,  # 4h
+    "treasuries": 1_800,  # 30 min
+    "risk": 900,  # 15 min
+    "indices": 300,  # 5 min
 }
 
 _HTTP_TIMEOUT = 30.0
-_MAX_RETRIES  = 3
+_MAX_RETRIES = 3
 
 
 class DadosDeMercadoClient:
@@ -415,42 +415,43 @@ class DadosDeMercadoClient:
 
 # ── Parsers ───────────────────────────────────────────────────────────────────
 
+
 def _parse_ticker(data: dict[str, Any]) -> dict[str, Any]:
     """Normaliza resposta do endpoint /tickers para snake_case."""
     return {
-        "ticker":               data.get("ticker", ""),
-        "nome":                 data.get("name", data.get("nome", "")),
-        "preco":                _safe_float(data.get("price", data.get("preco"))),
-        "variacao":             _safe_float(data.get("change", data.get("variacao"))),
-        "variacao_pct":         _safe_float(data.get("changePercent", data.get("variacao_pct"))),
-        "volume":               _safe_float(data.get("volume")),
-        "abertura":             _safe_float(data.get("open", data.get("abertura"))),
-        "fechamento_anterior":  _safe_float(data.get("previousClose")),
-        "data":                 data.get("date", data.get("data", "")),
-        "mercado_cap":          _safe_float(data.get("marketCap")),
+        "ticker": data.get("ticker", ""),
+        "nome": data.get("name", data.get("nome", "")),
+        "preco": _safe_float(data.get("price", data.get("preco"))),
+        "variacao": _safe_float(data.get("change", data.get("variacao"))),
+        "variacao_pct": _safe_float(data.get("changePercent", data.get("variacao_pct"))),
+        "volume": _safe_float(data.get("volume")),
+        "abertura": _safe_float(data.get("open", data.get("abertura"))),
+        "fechamento_anterior": _safe_float(data.get("previousClose")),
+        "data": data.get("date", data.get("data", "")),
+        "mercado_cap": _safe_float(data.get("marketCap")),
     }
 
 
 def _parse_company(data: dict[str, Any]) -> dict[str, Any]:
     """Normaliza resposta do endpoint /companies."""
     return {
-        "ticker":        data.get("ticker", ""),
-        "nome":          data.get("name", data.get("nome", "")),
-        "setor":         data.get("sector", data.get("setor", "")),
-        "subsetor":      data.get("subSector", data.get("subsetor", "")),
-        "pl":            _safe_float(data.get("priceToEarnings", data.get("pl"))),
-        "pvp":           _safe_float(data.get("priceToBook", data.get("pvp"))),
-        "roe":           _safe_float(data.get("roe")),
-        "roic":          _safe_float(data.get("roic")),
-        "ev_ebitda":     _safe_float(data.get("evToEbitda", data.get("ev_ebitda"))),
-        "dividend_yield":_safe_float(data.get("dividendYield", data.get("dividend_yield"))),
-        "margem_bruta":  _safe_float(data.get("grossMargin", data.get("margem_bruta"))),
+        "ticker": data.get("ticker", ""),
+        "nome": data.get("name", data.get("nome", "")),
+        "setor": data.get("sector", data.get("setor", "")),
+        "subsetor": data.get("subSector", data.get("subsetor", "")),
+        "pl": _safe_float(data.get("priceToEarnings", data.get("pl"))),
+        "pvp": _safe_float(data.get("priceToBook", data.get("pvp"))),
+        "roe": _safe_float(data.get("roe")),
+        "roic": _safe_float(data.get("roic")),
+        "ev_ebitda": _safe_float(data.get("evToEbitda", data.get("ev_ebitda"))),
+        "dividend_yield": _safe_float(data.get("dividendYield", data.get("dividend_yield"))),
+        "margem_bruta": _safe_float(data.get("grossMargin", data.get("margem_bruta"))),
         "margem_ebitda": _safe_float(data.get("ebitdaMargin")),
-        "margem_liquida":_safe_float(data.get("netMargin", data.get("margem_liquida"))),
-        "divida_pl":     _safe_float(data.get("debtToEquity")),
-        "market_cap":    _safe_float(data.get("marketCap")),
-        "vpa":           _safe_float(data.get("bookValuePerShare", data.get("vpa"))),
-        "lpa":           _safe_float(data.get("earningsPerShare", data.get("lpa"))),
+        "margem_liquida": _safe_float(data.get("netMargin", data.get("margem_liquida"))),
+        "divida_pl": _safe_float(data.get("debtToEquity")),
+        "market_cap": _safe_float(data.get("marketCap")),
+        "vpa": _safe_float(data.get("bookValuePerShare", data.get("vpa"))),
+        "lpa": _safe_float(data.get("earningsPerShare", data.get("lpa"))),
     }
 
 

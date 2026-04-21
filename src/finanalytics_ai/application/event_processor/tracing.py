@@ -12,6 +12,7 @@ Implementacoes:
 - NullTracing: no-op para testes (padrao — sem dependencia de OTEL em testes unit)
 - OtelTracing: OpenTelemetry real (producao)
 """
+
 from __future__ import annotations
 
 from typing import Any, Protocol
@@ -45,6 +46,7 @@ class TracingPort(Protocol):
 
 
 # ── Implementacoes ────────────────────────────────────────────────────────────
+
 
 class _NullSpan:
     """Span no-op — zero overhead em testes."""
@@ -101,6 +103,7 @@ class OtelSpan:
 
     def set_error(self) -> None:
         from opentelemetry.trace import StatusCode
+
         self._span.set_status(StatusCode.ERROR)
 
 
@@ -115,6 +118,7 @@ class OtelTracing:
     def __init__(self, tracer_name: str = "finanalytics.event_processor") -> None:
         try:
             from opentelemetry import trace
+
             self._tracer = trace.get_tracer(tracer_name)
             self._available = True
         except ImportError:

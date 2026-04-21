@@ -4,6 +4,7 @@ Testes unitarios para os modelos de dominio.
 Principio: testes de dominio NUNCA tocam IO. Sem banco, sem Redis, sem HTTP.
 Rapidos o suficiente para rodar em pre-commit hook.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -100,6 +101,7 @@ class TestEventPayload:
 class TestProcessingResult:
     def test_success_factory(self) -> None:
         import uuid
+
         event_id = uuid.uuid4()
         r = ProcessingResult.success(event_id, {"x": 1})
         assert r.status == EventStatus.COMPLETED
@@ -108,12 +110,13 @@ class TestProcessingResult:
 
     def test_failure_factory(self) -> None:
         import uuid
+
         r = ProcessingResult.failure(uuid.uuid4(), "bad input")
         assert r.status == EventStatus.FAILED
         assert r.error == "bad input"
 
     def test_skipped_factory(self) -> None:
         import uuid
+
         r = ProcessingResult.skipped(uuid.uuid4())
         assert r.status == EventStatus.SKIPPED
-

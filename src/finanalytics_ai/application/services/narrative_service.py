@@ -12,11 +12,12 @@ Design decisions:
 - Timeout 60s for Ollama (70B model), 30s for Claude
 - Returns a plain ForecastNarrative even on failure (neutral signal)
 """
+
 from __future__ import annotations
 
+from dataclasses import dataclass
 import json
 import re
-from dataclasses import dataclass
 
 import httpx
 import structlog
@@ -26,12 +27,12 @@ logger = structlog.get_logger(__name__)
 
 @dataclass
 class ForecastNarrative:
-    signal: str          # "COMPRA" | "VENDA" | "NEUTRO"
-    confidence: str      # "ALTA" | "MÉDIA" | "BAIXA"
-    summary: str         # 2-3 frases curtas
-    reasoning: str       # análise detalhada
-    risks: str           # principais riscos
-    provider: str        # "ollama" | "claude" | "fallback"
+    signal: str  # "COMPRA" | "VENDA" | "NEUTRO"
+    confidence: str  # "ALTA" | "MÉDIA" | "BAIXA"
+    summary: str  # 2-3 frases curtas
+    reasoning: str  # análise detalhada
+    risks: str  # principais riscos
+    provider: str  # "ollama" | "claude" | "fallback"
 
 
 _NEUTRAL_FALLBACK = ForecastNarrative(
@@ -164,7 +165,7 @@ def _parse_narrative(text: str, provider: str) -> ForecastNarrative:
     data = json.loads(match.group())
 
     valid_signals = {"COMPRA", "VENDA", "NEUTRO"}
-    valid_conf = {"ALTA", "MÉDIA", "MÉDIA", "BAIXA"}
+    valid_conf = {"ALTA", "MÉDIA", "BAIXA"}
 
     signal = data.get("signal", "NEUTRO").upper()
     if signal not in valid_signals:

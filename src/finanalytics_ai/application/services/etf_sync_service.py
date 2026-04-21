@@ -1,4 +1,4 @@
-﻿"""
+"""
 finanalytics_ai.application.services.etf_sync_service
 ───────────────────────────────────────────────────────
 Sincroniza preços de ETFs via BRAPI e persiste no banco.
@@ -9,16 +9,17 @@ Design decisions:
   - Calcula var_dia e var_12m localmente após sync
   - Sem SDK BRAPI — httpx direto para controle de timeout/retry
 """
+
 from __future__ import annotations
 
+from datetime import date
 import os
-from datetime import date, datetime, timedelta
 from typing import Any
 
 import httpx
-import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+import structlog
 
 logger = structlog.get_logger(__name__)
 
@@ -27,8 +28,16 @@ BRAPI_URL = "https://brapi.dev/api/quote/{tickers}"
 
 # ETFs monitorados
 ETF_TICKERS = [
-    "BOVA11", "SMAL11", "IVVB11", "HASH11", "XFIX11",
-    "GOLD11", "SPXI11", "DIVO11", "NASD11", "EURP11",
+    "BOVA11",
+    "SMAL11",
+    "IVVB11",
+    "HASH11",
+    "XFIX11",
+    "GOLD11",
+    "SPXI11",
+    "DIVO11",
+    "NASD11",
+    "EURP11",
 ]
 
 
@@ -103,14 +112,15 @@ async def sync_etf_prices(
                 continue
 
             close_ = _safe_float(bar.get("close"))
-            open_  = _safe_float(bar.get("open"))
-            high_  = _safe_float(bar.get("high"))
-            low_   = _safe_float(bar.get("low"))
-            vol_   = bar.get("volume")
-            vol_i  = int(vol_) if vol_ else None
+            open_ = _safe_float(bar.get("open"))
+            high_ = _safe_float(bar.get("high"))
+            low_ = _safe_float(bar.get("low"))
+            vol_ = bar.get("volume")
+            vol_i = int(vol_) if vol_ else None
             var_dia = _safe_float(bar.get("changePercent"))
 
-            await session.execute(text("""
+            await session.execute(
+                text("""
                 INSERT INTO etf_precos
                     (ticker, data, abertura, fechamento, maxima, minima, volume, var_dia)
                 VALUES (:t, :d, :o, :c, :h, :l, :v, :var)
@@ -121,17 +131,30 @@ async def sync_etf_prices(
                     minima     = EXCLUDED.minima,
                     volume     = EXCLUDED.volume,
                     var_dia    = EXCLUDED.var_dia
-            """), {"t": ticker, "d": dt, "o": open_, "c": close_,
-                   "h": high_, "l": low_, "v": vol_i, "var": var_dia})
+            """),
+                {
+                    "t": ticker,
+                    "d": dt,
+                    "o": open_,
+                    "c": close_,
+                    "h": high_,
+                    "l": low_,
+                    "v": vol_i,
+                    "var": var_dia,
+                },
+            )
             ok += 1
 
         # Upsert info básica do ETF
         nome = item.get("shortName") or item.get("longName") or ticker
-        await session.execute(text("""
+        await session.execute(
+            text("""
             INSERT INTO etf_info (ticker, nome)
             VALUES (:t, :n)
             ON CONFLICT (ticker) DO UPDATE SET nome = EXCLUDED.nome, updated_at = NOW()
-        """), {"t": ticker, "n": nome})
+        """),
+            {"t": ticker, "n": nome},
+        )
 
         totals[ticker] = ok
         logger.info("etf.sync_ok", ticker=ticker, registros=ok)
@@ -145,7 +168,8 @@ async def get_etf_overview(session: AsyncSession) -> list[dict]:
     Retorna overview dos ETFs com último preço, variação, e retorno 12m.
     Tenta banco primeiro, se vazio busca via BRAPI quotes.
     """
-    rows = await session.execute(text("""
+    rows = await session.execute(
+        text("""
         SELECT
             e.ticker,
             ei.nome,
@@ -166,7 +190,8 @@ async def get_etf_overview(session: AsyncSession) -> list[dict]:
             SELECT ticker, MAX(data) FROM etf_precos GROUP BY ticker
         )
         ORDER BY e.ticker
-    """))
+    """)
+    )
 
     result = []
     for r in rows:
@@ -174,28 +199,32 @@ async def get_etf_overview(session: AsyncSession) -> list[dict]:
         if r.preco_12m_atras and r.preco_12m_atras > 0:
             rent_12m = round((float(r.preco) / float(r.preco_12m_atras) - 1) * 100, 2)
 
-        result.append({
-            "ticker":    r.ticker,
-            "nome":      r.nome or r.ticker,
-            "preco":     float(r.preco) if r.preco else None,
-            "var_dia":   float(r.var_dia) if r.var_dia else None,
-            "data":      r.data.isoformat() if r.data else None,
-            "volume":    r.volume,
-            "rent_12m":  rent_12m,
-        })
+        result.append(
+            {
+                "ticker": r.ticker,
+                "nome": r.nome or r.ticker,
+                "preco": float(r.preco) if r.preco else None,
+                "var_dia": float(r.var_dia) if r.var_dia else None,
+                "data": r.data.isoformat() if r.data else None,
+                "volume": r.volume,
+                "rent_12m": rent_12m,
+            }
+        )
 
     # Fallback: se banco vazio, busca quotes ao vivo
     if not result:
         data = await _fetch_quotes(ETF_TICKERS)
         for item in data.get("results", []):
-            result.append({
-                "ticker":   item.get("symbol", "").upper(),
-                "nome":     item.get("shortName") or item.get("symbol"),
-                "preco":    _safe_float(item.get("regularMarketPrice")),
-                "var_dia":  _safe_float(item.get("regularMarketChangePercent")),
-                "data":     None,
-                "volume":   item.get("regularMarketVolume"),
-                "rent_12m": _safe_float(item.get("fiftyTwoWeekHigh")),
-            })
+            result.append(
+                {
+                    "ticker": item.get("symbol", "").upper(),
+                    "nome": item.get("shortName") or item.get("symbol"),
+                    "preco": _safe_float(item.get("regularMarketPrice")),
+                    "var_dia": _safe_float(item.get("regularMarketChangePercent")),
+                    "data": None,
+                    "volume": item.get("regularMarketVolume"),
+                    "rent_12m": _safe_float(item.get("fiftyTwoWeekHigh")),
+                }
+            )
 
     return result

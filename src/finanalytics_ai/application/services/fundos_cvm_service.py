@@ -1,4 +1,4 @@
-﻿"""
+"""
 finanalytics_ai.application.services.fundos_cvm_service
 ────────────────────────────────────────────────────────
 Sincroniza dados de fundos de investimento a partir do Portal Dados Abertos CVM.
@@ -17,15 +17,15 @@ Decisões de design:
 
 from __future__ import annotations
 
+from datetime import UTC, date, datetime
 import io
+from typing import Any
 import zipfile
-from datetime import date, datetime, timezone
-from typing import Any, AsyncGenerator
 
 import httpx
-import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+import structlog
 
 logger = structlog.get_logger(__name__)
 
@@ -33,11 +33,12 @@ CVM_BASE = "https://dados.cvm.gov.br/dados/FI"
 CAD_URL = f"{CVM_BASE}/CAD/DADOS/cad_fi.csv"
 INF_URL = f"{CVM_BASE}/DOC/INF_DIARIO/DADOS/inf_diario_fi_{{AAAAMM}}.zip"
 
-CHUNK = 5_000   # linhas por batch de upsert
+CHUNK = 5_000  # linhas por batch de upsert
 TIMEOUT = 120.0
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
+
 
 def _safe_dec(val: str) -> float | None:
     if not val or val.strip() in ("", "-"):
@@ -86,6 +87,7 @@ async def _log_sync(
 
 # ── cadastro ─────────────────────────────────────────────────────────────────
 
+
 async def sync_cadastro(session: AsyncSession) -> dict[str, Any]:
     """
     Baixa cad_fi.csv e faz upsert em fundos_cadastro.
@@ -102,7 +104,7 @@ async def sync_cadastro(session: AsyncSession) -> dict[str, Any]:
         await _log_sync(session, "cadastro", "cadastro", "erro", erro=str(exc))
         raise
 
-    lines = resp.content.decode('latin-1').splitlines()
+    lines = resp.content.decode("latin-1").splitlines()
     if not lines:
         raise ValueError("CSV de cadastro vazio")
 
@@ -118,23 +120,23 @@ async def sync_cadastro(session: AsyncSession) -> dict[str, Any]:
         row: dict[str, Any] = dict(zip(header, cols))
 
         record = {
-            "cnpj":            row.get("CNPJ_FUNDO", "").strip(),
-            "denominacao":     row.get("DENOM_SOCIAL", "").strip() or None,
-            "nome_abrev":      row.get("NOME_ABREV", "").strip() or None,
-            "tipo":            row.get("TP_FUNDO", "").strip() or None,
-            "classe":          row.get("CLASSE", "").strip() or None,
-            "situacao":        row.get("SIT", "").strip() or None,
-            "data_registro":   _safe_date(row.get("DT_REG", "")),
-            "data_cancel":     _safe_date(row.get("DT_CANCEL", "")),
-            "gestor":          row.get("GESTOR", "").strip() or None,
-            "administrador":   row.get("ADMIN", "").strip() or None,
-            "custodiante":     row.get("CUSTODIANTE", "").strip() or None,
-            "auditor":         row.get("AUDITOR", "").strip() or None,
-            "publico_alvo":    row.get("PUBLICO_ALVO", "").strip() or None,
-            "taxa_adm":        _safe_dec(row.get("TAXA_ADM", "")),
-            "taxa_perfm":      _safe_dec(row.get("TAXA_PERFM", "")),
-            "benchmark":       row.get("RENTAB_FUNDO", "").strip() or None,
-            "prazo_resgate":   None,
+            "cnpj": row.get("CNPJ_FUNDO", "").strip(),
+            "denominacao": row.get("DENOM_SOCIAL", "").strip() or None,
+            "nome_abrev": row.get("NOME_ABREV", "").strip() or None,
+            "tipo": row.get("TP_FUNDO", "").strip() or None,
+            "classe": row.get("CLASSE", "").strip() or None,
+            "situacao": row.get("SIT", "").strip() or None,
+            "data_registro": _safe_date(row.get("DT_REG", "")),
+            "data_cancel": _safe_date(row.get("DT_CANCEL", "")),
+            "gestor": row.get("GESTOR", "").strip() or None,
+            "administrador": row.get("ADMIN", "").strip() or None,
+            "custodiante": row.get("CUSTODIANTE", "").strip() or None,
+            "auditor": row.get("AUDITOR", "").strip() or None,
+            "publico_alvo": row.get("PUBLICO_ALVO", "").strip() or None,
+            "taxa_adm": _safe_dec(row.get("TAXA_ADM", "")),
+            "taxa_perfm": _safe_dec(row.get("TAXA_PERFM", "")),
+            "benchmark": row.get("RENTAB_FUNDO", "").strip() or None,
+            "prazo_resgate": None,
         }
 
         if not record["cnpj"]:
@@ -194,6 +196,7 @@ async def _upsert_cadastro(session: AsyncSession, batch: list[dict]) -> None:
 
 # ── informe diário ────────────────────────────────────────────────────────────
 
+
 async def sync_informe_diario(
     session: AsyncSession,
     competencia: str | None = None,
@@ -203,7 +206,7 @@ async def sync_informe_diario(
     competencia: 'AAAAMM' (ex: '202403') — padrão = mês atual
     """
     if competencia is None:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         competencia = now.strftime("%Y%m")
 
     log = logger.bind(task="sync_informe_diario", competencia=competencia)
@@ -259,16 +262,18 @@ async def sync_informe_diario(
         if not cnpj or not dt:
             continue
 
-        batch.append({
-            "cnpj":            cnpj,
-            "data_ref":        dt,
-            "vl_total":        _safe_dec(row_d.get("VL_TOTAL", "")),
-            "vl_quota":        _safe_dec(row_d.get("VL_QUOTA", "")),
-            "vl_patrim_liq":   _safe_dec(row_d.get("VL_PATRIM_LIQ", "")),
-            "captacao_dia":    _safe_dec(row_d.get("CAPTC_DIA", "")),
-            "resgat_dia":      _safe_dec(row_d.get("RESG_DIA", "")),
-            "nr_cotst":        _safe_int(row_d.get("NR_COTST", "")),
-        })
+        batch.append(
+            {
+                "cnpj": cnpj,
+                "data_ref": dt,
+                "vl_total": _safe_dec(row_d.get("VL_TOTAL", "")),
+                "vl_quota": _safe_dec(row_d.get("VL_QUOTA", "")),
+                "vl_patrim_liq": _safe_dec(row_d.get("VL_PATRIM_LIQ", "")),
+                "captacao_dia": _safe_dec(row_d.get("CAPTC_DIA", "")),
+                "resgat_dia": _safe_dec(row_d.get("RESG_DIA", "")),
+                "nr_cotst": _safe_int(row_d.get("NR_COTST", "")),
+            }
+        )
 
         if len(batch) >= CHUNK:
             await _upsert_informe(session, batch)
@@ -280,7 +285,8 @@ async def sync_informe_diario(
         total += len(batch)
 
     # Atualiza PL e cotistas no cadastro
-    await session.execute(text("""
+    await session.execute(
+        text("""
         UPDATE fundos_cadastro fc
         SET pl_atual  = fi.vl_patrim_liq,
             cotistas  = fi.nr_cotst,
@@ -293,7 +299,8 @@ async def sync_informe_diario(
             ORDER  BY cnpj, data_ref DESC
         ) fi
         WHERE fc.cnpj = fi.cnpj
-    """))
+    """)
+    )
     await session.commit()
 
     await _log_sync(session, competencia, "informe_diario", "ok", registros=total)
@@ -325,6 +332,7 @@ async def _upsert_informe(session: AsyncSession, batch: list[dict]) -> None:
 
 # ── rentabilidade ─────────────────────────────────────────────────────────────
 
+
 async def calcular_rentabilidade(
     session: AsyncSession,
     cnpj: str,
@@ -350,6 +358,7 @@ async def calcular_rentabilidade(
     def _cota(offset_days: int) -> float | None:
         target = records[-1][0]
         from datetime import timedelta
+
         cutoff = target - timedelta(days=offset_days)
         for dt, cota in reversed(records):
             if dt <= cutoff:
@@ -366,23 +375,22 @@ async def calcular_rentabilidade(
 
     # Volatilidade 12m (desvio padrão dos retornos diários)
     vol_12m = None
-    rent_12m_records = [r for r in records
-                        if (records[-1][0] - r[0]).days <= 365]
+    rent_12m_records = [r for r in records if (records[-1][0] - r[0]).days <= 365]
     if len(rent_12m_records) > 20:
         daily_rets = [
-            float(rent_12m_records[i][1]) / float(rent_12m_records[i-1][1]) - 1
+            float(rent_12m_records[i][1]) / float(rent_12m_records[i - 1][1]) - 1
             for i in range(1, len(rent_12m_records))
-            if float(rent_12m_records[i-1][1]) > 0
+            if float(rent_12m_records[i - 1][1]) > 0
         ]
         if daily_rets:
-            vol_12m = round(statistics.stdev(daily_rets) * (252 ** 0.5) * 100, 6)
+            vol_12m = round(statistics.stdev(daily_rets) * (252**0.5) * 100, 6)
 
     result = {
         "cnpj": cnpj,
         "data_ref": records[-1][0],
         "rent_dia": _rent(prev_cota),
         "rent_mes": _rent(_cota(30)),
-        "rent_ano": _rent(_cota(365)),    # ano calendario simples
+        "rent_ano": _rent(_cota(365)),  # ano calendario simples
         "rent_12m": _rent(_cota(365)),
         "rent_24m": _rent(_cota(730)),
         "rent_36m": _rent(_cota(1095)),

@@ -17,6 +17,7 @@ Graceful shutdown:
     SIGTERM/SIGINT seta stop_event. O loop aguarda o ciclo atual terminar
     antes de encerrar -- sem eventos perdidos em meio ao processamento.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -93,11 +94,13 @@ async def _process_batch(
     results = await asyncio.gather(*[_process_one(e) for e in events])
 
     completed = sum(
-        1 for r in results
+        1
+        for r in results
         if r is not None and hasattr(r, "status") and str(r.status) == "completed"
     )
     dead = sum(
-        1 for r in results
+        1
+        for r in results
         if r is not None and hasattr(r, "status") and str(r.status) == "dead_letter"
     )
     return completed, dead
@@ -125,9 +128,7 @@ async def run_loop(stop_event: asyncio.Event) -> None:
 
             if events:
                 log.info("event_worker_v2.batch_fetched", count=len(events))
-                completed, dead = await _process_batch(
-                    session_factory, settings, events, semaphore
-                )
+                completed, dead = await _process_batch(session_factory, settings, events, semaphore)
                 log.info(
                     "event_worker_v2.batch_processed",
                     total=len(events),
@@ -145,7 +146,7 @@ async def run_loop(stop_event: asyncio.Event) -> None:
                 asyncio.shield(stop_event.wait()),
                 timeout=POLL_INTERVAL_SECONDS,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass
 
     log.info("event_worker_v2.stopped")

@@ -18,16 +18,15 @@ Cobertura:
 from __future__ import annotations
 
 import asyncio
-from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
-from unittest.mock import AsyncMock, MagicMock, patch
+from contextlib import asynccontextmanager
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from finanalytics_ai.domain.entities.event import EventStatus, EventType, MarketEvent
+from finanalytics_ai.domain.entities.event import EventType, MarketEvent
 from finanalytics_ai.exceptions import EventProcessingError
 from finanalytics_ai.main import WorkerDeps, _process_event, run_event_worker
-
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 

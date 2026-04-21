@@ -55,7 +55,9 @@ class WalkForwardService:
         custom_space: dict[str, list[Any]] | None = None,
     ) -> WalkForwardResult:
 
-        log = logger.bind(ticker=ticker, strategy=strategy_name, n_splits=n_splits, objective=objective)
+        log = logger.bind(
+            ticker=ticker, strategy=strategy_name, n_splits=n_splits, objective=objective
+        )
 
         try:
             obj = OptimizationObjective(objective)

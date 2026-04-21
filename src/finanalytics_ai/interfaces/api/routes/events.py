@@ -16,23 +16,24 @@ Design decision: SSE (Server-Sent Events) ao invés de WebSocket porque:
 """
 
 import asyncio
+from collections.abc import AsyncIterator
 import json
 
-import structlog
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
+import structlog
 
 from finanalytics_ai.config import get_settings
-from collections.abc import AsyncIterator
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)
 
 # ── SSE STREAM (Kafka → Browser) ─────────────────────────────────────────────
 
+
 @router.get("/stream")
 async def event_stream(
-    ticker: str | None = Query(default=None, description="Filtrar por ticker (opcional)")
+    ticker: str | None = Query(default=None, description="Filtrar por ticker (opcional)"),
 ) -> StreamingResponse:
     """
     Server-Sent Events — stream de eventos ao vivo do Kafka.
@@ -69,10 +70,7 @@ async def event_stream(
         try:
             while True:
                 try:
-                    event = await asyncio.wait_for(
-                        consumer.dequeue(),
-                        timeout=15.0
-                    )
+                    event = await asyncio.wait_for(consumer.dequeue(), timeout=15.0)
                     # Filtro opcional por ticker
                     if ticker and event.ticker.upper() != ticker.upper():
                         consumer._buffer.task_done()
@@ -105,11 +103,13 @@ async def event_stream(
         headers={
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",  # desativa buffering no nginx
-        }
+        },
     )
+
 
 def _sse_event(data: dict) -> str:
     return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+
 
 async def _demo_event_generator(ticker: str | None) -> AsyncIterator[str]:
     """
@@ -144,18 +144,17 @@ async def _demo_event_generator(ticker: str | None) -> AsyncIterator[str]:
             }
         )
 
+
 # ── TIMESCALEDB QUERIES ───────────────────────────────────────────────────────
 
+
 @router.get("/ticks/{ticker}")
-async def get_price_ticks(
-    ticker: str,
-    limit: int = Query(default=60, ge=1, le=1000)
-) -> dict:
+async def get_price_ticks(ticker: str, limit: int = Query(default=60, ge=1, le=1000)) -> dict:
     """Últimos N ticks de preço do TimescaleDB."""
     try:
         from finanalytics_ai.infrastructure.timescale.repository import (
             TimescalePriceTickRepository,
-            get_timescale_pool
+            get_timescale_pool,
         )
 
         pool = await get_timescale_pool()
@@ -167,17 +166,18 @@ async def get_price_ticks(
         logger.warning("timescale.ticks.query_failed", ticker=ticker, error=str(exc))
         raise HTTPException(503, detail=f"TimescaleDB indisponível: {exc}") from exc
 
+
 @router.get("/ohlc/{ticker}")
 async def get_timescale_ohlc(
     ticker: str,
     timeframe: str = Query(default="1d"),
-    limit: int = Query(default=200, ge=1, le=2000)
+    limit: int = Query(default=200, ge=1, le=2000),
 ) -> dict:
     """Barras OHLC do TimescaleDB (dados locais, sem BRAPI)."""
     try:
         from finanalytics_ai.infrastructure.timescale.repository import (
             TimescaleOHLCRepository,
-            get_timescale_pool
+            get_timescale_pool,
         )
 
         pool = await get_timescale_pool()
@@ -194,7 +194,9 @@ async def get_timescale_ohlc(
         logger.warning("timescale.ohlc.query_failed", ticker=ticker, error=str(exc))
         raise HTTPException(503, detail=f"TimescaleDB indisponível: {exc}") from exc
 
+
 # ── KAFKA PUBLISH (debug / ingestão manual) ───────────────────────────────────
+
 
 @router.post("/publish")
 async def publish_event(body: dict) -> dict:
@@ -207,7 +209,9 @@ async def publish_event(body: dict) -> dict:
     """
     settings = get_settings()
     if not settings.kafka_bootstrap_servers:
-        raise HTTPException(400, detail="Kafka não habilitado. Defina KAFKA_BOOTSTRAP_SERVERS no .env")
+        raise HTTPException(
+            400, detail="Kafka não habilitado. Defina KAFKA_BOOTSTRAP_SERVERS no .env"
+        )
 
     from finanalytics_ai.domain.entities.event import EventType, MarketEvent
     from finanalytics_ai.infrastructure.queue.kafka_adapter import KafkaMarketEventProducer
@@ -217,7 +221,7 @@ async def publish_event(body: dict) -> dict:
             event_type=EventType(body.get("event_type", "price_update")),
             ticker=body.get("ticker", "UNKNOWN").upper(),
             payload=body.get("payload", {}),
-            source=body.get("source", "manual")
+            source=body.get("source", "manual"),
         )
         async with KafkaMarketEventProducer() as producer:
             await producer.publish(event)
@@ -225,7 +229,9 @@ async def publish_event(body: dict) -> dict:
     except Exception as exc:
         raise HTTPException(500, detail=str(exc)) from exc
 
+
 # ── STATUS ────────────────────────────────────────────────────────────────────
+
 
 @router.get("/status")
 async def events_status() -> dict:

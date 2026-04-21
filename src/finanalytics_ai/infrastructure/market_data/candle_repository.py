@@ -139,7 +139,9 @@ async def fetch_candles(
         try:
             rows = await conn.fetch(_SQL_DAILY_BARS, ticker_upper, since_ts)
             if rows:
-                logger.debug("candle.source", ticker=ticker_upper, source="daily_bars", count=len(rows))
+                logger.debug(
+                    "candle.source", ticker=ticker_upper, source="daily_bars", count=len(rows)
+                )
                 return _rows_to_candles(rows), "daily_bars"
         except Exception:
             logger.debug("candle.daily_bars.unavailable", ticker=ticker_upper)
@@ -186,7 +188,10 @@ async def fetch_candles(
                 rows = await conn.fetch(_SQL_FINTZ_OHLCV, ticker_upper, since_ts)
                 if rows:
                     logger.debug(
-                        "candle.source", ticker=ticker_upper, source="fintz_cotacoes_ts", count=len(rows)
+                        "candle.source",
+                        ticker=ticker_upper,
+                        source="fintz_cotacoes_ts",
+                        count=len(rows),
                     )
                     return _rows_to_candles(rows), "fintz_cotacoes_ts"
             except Exception:
@@ -218,9 +223,7 @@ async def fetch_intraday_ticks(
     current_time = now.time()
 
     actual_date = target_date or today
-    mercado_aberto = (
-        actual_date == today and market_open <= current_time <= market_close
-    )
+    mercado_aberto = actual_date == today and market_open <= current_time <= market_close
 
     async with pool.acquire() as conn:
         rows = await conn.fetch(

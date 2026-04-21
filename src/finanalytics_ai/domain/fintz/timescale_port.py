@@ -12,11 +12,7 @@ Por que gravar ANTES de publicar o evento?
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
-
-if TYPE_CHECKING:
-    import pandas as pd
-from finanalytics_ai.domain.fintz.entities import FintzDatasetSpec
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable

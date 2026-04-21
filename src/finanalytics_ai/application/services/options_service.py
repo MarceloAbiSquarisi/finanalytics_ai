@@ -17,18 +17,20 @@ Referencias:
   - Black, F. & Scholes, M. (1973). The Pricing of Options and Corporate Liabilities.
   - Abramowitz, M. & Stegun, I. (1964). Handbook of Mathematical Functions.
 """
+
 from __future__ import annotations
 
+from dataclasses import dataclass
 import math
-from dataclasses import dataclass, field
 from typing import Any
 
 # ─── Constantes ────────────────────────────────────────────────────────────────
 SQRT_2PI = math.sqrt(2 * math.pi)
-SQRT_2   = math.sqrt(2)
+SQRT_2 = math.sqrt(2)
 
 
 # ─── Distribuicao Normal ────────────────────────────────────────────────────────
+
 
 def _norm_pdf(x: float) -> float:
     """Densidade da normal padrao."""
@@ -43,109 +45,112 @@ def _norm_cdf(x: float) -> float:
     sign = 1.0 if x >= 0 else -1.0
     x = abs(x)
     t = 1.0 / (1.0 + 0.2316419 * x)
-    p = t * (0.319381530
-        + t * (-0.356563782
-        + t * (1.781477937
-        + t * (-1.821255978
-        + t * 1.330274429))))
+    p = t * (
+        0.319381530 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429)))
+    )
     cdf = 1.0 - _norm_pdf(x) * p
     return 0.5 + sign * (cdf - 0.5)
 
 
 # ─── Dataclasses ───────────────────────────────────────────────────────────────
 
+
 @dataclass
 class GreeksResult:
     """Resultado do calculo de greeks para uma opcao."""
-    option_type: str          # "call" ou "put"
-    spot: float               # preco atual do ativo
-    strike: float             # preco de exercicio
-    expiry_days: int          # dias ate vencimento
-    volatility: float         # volatilidade anualizada (ex: 0.35 = 35%)
-    rate: float               # taxa livre de risco anualizada (ex: 0.1375)
-    dividend: float           # dividend yield anualizado
 
-    price: float              # preco teorico Black-Scholes
-    delta: float              # sensibilidade ao preco do ativo
-    gamma: float              # variacao do delta
-    theta: float              # decaimento temporal (por dia)
-    vega: float               # sensibilidade a volatilidade (por 1%)
-    rho: float                # sensibilidade a taxa (por 1%)
+    option_type: str  # "call" ou "put"
+    spot: float  # preco atual do ativo
+    strike: float  # preco de exercicio
+    expiry_days: int  # dias ate vencimento
+    volatility: float  # volatilidade anualizada (ex: 0.35 = 35%)
+    rate: float  # taxa livre de risco anualizada (ex: 0.1375)
+    dividend: float  # dividend yield anualizado
 
-    d1: float                 # parametro interno d1
-    d2: float                 # parametro interno d2
-    intrinsic_value: float    # valor intrinseco
-    time_value: float         # valor temporal
-    moneyness: str            # ITM, ATM, OTM
+    price: float  # preco teorico Black-Scholes
+    delta: float  # sensibilidade ao preco do ativo
+    gamma: float  # variacao do delta
+    theta: float  # decaimento temporal (por dia)
+    vega: float  # sensibilidade a volatilidade (por 1%)
+    rho: float  # sensibilidade a taxa (por 1%)
+
+    d1: float  # parametro interno d1
+    d2: float  # parametro interno d2
+    intrinsic_value: float  # valor intrinseco
+    time_value: float  # valor temporal
+    moneyness: str  # ITM, ATM, OTM
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "option_type":     self.option_type,
-            "spot":            round(self.spot, 4),
-            "strike":          round(self.strike, 4),
-            "expiry_days":     self.expiry_days,
-            "volatility":      round(self.volatility * 100, 2),  # em %
-            "rate":            round(self.rate * 100, 2),          # em %
-            "dividend":        round(self.dividend * 100, 2),      # em %
-            "price":           round(self.price, 4),
-            "delta":           round(self.delta, 4),
-            "gamma":           round(self.gamma, 4),
-            "theta":           round(self.theta, 4),
-            "vega":            round(self.vega, 4),
-            "rho":             round(self.rho, 4),
-            "d1":              round(self.d1, 4),
-            "d2":              round(self.d2, 4),
+            "option_type": self.option_type,
+            "spot": round(self.spot, 4),
+            "strike": round(self.strike, 4),
+            "expiry_days": self.expiry_days,
+            "volatility": round(self.volatility * 100, 2),  # em %
+            "rate": round(self.rate * 100, 2),  # em %
+            "dividend": round(self.dividend * 100, 2),  # em %
+            "price": round(self.price, 4),
+            "delta": round(self.delta, 4),
+            "gamma": round(self.gamma, 4),
+            "theta": round(self.theta, 4),
+            "vega": round(self.vega, 4),
+            "rho": round(self.rho, 4),
+            "d1": round(self.d1, 4),
+            "d2": round(self.d2, 4),
             "intrinsic_value": round(self.intrinsic_value, 4),
-            "time_value":      round(self.time_value, 4),
-            "moneyness":       self.moneyness,
+            "time_value": round(self.time_value, 4),
+            "moneyness": self.moneyness,
         }
 
 
 @dataclass
 class ImpliedVolResult:
     """Resultado do calculo de volatilidade implicita."""
+
     option_type: str
     market_price: float
     spot: float
     strike: float
     expiry_days: int
     rate: float
-    implied_vol: float | None   # None se nao convergiu
+    implied_vol: float | None  # None se nao convergiu
     iterations: int
     converged: bool
     error: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "option_type":  self.option_type,
+            "option_type": self.option_type,
             "market_price": round(self.market_price, 4),
-            "spot":         round(self.spot, 4),
-            "strike":       round(self.strike, 4),
-            "expiry_days":  self.expiry_days,
-            "rate":         round(self.rate * 100, 2),
-            "implied_vol":  round(self.implied_vol * 100, 2) if self.implied_vol else None,
-            "converged":    self.converged,
-            "iterations":   self.iterations,
-            "error":        self.error,
+            "spot": round(self.spot, 4),
+            "strike": round(self.strike, 4),
+            "expiry_days": self.expiry_days,
+            "rate": round(self.rate * 100, 2),
+            "implied_vol": round(self.implied_vol * 100, 2) if self.implied_vol else None,
+            "converged": self.converged,
+            "iterations": self.iterations,
+            "error": self.error,
         }
 
 
 @dataclass
 class StrategyLeg:
     """Uma perna de uma estrategia de opcoes."""
-    option_type: str    # "call" ou "put"
+
+    option_type: str  # "call" ou "put"
     strike: float
-    quantity: int       # positivo = comprado, negativo = vendido
+    quantity: int  # positivo = comprado, negativo = vendido
     greeks: GreeksResult | None = None
 
 
 @dataclass
 class StrategyResult:
     """Resultado de uma estrategia composta."""
+
     name: str
     description: str
     legs: list[StrategyLeg]
-    total_premium: float     # positivo = debito, negativo = credito
+    total_premium: float  # positivo = debito, negativo = credito
     max_profit: float | None
     max_loss: float | None
     breakevens: list[float]
@@ -156,23 +161,23 @@ class StrategyResult:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "name":          self.name,
-            "description":   self.description,
+            "name": self.name,
+            "description": self.description,
             "total_premium": round(self.total_premium, 4),
-            "max_profit":    round(self.max_profit, 4) if self.max_profit is not None else None,
-            "max_loss":      round(self.max_loss, 4) if self.max_loss is not None else None,
-            "breakevens":    [round(b, 4) for b in self.breakevens],
-            "delta":         round(self.delta, 4),
-            "gamma":         round(self.gamma, 4),
-            "theta":         round(self.theta, 4),
-            "vega":          round(self.vega, 4),
+            "max_profit": round(self.max_profit, 4) if self.max_profit is not None else None,
+            "max_loss": round(self.max_loss, 4) if self.max_loss is not None else None,
+            "breakevens": [round(b, 4) for b in self.breakevens],
+            "delta": round(self.delta, 4),
+            "gamma": round(self.gamma, 4),
+            "theta": round(self.theta, 4),
+            "vega": round(self.vega, 4),
             "legs": [
                 {
                     "option_type": leg.option_type,
-                    "strike":      round(leg.strike, 4),
-                    "quantity":    leg.quantity,
-                    "price":       round(leg.greeks.price, 4) if leg.greeks else None,
-                    "delta":       round(leg.greeks.delta, 4) if leg.greeks else None,
+                    "strike": round(leg.strike, 4),
+                    "quantity": leg.quantity,
+                    "price": round(leg.greeks.price, 4) if leg.greeks else None,
+                    "delta": round(leg.greeks.delta, 4) if leg.greeks else None,
                 }
                 for leg in self.legs
             ],
@@ -180,6 +185,7 @@ class StrategyResult:
 
 
 # ─── Black-Scholes ──────────────────────────────────────────────────────────────
+
 
 class OptionsService:
     """
@@ -228,15 +234,15 @@ class OptionsService:
         sqrtT = math.sqrt(T)
 
         # d1, d2
-        d1 = (math.log(spot / strike) + (r - q + 0.5 * volatility ** 2) * T) / (volatility * sqrtT)
+        d1 = (math.log(spot / strike) + (r - q + 0.5 * volatility**2) * T) / (volatility * sqrtT)
         d2 = d1 - volatility * sqrtT
 
         # CDF e PDF
-        Nd1  = _norm_cdf(d1)
-        Nd2  = _norm_cdf(d2)
+        Nd1 = _norm_cdf(d1)
+        Nd2 = _norm_cdf(d2)
         Nmd1 = _norm_cdf(-d1)
         Nmd2 = _norm_cdf(-d2)
-        nd1  = _norm_pdf(d1)
+        nd1 = _norm_pdf(d1)
 
         discount = math.exp(-r * T)
         div_disc = math.exp(-q * T)
@@ -244,21 +250,21 @@ class OptionsService:
         if option_type == "call":
             price = spot * div_disc * Nd1 - strike * discount * Nd2
             delta = div_disc * Nd1
-            rho   = strike * T * discount * Nd2 / 100
+            rho = strike * T * discount * Nd2 / 100
             intrinsic = max(spot - strike, 0.0)
         else:
             price = strike * discount * Nmd2 - spot * div_disc * Nmd1
             delta = -div_disc * Nmd1
-            rho   = -strike * T * discount * Nmd2 / 100
+            rho = -strike * T * discount * Nmd2 / 100
             intrinsic = max(strike - spot, 0.0)
 
         gamma = div_disc * nd1 / (spot * volatility * sqrtT)
-        vega  = spot * div_disc * nd1 * sqrtT / 100   # por 1% de vol
+        vega = spot * div_disc * nd1 * sqrtT / 100  # por 1% de vol
         theta = (
             -(spot * div_disc * nd1 * volatility) / (2 * sqrtT)
             - r * strike * discount * (Nd2 if option_type == "call" else -Nmd2)
             + q * spot * div_disc * (Nd1 if option_type == "call" else -Nmd1)
-        ) / 365.0   # por dia
+        ) / 365.0  # por dia
 
         time_value = max(price - intrinsic, 0.0)
 
@@ -272,11 +278,24 @@ class OptionsService:
             moneyness = "ATM"
 
         return GreeksResult(
-            option_type=option_type, spot=spot, strike=strike,
-            expiry_days=expiry_days, volatility=volatility, rate=r, dividend=q,
-            price=price, delta=delta, gamma=gamma, theta=theta, vega=vega, rho=rho,
-            d1=d1, d2=d2, intrinsic_value=intrinsic,
-            time_value=time_value, moneyness=moneyness,
+            option_type=option_type,
+            spot=spot,
+            strike=strike,
+            expiry_days=expiry_days,
+            volatility=volatility,
+            rate=r,
+            dividend=q,
+            price=price,
+            delta=delta,
+            gamma=gamma,
+            theta=theta,
+            vega=vega,
+            rho=rho,
+            d1=d1,
+            d2=d2,
+            intrinsic_value=intrinsic,
+            time_value=time_value,
+            moneyness=moneyness,
         )
 
     def implied_volatility(
@@ -310,9 +329,10 @@ class OptionsService:
 
         def vega_fn(vol: float) -> float:
             try:
-                return self.calculate_greeks(
-                    option_type, spot, strike, expiry_days, vol, r, q
-                ).vega * 100  # converte de por-1% para por-unidade
+                return (
+                    self.calculate_greeks(option_type, spot, strike, expiry_days, vol, r, q).vega
+                    * 100
+                )  # converte de por-1% para por-unidade
             except Exception:
                 return 0.0
 
@@ -331,9 +351,15 @@ class OptionsService:
             diff = p - market_price
             if abs(diff) < tol:
                 return ImpliedVolResult(
-                    option_type=option_type, market_price=market_price,
-                    spot=spot, strike=strike, expiry_days=expiry_days, rate=r,
-                    implied_vol=vol, iterations=iterations, converged=True,
+                    option_type=option_type,
+                    market_price=market_price,
+                    spot=spot,
+                    strike=strike,
+                    expiry_days=expiry_days,
+                    rate=r,
+                    implied_vol=vol,
+                    iterations=iterations,
+                    converged=True,
                 )
             v = vega_fn(vol)
             if abs(v) < 1e-10:
@@ -350,9 +376,15 @@ class OptionsService:
             diff = p - market_price
             if abs(diff) < tol:
                 return ImpliedVolResult(
-                    option_type=option_type, market_price=market_price,
-                    spot=spot, strike=strike, expiry_days=expiry_days, rate=r,
-                    implied_vol=mid, iterations=iterations, converged=True,
+                    option_type=option_type,
+                    market_price=market_price,
+                    spot=spot,
+                    strike=strike,
+                    expiry_days=expiry_days,
+                    rate=r,
+                    implied_vol=mid,
+                    iterations=iterations,
+                    converged=True,
                 )
             if diff > 0:
                 hi = mid
@@ -360,9 +392,15 @@ class OptionsService:
                 lo = mid
 
         return ImpliedVolResult(
-            option_type=option_type, market_price=market_price,
-            spot=spot, strike=strike, expiry_days=expiry_days, rate=r,
-            implied_vol=None, iterations=iterations, converged=False,
+            option_type=option_type,
+            market_price=market_price,
+            spot=spot,
+            strike=strike,
+            expiry_days=expiry_days,
+            rate=r,
+            implied_vol=None,
+            iterations=iterations,
+            converged=False,
             error="Nao convergiu apos biseccao",
         )
 
@@ -388,66 +426,85 @@ class OptionsService:
         legs: list[StrategyLeg],
     ) -> StrategyResult:
         """Agrega greeks e calcula P&L de uma estrategia."""
-        premium = sum(
-            l.quantity * l.greeks.price for l in legs if l.greeks
-        )
+        premium = sum(l.quantity * l.greeks.price for l in legs if l.greeks)
         delta = sum(l.quantity * l.greeks.delta for l in legs if l.greeks)
         gamma = sum(l.quantity * l.greeks.gamma for l in legs if l.greeks)
         theta = sum(l.quantity * l.greeks.theta for l in legs if l.greeks)
-        vega  = sum(l.quantity * l.greeks.vega  for l in legs if l.greeks)
+        vega = sum(l.quantity * l.greeks.vega for l in legs if l.greeks)
 
         return StrategyResult(
-            name=name, description=description, legs=legs,
+            name=name,
+            description=description,
+            legs=legs,
             total_premium=premium,
-            max_profit=None, max_loss=None, breakevens=[],
-            delta=delta, gamma=gamma, theta=theta, vega=vega,
+            max_profit=None,
+            max_loss=None,
+            breakevens=[],
+            delta=delta,
+            gamma=gamma,
+            theta=theta,
+            vega=vega,
         )
 
     def straddle(
-        self, spot: float, strike: float,
-        expiry_days: int, vol: float, rate: float | None = None,
+        self,
+        spot: float,
+        strike: float,
+        expiry_days: int,
+        vol: float,
+        rate: float | None = None,
     ) -> StrategyResult:
         """Straddle: compra call + put no mesmo strike."""
         r = rate or self.DEFAULT_RATE
         call = self._leg("call", spot, strike, expiry_days, vol, r, 1)
-        put  = self._leg("put",  spot, strike, expiry_days, vol, r, 1)
+        put = self._leg("put", spot, strike, expiry_days, vol, r, 1)
         prem = call.greeks.price + put.greeks.price
         s = self._build_strategy(
             "Straddle",
             "Compra call + put no mesmo strike. Lucra com grande movimento em qualquer direcao.",
             [call, put],
         )
-        s.max_loss    = prem
-        s.max_profit  = None  # teoricamente ilimitado
-        s.breakevens  = [strike - prem, strike + prem]
+        s.max_loss = prem
+        s.max_profit = None  # teoricamente ilimitado
+        s.breakevens = [strike - prem, strike + prem]
         return s
 
     def strangle(
-        self, spot: float, strike_put: float, strike_call: float,
-        expiry_days: int, vol: float, rate: float | None = None,
+        self,
+        spot: float,
+        strike_put: float,
+        strike_call: float,
+        expiry_days: int,
+        vol: float,
+        rate: float | None = None,
     ) -> StrategyResult:
         """Strangle: compra put OTM + call OTM em strikes diferentes."""
         r = rate or self.DEFAULT_RATE
         call = self._leg("call", spot, strike_call, expiry_days, vol, r, 1)
-        put  = self._leg("put",  spot, strike_put,  expiry_days, vol, r, 1)
+        put = self._leg("put", spot, strike_put, expiry_days, vol, r, 1)
         prem = call.greeks.price + put.greeks.price
         s = self._build_strategy(
             "Strangle",
             "Compra put OTM + call OTM. Mais barato que straddle, requer movimento maior.",
             [put, call],
         )
-        s.max_loss   = prem
+        s.max_loss = prem
         s.max_profit = None
         s.breakevens = [strike_put - prem, strike_call + prem]
         return s
 
     def bull_call_spread(
-        self, spot: float, strike_low: float, strike_high: float,
-        expiry_days: int, vol: float, rate: float | None = None,
+        self,
+        spot: float,
+        strike_low: float,
+        strike_high: float,
+        expiry_days: int,
+        vol: float,
+        rate: float | None = None,
     ) -> StrategyResult:
         """Bull Call Spread: compra call ATM + vende call OTM."""
         r = rate or self.DEFAULT_RATE
-        long_call  = self._leg("call", spot, strike_low,  expiry_days, vol, r,  1)
+        long_call = self._leg("call", spot, strike_low, expiry_days, vol, r, 1)
         short_call = self._leg("call", spot, strike_high, expiry_days, vol, r, -1)
         prem = long_call.greeks.price - short_call.greeks.price
         s = self._build_strategy(
@@ -455,67 +512,83 @@ class OptionsService:
             "Compra call + vende call OTM. Custo menor, lucro limitado. Bom para alta moderada.",
             [long_call, short_call],
         )
-        s.max_loss   = prem
+        s.max_loss = prem
         s.max_profit = (strike_high - strike_low) - prem
         s.breakevens = [strike_low + prem]
         return s
 
     def bear_put_spread(
-        self, spot: float, strike_high: float, strike_low: float,
-        expiry_days: int, vol: float, rate: float | None = None,
+        self,
+        spot: float,
+        strike_high: float,
+        strike_low: float,
+        expiry_days: int,
+        vol: float,
+        rate: float | None = None,
     ) -> StrategyResult:
         """Bear Put Spread: compra put ATM + vende put OTM."""
         r = rate or self.DEFAULT_RATE
-        long_put  = self._leg("put", spot, strike_high, expiry_days, vol, r,  1)
-        short_put = self._leg("put", spot, strike_low,  expiry_days, vol, r, -1)
+        long_put = self._leg("put", spot, strike_high, expiry_days, vol, r, 1)
+        short_put = self._leg("put", spot, strike_low, expiry_days, vol, r, -1)
         prem = long_put.greeks.price - short_put.greeks.price
         s = self._build_strategy(
             "Bear Put Spread",
             "Compra put + vende put OTM. Custo menor, lucro limitado. Bom para queda moderada.",
             [long_put, short_put],
         )
-        s.max_loss   = prem
+        s.max_loss = prem
         s.max_profit = (strike_high - strike_low) - prem
         s.breakevens = [strike_high - prem]
         return s
 
     def iron_condor(
-        self, spot: float,
-        strike_put_low: float, strike_put_high: float,
-        strike_call_low: float, strike_call_high: float,
-        expiry_days: int, vol: float, rate: float | None = None,
+        self,
+        spot: float,
+        strike_put_low: float,
+        strike_put_high: float,
+        strike_call_low: float,
+        strike_call_high: float,
+        expiry_days: int,
+        vol: float,
+        rate: float | None = None,
     ) -> StrategyResult:
         """Iron Condor: vende put spread + vende call spread. Ideal para baixa volatilidade."""
         r = rate or self.DEFAULT_RATE
-        lp = self._leg("put",  spot, strike_put_low,   expiry_days, vol, r,  1)
-        sp = self._leg("put",  spot, strike_put_high,  expiry_days, vol, r, -1)
-        sc = self._leg("call", spot, strike_call_low,  expiry_days, vol, r, -1)
-        lc = self._leg("call", spot, strike_call_high, expiry_days, vol, r,  1)
+        lp = self._leg("put", spot, strike_put_low, expiry_days, vol, r, 1)
+        sp = self._leg("put", spot, strike_put_high, expiry_days, vol, r, -1)
+        sc = self._leg("call", spot, strike_call_low, expiry_days, vol, r, -1)
+        lc = self._leg("call", spot, strike_call_high, expiry_days, vol, r, 1)
         credit = (sp.greeks.price - lp.greeks.price) + (sc.greeks.price - lc.greeks.price)
-        wing_put  = strike_put_high  - strike_put_low
+        wing_put = strike_put_high - strike_put_low
         wing_call = strike_call_high - strike_call_low
-        max_loss  = max(wing_put, wing_call) - credit
+        max_loss = max(wing_put, wing_call) - credit
         s = self._build_strategy(
             "Iron Condor",
             "4 pernas: ideal para ativo em range. Recebe credito, perde se ativo sair do corredor.",
             [lp, sp, sc, lc],
         )
         s.max_profit = credit
-        s.max_loss   = max_loss
+        s.max_loss = max_loss
         s.breakevens = [strike_put_high - credit, strike_call_low + credit]
         s.total_premium = -credit  # credito = negativo por convencao
         return s
 
     def butterfly(
-        self, spot: float, strike_low: float, strike_mid: float, strike_high: float,
-        expiry_days: int, vol: float, rate: float | None = None,
+        self,
+        spot: float,
+        strike_low: float,
+        strike_mid: float,
+        strike_high: float,
+        expiry_days: int,
+        vol: float,
+        rate: float | None = None,
         option_type: str = "call",
     ) -> StrategyResult:
         """Butterfly: compra 2 extremos + vende 2 do meio."""
         r = rate or self.DEFAULT_RATE
-        l1 = self._leg(option_type, spot, strike_low,  expiry_days, vol, r,  1)
-        s1 = self._leg(option_type, spot, strike_mid,  expiry_days, vol, r, -2)
-        l2 = self._leg(option_type, spot, strike_high, expiry_days, vol, r,  1)
+        l1 = self._leg(option_type, spot, strike_low, expiry_days, vol, r, 1)
+        s1 = self._leg(option_type, spot, strike_mid, expiry_days, vol, r, -2)
+        l2 = self._leg(option_type, spot, strike_high, expiry_days, vol, r, 1)
         prem = l1.greeks.price - 2 * s1.greeks.price + l2.greeks.price
         wing = strike_mid - strike_low
         s = self._build_strategy(
@@ -524,13 +597,17 @@ class OptionsService:
             [l1, s1, l2],
         )
         s.max_profit = wing - prem
-        s.max_loss   = prem
+        s.max_loss = prem
         s.breakevens = [strike_low + prem, strike_high - prem]
         return s
 
     def covered_call(
-        self, spot: float, strike: float,
-        expiry_days: int, vol: float, rate: float | None = None,
+        self,
+        spot: float,
+        strike: float,
+        expiry_days: int,
+        vol: float,
+        rate: float | None = None,
     ) -> StrategyResult:
         """Covered Call: posicao comprada + venda de call."""
         r = rate or self.DEFAULT_RATE
@@ -543,8 +620,8 @@ class OptionsService:
             [short_call],
         )
         s.max_profit = (strike - spot) + premium_received
-        s.max_loss   = spot - premium_received  # perda maxima teorica
+        s.max_loss = spot - premium_received  # perda maxima teorica
         s.breakevens = [spot - premium_received]
-        s.delta      = 1.0 + short_call.greeks.delta  # inclui a acao
+        s.delta = 1.0 + short_call.greeks.delta  # inclui a acao
         s.total_premium = -premium_received  # credito
         return s

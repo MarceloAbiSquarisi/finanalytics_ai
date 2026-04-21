@@ -1,7 +1,10 @@
 """startup/producers.py — BRAPI Price Producer."""
+
 from __future__ import annotations
+
 import asyncio
 from typing import Any
+
 import structlog
 
 log = structlog.get_logger(__name__)
@@ -9,8 +12,9 @@ log = structlog.get_logger(__name__)
 
 async def init_price_producer(app, settings) -> tuple[Any, Any]:
     try:
-        from finanalytics_ai.infrastructure.queue.kafka_adapter import KafkaMarketEventProducer
         from finanalytics_ai.application.services.price_update_service import PriceUpdateService
+        from finanalytics_ai.infrastructure.queue.kafka_adapter import KafkaMarketEventProducer
+
         producer = KafkaMarketEventProducer()
         await producer.start()
         tickers = list(getattr(settings, "watched_tickers", ["PETR4", "VALE3", "ITUB4", "ABEV3"]))

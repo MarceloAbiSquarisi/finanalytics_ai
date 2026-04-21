@@ -7,11 +7,12 @@ GET  /api/v1/sentiment/scan          -- busca + analisa noticias RSS
 POST /api/v1/sentiment/analyze       -- analisa texto livre
 GET  /api/v1/sentiment/scan/{ticker} -- noticias de um ticker especifico
 """
+
 from typing import Any
 
-import structlog
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+import structlog
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/sentiment", tags=["Sentimento"])
@@ -25,6 +26,7 @@ def _get_service(request: Request) -> Any:
 
 
 # ─── Scan RSS ─────────────────────────────────────────────────────────────────
+
 
 @router.get("/scan", summary="Busca e analisa noticias do RSS")
 async def scan_news(
@@ -47,7 +49,9 @@ async def scan_news(
         if not news_items:
             return {
                 "total": 0,
-                "positivas": 0, "negativas": 0, "neutras": 0,
+                "positivas": 0,
+                "negativas": 0,
+                "neutras": 0,
                 "score_medio": 0.0,
                 "tickers_impactados": {},
                 "results": [],
@@ -64,6 +68,7 @@ async def scan_news(
 
 
 # ─── Ticker especifico ────────────────────────────────────────────────────────
+
 
 @router.get("/scan/{ticker}", summary="Noticias de um ticker especifico")
 async def scan_ticker(
@@ -92,6 +97,7 @@ async def scan_ticker(
 
 
 # ─── Analise de texto livre ───────────────────────────────────────────────────
+
 
 class AnalyzeRequest(BaseModel):
     title: str = Field(..., description="Titulo da noticia")

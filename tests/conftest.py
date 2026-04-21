@@ -40,14 +40,16 @@ def unit_settings(**overrides: Any) -> Settings:
         def custom_settings(unit_settings):
             return unit_settings.model_copy(update={"event_max_retries": 1})
     """
-    return Settings.model_validate({
-        "database_url": "postgresql+asyncpg://test:test@localhost/test",
-        "app_secret_key": "test-secret-key-16chars",
-        "event_max_retries": 5,
-        "event_retry_base_delay": 0.001,
-        "event_processor_concurrency": 10,
-        "metrics_enabled": False,
-        "log_level": "ERROR",
-        "log_format": "text",
-        **overrides,
-    })
+    return Settings.model_validate(
+        {
+            "database_url": "postgresql+asyncpg://test:test@localhost/test",
+            "app_secret_key": "test-secret-key-16chars",
+            "event_max_retries": 5,
+            "event_retry_base_delay": 0.001,
+            "event_processor_concurrency": 10,
+            "metrics_enabled": False,
+            "log_level": "ERROR",
+            "log_format": "text",
+            **overrides,
+        }
+    )

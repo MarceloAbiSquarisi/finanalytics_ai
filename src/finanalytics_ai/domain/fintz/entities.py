@@ -18,9 +18,8 @@ Design decisions:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TypedDict
-
 
 # ── Row types (dados brutos dos parquets) ────────────────────────────────────
 
@@ -29,7 +28,7 @@ class CotacaoRow(TypedDict):
     """Linha do parquet de cotações OHLC (todos os tickers)."""
 
     ticker: str
-    data: str                    # "YYYY-MM-DD"
+    data: str  # "YYYY-MM-DD"
     precoFechamento: float | None
     precoFechamentoAjustado: float | None
     precoAbertura: float | None
@@ -44,9 +43,9 @@ class ItemContabilRow(TypedDict):
 
     ticker: str
     item: str
-    tipoPeriodo: str             # "12M" | "TRIMESTRAL"
-    tipoDemonstracao: str | None # "CONSOLIDADO" | "INDIVIDUAL"
-    data: str                    # data de publicação — ponto no tempo (PIT)
+    tipoPeriodo: str  # "12M" | "TRIMESTRAL"
+    tipoDemonstracao: str | None  # "CONSOLIDADO" | "INDIVIDUAL"
+    data: str  # data de publicação — ponto no tempo (PIT)
     ano: int
     trimestre: int
     valor: float | None
@@ -57,7 +56,7 @@ class IndicadorRow(TypedDict):
 
     ticker: str
     indicador: str
-    data: str                    # data de publicação — ponto no tempo (PIT)
+    data: str  # data de publicação — ponto no tempo (PIT)
     valor: float | None
 
 
@@ -175,47 +174,55 @@ def _build_catalog() -> list[FintzDatasetSpec]:
     catalog: list[FintzDatasetSpec] = []
 
     # ── Cotações OHLC (1 arquivo, todos os tickers) ──────────────────────────
-    catalog.append(FintzDatasetSpec(
-        key="cotacoes_ohlc",
-        endpoint="/bolsa/b3/avista/cotacoes/historico/arquivos",
-        params={},
-        dataset_type="cotacoes",
-        description="Cotações OHLC diárias — todos os tickers B3 desde 2010",
-    ))
+    catalog.append(
+        FintzDatasetSpec(
+            key="cotacoes_ohlc",
+            endpoint="/bolsa/b3/avista/cotacoes/historico/arquivos",
+            params={},
+            dataset_type="cotacoes",
+            description="Cotações OHLC diárias — todos os tickers B3 desde 2010",
+        )
+    )
 
     # ── Itens contábeis PIT ──────────────────────────────────────────────────
     _item_endpoint = "/bolsa/b3/avista/itens-contabeis/point-in-time/arquivos"
 
     for item in _ITEMS_12M_AND_TRI:
         for periodo in ("12M", "TRIMESTRAL"):
-            catalog.append(FintzDatasetSpec(
-                key=f"item_{item}_{periodo}",
-                endpoint=_item_endpoint,
-                params={"item": item, "tipoPeriodo": periodo},
-                dataset_type="item_contabil",
-                description=f"Item contábil PIT: {item} ({periodo})",
-            ))
+            catalog.append(
+                FintzDatasetSpec(
+                    key=f"item_{item}_{periodo}",
+                    endpoint=_item_endpoint,
+                    params={"item": item, "tipoPeriodo": periodo},
+                    dataset_type="item_contabil",
+                    description=f"Item contábil PIT: {item} ({periodo})",
+                )
+            )
 
     for item in _ITEMS_TRI_ONLY:
-        catalog.append(FintzDatasetSpec(
-            key=f"item_{item}_TRIMESTRAL",
-            endpoint=_item_endpoint,
-            params={"item": item, "tipoPeriodo": "TRIMESTRAL"},
-            dataset_type="item_contabil",
-            description=f"Item contábil PIT: {item} (TRIMESTRAL)",
-        ))
+        catalog.append(
+            FintzDatasetSpec(
+                key=f"item_{item}_TRIMESTRAL",
+                endpoint=_item_endpoint,
+                params={"item": item, "tipoPeriodo": "TRIMESTRAL"},
+                dataset_type="item_contabil",
+                description=f"Item contábil PIT: {item} (TRIMESTRAL)",
+            )
+        )
 
     # ── Indicadores PIT ──────────────────────────────────────────────────────
     _ind_endpoint = "/bolsa/b3/avista/indicadores/point-in-time/arquivos"
 
     for indicador in _INDICADORES:
-        catalog.append(FintzDatasetSpec(
-            key=f"indicador_{indicador}",
-            endpoint=_ind_endpoint,
-            params={"indicador": indicador},
-            dataset_type="indicador",
-            description=f"Indicador PIT: {indicador}",
-        ))
+        catalog.append(
+            FintzDatasetSpec(
+                key=f"indicador_{indicador}",
+                endpoint=_ind_endpoint,
+                params={"indicador": indicador},
+                dataset_type="indicador",
+                description=f"Indicador PIT: {indicador}",
+            )
+        )
 
     return catalog
 

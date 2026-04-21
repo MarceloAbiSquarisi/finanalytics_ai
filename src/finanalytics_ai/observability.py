@@ -14,18 +14,18 @@ Pattern: Context manager para spans manuais, decorator para funções.
 
 from __future__ import annotations
 
-import functools
-import time
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
+import functools
+import time
 from typing import Any, TypeVar
 
-import structlog
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from prometheus_client import Counter, Histogram, start_http_server
+import structlog
 
 from finanalytics_ai.config import get_settings
 

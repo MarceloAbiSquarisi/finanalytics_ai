@@ -18,8 +18,8 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import json
 from dataclasses import dataclass
+import json
 from typing import TYPE_CHECKING, Any
 
 import structlog

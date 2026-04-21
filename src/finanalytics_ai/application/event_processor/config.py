@@ -9,6 +9,7 @@ Alternative considerada: dataclass + os.getenv() manual.
 Rejeitada porque: sem validacao automatica de tipos, sem .env file support,
 mais verboso sem ganho arquitetural real.
 """
+
 from __future__ import annotations
 
 from pydantic import Field, field_validator
@@ -76,9 +77,7 @@ class EventProcessorConfig(BaseSettings):
         data = getattr(info, "data", {})
         base = data.get("retry_base_delay", 1.0)
         if v < base:
-            raise ValueError(
-                f"retry_max_delay ({v}) deve ser >= retry_base_delay ({base})"
-            )
+            raise ValueError(f"retry_max_delay ({v}) deve ser >= retry_base_delay ({base})")
         return v
 
     model_config = {

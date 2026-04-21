@@ -40,8 +40,8 @@ Headers de resposta (RFC 6585 / IETF draft-polli):
 
 from __future__ import annotations
 
-import time
 from collections import deque
+import time
 from typing import Protocol, runtime_checkable
 
 import structlog

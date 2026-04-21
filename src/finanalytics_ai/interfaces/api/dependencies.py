@@ -35,23 +35,28 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 # Singleton do cliente BRAPI (reutiliza conexão HTTP)
 _brapi_client: BrapiClient | None = None
 
+
 def get_brapi_client() -> BrapiClient:
     global _brapi_client
     if _brapi_client is None:
         _brapi_client = BrapiClient()
     return _brapi_client
 
+
 def get_cvm() -> CvmClient:
     """Retorna o singleton do CvmClient (CVM Dados Abertos — gratuito)."""
     return get_cvm_client()
+
 
 def get_focus() -> FocusClient:
     """Retorna o singleton do FocusClient (BCB Olinda API — gratuito)."""
     return get_focus_client()
 
+
 def get_dados_mercado() -> DadosDeMercadoClient:
     """Retorna o singleton do DadosDeMercadoClient (token gratuito necessário)."""
     return get_dados_mercado_client()
+
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     factory = get_session_factory()
@@ -63,9 +68,9 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
             await session.rollback()
             raise
 
+
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    session: AsyncSession = Depends(get_db_session)
+    token: str = Depends(oauth2_scheme), session: AsyncSession = Depends(get_db_session)
 ) -> User:
     """
     Dependência de autenticação para rotas protegidas.
@@ -87,7 +92,7 @@ async def get_current_user(
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Não autenticado. Faça login para continuar.",
-        headers={"WWW-Authenticate": "Bearer"}
+        headers={"WWW-Authenticate": "Bearer"},
     )
     try:
         payload = get_jwt_handler().decode(token)
@@ -97,7 +102,7 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token expirado ou inválido. Faça login novamente.",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         ) from None
 
     user = await UserRepository(session).find_by_id(payload.sub)
@@ -105,23 +110,23 @@ async def get_current_user(
         raise credentials_exception
     return user
 
+
 async def get_portfolio_service(
-    session: AsyncSession = Depends(get_db_session),
-    brapi: BrapiClient = Depends(get_brapi_client)
+    session: AsyncSession = Depends(get_db_session), brapi: BrapiClient = Depends(get_brapi_client)
 ) -> PortfolioService:
     repo = SQLPortfolioRepository(session)
     return PortfolioService(repo=repo, market_data=brapi)
 
+
 async def get_event_processor(
-    session: AsyncSession = Depends(get_db_session),
-    brapi: BrapiClient = Depends(get_brapi_client)
+    session: AsyncSession = Depends(get_db_session), brapi: BrapiClient = Depends(get_brapi_client)
 ) -> EventProcessorService:
     store = SQLEventStore(session)
     return EventProcessorService(event_store=store, market_data=brapi)
 
+
 async def get_watchlist_service(
-    request: Request,
-    session: AsyncSession = Depends(get_db_session)
+    request: Request, session: AsyncSession = Depends(get_db_session)
 ) -> WatchlistService:
     """
     Cria WatchlistService com sessão gerenciada pelo get_db_session.
@@ -132,7 +137,7 @@ async def get_watchlist_service(
 
     from finanalytics_ai.application.services.watchlist_service import WatchlistService
     from finanalytics_ai.infrastructure.database.repositories.watchlist_repo import (
-        WatchlistRepository
+        WatchlistRepository,
     )
 
     market = getattr(request.app.state, "market_client", None)

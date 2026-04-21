@@ -1,7 +1,10 @@
 """startup/kafka.py — Kafka consumer."""
+
 from __future__ import annotations
+
 import asyncio
 from typing import Any
+
 import structlog
 
 log = structlog.get_logger(__name__)
@@ -10,11 +13,13 @@ log = structlog.get_logger(__name__)
 async def init_kafka(app, alert_service: Any, timescale_ok: bool) -> tuple[Any, Any]:
     try:
         from finanalytics_ai.infrastructure.queue.kafka_adapter import KafkaMarketEventConsumer
+
         consumer = KafkaMarketEventConsumer()
         await consumer.start()
 
         async def _handle(event: Any) -> None:
             from finanalytics_ai.domain.entities.event import EventType, MarketEvent
+
             if not isinstance(event, MarketEvent):
                 return
             if event.event_type == EventType.PRICE_UPDATE and alert_service:
@@ -37,8 +42,10 @@ async def init_kafka(app, alert_service: Any, timescale_ok: bool) -> tuple[Any, 
 async def _save_tick(event: Any) -> None:
     try:
         from finanalytics_ai.infrastructure.timescale.repository import (
-            TimescalePriceTickRepository, get_timescale_pool,
+            TimescalePriceTickRepository,
+            get_timescale_pool,
         )
+
         pool = await get_timescale_pool()
         repo = TimescalePriceTickRepository(pool)
         await repo.save_tick(

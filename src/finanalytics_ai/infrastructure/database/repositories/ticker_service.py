@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
 import logging
-from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -35,26 +35,66 @@ class TickerService:
             )
             rows = (await session.execute(stmt)).scalars().all()
             return [
-                {"ticker": r.ticker, "name": r.name or "", "type": r.ticker_type or "stock"} for r in rows
+                {"ticker": r.ticker, "name": r.name or "", "type": r.ticker_type or "stock"}
+                for r in rows
             ]
 
     async def count(self) -> int:
         async with self._sf() as session:
-            return (await session.execute(select(func.count()).select_from(TickerModel))).scalar() or 0
+            return (
+                await session.execute(select(func.count()).select_from(TickerModel))
+            ).scalar() or 0
 
 
 def _guess_type(ticker: str) -> str:
     t = ticker.upper()
     # ETFs conhecidos (terminam em 11 mas sao ETFs)
-    _ETF_KEYWORDS = ["BOVA", "SMAL", "IVVB", "HASH", "GOLD", "FIND",
-                     "DIVO", "SPXI", "MATB", "ECOO", "GOVE", "XFIX",
-                     "NASD", "ACWI", "USTK", "BBSD", "BBVO", "FIXA"]
+    _ETF_KEYWORDS = [
+        "BOVA",
+        "SMAL",
+        "IVVB",
+        "HASH",
+        "GOLD",
+        "FIND",
+        "DIVO",
+        "SPXI",
+        "MATB",
+        "ECOO",
+        "GOVE",
+        "XFIX",
+        "NASD",
+        "ACWI",
+        "USTK",
+        "BBSD",
+        "BBVO",
+        "FIXA",
+    ]
     # Acoes que terminam em 11 (units) — NAO sao FIIs
     _UNITS_STOCKS = [
-        "BPAC11", "BBSE11", "SAPR11", "TAEE11", "KLBN11", "ENGI11",
-        "SANB11", "BPAN11", "WIZC11", "CASH11", "TIMS11", "EVEN11",
-        "SMFT11", "MEAL11", "BMGB11", "DESK11", "PARD11", "PGMN11",
-        "RANI11", "AFLT11", "BPFF11", "CBOP11", "INEP11", "PORT11",
+        "BPAC11",
+        "BBSE11",
+        "SAPR11",
+        "TAEE11",
+        "KLBN11",
+        "ENGI11",
+        "SANB11",
+        "BPAN11",
+        "WIZC11",
+        "CASH11",
+        "TIMS11",
+        "EVEN11",
+        "SMFT11",
+        "MEAL11",
+        "BMGB11",
+        "DESK11",
+        "PARD11",
+        "PGMN11",
+        "RANI11",
+        "AFLT11",
+        "BPFF11",
+        "CBOP11",
+        "INEP11",
+        "PORT11",
     ]
     if t.endswith("11"):
         if any(x in t for x in _ETF_KEYWORDS):

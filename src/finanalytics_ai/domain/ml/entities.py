@@ -44,6 +44,7 @@ class TickerFeatures:
       net_margin     : lucratividade
       revenue_growth : crescimento de receita (YoY)
     """
+
     ticker: str
     date: datetime
 
@@ -81,12 +82,13 @@ class ReturnForecast:
 
     model_version: identificador do modelo treinado (hash do estado).
     """
+
     ticker: str
     forecast_date: datetime
     horizon_days: int
-    p10: float      # pessimista
-    p50: float      # mediano
-    p90: float      # otimista
+    p10: float  # pessimista
+    p50: float  # mediano
+    p90: float  # otimista
     prob_positive: float  # P(ret > 0)
     model_version: str = "lgbm-quantile-v1"
 
@@ -121,6 +123,7 @@ class RiskMetrics:
       garch       : volatilidade condicional (GARCH(1,1)), captura clustering
       monte_carlo : simulacao de 100k cenarios com parametros ajustados
     """
+
     ticker: str
     date: datetime
     window_days: int
@@ -171,7 +174,4 @@ class RiskMetrics:
                 + 0.35 * self.var_95_parametric
                 + 0.25 * self.var_95_garch
             )
-        return (
-            0.55 * self.var_95_historical
-            + 0.45 * self.var_95_parametric
-        )
+        return 0.55 * self.var_95_historical + 0.45 * self.var_95_parametric

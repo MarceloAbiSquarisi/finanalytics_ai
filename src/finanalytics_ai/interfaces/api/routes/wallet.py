@@ -9,19 +9,23 @@ API REST para carteira multi-usuário:
   /api/v1/wallet/summary      — visão geral da carteira
   /api/v1/wallet/master       — visão master (ADMIN/MASTER apenas)
 """
+
 from datetime import date
 from decimal import Decimal
-from typing import Any, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
+
 from finanalytics_ai.domain.auth.entities import User, UserRole
-from finanalytics_ai.interfaces.api.dependencies import get_current_user
 from finanalytics_ai.infrastructure.database.repositories.wallet_repo import WalletRepository
+from finanalytics_ai.interfaces.api.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/v1/wallet", tags=["Carteira"])
 
+
 def _repo() -> WalletRepository:
     return WalletRepository()
+
 
 def _require_master_or_admin(user: User) -> User:
     if user.role not in (UserRole.ADMIN, UserRole.MASTER):
@@ -29,7 +33,7 @@ def _require_master_or_admin(user: User) -> User:
     return user
 
 
-async def _resolve_portfolio_id(user_id: str, supplied: Optional[str]) -> str:
+async def _resolve_portfolio_id(user_id: str, supplied: str | None) -> str:
     """Resolve portfolio_id para INSERT em trades/positions/etc.
 
     - Se supplied: valida que pertence ao user; 422 se nao.
@@ -44,26 +48,28 @@ async def _resolve_portfolio_id(user_id: str, supplied: Optional[str]) -> str:
         return supplied
     return await repo.ensure_default_portfolio(user_id)
 
+
 # ── Schemas ───────────────────────────────────────────────────────────────
 
-from finanalytics_ai.domain.validation import is_valid_cpf, normalize_cpf  # noqa: E402
+from finanalytics_ai.domain.validation import is_valid_cpf, normalize_cpf
+
 
 class AccountCreate(BaseModel):
-    titular: str            = Field(..., min_length=2, max_length=200,
-                                    description="Nome do titular da conta")
-    cpf: str                = Field(..., description="CPF (com ou sem mascara)")
-    institution_code: str   = Field(..., min_length=1, max_length=20,
-                                    description="Codigo da instituicao (ex: '341' Itau)")
-    institution_name: str   = Field(..., min_length=2, max_length=200)
-    agency: str             = Field(..., min_length=1, max_length=20,
-                                    description="Codigo da agencia")
-    account_number: str     = Field(..., min_length=1, max_length=50)
-    apelido: str            = Field(..., min_length=1, max_length=100,
-                                    description="Apelido da conta (UI-friendly)")
-    country: str            = Field("BRA", max_length=3)
-    currency: str           = Field("BRL", max_length=3)
-    account_type: str       = Field("corretora")
-    note: Optional[str]     = None
+    titular: str = Field(..., min_length=2, max_length=200, description="Nome do titular da conta")
+    cpf: str = Field(..., description="CPF (com ou sem mascara)")
+    institution_code: str = Field(
+        ..., min_length=1, max_length=20, description="Codigo da instituicao (ex: '341' Itau)"
+    )
+    institution_name: str = Field(..., min_length=2, max_length=200)
+    agency: str = Field(..., min_length=1, max_length=20, description="Codigo da agencia")
+    account_number: str = Field(..., min_length=1, max_length=50)
+    apelido: str = Field(
+        ..., min_length=1, max_length=100, description="Apelido da conta (UI-friendly)"
+    )
+    country: str = Field("BRA", max_length=3)
+    currency: str = Field("BRL", max_length=3)
+    account_type: str = Field("corretora")
+    note: str | None = None
 
     @field_validator("cpf")
     @classmethod
@@ -73,105 +79,107 @@ class AccountCreate(BaseModel):
             raise ValueError("CPF invalido (DV ou tamanho)")
         return v
 
+
 class AccountUpdate(BaseModel):
-    titular: Optional[str]          = Field(None, min_length=2, max_length=200)
-    cpf: Optional[str]              = None
-    institution_code: Optional[str] = None
-    institution_name: Optional[str] = Field(None, min_length=2)
-    agency: Optional[str]           = None
-    account_number: Optional[str]   = None
-    apelido: Optional[str]          = Field(None, min_length=1, max_length=100)
-    is_active: Optional[bool]       = None
-    note: Optional[str]             = None
+    titular: str | None = Field(None, min_length=2, max_length=200)
+    cpf: str | None = None
+    institution_code: str | None = None
+    institution_name: str | None = Field(None, min_length=2)
+    agency: str | None = None
+    account_number: str | None = None
+    apelido: str | None = Field(None, min_length=1, max_length=100)
+    is_active: bool | None = None
+    note: str | None = None
 
     @field_validator("cpf")
     @classmethod
-    def _v_cpf(cls, v: Optional[str]) -> Optional[str]:
+    def _v_cpf(cls, v: str | None) -> str | None:
         if v is None:
             return v
         v = normalize_cpf(v)
         if not is_valid_cpf(v):
             raise ValueError("CPF invalido (DV ou tamanho)")
         return v
-    note: Optional[str] = None
+
+    note: str | None = None
+
 
 class TradeCreate(BaseModel):
     ticker: str = Field(..., min_length=1)
-    asset_class: str = Field("stock")      # stock|etf|crypto|fii|bdr
-    operation: str = Field("buy")          # buy|sell|split|bonus
+    asset_class: str = Field("stock")  # stock|etf|crypto|fii|bdr
+    operation: str = Field("buy")  # buy|sell|split|bonus
     quantity: Decimal = Field(..., gt=0)
     unit_price: Decimal = Field(..., ge=0)
     trade_date: date
     fees: Decimal = Field(Decimal("0"), ge=0)
     currency: str = Field("BRL", max_length=3)
-    investment_account_id: Optional[str] = None
-    portfolio_id: Optional[str] = None
-    note: Optional[str] = None
+    investment_account_id: str | None = None
+    portfolio_id: str | None = None
+    note: str | None = None
+
 
 class CryptoUpsert(BaseModel):
     symbol: str = Field(..., min_length=1)
     quantity: Decimal = Field(..., gt=0)
     average_price_brl: Decimal = Field(..., ge=0)
-    average_price_usd: Optional[Decimal] = None
-    investment_account_id: Optional[str] = None
-    portfolio_id: Optional[str] = None
-    exchange: Optional[str] = None
-    wallet_address: Optional[str] = None
-    note: Optional[str] = None
+    average_price_usd: Decimal | None = None
+    investment_account_id: str | None = None
+    portfolio_id: str | None = None
+    exchange: str | None = None
+    wallet_address: str | None = None
+    note: str | None = None
+
 
 class OtherAssetCreate(BaseModel):
     name: str = Field(..., min_length=2)
     asset_type: str = Field("outro")  # imovel|previdencia|coe|debenture|outro
     current_value: Decimal = Field(..., ge=0)
-    invested_value: Optional[Decimal] = None
+    invested_value: Decimal | None = None
     currency: str = Field("BRL", max_length=3)
-    acquisition_date: Optional[date] = None
-    maturity_date: Optional[date] = None
+    acquisition_date: date | None = None
+    maturity_date: date | None = None
     ir_exempt: bool = False
-    investment_account_id: Optional[str] = None
-    portfolio_id: Optional[str] = None
-    note: Optional[str] = None
+    investment_account_id: str | None = None
+    portfolio_id: str | None = None
+    note: str | None = None
+
 
 class OtherAssetUpdate(BaseModel):
-    name: Optional[str] = None
-    current_value: Optional[Decimal] = None
-    invested_value: Optional[Decimal] = None
-    maturity_date: Optional[date] = None
-    note: Optional[str] = None
+    name: str | None = None
+    current_value: Decimal | None = None
+    invested_value: Decimal | None = None
+    maturity_date: date | None = None
+    note: str | None = None
+
 
 # ── Investment Accounts ───────────────────────────────────────────────────
 
+
 @router.get("/accounts")
 async def list_accounts(
-    include_inactive: bool = False,
-    user: User = Depends(get_current_user)
+    include_inactive: bool = False, user: User = Depends(get_current_user)
 ) -> list[dict]:
     return await _repo().list_accounts(str(user.user_id), include_inactive)
 
+
 @router.post("/accounts", status_code=status.HTTP_201_CREATED)
-async def create_account(
-    body: AccountCreate,
-    user: User = Depends(get_current_user)
-) -> dict:
+async def create_account(body: AccountCreate, user: User = Depends(get_current_user)) -> dict:
     data = body.model_dump()
     data["user_id"] = str(user.user_id)
     return await _repo().create_account(data)
 
+
 @router.get("/accounts/{account_id}")
-async def get_account(
-    account_id: str,
-    user: User = Depends(get_current_user)
-) -> dict:
+async def get_account(account_id: str, user: User = Depends(get_current_user)) -> dict:
     acc = await _repo().get_account(account_id, str(user.user_id))
     if not acc:
         raise HTTPException(404, "Conta não encontrada")
     return acc
 
+
 @router.patch("/accounts/{account_id}")
 async def update_account(
-    account_id: str,
-    body: AccountUpdate,
-    user: User = Depends(get_current_user)
+    account_id: str, body: AccountUpdate, user: User = Depends(get_current_user)
 ) -> dict:
     data = {k: v for k, v in body.model_dump().items() if v is not None}
     acc = await _repo().update_account(account_id, str(user.user_id), data)
@@ -179,34 +187,32 @@ async def update_account(
         raise HTTPException(404, "Conta não encontrada")
     return acc
 
+
 @router.delete("/accounts/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def deactivate_account(
-    account_id: str,
-    user: User = Depends(get_current_user)
-) -> None:
+async def deactivate_account(account_id: str, user: User = Depends(get_current_user)) -> None:
     ok = await _repo().delete_account(account_id, str(user.user_id))
     if not ok:
         raise HTTPException(404, "Conta não encontrada")
 
+
 # ── Trades ────────────────────────────────────────────────────────────────
+
 
 @router.get("/trades")
 async def list_trades(
-    ticker: Optional[str] = None,
-    asset_class: Optional[str] = None,
-    account_id: Optional[str] = None,
-    portfolio_id: Optional[str] = None,
-    user: User = Depends(get_current_user)
+    ticker: str | None = None,
+    asset_class: str | None = None,
+    account_id: str | None = None,
+    portfolio_id: str | None = None,
+    user: User = Depends(get_current_user),
 ) -> list[dict]:
     return await _repo().list_trades(
         str(user.user_id), ticker, asset_class, account_id, portfolio_id=portfolio_id
     )
 
+
 @router.post("/trades", status_code=status.HTTP_201_CREATED)
-async def create_trade(
-    body: TradeCreate,
-    user: User = Depends(get_current_user)
-) -> dict:
+async def create_trade(body: TradeCreate, user: User = Depends(get_current_user)) -> dict:
     data = body.model_dump()
     data["user_id"] = str(user.user_id)
     data["ticker"] = data["ticker"].upper()
@@ -217,41 +223,40 @@ async def create_trade(
     # trade_date permanece como objeto date para o SQLAlchemy
     return await _repo().create_trade(data)
 
+
 @router.delete("/trades/{trade_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_trade(
-    trade_id: str,
-    user: User = Depends(get_current_user)
-) -> None:
+async def delete_trade(trade_id: str, user: User = Depends(get_current_user)) -> None:
     ok = await _repo().delete_trade(trade_id, str(user.user_id))
     if not ok:
         raise HTTPException(404, "Trade não encontrado")
 
+
 # ── Positions (preço médio calculado) ────────────────────────────────────
+
 
 @router.get("/positions")
 async def get_positions(
-    asset_class: Optional[str] = None,
-    portfolio_id: Optional[str] = None,
-    user: User = Depends(get_current_user)
+    asset_class: str | None = None,
+    portfolio_id: str | None = None,
+    user: User = Depends(get_current_user),
 ) -> list[dict]:
     return await _repo().get_positions_summary(
         str(user.user_id), asset_class, portfolio_id=portfolio_id
     )
 
+
 # ── Crypto ────────────────────────────────────────────────────────────────
+
 
 @router.get("/crypto")
 async def list_crypto(
-    portfolio_id: Optional[str] = None,
-    user: User = Depends(get_current_user)
+    portfolio_id: str | None = None, user: User = Depends(get_current_user)
 ) -> list[dict]:
     return await _repo().list_crypto(str(user.user_id), portfolio_id=portfolio_id)
 
+
 @router.put("/crypto", status_code=status.HTTP_200_OK)
-async def upsert_crypto(
-    body: CryptoUpsert,
-    user: User = Depends(get_current_user)
-) -> dict:
+async def upsert_crypto(body: CryptoUpsert, user: User = Depends(get_current_user)) -> dict:
     data = body.model_dump()
     data["user_id"] = str(user.user_id)
     data["portfolio_id"] = await _resolve_portfolio_id(str(user.user_id), data.get("portfolio_id"))
@@ -260,15 +265,14 @@ async def upsert_crypto(
             data[k] = float(data[k])
     return await _repo().upsert_crypto(data)
 
+
 class CryptoRedeemRequest(BaseModel):
     quantity: Decimal = Field(..., gt=0, description="Quantidade resgatada (decremento da posicao)")
 
 
 @router.post("/crypto/{crypto_id}/redeem")
 async def redeem_crypto(
-    crypto_id: str,
-    body: CryptoRedeemRequest,
-    user: User = Depends(get_current_user)
+    crypto_id: str, body: CryptoRedeemRequest, user: User = Depends(get_current_user)
 ) -> dict:
     """Resgate parcial de cripto. Decrementa quantity. Se zerar, deleta o holding."""
     result = await _repo().redeem_crypto(crypto_id, str(user.user_id), float(body.quantity))
@@ -280,31 +284,26 @@ async def redeem_crypto(
 
 
 @router.delete("/crypto/{crypto_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_crypto(
-    crypto_id: str,
-    user: User = Depends(get_current_user)
-) -> None:
+async def delete_crypto(crypto_id: str, user: User = Depends(get_current_user)) -> None:
     ok = await _repo().delete_crypto(crypto_id, str(user.user_id))
     if not ok:
         raise HTTPException(404, "Cripto não encontrada")
 
+
 # ── Other Assets ──────────────────────────────────────────────────────────
+
 
 @router.get("/other")
 async def list_other(
-    asset_type: Optional[str] = None,
-    portfolio_id: Optional[str] = None,
-    user: User = Depends(get_current_user)
+    asset_type: str | None = None,
+    portfolio_id: str | None = None,
+    user: User = Depends(get_current_user),
 ) -> list[dict]:
-    return await _repo().list_other_assets(
-        str(user.user_id), asset_type, portfolio_id=portfolio_id
-    )
+    return await _repo().list_other_assets(str(user.user_id), asset_type, portfolio_id=portfolio_id)
+
 
 @router.post("/other", status_code=status.HTTP_201_CREATED)
-async def create_other(
-    body: OtherAssetCreate,
-    user: User = Depends(get_current_user)
-) -> dict:
+async def create_other(body: OtherAssetCreate, user: User = Depends(get_current_user)) -> dict:
     data = body.model_dump()
     data["user_id"] = str(user.user_id)
     data["portfolio_id"] = await _resolve_portfolio_id(str(user.user_id), data.get("portfolio_id"))
@@ -314,11 +313,10 @@ async def create_other(
     # datas permanecem como objetos date para o SQLAlchemy
     return await _repo().create_other_asset(data)
 
+
 @router.patch("/other/{asset_id}")
 async def update_other(
-    asset_id: str,
-    body: OtherAssetUpdate,
-    user: User = Depends(get_current_user)
+    asset_id: str, body: OtherAssetUpdate, user: User = Depends(get_current_user)
 ) -> dict:
     data = {k: v for k, v in body.model_dump().items() if v is not None}
     for k in ("current_value", "invested_value"):
@@ -330,21 +328,20 @@ async def update_other(
         raise HTTPException(404, "Ativo não encontrado")
     return asset
 
+
 @router.delete("/other/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_other(
-    asset_id: str,
-    user: User = Depends(get_current_user)
-) -> None:
+async def delete_other(asset_id: str, user: User = Depends(get_current_user)) -> None:
     ok = await _repo().delete_other_asset(asset_id, str(user.user_id))
     if not ok:
         raise HTTPException(404, "Ativo não encontrado")
 
+
 # ── Summary ───────────────────────────────────────────────────────────────
+
 
 @router.get("/summary")
 async def wallet_summary(
-    portfolio_id: Optional[str] = None,
-    user: User = Depends(get_current_user)
+    portfolio_id: str | None = None, user: User = Depends(get_current_user)
 ) -> dict:
     uid = str(user.user_id)
     repo = _repo()
@@ -368,12 +365,13 @@ async def wallet_summary(
         "portfolio_id": portfolio_id,
     }
 
+
 # ── Master view ───────────────────────────────────────────────────────────
+
 
 @router.get("/master")
 async def master_view(
-    user_id: Optional[str] = Query(None),
-    user: User = Depends(get_current_user)
+    user_id: str | None = Query(None), user: User = Depends(get_current_user)
 ) -> list[dict]:
     _require_master_or_admin(user)
     return await _repo().list_all_users_summary(user_id)
@@ -381,9 +379,10 @@ async def master_view(
 
 # ── Master CRUD: contas de outros usuarios ────────────────────────────────
 
+
 @router.get("/admin/accounts")
 async def admin_list_accounts(
-    user_id: Optional[str] = Query(None, description="Filtra por user_id; sem filtro = todos"),
+    user_id: str | None = Query(None, description="Filtra por user_id; sem filtro = todos"),
     include_inactive: bool = False,
     user: User = Depends(get_current_user),
 ) -> list[dict]:

@@ -14,11 +14,12 @@ Design decision — por que não usar yfinance diretamente?
   de dados de mercado reduz surface area de bugs e mantém a DI limpa.
   Yahoo Finance é fallback automático quando BRAPI não tem o ticker.
 """
+
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 import time
-from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -34,14 +35,63 @@ logger = structlog.get_logger(__name__)
 # Principais tickers B3 — fallback se a API de listagem falhar
 _B3_CORE_TICKERS = [
     # Ibovespa
-    "PETR4","VALE3","ITUB4","BBDC4","ABEV3","BBAS3","WEGE3","RENT3","SUZB3","RADL3",
-    "EQTL3","VIVT3","JBSS3","RAIL3","SBSP3","GGBR4","CMIG4","CSAN3","HAPV3","UGPA3",
-    "BRFS3","PRIO3","EMBR3","TOTS3","MULT3","KLBN11","ENEV3","CPLE6","AZUL4","GOLL4",
-    "MRFG3","LWSA3","CYRE3","MRVE3","EVEN3","PDGR3","TEND3","TRIS3","DIRR3","PLPL3",
+    "PETR4",
+    "VALE3",
+    "ITUB4",
+    "BBDC4",
+    "ABEV3",
+    "BBAS3",
+    "WEGE3",
+    "RENT3",
+    "SUZB3",
+    "RADL3",
+    "EQTL3",
+    "VIVT3",
+    "JBSS3",
+    "RAIL3",
+    "SBSP3",
+    "GGBR4",
+    "CMIG4",
+    "CSAN3",
+    "HAPV3",
+    "UGPA3",
+    "BRFS3",
+    "PRIO3",
+    "EMBR3",
+    "TOTS3",
+    "MULT3",
+    "KLBN11",
+    "ENEV3",
+    "CPLE6",
+    "AZUL4",
+    "GOLL4",
+    "MRFG3",
+    "LWSA3",
+    "CYRE3",
+    "MRVE3",
+    "EVEN3",
+    "PDGR3",
+    "TEND3",
+    "TRIS3",
+    "DIRR3",
+    "PLPL3",
     # ETFs relevantes
-    "BOVA11","SMAL11","IVVB11","SPXI11","HASH11","GOLD11","XINA11",
+    "BOVA11",
+    "SMAL11",
+    "IVVB11",
+    "SPXI11",
+    "HASH11",
+    "GOLD11",
+    "XINA11",
     # FIIs relevantes
-    "HGLG11","XPML11","MXRF11","KNRI11","BTLG11","HGRE11","BCFF11","RBRF11",
+    "HGLG11",
+    "XPML11",
+    "MXRF11",
+    "KNRI11",
+    "BTLG11",
+    "HGRE11",
+    "BCFF11",
+    "RBRF11",
     # Índices (BRAPI suporta)
     "^BVSP",
 ]
@@ -57,9 +107,9 @@ class HistoricalCollector:
         await collector.collect_ticker("PETR4")     # ticker individual
     """
 
-    RANGE = "5y"          # máximo prático via BRAPI sem timeout
+    RANGE = "5y"  # máximo prático via BRAPI sem timeout
     DELAY_BETWEEN = 0.35  # segundos entre requests (rate limiting)
-    BATCH_SIZE = 10       # tickers em paralelo (cuidado com rate limit)
+    BATCH_SIZE = 10  # tickers em paralelo (cuidado com rate limit)
 
     def __init__(
         self,
@@ -99,10 +149,11 @@ class HistoricalCollector:
                 _, newest = self._storage.ohlcv_date_range(ticker)
                 if newest is not None:
                     from datetime import date
+
                     # newest pode ser string "YYYY-MM-DD" ou objeto date
                     if isinstance(newest, str):
                         newest = date.fromisoformat(newest[:10])
-                    days_old = (datetime.now(tz=timezone.utc).date() - newest).days
+                    days_old = (datetime.now(tz=UTC).date() - newest).days
                     if days_old < 3:  # dados com menos de 3 dias = fresh
                         report[ticker] = {"status": "skip", "rows": 0}
                         continue
@@ -114,7 +165,7 @@ class HistoricalCollector:
                     "collector.ticker.ok",
                     ticker=ticker,
                     rows=rows,
-                    progress=f"{i+1}/{len(target)}",
+                    progress=f"{i + 1}/{len(target)}",
                 )
             except Exception as e:
                 report[ticker] = {"status": "error", "error": str(e)[:100]}
@@ -130,13 +181,20 @@ class HistoricalCollector:
 
         logger.info(
             "collector.complete",
-            ok=ok, skip=skip, errors=errors,
+            ok=ok,
+            skip=skip,
+            errors=errors,
             total_rows=total_rows,
             elapsed_min=round(elapsed / 60, 1),
         )
         return {
-            "summary": {"ok": ok, "skip": skip, "errors": errors,
-                        "total_rows": total_rows, "elapsed_seconds": round(elapsed)},
+            "summary": {
+                "ok": ok,
+                "skip": skip,
+                "errors": errors,
+                "total_rows": total_rows,
+                "elapsed_seconds": round(elapsed),
+            },
             "tickers": report,
         }
 
@@ -190,11 +248,11 @@ class HistoricalCollector:
         raw_bars = results[0].get("historicalDataPrice") or results[0].get("prices") or []
         return [
             {
-                "time":   b.get("date", b.get("time")),
-                "open":   b.get("open", b.get("o")),
-                "high":   b.get("high", b.get("h")),
-                "low":    b.get("low", b.get("l")),
-                "close":  b.get("close", b.get("c")),
+                "time": b.get("date", b.get("time")),
+                "open": b.get("open", b.get("o")),
+                "high": b.get("high", b.get("h")),
+                "low": b.get("low", b.get("l")),
+                "close": b.get("close", b.get("c")),
                 "volume": b.get("volume", b.get("v", 0)),
             }
             for b in raw_bars
@@ -209,8 +267,15 @@ class HistoricalCollector:
         """Fallback via Yahoo Finance API (sem autenticação)."""
         # Adapta sufixo para Yahoo: PETR4 → PETR4.SA
         yf_ticker = ticker if "." in ticker or ticker.startswith("^") else f"{ticker}.SA"
-        range_map = {"5d": "5d", "1mo": "1mo", "3mo": "3mo", "1y": "1y",
-                     "2y": "2y", "5y": "5y", "max": "max"}
+        range_map = {
+            "5d": "5d",
+            "1mo": "1mo",
+            "3mo": "3mo",
+            "1y": "1y",
+            "2y": "2y",
+            "5y": "5y",
+            "max": "max",
+        }
         yf_range = range_map.get(range_period, "2y")
 
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{yf_ticker}"
@@ -232,14 +297,16 @@ class HistoricalCollector:
                 c = ohlcv["close"][i]
                 if c is None:
                     continue
-                bars.append({
-                    "time":   ts,
-                    "open":   ohlcv["open"][i],
-                    "high":   ohlcv["high"][i],
-                    "low":    ohlcv["low"][i],
-                    "close":  c,
-                    "volume": ohlcv.get("volume", [0] * len(timestamps))[i] or 0,
-                })
+                bars.append(
+                    {
+                        "time": ts,
+                        "open": ohlcv["open"][i],
+                        "high": ohlcv["high"][i],
+                        "low": ohlcv["low"][i],
+                        "close": c,
+                        "volume": ohlcv.get("volume", [0] * len(timestamps))[i] or 0,
+                    }
+                )
             return bars
         except (KeyError, IndexError, TypeError):
             return []

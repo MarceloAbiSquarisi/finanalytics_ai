@@ -4,17 +4,16 @@ Estes testes validam a estrutura do SQL e o parsing de argumentos sem
 exigir conexao real ao DB. Para validacao end-to-end ver smoke em
 runbook_import_dados_historicos.md.
 """
+
 from __future__ import annotations
 
-import sys
 from pathlib import Path
-
-import pytest
+import sys
 
 _ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_ROOT / "scripts"))
 
-from resample_ohlc import _RESAMPLE_SQL, _RESAMPLE_DRY_SQL  # noqa: E402
+from resample_ohlc import _RESAMPLE_DRY_SQL, _RESAMPLE_SQL
 
 
 def test_resample_sql_uses_time_bucket():

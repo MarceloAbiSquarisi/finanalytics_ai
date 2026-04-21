@@ -37,7 +37,6 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING
 
-import structlog
 from prometheus_client import (
     CONTENT_TYPE_LATEST,
     REGISTRY,
@@ -49,6 +48,7 @@ from prometheus_client import (
 )
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
+import structlog
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -380,4 +380,3 @@ fintz_rows_upserted_total = Counter(
     documentation="Total de linhas inseridas/atualizadas pelo pipeline Fintz",
     labelnames=["dataset_type"],
 )
-

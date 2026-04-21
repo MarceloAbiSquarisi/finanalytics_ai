@@ -8,45 +8,46 @@ GET  /api/v1/auth/me         — retorna dados do usuário logado
 POST /api/v1/auth/logout     — invalida tokens (client-side; sem blacklist por ora)
 """
 
-import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
+import structlog
 
 from finanalytics_ai.application.services.auth_service import AuthService
-from finanalytics_ai.domain.auth.entities import (
-    AuthError,
-    User,
-    UserRegistration
-)
+from finanalytics_ai.domain.auth.entities import AuthError, User, UserRegistration
 from finanalytics_ai.infrastructure.auth.jwt_handler import get_jwt_handler
 from finanalytics_ai.infrastructure.auth.password_hasher import get_password_hasher
 from finanalytics_ai.infrastructure.database.repositories.user_repo import UserRepository
 from finanalytics_ai.interfaces.api.dependencies import get_current_user, get_db_session
-from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/auth", tags=["Autenticação"])
 
 # ── Schemas de request/response ───────────────────────────────────────────────
 
+
 class RegisterRequest(BaseModel):
     email: str = Field(..., min_length=5, max_length=255)
     password: str = Field(..., min_length=8, max_length=128)
     full_name: str = Field(..., min_length=2, max_length=255)
+
 
 class LoginRequest(BaseModel):
     email: str = Field(..., min_length=5)
     password: str = Field(..., min_length=1)
     remember_me: bool = Field(default=False, description="Manter logado por 7 dias")
 
+
 class RefreshRequest(BaseModel):
     refresh_token: str
+
 
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int
+
 
 class UserResponse(BaseModel):
     user_id: str
@@ -55,14 +56,15 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
 
+
 # ── DI ────────────────────────────────────────────────────────────────────────
+
 
 def _svc(session: AsyncSession) -> AuthService:
     return AuthService(
-        user_repo=UserRepository(session),
-        hasher=get_password_hasher(),
-        jwt=get_jwt_handler()
+        user_repo=UserRepository(session), hasher=get_password_hasher(), jwt=get_jwt_handler()
     )
+
 
 def _auth_error_to_http(err: AuthError) -> HTTPException:
     """Mapeia erros de domínio para HTTP status codes."""
@@ -80,12 +82,13 @@ def _auth_error_to_http(err: AuthError) -> HTTPException:
     http_code = code_map.get(err.code, status.HTTP_400_BAD_REQUEST)
     return HTTPException(status_code=http_code, detail=err.message)
 
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def register(
-    body: RegisterRequest,
-    session: AsyncSession = Depends(get_db_session)
+    body: RegisterRequest, session: AsyncSession = Depends(get_db_session)
 ) -> TokenResponse:
     """Cria nova conta e retorna par de tokens para login imediato."""
     try:
@@ -94,17 +97,17 @@ async def register(
         return TokenResponse(
             access_token=pair.access_token,
             refresh_token=pair.refresh_token,
-            expires_in=pair.expires_in
+            expires_in=pair.expires_in,
         )
     except ValueError as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
     except AuthError as e:
         raise _auth_error_to_http(e) from e
 
+
 @router.post("/login", response_model=TokenResponse)
 async def login(
-    body: LoginRequest,
-    session: AsyncSession = Depends(get_db_session)
+    body: LoginRequest, session: AsyncSession = Depends(get_db_session)
 ) -> TokenResponse:
     """Autentica usuário e retorna par de tokens."""
     try:
@@ -112,15 +115,15 @@ async def login(
         return TokenResponse(
             access_token=pair.access_token,
             refresh_token=pair.refresh_token,
-            expires_in=pair.expires_in
+            expires_in=pair.expires_in,
         )
     except AuthError as e:
         raise _auth_error_to_http(e) from e
 
+
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(
-    body: RefreshRequest,
-    session: AsyncSession = Depends(get_db_session)
+    body: RefreshRequest, session: AsyncSession = Depends(get_db_session)
 ) -> TokenResponse:
     """Renova o access token usando o refresh token."""
     try:
@@ -128,10 +131,11 @@ async def refresh(
         return TokenResponse(
             access_token=pair.access_token,
             refresh_token=pair.refresh_token,
-            expires_in=pair.expires_in
+            expires_in=pair.expires_in,
         )
     except AuthError as e:
         raise _auth_error_to_http(e) from e
+
 
 @router.get("/me", response_model=UserResponse)
 async def me(current_user: User = Depends(get_current_user)) -> UserResponse:
@@ -141,8 +145,9 @@ async def me(current_user: User = Depends(get_current_user)) -> UserResponse:
         email=current_user.email,
         full_name=current_user.full_name,
         role=current_user.role.value,
-        is_active=current_user.is_active
+        is_active=current_user.is_active,
     )
+
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(current_user: User = Depends(get_current_user)) -> None:
@@ -152,20 +157,22 @@ async def logout(current_user: User = Depends(get_current_user)) -> None:
     """
     logger.info("auth.logout", user_id=current_user.user_id)
 
+
 # ── Reset de Senha ────────────────────────────────────────────────────────────
+
 
 class ForgotPasswordRequest(BaseModel):
     email: str = Field(..., min_length=5)
+
 
 class ResetPasswordRequest(BaseModel):
     token: str = Field(..., min_length=8)
     new_password: str = Field(..., min_length=8, max_length=128)
 
+
 @router.post("/forgot-password", status_code=200)
 async def forgot_password(
-    body: ForgotPasswordRequest,
-    request: Request,
-    session: AsyncSession = Depends(get_db_session)
+    body: ForgotPasswordRequest, request: Request, session: AsyncSession = Depends(get_db_session)
 ) -> dict:
     """
     Solicita redefinição de senha.
@@ -176,11 +183,12 @@ async def forgot_password(
 
     Sempre retorna 200 mesmo se o e-mail não existir (segurança contra enumeration).
     """
-    import secrets
     from datetime import UTC, datetime, timedelta
+    import secrets
+
     from finanalytics_ai.config import get_settings
-    from finanalytics_ai.infrastructure.email.email_sender import get_email_sender
     from finanalytics_ai.infrastructure.database.repositories.user_repo import UserRepository
+    from finanalytics_ai.infrastructure.email.email_sender import get_email_sender
 
     repo = UserRepository(session)
     settings = get_settings()
@@ -206,8 +214,12 @@ async def forgot_password(
     sender = get_email_sender()
     email_sent = sender.send_reset_password(user.email, user.full_name, reset_url)
 
-    logger.info("auth.forgot_password", user_id=user.user_id,
-                email_sent=email_sent, smtp_configured=sender.is_configured)
+    logger.info(
+        "auth.forgot_password",
+        user_id=user.user_id,
+        email_sent=email_sent,
+        smtp_configured=sender.is_configured,
+    )
 
     if email_sent:
         return generic
@@ -220,38 +232,41 @@ async def forgot_password(
         "expires_in_minutes": settings.reset_token_expire_minutes,
     }
 
+
 @router.post("/reset-password", status_code=200)
 async def reset_password(
-    body: ResetPasswordRequest,
-    session: AsyncSession = Depends(get_db_session)
+    body: ResetPasswordRequest, session: AsyncSession = Depends(get_db_session)
 ) -> dict:
     """
     Redefine a senha usando o token recebido por e-mail.
     O token é invalidado após o uso.
     """
     from datetime import UTC, datetime
-    from finanalytics_ai.infrastructure.database.repositories.user_repo import UserModel, UserRepository
-    from finanalytics_ai.infrastructure.auth.password_hasher import get_password_hasher
+
     from sqlalchemy import select as sa_select
+
+    from finanalytics_ai.infrastructure.auth.password_hasher import get_password_hasher
+    from finanalytics_ai.infrastructure.database.repositories.user_repo import (
+        UserModel,
+        UserRepository,
+    )
 
     repo = UserRepository(session)
 
     # Busca direto pelo token no model para acessar reset_token_exp
-    result = await session.execute(
-        sa_select(UserModel).where(UserModel.reset_token == body.token)
-    )
+    result = await session.execute(sa_select(UserModel).where(UserModel.reset_token == body.token))
     model = result.scalar_one_or_none()
 
     if not model:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST,
-                            detail="Token inválido ou já utilizado.")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Token inválido ou já utilizado.")
 
     if not model.reset_token_exp or model.reset_token_exp < datetime.now(UTC):
         model.reset_token = None
         model.reset_token_exp = None
         await session.commit()
-        raise HTTPException(status.HTTP_400_BAD_REQUEST,
-                            detail="Token expirado. Solicite um novo link.")
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail="Token expirado. Solicite um novo link."
+        )
 
     # Atualiza senha e invalida token
     hasher = get_password_hasher()
@@ -263,59 +278,65 @@ async def reset_password(
     logger.info("auth.password_reset", user_id=model.user_id)
     return {"message": "Senha redefinida com sucesso. Você já pode fazer login."}
 
+
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
+
 
 @router.post("/change-password", status_code=200)
 async def change_password(
     body: ChangePasswordRequest,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db_session)
+    session: AsyncSession = Depends(get_db_session),
 ) -> dict:
     try:
         await _svc(session).change_password(
-            str(current_user.user_id),
-            body.current_password,
-            body.new_password
+            str(current_user.user_id), body.current_password, body.new_password
         )
         return {"message": "Senha alterada com sucesso"}
     except HTTPException:
         raise
     except Exception as err:
         from finanalytics_ai.domain.auth.entities import AuthError
+
         if isinstance(err, AuthError):
             raise _auth_error_to_http(err) from err
         raise HTTPException(status_code=400, detail=str(err)) from err
 
+
 # ── 2FA endpoints ─────────────────────────────────────────────────────────────
+
 
 class TOTPVerifyRequest(BaseModel):
     code: str
 
+
 class TOTPDisableRequest(BaseModel):
     code: str
 
+
 @router.post("/2fa/setup", status_code=200)
 async def setup_2fa(
-    current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db_session)
+    current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_db_session)
 ) -> dict:
     """Gera novo secret TOTP e retorna QR code base64. Nao ativa ainda."""
     from finanalytics_ai.infrastructure.auth.totp_handler import get_totp_handler
+
     handler = get_totp_handler()
     secret = handler.generate_secret()
     qr_b64 = handler.get_qr_base64(secret, current_user.email)
-    uri    = handler.get_provisioning_uri(secret, current_user.email)
+    uri = handler.get_provisioning_uri(secret, current_user.email)
     svc = _svc(session)
     await svc.save_totp_secret(str(current_user.user_id), secret, enabled=False)
     return {"secret": secret, "qr_base64": qr_b64, "uri": uri}
+
 
 @router.post("/2fa/enable", status_code=200)
 async def enable_2fa(
     body: TOTPVerifyRequest,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db_session)
+    session: AsyncSession = Depends(get_db_session),
 ) -> dict:
     """Verifica codigo TOTP e ativa 2FA."""
     svc = _svc(session)
@@ -324,11 +345,12 @@ async def enable_2fa(
         raise HTTPException(status_code=400, detail="Codigo TOTP invalido")
     return {"message": "2FA ativado com sucesso"}
 
+
 @router.post("/2fa/disable", status_code=200)
 async def disable_2fa(
     body: TOTPDisableRequest,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db_session)
+    session: AsyncSession = Depends(get_db_session),
 ) -> dict:
     """Desativa 2FA verificando o codigo atual."""
     svc = _svc(session)

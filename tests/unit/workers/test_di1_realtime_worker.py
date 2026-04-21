@@ -3,10 +3,11 @@ Testes unitarios — di1_realtime_worker.
 
 Foco: fluxo de poll -> publish sem I/O real (Kafka, Postgres, profit_agent).
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -37,15 +38,15 @@ async def test_poll_publishes_new_ticks_to_kafka(monkeypatch):
     m.METRICS = m.Metrics()
 
     row = {
-        "time":         datetime(2026, 4, 20, 14, 0, tzinfo=timezone.utc),
-        "ticker":       "DI1F27",
-        "price":        12.85,
-        "quantity":     5,
-        "volume":       64.25,
-        "buy_agent":    308,
-        "sell_agent":   3,
+        "time": datetime(2026, 4, 20, 14, 0, tzinfo=UTC),
+        "ticker": "DI1F27",
+        "price": 12.85,
+        "quantity": 5,
+        "volume": 64.25,
+        "buy_agent": 308,
+        "sell_agent": 3,
         "trade_number": 1001,
-        "trade_type":   3,
+        "trade_type": 3,
     }
 
     conn = AsyncMock()
@@ -102,15 +103,15 @@ async def test_poll_counts_kafka_error_and_continues(monkeypatch):
     m.METRICS = m.Metrics()
 
     row = {
-        "time":         datetime(2026, 4, 20, 14, 0, tzinfo=timezone.utc),
-        "ticker":       "DI1F27",
-        "price":        12.85,
-        "quantity":     5,
-        "volume":       64.25,
-        "buy_agent":    308,
-        "sell_agent":   3,
+        "time": datetime(2026, 4, 20, 14, 0, tzinfo=UTC),
+        "ticker": "DI1F27",
+        "price": 12.85,
+        "quantity": 5,
+        "volume": 64.25,
+        "buy_agent": 308,
+        "sell_agent": 3,
         "trade_number": 1001,
-        "trade_type":   3,
+        "trade_type": 3,
     }
 
     conn = AsyncMock()

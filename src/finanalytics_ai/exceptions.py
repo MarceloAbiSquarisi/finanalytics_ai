@@ -94,14 +94,18 @@ class TransientExternalServiceError(ExternalServiceError):
 
 # ── Exceções do domínio legado (compatibilidade) ─────────────────────────────
 
+
 class InvalidTickerError(AppError):
     pass
+
 
 class InvalidQuantityError(AppError):
     pass
 
+
 class FintzAPIError(InfrastructureError):
     pass
+
 
 class FintzParseError(InfrastructureError):
     def __init__(self, message: str, *, dataset_key: str = "", context: dict | None = None) -> None:
@@ -110,25 +114,33 @@ class FintzParseError(InfrastructureError):
 
     pass
 
+
 class FintzSyncError(InfrastructureError):
     pass
 
+
 # ── Exceções legado — compatibilidade com código pré-existente ───────────────
+
 
 class FinAnalyticsError(AppError):
     pass
 
+
 class InsufficientFundsError(AppError):
     pass
+
 
 class PortfolioNotFoundError(AppError):
     pass
 
+
 class MarketDataUnavailableError(InfrastructureError):
     pass
 
+
 class EventProcessingError(ApplicationError):
     pass
+
 
 class TransientError(InfrastructureError):
     pass

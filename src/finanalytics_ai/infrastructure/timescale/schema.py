@@ -1,4 +1,4 @@
-﻿"""
+"""
 infrastructure/timescale/schema.py
 ────────────────────────────────────
 Criacao idempotente do schema OHLC no TimescaleDB.
@@ -11,6 +11,7 @@ Hypertable: a extensao TimescaleDB pode nao estar presente no ambiente
 contextlib.suppress para nao quebrar — a tabela continua funcionando
 como tabela regular sem particionamento por tempo.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -28,7 +29,6 @@ async def init_schema(pool: Any) -> None:  # pool: asyncpg.Pool
     extension nao estiver disponivel.
     """
     async with pool.acquire() as conn:
-
         # ohlc_bars — barras OHLC diarias e intraday
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS ohlc_bars (
@@ -45,9 +45,7 @@ async def init_schema(pool: Any) -> None:  # pool: asyncpg.Pool
         """)
 
         with contextlib.suppress(Exception):
-            await conn.execute(
-                "SELECT create_hypertable('ohlc_bars','time',if_not_exists=>true);"
-            )
+            await conn.execute("SELECT create_hypertable('ohlc_bars','time',if_not_exists=>true);")
 
         await conn.execute("""
             CREATE UNIQUE INDEX IF NOT EXISTS ohlc_bars_unique

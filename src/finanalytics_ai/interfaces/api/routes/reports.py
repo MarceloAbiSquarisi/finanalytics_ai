@@ -11,12 +11,12 @@ import asyncio
 import io
 from typing import Any
 
-import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+import structlog
 
-from finanalytics_ai.interfaces.api.dependencies import get_portfolio_service
 from finanalytics_ai.application.services.portfolio_service import PortfolioService
+from finanalytics_ai.interfaces.api.dependencies import get_portfolio_service
 
 logger = structlog.get_logger(__name__)
 
@@ -28,7 +28,9 @@ def _snapshot_to_dict(snapshot: Any) -> dict[str, Any]:
         return snapshot.model_dump()
     if hasattr(snapshot, "dict"):
         return snapshot.dict()
-    import dataclasses; return dataclasses.asdict(snapshot) if dataclasses.is_dataclass(snapshot) else vars(snapshot)
+    import dataclasses
+
+    return dataclasses.asdict(snapshot) if dataclasses.is_dataclass(snapshot) else vars(snapshot)
 
 
 async def _fetch_fintz_indicators(tickers: list[str]) -> list[dict[str, Any]]:
@@ -42,8 +44,8 @@ async def _fetch_fintz_indicators(tickers: list[str]) -> list[dict[str, Any]]:
         from finanalytics_ai.application.services.fintz_screener_service import (
             FintzScreenerService,
         )
-        from finanalytics_ai.infrastructure.database.connection import get_session_factory
         from finanalytics_ai.domain.screener.engine import FilterCriteria
+        from finanalytics_ai.infrastructure.database.connection import get_session_factory
 
         svc = FintzScreenerService(get_session_factory())
         criteria = FilterCriteria()  # sem filtros -- pega todos
@@ -51,18 +53,20 @@ async def _fetch_fintz_indicators(tickers: list[str]) -> list[dict[str, Any]]:
 
         indicadores = []
         for fd in result:
-            indicadores.append({
-                "ticker":       fd.ticker,
-                "pe":           fd.pe,
-                "pvp":          fd.pvp,
-                "dy":           fd.dy,
-                "roe":          fd.roe,
-                "roic":         fd.roic,
-                "ebitda_margin": fd.ebitda_margin,
-                "net_margin":   fd.net_margin,
-                "debt_equity":  fd.debt_equity,
-                "market_cap":   fd.market_cap,
-            })
+            indicadores.append(
+                {
+                    "ticker": fd.ticker,
+                    "pe": fd.pe,
+                    "pvp": fd.pvp,
+                    "dy": fd.dy,
+                    "roe": fd.roe,
+                    "roic": fd.roic,
+                    "ebitda_margin": fd.ebitda_margin,
+                    "net_margin": fd.net_margin,
+                    "debt_equity": fd.debt_equity,
+                    "market_cap": fd.market_cap,
+                }
+            )
         return indicadores
     except Exception as exc:
         logger.warning("report.fintz_indicators_failed", error=str(exc))
@@ -127,6 +131,7 @@ async def export_portfolio_pdf(
         ) from exc
 
     from datetime import datetime
+
     month_year = datetime.now().strftime("%Y%m")
     filename = f"relatorio_{portfolio_id[:8]}_{month_year}.pdf"
 

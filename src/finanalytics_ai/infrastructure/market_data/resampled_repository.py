@@ -5,6 +5,7 @@ Quando ohlc_resampled estiver vazio para o intervalo solicitado, faz
 agregacao on-the-fly via time_bucket (mais lento mas idempotente).
 Permite que clientes consumam sem precisar pre-materializar tudo.
 """
+
 from __future__ import annotations
 
 from datetime import date, datetime, time
@@ -80,12 +81,18 @@ async def fetch_resampled(
         # Tenta materialized (rapido)
         try:
             rows = await conn.fetch(
-                _SQL_FETCH_MATERIALIZED, ticker_upper, interval_minutes, since_ts,
+                _SQL_FETCH_MATERIALIZED,
+                ticker_upper,
+                interval_minutes,
+                since_ts,
             )
             if rows:
                 logger.debug(
-                    "resampled.source", ticker=ticker_upper,
-                    interval=interval_minutes, source="materialized", count=len(rows),
+                    "resampled.source",
+                    ticker=ticker_upper,
+                    interval=interval_minutes,
+                    source="materialized",
+                    count=len(rows),
                 )
                 return [_row_to_dict(r) for r in rows], "materialized"
         except Exception:
@@ -97,12 +104,18 @@ async def fetch_resampled(
         # Fallback on-the-fly
         try:
             rows = await conn.fetch(
-                _SQL_FETCH_ONTHEFLY, ticker_upper, interval_minutes, since_ts,
+                _SQL_FETCH_ONTHEFLY,
+                ticker_upper,
+                interval_minutes,
+                since_ts,
             )
             if rows:
                 logger.debug(
-                    "resampled.source", ticker=ticker_upper,
-                    interval=interval_minutes, source="on_the_fly", count=len(rows),
+                    "resampled.source",
+                    ticker=ticker_upper,
+                    interval=interval_minutes,
+                    source="on_the_fly",
+                    count=len(rows),
                 )
                 return [_row_to_dict(r) for r in rows], "on_the_fly"
         except Exception:
@@ -113,13 +126,15 @@ async def fetch_resampled(
 
 def _row_to_dict(row: Any) -> dict[str, Any]:
     return {
-        "time":   row["time"],
-        "open":   float(row["open"])  if row["open"]  is not None else None,
-        "high":   float(row["high"])  if row["high"]  is not None else None,
-        "low":    float(row["low"])   if row["low"]   is not None else None,
-        "close":  float(row["close"]) if row["close"] is not None else None,
-        "volume": int(row["volume"])  if row["volume"] is not None else 0,
-        "trades": int(row["trades"])  if row["trades"] is not None else 0,
-        "vwap":   float(row["vwap"])  if row["vwap"]   is not None else None,
-        "source": row.get("source") if hasattr(row, "get") else (row["source"] if "source" in row.keys() else None),
+        "time": row["time"],
+        "open": float(row["open"]) if row["open"] is not None else None,
+        "high": float(row["high"]) if row["high"] is not None else None,
+        "low": float(row["low"]) if row["low"] is not None else None,
+        "close": float(row["close"]) if row["close"] is not None else None,
+        "volume": int(row["volume"]) if row["volume"] is not None else 0,
+        "trades": int(row["trades"]) if row["trades"] is not None else 0,
+        "vwap": float(row["vwap"]) if row["vwap"] is not None else None,
+        "source": row.get("source")
+        if hasattr(row, "get")
+        else (row["source"] if "source" in row.keys() else None),
     }

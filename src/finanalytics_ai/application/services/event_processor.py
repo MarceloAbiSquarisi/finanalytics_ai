@@ -1,4 +1,4 @@
-﻿"""
+"""
 Application Service — EventProcessor.
 
 Este é o coração do sistema. Orquestra:
@@ -24,8 +24,8 @@ Por que não usar Celery/ARQ/Dramatiq?
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Sequence
 import time
-from typing import Sequence
 
 import structlog
 
@@ -146,9 +146,7 @@ class EventProcessor:
         record = await self._get_or_create_record(event)
 
         if record.status == EventStatus.COMPLETED:
-            raise EventAlreadyProcessedError(
-                f"Evento {event.id} já foi processado com sucesso."
-            )
+            raise EventAlreadyProcessedError(f"Evento {event.id} já foi processado com sucesso.")
 
         if record.status == EventStatus.DEAD_LETTER:
             log.warning(
@@ -178,12 +176,8 @@ class EventProcessor:
                 record.mark_completed(metadata)
                 await self._repository.upsert_processing_record(record)
 
-                self._observability.record_event_processed(
-                    event.event_type.value, "completed"
-                )
-                self._observability.record_processing_duration(
-                    event.event_type.value, duration
-                )
+                self._observability.record_event_processed(event.event_type.value, "completed")
+                self._observability.record_processing_duration(event.event_type.value, duration)
 
                 log.info(
                     "event_processed_successfully",
@@ -210,9 +204,7 @@ class EventProcessor:
 
             except (TransientDatabaseError, TransientExternalServiceError) as exc:
                 # Erro transitório — retry com backoff exponencial
-                self._observability.record_retry(
-                    event.event_type.value, record.attempt
-                )
+                self._observability.record_retry(event.event_type.value, record.attempt)
                 delay = base_delay * (2 ** (record.attempt - 1))
                 log.warning(
                     "event_transient_error_retrying",
@@ -233,9 +225,7 @@ class EventProcessor:
                 # Outros erros não transitórios
                 record.mark_failed(str(exc), max_retries=0)
                 await self._repository.upsert_processing_record(record)
-                self._observability.record_event_processed(
-                    event.event_type.value, "dead_letter"
-                )
+                self._observability.record_event_processed(event.event_type.value, "dead_letter")
                 log.error(
                     "event_permanent_error",
                     event_id=str(event.id),
@@ -308,11 +298,9 @@ Métodos:
 """
 
 
-import time
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-import structlog
 from finanalytics_ai.domain.entities.event import EventType, MarketEvent
 from finanalytics_ai.observability.logging import get_logger
 
@@ -353,7 +341,8 @@ class EventProcessorService:
 
     def _init_metrics(self) -> None:
         try:
-            from finanalytics_ai.observability import handler_events_total, handler_duration_seconds
+            from finanalytics_ai.observability import handler_duration_seconds, handler_events_total
+
             self._handler_counter = handler_events_total
             self._handler_duration = handler_duration_seconds
         except (ImportError, AttributeError):
@@ -393,8 +382,11 @@ class EventProcessorService:
         price = _try_decimal(event.payload.get("price"))
 
         if price is None:
-            log.warning("event_processor_service.price_update.invalid_price",
-                        ticker=ticker, payload=event.payload)
+            log.warning(
+                "event_processor_service.price_update.invalid_price",
+                ticker=ticker,
+                payload=event.payload,
+            )
 
         # Span OTel
         if self._tracer is not None:
@@ -411,15 +403,15 @@ class EventProcessorService:
 
     async def _handle_ohlc_bar(self, event: MarketEvent) -> None:
         """Handler de OHLC_BAR_CLOSED com métricas, span OTel e persistência."""
-        from datetime import datetime, timezone, UTC
+        from datetime import UTC, datetime
+
         t0 = time.perf_counter()
         p = event.payload
         persisted = False
 
         close = _try_decimal(p.get("close"))
         if close is None:
-            log.warning("event_processor_service.ohlc_bar.missing_close",
-                        ticker=event.ticker)
+            log.warning("event_processor_service.ohlc_bar.missing_close", ticker=event.ticker)
             self._record_metric("ohlc_bar", "ok", time.perf_counter() - t0)
             return
 
@@ -427,12 +419,13 @@ class EventProcessorService:
         if self._ohlc_repo is not None:
             try:
                 from finanalytics_ai.domain.entities.event import OHLCBar
+
                 # Parseia timestamp
                 ts_raw = p.get("timestamp")
                 if ts_raw is None:
                     ts = event.occurred_at
                 elif isinstance(ts_raw, (int, float)):
-                    ts = datetime.fromtimestamp(ts_raw, tz=timezone.utc)
+                    ts = datetime.fromtimestamp(ts_raw, tz=UTC)
                 else:
                     ts = datetime.fromisoformat(str(ts_raw))
                     if ts.tzinfo is None:
@@ -452,8 +445,7 @@ class EventProcessorService:
                 result = await self._ohlc_repo.upsert_bar(bar)
                 persisted = result is not False
             except Exception as exc:
-                log.warning("event_processor_service.ohlc_bar.persist_failed",
-                            error=str(exc))
+                log.warning("event_processor_service.ohlc_bar.persist_failed", error=str(exc))
 
         # Span OTel
         if self._tracer is not None:
@@ -469,10 +461,10 @@ class EventProcessorService:
         duration = time.perf_counter() - t0
         self._record_metric("ohlc_bar", "ok", duration)
 
-
     async def process(self, command) -> dict:
         """Compatibilidade com ProcessMarketEventCommand — converte para MarketEvent e despacha."""
-        from finanalytics_ai.domain.entities.event import MarketEvent, EventType
+        from finanalytics_ai.domain.entities.event import EventType, MarketEvent
+
         event = MarketEvent(
             event_id=command.event_id,
             event_type=EventType(command.event_type),
@@ -482,8 +474,11 @@ class EventProcessorService:
         )
         await self._dispatch(event)
         from types import SimpleNamespace
+
         from finanalytics_ai.domain.entities.event import EventStatus
+
         return SimpleNamespace(status=EventStatus.PROCESSED, event_id=command.event_id)
+
     async def _dispatch(self, event: MarketEvent) -> None:
         """Span pai 'event.dispatch' + despacha para handler correto."""
         dispatch_span = None
@@ -501,12 +496,14 @@ class EventProcessorService:
             elif event.event_type == EventType.OHLC_BAR_CLOSED:
                 await self._handle_ohlc_bar(event)
             else:
-                log.debug("event_processor_service.dispatch.no_handler",
-                          event_type=event.event_type)
+                log.debug(
+                    "event_processor_service.dispatch.no_handler", event_type=event.event_type
+                )
         except Exception as exc:
             if dispatch_span is not None:
                 try:
                     from opentelemetry.trace import StatusCode
+
                     dispatch_span.set_status(StatusCode.ERROR, str(exc))
                     dispatch_span.record_exception(exc)
                 except Exception:

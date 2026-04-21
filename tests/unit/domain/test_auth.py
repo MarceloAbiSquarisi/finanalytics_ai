@@ -150,12 +150,16 @@ class TestAuthExceptions:
 
 class TestTokenPayload:
     def test_frozen_immutable(self):
-        p = TokenPayload(sub="u1", email="a@b.com", role="user", exp=9999999999, token_type="access")
+        p = TokenPayload(
+            sub="u1", email="a@b.com", role="user", exp=9999999999, token_type="access"
+        )
         with pytest.raises(Exception):  # FrozenInstanceError
             p.sub = "other"  # type: ignore
 
     def test_access_type(self):
-        p = TokenPayload(sub="u1", email="a@b.com", role="user", exp=9999999999, token_type="access")
+        p = TokenPayload(
+            sub="u1", email="a@b.com", role="user", exp=9999999999, token_type="access"
+        )
         assert p.token_type == "access"
 
 

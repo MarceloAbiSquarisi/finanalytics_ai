@@ -13,6 +13,7 @@ Cobertura:
     - Score normalizado dentro do range [0, 100]
     - is_actionable apenas para FORTE/MODERADO/EXTREMO
 """
+
 from __future__ import annotations
 
 import pytest
@@ -102,8 +103,7 @@ class TestLongSignal:
 
     def test_cv_just_above_threshold(self, engine):
         """C/V=1.31 (limiar) + saldo 1% vol -> score fraco ~37."""
-        sig = _eval(engine, ratio_cv=1.31, saldo_fluxo=100.0,
-                    vol_compra=5100.0, vol_venda=4900.0)
+        sig = _eval(engine, ratio_cv=1.31, saldo_fluxo=100.0, vol_compra=5100.0, vol_venda=4900.0)
         assert sig.direction == Direction.LONG
         assert 30.0 <= sig.score <= 55.0
 
@@ -126,8 +126,7 @@ class TestShortSignal:
 
     def test_cv_just_below_threshold(self, engine):
         """C/V=0.76 + saldo -1% vol -> score ~37, FRACO."""
-        sig = _eval(engine, ratio_cv=0.76, saldo_fluxo=-100.0,
-                    vol_compra=4900.0, vol_venda=5100.0)
+        sig = _eval(engine, ratio_cv=0.76, saldo_fluxo=-100.0, vol_compra=4900.0, vol_venda=5100.0)
         assert sig.direction == Direction.SHORT
         assert 30.0 <= sig.score <= 55.0
 
@@ -142,8 +141,8 @@ class TestNeutral:
         """C/V comprador mas saldo vendedor — conflito reduz score."""
         sig = _eval(
             engine,
-            ratio_cv=1.5,           # comprador
-            saldo_fluxo=-2000.0,    # mas saldo vendedor
+            ratio_cv=1.5,  # comprador
+            saldo_fluxo=-2000.0,  # mas saldo vendedor
             vol_compra=4000.0,
             vol_venda=6000.0,
         )
@@ -172,10 +171,10 @@ class TestScoreRange:
     def test_score_always_0_to_100(self, engine):
         """Score nunca sai do range 0-100 independente dos valores."""
         cases = [
-            (99.0, 1_000_000.0, 500.0),   # C/V extremo
+            (99.0, 1_000_000.0, 500.0),  # C/V extremo
             (0.01, -1_000_000.0, 500.0),  # Venda extrema
-            (1.0, 0.0, 0.0),              # Neutro
-            (1.3, 0.0, 3.0),              # Limiar C/V
+            (1.0, 0.0, 0.0),  # Neutro
+            (1.3, 0.0, 3.0),  # Limiar C/V
         ]
         for ratio_cv, saldo, tpm in cases:
             sig = _eval(
@@ -196,7 +195,7 @@ class TestCustomConfig:
         strict = ConflunceEngine(ConflunceConfig(cv_bullish_threshold=1.5))
         sig = _eval(
             strict,
-            ratio_cv=1.35,          # abaixo do novo threshold
+            ratio_cv=1.35,  # abaixo do novo threshold
             saldo_fluxo=2000.0,
             vol_compra=7000.0,
             vol_venda=3000.0,
@@ -213,11 +212,25 @@ class TestCustomConfig:
 
 class TestToDict:
     def test_valid_signal_dict_keys(self, engine):
-        sig = _eval(engine, ratio_cv=1.8, saldo_fluxo=2000.0,
-                    vol_compra=7000.0, vol_venda=3000.0, trades_por_min=40.0)
+        sig = _eval(
+            engine,
+            ratio_cv=1.8,
+            saldo_fluxo=2000.0,
+            vol_compra=7000.0,
+            vol_venda=3000.0,
+            trades_por_min=40.0,
+        )
         d = sig.to_dict()
-        assert {"ticker", "score", "direction", "strength", "actionable",
-                "valid", "reason", "factors"} == set(d.keys())
+        assert {
+            "ticker",
+            "score",
+            "direction",
+            "strength",
+            "actionable",
+            "valid",
+            "reason",
+            "factors",
+        } == set(d.keys())
         assert len(d["factors"]) == 3
         assert all("name" in f and "score" in f for f in d["factors"])
 

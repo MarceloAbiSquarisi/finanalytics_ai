@@ -9,11 +9,11 @@ POST /api/v1/fintz/sync/trigger         -- dispara sync manual (admin)
 POST /api/v1/fintz/sync/trigger/{key}   -- sync de dataset especifico
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
-import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+import structlog
 
 from finanalytics_ai.interfaces.api.dependencies import get_current_user
 
@@ -25,10 +25,11 @@ CRITICAL_DATASETS = {"cotacoes_ohlc", "indicador_ROE", "indicador_DividendYield"
 
 # Limite de atraso por tipo
 MAX_AGE_HOURS = {
-    "cotacoes":    26,  # 1 dia + 2h de tolerancia
+    "cotacoes": 26,  # 1 dia + 2h de tolerancia
     "item_contabil": 72,  # 3 dias (dados fundamentais mudam menos)
-    "indicador":   26,
+    "indicador": 26,
 }
+
 
 def _get_db(request: Request):
     """Dependency: session factory do app."""
@@ -37,15 +38,18 @@ def _get_db(request: Request):
         raise HTTPException(503, "Database nao disponivel")
     return factory
 
+
 @router.get(
     "/sync/status",
     summary="Status de atualizacao dos datasets Fintz",
-    response_description="Lista de datasets com status de atualizacao"
+    response_description="Lista de datasets com status de atualizacao",
 )
 async def get_sync_status(
     request: Request,
-    outdated_only: bool = Query(default=False, description="Retorna apenas datasets desatualizados"),
-    current_user: Any = Depends(get_current_user)
+    outdated_only: bool = Query(
+        default=False, description="Retorna apenas datasets desatualizados"
+    ),
+    current_user: Any = Depends(get_current_user),
 ) -> dict[str, Any]:
     """
     Verifica quais datasets Fintz precisam de atualizacao.
@@ -60,18 +64,21 @@ async def get_sync_status(
     - Alertas de SLA de dados
     """
     from sqlalchemy import text
+
     from finanalytics_ai.domain.fintz.entities import ALL_DATASETS
     from finanalytics_ai.infrastructure.database.connection import get_session
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
 
     # Busca ultimo sync de cada dataset
     async with get_session() as session:
-        rows = await session.execute(text("""
+        rows = await session.execute(
+            text("""
             SELECT dataset_key, status, rows_upserted, synced_at, error_message
             FROM fintz_sync_log
             ORDER BY synced_at DESC
-        """))
+        """)
+        )
         sync_log = {r[0]: r for r in rows.fetchall()}
 
     # Catalogo completo
@@ -94,7 +101,7 @@ async def get_sync_status(
         else:
             last_sync = log_row[3]
             if last_sync.tzinfo is None:
-                last_sync = last_sync.replace(tzinfo=timezone.utc)
+                last_sync = last_sync.replace(tzinfo=UTC)
             age_hours = (now - last_sync).total_seconds() / 3600
             last_status = log_row[1]
             rows_last = log_row[2] or 0
@@ -122,11 +129,9 @@ async def get_sync_status(
             results.append(entry)
 
     # Ordena: criticos primeiro, depois por atraso
-    results.sort(key=lambda x: (
-        not x["is_critical"],
-        not x["is_outdated"],
-        -(x["age_hours"] or 9999)
-    ))
+    results.sort(
+        key=lambda x: (not x["is_critical"], not x["is_outdated"], -(x["age_hours"] or 9999))
+    )
 
     return {
         "timestamp": now.isoformat(),
@@ -140,18 +145,17 @@ async def get_sync_status(
         "datasets": results,
     }
 
-@router.get(
-    "/sync/history",
-    summary="Historico de syncs Fintz"
-)
+
+@router.get("/sync/history", summary="Historico de syncs Fintz")
 async def get_sync_history(
     request: Request,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     status_filter: str | None = Query(default=None, description="ok | error | skip"),
-    current_user: Any = Depends(get_current_user)
+    current_user: Any = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Historico dos ultimos syncs por dataset."""
     from sqlalchemy import text
+
     from finanalytics_ai.infrastructure.database.connection import get_session
 
     where = ""
@@ -161,13 +165,16 @@ async def get_sync_history(
         params["status"] = status_filter
 
     async with get_session() as session:
-        rows = await session.execute(text(f"""
+        rows = await session.execute(
+            text(f"""
             SELECT dataset_key, status, rows_upserted, synced_at, error_message
             FROM fintz_sync_log
             {where}
             ORDER BY synced_at DESC
             LIMIT :limit
-        """), params)
+        """),
+            params,
+        )
         history = [
             {
                 "dataset_key": r[0],
@@ -181,14 +188,14 @@ async def get_sync_history(
 
     return {"count": len(history), "history": history}
 
+
 @router.post(
     "/sync/trigger",
     summary="Dispara sync manual de todos os datasets",
-    status_code=status.HTTP_202_ACCEPTED
+    status_code=status.HTTP_202_ACCEPTED,
 )
 async def trigger_sync(
-    request: Request,
-    current_user: Any = Depends(get_current_user)
+    request: Request, current_user: Any = Depends(get_current_user)
 ) -> dict[str, Any]:
     """
     Dispara sync manual em background.
@@ -197,8 +204,8 @@ async def trigger_sync(
     O sync roda em background -- acompanhe via GET /sync/status.
     """
     import asyncio
+
     from finanalytics_ai.config import get_settings
-    from finanalytics_ai.workers.fintz_sync_worker import run_once
 
     settings = get_settings()
 
@@ -210,18 +217,17 @@ async def trigger_sync(
     return {
         "status": "accepted",
         "message": "Sync iniciado em background. Acompanhe via GET /api/v1/fintz/sync/status",
-        "triggered_at": datetime.now(tz=timezone.utc).isoformat(),
+        "triggered_at": datetime.now(tz=UTC).isoformat(),
     }
+
 
 @router.post(
     "/sync/trigger/{dataset_key}",
     summary="Dispara sync de um dataset especifico",
-    status_code=status.HTTP_202_ACCEPTED
+    status_code=status.HTTP_202_ACCEPTED,
 )
 async def trigger_sync_dataset(
-    dataset_key: str,
-    request: Request,
-    current_user: Any = Depends(get_current_user)
+    dataset_key: str, request: Request, current_user: Any = Depends(get_current_user)
 ) -> dict[str, Any]:
     """
     Dispara sync de um dataset especifico em background.
@@ -229,6 +235,7 @@ async def trigger_sync_dataset(
     dataset_key: ex 'cotacoes_ohlc', 'indicador_ROE', 'item_ReceitaLiquida_12M'
     """
     import asyncio
+
     from finanalytics_ai.config import get_settings
     from finanalytics_ai.domain.fintz.entities import ALL_DATASETS
 
@@ -238,7 +245,7 @@ async def trigger_sync_dataset(
         raise HTTPException(
             status_code=404,
             detail=f"Dataset '{dataset_key}' nao encontrado. "
-                   f"Use GET /api/v1/fintz/tickers para listar datasets validos."
+            f"Use GET /api/v1/fintz/tickers para listar datasets validos.",
         )
 
     settings = get_settings()
@@ -247,22 +254,21 @@ async def trigger_sync_dataset(
     logger.info(
         "fintz_sync.manual_trigger_dataset",
         dataset_key=dataset_key,
-        user=getattr(current_user, "email", "?")
+        user=getattr(current_user, "email", "?"),
     )
 
     return {
         "status": "accepted",
         "dataset_key": dataset_key,
         "message": f"Sync de '{dataset_key}' iniciado. Acompanhe via GET /api/v1/fintz/sync/status",
-        "triggered_at": datetime.now(tz=timezone.utc).isoformat(),
+        "triggered_at": datetime.now(tz=UTC).isoformat(),
     }
 
-async def _run_sync_background(
-    settings: Any,
-    datasets: list[str] | None = None
-) -> None:
+
+async def _run_sync_background(settings: Any, datasets: list[str] | None = None) -> None:
     """Executa sync em background — erros sao logados, nao propagados."""
     from finanalytics_ai.workers.fintz_sync_worker import run_once
+
     try:
         await run_once(settings, datasets=datasets)
     except Exception as exc:
