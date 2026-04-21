@@ -55,6 +55,7 @@ class MarketEvent:
     retry_count: int = 0
     error_message: str = ""
     processed_at: datetime | None = None
+    correlation_id: str | None = None
 
     def mark_processing(self) -> MarketEvent:
         """Retorna nova instância com status PROCESSING."""
@@ -67,6 +68,7 @@ class MarketEvent:
             source=self.source,
             status=EventStatus.PROCESSING,
             retry_count=self.retry_count,
+            correlation_id=self.correlation_id,
         )
 
     def mark_processed(self) -> MarketEvent:
@@ -80,6 +82,7 @@ class MarketEvent:
             status=EventStatus.PROCESSED,
             retry_count=self.retry_count,
             processed_at=datetime.now(UTC),
+            correlation_id=self.correlation_id,
         )
 
     def mark_failed(self, error: str) -> MarketEvent:
@@ -93,6 +96,7 @@ class MarketEvent:
             status=EventStatus.FAILED,
             retry_count=self.retry_count + 1,
             error_message=error,
+            correlation_id=self.correlation_id,
         )
 
 

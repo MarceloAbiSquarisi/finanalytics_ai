@@ -68,7 +68,13 @@ async def _process_batch(
     service = build_event_processor_service_v2(session_factory, settings)
 
     async def _process_one(event) -> object:  # type: ignore[type-arg]
-        cid = str(event.event_id)
+        # cid externo (HTTP request, parent worker) tem precedência;
+        # event_id é fallback para eventos criados sem trace upstream.
+        cid = (
+            str(event.payload.correlation_id)
+            if event.payload.correlation_id
+            else str(event.event_id)
+        )
         bind_correlation_id(cid)
         try:
             async with semaphore:

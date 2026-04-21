@@ -35,6 +35,11 @@ import structlog
 
 from finanalytics_ai.config import get_settings
 from finanalytics_ai.domain.entities.event import EventStatus, EventType, MarketEvent
+from finanalytics_ai.observability.correlation import (
+    CORRELATION_HEADER,
+    bind_correlation_id,
+    clear_correlation_id,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -54,8 +59,30 @@ def _event_to_bytes(event: MarketEvent) -> bytes:
         "payload": event.payload,
         "source": event.source,
         "occurred_at": event.occurred_at.isoformat(),
+        "correlation_id": event.correlation_id,
     }
     return json.dumps(data).encode("utf-8")
+
+
+def _extract_correlation_id_from_headers(headers: Any) -> str | None:
+    """
+    Aceita os formatos típicos do aiokafka (lista de tuplas
+    `(key: str, value: bytes)`). Header lookup é case-insensitive.
+    """
+    if not headers:
+        return None
+    target = CORRELATION_HEADER.lower()
+    for entry in headers:
+        try:
+            key, val = entry
+        except (TypeError, ValueError):
+            continue
+        if not key or val is None:
+            continue
+        key_str = key.decode("utf-8") if isinstance(key, bytes) else str(key)
+        if key_str.lower() == target:
+            return val.decode("utf-8") if isinstance(val, bytes) else str(val)
+    return None
 
 
 def _bytes_to_event(raw: bytes) -> MarketEvent:
@@ -71,6 +98,7 @@ def _bytes_to_event(raw: bytes) -> MarketEvent:
         if "occurred_at" in data
         else datetime.now(UTC),
         status=EventStatus.PENDING,
+        correlation_id=data.get("correlation_id"),
     )
 
 
@@ -129,13 +157,32 @@ class KafkaMarketEventProducer:
     async def publish(self, event: MarketEvent) -> None:
         if not self._producer:
             raise RuntimeError("Producer não iniciado — chame start() primeiro")
+        # Propaga correlation_id do contextvar (HTTP request, parent worker)
+        # se o evento ainda não tiver um. Defesa em profundidade: vai tanto
+        # no payload quanto no header Kafka.
+        if not event.correlation_id:
+            ctx = structlog.contextvars.get_contextvars()
+            ctx_cid = ctx.get("correlation_id")
+            if ctx_cid:
+                event.correlation_id = str(ctx_cid)
         raw = _event_to_bytes(event)
+        headers = (
+            [(CORRELATION_HEADER, event.correlation_id.encode("utf-8"))]
+            if event.correlation_id
+            else None
+        )
         await self._producer.send_and_wait(
             self._topic,
             value=raw,
             key=event.ticker.encode("utf-8"),  # particionamento por ticker
+            headers=headers,
         )
-        logger.debug("kafka.event.published", event_id=event.event_id, ticker=event.ticker)
+        logger.debug(
+            "kafka.event.published",
+            event_id=event.event_id,
+            ticker=event.ticker,
+            correlation_id=event.correlation_id,
+        )
 
     async def __aenter__(self) -> KafkaMarketEventProducer:
         await self.start()
@@ -232,6 +279,11 @@ class KafkaMarketEventConsumer:
                     break
                 try:
                     event = _bytes_to_event(msg.value)
+                    # Header Kafka tem precedência sobre payload (mais
+                    # canônico; padrão usado por outros services também).
+                    header_cid = _extract_correlation_id_from_headers(msg.headers)
+                    if header_cid:
+                        event.correlation_id = header_cid
                     await self._buffer.put(event)
                     log.debug(
                         "kafka.message.received",
@@ -239,6 +291,7 @@ class KafkaMarketEventConsumer:
                         partition=msg.partition,
                         offset=msg.offset,
                         ticker=event.ticker,
+                        correlation_id=event.correlation_id,
                     )
                     # Commit manual após enqueue no buffer
                     await self._consumer.commit()
@@ -269,11 +322,16 @@ class KafkaMarketEventConsumer:
             while self._running:
                 try:
                     event = await asyncio.wait_for(self._buffer.get(), timeout=1.0)
+                    bound_cid = bool(event.correlation_id)
+                    if bound_cid:
+                        bind_correlation_id(event.correlation_id)
                     try:
                         await handler(event)
                     except Exception as exc:
                         log.error("kafka.event.handler_error", error=str(exc), event_id=event.event_id)
                     finally:
+                        if bound_cid:
+                            clear_correlation_id()
                         self._buffer.task_done()
                 except TimeoutError:
                     continue  # sem mensagem no buffer — volta ao loop
