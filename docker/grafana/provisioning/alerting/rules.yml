@@ -171,3 +171,119 @@ groups:
         labels:
           severity: warning
           team: ops
+
+      # ── 6. API latency p95 alta (Sprint Z3, 21/abr) ──
+      - uid: alert-api-latency-p95
+        title: api_latency_p95_high
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              editorMode: code
+              expr: |
+                histogram_quantile(0.95,
+                  sum by (le) (rate(finanalytics_http_request_duration_seconds_bucket[5m]))
+                ) > 2
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: 'P95 latencia API > 2s em 10min'
+          description: 'API FastAPI com latencia elevada — verifique DB/Timescale e /api/v1/ml/signals.'
+        labels:
+          severity: warning
+          team: api
+
+      # ── 7. API 5xx rate alta (Sprint Z3, 21/abr) ──
+      - uid: alert-api-5xx-rate
+        title: api_5xx_rate_high
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              editorMode: code
+              expr: |
+                (sum(rate(finanalytics_http_requests_total{status_code=~"5.."}[5m]))
+                /
+                sum(rate(finanalytics_http_requests_total[5m]))) > 0.05
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: 'API 5xx rate > 5% em 5min'
+          description: 'Erros 5xx acima do normal. Verifique logs + correlation_id das requests.'
+        labels:
+          severity: critical
+          team: api
+
+      # ── 8. BRAPI errors (Sprint Z3, 21/abr) ──
+      - uid: alert-brapi-errors
+        title: brapi_errors_high
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              editorMode: code
+              expr: |
+                sum(increase(finanalytics_brapi_requests_total{status="error"}[15m])) > 10
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: 'BRAPI: >10 erros em 15min'
+          description: 'Fonte de dados BRAPI instavel. Considere fallback para Fintz/DLL.'
+        labels:
+          severity: warning
+          team: data
+
+      # ── 9. Portfolio ops burst (anomalia comportamental; Sprint Z3) ──
+      - uid: alert-portfolio-ops-burst
+        title: portfolio_ops_burst
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              editorMode: code
+              expr: |
+                sum(rate(finanalytics_portfolio_operations_total[5m])) > 10
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+        noDataState: OK
+        execErrState: Error
+        for: 3m
+        annotations:
+          summary: 'Rate de operacoes de portfolio > 10/s em 5min'
+          description: 'Possivel loop bug, trade automation descontrolado ou ataque. Revisar /api/v1/wallet/* e /api/v1/portfolios/*.'
+        labels:
+          severity: warning
+          team: security

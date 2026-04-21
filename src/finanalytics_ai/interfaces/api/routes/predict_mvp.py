@@ -656,3 +656,180 @@ async def ml_metrics() -> MLMetrics:
         signals_24h=signals_24h,
     )
 
+
+# ─── /predict_ensemble — multi-horizon ensemble (Sprint Z4, 21/abr) ──────
+
+class EnsembleHorizonItem(BaseModel):
+    horizon_days: int
+    model_file: str
+    predicted_log_return: float
+    predicted_return_pct: float
+    weight: float = Field(..., description="Peso usado no ensemble (sharpe-based ou uniform)")
+    sharpe: float | None = None
+
+
+class EnsembleResponse(BaseModel):
+    ticker: str
+    reference_date: date
+    ensemble_log_return: float
+    ensemble_return_pct: float
+    weighting: str = Field(..., description="'sharpe' se todos models tem sharpe; 'uniform' caso contrario")
+    horizons: list[EnsembleHorizonItem]
+    signal: str | None = None
+    signal_method: str | None = None
+    calibration: CalibrationInfo | None = None
+
+
+def _find_all_pickles(ticker: str) -> list[tuple[Path, dict]]:
+    """Lista TODOS pickles do ticker (qualquer horizon), com meta valida."""
+    if not MODELS_DIR.exists():
+        return []
+    out: list[tuple[Path, dict]] = []
+    for pkl in sorted(MODELS_DIR.glob(f"*_{ticker}_*.pkl"), reverse=True):
+        meta_path = pkl.with_suffix(".json")
+        if not meta_path.exists():
+            continue
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if meta.get("ticker", "").upper() != ticker.upper():
+            continue
+        out.append((pkl, meta))
+    # Dedup por horizon — mantem o mais recente por horizon
+    seen_horizon: set[int] = set()
+    deduped: list[tuple[Path, dict]] = []
+    for pkl, meta in out:
+        h = int(meta.get("horizon_days", 1))
+        if h in seen_horizon:
+            continue
+        seen_horizon.add(h)
+        deduped.append((pkl, meta))
+    return sorted(deduped, key=lambda x: int(x[1].get("horizon_days", 1)))
+
+
+@router.get("/predict_ensemble/{ticker}", response_model=EnsembleResponse)
+async def predict_ensemble(ticker: str) -> EnsembleResponse:
+    """Ensemble multi-horizon (1d/3d/5d/21d/...) — averagem ponderada das
+    predicoes de TODOS os pickles disponiveis para o ticker.
+
+    Pesos: se TODOS os pickles tem `meta.metrics.test_sharpe`, normaliza
+    para soma=1; caso contrario uniforme. Predicoes nao-1d sao
+    annualizadas linearmente (`pred_log / horizon_days`) antes de ponderar.
+
+    Signal usa thresholds de `ticker_ml_config` aplicado sobre o ensemble.
+
+    Retorna 404 se nao ha pickle para o ticker.
+    """
+    ticker_u = ticker.upper()
+
+    import os as _os
+    dsn = (
+        _os.environ.get("TIMESCALE_URL")
+        or _os.environ.get("PROFIT_TIMESCALE_DSN")
+        or "postgresql://finanalytics:timescale_secret@localhost:5433/market_data"
+    ).replace("postgresql+asyncpg://", "postgresql://")
+
+    pickles = _find_all_pickles(ticker_u)
+    if not pickles:
+        raise HTTPException(
+            404,
+            detail=f"No MVP models found for {ticker_u}. Train at least one: "
+                   f"python scripts/train_petr4_mvp.py --ticker {ticker_u}",
+        )
+
+    # Carrega features (assume primeiro pickle define schema)
+    first_meta = pickles[0][1]
+    features = list(first_meta.get("features") or FEATURES_DEFAULT)
+    try:
+        feats = _load_latest_features(ticker_u, dsn, features)
+    except Exception as exc:
+        log.error("predict_ensemble.features_error", ticker=ticker_u, error=str(exc))
+        raise HTTPException(500, detail=f"features query failed: {exc}") from exc
+    if feats is None:
+        raise HTTPException(404, detail=f"No features_daily row for {ticker_u}")
+    missing = [f for f in features if feats.get(f) is None]
+    if missing:
+        raise HTTPException(422, detail=f"features_daily nulls: {missing}")
+
+    x_vec = np.array([[feats[f] for f in features]], dtype=float)
+
+    # Predict em cada pickle
+    items: list[dict[str, Any]] = []
+    for pkl, meta in pickles:
+        h = int(meta.get("horizon_days", 1))
+        try:
+            with pkl.open("rb") as fh:
+                model = pickle.load(fh)
+            pred_log = float(model.predict(x_vec)[0])
+        except Exception as exc:
+            log.warning("predict_ensemble.skip_pickle", file=pkl.name, error=str(exc))
+            continue
+        sharpe = None
+        try:
+            sharpe = float(((meta.get("metrics") or {}).get("test_sharpe")) or
+                           ((meta.get("metrics") or {}).get("sharpe")))
+        except (TypeError, ValueError):
+            sharpe = None
+        items.append({
+            "horizon_days": h,
+            "model_file": pkl.name,
+            "pred_log": pred_log,
+            "sharpe": sharpe,
+            # Annualiza para 1d para agregar comparavel
+            "pred_log_1d": pred_log / max(h, 1),
+        })
+
+    if not items:
+        raise HTTPException(500, detail="Todos pickles falharam na inferencia")
+
+    # Pesos: sharpe-based se todos tem sharpe positivo, else uniforme
+    sharpes = [it["sharpe"] for it in items if it.get("sharpe") is not None]
+    use_sharpe = (len(sharpes) == len(items)) and all(s > 0 for s in sharpes)
+    if use_sharpe:
+        total = sum(sharpes)
+        weights = [it["sharpe"] / total for it in items]
+        weighting = "sharpe"
+    else:
+        n = len(items)
+        weights = [1.0 / n] * n
+        weighting = "uniform"
+
+    ensemble_log_1d = sum(it["pred_log_1d"] * w for it, w in zip(items, weights))
+    ensemble_pct = (float(np.exp(ensemble_log_1d)) - 1.0) * 100.0
+
+    # Signal via cfg sobre ensemble (cfg horizon eh referencia, mas
+    # ensemble esta em 1d-equiv -> usa scaled_linear)
+    cfg = _load_calibration(ticker_u, dsn)
+    signal = signal_method = None
+    calibration_obj = None
+    if cfg is not None:
+        signal, signal_method = _signal_from_prediction(ensemble_log_1d, cfg, model_horizon=1)
+        calibration_obj = CalibrationInfo(
+            th_buy=cfg["th_buy"], th_sell=cfg["th_sell"],
+            horizon_days=cfg["horizon_days"], best_sharpe=cfg["best_sharpe"],
+            best_return_pct=cfg["best_return_pct"], best_trades=cfg["best_trades"],
+            best_win_rate=cfg["best_win_rate"], calibrated_at=cfg["calibrated_at"],
+        )
+
+    return EnsembleResponse(
+        ticker=ticker_u,
+        reference_date=feats["dia"],
+        ensemble_log_return=ensemble_log_1d,
+        ensemble_return_pct=round(ensemble_pct, 4),
+        weighting=weighting,
+        horizons=[
+            EnsembleHorizonItem(
+                horizon_days=it["horizon_days"],
+                model_file=it["model_file"],
+                predicted_log_return=it["pred_log"],
+                predicted_return_pct=round((float(np.exp(it["pred_log"])) - 1.0) * 100.0, 4),
+                weight=round(w, 4),
+                sharpe=it["sharpe"],
+            )
+            for it, w in zip(items, weights)
+        ],
+        signal=signal,
+        signal_method=signal_method,
+        calibration=calibration_obj,
+    )
