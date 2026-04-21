@@ -460,7 +460,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
       <div class="section-title" style="margin-top:0">Tabela Regressiva de IR — Renda Fixa (Lei 11.033/2004)
 </div>
       <div style="overflow-x:auto" class="tbl-wrap">
-        <table style="width:100%;border-collapse:collapse;font-size:16px">
+        <table style="width:100%;border-collapse:collapse;font-size:16px" data-fa-table>
           <thead><tr>
             <th style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:left;color:var(--muted);font-size:14px;text-transform:uppercase;letter-spacing:.5px">Prazo</th>
             <th style="padding:7px 12px;border-bottom:1px solid var(--border);text-align:center;color:var(--muted);font-size:14px;letter-spacing:.5px">Alíquota IR</th>
@@ -675,7 +675,7 @@ function renderEquityTable(positions) {
           <span style="font-size:14px">${fmtPct(p.pl_pct)}</span></td></tr>`).join('');
 
   document.getElementById('equity-table').innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-size:16px">
+    <table style="width:100%;border-collapse:collapse;font-size:16px" data-fa-table>
       <thead><tr>
         <th style="padding:6px 8px;color:var(--muted);font-size:14px;text-align:left;border-bottom:1px solid var(--border)">Ativo</th>
         <th style="padding:6px 8px;color:var(--muted);font-size:14px;text-align:right;border-bottom:1px solid var(--border)">Valor</th>
@@ -699,7 +699,7 @@ function renderRFTable(holdings) {
   }).join('');
 
   document.getElementById('rf-table').innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-size:16px">
+    <table style="width:100%;border-collapse:collapse;font-size:16px" data-fa-table>
       <thead><tr>
         <th style="padding:6px 8px;color:var(--muted);font-size:14px;text-align:left;border-bottom:1px solid var(--border)">Título</th>
         <th style="padding:6px 8px;color:var(--muted);font-size:14px;text-align:right;border-bottom:1px solid var(--border)">Val. Atual</th>
@@ -776,7 +776,7 @@ function renderIR(items) {
         <span id="acc-icon-${idx}">▼</span></button>
       <div class="accordion-body" id="acc-${idx}">
         <div style="overflow-x:auto;margin-top:6px" class="tbl-wrap">
-          <table class="ir-table">
+          <table class="ir-table" data-fa-table>
             <thead><tr>
               <th>Cenário</th><th style="text-align:right">Dias</th>
               <th style="text-align:right">Alíquota IR</th><th style="text-align:right">Imposto</th>
@@ -814,8 +814,8 @@ window.addEventListener('load', loadAll);
     if (avatarEl) avatarEl.textContent = name.charAt(0).toUpperCase();
   } catch(e) {}
 })();
-function faLogout() {
-  if (!confirm('Deseja sair?')) return;
+async function faLogout() {
+  if (!await FAModal.confirm('Deseja sair?')) return;
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
   localStorage.removeItem('token_expires_at');
@@ -825,10 +825,13 @@ function faLogout() {
 </script>
 </div><!-- /fa-page-content -->
 <script src="/static/sidebar.js"></script>
+  <script src="/static/modal.js"></script>
+  <script src="/static/table_utils.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>
 <script src="/static/toast.js"></script>
+  <script src="/static/error_handler.js"></script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
 <script src="/static/notifications.js"></script>

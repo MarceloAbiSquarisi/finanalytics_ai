@@ -1,6 +1,6 @@
 # UI helpers compartilhados — `interfaces/api/static/`
 
-> **Sprint UI 21/abr/2026** — 11 assets globais consumidos pelas 39 páginas HTML.
+> **Sprint UI 21/abr/2026** — 13 assets globais consumidos pelas 39 páginas HTML.
 > Todos servidos via rota `/static/{filename}` (whitelist `.js`/`.css`/`.svg`/`.png`/`.ico` + `_ALLOWED_PARTIALS = {sidebar.html}`).
 
 ## Tabela de assets
@@ -12,8 +12,10 @@
 | `sidebar.html` + `sidebar.js` | `window.faSidebar.{toggle,reload,markActive}` | Sidebar canônica em 6 seções, auto-replace via fetch+sentinel; mobile responsive (overlay <768px) |
 | `notifications.js` | `FANotif.{init,connect,clear,count}` | Sino realtime SSE `/api/v1/alerts/stream` no topbar |
 | `toast.js` | `FAToast.{ok,err,warn,info,loading,dismiss,show}` | Toasts padronizados (4 cores + spinner inline) |
-| `table_utils.js` | `FATable.{enhance,applyFilter,resetSort}` | Sort cliente (auto-detect numérico) + filter input |
+| `table_utils.js` | `FATable.{enhance,applyFilter,resetSort,autoInit}` | Sort cliente (auto-detect numérico) + filter input. **Auto-init**: aplica em `<table data-fa-table>` no DOMContentLoaded |
 | `empty_state.js` | `FAEmpty.{render,tableRow}` | Empty state com CTA (3 variantes: primary/success/warn) |
+| `modal.js` | `FAModal.{confirm,alert}` | Modal Promise-based — substitui `confirm()`/`alert()` nativos. Esc=cancel, Enter=ok, click no backdrop=cancel |
+| `error_handler.js` | `FAErr.{handle,fetchJson}` | Boundary global: captura `unhandledrejection`/`window.onerror` → `FAToast.err`. `fetchJson()` faz fetch + parse + erro padronizado com `correlation_id` |
 | `onboarding.js` | `FAOnboarding.{start,dismiss}` | Wizard 3 etapas (welcome → criar portfolio → tour); auto-start em `/dashboard` na 1ª visita (`fa_onboarded`) |
 | `breadcrumbs.js` | `FABreadcrumbs.{render,set}` | Breadcrumbs no topo do `.main` baseado em `PATH_MAP` (40 rotas → secção/label) |
 | `command_palette.js` | `FAPalette.{open,close,register}` | Modal Cmd+K / `/` com busca fuzzy em 40 páginas + 3 ações |
@@ -39,7 +41,9 @@
   <script src="/static/empty_state.js"></script>
   <script src="/static/onboarding.js"></script>
   <script src="/static/toast.js"></script>
+  <script src="/static/error_handler.js"></script>
   <script src="/static/table_utils.js"></script>
+  <script src="/static/modal.js"></script>
 </body>
 ```
 
@@ -71,20 +75,25 @@ FAToast.dismiss(id);
 
 ### Table
 
+**Auto-init (preferido)** — basta marcar a tabela:
+
 ```html
 <input id="my-filter" placeholder="Buscar...">
-<table id="my-table">
+<table data-fa-table data-fa-filter="my-filter">
   <thead><tr><th>Ticker</th><th>Qty</th></tr></thead>
   <tbody>...</tbody>
 </table>
-<script>
+```
+
+`data-fa-table="no-sort"` desabilita sort. `th[data-no-sort]` desabilita coluna específica.
+
+**Manual**:
+
+```js
 FATable.enhance(document.getElementById('my-table'), {
   sort: true, filter: true, filterInputId: 'my-filter'
 });
-</script>
 ```
-
-`th[data-no-sort]` desabilita sort em coluna específica.
 
 ### Empty state
 
@@ -104,6 +113,46 @@ FAEmpty.tableRow(tbody, {
   title: '...', text: '...', cta: {...}
 });
 ```
+
+### Modal (confirm/alert async)
+
+```js
+// Substitui confirm() nativo — retorna Promise<boolean>
+if (!await FAModal.confirm('Excluir este item?')) return;
+
+// Variantes via opts
+const ok = await FAModal.confirm({
+  title: 'Confirmar exclusão',
+  text: 'Esta ação não pode ser desfeita.',
+  variant: 'danger',          // primary | danger | warn (auto-detect via texto)
+  okLabel: 'Excluir',
+  cancelLabel: 'Cancelar'
+});
+
+// Substitui alert() — retorna Promise<void>
+await FAModal.alert('Operação concluída', 'ok');
+```
+
+Esc=cancel, Enter=ok, click no backdrop=cancel.
+
+### Error boundary global
+
+`error_handler.js` instala listeners em `window.unhandledrejection` e `window.onerror` que canalizam para `FAToast.err`. Erros 401/403 são ignorados (auth_guard cuida).
+
+```js
+// Wrapper de fetch — lança Error amigavel + correlation_id em 4xx/5xx
+try {
+  const data = await FAErr.fetchJson('/api/v1/portfolios');
+  // data ja parseado como JSON; Authorization injetada se FAAuth presente
+} catch (e) {
+  // toast ja foi disparado; e.status, e.correlationId disponiveis
+}
+
+// Handle manual em catch existente
+try { ... } catch (e) { FAErr.handle(e, 'loadPortfolios'); }
+```
+
+Throttling: mesma mensagem em janela de 3s não re-toasta.
 
 ### Notificações realtime (auto-init)
 
@@ -193,3 +242,7 @@ FABreadcrumbs.set([
 | `shortcuts.js` | `bfdd9ff` |
 | `favicon.svg` + meta tags | `b4b9f67` |
 | Lembre-me 7d (auth_guard auto-refresh) | `3589dbf` |
+| `STATIC_HELPERS.md` + cache TTL + FAEmpty screener (W+Z+Y+AA) | `848aaf2` |
+| `table_utils.js` auto-init + 44 tabelas + carteira FAEmpty (Sprint UI A) | _pendente_ |
+| `modal.js` + bulk replace alert/confirm em 26 paginas (Sprint UI B) | _pendente_ |
+| `error_handler.js` boundary global (Sprint UI D) | _pendente_ |

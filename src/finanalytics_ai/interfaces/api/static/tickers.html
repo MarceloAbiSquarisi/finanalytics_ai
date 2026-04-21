@@ -236,7 +236,7 @@ tr:hover td{background:rgba(0,212,255,.02)}
   </div>
 
   <div class="tbl-wrap">
-    <table>
+    <table data-fa-table>
       <thead>
         <tr>
           <th>Ticker</th>
@@ -398,7 +398,9 @@ async function loadTickers() {
     var data = await fetch(AGENT + '/tickers', {signal: ctrl.signal}).then(function(r){ return r.json(); });
     var tickers = data.tickers || [];
     if (!tickers.length) {
-      tb.innerHTML = '<tr><td colspan="5" class="empty">Nenhum ticker cadastrado. Clique em "Adicionar Ticker".</td></tr>';
+      FAEmpty.tableRow(tb, { colspan: 5, title: 'Nenhum ticker subscrito',
+        text: 'Subscreva tickers para coletar ticks em tempo real via Profit DLL.',
+        cta: { label: '+ Adicionar Ticker', variant: 'primary', onClick: "openModal('modalAdd')" } });
       return;
     }
     var html = '';
@@ -448,7 +450,7 @@ async function addTicker() {
 }
 
 async function removeTicker(ticker, exchange) {
-  if (!confirm('Remover ' + ticker + ' da lista de tickers subscritos?')) return;
+  if (!await FAModal.confirm('Remover ' + ticker + ' da lista de tickers subscritos?')) return;
   try {
     var res = await fetch(AGENT + '/tickers/remove', {
       method: 'POST',
@@ -470,6 +472,9 @@ async function removeTicker(ticker, exchange) {
 init();
 </script>
 <script src="/static/sidebar.js"></script>
+  <script src="/static/error_handler.js"></script>
+  <script src="/static/modal.js"></script>
+  <script src="/static/table_utils.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>

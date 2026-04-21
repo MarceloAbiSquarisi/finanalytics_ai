@@ -227,7 +227,7 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
       </div>
     </div>
     <div class="tbl-wrap">
-      <table id="usersTable">
+      <table id="usersTable" data-fa-table>
         <thead>
           <tr>
             <th>Nome</th><th>E-mail</th><th>Role</th><th>Status</th><th>Último login</th><th>2FA</th><th>Ações</th>
@@ -251,7 +251,7 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
       </button>
     </div>
     <div class="tbl-wrap">
-      <table>
+      <table data-fa-table>
         <thead>
           <tr><th>Nome</th><th>Tipo</th><th>Código (CNPJ/SWIFT)</th><th>País</th><th>Site</th><th>Status</th><th>Ações</th></tr>
         </thead>
@@ -613,7 +613,7 @@ async function saveAgent() {
 }
 
 async function deleteAgent(id, name) {
-  if (!confirm(`Excluir o agente "${name}"? Esta ação não pode ser desfeita.`)) return;
+  if (!await FAModal.confirm(`Excluir o agente "${name}"? Esta ação não pode ser desfeita.`)) return;
   const res = await fetch(`${API}/agents/${id}`, {method:'DELETE', headers:H()});
   if (res.ok || res.status === 204) {
     showMsg('agentsMsg', 'Agente removido.', 'success');
@@ -630,6 +630,9 @@ document.querySelector('[onclick="openModal(\'modalCreateAgent\')"]').onclick = 
 init();
 </script>
 <script src="/static/sidebar.js"></script>
+  <script src="/static/error_handler.js"></script>
+  <script src="/static/modal.js"></script>
+  <script src="/static/table_utils.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>
@@ -987,7 +990,7 @@ async function saveAgent() {
 }
 
 async function deleteAgent(id, name) {
-  if (!confirm(`Excluir o agente "${name}"? Esta ação não pode ser desfeita.`)) return;
+  if (!await FAModal.confirm(`Excluir o agente "${name}"? Esta ação não pode ser desfeita.`)) return;
   const res = await fetch(`${API}/agents/${id}`, {method:'DELETE', headers:H()});
   if (res.ok || res.status === 204) {
     showMsg('agentsMsg', 'Agente removido.', 'success');

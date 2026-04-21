@@ -265,7 +265,7 @@ body.sb-open .fa-sb-push { margin-left: var(--sb-w); }
     <div id="fc-status" class="status">Configure os tickers e clique em CALCULAR
 </div>
     <div id="fc-table" style="display:none">
-      <table>
+      <table data-fa-table>
         <thead><tr>
           <th>TICKER</th><th>P10 (pessimista)</th><th>P50 (mediano)</th>
           <th>P90 (otimista)</th><th>PROB POSITIVO</th><th>INTERVALO 80%</th>
@@ -307,7 +307,7 @@ body.sb-open .fa-sb-push { margin-left: var(--sb-w); }
     <div id="risk-status" class="status">Configure e clique em CALCULAR RISCO
 </div>
     <div id="risk-table" style="display:none">
-      <table>
+      <table data-fa-table>
         <thead><tr>
           <th>TICKER</th><th>NIVEL</th><th>VaR CONSENSO</th>
           <th>HISTORICO</th><th>t-Student (df)</th><th>GARCH</th><th>MONTE CARLO</th><th>VOL ANUAL</th>
@@ -343,7 +343,7 @@ body.sb-open .fa-sb-push { margin-left: var(--sb-w); }
     <div id="sc-status" class="status">Clique em BUSCAR para carregar
 </div>
     <div id="sc-table" style="display:none">
-      <table>
+      <table data-fa-table>
         <thead><tr>
           <th>SINAL</th><th>SCORE</th><th>TICKER</th><th>PROB+</th><th>P50</th><th>P10</th><th>P90</th>
           <th>P/L</th><th>ROE%</th><th>ROIC%</th><th>VOL%</th><th>RSI</th>
@@ -609,10 +609,12 @@ async function computeFeatures() {
 </script>
 <script src="/static/auth_guard.js"></script>
 <script src="/static/sidebar.js"></script>
+  <script src="/static/table_utils.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>
 <script src="/static/toast.js"></script>
+  <script src="/static/error_handler.js"></script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
 <script src="/static/notifications.js"></script>

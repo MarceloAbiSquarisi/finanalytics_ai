@@ -170,7 +170,7 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
   </div>
 
   <div class="tbl-wrap">
-    <table>
+    <table data-fa-table>
       <thead>
         <tr>
           <th>Nome</th>
@@ -343,6 +343,7 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
 
 <script src="/static/auth_guard.js"></script>
 <script src="/static/toast.js"></script>
+  <script src="/static/error_handler.js"></script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
 <script src="/static/table_utils.js"></script>
@@ -468,7 +469,7 @@ function renderList(list) {
 }
 
 async function deactivate(id, name) {
-  if (!confirm(`Desativar o portfolio "${name}"?\n\nO historico e as trades serao preservados. Reativacao e possivel a qualquer momento.\n\nA operacao e bloqueada se houver positions, cripto, RF ou outros ativos com saldo > 0.`)) return;
+  if (!await FAModal.confirm(`Desativar o portfolio "${name}"?\n\nO historico e as trades serao preservados. Reativacao e possivel a qualquer momento.\n\nA operacao e bloqueada se houver positions, cripto, RF ou outros ativos com saldo > 0.`)) return;
   try {
     const r = await fetch(API + '/portfolios/' + encodeURIComponent(id) + '/deactivate', {
       method: 'POST', headers: H()
@@ -774,6 +775,7 @@ document.addEventListener('keydown', (e) => {
 init();
 </script>
 <script src="/static/sidebar.js"></script>
+  <script src="/static/modal.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>

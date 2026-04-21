@@ -208,7 +208,7 @@ async function loadRanking(){
     var clean=items.filter(function(x){return x.dy_pct<=80;});
     if(!clean.length){area.innerHTML='<div class="empty-msg">Nenhum dado encontrado com os filtros selecionados</div>';return;}
     var maxDy=Math.max.apply(null,clean.map(function(x){return x.dy_pct;}));
-    var html='<div class="card"><table class="rank-table"><thead><tr><th>#</th><th>Ticker</th><th>DY Atual</th><th>Barra</th><th>Referencia</th></tr></thead><tbody>';
+    var html='<div class="card"><table class="rank-table" data-fa-table><thead><tr><th>#</th><th>Ticker</th><th>DY Atual</th><th>Barra</th><th>Referencia</th></tr></thead><tbody>';
     clean.forEach(function(item,i){
       var pct=maxDy>0?item.dy_pct/maxDy*100:0;
       html+='<tr onclick="showHistTicker(\''+item.ticker+'\')">'
@@ -320,10 +320,12 @@ loadRanking();
 </script>
 <script src="/static/auth_guard.js"></script>
 <script src="/static/sidebar.js"></script>
+  <script src="/static/table_utils.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>
 <script src="/static/toast.js"></script>
+  <script src="/static/error_handler.js"></script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
 <script src="/static/notifications.js"></script>

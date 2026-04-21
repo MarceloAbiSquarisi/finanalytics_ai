@@ -183,7 +183,7 @@ tr:hover td{background:rgba(0,212,255,.015)}
       <button class="btn" onclick="loadAlerts()" style="font-size:13px;padding:5px 12px">Atualizar</button>
     </div>
     <div class="tbl-wrap">
-      <table>
+      <table data-fa-table>
         <thead>
           <tr>
             <th>Ticker</th><th>Indicador</th><th>Condição</th><th>Status</th>
@@ -221,6 +221,7 @@ tr:hover td{background:rgba(0,212,255,.015)}
 
 <script src="/static/auth_guard.js"></script>
 <script src="/static/toast.js"></script>
+  <script src="/static/error_handler.js"></script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
 <script src="/static/table_utils.js"></script>
@@ -378,7 +379,7 @@ async function createAlert() {
 }
 
 async function deleteAlert(id) {
-  if (!confirm('Cancelar este alerta?')) return;
+  if (!await FAModal.confirm('Cancelar este alerta?')) return;
   try {
     const r = await fetch(API + '/alerts/indicator/' + encodeURIComponent(id) + '?user_id=' + encodeURIComponent(_user.user_id), {
       method: 'DELETE', headers: H()
@@ -416,6 +417,7 @@ async function evaluateNow() {
 init();
 </script>
 <script src="/static/sidebar.js"></script>
+  <script src="/static/modal.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>

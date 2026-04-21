@@ -342,9 +342,9 @@ function renderCompare(d){
   }).join('');
 
   return '<div class="card"><div class="card-title">Metricas Comparativas</div>'
-    +'<table class="compare-table"><thead><tr><th>Metodo</th><th>Retorno</th><th>Vol.</th><th>Sharpe</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    +'<table class="compare-table" data-fa-table><thead><tr><th>Metodo</th><th>Retorno</th><th>Vol.</th><th>Sharpe</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
     +'<div class="card" style="margin-top:0"><div class="card-title">Pesos por Metodo</div>'
-    +'<table class="compare-table"><thead><tr><th>Ticker</th><th>Markowitz</th><th>Risk Parity</th><th>Black-Litt.</th></tr></thead><tbody>'+tickerRows+'</tbody></table></div>';
+    +'<table class="compare-table" data-fa-table><thead><tr><th>Ticker</th><th>Markowitz</th><th>Risk Parity</th><th>Black-Litt.</th></tr></thead><tbody>'+tickerRows+'</tbody></table></div>';
 }
 
 async function runOptimizer(){
@@ -390,10 +390,12 @@ renderViews();
 </script>
 <script src="/static/auth_guard.js"></script>
 <script src="/static/sidebar.js"></script>
+  <script src="/static/table_utils.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>
 <script src="/static/toast.js"></script>
+  <script src="/static/error_handler.js"></script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
 <script src="/static/notifications.js"></script>

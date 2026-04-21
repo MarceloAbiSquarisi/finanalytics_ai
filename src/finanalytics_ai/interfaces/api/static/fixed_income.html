@@ -581,7 +581,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
         <span id="bond-count" style="font-size:14px;color:var(--muted)"></span>
 </div>
       <div class="table-wrap">
-        <table>
+        <table data-fa-table>
           <thead><tr>
             <th>Título</th><th>Tipo</th><th>Indexador</th><th>Taxa</th>
             <th>Vencimento</th><th>Prazo</th><th>Inv. Mín.</th>
@@ -872,8 +872,8 @@ async function runCalc() {
   const bondId    = document.getElementById('calc-bond').value;
   const principal = parseFloat(document.getElementById('calc-principal').value);
   const days      = parseInt(document.getElementById('calc-days').value) || null;
-  if (!bondId) { alert('Selecione um título'); return; }
-  if (!principal) { alert('Informe o valor a investir'); return; }
+  if (!bondId) { FAToast.warn('Selecione um título'); return; }
+  if (!principal) { FAToast.warn('Informe o valor a investir'); return; }
 
   document.getElementById('calc-result').innerHTML =
     '<div class="loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
@@ -966,10 +966,10 @@ function renderCalcResult(d) {
 // ── Comparador ────────────────────────────────────────────────────────────────
 async function runCompare() {
   const ids = [...document.querySelectorAll('#cmp-bond-list input:checked')].map(c => c.value);
-  if (ids.length < 2) { alert('Selecione ao menos 2 títulos'); return; }
+  if (ids.length < 2) { FAToast.warn('Selecione ao menos 2 títulos'); return; }
   const principal = parseFloat(document.getElementById('cmp-principal').value);
   const days      = parseInt(document.getElementById('cmp-days').value);
-  if (!principal || !days) { alert('Informe valor e prazo'); return; }
+  if (!principal || !days) { FAToast.warn('Informe valor e prazo'); return; }
 
   document.getElementById('compare-result').innerHTML =
     '<div class="loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
@@ -1005,7 +1005,7 @@ function renderCompareResult(data) {
     <div class="card">
       <div class="card-header"><span class="card-title">Resultado Detalhado — R$ ${fmt(data.principal)} por ${data.period_days} dias</span></div>
       <div class="table-wrap">
-        <table>
+        <table data-fa-table>
           <thead><tr>
             <th>#</th><th>Título</th><th>Tipo</th><th>Montante Bruto</th>
             <th>IR/IOF</th><th>Montante Líquido</th><th>Retorno %</th><th>Anualizado</th></tr></thead>
@@ -1049,8 +1049,8 @@ function renderCompareResult(data) {
 async function runCashFlow() {
   const bondId    = document.getElementById('cf-bond').value;
   const principal = parseFloat(document.getElementById('cf-principal').value);
-  if (!bondId)    { alert('Selecione um título'); return; }
-  if (!principal) { alert('Informe o valor'); return; }
+  if (!bondId)    { FAToast.warn('Selecione um título'); return; }
+  if (!principal) { FAToast.warn('Informe o valor'); return; }
 
   document.getElementById('cf-result').innerHTML =
     '<div class="loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
@@ -1090,7 +1090,7 @@ function renderCashFlow(d) {
     <div class="card">
       <div class="card-header"><span class="card-title">${d.bond_name} — Fluxo de Caixa</span></div>
       <div class="table-wrap" style="max-height:360px;overflow-y:auto">
-        <table class="cf-table">
+        <table class="cf-table" data-fa-table>
           <thead><tr>
             <th>#</th><th>Data</th><th>Pagamento Bruto</th>
             <th>IR</th><th>Pagamento Líquido</th><th>Saldo</th></tr></thead>
@@ -1110,8 +1110,8 @@ async function runGoal() {
   const bondId = document.getElementById('cf-bond').value;
   const target = parseFloat(document.getElementById('goal-target').value);
   const days   = parseInt(document.getElementById('goal-days').value);
-  if (!bondId) { alert('Selecione um título'); return; }
-  if (!target || !days) { alert('Informe o valor alvo e o prazo'); return; }
+  if (!bondId) { FAToast.warn('Selecione um título'); return; }
+  if (!target || !days) { FAToast.warn('Informe o valor alvo e o prazo'); return; }
 
   const el = document.getElementById('goal-result-panel');
   el.innerHTML = '<div class="loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
@@ -1593,7 +1593,7 @@ async function createPortfolio() {
   // Sprint UX C (21/abr): migrado para /api/v1/portfolios (sistema
   // unificado). user_id vem do JWT, nao do input.
   const name = document.getElementById('new-pf-name').value.trim();
-  if (!name) { alert('Informe o nome da carteira.'); return; }
+  if (!name) { FAToast.warn('Informe o nome da carteira.'); return; }
   try {
     const tok = localStorage.getItem('access_token') || '';
     const r = await fetch('/api/v1/portfolios', {
@@ -1618,7 +1618,7 @@ async function createPortfolio() {
     document.getElementById('new-pf-form').style.display = 'none';
     document.getElementById('new-pf-name').value = '';
     await loadPortfolio();
-  } catch(e) { alert('Erro ao criar carteira: ' + e.message); }
+  } catch(e) { FAToast.err('Erro ao criar carteira: ' + e.message); }
 }
 
 async function loadPortfolio() {
@@ -1787,7 +1787,7 @@ async function addHolding() {
   const bondId   = document.getElementById('hold-bond-id').value;
   const invested = parseFloat(document.getElementById('hold-invested').value);
   const date     = document.getElementById('hold-date').value;
-  if (!bondId || !invested || !date) { alert('Preencha todos os campos.'); return; }
+  if (!bondId || !invested || !date) { FAToast.warn('Preencha todos os campos.'); return; }
   try {
     await fetch(`/api/v1/fixed-income/portfolio/${_currentPortfolioId}/holdings`, {
       method: 'POST',
@@ -1796,11 +1796,11 @@ async function addHolding() {
     });
     document.getElementById('add-holding-form').style.display = 'none';
     await loadPortfolio();
-  } catch(e) { alert('Erro: ' + e.message); }
+  } catch(e) { FAToast.err('Erro: ' + e.message); }
 }
 
 async function deleteHolding(holdingId, portfolioId) {
-  if (!confirm('Remover este título?')) return;
+  if (!await FAModal.confirm('Remover este título?')) return;
   await fetch(`/api/v1/fixed-income/portfolio/${portfolioId}/holdings/${holdingId}`, {method:'DELETE'});
   await loadPortfolio();
 }
@@ -1810,7 +1810,8 @@ async function deletePortfolio() {
   // Antes: DELETE /api/v1/fixed-income/portfolio (remove rf_portfolio
   // + holdings). Agora: POST /api/v1/portfolios/{id}/deactivate
   // (preserva historico; recusado se houver holdings com saldo > 0).
-  if (!_currentPortfolioId || !confirm('Desativar esta carteira?\n\nHoldings com saldo > 0 bloqueiam a desativacao. Use "resgate" individualmente antes, ou delete os titulos primeiro.')) return;
+  if (!_currentPortfolioId) return;
+  if (!await FAModal.confirm('Desativar esta carteira?\n\nHoldings com saldo > 0 bloqueiam a desativacao. Use "resgate" individualmente antes, ou delete os titulos primeiro.')) return;
   try {
     const tok = localStorage.getItem('access_token') || '';
     const r = await fetch(`/api/v1/portfolios/${_currentPortfolioId}/deactivate`, {
@@ -1822,7 +1823,7 @@ async function deletePortfolio() {
     });
     if (r.status === 409) {
       const data = await r.json().catch(() => ({}));
-      alert(data.detail || 'Carteira possui aplicacoes com saldo > 0.');
+      FAToast.info(data.detail || 'Carteira possui aplicacoes com saldo > 0.');
       return;
     }
     if (!r.ok) {
@@ -1833,7 +1834,7 @@ async function deletePortfolio() {
     document.getElementById('pf-select').value = '';
     await loadUserPortfolios(null);
     await loadPortfolio();
-  } catch(e) { alert('Erro: ' + e.message); }
+  } catch(e) { FAToast.err('Erro: ' + e.message); }
 }
 
 function showSubTab(tab) {
@@ -1950,7 +1951,7 @@ function renderFGC(d) {
     <!-- Por Título -->
     <div style="font-size:15px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin:14px 0 8px">Status por Título</div>
     <div style="overflow-x:auto" class="tbl-wrap">
-      <table style="width:100%;border-collapse:collapse;font-size:16px">
+      <table style="width:100%;border-collapse:collapse;font-size:16px" data-fa-table>
         <thead>
           <tr>
             <th style="padding:7px 10px;color:var(--muted);font-size:14px;text-align:left;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.5px">Título</th>
@@ -2008,8 +2009,8 @@ window.switchTab = function(tab) {
     if (avatarEl) avatarEl.textContent = name.charAt(0).toUpperCase();
   } catch(e) {}
 })();
-function faLogout() {
-  if (!confirm('Deseja sair?')) return;
+async function faLogout() {
+  if (!await FAModal.confirm('Deseja sair?')) return;
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
   localStorage.removeItem('token_expires_at');
@@ -2019,6 +2020,10 @@ function faLogout() {
 </script>
 </div><!-- /fa-page-content -->
 <script src="/static/sidebar.js"></script>
+  <script src="/static/modal.js"></script>
+  <script src="/static/toast.js"></script>
+  <script src="/static/error_handler.js"></script>
+  <script src="/static/table_utils.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>

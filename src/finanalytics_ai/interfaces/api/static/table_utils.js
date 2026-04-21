@@ -144,9 +144,28 @@
     });
   }
 
+  function autoInit() {
+    var tables = document.querySelectorAll('table[data-fa-table]');
+    Array.prototype.forEach.call(tables, function (t) {
+      if (t.dataset.faEnhanced) return;
+      enhance(t, {
+        sort: t.dataset.faTable !== 'no-sort',
+        filterInputId: t.dataset.faFilter || null,
+      });
+      t.dataset.faEnhanced = '1';
+    });
+  }
+
   global.FATable = {
     enhance: enhance,
     applyFilter: applyFilter,
     resetSort: resetSort,
+    autoInit: autoInit,
   };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoInit);
+  } else {
+    autoInit();
+  }
 })(window);

@@ -281,7 +281,7 @@ tr:hover td{background:rgba(0,212,255,.015)}
         <span class="sec-timestamp" id="svcTimestamp"></span>
       </div>
       <div class="tbl-wrap">
-        <table>
+        <table data-fa-table>
           <thead><tr><th>Servico</th><th>Status</th><th>Detalhe</th><th>Latencia</th><th>Acao</th></tr></thead>
           <tbody id="svcTbody"><tr class="loading-row"><td colspan="5">Carregando...</td></tr></tbody>
         </table>
@@ -293,7 +293,7 @@ tr:hover td{background:rgba(0,212,255,.015)}
         <div class="sec-title">Coletores de Dados</div>
       </div>
       <div class="tbl-wrap">
-        <table>
+        <table data-fa-table>
           <thead><tr><th>Servico</th><th>Descricao</th><th>Status</th><th>Ultima Atualizacao</th><th>Proxima Atualizacao</th><th>Detalhe</th><th>Acao</th></tr></thead>
           <tbody id="collTbody"><tr class="loading-row"><td colspan="7">Carregando...</td></tr></tbody>
         </table>
@@ -331,7 +331,7 @@ tr:hover td{background:rgba(0,212,255,.015)}
         </div>
       </div>
       <div class="tbl-wrap">
-        <table>
+        <table data-fa-table>
           <thead><tr><th>ID</th><th>Tipo</th><th>Source</th><th>Erro</th><th>Data</th><th>Acao</th></tr></thead>
           <tbody id="epTbody"><tr class="loading-row"><td colspan="6">Carregando...</td></tr></tbody>
         </table>
@@ -353,7 +353,7 @@ tr:hover td{background:rgba(0,212,255,.015)}
         </a>
       </div>
       <div class="tbl-wrap">
-        <table>
+        <table data-fa-table>
           <thead><tr><th>Parametro</th><th>Valor</th><th>Detalhe</th></tr></thead>
           <tbody id="profitTbody"><tr><td colspan="3" style="text-align:center;padding:20px;color:var(--muted);font-style:italic">Carregando...</td></tr></tbody>
         </table>
@@ -543,7 +543,7 @@ async function ctrlProducer(action) {
   try {
     await fetch(API + '/system/producer/' + action, {method:'POST', headers: H()});
     setTimeout(loadAll, 1000);
-  } catch(e) { alert('Erro: ' + e.message); }
+  } catch(e) { FAToast.err('Erro: ' + e.message); }
 }
 
 async function checkInfra() {
@@ -624,13 +624,13 @@ async function loadEventPipeline() {
 async function reprocessEvent(eventId) {
   try {
     var r = await fetch('/hub/events/' + eventId + '/reprocess', {method: 'POST', headers: H()});
-    if (!r.ok) { var err = await r.json(); alert('Erro: ' + (err.detail || r.statusText)); return; }
+    if (!r.ok) { var err = await r.json(); FAToast.err('Erro: ' + (err.detail || r.statusText)); return; }
     loadEventPipeline();
-  } catch(e) { alert('Erro: ' + e.message); }
+  } catch(e) { FAToast.err('Erro: ' + e.message); }
 }
 
 async function reprocessAll() {
-  if (!confirm('Reprocessar todos os eventos FAILED e DEAD_LETTER?')) return;
+  if (!await FAModal.confirm('Reprocessar todos os eventos FAILED e DEAD_LETTER?')) return;
   var tb = document.getElementById('epTbody');
   var rows = tb.querySelectorAll('tr');
   var ids = [];
@@ -645,18 +645,22 @@ async function reprocessAll() {
 }
 
 async function cleanupCompleted() {
-  if (!confirm('Limpar eventos COMPLETED com mais de 30 dias?')) return;
+  if (!await FAModal.confirm('Limpar eventos COMPLETED com mais de 30 dias?')) return;
   try {
     var r = await fetch('/hub/cleanup?retention_days=30', {method: 'POST', headers: H()});
     var data = await r.json();
-    alert('Removidos: ' + data.deleted + ' eventos');
+    FAToast.ok('Removidos: ' + data.deleted + ' eventos');
     loadEventPipeline();
-  } catch(e) { alert('Erro: ' + e.message); }
+  } catch(e) { FAToast.err('Erro: ' + e.message); }
 }
 
 init();
 </script>
 <script src="/static/sidebar.js"></script>
+  <script src="/static/modal.js"></script>
+  <script src="/static/toast.js"></script>
+  <script src="/static/error_handler.js"></script>
+  <script src="/static/table_utils.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>

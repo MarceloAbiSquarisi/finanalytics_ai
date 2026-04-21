@@ -330,7 +330,7 @@ tr:hover td{background:rgba(0,212,255,.02)}
       <button class="btn btn-primary btn-sm" onclick="openModal('modal-account')">+ Nova Conta</button>
 </div>
     <div class="tbl-wrap">
-      <table id="tbl-accounts">
+      <table id="tbl-accounts" data-fa-table>
         <thead><tr><th>Instituição</th><th>Tipo</th><th>Agência</th><th>Conta</th><th>País</th><th>Moeda</th><th>Status</th><th></th></tr></thead>
         <tbody id="tbody-accounts"><tr><td colspan="8" class="empty">Carregando...</td></tr></tbody>
       </table>
@@ -353,7 +353,7 @@ tr:hover td{background:rgba(0,212,255,.02)}
 </div>
 </div>
     <div class="tbl-wrap">
-      <table id="tbl-positions">
+      <table id="tbl-positions" data-fa-table>
         <thead><tr><th>Ticker</th><th>Classe</th><th>Quantidade</th><th>Preço Médio</th><th>Total Investido</th><th>Trades</th></tr></thead>
         <tbody id="tbody-positions"><tr><td colspan="6" class="empty">Carregando...</td></tr></tbody>
       </table>
@@ -367,7 +367,7 @@ tr:hover td{background:rgba(0,212,255,.02)}
       <button class="btn btn-primary btn-sm" onclick="openModal('modal-trade')">+ Novo Trade</button>
 </div>
     <div class="tbl-wrap">
-      <table>
+      <table data-fa-table>
         <thead><tr><th>Data</th><th>Ticker</th><th>Classe</th><th>Op.</th><th>Qtd</th><th>Preço Unit.</th><th>Total</th><th>Corretagem</th><th>Conta</th><th></th></tr></thead>
         <tbody id="tbody-trades"><tr><td colspan="10" class="empty">Carregando...</td></tr></tbody>
       </table>
@@ -381,7 +381,7 @@ tr:hover td{background:rgba(0,212,255,.02)}
       <button class="btn btn-primary btn-sm" onclick="openModal('modal-crypto')">+ Cripto</button>
 </div>
     <div class="tbl-wrap">
-      <table>
+      <table data-fa-table>
         <thead><tr><th>Symbol</th><th>Quantidade</th><th>Preço Médio (BRL)</th><th>Preço Médio (USD)</th><th>Exchange</th><th>Conta</th><th></th></tr></thead>
         <tbody id="tbody-crypto"><tr><td colspan="7" class="empty">Carregando...</td></tr></tbody>
       </table>
@@ -394,7 +394,7 @@ tr:hover td{background:rgba(0,212,255,.02)}
       <span class="sec-title">Renda Fixa</span>
 </div>
     <div class="tbl-wrap">
-      <table>
+      <table data-fa-table>
         <thead><tr><th>Nome</th><th>Tipo</th><th>Emissor</th><th>Taxa</th><th>Vencimento</th><th>Investido</th><th>IR</th><th>Conta</th></tr></thead>
         <tbody id="tbody-rf"><tr><td colspan="8" class="empty">Sem títulos cadastrados. Use a aba Renda Fixa no menu lateral.</td></tr></tbody>
       </table>
@@ -408,7 +408,7 @@ tr:hover td{background:rgba(0,212,255,.02)}
       <button class="btn btn-primary btn-sm" onclick="openModal('modal-other')">+ Ativo</button>
 </div>
     <div class="tbl-wrap">
-      <table>
+      <table data-fa-table>
         <thead><tr><th>Nome</th><th>Tipo</th><th>Valor Atual</th><th>Investido</th><th>Ganho</th><th>Moeda</th><th>IR Isento</th><th>Conta</th><th></th></tr></thead>
         <tbody id="tbody-outros"><tr><td colspan="9" class="empty">Carregando...</td></tr></tbody>
       </table>
@@ -804,7 +804,12 @@ async function loadAccounts() {
   try {
     accounts = await api('/accounts');
     const tbody = document.getElementById('tbody-accounts');
-    if (!accounts.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Nenhuma conta cadastrada. Clique em "+ Nova Conta".</td></tr>'; return; }
+    if (!accounts.length) {
+      FAEmpty.tableRow(tbody, { colspan: 8, title: 'Nenhuma conta cadastrada',
+        text: 'Cadastre sua primeira conta de corretora ou banco para começar.',
+        cta: { label: '+ Nova Conta', variant: 'primary', onClick: "openModal('modal-account')" } });
+      return;
+    }
     tbody.innerHTML = accounts.map(a => `
       <tr>
         <td>
@@ -870,7 +875,7 @@ async function saveAccount() {
 }
 
 async function deleteAccount(id) {
-  if (!confirm('Desativar esta conta?')) return;
+  if (!await FAModal.confirm('Desativar esta conta?')) return;
   try { await api('/accounts/'+id, {method:'DELETE'}); loadAccounts(); } catch(e) { FAToast.err(e.message); }
 }
 
@@ -885,7 +890,12 @@ async function loadTrades() {
   try {
     const trades = await api('/trades');
     const tbody = document.getElementById('tbody-trades');
-    if (!trades.length) { tbody.innerHTML = '<tr><td colspan="10" class="empty">Nenhum trade registrado.</td></tr>'; return; }
+    if (!trades.length) {
+      FAEmpty.tableRow(tbody, { colspan: 10, title: 'Nenhum trade registrado',
+        text: 'Registre compras e vendas para gerar posições e histórico.',
+        cta: { label: '+ Novo Trade', variant: 'primary', onClick: "openModal('modal-trade')" } });
+      return;
+    }
     tbody.innerHTML = trades.map(t => {
       const acc = accounts.find(a=>a.id===t.investment_account_id);
       return `<tr>
@@ -924,7 +934,7 @@ async function saveTrade() {
 }
 
 async function deleteTrade(id) {
-  if (!confirm('Excluir este trade? O preço médio será recalculado.')) return;
+  if (!await FAModal.confirm('Excluir este trade? O preço médio será recalculado.')) return;
   try { await api('/trades/'+id, {method:'DELETE'}); loadTrades(); loadPositions(); } catch(e) { FAToast.err(e.message); }
 }
 
@@ -943,7 +953,12 @@ async function loadPositions() {
     const cls = document.getElementById('filter-class')?.value||'';
     const positions = await api('/positions' + (cls?`?asset_class=${cls}`:''));
     const tbody = document.getElementById('tbody-positions');
-    if (!positions.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">Nenhuma posição. Registre trades na aba Trades.</td></tr>'; return; }
+    if (!positions.length) {
+      FAEmpty.tableRow(tbody, { colspan: 6, title: 'Nenhuma posição',
+        text: 'Posições são derivadas dos trades. Registre seu primeiro trade.',
+        cta: { label: '+ Novo Trade', variant: 'primary', onClick: "openModal('modal-trade')" } });
+      return;
+    }
     let total = 0;
     tbody.innerHTML = positions.map(p => {
       total += parseFloat(p.total_invested)||0;
@@ -966,7 +981,12 @@ async function loadCrypto() {
     const crypto = await api('/crypto');
     const tbody = document.getElementById('tbody-crypto');
     document.getElementById('s-crypto').textContent = crypto.length;
-    if (!crypto.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">Nenhuma cripto cadastrada.</td></tr>'; return; }
+    if (!crypto.length) {
+      FAEmpty.tableRow(tbody, { colspan: 7, title: 'Nenhuma cripto cadastrada',
+        text: 'Adicione holdings de BTC, ETH ou outras moedas com preço médio em BRL/USD.',
+        cta: { label: '+ Cripto', variant: 'primary', onClick: "openModal('modal-crypto')" } });
+      return;
+    }
     tbody.innerHTML = crypto.map(c => {
       const acc = accounts.find(a=>a.id===c.investment_account_id);
       return `<tr>
@@ -1000,7 +1020,7 @@ async function saveCrypto() {
 }
 
 async function deleteCrypto(id) {
-  if (!confirm('Excluir esta posição de cripto?')) return;
+  if (!await FAModal.confirm('Excluir esta posição de cripto?')) return;
   try { await api('/crypto/'+id, {method:'DELETE'}); loadCrypto(); } catch(e) { FAToast.err(e.message); }
 }
 
@@ -1010,7 +1030,12 @@ async function loadOther() {
     const other = await api('/other');
     const tbody = document.getElementById('tbody-outros');
     document.getElementById('s-other').textContent = other.length;
-    if (!other.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty">Nenhum ativo cadastrado.</td></tr>'; return; }
+    if (!other.length) {
+      FAEmpty.tableRow(tbody, { colspan: 9, title: 'Nenhum outro ativo cadastrado',
+        text: 'Imóveis, COE, fundos imobiliários, ou qualquer ativo sem categoria padrão.',
+        cta: { label: '+ Ativo', variant: 'primary', onClick: "openModal('modal-other')" } });
+      return;
+    }
     tbody.innerHTML = other.map(o => {
       const acc = accounts.find(a=>a.id===o.investment_account_id);
       return `<tr>
@@ -1048,7 +1073,7 @@ async function saveOther() {
 }
 
 async function deleteOther(id) {
-  if (!confirm('Excluir este ativo?')) return;
+  if (!await FAModal.confirm('Excluir este ativo?')) return;
   try { await api('/other/'+id, {method:'DELETE'}); loadOther(); } catch(e) { FAToast.err(e.message); }
 }
 
@@ -1070,11 +1095,14 @@ loadAll();
 loadSummary();
 </script>
 <script src="/static/sidebar.js"></script>
+  <script src="/static/modal.js"></script>
+  <script src="/static/table_utils.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>
 <script src="/static/notifications.js"></script>
 <script src="/static/toast.js"></script>
+  <script src="/static/error_handler.js"></script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
 </body>

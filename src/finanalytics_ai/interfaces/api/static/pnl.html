@@ -248,7 +248,7 @@ function addOp(tipo){
   var qty    = parseFloat(document.getElementById('op-qty').value)||0;
   var price  = parseFloat(document.getElementById('op-price').value)||0;
   var hora   = document.getElementById('op-hora').value||'--:--';
-  if(!ticker||qty<=0||price<=0){alert('Preencha ticker, quantidade e preco');return;}
+  if(!ticker||qty<=0||price<=0){FAToast.warn('Preencha ticker, quantidade e preco');return;}
   ops.push({id:Date.now(),tipo:tipo,ticker:ticker,qty:qty,price:price,hora:hora,vol:qty*price});
   localStorage.setItem('pnl_ops_dia',JSON.stringify(ops));
   recalc();
@@ -263,8 +263,8 @@ function removeOp(id){
   recalc();
 }
 
-function clearOps(){
-  if(!confirm('Limpar todas as operacoes?'))return;
+async function clearOps(){
+  if (!await FAModal.confirm('Limpar todas as operacoes?')) return;
   ops=[];
   localStorage.setItem('pnl_ops_dia',JSON.stringify(ops));
   recalc();
@@ -322,7 +322,7 @@ function recalc(){
   var area=document.getElementById('ops-area');
   if(!ops.length){area.innerHTML='<div class="empty-ops">Nenhuma operacao lancada hoje</div>';return;}
 
-  var html='<table class="ops-table"><thead><tr>'
+  var html='<table class="ops-table" data-fa-table><thead><tr>'
     +'<th>Hora</th><th>Tipo</th><th>Ticker</th><th>Qtd</th><th>Preco</th><th>Volume</th><th>P&L</th><th></th>'
     +'</tr></thead><tbody>';
 
@@ -349,6 +349,10 @@ recalc();
 </script>
 <script src="/static/auth_guard.js"></script>
 <script src="/static/sidebar.js"></script>
+  <script src="/static/modal.js"></script>
+  <script src="/static/toast.js"></script>
+  <script src="/static/error_handler.js"></script>
+  <script src="/static/table_utils.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>

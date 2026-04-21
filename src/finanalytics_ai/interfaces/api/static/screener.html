@@ -809,7 +809,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 </div>
       <!-- Table -->
       <div class="tbl-wrap">
-        <table>
+        <table data-fa-table>
           <thead>
             <tr id="tbl-head"></tr>
           </thead>
@@ -1189,8 +1189,8 @@ loadPresets();
     if (avatarEl) avatarEl.textContent = name.charAt(0).toUpperCase();
   } catch(e) {}
 })();
-function faLogout() {
-  if (!confirm('Deseja sair?')) return;
+async function faLogout() {
+  if (!await FAModal.confirm('Deseja sair?')) return;
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
   localStorage.removeItem('token_expires_at');
@@ -1200,10 +1200,13 @@ function faLogout() {
 </script>
 </div><!-- /fa-page-content -->
 <script src="/static/sidebar.js"></script>
+  <script src="/static/modal.js"></script>
+  <script src="/static/table_utils.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>
 <script src="/static/toast.js"></script>
+  <script src="/static/error_handler.js"></script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
 <script src="/static/notifications.js"></script>

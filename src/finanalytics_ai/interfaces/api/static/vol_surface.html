@@ -253,7 +253,7 @@ function buildSurface(){
   var html='<div class="card" style="margin-bottom:16px">'
     +'<div class="card-title">&#127775; Heatmap de Volatilidade Implicita — '+ticker+' ('+type.toUpperCase()+')</div>'
     +'<div style="font-size:12px;color:var(--muted);margin-bottom:12px">Strike vs Vencimento | Spot: R$ '+S.toFixed(2)+' | Vol base: '+(baseVol*100).toFixed(0)+'%</div>'
-    +'<div class="heatmap-wrap"><table class="heatmap-table"><thead><tr><th class="row-header">Venc\Strike</th>';
+    +'<div class="heatmap-wrap"><table class="heatmap-table" data-fa-table><thead><tr><th class="row-header">Venc\Strike</th>';
 
   strikes.forEach(function(K){
     var pct=((K/S-1)*100).toFixed(0);
@@ -413,10 +413,12 @@ buildSurface();
 </script>
 <script src="/static/auth_guard.js"></script>
 <script src="/static/sidebar.js"></script>
+  <script src="/static/table_utils.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>
 <script src="/static/toast.js"></script>
+  <script src="/static/error_handler.js"></script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
 <script src="/static/notifications.js"></script>

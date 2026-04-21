@@ -1464,9 +1464,9 @@ function confirmWLModal() {
   buildWL();
 }
 
-function deleteActiveWL() {
-  if (wlData.length <= 1) { alert('Você precisa ter ao menos uma watchlist.'); return; }
-  if (!confirm('Excluir a watchlist "' + activeWL().name + '"?')) return;
+async function deleteActiveWL() {
+  if (wlData.length <= 1) { FAToast.warn('Você precisa ter ao menos uma watchlist.'); return; }
+  if (!await FAModal.confirm('Excluir a watchlist "' + activeWL().name + '"?')) return;
   wlData = wlData.filter(w => w.id !== wlActiveId);
   wlActiveId = wlData[0].id;
   saveWL();
@@ -2988,7 +2988,7 @@ async function executeTrade(){
 // ── dtCancelAll — cancela todas as ordens ─────────────────────────────────────
 async function dtCancelAll() {
   const sim = document.getElementById('t-sim').checked;
-  if (!confirm('Cancelar TODAS as ordens abertas?')) return;
+  if (!await FAModal.confirm('Cancelar TODAS as ordens abertas?')) return;
   try {
     await post('/api/v1/agent/order/cancel_all', {env: sim?'simulation':'production'});
     toast('Todas as ordens canceladas', 'ok');
@@ -3681,8 +3681,8 @@ setInterval(refreshWLPrices, 10000);
     if (avatarEl) avatarEl.textContent = name.charAt(0).toUpperCase();
   } catch(e) {}
 })();
-function faLogout() {
-  if (!confirm('Deseja sair?')) return;
+async function faLogout() {
+  if (!await FAModal.confirm('Deseja sair?')) return;
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
   localStorage.removeItem('token_expires_at');
@@ -3796,7 +3796,7 @@ async function activateAccount(uuid) {
 }
 
 async function deleteAccount(uuid) {
-  if (!confirm('Excluir esta conta?')) return;
+  if (!await FAModal.confirm('Excluir esta conta?')) return;
   try {
     const r = await fetch('/api/v1/accounts/'+uuid, {method:'DELETE'});
     if (r.status === 409) { toast('Não é possível excluir conta ativa','err'); return; }
@@ -3936,6 +3936,9 @@ document.addEventListener('DOMContentLoaded', function() {
 // ── Fim SSE v4 ───────────────────────────────────────────────────────────────
 </script>
 <script src="/static/sidebar.js"></script>
+  <script src="/static/modal.js"></script>
+  <script src="/static/toast.js"></script>
+  <script src="/static/error_handler.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>

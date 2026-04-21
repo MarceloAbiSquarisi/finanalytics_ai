@@ -351,7 +351,7 @@ async function loadAlertas(){
 }
 
 async function removerAlerta(id){
-  if(!confirm('Remover alerta #'+id+'?'))return;
+  if (!await FAModal.confirm('Remover alerta #'+id+'?')) return;
   try{
     await fetch(API+'/api/v1/whatsapp/alertas/'+id,{method:'DELETE'});
     loadAlertas();
@@ -363,10 +363,12 @@ setInterval(checkStatus,30000);
 </script>
 <script src="/static/auth_guard.js"></script>
 <script src="/static/sidebar.js"></script>
+  <script src="/static/modal.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>
 <script src="/static/toast.js"></script>
+  <script src="/static/error_handler.js"></script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
 <script src="/static/notifications.js"></script>

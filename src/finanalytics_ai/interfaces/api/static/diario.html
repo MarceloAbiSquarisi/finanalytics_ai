@@ -428,7 +428,7 @@ body.sb-open .fa-sb-push{margin-left:var(--sb-w)}
             <div class="chart-title">Performance por setup
 </div>
             <div style="overflow-x:auto">
-              <table class="perf-table" id="setup-table">
+              <table class="perf-table" id="setup-table" data-fa-table>
                 <thead>
                   <tr>
                     <th>Setup</th><th>Trades</th><th>Win%</th><th>P&amp;L Total</th><th>P&amp;L médio%</th>
@@ -1146,7 +1146,7 @@ async function saveEntry() {
 }
 
 async function deleteEntry(id) {
-  if (!confirm('Excluir este trade do diário?')) return;
+  if (!await FAModal.confirm('Excluir este trade do diário?')) return;
   await fetch(API + '/entries/' + id + '?user_id=' + USER, { method: 'DELETE' });
   await Promise.all([loadEntries(), loadStats()]);
   document.getElementById('detail-empty').style.display = 'flex';
@@ -1226,10 +1226,13 @@ var EMOTION_COLORS = {
 init();
 </script>
 <script src="/static/sidebar.js"></script>
+  <script src="/static/modal.js"></script>
+  <script src="/static/table_utils.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>
 <script src="/static/toast.js"></script>
+  <script src="/static/error_handler.js"></script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
 <script src="/static/notifications.js"></script>

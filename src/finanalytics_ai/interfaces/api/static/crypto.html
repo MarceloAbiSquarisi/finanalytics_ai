@@ -457,7 +457,7 @@ function renderPortfolio(d){
     +'<div style="flex:1;min-width:140px;background:#0a1220;border-radius:8px;padding:12px;text-align:center"><div style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace;text-transform:uppercase;margin-bottom:4px">Valor Atual</div><div style="font-size:18px;font-weight:800;font-family:DM Mono,monospace;color:var(--btc)">'+fmtR(d.total_current,cur)+'</div></div>'
     +'<div style="flex:1;min-width:140px;background:#0a1220;border-radius:8px;padding:12px;text-align:center"><div style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace;text-transform:uppercase;margin-bottom:4px">P&L Total</div><div style="font-size:18px;font-weight:800;font-family:DM Mono,monospace" class="'+pnlClass+'">'+fmtR(d.pnl,cur)+' ('+parseFloat(d.pnl_pct).toFixed(2).replace('.',',')+'%)</div></div>'
     +'</div>'
-    +'<table class="portfolio-table"><thead><tr><th>Ativo</th><th>Qtd</th><th>Preco Medio</th><th>Preco Atual</th><th>Valor</th><th>P&L</th><th>24h</th><th>Peso</th></tr></thead><tbody>';
+    +'<table class="portfolio-table" data-fa-table><thead><tr><th>Ativo</th><th>Qtd</th><th>Preco Medio</th><th>Preco Atual</th><th>Valor</th><th>P&L</th><th>24h</th><th>Peso</th></tr></thead><tbody>';
 
   d.positions.forEach(function(p){
     var pCls=p.pnl>=0?'pnl-pos':'pnl-neg';
@@ -532,10 +532,12 @@ loadFNG();
 </script>
 <script src="/static/auth_guard.js"></script>
 <script src="/static/sidebar.js"></script>
+  <script src="/static/table_utils.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>
 <script src="/static/toast.js"></script>
+  <script src="/static/error_handler.js"></script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
 <script src="/static/notifications.js"></script>

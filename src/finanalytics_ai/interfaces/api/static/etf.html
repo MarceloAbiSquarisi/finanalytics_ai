@@ -317,7 +317,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 </div>
 </div>
         <div id="cmp-table-wrap" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden">
-          <table class="metrics-table" id="cmp-table">
+          <table class="metrics-table" id="cmp-table" data-fa-table>
             <thead><tr>
               <th>Ticker</th><th>Retorno Total</th><th>Retorno Anual</th>
               <th>Volatilidade</th><th>Sharpe</th><th>Max Drawdown</th><th>VaR 95%</th>
@@ -347,7 +347,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
         </div>
         <button onclick="rbAddRow()" style="background:rgba(58,191,248,.1);border:1px solid rgba(58,191,248,.3);border-radius:5px;color:var(--blue);font-size:14px;font-weight:700;padding:5px 12px;cursor:pointer">+ Adicionar linha</button>
       </div>
-      <table class="metrics-table" id="rb-table">
+      <table class="metrics-table" id="rb-table" data-fa-table>
         <thead>
           <tr>
             <th>Ticker</th>
@@ -368,7 +368,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
       </div>
       <div id="rb-result" style="margin-top:18px;display:none">
         <div style="font-size:15px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Acoes recomendadas</div>
-        <table class="metrics-table" id="rb-result-table">
+        <table class="metrics-table" id="rb-result-table" data-fa-table>
           <thead>
             <tr><th>Ticker</th><th>Acao</th><th>Valor (R$)</th><th>Peso atual</th><th>Peso alvo</th></tr>
           </thead>
@@ -453,7 +453,7 @@ async function rbCalculate() {
   });
   if (positions.length < 2) { FAToast.warn('Adicione pelo menos 2 tickers.'); return; }
   if (Math.abs(weightSum - 100) > 0.5) {
-    if (!confirm(`Soma dos pesos = ${weightSum.toFixed(1)}% (esperado 100%). Continuar mesmo assim?`)) return;
+    if (!await FAModal.confirm(`Soma dos pesos = ${weightSum.toFixed(1)}% (esperado 100%). Continuar mesmo assim?`)) return;
   }
   const new_contribution = parseFloat(document.getElementById('rb-contribution').value) || 0;
   const btn = document.getElementById('rb-calc-btn');
@@ -768,8 +768,8 @@ async function loadCatalog() {
     document.getElementById('fa-avatar').textContent = name.charAt(0).toUpperCase();
   } catch(e){}
 })();
-function faLogout(){
-  if(!confirm('Deseja sair?')) return;
+async function faLogout(){
+  if (!await FAModal.confirm('Deseja sair?')) return;
   ['access_token','refresh_token','token_expires_at'].forEach(k=>localStorage.removeItem(k));
   sessionStorage.clear();
   window.location.replace('/login');
@@ -779,11 +779,14 @@ function faLogout(){
 loadOverview();
 </script>
 <script src="/static/sidebar.js"></script>
+  <script src="/static/modal.js"></script>
+  <script src="/static/table_utils.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>
 <script src="/static/notifications.js"></script>
 <script src="/static/toast.js"></script>
+  <script src="/static/error_handler.js"></script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
 </body>

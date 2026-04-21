@@ -522,7 +522,7 @@ async function iniciarSetup2FA() {
     }
     document.getElementById('totp-confirm-code').focus();
   } catch (e) {
-    alert('Erro ao iniciar 2FA: ' + e.message);
+    FAToast.err('Erro ao iniciar 2FA: ' + e.message);
   } finally {
     btn.disabled = false;
   }
@@ -554,7 +554,7 @@ async function desativar2FA() {
   if (!code || code.length !== 6) {
     showMsg('msg-disable', '⚠ Informe o código de 6 dígitos', 'error'); return;
   }
-  if (!confirm('Deseja realmente desativar o 2FA?')) return;
+  if (!await FAModal.confirm('Deseja realmente desativar o 2FA?')) return;
   const btn = document.getElementById('btn-disable-2fa');
   btn.disabled = true;
   try {
@@ -607,11 +607,13 @@ document.getElementById('totp-disable-code').addEventListener('keydown', e => { 
 initProfile();
 </script>
 <script src="/static/sidebar.js"></script>
+  <script src="/static/modal.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>
 <script src="/static/notifications.js"></script>
 <script src="/static/toast.js"></script>
+  <script src="/static/error_handler.js"></script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
 </body>

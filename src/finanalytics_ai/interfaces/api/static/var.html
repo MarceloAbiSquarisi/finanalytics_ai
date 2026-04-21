@@ -226,7 +226,7 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
           VaR por Ativo
         </div>
-        <table class="asset-table" id="asset-table">
+        <table class="asset-table" id="asset-table" data-fa-table>
           <thead><tr><th>Ticker</th><th>Peso</th><th>VaR</th><th>Vol/Ano</th><th>Risco</th></tr></thead>
           <tbody id="asset-tbody"></tbody>
         </table>
@@ -367,10 +367,12 @@ renderPositions();
 </script>
 <script src="/static/auth_guard.js"></script>
 <script src="/static/sidebar.js"></script>
+  <script src="/static/table_utils.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>
 <script src="/static/toast.js"></script>
+  <script src="/static/error_handler.js"></script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>
 <script src="/static/notifications.js"></script>
