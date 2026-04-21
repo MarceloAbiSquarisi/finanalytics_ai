@@ -264,7 +264,8 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 12. ~~Histórico de signals + scheduler~~ — **DONE 20/abr** (`signal_history`, snapshot diário 18:30 BRT, dashboard sub-tabs Live/Hist/Mudanças)
 13. ~~Investment accounts spec (titular/CPF/apelido) + master CRUD~~ — **DONE 20/abr** (incluindo validação CPF DV, FK portfolio NOT NULL/RESTRICT)
 14. ~~Prometheus + Grafana versionados em docker/~~ — **DONE 20/abr** (provisioning, removeu `docker run` manual)
-15. Aguardando arquivo Nelogica 1m (~2 dias) → rodar `runbook_import_dados_historicos.md`
+15. ~~GPU compute em container (torch+cu124)~~ — **DONE 21/abr** (api/worker/worker_v2 com `cuda.is_available()=True`)
+16. Aguardando arquivo Nelogica 1m (~2 dias) → rodar `runbook_import_dados_historicos.md`
 
 ## Decisões Arquiteturais (Imutáveis)
 
@@ -283,10 +284,10 @@ Origem: `Melhorias/proposta_decisao_15_dualgpu.md` (16/abr/2026), motivada por i
 6. Se cabos físicos forem remanejados, validar mapeamento via comando da seção Hardware antes de subir container com compute.
 7. Para liberar Modo 3: (a) upgrade PSU ≥1.600W ATX 3.0/3.1 Titanium com 2 cabos 12V-2×6 nativos, OU (b) migração para servidor de colocation com hardware novo.
 
-**Aplicação atual** (commit `5e7dfbd`, 20/abr/2026):
+**Aplicação atual** (commit `5e7dfbd` + 21/abr/2026):
 - 3 services com reservation: `api`, `worker`, `event_worker_v2`.
 - `nvidia-smi` funciona dentro dos containers (NVIDIA Container Runtime auto-injeta libs).
-- `torch.cuda.is_available()` ainda False — image usa wheel `torch-cpu`. Para usar GPU compute em container, trocar para `torch+cu124` no Dockerfile.
+- **GPU compute em container habilitado** (21/abr/2026): Dockerfile builder usa `torch>=2.4 +cu124` (~2.5GB extra). Validado nos 3 images: `torch.cuda.is_available()=True`, device `RTX 4090`, compute_cap `(8,9)`, runtime CUDA 12.4. Wheel cu124 traz `libcudart`/`libcublas` bundled — não precisa `nvidia-cuda-toolkit` na imagem.
 
 ## Convenções do Projeto
 

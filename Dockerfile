@@ -52,14 +52,18 @@ RUN uv pip install --system -e . \
         "pyarrow>=16.0.0"         "reportlab>=4.0.0"         "matplotlib>=3.7.0"         "seaborn>=0.13.0"         "Pillow>=10.0.0" \
         "pandas-ta>=0.4.0"
 
-# ── Dependências de Forecast (Prophet + PyTorch CPU + PyTorch-Forecasting) ────
-# torch CPU-only: ~500MB vs ~2GB da versão CUDA — suficiente para inferência.
-# Instalado via index dedicado ANTES das outras deps para evitar conflito de resolução.
+# ── Dependências de Forecast (Prophet + PyTorch CUDA + PyTorch-Forecasting) ───
+# torch+cu124 (~2GB): habilita GPU compute em container (Decisão 15 — GPU 0
+# reservada via docker-compose.override.yml). NVIDIA Container Runtime injeta
+# /usr/lib/x86_64-linux-gnu/libcuda.so do host; o wheel cu124 traz CUDA
+# runtime bundled (libcudart, libcublas), então a imagem não precisa
+# instalar nvidia-cuda-toolkit. Driver host 591.86 (CUDA 13.1) é forward
+# compatible com runtime 12.4.
 # pytorch-forecasting>=1.1.0 corrige bug do TFT com LightningModule (< 1.1 quebra).
 # Sem "|| echo" — falha real deve parar o build, não ser silenciada.
 RUN uv pip install --system \
-        --index-url https://download.pytorch.org/whl/cpu \
-        "torch>=2.2.0" \
+        --index-url https://download.pytorch.org/whl/cu124 \
+        "torch>=2.4.0" \
  && uv pip install --system \
         "prophet>=1.1.5" \
         "pytorch-forecasting>=1.1.0"
