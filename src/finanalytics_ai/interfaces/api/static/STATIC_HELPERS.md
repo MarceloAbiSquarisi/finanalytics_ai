@@ -11,7 +11,7 @@
 | `auth_guard.js` | `FAAuth.{getToken,headers,clearTokens,requireAuth}` | RBAC client-side; auto-refresh com Lembre-me |
 | `sidebar.html` + `sidebar.js` | `window.faSidebar.{toggle,reload,markActive}` | Sidebar canônica em 6 seções, auto-replace via fetch+sentinel; mobile responsive (overlay <768px) |
 | `notifications.js` | `FANotif.{init,connect,clear,count}` | Sino realtime SSE `/api/v1/alerts/stream` no topbar |
-| `toast.js` | `FAToast.{ok,err,warn,info,loading,dismiss,show}` | Toasts padronizados (4 cores + spinner inline) |
+| `toast.js` | `FAToast.{ok,err,warn,info,loading,dismiss,clear,show}` | Toasts padronizados (4 cores + spinner). Cap 4 visiveis simultaneos (extras em fila). Click fecha; hover pausa countdown |
 | `table_utils.js` | `FATable.{enhance,applyFilter,resetSort,autoInit}` | Sort cliente (auto-detect numérico) + filter input. **Auto-init**: aplica em `<table data-fa-table>` no DOMContentLoaded |
 | `empty_state.js` | `FAEmpty.{render,tableRow}` | Empty state com CTA (3 variantes: primary/success/warn) |
 | `modal.js` | `FAModal.{confirm,alert}` | Modal Promise-based — substitui `confirm()`/`alert()` nativos. Esc=cancel, Enter=ok, click no backdrop=cancel |
