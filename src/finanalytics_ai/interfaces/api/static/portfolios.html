@@ -95,6 +95,19 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
 .history-empty{color:var(--muted);font-style:italic;padding:14px;text-align:center}
 .btn-icon{background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-size:14px;font-weight:600;padding:5px 9px;cursor:pointer;transition:.15s}
 .btn-icon:hover{color:var(--accent);border-color:rgba(0,212,255,.3)}
+.op-tabs{display:flex;gap:0;margin-bottom:14px;border-bottom:1px solid var(--border)}
+.op-tab{flex:1;padding:9px 12px;background:transparent;border:none;color:var(--muted);font-size:14px;font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid transparent;transition:.15s;font-family:inherit}
+.op-tab:hover{color:var(--text)}
+.op-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.op-tab.tab-buy.active{color:var(--green);border-bottom-color:var(--green)}
+.op-tab.tab-sell.active{color:var(--red);border-bottom-color:var(--red)}
+.op-tab.tab-deposit.active{color:var(--gold);border-bottom-color:var(--gold)}
+.op-pane{display:none}
+.op-pane.active{display:block}
+.op-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.op-grid label{display:block}
+.op-info{margin-top:10px;padding:8px 12px;background:var(--s2);border-radius:5px;font-size:13px;color:var(--muted);font-family:monospace}
+.op-info b{color:var(--gold)}
 </style>
 </head>
 <body>
@@ -159,7 +172,7 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
           <th>Posicoes</th>
           <th>Caixa</th>
           <th>Status</th>
-          <th style="width:360px;text-align:right">Acoes</th>
+          <th style="width:430px;text-align:right">Acoes</th>
         </tr>
       </thead>
       <tbody id="pfList">
@@ -205,6 +218,79 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
     </div>
     <div class="history-list" id="hist-list">
       <div class="history-empty">Carregando...</div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Operar -->
+<div class="modal-overlay" id="modalOperate" onclick="if(event.target===this) closeModal('modalOperate')">
+  <div class="modal" style="width:540px">
+    <div class="modal-title">
+      <span>Operar — <span id="op-pf-name" style="color:var(--accent)"></span></span>
+      <button class="modal-close" onclick="closeModal('modalOperate')">&times;</button>
+    </div>
+    <div class="op-info">Caixa atual: <b id="op-cash">R$ 0,00</b></div>
+
+    <div class="op-tabs">
+      <button class="op-tab tab-buy active" data-pane="buy" onclick="setOpTab('buy')">Comprar</button>
+      <button class="op-tab tab-sell" data-pane="sell" onclick="setOpTab('sell')">Vender</button>
+      <button class="op-tab tab-deposit" data-pane="deposit" onclick="setOpTab('deposit')">Depositar</button>
+    </div>
+
+    <!-- Buy/Sell partilham campos -->
+    <div class="op-pane active" id="pane-buy">
+      <div class="op-grid">
+        <div>
+          <label for="buy-ticker">Ticker</label>
+          <input type="text" id="buy-ticker" maxlength="10" placeholder="PETR4" style="text-transform:uppercase">
+        </div>
+        <div>
+          <label for="buy-broker">Broker</label>
+          <input type="text" id="buy-broker" maxlength="50" placeholder="manual" value="manual">
+        </div>
+        <div>
+          <label for="buy-qty">Quantidade</label>
+          <input type="number" id="buy-qty" step="any" min="0" placeholder="100">
+        </div>
+        <div>
+          <label for="buy-price">Preco unitario (R$)</label>
+          <input type="number" id="buy-price" step="0.01" min="0" placeholder="47.50">
+        </div>
+      </div>
+      <div class="op-info" id="buy-info">Total estimado: <b id="buy-total">R$ 0,00</b></div>
+    </div>
+
+    <div class="op-pane" id="pane-sell">
+      <div class="op-grid">
+        <div>
+          <label for="sell-ticker">Ticker</label>
+          <input type="text" id="sell-ticker" maxlength="10" placeholder="PETR4" style="text-transform:uppercase">
+        </div>
+        <div>
+          <label for="sell-broker">Broker</label>
+          <input type="text" id="sell-broker" maxlength="50" placeholder="manual" value="manual">
+        </div>
+        <div>
+          <label for="sell-qty">Quantidade</label>
+          <input type="number" id="sell-qty" step="any" min="0" placeholder="50">
+        </div>
+        <div>
+          <label for="sell-price">Preco unitario (R$)</label>
+          <input type="number" id="sell-price" step="0.01" min="0" placeholder="48.20">
+        </div>
+      </div>
+      <div class="op-info" id="sell-info">Total estimado: <b id="sell-total">R$ 0,00</b></div>
+    </div>
+
+    <div class="op-pane" id="pane-deposit">
+      <label for="dep-amount">Valor (R$)</label>
+      <input type="number" id="dep-amount" step="0.01" min="0" placeholder="1000">
+      <div class="op-info">Soma direto ao caixa do portfolio. Use para registrar aportes.</div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modalOperate')">Cancelar</button>
+      <button class="btn" id="op-save-btn" onclick="saveOperation()">Confirmar</button>
     </div>
   </div>
 </div>
@@ -337,6 +423,9 @@ function renderList(list) {
     const setDefaultBtn = (p.is_active && !p.is_default)
       ? `<button class="btn-icon" title="Tornar default" onclick="setDefault('${p.portfolio_id}','${escapeJs(p.name)}')">Default</button>`
       : '';
+    const operateBtn = p.is_active
+      ? `<button class="btn-icon" title="Comprar / Vender / Depositar" onclick="openOperate('${p.portfolio_id}','${escapeJs(p.name)}','${p.cash}')">$ Operar</button>`
+      : '';
     const histBtn = `<button class="btn-icon" title="Historico de nomes" onclick="showHistory('${p.portfolio_id}','${escapeJs(p.name)}')">Hist.</button>`;
     const lifecycleBtn = p.is_active
       ? `<button class="btn btn-warn" onclick="deactivate('${p.portfolio_id}','${escapeJs(p.name)}')">Desativar</button>`
@@ -350,7 +439,7 @@ function renderList(list) {
       <td style="font-family:monospace;font-size:14px">${p.positions}</td>
       <td class="cash">R$ ${cash}</td>
       <td>${statusPill}${defaultPill}</td>
-      <td><div class="actions" style="justify-content:flex-end;flex-wrap:wrap">${renameBtn}${setDefaultBtn}${histBtn}${lifecycleBtn}</div></td>
+      <td><div class="actions" style="justify-content:flex-end;flex-wrap:wrap">${operateBtn}${renameBtn}${setDefaultBtn}${histBtn}${lifecycleBtn}</div></td>
     </tr>`;
   }).join('');
 }
@@ -440,6 +529,100 @@ async function saveRename() {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Salvar';
+  }
+}
+
+// ── Operar (buy/sell/deposit) ───────────────────────────────────────────────
+let _operateTarget = null;  // {id, name, cash}
+let _opTab = 'buy';
+
+function openOperate(id, name, cash) {
+  _operateTarget = { id, name, cash };
+  document.getElementById('op-pf-name').textContent = name;
+  document.getElementById('op-cash').textContent =
+    'R$ ' + parseFloat(cash || '0').toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  // Limpa
+  ['buy-ticker','buy-qty','buy-price','sell-ticker','sell-qty','sell-price','dep-amount']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('buy-broker').value = 'manual';
+  document.getElementById('sell-broker').value = 'manual';
+  document.getElementById('buy-total').textContent = 'R$ 0,00';
+  document.getElementById('sell-total').textContent = 'R$ 0,00';
+  setOpTab('buy');
+  openModal('modalOperate');
+  setTimeout(() => document.getElementById('buy-ticker').focus(), 50);
+}
+
+function setOpTab(tab) {
+  _opTab = tab;
+  document.querySelectorAll('.op-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.pane === tab));
+  document.querySelectorAll('.op-pane').forEach(p =>
+    p.classList.toggle('active', p.id === 'pane-' + tab));
+}
+
+function _updateTotal(prefix) {
+  const q = parseFloat(document.getElementById(prefix + '-qty').value) || 0;
+  const p = parseFloat(document.getElementById(prefix + '-price').value) || 0;
+  const total = q * p;
+  document.getElementById(prefix + '-total').textContent =
+    'R$ ' + total.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+['buy', 'sell'].forEach(prefix => {
+  ['qty', 'price'].forEach(field => {
+    document.addEventListener('input', e => {
+      if (e.target && e.target.id === prefix + '-' + field) _updateTotal(prefix);
+    });
+  });
+});
+
+async function saveOperation() {
+  if (!_operateTarget) return;
+  const id = _operateTarget.id;
+  const btn = document.getElementById('op-save-btn');
+  let url, body, opLabel;
+
+  if (_opTab === 'buy' || _opTab === 'sell') {
+    const ticker = document.getElementById(_opTab + '-ticker').value.trim().toUpperCase();
+    const qty    = parseFloat(document.getElementById(_opTab + '-qty').value);
+    const price  = parseFloat(document.getElementById(_opTab + '-price').value);
+    const broker = document.getElementById(_opTab + '-broker').value.trim() || 'manual';
+    if (!ticker || !(qty > 0) || !(price > 0)) {
+      toast('Preencha ticker, quantidade e preco (>0).', 'err');
+      return;
+    }
+    url = API + '/portfolios/' + encodeURIComponent(id) + '/' + _opTab;
+    body = { ticker, quantity: qty, price, broker };
+    opLabel = (_opTab === 'buy' ? 'Compra' : 'Venda') + ' de ' + qty + ' ' + ticker;
+  } else if (_opTab === 'deposit') {
+    const amount = parseFloat(document.getElementById('dep-amount').value);
+    if (!(amount > 0)) {
+      toast('Valor deve ser > 0.', 'err');
+      return;
+    }
+    url = API + '/portfolios/' + encodeURIComponent(id) + '/deposit';
+    body = { amount };
+    opLabel = 'Deposito R$ ' + amount.toLocaleString('pt-BR');
+  } else {
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '...';
+  try {
+    const r = await fetch(url, { method: 'POST', headers: H(), body: JSON.stringify(body) });
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.detail || ('HTTP ' + r.status));
+    }
+    closeModal('modalOperate');
+    toast(opLabel + ' registrada.', 'ok');
+    await loadPortfolios();
+  } catch (e) {
+    toast('Falha: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Confirmar';
   }
 }
 
@@ -552,6 +735,7 @@ document.addEventListener('keydown', (e) => {
     closeModal('modalRename');
     closeModal('modalHistory');
     closeModal('modalCreate');
+    closeModal('modalOperate');
   }
 });
 
