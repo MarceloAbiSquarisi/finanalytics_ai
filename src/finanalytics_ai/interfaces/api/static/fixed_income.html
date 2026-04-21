@@ -1435,17 +1435,15 @@ window.switchTab = function(tab) {
     <div id="new-pf-form" style="display:none;background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px">
       <div style="font-size:16px;font-weight:700;color:var(--accent);margin-bottom:10px">Nova Carteira RF
 </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end">
-        <div class="form-group">
-          <label class="form-label">User ID</label>
-          <input class="form-input" id="new-pf-user" placeholder="ex: user_123" value="demo_user">
-</div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end">
         <div class="form-group">
           <label class="form-label">Nome da carteira</label>
           <input class="form-input" id="new-pf-name" placeholder="ex: Reserva de Emergência">
 </div>
         <button class="btn-primary" onclick="createPortfolio()">Criar</button>
 </div>
+      <!-- Campo user_id removido em 21/abr — sistema unificado usa JWT -->
+      <input type="hidden" id="new-pf-user" value="">
 </div>
 
     <!-- Form: adicionar holding (hidden by default) -->
@@ -1541,9 +1539,9 @@ let _pfBonds = [];
 
 async function initPortfolioTab() {
   await loadBondsForHolding();
-  const saved = localStorage.getItem('rf_user_id') || 'demo_user';
-  document.getElementById('new-pf-user').value = saved;
-  await loadUserPortfolios(saved);
+  // Sprint UX C (21/abr): user_id vem do JWT; input legado preservado
+  // oculto para compat com codigo residual.
+  await loadUserPortfolios(null);
   // Set today's date as default
   document.getElementById('hold-date').value = new Date().toISOString().split('T')[0];
 }
@@ -1560,13 +1558,25 @@ async function loadBondsForHolding() {
 }
 
 async function loadUserPortfolios(userId) {
+  // Sprint UX C (21/abr): migrado para /api/v1/portfolios (sistema
+  // unificado). userId e ignorado — backend usa JWT. Mostra apenas
+  // portfolios ativos; rf_portfolios legacy viram redundantes.
   try {
-    const r = await fetch(`/api/v1/fixed-income/portfolio?user_id=${userId}`);
+    const tok = localStorage.getItem('access_token') || '';
+    const r = await fetch('/api/v1/portfolios?include_inactive=false', {
+      headers: tok ? {Authorization: 'Bearer ' + tok} : {}
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
     const portfolios = await r.json();
     const sel = document.getElementById('pf-select');
     sel.innerHTML = '<option value="">— Selecione uma carteira —</option>' +
-      portfolios.map(p => `<option value="${p.portfolio_id}">${p.name} (${p.n_holdings} títulos)</option>`).join('');
-  } catch(e) {}
+      portfolios.map(p => {
+        const badge = p.is_default ? ' [default]' : '';
+        return `<option value="${p.portfolio_id}">${p.name}${badge} (${p.positions} posicoes)</option>`;
+      }).join('');
+  } catch(e) {
+    console.error('loadUserPortfolios', e);
+  }
 }
 
 function showNewPortfolioForm() {
@@ -1575,20 +1585,33 @@ function showNewPortfolioForm() {
 }
 
 async function createPortfolio() {
-  const userId = document.getElementById('new-pf-user').value.trim();
-  const name   = document.getElementById('new-pf-name').value.trim();
-  if (!userId || !name) return;
-  localStorage.setItem('rf_user_id', userId);
+  // Sprint UX C (21/abr): migrado para /api/v1/portfolios (sistema
+  // unificado). user_id vem do JWT, nao do input.
+  const name = document.getElementById('new-pf-name').value.trim();
+  if (!name) { alert('Informe o nome da carteira.'); return; }
   try {
-    const r = await fetch('/api/v1/fixed-income/portfolio', {
+    const tok = localStorage.getItem('access_token') || '';
+    const r = await fetch('/api/v1/portfolios', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({user_id: userId, name}),
+      headers: {
+        'Content-Type': 'application/json',
+        ...(tok ? {Authorization: 'Bearer ' + tok} : {})
+      },
+      body: JSON.stringify({
+        name: name,
+        description: 'Carteira de Renda Fixa',
+        benchmark: 'CDI'
+      }),
     });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || ('HTTP ' + r.status));
+    }
     const p = await r.json();
-    await loadUserPortfolios(userId);
+    await loadUserPortfolios(null);
     document.getElementById('pf-select').value = p.portfolio_id;
     document.getElementById('new-pf-form').style.display = 'none';
+    document.getElementById('new-pf-name').value = '';
     await loadPortfolio();
   } catch(e) { alert('Erro ao criar carteira: ' + e.message); }
 }
@@ -1778,13 +1801,34 @@ async function deleteHolding(holdingId, portfolioId) {
 }
 
 async function deletePortfolio() {
-  if (!_currentPortfolioId || !confirm('Excluir esta carteira e todos os títulos?')) return;
-  await fetch(`/api/v1/fixed-income/portfolio/${_currentPortfolioId}`, {method:'DELETE'});
-  _currentPortfolioId = null;
-  document.getElementById('pf-select').value = '';
-  const userId = document.getElementById('new-pf-user').value;
-  await loadUserPortfolios(userId);
-  await loadPortfolio();
+  // Sprint UX C (21/abr): migrado para soft-delete unificado.
+  // Antes: DELETE /api/v1/fixed-income/portfolio (remove rf_portfolio
+  // + holdings). Agora: POST /api/v1/portfolios/{id}/deactivate
+  // (preserva historico; recusado se houver holdings com saldo > 0).
+  if (!_currentPortfolioId || !confirm('Desativar esta carteira?\n\nHoldings com saldo > 0 bloqueiam a desativacao. Use "resgate" individualmente antes, ou delete os titulos primeiro.')) return;
+  try {
+    const tok = localStorage.getItem('access_token') || '';
+    const r = await fetch(`/api/v1/portfolios/${_currentPortfolioId}/deactivate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(tok ? {Authorization: 'Bearer ' + tok} : {})
+      }
+    });
+    if (r.status === 409) {
+      const data = await r.json().catch(() => ({}));
+      alert(data.detail || 'Carteira possui aplicacoes com saldo > 0.');
+      return;
+    }
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || ('HTTP ' + r.status));
+    }
+    _currentPortfolioId = null;
+    document.getElementById('pf-select').value = '';
+    await loadUserPortfolios(null);
+    await loadPortfolio();
+  } catch(e) { alert('Erro: ' + e.message); }
 }
 
 function showSubTab(tab) {
