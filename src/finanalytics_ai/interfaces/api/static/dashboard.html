@@ -2794,9 +2794,7 @@ async function dtLoadSignals() {
   box.innerHTML = '<div style="font-size:12px;color:var(--muted)">carregando…</div>';
   try {
     const url = `/api/v1/ml/signals?min_sharpe=${isFinite(minS)?minS:0}&limit=200`;
-    const r = await fetch(url);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const d = await r.json();
+    const d = await FAErr.fetchJson(url);
     sum.textContent = `total=${d.count} · BUY=${d.buy} · SELL=${d.sell} · HOLD=${d.hold} · err=${d.errors}`;
     let items = d.items;
     if (onlyBS) items = items.filter(x => x.signal === 'BUY' || x.signal === 'SELL');
@@ -2858,9 +2856,7 @@ async function dtLoadSignalHistory() {
   }
   list.innerHTML = '<div style="font-size:12px;color:var(--muted)">carregando…</div>';
   try {
-    const r = await fetch(`/api/v1/ml/signal_history?ticker=${tk}&limit=200`);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const items = await r.json();
+    const items = await FAErr.fetchJson(`/api/v1/ml/signal_history?ticker=${tk}&limit=200`);
     if (!items.length) {
       list.innerHTML = `<div style="font-size:12px;color:var(--muted)">sem histórico para ${tk}</div>`;
       sum.textContent = '—';
@@ -2891,9 +2887,7 @@ async function dtLoadSignalChanges() {
   const sum = document.getElementById('sig-chg-summary');
   list.innerHTML = '<div style="font-size:12px;color:var(--muted)">carregando…</div>';
   try {
-    const r = await fetch('/api/v1/ml/signal_history/changes?limit=100');
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const items = await r.json();
+    const items = await FAErr.fetchJson('/api/v1/ml/signal_history/changes?limit=100');
     if (!items.length) {
       list.innerHTML = '<div style="font-size:12px;color:var(--muted)">— sem mudanças no último snapshot —</div>';
       sum.textContent = '—';
@@ -3941,6 +3935,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/static/pwa_register.js"></script>
   <script src="/static/modal.js"></script>
   <script src="/static/form_validate.js"></script>
+  <script src="/static/i18n.js"></script>
   <script src="/static/toast.js"></script>
   <script src="/static/error_handler.js"></script>
   <script src="/static/loading.js"></script>

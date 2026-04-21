@@ -464,9 +464,7 @@ async function checkAgent() {
 // ── FASTAPI TICKERS ───────────────────────────────────────────────────────
 async function loadApiTickers() {
   try {
-    const r = await fetch(API+'/tickers/subscriptions', {headers:H()});
-    if (!r.ok) throw new Error('HTTP '+r.status);
-    const d = await r.json();
+    const d = await FAErr.fetchJson(API+'/tickers/subscriptions', {headers:H()});
     const grids = {future:[],stock:[],fii:[],other:[]};
     (d.tickers||[]).forEach(t => {
       const type = t.ticker_type||'other';
@@ -791,6 +789,7 @@ setInterval(checkAgent, 15000);
 <script src="/static/onboarding.js"></script>
 <script src="/static/a11y.js"></script>
   <script src="/static/auth_guard.js"></script>
+  <script src="/static/i18n.js"></script>
   <script src="/static/pwa_register.js"></script>
 <script src="/static/toast.js"></script>
 <script src="/static/error_handler.js"></script>

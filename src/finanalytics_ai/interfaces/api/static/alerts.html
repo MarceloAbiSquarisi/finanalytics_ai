@@ -282,9 +282,7 @@ async function init() {
 
 async function loadFields() {
   try {
-    const r = await fetch(API + '/alerts/indicator/fields', { headers: H() });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const data = await r.json();
+    const data = await FAErr.fetchJson(API + '/alerts/indicator/fields', { headers: H() });
     _indicators = data.indicators || [];
     _operators = data.operators || {};
     const sel = document.getElementById('al-indicator');
@@ -301,9 +299,7 @@ async function loadAlerts() {
   const tb = document.getElementById('alertList');
   FALoading.tableRows(tb, { rows: 4, cols: 7 });
   try {
-    const r = await fetch(API + '/alerts/indicator?user_id=' + encodeURIComponent(_user.user_id), { headers: H() });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const list = await r.json();
+    const list = await FAErr.fetchJson(API + '/alerts/indicator?user_id=' + encodeURIComponent(_user.user_id), { headers: H() });
     renderAlerts(list);
   } catch (e) {
     tb.innerHTML = `<tr class="empty-row"><td colspan="7">Erro: ${e.message}</td></tr>`;
@@ -405,9 +401,7 @@ async function evaluateNow() {
   btn.textContent = 'Avaliando...';
   out.style.display = 'none';
   try {
-    const r = await fetch(API + '/alerts/indicator/evaluate', { method: 'POST', headers: H() });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const data = await r.json();
+    const data = await FAErr.fetchJson(API + '/alerts/indicator/evaluate', { method: 'POST', headers: H() });
     out.style.display = 'block';
     out.textContent = `OK — disparados: ${data.triggered ?? 0} — em ${data.evaluated_at ?? ''}`;
     toast('Avaliação concluída', 'ok');
@@ -425,6 +419,7 @@ init();
 <script src="/static/sidebar.js"></script>
   <script src="/static/modal.js"></script>
   <script src="/static/form_validate.js"></script>
+  <script src="/static/i18n.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>

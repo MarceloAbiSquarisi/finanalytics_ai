@@ -406,13 +406,12 @@ function toggleInactive() {
 }
 
 async function loadPortfolios() {
+  // Sprint UI Q (21/abr): FAErr.fetchJson + FALoading.tableRows
   const tb = document.getElementById('pfList');
-  tb.innerHTML = '<tr><td colspan="6" class="fa-loading-row"><span class="fa-spinner"></span>Carregando portfolios...</td></tr>';
+  FALoading.tableRows(tb, { rows: 4, cols: 6 });
   try {
     const url = API + '/portfolios?include_inactive=' + (_showInactive ? 'true' : 'false');
-    const r = await fetch(url, { headers: H() });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const list = await r.json();
+    const list = await FAErr.fetchJson(url, { headers: H() });
     renderList(list);
   } catch (e) {
     tb.innerHTML = `<tr class="empty-row"><td colspan="6">Erro: ${e.message}</td></tr>`;
@@ -737,9 +736,8 @@ async function showHistory(id, currentName) {
   list.innerHTML = '<div class="history-empty">Carregando...</div>';
   openModal('modalHistory');
   try {
-    const r = await fetch(API + '/portfolios/' + encodeURIComponent(id) + '/name-history', { headers: H() });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const rows = await r.json();
+    // Sprint UI Q (21/abr): FAErr.fetchJson
+    const rows = await FAErr.fetchJson(API + '/portfolios/' + encodeURIComponent(id) + '/name-history', { headers: H() });
     if (!rows || rows.length === 0) {
       list.innerHTML = '<div class="history-empty">Sem renames registrados.</div>';
       return;
@@ -784,6 +782,7 @@ init();
 <script src="/static/sidebar.js"></script>
   <script src="/static/modal.js"></script>
   <script src="/static/form_validate.js"></script>
+  <script src="/static/i18n.js"></script>
 <script src="/static/breadcrumbs.js"></script>
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>
