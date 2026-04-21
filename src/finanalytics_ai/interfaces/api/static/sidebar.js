@@ -24,6 +24,21 @@
 
   var SIDEBAR_URL = '/static/sidebar.html';
   var STORAGE_KEY = 'fa_sidebar_open';
+  var STYLE_ID = 'fa-sidebar-injected-styles';
+
+  function ensureStyles() {
+    if (document.getElementById(STYLE_ID)) return;
+    var s = document.createElement('style');
+    s.id = STYLE_ID;
+    // Estilos de grupos/secoes injetados pelo loader. Sprint UI C — 21/abr.
+    // Os estilos base .fa-sb-link / .fa-sidebar ficam em cada pagina.
+    s.textContent = [
+      '.fa-sb-section{font-size:10px;font-weight:700;color:#3a5570;text-transform:uppercase;letter-spacing:.12em;padding:14px 14px 4px;white-space:nowrap;overflow:hidden;opacity:0;transition:opacity .15s}',
+      '.fa-sidebar.open .fa-sb-section{opacity:1}',
+      '.fa-sb-section:first-of-type{padding-top:10px}',
+    ].join('\n');
+    document.head.appendChild(s);
+  }
 
   function applyToggleState() {
     var sb = document.querySelector('.fa-sidebar');
@@ -77,6 +92,7 @@
       return;
     }
     try {
+      ensureStyles();
       var r = await fetch(SIDEBAR_URL, { credentials: 'same-origin' });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       sb.innerHTML = await r.text();
