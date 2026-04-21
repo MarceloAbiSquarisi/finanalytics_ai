@@ -1013,10 +1013,15 @@ def create_app() -> FastAPI:
             media = "image/x-icon"
         else:
             media = "text/html; charset=utf-8"
+        # Cache-Control: assets sem versionamento por hash; TTL 1h para
+        # reduzir requests em sessao (Sprint UI Y, 21/abr). Browser
+        # revalida via If-Modified-Since em primeira request pos-TTL.
+        # SVG mais agressivo (1d) — favicon raramente muda.
+        max_age = 86400 if filename.endswith(".svg") else 3600
         return _StaticResponse(
             content=target.read_bytes(),
             media_type=media,
-            headers={"Cache-Control": "public, max-age=300"},
+            headers={"Cache-Control": f"public, max-age={max_age}"},
         )
 
     @app.get("/carteira", response_class=HTMLResponse, include_in_schema=False)
