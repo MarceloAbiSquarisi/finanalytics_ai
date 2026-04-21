@@ -603,6 +603,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as _exc:
         logger.warning("fundamental_analysis.FAILED", error=str(_exc))
 
+    # ── ML metrics refresh (Sprint Fix Alerts E, 21/abr) ──────────────────────
+    # Background task que atualiza Gauges Prometheus (ml_drift_count,
+    # ml_snapshot_age_days, ml_signals_by_status) a cada 5min — destrava
+    # alert rules de drift/snapshot no Grafana sem precisar pollar JSON.
+    app.state.ml_metrics_task = None
+    try:
+        from finanalytics_ai.application.services.ml_metrics_refresh import refresh_loop as _ml_refresh
+
+        app.state.ml_metrics_task = asyncio.create_task(_ml_refresh())
+        logger.info("ml_metrics_refresh.scheduled")
+    except Exception as _mexc:
+        logger.warning("ml_metrics_refresh.FAILED", error=str(_mexc))
+
     logger.info(
         "api.ready", postgres=True, timescale=timescale_ok, kafka=kafka_ok, producer=producer_ok
     )
@@ -635,6 +648,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         _ohlc_daily_task.cancel()
         with suppress(asyncio.CancelledError):
             await _ohlc_daily_task
+    # Cancela ML metrics refresh (Sprint Fix Alerts E)
+    _ml_task = getattr(app.state, "ml_metrics_task", None)
+    if _ml_task:
+        _ml_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await _ml_task
     # Fecha pool TimescaleDB
     try:
         from finanalytics_ai.infrastructure.timescale.connection import close_ts_pool

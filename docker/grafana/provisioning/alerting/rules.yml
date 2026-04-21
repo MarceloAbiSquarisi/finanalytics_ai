@@ -287,3 +287,61 @@ groups:
         labels:
           severity: warning
           team: security
+
+      # ── 10. ML drift — pickles ausentes para tickers calibrados ──
+      # Sprint Fix Alerts E (21/abr): usa finanalytics_ml_drift_count
+      # populada a cada 5min por ml_metrics_refresh_loop.
+      - uid: alert-ml-drift
+        title: ml_drift_high
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              editorMode: code
+              expr: 'finanalytics_ml_drift_count > 5'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+        noDataState: NoData
+        execErrState: Error
+        for: 30m
+        annotations:
+          summary: 'ML: > 5 tickers calibrados sem pickle'
+          description: 'Calibracao recente nao foi acompanhada de retreino. Rodar scripts/retrain_top20_h21.py ou variante por ticker.'
+        labels:
+          severity: warning
+          team: ml
+
+      # ── 11. ML snapshot stale ──
+      # signal_history snapshot devia rodar diario 18:30 BRT.
+      # Se age > 2 dias, scheduler quebrou ou job falha em silencio.
+      - uid: alert-ml-snapshot-stale
+        title: ml_snapshot_stale
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              editorMode: code
+              expr: 'finanalytics_ml_snapshot_age_days > 2'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+        noDataState: NoData
+        execErrState: Error
+        for: 1h
+        annotations:
+          summary: 'ML signal_history > 2 dias desatualizado'
+          description: 'Job snapshot diario (18:30 BRT) parou de rodar. Verificar scheduler logs.'
+        labels:
+          severity: critical
+          team: ml

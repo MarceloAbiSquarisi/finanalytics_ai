@@ -380,3 +380,40 @@ fintz_rows_upserted_total = Counter(
     documentation="Total de linhas inseridas/atualizadas pelo pipeline Fintz",
     labelnames=["dataset_type"],
 )
+
+# ── ML pipeline gauges (Sprint Fix Alerts E, 21/abr/2026) ────────────────────
+# Atualizadas pelo background task ml_metrics_refresh_loop em
+# application/services/ml_metrics_refresh.py — refresh a cada 5min
+# (drift/snapshot nao mudam rapido; Prometheus scrape 30s leria stale
+# se updates fossem on-scrape).
+
+ml_config_count = Gauge(
+    name="finanalytics_ml_config_count",
+    documentation="Tickers calibrados em ticker_ml_config",
+)
+
+ml_pickle_count = Gauge(
+    name="finanalytics_ml_pickle_count",
+    documentation="Pickles MVP disponiveis em models/ (qualquer horizon)",
+)
+
+ml_drift_count = Gauge(
+    name="finanalytics_ml_drift_count",
+    documentation="Tickers calibrados sem pickle correspondente (config - pickle)",
+)
+
+ml_snapshot_age_days = Gauge(
+    name="finanalytics_ml_snapshot_age_days",
+    documentation="Dias desde o ultimo snapshot em signal_history (-1 se nunca)",
+)
+
+ml_latest_pickle_age_days = Gauge(
+    name="finanalytics_ml_latest_pickle_age_days",
+    documentation="Idade do pickle mais recente em models/ (-1 se diretorio vazio)",
+)
+
+ml_signals_by_status = Gauge(
+    name="finanalytics_ml_signals_by_status",
+    documentation="Contagem do snapshot mais recente por signal (BUY/SELL/HOLD)",
+    labelnames=["signal"],
+)
