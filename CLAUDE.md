@@ -188,6 +188,19 @@ agent.change_order(params)         # SendChangeOrderV2
 ### Order Status
 - `0` = New, `1` = PartialFilled, `2` = Filled, `4` = Canceled, `8` = Rejected, `10` = PendingNew
 
+## UI compartilhada (Sprint UX 21/abr)
+
+| Asset | Função |
+|---|---|
+| `static/auth_guard.js` | `FAAuth.requireAuth({allowedRoles, onDenied})` — gating front; encapsula token + `/auth/me` + redirect |
+| `static/sidebar.html` + `sidebar.js` | Sidebar canônica injetada via fetch+sentinel (1 edição reflete nas 38 páginas) |
+| `/static/{filename}` whitelist | `.js`, `.css` + `_ALLOWED_PARTIALS = {"sidebar.html"}` |
+| Páginas admin (RBAC backend) | `/hub` (todos endpoints), `/admin`, `/api/v1/events/*` (events_admin) — `_require_admin` checa `UserRole.ADMIN/MASTER` |
+
+**Pattern de soft-delete** (portfolios é referência): `is_active` em vez de DELETE; `has_active_holdings()` valida saldo zero antes de desativar; promove novo default automaticamente.
+
+**Pattern de auditoria** (portfolio_name_history é referência): tabela dedicada `<entidade>_<campo>_history` com `(old, new, changed_at, changed_by)` em vez de colunas `previous_X`.
+
 ## Dashboard (dashboard.html)
 SPA em vanilla JS, 3500+ linhas. Painel DayTrade no lado direito:
 
@@ -270,7 +283,8 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 14. ~~Prometheus + Grafana versionados em docker/~~ — **DONE 20/abr** (provisioning, removeu `docker run` manual)
 15. ~~GPU compute em container (torch+cu124)~~ — **DONE 21/abr** (api/worker/worker_v2 com `cuda.is_available()=True`)
 16. ~~Sprint U8 — Hub frontend + observabilidade~~ — **DONE 21/abr** (cleanup scheduler 23h BRT + correlation_id Kafka cross-service + 3 painéis Grafana dead_letter)
-17. Aguardando arquivo Nelogica 1m (~2 dias) → rodar `runbook_import_dados_historicos.md`
+17. ~~Sprint UX — RBAC backend + UI portfolios CRUD + alertas indicador + sidebar shared~~ — **DONE 21/abr** (helper `auth_guard.js`, hub admin-only via `_require_admin`, página `/alerts`, soft-delete portfolios via `is_active`, `portfolio_name_history`, `sidebar.js` auto-replace em 38 páginas; commits `49f2ca5`, `5e8ebb1`, `ef71e6a`, `2b59225`, `00b21d6`, `9d2e07f`)
+18. Aguardando arquivo Nelogica 1m (~2 dias) → rodar `runbook_import_dados_historicos.md`
 
 ## Decisões Arquiteturais (Imutáveis)
 
