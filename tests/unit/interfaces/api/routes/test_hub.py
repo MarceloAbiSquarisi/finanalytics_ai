@@ -75,7 +75,12 @@ _fake_repo = FakeRepo()
 
 
 def _get_test_client(fake_repo: FakeRepo) -> TestClient:
-    """Monta um app mínimo com hub router + fake session."""
+    """Monta um app mínimo com hub router + fake session.
+
+    Sprint Fix CI 21/abr: bypassa _require_admin (introduzido pela
+    Sprint UX C) via dependency_overrides — substitui o guard por
+    um usuario admin fake. Sem isso, todos endpoints retornam 401.
+    """
     app = FastAPI()
     app.include_router(hub.router)
 
@@ -85,6 +90,15 @@ def _get_test_client(fake_repo: FakeRepo) -> TestClient:
         yield None
 
     app.dependency_overrides[hub.get_db] = _fake_db
+
+    # Bypassa RBAC: substitui o guard _require_admin por callable que
+    # retorna um usuario fake admin. Sem isso, FastAPI tenta resolver
+    # get_current_user (Bearer JWT) e devolve 401 em todas requests.
+    def _fake_admin() -> Any:
+        # Retorna um sentinel — testes nao usam o objeto User retornado.
+        return object()
+
+    app.dependency_overrides[hub._require_admin] = _fake_admin
 
     # Monkey-patch _make_repo para retornar o fake
     original = hub._make_repo

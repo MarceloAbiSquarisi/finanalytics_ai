@@ -1,9 +1,10 @@
 # Prometheus config — FinAnalyticsAI observability stack
 #
 # Scrape targets:
+#   - finanalytics_api (Docker, porta 8000) — 42 metrics finanalytics_*
+#     (Sprint Fix Alerts 21/abr — antes ausente; quebrava 5/9 alert rules)
 #   - profit_agent (host Windows, porta 8002) via host.docker.internal
 #   - di1_realtime_worker (Docker, porta 9101)
-#   - finanalytics_api (Docker, porta 8000) — futuro, quando expor /metrics
 #
 # Para aplicar mudancas sem restart do container:
 #   docker exec -it finanalytics_prometheus kill -HUP 1
@@ -16,6 +17,18 @@ global:
     cluster: finanalytics-ai
 
 scrape_configs:
+  # API FastAPI :8000 — expoe finanalytics_http_*, finanalytics_brapi_*,
+  # finanalytics_dead_letter_*, finanalytics_portfolio_operations_*, etc.
+  # Service name no docker network: 'api' (mas container name e
+  # finanalytics_api). Usar service name do compose.
+  - job_name: 'finanalytics_api'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['api:8000']
+        labels:
+          service: 'finanalytics_api'
+          component: 'fastapi'
+
   - job_name: 'profit_agent'
     metrics_path: '/metrics'
     static_configs:
