@@ -260,23 +260,29 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
       Informações da Conta
 </div>
     <div class="info-row">
-      <div class="info-label">E-mail
-</div>
-      <div class="info-value" id="info-email">—
-</div>
-</div>
+      <div class="info-label">E-mail</div>
+      <div class="info-value" id="info-email">—</div>
+    </div>
     <div class="info-row">
-      <div class="info-label">ID do Usuário
-</div>
-      <div class="info-value" id="info-id" style="font-size:14px">—
-</div>
-</div>
+      <div class="info-label">Nome completo</div>
+      <div class="info-value" id="info-fullname" style="font-family:inherit">—</div>
+    </div>
     <div class="info-row">
-      <div class="info-label">Autenticação 2 Fatores
-</div>
-      <div class="info-value" id="info-2fa">—
-</div>
-</div>
+      <div class="info-label">Perfil</div>
+      <div class="info-value" id="info-role" style="font-family:inherit">—</div>
+    </div>
+    <div class="info-row">
+      <div class="info-label">Status</div>
+      <div class="info-value" id="info-status" style="font-family:inherit">—</div>
+    </div>
+    <div class="info-row">
+      <div class="info-label">ID do Usuário</div>
+      <div class="info-value" id="info-id" style="font-size:14px">—</div>
+    </div>
+    <div class="info-row">
+      <div class="info-label">Autenticação 2 Fatores</div>
+      <div class="info-value" id="info-2fa">—</div>
+    </div>
 </div>
 
   <!-- Alterar senha -->
@@ -406,6 +412,12 @@ function showMsg(id, text, type) {
   el.textContent = text;
   el.className = 'msg ' + type;
   el.style.display = 'block';
+  // Sprint UI F: tambem dispara FAToast para feedback visivel mesmo
+  // se o user esta scrollado para outro lugar.
+  if (window.FAToast) {
+    if (type === 'success') FAToast.ok(text.replace(/^[✅⚠]\s*/, ''));
+    else if (type === 'error') FAToast.err(text.replace(/^[✅⚠]\s*/, ''));
+  }
   if (type === 'success') setTimeout(() => { el.style.display = 'none'; }, 5000);
 }
 
@@ -430,6 +442,25 @@ async function initProfile() {
       const user = await res.json();
       userTotpEnabled = user.totp_enabled || false;
       update2FAStatus(userTotpEnabled);
+      // Sprint UI F (21/abr): popular campos extras vindos do /me
+      const setT = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v || '—'; };
+      setT('info-email',    user.email || '');
+      setT('info-fullname', user.full_name || '');
+      setT('info-id',       user.user_id || '');
+      const roleEl = document.getElementById('info-role');
+      if (roleEl) {
+        const roleMap = { master: 'Master', admin: 'Administrador', user: 'Usuario' };
+        const r = (user.role || '').toLowerCase();
+        roleEl.innerHTML = '<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:13px;font-weight:600;background:' +
+          (r === 'master' ? 'rgba(240,180,41,.15);color:#F0B429' : r === 'admin' ? 'rgba(168,85,247,.15);color:#a855f7' : 'rgba(0,212,255,.1);color:#00d4ff') +
+          '">' + (roleMap[r] || user.role || '—') + '</span>';
+      }
+      const statusEl = document.getElementById('info-status');
+      if (statusEl) {
+        statusEl.innerHTML = user.is_active
+          ? '<span style="color:var(--green)">✓ Ativo</span>'
+          : '<span style="color:var(--red)">✗ Inativo</span>';
+      }
     }
   } catch {}
 }
@@ -572,6 +603,7 @@ initProfile();
 </script>
 <script src="/static/sidebar.js"></script>
 <script src="/static/notifications.js"></script>
+<script src="/static/toast.js"></script>
 </body>
 </html>
 
