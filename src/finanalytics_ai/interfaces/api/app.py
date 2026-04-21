@@ -994,7 +994,7 @@ def create_app() -> FastAPI:
         Path traversal bloqueado por comparacao do parent resolvido.
         """
         is_partial = filename in _ALLOWED_PARTIALS
-        if not (is_partial or filename.endswith((".js", ".css"))):
+        if not (is_partial or filename.endswith((".js", ".css", ".svg", ".png", ".ico"))):
             return _StaticResponse(status_code=404)
         target = (_static / filename).resolve()
         if _static.resolve() not in target.parents and target.parent != _static.resolve():
@@ -1005,6 +1005,12 @@ def create_app() -> FastAPI:
             media = "application/javascript"
         elif filename.endswith(".css"):
             media = "text/css"
+        elif filename.endswith(".svg"):
+            media = "image/svg+xml"
+        elif filename.endswith(".png"):
+            media = "image/png"
+        elif filename.endswith(".ico"):
+            media = "image/x-icon"
         else:
             media = "text/html; charset=utf-8"
         return _StaticResponse(
