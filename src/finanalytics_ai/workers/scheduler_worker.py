@@ -3,8 +3,9 @@
 Scheduler Worker — Coleta diária automática de dados de mercado.
 
 Jobs agendados (horário de Brasília, UTC-3):
-  06:00  macro_job   — SELIC, IPCA, USD/BRL, EUR/BRL, IBOV, VIX, S&P500, IGP-M
-  07:00  ohlcv_job   — Delta OHLCV diário de todos os tickers B3 (skip se < 3 dias)
+  06:00  macro_job    — SELIC, IPCA, USD/BRL, EUR/BRL, IBOV, VIX, S&P500, IGP-M
+  07:00  ohlcv_job    — Delta OHLCV diário de todos os tickers B3 (skip se < 3 dias)
+  23:00  cleanup_job  — Poda event_records terminais (7d completed/skipped, 30d dead_letter)
 
 Design:
   - asyncio puro, sem frameworks de scheduler (consistente com ticker_refresh_worker)
@@ -48,6 +49,16 @@ PG_DSN = os.environ.get("DATABASE_DSN", os.environ.get("DATABASE_URL", ""))
 
 OHLCV_ENABLED = os.environ.get("SCHEDULER_OHLCV_ENABLED", "true").lower() == "true"
 MACRO_ENABLED = os.environ.get("SCHEDULER_MACRO_ENABLED", "true").lower() == "true"
+
+# Cleanup de event_records (Sprint U8): remove registros antigos terminais
+# para manter a tabela enxuta. Status removidos: completed, skipped (idempotente),
+# dead_letter (mantido para auditoria so se DEAD_LETTER_RETENTION_DAYS=0).
+CLEANUP_HOUR = int(os.environ.get("SCHEDULER_CLEANUP_HOUR", "23"))  # 23:00 local
+CLEANUP_ENABLED = os.environ.get("SCHEDULER_CLEANUP_ENABLED", "true").lower() == "true"
+CLEANUP_RETENTION_DAYS = int(os.environ.get("EVENT_CLEANUP_RETENTION_DAYS", "7"))
+CLEANUP_DEAD_LETTER_RETENTION_DAYS = int(
+    os.environ.get("EVENT_CLEANUP_DEAD_LETTER_RETENTION_DAYS", "30")
+)
 
 # ── Logger ────────────────────────────────────────────────────────────────────
 structlog.configure(
@@ -414,9 +425,82 @@ async def brapi_sync_job() -> dict:
         return {"status": "error", "error": str(exc)}
 
 
+async def cleanup_event_records_job() -> dict:
+    """
+    Sprint U8: poda event_records terminais para evitar inchaco da tabela.
+
+    - status in ('completed', 'skipped'): retencao = EVENT_CLEANUP_RETENTION_DAYS (default 7d).
+    - status = 'dead_letter': retencao = EVENT_CLEANUP_DEAD_LETTER_RETENTION_DAYS
+      (default 30d; pode ser >> que o resto pq dead_letter precisa de inspecao manual).
+    - status = 'failed' / 'pending' / 'processing': preservados (em vias de retry).
+
+    Idempotente: repetir o DELETE em janelas de tempo no-op.
+    """
+    if not PG_DSN_SYNC:
+        logger.error("scheduler.cleanup.skip", reason="DATABASE_URL not set")
+        return {"status": "skip", "reason": "no_db_dsn"}
+
+    logger.info(
+        "scheduler.cleanup.start",
+        retention_days=CLEANUP_RETENTION_DAYS,
+        dead_letter_retention_days=CLEANUP_DEAD_LETTER_RETENTION_DAYS,
+    )
+    try:
+        import asyncpg
+
+        conn = await asyncpg.connect(PG_DSN_SYNC)
+        try:
+            # 1) Estados terminais "limpos": completed + skipped
+            terminal_result = await conn.execute(
+                """
+                DELETE FROM event_records
+                 WHERE status IN ('completed', 'skipped')
+                   AND created_at < NOW() - ($1::int * INTERVAL '1 day')
+                """,
+                CLEANUP_RETENTION_DAYS,
+            )
+            terminal_deleted = int(terminal_result.split()[-1]) if terminal_result else 0
+
+            # 2) dead_letter (retention maior — auditoria)
+            dl_deleted = 0
+            if CLEANUP_DEAD_LETTER_RETENTION_DAYS > 0:
+                dl_result = await conn.execute(
+                    """
+                    DELETE FROM event_records
+                     WHERE status = 'dead_letter'
+                       AND created_at < NOW() - ($1::int * INTERVAL '1 day')
+                    """,
+                    CLEANUP_DEAD_LETTER_RETENTION_DAYS,
+                )
+                dl_deleted = int(dl_result.split()[-1]) if dl_result else 0
+        finally:
+            await conn.close()
+
+        logger.info(
+            "scheduler.cleanup.done",
+            terminal_deleted=terminal_deleted,
+            dead_letter_deleted=dl_deleted,
+        )
+        return {
+            "status": "ok",
+            "terminal_deleted": terminal_deleted,
+            "dead_letter_deleted": dl_deleted,
+        }
+    except Exception as exc:
+        logger.error("scheduler.cleanup.failed", error=str(exc), exc_info=True)
+        return {"status": "error", "error": str(exc)}
+
+
 async def run_once() -> None:
     """Executa ambos os jobs uma única vez e sai."""
-    logger.info("scheduler.run_once.start", macro=MACRO_ENABLED, ohlcv=OHLCV_ENABLED, fintz_bulk=FINTZ_BULK_ENABLED, brapi_sync=BRAPI_SYNC_ENABLED)
+    logger.info(
+        "scheduler.run_once.start",
+        macro=MACRO_ENABLED,
+        ohlcv=OHLCV_ENABLED,
+        fintz_bulk=FINTZ_BULK_ENABLED,
+        brapi_sync=BRAPI_SYNC_ENABLED,
+        cleanup=CLEANUP_ENABLED,
+    )
     if MACRO_ENABLED:
         await macro_job()
     if OHLCV_ENABLED:
@@ -425,6 +509,8 @@ async def run_once() -> None:
         await fintz_bulk_job()
     if BRAPI_SYNC_ENABLED:
         await brapi_sync_job()
+    if CLEANUP_ENABLED:
+        await cleanup_event_records_job()
     logger.info("scheduler.run_once.done")
 
 
@@ -478,14 +564,28 @@ async def schedule_loop() -> None:
             if BRAPI_SYNC_ENABLED:
                 await brapi_sync_job()
 
+    async def cleanup_loop() -> None:
+        while True:
+            next_run = _next_run_utc(CLEANUP_HOUR)
+            wait = _seconds_until(next_run)
+            logger.info(
+                "scheduler.cleanup.next",
+                next_utc=next_run.isoformat(),
+                wait_min=round(wait / 60),
+            )
+            await asyncio.sleep(wait)
+            await cleanup_event_records_job()
+
     tasks: list[asyncio.Task[None]] = []
     if MACRO_ENABLED:
         tasks.append(asyncio.create_task(macro_loop()))
     if OHLCV_ENABLED:
         tasks.append(asyncio.create_task(ohlcv_loop()))
+    if CLEANUP_ENABLED:
+        tasks.append(asyncio.create_task(cleanup_loop()))
 
     if not tasks:
-        logger.warning("scheduler.loop.no_jobs", hint="Set SCHEDULER_MACRO_ENABLED or SCHEDULER_OHLCV_ENABLED=true")
+        logger.warning("scheduler.loop.no_jobs", hint="Set SCHEDULER_MACRO_ENABLED or SCHEDULER_OHLCV_ENABLED or SCHEDULER_CLEANUP_ENABLED=true")
         return
 
     await asyncio.gather(*tasks)
