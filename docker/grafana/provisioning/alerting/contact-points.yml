@@ -8,36 +8,40 @@
 apiVersion: 1
 
 contactPoints:
+  # Default receiver: email hardcoded. Sem SMTP configurado no Grafana,
+  # Grafana tenta enviar e falha silencioso — alertas ainda aparecem em
+  # /alerting/list e /alerting/history para inspecao manual. Trocar
+  # para SMTP real quando GRAFANA_SMTP_HOST for configurado.
   - orgId: 1
     name: default-internal
     receivers:
       - uid: default-internal
         type: email
-        # Email desabilitado por padrao (sem SMTP). Mantem o receiver
-        # presente para que rules apontem para "default-internal" sem
-        # quebrar — alertas aparecem em /alerting/list mesmo sem envio.
         settings:
-          addresses: ${GRAFANA_ALERT_EMAIL:-disabled@local}
+          addresses: ops@finanalytics.local
           singleEmail: false
         disableResolveMessage: false
 
+  # Slack: URL fake por padrao (Grafana aceita como webhook, POST
+  # silencioso falha sem afetar provisioning). Sobrescrever via env
+  # GRAFANA_SLACK_WEBHOOK no compose quando o workspace estiver pronto.
+  # Formato: https://hooks.slack.com/services/T.../B.../xxx
   - orgId: 1
     name: slack-ops
     receivers:
       - uid: slack-ops
         type: slack
         settings:
-          # Webhook URL via env var. Vazio => Grafana noop (log warning).
-          url: ${GRAFANA_SLACK_WEBHOOK:-}
-          recipient: ${GRAFANA_SLACK_CHANNEL:-#alerts}
+          url: https://hooks.slack.com/services/PLACEHOLDER/PLACEHOLDER/PLACEHOLDER
+          recipient: "#alerts"
           username: FinAnalytics Grafana
           title: |
-            {{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} {{ .CommonLabels.alertname }}
+            {{ if eq .Status "firing" }}[FIRING]{{ else }}[RESOLVED]{{ end }} {{ .CommonLabels.alertname }}
           text: |
             *Status*: {{ .Status }}
-            *Severity*: {{ .CommonLabels.severity | default "info" }}
+            *Severity*: {{ .CommonLabels.severity }}
             {{ range .Alerts -}}
-            • {{ .Annotations.summary }}
+            * {{ .Annotations.summary }}
               {{ if .Annotations.runbook_url }}runbook: {{ .Annotations.runbook_url }}{{ end }}
               value: `{{ .ValueString }}`
             {{ end }}
