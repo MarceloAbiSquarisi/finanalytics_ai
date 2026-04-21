@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alertas Fundamentalistas — FinAnalytics AI</title>
+<style>
+:root{
+  --bg:#080b10;--s1:#0d1117;--s2:#111822;--border:#1c2535;--border2:#253045;
+  --text:#cdd6e0;--muted:#4a5e72;--accent:#00d4ff;--green:#00e676;--red:#ff3d5a;
+  --gold:#F0B429;--purple:#a855f7;--orange:#fb923c;--yellow:#fbbf24;
+  --sb-w:220px;--sb-w-collapsed:52px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;font-size:17px;min-height:100vh}
+.fa-topbar{height:52px;background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 16px;position:sticky;top:0;z-index:300}
+.fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none}
+.fa-logo-text{font-family:monospace;font-size:17px;font-weight:600;color:#e2eaf4}
+.fa-logo-text em{color:var(--gold);font-style:normal}
+.fa-ai-badge{background:var(--gold);color:#0a1628;font-size:12px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.08em;vertical-align:middle;margin-left:2px}
+.fa-user-chip{display:flex;align-items:center;gap:6px;margin-left:auto}
+.fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:14px;color:#8899aa}
+.fa-logout-btn{background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-size:15px;padding:4px 10px;cursor:pointer;display:flex;align-items:center;gap:5px;transition:.15s}
+.fa-logout-btn:hover{color:var(--red);border-color:var(--red)}
+.fa-sidebar{position:fixed;left:0;top:52px;bottom:0;width:var(--sb-w-collapsed);background:#0a0f18;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1);z-index:200}
+.fa-sidebar.open{width:var(--sb-w)}
+.fa-sidebar-toggle{width:100%;padding:10px 14px;background:transparent;border:none;border-bottom:1px solid var(--border);color:#7a95b0;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:17px;white-space:nowrap;overflow:hidden}
+.fa-sidebar-toggle:hover{color:var(--gold);background:rgba(240,180,41,.06)}
+.fa-sidebar-toggle svg{flex-shrink:0}
+.fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;text-decoration:none;font-size:16px;white-space:nowrap;overflow:hidden;transition:all .15s}
+.fa-sb-link:hover{color:#e2eaf4;background:rgba(0,212,255,.05)}
+.fa-sb-link.active{color:var(--accent);background:rgba(0,212,255,.08);border-right:2px solid var(--accent)}
+.fa-sb-link svg{flex-shrink:0}
+.fa-sb-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-link span{opacity:1}
+.fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1)}
+body.sb-open .fa-page-content{margin-left:var(--sb-w)}
+.main{padding:20px 24px;max-width:1400px}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.page-title{font-size:26px;font-weight:700;color:#e2eaf4;display:flex;align-items:center;gap:10px}
+.page-sub{font-size:15px;color:var(--muted);margin-top:2px}
+.section{margin-bottom:28px;background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:18px}
+.sec-title{font-size:15px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.form-grid{display:grid;grid-template-columns:1.2fr 1.8fr 0.7fr 0.8fr 1.5fr auto;gap:10px;align-items:end}
+.form-grid label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.form-grid input, .form-grid select{
+  background:var(--s2);border:1px solid var(--border2);border-radius:5px;color:var(--text);
+  font-size:15px;padding:8px 10px;font-family:inherit;outline:none;transition:.15s
+}
+.form-grid input:focus, .form-grid select:focus{border-color:var(--accent);background:#0a1118}
+.btn{background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);border-radius:5px;color:var(--accent);font-size:15px;font-weight:600;padding:8px 16px;cursor:pointer;transition:.15s;font-family:inherit}
+.btn:hover{background:rgba(0,212,255,.15)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-danger{background:rgba(255,61,90,.06);border-color:rgba(255,61,90,.25);color:var(--red)}
+.btn-danger:hover{background:rgba(255,61,90,.13)}
+.btn-warn{background:rgba(251,191,36,.06);border-color:rgba(251,191,36,.25);color:var(--yellow)}
+.btn-warn:hover{background:rgba(251,191,36,.13)}
+.tbl-wrap{border:1px solid var(--border);border-radius:6px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th{background:#0a0f18;color:var(--muted);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:9px 14px;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:9px 14px;font-size:15px;color:var(--text);border-bottom:1px solid rgba(28,37,53,.6)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(0,212,255,.015)}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase}
+.pill-active{background:rgba(0,230,118,.1);color:var(--green);border:1px solid rgba(0,230,118,.2)}
+.pill-triggered{background:rgba(251,191,36,.1);color:var(--yellow);border:1px solid rgba(251,191,36,.2)}
+.pill-cancelled{background:rgba(74,94,114,.1);color:var(--muted);border:1px solid rgba(74,94,114,.2)}
+.empty-row td{text-align:center;color:var(--muted);font-style:italic;padding:24px}
+.toast{position:fixed;bottom:24px;right:24px;padding:14px 18px;border-radius:8px;font-weight:600;font-size:15px;z-index:1000;animation:slideIn .25s ease-out;max-width:360px}
+.toast-ok{background:rgba(0,230,118,.15);border:1px solid rgba(0,230,118,.4);color:var(--green)}
+.toast-err{background:rgba(255,61,90,.15);border:1px solid rgba(255,61,90,.4);color:var(--red)}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.help-text{font-size:13px;color:var(--muted);margin-top:6px;font-style:italic}
+.threshold-suffix{display:inline-block;color:var(--muted);font-size:13px;margin-left:4px}
+.code{font-family:monospace;background:var(--s2);padding:2px 6px;border-radius:3px;font-size:14px;color:var(--gold)}
+.eval-result{margin-top:12px;padding:10px 14px;background:var(--s2);border-radius:5px;font-family:monospace;font-size:14px;color:var(--green);display:none}
+.denied{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;gap:12px}
+@media (max-width:1100px){.form-grid{grid-template-columns:1fr 1fr;gap:12px}.form-grid label{grid-column:span 1}}
+</style>
+</head>
+<body>
+
+<div class="fa-topbar">
+  <a href="/" class="fa-logo">
+    <span class="fa-logo-text">Fin<em>Analytics</em><span class="fa-ai-badge">AI</span></span>
+  </a>
+  <div class="fa-user-chip">
+    <div class="fa-avatar" id="avatarInitial">?</div>
+    <span id="topbarEmail" style="font-size:15px;color:var(--muted)"></span>
+    <button class="fa-logout-btn" onclick="logout()">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      Sair
+    </button>
+  </div>
+</div>
+
+<div class="fa-sidebar" id="sidebar">
+  <button class="fa-sidebar-toggle" onclick="toggleSidebar()">
+    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <span>Menu</span>
+  </button>
+  <a href="/dashboard" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
+  <a href="/carteira" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg><span>Carteira</span></a>
+  <a href="/fundamental" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Fundamentalista</span></a>
+  <a href="/alerts" class="fa-sb-link active"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span>Alertas</span></a>
+  <a href="/screener" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Screener</span></a>
+  <a href="/watchlist" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span>Watchlist</span></a>
+  <a href="/profile" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></a>
+  <a href="/admin" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Admin</span></a>
+  <a href="/hub" class="fa-sb-link"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg><span>Monitoramento</span></a>
+</div>
+
+<div class="fa-page-content">
+<div class="main" id="mainContent" style="display:none">
+
+  <div class="page-header">
+    <div>
+      <div class="page-title">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        Alertas Fundamentalistas
+      </div>
+      <div class="page-sub">Notifica quando indicadores Fintz (ROE, P/L, Dividend Yield, etc) cruzam um threshold.</div>
+    </div>
+  </div>
+
+  <!-- ── Criar Alerta ──────────────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="sec-title">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Novo Alerta
+    </div>
+    <form class="form-grid" onsubmit="event.preventDefault(); createAlert();">
+      <label>
+        Ticker
+        <input type="text" id="al-ticker" placeholder="Ex: PETR4" maxlength="10" required style="text-transform:uppercase">
+      </label>
+      <label>
+        Indicador
+        <select id="al-indicator" required>
+          <option value="">Carregando...</option>
+        </select>
+      </label>
+      <label>
+        Operador
+        <select id="al-operator" required>
+          <option value="gt">&gt;</option>
+          <option value="gte">&gt;=</option>
+          <option value="lt">&lt;</option>
+          <option value="lte">&lt;=</option>
+        </select>
+      </label>
+      <label>
+        Threshold
+        <input type="number" id="al-threshold" step="any" placeholder="15" required>
+      </label>
+      <label>
+        Nota (opcional)
+        <input type="text" id="al-note" placeholder="Ex: triagem dividend yield" maxlength="200">
+      </label>
+      <label>
+        &nbsp;
+        <button type="submit" class="btn" id="btn-create">Criar</button>
+      </label>
+    </form>
+    <div class="help-text">
+      Indicadores em <span class="code">%</span> usam escala percentual. Ex: <span class="code">ROE &gt; 15</span> significa 15%, não 0.15.
+    </div>
+  </div>
+
+  <!-- ── Lista ─────────────────────────────────────────────────────────────── -->
+  <div class="section">
+    <div class="sec-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span style="display:flex;align-items:center;gap:8px;color:var(--gold);text-transform:uppercase;letter-spacing:.08em;font-size:15px;font-weight:700">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Alertas Ativos
+      </span>
+      <button class="btn" onclick="loadAlerts()" style="font-size:13px;padding:5px 12px">Atualizar</button>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Ticker</th><th>Indicador</th><th>Condição</th><th>Status</th>
+            <th>Disparado em</th><th>Nota</th><th style="width:60px"></th>
+          </tr>
+        </thead>
+        <tbody id="alertList">
+          <tr class="empty-row"><td colspan="7">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Avaliar agora (admin only) ────────────────────────────────────────── -->
+  <div class="section" id="evalSection" style="display:none">
+    <div class="sec-title">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      Avaliar Manualmente <span style="color:var(--muted);font-weight:400;text-transform:none;font-size:13px;margin-left:6px">(admin)</span>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center">
+      <button class="btn btn-warn" onclick="evaluateNow()" id="btn-evaluate">Avaliar Todos os Alertas</button>
+      <span style="color:var(--muted);font-size:14px">Em produção a avaliação roda periodicamente.</span>
+    </div>
+    <div class="eval-result" id="evalResult"></div>
+  </div>
+
+</div>
+
+<div class="denied" id="accessDenied">
+  <svg width="64" height="64" fill="none" stroke="var(--red)" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+  <div style="font-size:22px;color:#e2eaf4">Acesso negado</div>
+  <div style="color:var(--muted)">Faça login para acessar esta página.</div>
+</div>
+</div><!-- /fa-page-content -->
+
+<script src="/static/auth_guard.js"></script>
+<script>
+const API = '/api/v1';
+let _user = null;
+let _indicators = [];
+let _operators = {};
+
+function tok() { return FAAuth.getToken(); }
+function H() { return FAAuth.headers(); }
+
+function logout() {
+  FAAuth.clearTokens();
+  location.href = '/';
+}
+
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const open = sb.classList.toggle('open');
+  document.body.classList.toggle('sb-open', open);
+  localStorage.setItem('fa_sidebar_open', open ? '1' : '0');
+}
+if (localStorage.getItem('fa_sidebar_open') === '1') {
+  document.getElementById('sidebar').classList.add('open');
+  document.body.classList.add('sb-open');
+}
+
+function toast(msg, kind) {
+  const t = document.createElement('div');
+  t.className = 'toast ' + (kind === 'err' ? 'toast-err' : 'toast-ok');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+async function init() {
+  // Pagina aberta a qualquer usuario logado (sem role check). Eval manual
+  // tem botao escondido para nao-admins.
+  _user = await FAAuth.requireAuth({});
+  if (!_user) return;
+  document.getElementById('mainContent').style.display = 'block';
+  document.getElementById('topbarEmail').textContent = _user.email;
+  document.getElementById('avatarInitial').textContent = (_user.full_name || _user.email)[0].toUpperCase();
+  if (_user.role === 'admin' || _user.role === 'master') {
+    document.getElementById('evalSection').style.display = 'block';
+  }
+  await loadFields();
+  await loadAlerts();
+}
+
+async function loadFields() {
+  try {
+    const r = await fetch(API + '/alerts/indicator/fields', { headers: H() });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    _indicators = data.indicators || [];
+    _operators = data.operators || {};
+    const sel = document.getElementById('al-indicator');
+    sel.innerHTML = _indicators
+      .map(i => `<option value="${i.key}" title="${i.description}">${i.key} — ${i.description}</option>`)
+      .join('');
+  } catch (e) {
+    document.getElementById('al-indicator').innerHTML = '<option value="">Erro ao carregar</option>';
+    toast('Falha ao carregar indicadores: ' + e.message, 'err');
+  }
+}
+
+async function loadAlerts() {
+  const tb = document.getElementById('alertList');
+  tb.innerHTML = '<tr class="empty-row"><td colspan="7">Carregando...</td></tr>';
+  try {
+    const r = await fetch(API + '/alerts/indicator?user_id=' + encodeURIComponent(_user.user_id), { headers: H() });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const list = await r.json();
+    renderAlerts(list);
+  } catch (e) {
+    tb.innerHTML = `<tr class="empty-row"><td colspan="7">Erro: ${e.message}</td></tr>`;
+  }
+}
+
+function operatorLabel(op) { return _operators[op] || op; }
+
+function statusPill(s) {
+  if (s === 'active')     return '<span class="pill pill-active">ATIVO</span>';
+  if (s === 'triggered')  return '<span class="pill pill-triggered">DISPARADO</span>';
+  if (s === 'cancelled')  return '<span class="pill pill-cancelled">CANCELADO</span>';
+  return '<span class="pill pill-cancelled">' + s.toUpperCase() + '</span>';
+}
+
+function renderAlerts(list) {
+  const tb = document.getElementById('alertList');
+  if (!list || list.length === 0) {
+    tb.innerHTML = '<tr class="empty-row"><td colspan="7">Sem alertas. Crie um acima.</td></tr>';
+    return;
+  }
+  tb.innerHTML = list.map(a => {
+    const opSym = {gt:'>', gte:'≥', lt:'<', lte:'≤'}[a.operator] || a.operator;
+    const triggered = a.last_triggered_at ? new Date(a.last_triggered_at).toLocaleString('pt-BR') : '<span style="color:var(--muted)">—</span>';
+    const note = a.note ? a.note : '<span style="color:var(--muted)">—</span>';
+    const delBtn = a.status === 'active'
+      ? `<button class="btn btn-danger" style="font-size:13px;padding:4px 10px" onclick="deleteAlert('${a.alert_id}')">×</button>`
+      : '';
+    return `<tr>
+      <td><span style="color:var(--accent);font-weight:700">${a.ticker}</span></td>
+      <td>${a.indicator}</td>
+      <td><span class="code">${opSym} ${a.threshold}</span></td>
+      <td>${statusPill(a.status)}</td>
+      <td style="font-family:monospace;font-size:13px;color:var(--muted)">${triggered}</td>
+      <td style="font-size:14px">${note}</td>
+      <td>${delBtn}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function createAlert() {
+  const ticker    = document.getElementById('al-ticker').value.trim().toUpperCase();
+  const indicator = document.getElementById('al-indicator').value;
+  const operator  = document.getElementById('al-operator').value;
+  const threshold = parseFloat(document.getElementById('al-threshold').value);
+  const note      = document.getElementById('al-note').value.trim();
+
+  if (!ticker || !indicator || !operator || isNaN(threshold)) {
+    toast('Preencha ticker, indicador, operador e threshold', 'err');
+    return;
+  }
+  const btn = document.getElementById('btn-create');
+  btn.disabled = true;
+  btn.textContent = '...';
+  try {
+    const r = await fetch(API + '/alerts/indicator', {
+      method: 'POST',
+      headers: H(),
+      body: JSON.stringify({ ticker, indicator, operator, threshold, note, user_id: _user.user_id }),
+    });
+    if (!r.ok) {
+      const detail = await r.text();
+      throw new Error(detail || ('HTTP ' + r.status));
+    }
+    document.getElementById('al-ticker').value = '';
+    document.getElementById('al-threshold').value = '';
+    document.getElementById('al-note').value = '';
+    toast('Alerta criado', 'ok');
+    await loadAlerts();
+  } catch (e) {
+    toast('Falha: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Criar';
+  }
+}
+
+async function deleteAlert(id) {
+  if (!confirm('Cancelar este alerta?')) return;
+  try {
+    const r = await fetch(API + '/alerts/indicator/' + encodeURIComponent(id) + '?user_id=' + encodeURIComponent(_user.user_id), {
+      method: 'DELETE', headers: H()
+    });
+    if (!r.ok && r.status !== 204) throw new Error('HTTP ' + r.status);
+    toast('Alerta cancelado', 'ok');
+    await loadAlerts();
+  } catch (e) {
+    toast('Falha: ' + e.message, 'err');
+  }
+}
+
+async function evaluateNow() {
+  const btn = document.getElementById('btn-evaluate');
+  const out = document.getElementById('evalResult');
+  btn.disabled = true;
+  btn.textContent = 'Avaliando...';
+  out.style.display = 'none';
+  try {
+    const r = await fetch(API + '/alerts/indicator/evaluate', { method: 'POST', headers: H() });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    out.style.display = 'block';
+    out.textContent = `OK — disparados: ${data.triggered ?? 0} — em ${data.evaluated_at ?? ''}`;
+    toast('Avaliação concluída', 'ok');
+    await loadAlerts();
+  } catch (e) {
+    toast('Falha: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Avaliar Todos os Alertas';
+  }
+}
+
+init();
+</script>
+</body>
+</html>
