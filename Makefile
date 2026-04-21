@@ -84,7 +84,7 @@ sync:
 # ── API ────────────────────────────────────────────────────────────────────────
 
 api:
-	uv run uvicorn finanalytics_ai.app:app --reload --host 0.0.0.0 --port 8000
+	uv run uvicorn finanalytics_ai.interfaces.api.run:app --reload --host 0.0.0.0 --port 8000
 
 # ── Database ───────────────────────────────────────────────────────────────────
 

@@ -355,31 +355,30 @@ tr:hover td{background:rgba(0,212,255,.015)}
       </div>
     </div>
 
+<script src="/static/auth_guard.js"></script>
 <script>
 var API = '/api/v1';
 
-function tok() { return localStorage.getItem('access_token'); }
-function H() { return {'Content-Type':'application/json', Authorization: 'Bearer ' + tok()}; }
+function tok() { return FAAuth.getToken(); }
+function H() { return FAAuth.headers(); }
 
 async function init() {
-  if (!tok()) { location.href='/'; return; }
-  try {
-    var me = await fetch(API + '/auth/me', {headers: H()}).then(function(r){ return r.json(); });
-    if (!me.user_id) { location.href='/'; return; }
-    if (me.role !== 'master' && me.role !== 'admin') {
+  var me = await FAAuth.requireAuth({
+    allowedRoles: ['admin', 'master'],
+    onDenied: function () {
       document.getElementById('accessDenied').style.display = 'flex';
-      return;
     }
-    document.getElementById('topbarEmail').textContent = me.email;
-    document.getElementById('avatarInitial').textContent = (me.full_name||me.email)[0].toUpperCase();
-    document.getElementById('monitorContent').style.display = 'block';
-    loadAll();
-    checkInfra();
-    setInterval(loadAll, 30000);
-    setInterval(checkInfra, 60000);
-    loadProfitAgent();
-    setInterval(loadProfitAgent, 20000);
-  } catch(e) { location.href='/'; }
+  });
+  if (!me) return;
+  document.getElementById('topbarEmail').textContent = me.email;
+  document.getElementById('avatarInitial').textContent = (me.full_name||me.email)[0].toUpperCase();
+  document.getElementById('monitorContent').style.display = 'block';
+  loadAll();
+  checkInfra();
+  setInterval(loadAll, 30000);
+  setInterval(checkInfra, 60000);
+  loadProfitAgent();
+  setInterval(loadProfitAgent, 20000);
 }
 
 function toggleSidebar() {

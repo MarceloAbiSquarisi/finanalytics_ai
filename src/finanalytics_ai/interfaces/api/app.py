@@ -876,6 +876,12 @@ def create_app() -> FastAPI:
 
     # ── Hub (Event Pipeline) ─────────────────────────────────────────────────
     app.include_router(hub_routes.router, tags=["Hub"])
+
+    # events_admin: rotas dedicadas /api/v1/events/* (admin/master only via _require_admin)
+    # — listagem dead-letter/failed e reprocess. Complementa o hub.py (que opera no
+    # mesmo conjunto mas tem prefixo /hub e UI propria).
+    from finanalytics_ai.interfaces.api.routes import events_admin as events_admin_routes
+    app.include_router(events_admin_routes.router, tags=["Events Admin"])
     from finanalytics_ai.infrastructure.database.connection import get_session
     app.dependency_overrides[hub_routes.get_db] = get_session
 
@@ -972,6 +978,30 @@ def create_app() -> FastAPI:
         return HTMLResponse(
             f.read_text(encoding="utf-8") if f.exists() else f"<h1>{name} não encontrado</h1>",
             status_code=200 if f.exists() else 404
+        )
+
+    from fastapi.responses import Response as _StaticResponse
+
+    @app.get("/static/{filename}", include_in_schema=False)
+    async def serve_static_asset(filename: str) -> _StaticResponse:
+        """Servidor minimal para assets em static/ (JS, CSS).
+
+        Restrito a .js e .css por seguranca — paginas HTML continuam sendo
+        servidas pelas rotas dedicadas (_html). Path traversal bloqueado por
+        comparacao do parent resolvido.
+        """
+        if not filename.endswith((".js", ".css")):
+            return _StaticResponse(status_code=404)
+        target = (_static / filename).resolve()
+        if _static.resolve() not in target.parents and target.parent != _static.resolve():
+            return _StaticResponse(status_code=404)
+        if not target.is_file():
+            return _StaticResponse(status_code=404)
+        media = "application/javascript" if filename.endswith(".js") else "text/css"
+        return _StaticResponse(
+            content=target.read_bytes(),
+            media_type=media,
+            headers={"Cache-Control": "public, max-age=300"},
         )
 
     @app.get("/carteira", response_class=HTMLResponse, include_in_schema=False)

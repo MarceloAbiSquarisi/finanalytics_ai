@@ -356,27 +356,25 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
   </div>
 </div>
 
+<script src="/static/auth_guard.js"></script>
 <script>
 const API = '/api/v1/admin';
-const tok = () => localStorage.getItem('access_token');
-const H = () => ({'Content-Type':'application/json', Authorization:`Bearer ${tok()}`});
+const tok = () => FAAuth.getToken();
+const H = () => FAAuth.headers();
 
 // ── Auth check ────────────────────────────────────────────────────────────────
 async function init() {
-  const t = tok();
-  if (!t) { location.href='/'; return; }
-  try {
-    const me = await fetch('/api/v1/auth/me', {headers: H()}).then(r => r.json());
-    if (!me.user_id) { location.href='/'; return; }
-    if (me.role !== 'master' && me.role !== 'admin') {
+  const me = await FAAuth.requireAuth({
+    allowedRoles: ['admin', 'master'],
+    onDenied: () => {
       document.querySelector('.main').innerHTML = '<div class="empty" style="padding:80px"><p style="font-size:24px;margin-bottom:8px">🔒 Acesso Restrito</p><p style="color:var(--muted)">Esta página é exclusiva para administradores.</p></div>';
-      return;
     }
-    document.getElementById('topbarEmail').textContent = me.email;
-    document.getElementById('avatarInitial').textContent = (me.full_name||me.email)[0].toUpperCase();
-    loadUsers();
-    loadAgents();
-  } catch { location.href='/'; }
+  });
+  if (!me) return;
+  document.getElementById('topbarEmail').textContent = me.email;
+  document.getElementById('avatarInitial').textContent = (me.full_name||me.email)[0].toUpperCase();
+  loadUsers();
+  loadAgents();
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
@@ -725,27 +723,25 @@ init();
   </div>
 </div>
 
+<script src="/static/auth_guard.js"></script>
 <script>
 const API = '/api/v1/admin';
-const tok = () => localStorage.getItem('access_token');
-const H = () => ({'Content-Type':'application/json', Authorization:`Bearer ${tok()}`});
+const tok = () => FAAuth.getToken();
+const H = () => FAAuth.headers();
 
 // ── Auth check ────────────────────────────────────────────────────────────────
 async function init() {
-  const t = tok();
-  if (!t) { location.href='/'; return; }
-  try {
-    const me = await fetch('/api/v1/auth/me', {headers: H()}).then(r => r.json());
-    if (!me.user_id) { location.href='/'; return; }
-    if (me.role !== 'master' && me.role !== 'admin') {
+  const me = await FAAuth.requireAuth({
+    allowedRoles: ['admin', 'master'],
+    onDenied: () => {
       document.querySelector('.main').innerHTML = '<div class="empty" style="padding:80px"><p style="font-size:24px;margin-bottom:8px">🔒 Acesso Restrito</p><p style="color:var(--muted)">Esta página é exclusiva para administradores.</p></div>';
-      return;
     }
-    document.getElementById('topbarEmail').textContent = me.email;
-    document.getElementById('avatarInitial').textContent = (me.full_name||me.email)[0].toUpperCase();
-    loadUsers();
-    loadAgents();
-  } catch { location.href='/'; }
+  });
+  if (!me) return;
+  document.getElementById('topbarEmail').textContent = me.email;
+  document.getElementById('avatarInitial').textContent = (me.full_name||me.email)[0].toUpperCase();
+  loadUsers();
+  loadAgents();
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────

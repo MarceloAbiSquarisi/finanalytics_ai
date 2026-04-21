@@ -1,14 +1,16 @@
 """
 Hub router — endpoints de gerenciamento do pipeline de eventos.
 
-Endpoints:
+Endpoints (TODOS restritos a ADMIN/MASTER — Sprint UX 21/abr/2026):
     POST /hub/events              — submete novo evento para processamento
     GET  /hub/events              — lista eventos com filtros e paginação
     GET  /hub/stats               — estatísticas de processamento por status
     POST /hub/events/{id}/reprocess — recoloca evento FAILED/DEAD_LETTER em PENDING
+    POST /hub/cleanup             — poda manual de event_records COMPLETED antigos
 
 Design:
-- Sem autenticação neste router (adicionar via dependencies no app.py se necessário)
+- RBAC backend via _require_admin (Depends(get_current_user) + role check).
+  Front-end gating em hub.html e auth_guard.js eh defense-in-depth, nao a barreira.
 - get_db é placeholder substituído via dependency_overrides no app.py
 - Resposta com Pydantic models para validação e documentação automática
 """
@@ -18,13 +20,15 @@ from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 import structlog
 
+from finanalytics_ai.domain.auth.entities import User, UserRole
 from finanalytics_ai.domain.events.models import DomainEvent, EventPayload, EventStatus
 from finanalytics_ai.domain.events.value_objects import CorrelationId, EventType
 from finanalytics_ai.infrastructure.event_processor.repository import SqlEventRepository
+from finanalytics_ai.interfaces.api.dependencies import get_current_user
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +36,16 @@ if TYPE_CHECKING:
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/hub", tags=["hub"])
+
+
+def _require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Guarda RBAC: apenas ADMIN ou MASTER acessam endpoints do hub."""
+    if current_user.role not in (UserRole.ADMIN, UserRole.MASTER):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso restrito a administradores.",
+        )
+    return current_user
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -121,6 +135,7 @@ def _serialize_event(e: DomainEvent) -> EventResponse:
 @router.post("/events", status_code=201, response_model=EventResponse)
 async def create_event(
     body: CreateEventRequest,
+    _: User = Depends(_require_admin),
     session: AsyncSession = Depends(get_db),
 ) -> EventResponse:
     """Submete um novo evento para processamento assíncrono.
@@ -158,6 +173,7 @@ async def list_events(
     event_type: str | None = Query(default=None, description="Filtrar por tipo"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
+    _: User = Depends(_require_admin),
     session: AsyncSession = Depends(get_db),
 ) -> EventListResponse:
     """Lista eventos com filtros opcionais e paginação."""
@@ -189,6 +205,7 @@ async def list_events(
 
 @router.get("/stats", response_model=StatsResponse)
 async def get_stats(
+    _: User = Depends(_require_admin),
     session: AsyncSession = Depends(get_db),
 ) -> StatsResponse:
     """Estatísticas de processamento agrupadas por status."""
@@ -208,6 +225,7 @@ REPROCESSABLE = {EventStatus.FAILED, EventStatus.DEAD_LETTER}
 )
 async def reprocess_event(
     event_id: str,
+    _: User = Depends(_require_admin),
     session: AsyncSession = Depends(get_db),
 ) -> ReprocessResponse:
     """Recoloca evento FAILED ou DEAD_LETTER em PENDING para reprocessamento.
@@ -266,6 +284,7 @@ async def reprocess_event(
 @router.post("/cleanup", response_model=CleanupResponse)
 async def cleanup_completed(
     retention_days: int = Query(default=30, ge=1, description="Dias de retenção"),
+    _: User = Depends(_require_admin),
     session: AsyncSession = Depends(get_db),
 ) -> CleanupResponse:
     """Deleta event_records COMPLETED mais antigos que retention_days."""
