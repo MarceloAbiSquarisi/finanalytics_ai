@@ -982,22 +982,31 @@ def create_app() -> FastAPI:
 
     from fastapi.responses import Response as _StaticResponse
 
+    # Partials HTML compartilhados (sidebar, futuros componentes).
+    # Extensao .html eh whitelist nominal para evitar exposicao de
+    # paginas completas via /static/ (que tem rotas dedicadas).
+    _ALLOWED_PARTIALS: set[str] = {"sidebar.html"}
+
     @app.get("/static/{filename}", include_in_schema=False)
     async def serve_static_asset(filename: str) -> _StaticResponse:
-        """Servidor minimal para assets em static/ (JS, CSS).
+        """Servidor minimal para assets em static/ (JS, CSS, partials HTML).
 
-        Restrito a .js e .css por seguranca — paginas HTML continuam sendo
-        servidas pelas rotas dedicadas (_html). Path traversal bloqueado por
-        comparacao do parent resolvido.
+        Path traversal bloqueado por comparacao do parent resolvido.
         """
-        if not filename.endswith((".js", ".css")):
+        is_partial = filename in _ALLOWED_PARTIALS
+        if not (is_partial or filename.endswith((".js", ".css"))):
             return _StaticResponse(status_code=404)
         target = (_static / filename).resolve()
         if _static.resolve() not in target.parents and target.parent != _static.resolve():
             return _StaticResponse(status_code=404)
         if not target.is_file():
             return _StaticResponse(status_code=404)
-        media = "application/javascript" if filename.endswith(".js") else "text/css"
+        if filename.endswith(".js"):
+            media = "application/javascript"
+        elif filename.endswith(".css"):
+            media = "text/css"
+        else:
+            media = "text/html; charset=utf-8"
         return _StaticResponse(
             content=target.read_bytes(),
             media_type=media,
