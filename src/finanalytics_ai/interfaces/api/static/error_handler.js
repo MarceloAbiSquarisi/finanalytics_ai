@@ -48,6 +48,7 @@
 
   async function fetchJson(url, opts) {
     opts = opts || {};
+    var silent = opts.silent === true;
     var headers = Object.assign({}, opts.headers || {});
     if (!headers['Content-Type'] && opts.body && typeof opts.body === 'string') {
       headers['Content-Type'] = 'application/json';
@@ -58,12 +59,14 @@
         headers.Authorization = auth.Authorization;
       }
     }
-    opts.headers = headers;
+    var fetchOpts = {};
+    for (var k in opts) { if (k !== 'silent') fetchOpts[k] = opts[k]; }
+    fetchOpts.headers = headers;
     var r;
     try {
-      r = await fetch(url, opts);
+      r = await fetch(url, fetchOpts);
     } catch (e) {
-      handle(e, 'Rede');
+      if (!silent) handle(e, 'Rede');
       throw e;
     }
     if (!r.ok) {
@@ -75,7 +78,7 @@
         else if (body && body.message) detail = body.message;
       } catch (_) { /* not JSON */ }
       var msg = r.status + ': ' + detail + (corr ? ' (req=' + corr.slice(0, 8) + ')' : '');
-      handle(msg);
+      if (!silent) handle(msg);
       var err = new Error(msg);
       err.status = r.status;
       err.correlationId = corr;

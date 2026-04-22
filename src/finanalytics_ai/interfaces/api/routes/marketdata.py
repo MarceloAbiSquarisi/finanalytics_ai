@@ -128,6 +128,48 @@ async def _conn() -> asyncpg.Connection:  # type: ignore[type-arg]
     return await asyncpg.connect(_TS_DSN)
 
 
+# ── prev_close cache (refresh diario) ────────────────────────────────────────
+# Sprint Fix UI 22/abr: change_pct na watchlist exige previous_close por ticker.
+# JOIN ohlc_1m a cada request custa ~1s; cacheamos 24h pois muda 1x/dia.
+from datetime import datetime as _dt, timezone as _tz
+
+_PREV_CLOSE_CACHE: dict[str, float] = {}
+_PREV_CLOSE_REFRESHED_AT: _dt | None = None
+_PREV_CLOSE_LOCK = _aio.Lock()
+
+
+async def _get_prev_close_map() -> dict[str, float]:
+    """Retorna prev_close por ticker. Cache 24h, refresh on first call de cada dia.
+    Usa o ultimo close disponivel em ohlc_1m anterior a CURRENT_DATE.
+    """
+    global _PREV_CLOSE_CACHE, _PREV_CLOSE_REFRESHED_AT
+    now = _dt.now(_tz.utc)
+    if _PREV_CLOSE_REFRESHED_AT and _PREV_CLOSE_REFRESHED_AT.date() == now.date():
+        return _PREV_CLOSE_CACHE
+    async with _PREV_CLOSE_LOCK:
+        if _PREV_CLOSE_REFRESHED_AT and _PREV_CLOSE_REFRESHED_AT.date() == now.date():
+            return _PREV_CLOSE_CACHE
+        try:
+            conn = await _conn()
+            rows = await conn.fetch("""
+                WITH latest_day AS (
+                    SELECT MAX(time::date) AS d
+                    FROM ohlc_1m
+                    WHERE time < CURRENT_DATE
+                )
+                SELECT o.ticker, last(o.close, o.time) AS prev_close
+                FROM ohlc_1m o, latest_day ld
+                WHERE o.time::date = ld.d
+                GROUP BY o.ticker
+            """)
+            await conn.close()
+            _PREV_CLOSE_CACHE = {r["ticker"]: float(r["prev_close"]) for r in rows if r["prev_close"] is not None}
+            _PREV_CLOSE_REFRESHED_AT = now
+        except Exception:
+            pass
+        return _PREV_CLOSE_CACHE
+
+
 @router.get("/quotes")
 async def get_quotes() -> Any:
     try:
@@ -139,7 +181,16 @@ async def get_quotes() -> Any:
             FROM profit_ticks ORDER BY ticker, time DESC
         """)
         await conn.close()
-        return [dict(r) for r in rows]
+        prev_map = await _get_prev_close_map()
+        out = []
+        for r in rows:
+            d = dict(r)
+            pc = prev_map.get(d["ticker"])
+            if pc and pc > 0:
+                d["previous_close"] = pc
+                d["change_pct"] = (float(d["last_price"]) - pc) / pc * 100.0
+            out.append(d)
+        return out
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=503)
 

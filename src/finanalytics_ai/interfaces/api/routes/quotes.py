@@ -1,10 +1,11 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 import structlog
 
 from finanalytics_ai.domain.indicators.technical import IndicatorsResult, compute_all
 from finanalytics_ai.domain.value_objects.money import Money, Ticker
+from finanalytics_ai.exceptions import MarketDataUnavailableError
 from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient
 from finanalytics_ai.interfaces.api.dependencies import get_brapi_client
 
@@ -105,4 +106,7 @@ async def get_indicators(
 
 @router.get("/{ticker}/detail")
 async def get_detail(ticker: str, brapi: BrapiClient = Depends(get_brapi_client)) -> Money:
-    return await brapi.get_quote(Ticker(ticker))
+    try:
+        return await brapi.get_quote(Ticker(ticker))
+    except MarketDataUnavailableError as exc:
+        raise HTTPException(status_code=404, detail=f"Ticker {ticker} indisponível na BRAPI") from exc
