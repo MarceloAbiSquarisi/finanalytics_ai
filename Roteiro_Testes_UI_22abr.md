@@ -7,6 +7,52 @@
 
 ---
 
+## 📊 Status de execução (22/abr/2026 — sessão Claude)
+
+**Fase automatizada — CONCLUÍDA**. Cobre tudo que é testável sem navegador real.
+
+| Seção | Status | Nota |
+|---|---|---|
+| 0. Pré-requisitos | ✅ | 17/17 containers up, health OK |
+| 1. Inventário 42 rotas | ✅ | 42/42 HTTP 200 |
+| 2. Helpers globais (estático) | ✅ | Syntax OK, i18n paridade, gaps corrigidos |
+| 3. Golden path (backend) | ✅ | Endpoints testados; UI real → manual |
+| 3. Golden path (UI CRUD flows) | ⏸ manual | Requer navegador logado |
+| 4. Edge cases backend | ✅ | Auth, validation, 4xx/5xx |
+| 4. Edge cases UI (mobile, theme) | ⏸ manual | Requer navegador |
+| 5. Pushover alerts | ⏸ manual | Requer Grafana UI + celular |
+
+**Bugs corrigidos nesta sessão (9)** — commits `3784f24` → `d1f60f1`:
+
+| # | Bug | Status | Commit |
+|---|---|---|---|
+| B1 | `/api/v1/ml/metrics` 404 (image stale) | ✅ rebuild | `89ae947` |
+| B2 | `/openapi.json` 500 (pydantic forward-ref) | ✅ fixed | `89ae947` |
+| B3 | `/api/v1/live/sse/tickers` 404 (router não incluído) | ✅ fixed | `89ae947` |
+| B4 | `/api/v1/patrimony/consolidated` 500 (3 imports quebrados) | ✅ fixed | `a3d6439` |
+| B5 | `POST /auth/login` 500 com creds inválidas (bcrypt hash malformado) | ✅ fixed | `a3d6439` |
+| B6 | `/api/v1/accounts/*` sem auth (vulnerabilidade) | ✅ fixed | `e731ddd` |
+| G1 | `subscriptions.html` sem `sidebar.js` helper | ✅ fixed | `d1f60f1` |
+| G2 | `admin/fintz/profit-tickers` sem `toast.js` | ✅ fixed | `d1f60f1` |
+| G3 | `fundamental.html` sem `i18n.js` | ✅ fixed | `d1f60f1` |
+| G5 | SW precache `fa-v3` só 17 assets (6 helpers fora) | ✅ `fa-v4` com 25 | `d1f60f1` |
+
+**Bugs secundários fixados**:
+- Dashboard chart axis: UTC → local BRT (`89ae947`)
+- Toasts ruidosos no boot: `FAErr.fetchJson({silent})` (`3784f24`)
+- Pickles models/ não montados como volume: `./models:/app/models:ro` (`e731ddd`)
+
+**Gaps flagados sem fix** (tech debt, não bloqueantes):
+
+- **G4**: 22 páginas usam auth inline (`if (!getToken()) location.href='/login'`) em vez de `auth_guard.js` helper. Funciona, mas perdem refresh automático (Lembre-me 7d), allowedRoles enforcement, onDenied customizável. Refator ~4-6h.
+- **G6**: 0 referências `data-i18n=...` no HTML. 87 chaves definidas em PT/EN mas só sidebar usa `FAI18n.applyDOM()`. Coerente com "migração gradual" (Decisão 18).
+- **/api/v1/var/portfolio/{id}**: 503 "PortfolioService nao disponivel" — experimental, UI usa `/var/calculate`. Não é bug.
+- **/api/v1/portfolios/{id}/performance**: retorna 422 para portfolio inexistente (deveria ser 404). Minor.
+- **/api/v1/anomaly/scan**: 422 sem params — ok, só precisa query string.
+- **/api/v1/tape/metrics/PETR4**: 404 sem tape data. Esperado fora de pregão.
+
+---
+
 ## 0. Pré-requisitos
 
 Antes de começar, validar que tudo está no ar:
@@ -381,36 +427,131 @@ Aproveitar a sessão para validar os 12 alert rules:
 
 ## 6. Bugs conhecidos / esperados
 
-Anotar APENAS bugs novos. Já documentados:
+Já documentados (não são bugs novos):
 
 - 6 contact points/datasource Grafana ghosts da migração (3 deletados, 1 default email auto-criado pelo Grafana persiste)
-- `/predict_ensemble` retorna 404 estruturado — pickles 3d/5d ainda não treinados (Z5 depende Nelogica)
+- `/predict_ensemble` retorna 404 **quando não há pickle para o ticker** (pickles h21 existem para top-116 tickers; pickles h3/h5 ainda não treinados — Z5 depende Nelogica)
 - 3 alert rules (`brapi_errors_high`, `portfolio_ops_burst`, `scheduler_reconcile_errors_high`) só disparam após primeiro increment do counter (esperado)
-- profit_agent.py duplo-spawn já resolvido (PID 121656 atual)
 - `:root` per-page intencional — light mode pode ficar dark em algumas seções de páginas individuais (Decisão 19)
 
 ---
 
 ## 7. Critérios de Aceite
 
-Sessão de testes pronta para encerrar quando:
-
-- [ ] Todas páginas críticas (1-3 do golden path) → 0 erros bloqueantes
-- [ ] Helpers globais (seção 2) → 0 quebras em páginas testadas
-- [ ] Pushover end-to-end validado em 4 cenários
-- [ ] Bugs novos catalogados em "Issues" (criar arquivo `Bugs_22abr.md`)
+- [x] **Fase automatizada** — 0 bugs backend bloqueantes (9 corrigidos; 6 secundários flagados)
+- [x] **Smoke HTTP** — 42/42 rotas HTTP 200; 70+ endpoints da API validados
+- [x] **Observabilidade** — 5/5 Prometheus targets up, 12/12 alert rules carregadas
+- [x] **Validação estática dos helpers** — 20/20 syntax OK, i18n PT=EN=87 chaves
+- [ ] **Golden path manual (browser)** — enviar ordem DayTrade, OCO, cancelar, CRUD portfolios/alertas/trades
+- [ ] **Helpers interativos (browser)** — toast queue/pause, FAModal focus trap, FATable sort, Ctrl+K palette, Ctrl+Shift+L theme
+- [ ] **Mobile responsive (browser)** — sidebar overlay, topbar compacto, touch targets
+- [ ] **Theme light/dark (browser)** — toggle em todas páginas
+- [ ] **i18n PT/EN switch (browser)** — muda sidebar (in-page continua PT — esperado)
+- [ ] **PWA (browser)** — instalar, offline, cache
+- [ ] **Pushover (Grafana UI + celular)** — 4 cenários (manual test, di1_tick_age, alerta indicador, escalation)
 
 ---
 
-## 8. Próximas frentes (pós-testes)
+## 8. O que ainda falta para fechar o roteiro
 
-Se tudo verde, avaliar:
-- **Z5**: aguardar Nelogica (~24-48h) → treinar pickles h3/h5/h21 em batch
-- **Migração in-page i18n**: gradual, página por página
-- **SMTP backup**: hoje só Pushover; adicionar email como redundância em alertas critical
+### Manual no navegador (sessão 2)
+
+Requer **usuário logado** rodando os fluxos — não é automatizável por HTTP.
+
+1. **Dashboard DayTrade** (`/dashboard`):
+   - Aba Ordem: BUY PETR4 100 @ Market em conta SIMULAÇÃO → toast ok
+   - Aba OCO: TP 52 + SL 47 stop_limit 46.50 → ordem em "Ordens"
+   - Aba Pos./Ordens/Conta: validar polling, cancel, switch conta
+   - Aba ML Signals: sub-tabs Live/Hist/Mudanças
+
+2. **Carteira** (`/carteira`):
+   - Criar conta com CPF inválido → bloqueio via FAForm
+   - Trade BUY → P&L calculado, aparece em Posições
+   - Cripto aporte + resgate parcial
+   - Outros: cadastro imóvel
+   - Botão 🖨 Imprimir
+
+3. **Portfolios** (`/portfolios`):
+   - Criar "Teste", renomear (auditoria aparece), set-default, desativar vazio, tentar desativar com saldo (422 estruturado)
+
+4. **Alerts** (`/alerts`):
+   - CRUD alerta indicador, avaliar agora, cancelar via FAModal
+
+5. **Helpers transversais** (testar em qualquer página):
+   - `Cmd/Ctrl+K` → Command Palette
+   - `Cmd/Ctrl+Shift+L` → toggle theme
+   - Botão PT/EN → sidebar muda, persiste
+   - Tab no carregamento → skip-link
+   - FAModal.confirm() em delete → Esc cancela, Enter OK, focus trap
+   - Toasts: abrir 5 → 4 visíveis + 1 fila; hover pausa; click fecha
+   - Tabelas com `data-fa-table` → sort/filter
+   - FAEmpty em tabela vazia → CTA clicável
+
+6. **Mobile** (DevTools > iPhone 12):
+   - Sidebar overlay + backdrop
+   - Modais fullscreen
+   - Touch targets ≥44px
+
+7. **Network**:
+   - Throttle Fast 3G → skeletons mais visíveis
+   - Offline → PWA cache serve páginas visitadas; `/api/*` falha graciosa
+   - DB down (parar timescale) → toast vermelho + correlation_id
+
+### Tech debt maior (sessão dedicada futura)
+
+- **G4**: migrar 22 páginas de auth inline → `auth_guard.js` helper (~4-6h, validar refresh 7d)
+- **G6**: aplicar `data-i18n="..."` nos HTMLs gradualmente (migração Sprint UI 22/abr+)
+
+### Dependências externas
+
+- **Z5**: aguardar arquivo Nelogica 1m (~24-48h após pedido) → `runbook_import_dados_historicos.md` + treinar pickles h3/h5/h21
+- **SMTP backup para alertas critical**: hoje só Pushover; redundância recomendada
+
+---
+
+## 9. Registros operacionais
+
+### Comandos úteis para re-rodar smokes
+
+```bash
+# 1. Pré-requisitos
+docker ps --filter name=finanalytics --format "{{.Names}}: {{.Status}}"
+curl -s "http://localhost:8000/health"
+curl -s "http://localhost:8002/health"
+
+# 2. Smoke das 42 rotas HTML
+for r in /dashboard /carteira /portfolios /alerts /watchlist /screener /fundamental /correlation /anomaly /sentiment /forecast /ml /backtest /optimizer /performance /var /fixed-income /dividendos /etf /crypto /laminas /fundos /patrimony /opcoes /vol-surface /daytrade/setups /daytrade/risco /tape /marketdata /macro /fintz /diario /import /subscriptions /whatsapp /hub /profile /admin /profit-tickers /pnl /login /reset-password; do
+  code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8000${r}")
+  echo "${r}: ${code}"
+done
+
+# 3. Endpoints críticos da API
+curl -s "http://localhost:8000/api/v1/ml/metrics" | python -m json.tool
+curl -s "http://localhost:8000/api/v1/patrimony/consolidated/user-demo"
+curl -s -o /dev/null -w "%{http_code}" "http://localhost:8000/openapi.json"
+curl -s -o /dev/null -w "%{http_code}" "http://localhost:8000/api/v1/live/sse/tickers"
+curl -s -o /dev/null -w "%{http_code}" "http://localhost:8000/api/v1/accounts/"   # deve ser 401 sem Bearer
+
+# 4. Observabilidade
+curl -s "http://localhost:9090/api/v1/targets" | python -c "import json, sys; [print(t['labels']['job'], t['health']) for t in json.load(sys.stdin)['data']['activeTargets']]"
+curl -s -u admin:admin "http://localhost:3000/api/v1/provisioning/alert-rules" | python -c "import json, sys; d=json.load(sys.stdin); print(f'{len(d)} rules:'); [print(' ', r['title']) for r in d]"
+```
+
+### Após qualquer edit em `routes/` ou `static/`
+
+```bash
+# Hot-fix (sem rebuild)
+docker cp src/finanalytics_ai/... finanalytics_api:/app/src/finanalytics_ai/...
+docker restart finanalytics_api
+
+# Persistir na image (cold-start seguro)
+docker compose build api
+docker compose up -d --force-recreate --no-deps api
+```
 
 ---
 
 **Documento gerado em**: 21/abr/2026 23:30 UTC
+**Atualizado em**: 22/abr/2026 (sessão Claude — fase automatizada)
 **Repositório**: https://github.com/MarceloAbiSquarisi/finanalytics_ai
-**Última versão**: commit `459852c`
+**Última versão testada**: commit `d1f60f1`
