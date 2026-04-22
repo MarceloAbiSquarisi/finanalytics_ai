@@ -1016,6 +1016,13 @@ def create_app() -> FastAPI:
     app.dependency_overrides[hub_routes.get_db] = get_session
 
     app.include_router(marketdata_routes.router, prefix="/api/v1/marketdata", tags=["Market Data"])
+    try:
+        from finanalytics_ai.interfaces.api.routes import live_market as live_market_routes
+
+        app.include_router(live_market_routes.router, tags=["Live Market Data"])
+        logger.info("live_market.route.registered")
+    except Exception as _lme:
+        logger.warning("live_market.route.FAILED", error=str(_lme))
     app.include_router(anomaly.router, tags=["Anomaly"])
     app.include_router(reports.router, tags=["Reports"])
     app.include_router(watchlist.router, tags=["Watchlist"])

@@ -22,11 +22,16 @@ logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/live", tags=["Live Market Data"])
 
-# Reutiliza a mesma DSN do marketdata.py existente
-_TS_DSN: str = os.getenv(
-    "PROFIT_TIMESCALE_DSN",
-    "postgresql://finanalytics:timescale_secret@localhost:5433/market_data",
-).replace("postgresql://", "postgres://")
+# Prioriza TIMESCALE_URL (docker network: timescale:5432) sobre PROFIT_TIMESCALE_DSN
+# (hardcoded localhost:5433 — so funciona fora docker). Mesmo padrao de marketdata.py.
+_TS_DSN_RAW: str = (
+    os.getenv("TIMESCALE_URL")
+    or os.getenv("PROFIT_TIMESCALE_DSN")
+    or "postgresql://finanalytics:timescale_secret@timescale:5432/market_data"
+)
+_TS_DSN: str = _TS_DSN_RAW.replace("postgresql+asyncpg://", "postgres://").replace(
+    "postgresql://", "postgres://"
+)
 
 _VALID_RESOLUTIONS = {"1", "5", "15", "60", "D"}
 
