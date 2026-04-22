@@ -99,6 +99,10 @@ services:
       TIMESCALE_MAX_OVERFLOW: 20
       # GPU 0 (headless, bus 01:00.0) — Decisao 15
       CUDA_VISIBLE_DEVICES: "0"
+    volumes:
+      # Pickles MVP sao grandes (~3.3GB) e mudam frequentemente com retreino.
+      # Read-only pois /predict_* so leem; treinos rodam no worker.
+      - ./models:/app/models:ro
     deploy:
       resources:
         limits:

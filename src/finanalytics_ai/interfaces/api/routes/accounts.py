@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 import structlog
 
@@ -26,8 +26,12 @@ from finanalytics_ai.domain.accounts import (
     DuplicateAccountError,
     NoActiveAccountError,
 )
+from finanalytics_ai.interfaces.api.dependencies import get_current_user
 
-router = APIRouter()
+# Router-level auth: todas as rotas exigem Bearer valido.
+# Trading accounts (broker_id/account_id/routing_password) e dado sensivel,
+# nunca devem ser expostas sem auth mesmo que o design seja single-tenant.
+router = APIRouter(dependencies=[Depends(get_current_user)])
 logger = structlog.get_logger(__name__)
 
 
