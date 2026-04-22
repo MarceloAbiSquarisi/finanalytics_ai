@@ -1,10 +1,42 @@
-# Grafana Alerting — notification policies (Sprint Fix Alerts D, 21/abr/2026)
+# Grafana Alerting — notification policies (Sprint Pregão Mute, 22/abr/2026)
 #
-# Pushover-only routing:
-#   - severity=critical → pushover-critical (priority 1, som siren)
-#   - demais            → pushover-default  (priority 0, push silencioso)
+# Pushover-only routing com mute time intervals para pregão B3:
+#
+# **Pregão B3** (Mon-Fri 09:30-18:30 BRT) — alertas market-data-dependent
+# (label `pregao_only=true`) só notificam dentro deste janela. Fora disso,
+# o silêncio do worker é esperado (sem ticks = comportamento normal).
+#
+# Alertas SEM label `pregao_only` (api/dead_letter/portfolio/ml_drift/etc)
+# alertam 24/7 — DB e infra precisam de visibilidade contínua.
+#
+# **Feriados B3**: NÃO cobertos automaticamente (variam ano-a-ano).
+# Silenciar manual via Grafana UI > Alerting > Silences quando houver.
 apiVersion: 1
 
+# ── Mute time intervals ──────────────────────────────────────────────────────
+# "outside_market_hours_brt" cobre tudo fora de Mon-Fri 09:30-18:30 BRT.
+# Ou seja: madrugadas, noites, e fins de semana inteiros.
+muteTimes:
+  - orgId: 1
+    name: outside_market_hours_brt
+    time_intervals:
+      # Mon-Fri madrugada/manhã (00:00 → 09:30 BRT)
+      - location: 'America/Sao_Paulo'
+        weekdays: ['monday:friday']
+        times:
+          - start_time: '00:00'
+            end_time: '09:30'
+      # Mon-Fri noite (18:30 → 23:59 BRT)
+      - location: 'America/Sao_Paulo'
+        weekdays: ['monday:friday']
+        times:
+          - start_time: '18:30'
+            end_time: '23:59'
+      # Sábado e domingo inteiros
+      - location: 'America/Sao_Paulo'
+        weekdays: ['saturday', 'sunday']
+
+# ── Routing ──────────────────────────────────────────────────────────────────
 policies:
   - orgId: 1
     receiver: pushover-default
@@ -14,10 +46,30 @@ policies:
     group_wait: 30s
     group_interval: 5m
     repeat_interval: 4h
+
     routes:
+      # CRÍTICO + pregão-only — siren mas só no horário B3
+      - receiver: pushover-critical
+        matchers:
+          - severity = critical
+          - pregao_only = true
+        group_wait: 15s
+        group_interval: 2m
+        repeat_interval: 30m
+        mute_time_intervals:
+          - outside_market_hours_brt
+
+      # CRÍTICO 24/7 (api 5xx, dead_letter, ml_snapshot_stale, portfolio burst)
       - receiver: pushover-critical
         matchers:
           - severity = critical
         group_wait: 15s
         group_interval: 2m
         repeat_interval: 30m
+
+      # WARNING + pregão-only — push normal só no horário B3
+      - receiver: pushover-default
+        matchers:
+          - pregao_only = true
+        mute_time_intervals:
+          - outside_market_hours_brt

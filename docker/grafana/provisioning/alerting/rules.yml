@@ -83,6 +83,7 @@ groups:
         labels:
           severity: warning
           team: data
+          pregao_only: "true"
 
       # ── 3. profit_agent DB disconnected ──
       - uid: alert-profit-agent-db-down
@@ -111,6 +112,7 @@ groups:
         labels:
           severity: critical
           team: trading
+          pregao_only: "true"
 
       # ── 4. DI1 tick age elevado durante pregao ──
       - uid: alert-di1-tick-age
@@ -136,11 +138,12 @@ groups:
         execErrState: Error
         for: 3m
         annotations:
-          summary: 'Sem ticks DI1 ha mais de 2min'
-          description: 'di1_worker pode estar congelado ou broker desconectado.'
+          summary: 'Sem ticks DI1 ha mais de 2min (em pregao)'
+          description: 'di1_worker pode estar congelado ou broker desconectado. Mute fora de Mon-Fri 09:30-18:30 BRT (sem ticks fora pregao e esperado).'
         labels:
           severity: critical
           team: data
+          pregao_only: "true"
 
       # ── 5. Probe duration spike ──
       - uid: alert-probe-duration
@@ -171,6 +174,7 @@ groups:
         labels:
           severity: warning
           team: ops
+          pregao_only: "true"
 
       # ── 6. API latency p95 alta (Sprint Z3, 21/abr) ──
       - uid: alert-api-latency-p95
@@ -259,6 +263,7 @@ groups:
         labels:
           severity: warning
           team: data
+          pregao_only: "true"
 
       # ── 9. Portfolio ops burst (anomalia comportamental; Sprint Z3) ──
       - uid: alert-portfolio-ops-burst
@@ -377,3 +382,4 @@ groups:
         labels:
           severity: warning
           team: trading
+          pregao_only: "true"
