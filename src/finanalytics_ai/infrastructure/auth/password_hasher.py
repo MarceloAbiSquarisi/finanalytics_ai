@@ -56,10 +56,16 @@ class PasswordHasher:
         return f"sha256${salt}${digest}"
 
     def verify(self, plain_password: str, hashed_password: str) -> bool:
-        """Verifica senha em tempo constante."""
+        """Verifica senha em tempo constante.
+        Hash malformado retorna False (evita 500 no login quando o dummy
+        de timing-attack usa placeholder invalido, ou quando hash no banco
+        corrompe)."""
         prepared = _sha256_hex(plain_password)
         if self._use_passlib:
-            return self._ctx.verify(prepared, hashed_password)
+            try:
+                return self._ctx.verify(prepared, hashed_password)
+            except (ValueError, TypeError):
+                return False
         parts = hashed_password.split("$")
         if len(parts) != 3:
             return False

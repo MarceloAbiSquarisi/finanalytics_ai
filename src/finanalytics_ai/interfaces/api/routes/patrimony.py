@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 import structlog
 
-from finanalytics_ai.infrastructure.database.connection import get_session as get_db_session
+from finanalytics_ai.interfaces.api.dependencies import get_db_session
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/patrimony", tags=["Patrimônio"])

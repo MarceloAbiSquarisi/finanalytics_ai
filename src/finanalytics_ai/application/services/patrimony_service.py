@@ -86,14 +86,14 @@ class PatrimonyService:
         Retorna patrimônio consolidado: ações + ETFs + RF + caixa.
         targets: {"Ações": 40, "ETFs": 20, "Renda Fixa": 35, "Caixa": 5}
         """
-        from finanalytics_ai.domain.fixed_income.calculator import calculate_yield
         from finanalytics_ai.domain.fixed_income.entities import (
             Bond,
             BondType,
             Indexer,
             PaymentFrequency,
+            calculate_yield,
         )
-        from finanalytics_ai.domain.value_objects.ticker import Ticker
+        from finanalytics_ai.domain.value_objects.money import Ticker
 
         log = logger.bind(user_id=user_id)
         log.info("patrimony.consolidating")
