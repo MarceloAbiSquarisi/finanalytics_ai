@@ -9,7 +9,7 @@
  *
  * CACHE_VERSION incrementa a cada deploy de assets criticos para invalidar caches antigos.
  */
-const CACHE_VERSION = 'fa-v3';
+const CACHE_VERSION = 'fa-v4';
 const STATIC_CACHE = CACHE_VERSION + '-static';
 const HTML_CACHE = CACHE_VERSION + '-html';
 
@@ -31,6 +31,15 @@ const PRECACHE = [
   '/static/loading.js',
   '/static/a11y.js',
   '/static/favicon.svg',
+  // Sprint UI 22/abr: completar precache offline
+  '/static/charts.js',
+  '/static/form_validate.js',
+  '/static/i18n.js',
+  '/static/i18n_pt.json',
+  '/static/i18n_en.json',
+  '/static/locale_toggle.js',
+  '/static/print_helper.js',
+  '/static/theme_toggle.js',
 ];
 
 self.addEventListener('install', (event) => {
