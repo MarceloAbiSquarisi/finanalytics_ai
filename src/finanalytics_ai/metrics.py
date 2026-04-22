@@ -417,3 +417,15 @@ ml_signals_by_status = Gauge(
     documentation="Contagem do snapshot mais recente por signal (BUY/SELL/HOLD)",
     labelnames=["signal"],
 )
+
+# ── B3 market calendar (Sprint Pregão Mute, 22/abr/2026) ────────────────────
+# 1 quando mercado B3 esta aberto, 0 caso contrario. Atualizada a cada 60s
+# por application/services/market_open_refresh.py. Usada em alert rules
+# market-data-dependent: `expr AND on() finanalytics_market_open == 1`.
+# Cobre weekends, horarios E feriados (mute_time_intervals so cobre
+# weekends + horarios; feriados precisam dessa gauge).
+
+market_open = Gauge(
+    name="finanalytics_market_open",
+    documentation="1 se mercado B3 esta aberto neste momento (Mon-Fri 09:30-18:30 BRT, considerando feriados), 0 caso contrario",
+)

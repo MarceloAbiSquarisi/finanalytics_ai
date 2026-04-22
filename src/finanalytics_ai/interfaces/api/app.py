@@ -634,6 +634,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as _mexc:
         logger.warning("ml_metrics_refresh.FAILED", error=str(_mexc))
 
+    # ── B3 market_open gauge (Sprint Pregão Mute, 22/abr) ─────────────────────
+    # Atualiza finanalytics_market_open a cada 60s — usado em alert rules
+    # market-data com filtro `AND on() finanalytics_market_open == 1`.
+    # Cobre feriados B3 (que mute_time_intervals NÃO cobre).
+    app.state.market_open_task = None
+    try:
+        from finanalytics_ai.application.services.market_open_refresh import (
+            refresh_loop as _mo_refresh,
+        )
+
+        app.state.market_open_task = asyncio.create_task(_mo_refresh())
+        logger.info("market_open_refresh.scheduled")
+    except Exception as _moe:
+        logger.warning("market_open_refresh.FAILED", error=str(_moe))
+
     logger.info(
         "api.ready", postgres=True, timescale=timescale_ok, kafka=kafka_ok, producer=producer_ok
     )
@@ -678,6 +693,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         _push_task.cancel()
         with suppress(asyncio.CancelledError):
             await _push_task
+    # Cancela market_open refresh (Sprint Pregão Mute)
+    _mo_task = getattr(app.state, "market_open_task", None)
+    if _mo_task:
+        _mo_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await _mo_task
     # Fecha pool TimescaleDB
     try:
         from finanalytics_ai.infrastructure.timescale.connection import close_ts_pool

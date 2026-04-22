@@ -69,7 +69,7 @@ groups:
             datasourceUid: prometheus_main
             model:
               editorMode: code
-              expr: 'increase(di1_worker_kafka_errors_total[5m]) > 0'
+              expr: '(increase(di1_worker_kafka_errors_total[5m]) > 0) and on() (finanalytics_market_open == 1)'
               instant: true
               intervalMs: 1000
               maxDataPoints: 43200
@@ -97,7 +97,7 @@ groups:
             datasourceUid: prometheus_main
             model:
               editorMode: code
-              expr: 'profit_agent_db_connected == 0'
+              expr: '(profit_agent_db_connected == 0) and on() (finanalytics_market_open == 1)'
               instant: true
               intervalMs: 1000
               maxDataPoints: 43200
@@ -127,9 +127,9 @@ groups:
             model:
               editorMode: code
               # > 120s sem tick (worker congelou ou broker mudo).
-              # Sem horario filter — false-positive fora do pregao
-              # eh tolerado; deixar dispara durante feriados/madrugada.
-              expr: 'di1_worker_last_tick_age_seconds > 120'
+              # Filter `AND on() finanalytics_market_open == 1` cobre
+              # weekends, horarios E feriados B3 — sem alerta fora pregao.
+              expr: '(di1_worker_last_tick_age_seconds > 120) and on() (finanalytics_market_open == 1)'
               instant: true
               intervalMs: 1000
               maxDataPoints: 43200
@@ -158,9 +158,9 @@ groups:
             model:
               editorMode: code
               expr: |
-                histogram_quantile(0.95,
+                (histogram_quantile(0.95,
                   rate(profit_agent_probe_duration_seconds_bucket[10m])
-                ) > 5
+                ) > 5) and on() (finanalytics_market_open == 1)
               instant: true
               intervalMs: 1000
               maxDataPoints: 43200
@@ -249,7 +249,8 @@ groups:
             model:
               editorMode: code
               expr: |
-                sum(increase(finanalytics_brapi_requests_total{status="error"}[15m])) > 10
+                (sum(increase(finanalytics_brapi_requests_total{status="error"}[15m])) > 10)
+                and on() (finanalytics_market_open == 1)
               instant: true
               intervalMs: 1000
               maxDataPoints: 43200
@@ -368,7 +369,7 @@ groups:
             datasourceUid: prometheus_main
             model:
               editorMode: code
-              expr: 'increase(scheduler_reconcile_errors_total[30m]) > 3'
+              expr: '(increase(scheduler_reconcile_errors_total[30m]) > 3) and on() (finanalytics_market_open == 1)'
               instant: true
               intervalMs: 1000
               maxDataPoints: 43200
