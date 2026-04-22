@@ -111,10 +111,17 @@ def _sanitize_resolution(resolution: str) -> str:
 
 
 # ── TimescaleDB historico (asyncpg) ───────────────────────────────────────────
-_TS_DSN = os.getenv(
-    "PROFIT_TIMESCALE_DSN",
-    "postgresql://finanalytics:timescale_secret@localhost:5433/market_data",
-).replace("postgresql://", "postgres://")
+# Sprint Fix UI 22/abr: prioriza TIMESCALE_URL (docker network: timescale:5432)
+# sobre PROFIT_TIMESCALE_DSN (hardcoded localhost:5433 — so funciona fora docker).
+# Normaliza driver suffix (postgresql+asyncpg -> postgres) para asyncpg standalone.
+_TS_DSN_RAW = (
+    os.getenv("TIMESCALE_URL")
+    or os.getenv("PROFIT_TIMESCALE_DSN")
+    or "postgresql://finanalytics:timescale_secret@timescale:5432/market_data"
+)
+_TS_DSN = _TS_DSN_RAW.replace("postgresql+asyncpg://", "postgres://").replace(
+    "postgresql://", "postgres://"
+)
 
 
 async def _conn() -> asyncpg.Connection:  # type: ignore[type-arg]
@@ -162,52 +169,55 @@ async def get_candles(
 ) -> Any:
     t = _sanitize_ticker(ticker)
     bucket = _INTERVALS.get(resolution, "5 minutes")
+    # Janela temporal: limit * resolution em minutos.
+    _RES_MIN = {"1m": 1, "5m": 5, "15m": 15, "30m": 30, "1h": 60, "1d": 1440}
+    window_min = min(limit * _RES_MIN.get(resolution, 5) * 2, 525600)  # <= 1 ano
+
+    # Sprint Fix UI 22/abr: fallback chain em Python (sem NOT EXISTS view —
+    # subquery explodia em 56s). Tenta ohlc_1m primeiro (BRAPI ingestor,
+    # acoes Bovespa); se vazio, tenta ohlc_1m_from_ticks (continuous
+    # aggregate sobre profit_ticks, futuros DLL). <500ms cada.
+    sql_template = """
+        WITH bucketed AS (
+            SELECT
+                time_bucket('{bucket}', time)              AS ts,
+                (array_agg(open  ORDER BY time ASC))[1]    AS open,
+                MAX(high)                                  AS high,
+                MIN(low)                                   AS low,
+                (array_agg(close ORDER BY time DESC))[1]   AS close,
+                SUM(volume)                                AS volume,
+                SUM(trades)                                AS trades
+            FROM {source}
+            WHERE ticker = $1
+              AND time >= NOW() - (INTERVAL '1 minute' * $3)
+            GROUP BY 1
+        )
+        SELECT ts, open, high, low, close, volume, trades
+        FROM (
+            SELECT * FROM bucketed
+            ORDER BY ts DESC
+            LIMIT $2
+        ) sub
+        ORDER BY ts ASC
+    """
     try:
         conn = await _conn()
-        # Une dados históricos (market_history_trades) + live (profit_ticks)
-        rows = await conn.fetch(
-            f"""
-            WITH combined AS (
-                -- Dados históricos
-                SELECT trade_date AS ts_raw,
-                    CASE WHEN price < 5 THEN price * 100 ELSE price END AS price,
-                    quantity
-                FROM market_history_trades
-                WHERE ticker = $1
-
-                UNION ALL
-
-                -- Dados live (últimas 24h para cobrir sessão atual)
-                SELECT time AS ts_raw, price, quantity
-                FROM profit_ticks
-                WHERE ticker = $1
-                  AND time >= NOW() - INTERVAL '1 day'
-                  AND price > 0
-            ),
-            bucketed AS (
-                SELECT
-                    time_bucket('{bucket}', ts_raw) AS ts,
-                    (array_agg(price ORDER BY ts_raw ASC))[1]  AS open,
-                    MAX(price)                                   AS high,
-                    MIN(price)                                   AS low,
-                    (array_agg(price ORDER BY ts_raw DESC))[1]  AS close,
-                    SUM(quantity)                                AS volume,
-                    COUNT(*)                                     AS trades
-                FROM combined
-                GROUP BY 1
+        try:
+            rows = await conn.fetch(
+                sql_template.format(bucket=bucket, source="ohlc_1m"),
+                t,
+                limit,
+                window_min,
             )
-            SELECT ts, open, high, low, close, volume, trades
-            FROM (
-                SELECT * FROM bucketed
-                ORDER BY ts DESC
-                LIMIT $2
-            ) sub
-            ORDER BY ts ASC
-        """,
-            t,
-            limit,
-        )
-        await conn.close()
+            if not rows:
+                rows = await conn.fetch(
+                    sql_template.format(bucket=bucket, source="ohlc_1m_from_ticks"),
+                    t,
+                    limit,
+                    window_min,
+                )
+        finally:
+            await conn.close()
         return {"ticker": t, "resolution": resolution, "candles": [dict(r) for r in rows]}
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=503)
