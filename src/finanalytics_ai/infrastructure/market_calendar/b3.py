@@ -66,7 +66,11 @@ B3_PARTIAL_AFTERNOON_OFF: frozenset[date] = frozenset(
 
 BRT_OFFSET = timedelta(hours=-3)
 
-MARKET_OPEN_BRT = time(9, 30)
+# Janela conservadora cobrindo TANTO ações Bovespa (10:00-17:00) QUANTO
+# futuros B3/BMF (WDO, WIN, DI1: 09:00-18:30). Usamos 09:00 como
+# abertura permissiva para que alertas market-data não disparem em
+# pré-abertura de futuros.
+MARKET_OPEN_BRT = time(9, 0)
 MARKET_CLOSE_BRT = time(18, 30)
 PARTIAL_MORNING_OPEN_BRT = time(13, 0)  # quarta de cinzas
 PARTIAL_AFTERNOON_CLOSE_BRT = time(13, 0)  # 24/12 e 31/12

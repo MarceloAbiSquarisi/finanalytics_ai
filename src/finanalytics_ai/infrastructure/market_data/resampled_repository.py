@@ -40,7 +40,7 @@ SELECT
          ELSE AVG(close::numeric)
     END                                                AS vwap,
     'on_the_fly'::text                                 AS source
-  FROM ohlc_1m
+  FROM ohlc_1m_unified
  WHERE ticker = $1 AND time >= $3
  GROUP BY time_bucket(make_interval(mins => $2::int), time)
  HAVING COUNT(*) > 0
