@@ -283,7 +283,9 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
       <div class="info-label">Status</div>
       <div class="info-value" id="info-status" style="font-family:inherit">—</div>
     </div>
-    <div class="info-row">
+    <!-- Sprint Fix UI 22/abr (item 4.1): ID do Usuario ocultado da UI por privacidade.
+         Mantemos elemento para compatibilidade com setT('info-id') sem precisar mudar JS. -->
+    <div class="info-row" style="display:none">
       <div class="info-label">ID do Usuário</div>
       <div class="info-value" id="info-id" style="font-size:14px">—</div>
     </div>

@@ -534,10 +534,10 @@ body.sb-open .fa-page-content { margin-left: var(--sb-w); }
     <option value="">Nenhuma conta</option>
   </select>
 
-    <div class="fa-avatar" id="fa-avatar">U
-</div>
+  <div class="fa-user-chip">
+    <div class="fa-avatar" id="fa-avatar">U</div>
     <span id="fa-username" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
-</div>
+  </div>
   <button class="fa-logout-btn" onclick="faLogout()" title="Sair">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
     Sair
@@ -1023,23 +1023,21 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     <div class="notif-toast-wrap" id="toast-wrap">
 </div>
 
-    <!-- Producer BRAPI → Kafka -->
+    <!-- Profit DLL Status (Sprint Fix UI 22/abr) -->
     <div class="prod-box">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <div class="lbl">📡 Producer BRAPI
-</div>
+        <div class="lbl">🔌 Profit DLL</div>
         <div class="prod-status">
-          <div class="prod-dot" id="prod-dot">
-</div>
+          <div class="prod-dot" id="prod-dot"></div>
           <span id="prod-label">verificando...</span>
-</div>
-</div>
+        </div>
+      </div>
       <div class="prod-grid" id="prod-grid">
         <div style="font-size:13px;color:var(--muted);font-family:DM Mono,monospace;padding:3px 0;grid-column:1/-1">
           Carregando...
-</div>
-</div>
-</div>
+        </div>
+      </div>
+    </div>
 
     <div class="signal-box" id="signal-box">
       <div class="lbl" style="margin-bottom:8px">Sinais Técnicos
@@ -1576,6 +1574,8 @@ async function refreshWLPrices() {
 // -- TICKERER --------------------------------------------------------------------
 async function selectTicker(ticker) {
   currentTicker = ticker;
+  // Sprint Fix UI 22/abr: persiste ticker selecionado para restore no refresh
+  try { localStorage.setItem('fa_dashboard_ticker', ticker); } catch(e) {}
   document.querySelectorAll('.wi').forEach(e => e.classList.remove('active'));
   document.getElementById(`wi-${ticker}`)?.classList.add('active');
   document.getElementById('t-tk').value = ticker;
@@ -3235,47 +3235,41 @@ function toast(msg,type='ok'){
 }
 // -- PRODUCER STATUS ----------------------------------------------------------
 async function refreshProducerStatus() {
+  // Sprint Fix UI 22/abr: substitui Producer BRAPI por Profit DLL.
+  // Usa proxy /api/v1/agent/status que repassa para profit_agent :8002.
   try {
-    const r = await fetch(`${API}/api/v1/producer/status`);
+    const r = await fetch(`${API}/api/v1/agent/status`);
     const d = await r.json();
     const dot   = document.getElementById('prod-dot');
     const label = document.getElementById('prod-label');
     const grid  = document.getElementById('prod-grid');
 
-    if (!d.running) {
-      dot.className   = 'prod-dot';
-      label.textContent = d.reason ? 'BRAPI_TOKEN ausente' : 'inativo';
-      grid.innerHTML  = `<div style="font-size:13px;color:var(--muted);font-family:DM Mono,monospace;grid-column:1/-1">${d.reason || 'Producer desabilitado'}</div>`;
+    const connected = d.market_connected && d.login_ok;
+    if (!connected) {
+      dot.className = 'prod-dot';
+      label.textContent = d.error ? 'desconectado' : 'login pendente';
+      grid.innerHTML = `<div style="font-size:13px;color:var(--muted);font-family:DM Mono,monospace;grid-column:1/-1">${d.error || 'profit_agent offline'}</div>`;
       return;
     }
 
-    dot.className   = 'prod-dot on';
-    label.textContent = `ciclo #${d.cycle_count} . ${d.healthy_count}/${d.ticker_count} ok`;
+    dot.className = 'prod-dot on';
+    const subs = (d.subscribed_tickers || []).length;
+    label.textContent = `${subs} tickers · ${(d.total_ticks||0).toLocaleString('pt-BR')} ticks`;
 
-    if (d.tickers && d.tickers.length) {
-      grid.innerHTML = d.tickers.map(t => {
-        const price  = t.last_price != null ? `R$ ${parseFloat(t.last_price).toFixed(2)}` : '--';
-        const chg    = t.change_pct != null ? parseFloat(t.change_pct).toFixed(2) : null;
-        const cls    = t.last_error ? 'err' : 'ok';
-        const chgHtml = chg != null
-          ? `<div class="pc ${parseFloat(chg)>=0?'up':'dn'}">${parseFloat(chg)>=0?'+':''}${chg}%</div>`
-          : '';
-        return `<div class="prod-tick ${cls}">
-          <div class="pt">${t.ticker}</div>
-          <div class="pp">${price}</div>
-          ${chgHtml}</div>`;
-      }).join('');
-
-      // Atualiza precos no feed de cotacoes em tempo real
-      d.tickers.forEach(t => {
-        if (t.last_price && t.ticker === currentTicker) {
-          // Atualiza preco no cabecalho se o ticker estiver aberto
-          const priceEl = document.getElementById('price');
-          if (priceEl && !priceEl.textContent.startsWith('R$')) return;
-        }
-      });
-    }
-  } catch {}
+    const queue = d.db_queue_size || 0;
+    const queueColor = queue > 10000 ? 'var(--red)' : queue > 1000 ? 'var(--gold)' : 'var(--green)';
+    grid.innerHTML = `
+      <div class="prod-tick ok"><div class="pt">Mercado</div><div class="pp">${d.market_connected?'✓':'✗'}</div></div>
+      <div class="prod-tick ok"><div class="pt">Roteamento</div><div class="pp">${d.routing_connected?'✓':'✗'}</div></div>
+      <div class="prod-tick ok"><div class="pt">DB</div><div class="pp">${d.db_connected?'✓':'✗'}</div></div>
+      <div class="prod-tick ok"><div class="pt">Fila DB</div><div class="pp" style="color:${queueColor}">${queue.toLocaleString('pt-BR')}</div></div>
+    `;
+  } catch (e) {
+    const dot = document.getElementById('prod-dot');
+    const label = document.getElementById('prod-label');
+    if (dot) dot.className = 'prod-dot';
+    if (label) label.textContent = 'inacessivel';
+  }
 }
 
 // Atualiza status do producer a cada 10s
@@ -3874,6 +3868,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const tk = document.getElementById('t-tk');
     if (tk && tk.value) dtSyncTicker();
   }, 1000);
+  // Sprint Fix UI 22/abr: restaura ticker persistido (se watchlist tem)
+  setTimeout(() => {
+    try {
+      const saved = localStorage.getItem('fa_dashboard_ticker');
+      const wl = (typeof activeWL === 'function') ? activeWL() : null;
+      if (saved && wl && wl.tickers && wl.tickers.includes(saved)) {
+        selectTicker(saved);
+      } else if (wl && wl.tickers && wl.tickers.length > 0) {
+        // Default: seleciona primeiro ticker se watchlist tem
+        selectTicker(wl.tickers[0]);
+      }
+    } catch(e) { console.warn('restore ticker failed', e); }
+  }, 800);
 });
 
 // ── Live Market Data via SSE v4 ────────────────────────────────────────────────

@@ -429,6 +429,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         async with _get_eng().begin() as conn:
             await conn.run_sync(lambda c: TickerBase.metadata.create_all(c, checkfirst=True))
+        # session_factory tambem em app.state para ticker_routes/dividendos/etc
+        # (Sprint Fix UI 22/abr): faltava em recreate, causava 500 em /subscriptions.
+        app.state.session_factory = get_session_factory()
         app.state.ticker_service = TickerService(get_session_factory())
         logger.info("ticker_service.ready")
     except Exception as exc:
