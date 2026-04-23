@@ -26,6 +26,14 @@ if TYPE_CHECKING:
 logger = structlog.get_logger(__name__)
 
 
+def _as_naive(dt: datetime | None) -> datetime | None:
+    # alerts.created_at/triggered_at/expires_at são TIMESTAMP WITHOUT TIME ZONE no Postgres;
+    # a domain entity usa datetime.now(UTC) (aware). Normaliza para naive UTC no save.
+    if dt is None:
+        return None
+    return dt.astimezone(UTC).replace(tzinfo=None) if dt.tzinfo else dt
+
+
 class AlertModel(Base):
     __tablename__ = "alerts"
 
@@ -54,7 +62,7 @@ class SQLAlertRepository:
         existing = await self._session.get(AlertModel, alert.alert_id)
         if existing:
             existing.status = alert.status.value
-            existing.triggered_at = alert.triggered_at
+            existing.triggered_at = _as_naive(alert.triggered_at)
         else:
             self._session.add(
                 AlertModel(
@@ -66,8 +74,8 @@ class SQLAlertRepository:
                     reference_price=alert.reference_price,
                     status=alert.status.value,
                     note=alert.note,
-                    created_at=alert.created_at,
-                    expires_at=alert.expires_at,
+                    created_at=_as_naive(alert.created_at),
+                    expires_at=_as_naive(alert.expires_at),
                 )
             )
         await self._session.flush()
@@ -100,7 +108,7 @@ class SQLAlertRepository:
         stmt = (
             update(AlertModel)
             .where(AlertModel.alert_id == alert_id)
-            .values(status=AlertStatus.TRIGGERED.value, triggered_at=datetime.now(UTC))
+            .values(status=AlertStatus.TRIGGERED.value, triggered_at=datetime.now(UTC).replace(tzinfo=None))
         )
         await self._session.execute(stmt)
 

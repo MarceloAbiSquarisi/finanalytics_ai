@@ -101,7 +101,7 @@
 
   // Boot
   _locale = _detect();
-  load(_locale).then(applyDOM);
+  load(_locale).then(function () { applyDOM(); });
 
   global.FAI18n = {
     t: t,

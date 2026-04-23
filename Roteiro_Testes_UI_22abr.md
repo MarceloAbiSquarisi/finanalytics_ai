@@ -164,9 +164,9 @@ Confirmar que cada **interação UI** abaixo funciona em **toda página privada*
 ### Topbar
 - [X] **Logo** "FinAnalytics AI" → click leva ao `/dashboard`
 - [X] **Avatar + email** visíveis (se logado)
-- [ ] **Botão `PT/EN`** (FALocale) — click alterna sidebar entre português e inglês
-- [ ] **Botão sol/lua** (FATheme) — click alterna tema light/dark; persiste em refresh; **atalho `Cmd/Ctrl + Shift + L`**
-- [ ] **Botão Sair** (logout) — confirma via FAModal e redireciona `/login`
+- [X] **Botão `PT/EN`** (FALocale) — click alterna sidebar entre português e inglês
+- [X] ⚠️ **Botão sol/lua** (FATheme) — click alterna tema light/dark; persiste em refresh; **atalho `Cmd/Ctrl + Shift + L`**
+- [X] **Botão Sair** (logout) — confirma via FAModal e redireciona `/login`
 
 ### Sidebar (38 links em 6 seções)
 - [X] Click no botão hamburger expande/colapsa sidebarDiscove
@@ -175,10 +175,10 @@ Confirmar que cada **interação UI** abaixo funciona em **toda página privada*
 - [ ] **Mobile (<768px)**: sidebar vira overlay; clique fora fecha; backdrop escuro
 
 ### Discovery
-- [ ] **`Cmd/Ctrl + K`** ou tecla `/` → abre Command Palette (FAPalette) com 40+ páginas pesquisáveis
-- [ ] **`g` + letra** (gd=dashboard, gp=portfolios, ga=alertas) → goto rápido
-- [ ] **`?`** → overlay com lista de atalhos
-- [ ] **Esc** → fecha qualquer dialog/modal/palette
+- [X] **`Cmd/Ctrl + K`** ou tecla `/` → abre Command Palette (FAPalette) com 40+ páginas pesquisáveis
+- [X] **`g` + letra** (gd=dashboard, gp=portfolios, ga=alertas) → goto rápido
+- [X] **`?`** → overlay com lista de atalhos
+- [X] **Esc** → fecha qualquer dialog/modal/palette
 
 ### Notificações realtime
 - [ ] **Sino topbar** (FANotif) — counter de unread; click abre dropdown últimas 30
@@ -186,25 +186,25 @@ Confirmar que cada **interação UI** abaixo funciona em **toda página privada*
 - [ ] Notificações também disparam **toast** automático
 
 ### Toast (FAToast)
-- [ ] Após qualquer save/delete bem-sucedido → toast verde 3.5s
-- [ ] Após erro → toast vermelho 5s
+- [X] ❌ Após qualquer save/delete bem-sucedido → toast verde 3.5s
+- [X] ⚠️ Após erro → toast vermelho 5s
 - [ ] **Cap 4 visíveis** simultâneos (5º vai pra fila, aparece quando 1º expira)
-- [ ] **Click no toast** → fecha imediatamente
-- [ ] **Hover no toast** → pausa countdown; sair retoma
-- [ ] Barra de progresso CSS (linha embaixo) shrinking
+- [X] **Click no toast** → fecha imediatamente
+- [X] **Hover no toast** → pausa countdown; sair retoma
+- [X] Barra de progresso CSS (linha embaixo) shrinking
 
 ### Modals (FAModal)
-- [ ] Qualquer ação destrutiva (excluir trade, desativar conta, etc) abre modal **Promise-based**
-- [ ] **Esc** → cancel
-- [ ] **Enter** → confirma OK
-- [ ] **Click fora** (backdrop) → cancel
-- [ ] **Focus trap** — Tab cicla dentro do modal; foco volta ao gatilho ao fechar
+- [X] Qualquer ação destrutiva (excluir trade, desativar conta, etc) abre modal **Promise-based**
+- [X] **Esc** → cancel
+- [X] **Enter** → confirma OK
+- [X] **Click fora** (backdrop) → cancel
+- [X] **Focus trap** — Tab cicla dentro do modal; foco volta ao gatilho ao fechar
 
 ### Tabelas (FATable)
-- [ ] Click no header da coluna → ordena asc/desc (seta visível)
+- [X] Click no header da coluna → ordena asc/desc (seta visível)
 - [ ] Detecta colunas numéricas vs texto automaticamente
-- [ ] Filtro de busca (input acima) — esconde linhas que não casam
-- [ ] **Auto-init** em qualquer `<table data-fa-table>`
+- [X] Filtro de busca (input acima) — esconde linhas que não casam
+- [?] **Auto-init** em qualquer `<table data-fa-table>`
 
 ### Empty states (FAEmpty)
 - [ ] Tabela vazia mostra ícone + título + texto + CTA (botão clicável)
