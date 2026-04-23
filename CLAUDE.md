@@ -407,6 +407,31 @@ Origem: Sprint UI T (`afd7ecb`) — auditoria das 60+ páginas.
 
 **Não migrar** automaticamente para os vars globais — quebraria visual identity. Páginas redesenhadas devem fazer cleanup deliberado, não bulk migration. Light mode funciona via fall-through nos vars que NÃO foram redefinidos localmente (que são a maioria, após Sprint UI P migrar 343 cores hardcoded).
 
+### Decisão 20 — BRAPI é último fallback; DLL Profit + DB são primários
+
+Origem: Sprint BRAPI-purge 23/abr/2026 (Caminho 2 escolhido pelo usuário). Motivação: BRAPI tem token que expira, rate limits, e 404 em futuros (WDOFUT/WINFUT). DLL Profit + Fintz já cobrem o essencial dos ativos usados em produção.
+
+**Ordem canônica em `CompositeMarketDataClient.get_ohlc_bars`** (`infrastructure/adapters/market_data_client.py`):
+1. **DB local** via `candle_repository.fetch_candles` — inclui `profit_daily_bars` (DLL), `ohlc_1m`, `market_history_trades`, `profit_ticks`, `fintz_cotacoes_ts` nessa ordem interna.
+2. **Yahoo Finance** — cobertura B3 ampla, histórico profundo, gratuito.
+3. **BRAPI** — último recurso. Só é chamada quando DB e Yahoo retornam vazio.
+
+**Ordem em `get_quote` (live)**:
+1. **profit_agent** `:8002/quotes` — tickers subscritos via DLL (PETR4, VALE3, ITUB4, BBDC4, WEGE3, ABEV3, WDOFUT, WINFUT, DI1F27/28/29).
+2. **Yahoo** (se suportar quote).
+3. **BRAPI** — último.
+
+**Regras vinculantes:**
+1. **Não chamar `BrapiClient` direto** nos routes. Routes usam `request.app.state.market_client` (Composite).
+2. **Exceção única**: dados fundamentalistas (P/L, ROE, DY) continuam via BRAPI — DLL não fornece. `get_fundamentals_batch` delega pra BRAPI sem fallback.
+3. `MIN_BARS_THRESHOLD = 30` — se DB retorna < 30 bars, tenta Yahoo. Evita servir séries truncadas para backtests.
+4. `YAHOO_PREFERRED_RANGES = {"10y", "max"}` — ranges muito longos vão direto pro Yahoo (DB histórico pode não cobrir).
+5. **Ingestor `ohlc_1m_ingestor` continua usando BRAPI** para alimentar o DB (é o único que sabe buscar BRAPI com range=max). Não é caminho de leitura de usuário — não viola a Decisão.
+
+**Arquivos tocados** (Sprint BRAPI-purge):
+- `infrastructure/adapters/market_data_client.py` — reescrito com nova ordem, profit_agent HTTP client embutido.
+- `interfaces/api/routes/quotes.py` — `Depends(get_brapi_client)` removido; usa `_market(request)` → `app.state.market_client`.
+
 ## Observabilidade (Sprint V3+Z3, 21/abr/2026)
 
 **Grafana** :3000 (admin/admin) — provisionado via `docker/grafana/provisioning/`:
