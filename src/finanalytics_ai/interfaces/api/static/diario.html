@@ -673,7 +673,7 @@ function faSidebarToggle(){
   document.body.classList.toggle('sb-open');
   localStorage.setItem('fa_sidebar_open',sb.classList.contains('open')?'1':'0');
 }
-(function faDTToggle(btn) {
+function faDTToggle(btn) {
   var sub = document.getElementById('dt-submenu');
   btn.classList.toggle('open');
   sub.classList.toggle('open');
@@ -696,10 +696,6 @@ function faSidebarToggle(){
     if (s2) s2.classList.add('open');
   }
 })();
-function(){if(localStorage.getItem('fa_sidebar_open')==='1'){
-  document.getElementById('fa-sidebar').classList.add('open');
-  document.body.classList.add('sb-open');
-}})();
 
 // ── State ───────────────────────────────────────────────────────────────────
 var API = '/api/v1/diario';

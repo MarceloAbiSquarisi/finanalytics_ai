@@ -215,7 +215,7 @@ Confirmar que cada **interação UI** abaixo funciona em **toda página privada*
 - [ ] Em `prefers-reduced-motion` → animação substituída por opacity
 
 ### Forms (FAForm)
-- [ ] Save com campo obrigatório vazio → input fica vermelho + tooltip + toast warn
+- [X] Save com campo obrigatório vazio → input fica vermelho + tooltip + toast warn
 - [ ] CPF inválido → marca + mensagem
 - [ ] Email inválido → marca + mensagem
 - [ ] Após corrigir → estado de erro limpa
@@ -243,9 +243,9 @@ Confirmar que cada **interação UI** abaixo funciona em **toda página privada*
 - [ ] Páginas com `:root` próprio (ex: performance, dividendos) podem manter dark — esperado
 
 ### i18n PT/EN (FAI18n)
-- [ ] `PT/EN` button → sidebar inteira (38 links + 6 sections + Menu) muda
-- [ ] `<html lang>` atualiza ("pt-BR" ou "en")
-- [ ] Persiste em refresh (`localStorage.fa_locale`)
+- [X] `PT/EN` button → sidebar inteira (38 links + 6 sections + Menu) muda
+- [X] `<html lang>` atualiza ("pt-BR" ou "en")
+- [X] Persiste em refresh (`localStorage.fa_locale`)
 - [ ] Texto in-page (forms, headers) **continua PT** — esperado, migração gradual
 
 ### Error boundary (FAErr)
