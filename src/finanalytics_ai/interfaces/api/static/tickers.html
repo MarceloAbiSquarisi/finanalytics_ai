@@ -457,6 +457,7 @@ async function loadTickers() {
         + '</tr>';
     }
     tb.innerHTML = html;
+    _restoreTickerFilter();
   } catch(e) {
     tb.innerHTML = '<tr><td colspan="5" class="empty" style="color:var(--red)">Profit Agent inacessivel. Verifique se esta em execucao.</td></tr>';
   }
@@ -561,8 +562,11 @@ async function activateBulk(n) {
   }
 }
 
+var _TICKER_FILTER_KEY = 'fa_profit_tickers_filter';
+
 function filterTickers(query) {
   var q = (query || '').trim().toUpperCase();
+  try { localStorage.setItem(_TICKER_FILTER_KEY, q); } catch(_) {}
   var tb = document.getElementById('tickersTbody');
   if (!tb) return;
   var rows = tb.querySelectorAll('tr');
@@ -577,6 +581,15 @@ function filterTickers(query) {
   });
   var lbl = document.getElementById('tickerFilterCount');
   if (lbl) lbl.textContent = q ? (shown + ' visíveis · ' + hidden + ' ocultos') : '';
+}
+
+// Reaplica o filtro salvo sempre que a tabela e re-renderizada.
+function _restoreTickerFilter() {
+  var saved = '';
+  try { saved = localStorage.getItem(_TICKER_FILTER_KEY) || ''; } catch(_) {}
+  var input = document.getElementById('tickerFilter');
+  if (input && input.value !== saved) input.value = saved;
+  if (saved) filterTickers(saved);
 }
 
 async function removeTicker(ticker, exchange) {
