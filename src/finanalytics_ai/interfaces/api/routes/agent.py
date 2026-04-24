@@ -278,3 +278,46 @@ async def agent_ticks(
 ):
     """Últimos ticks em memória do agent para o ticker."""
     return await _get(f"/ticks/{ticker.upper()}", {"limit": limit})
+
+
+# ── Tickers CRUD (realtime + backfill) ────────────────────────────────────────
+
+
+@router.get("/tickers", tags=["Agent"])
+async def agent_tickers():
+    return await _get("/tickers")
+
+
+@router.get("/tickers/active", tags=["Agent"])
+async def agent_tickers_active():
+    return await _get("/tickers/active")
+
+
+@router.post("/tickers/add", tags=["Agent"])
+async def agent_tickers_add(body: dict):
+    return await _post("/tickers/add", body)
+
+
+@router.post("/tickers/remove", tags=["Agent"])
+async def agent_tickers_remove(body: dict):
+    return await _post("/tickers/remove", body)
+
+
+@router.post("/tickers/toggle", tags=["Agent"])
+async def agent_tickers_toggle(body: dict):
+    return await _post("/tickers/toggle", body)
+
+
+@router.get("/history/tickers", tags=["Agent"])
+async def agent_history_tickers():
+    return await _get("/history/tickers")
+
+
+@router.post("/history/tickers/add", tags=["Agent"])
+async def agent_history_tickers_add(body: dict):
+    return await _post("/history/tickers/add", body)
+
+
+@router.post("/history/tickers/toggle", tags=["Agent"])
+async def agent_history_tickers_toggle(body: dict):
+    return await _post("/history/tickers/toggle", body)

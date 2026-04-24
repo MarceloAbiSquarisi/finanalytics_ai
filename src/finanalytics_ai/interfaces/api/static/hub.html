@@ -272,7 +272,7 @@ tr:hover td{background:rgba(0,212,255,.015)}
             <div class="infra-card-icon" style="background:rgba(0,212,255,.1);font-size:15px;font-weight:700;color:var(--accent);letter-spacing:.04em">DLL</div>
             <span class="infra-badge badge-ok" id="badge-profit">...</span>
           </div>
-          <div class="infra-card-name">Profit Agent</div><div class="infra-card-url">localhost:8001</div>
+          <div class="infra-card-name">Profit Agent</div><div class="infra-card-url">localhost:8002</div>
           <a href="/profit-tickers" class="infra-card-link"></a>
         </div>
       </div>
@@ -414,7 +414,7 @@ async function loadProfitAgent() {
   try {
     var ctrl = new AbortController();
     setTimeout(function() { ctrl.abort(); }, 3000);
-    var s = await fetch('http://localhost:8001/status', {signal: ctrl.signal}).then(function(r){ return r.json(); });
+    var s = await fetch('/api/v1/agent/status', {signal: ctrl.signal, headers: H()}).then(function(r){ return r.json(); });
     var tickers = s.subscribed_tickers || [];
     function onOff(ok) {
       return ok ? '<span class="pill pill-ok">ON</span>' : '<span class="pill pill-error">OFF</span>';
@@ -428,7 +428,7 @@ async function loadProfitAgent() {
       '<tr><td>Ativos Catalogados</td><td><span style="font-family:monospace;color:var(--text)">' + (s.total_assets || 0).toLocaleString('pt-BR') + '</span></td><td style="font-size:14px;color:var(--muted)">Ativos do catalogo B3</td></tr>' +
       '<tr><td>Fila DB</td><td><span style="font-family:monospace;color:' + (s.db_queue_size > 1000 ? 'var(--red)' : 'var(--green)') + '">' + (s.db_queue_size || 0) + '</span></td><td style="font-size:14px;color:var(--muted)">Registros aguardando gravacao</td></tr>';
   } catch(e) {
-    tb.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--red)">Profit Agent offline (localhost:8001 inacessivel)</td></tr>';
+    tb.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--red)">Profit Agent offline (localhost:8002 inacessivel)</td></tr>';
   }
 }
 
@@ -559,7 +559,7 @@ async function checkInfra() {
     {id:'badge-redis-ui', url:'http://localhost:8001/api/health'},
     {id:'badge-api',      url:'http://localhost:8000/health'},
     {id:'badge-metrics',  url:'http://localhost:8000/metrics'},
-    {id:'badge-profit',   url:'http://localhost:8001/health'}
+    {id:'badge-profit',   url:'/api/v1/agent/health'}
   ];
   for (var i = 0; i < items.length; i++) {
     (function(item) {

@@ -204,11 +204,11 @@ Confirmar que cada **interação UI** abaixo funciona em **toda página privada*
 - [X] Click no header da coluna → ordena asc/desc (seta visível)
 - [ ] Detecta colunas numéricas vs texto automaticamente
 - [X] Filtro de busca (input acima) — esconde linhas que não casam
-- [?] **Auto-init** em qualquer `<table data-fa-table>`
+- [X] **Auto-init** em qualquer `<table data-fa-table>`
 
 ### Empty states (FAEmpty)
-- [ ] Tabela vazia mostra ícone + título + texto + CTA (botão clicável)
-- [ ] CTA dispara ação correta (ex: "+ Novo Trade" abre modal trade)
+- [X] Tabela vazia mostra ícone + título + texto + CTA (botão clicável)
+- [X] CTA dispara ação correta (ex: "+ Novo Trade" abre modal trade)
 
 ### Loading skeletons (FALoading)
 - [ ] Antes de fetch terminar, tabela mostra **shimmer rows** em vez de "Carregando..."

@@ -248,6 +248,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <button class="btn btn-green" onclick="addApiTicker()">+ SUBSCREVER</button>
       </div>
 
+      <div style="margin-bottom:12px">
+        <input id="api-filter" placeholder="🔎 Filtrar por ticker..." style="width:100%;padding:8px 12px;background:#080c14;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:13px" oninput="filterApiGrids(this.value)">
+      </div>
+
       <div style="margin-bottom:16px">
         <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.1em">Futuros</div>
         <div class="ticker-grid" id="grid-future"></div>
@@ -422,7 +426,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 </div><!-- /layout -->
 
 <script>
-const PA = 'http://localhost:8002';
+const PA = '/api/v1/agent';
 const API = '/api/v1';
 let _token = localStorage.getItem('fa_token') || '';
 const H = () => ({Authorization:'Bearer '+_token,'Content-Type':'application/json'});
@@ -457,7 +461,7 @@ async function checkAgent() {
       lbl.style.color = 'var(--red)';
     }
   } catch {
-    document.getElementById('agent-status').textContent = '○ offline :8002';
+    document.getElementById('agent-status').textContent = '○ agente offline';
     document.getElementById('agent-status').style.color = 'var(--red)';
   }
 }
@@ -775,6 +779,20 @@ function toast(msg, type='ok') {
   setTimeout(()=>t.remove(), 3000);
 }
 
+// ── FILTRO DE TICKERS (grids API) ─────────────────────────────────────────
+function filterApiGrids(query) {
+  const q = (query || '').trim().toUpperCase();
+  ['grid-future','grid-stock','grid-fii','grid-other'].forEach(function(gridId) {
+    const grid = document.getElementById(gridId);
+    if (!grid) return;
+    Array.prototype.forEach.call(grid.children, function(card) {
+      // apiCardHTML renderiza o ticker no <b> ou atributo data-ticker; busca no textContent
+      const txt = (card.textContent || '').toUpperCase();
+      card.style.display = (!q || txt.indexOf(q) !== -1) ? '' : 'none';
+    });
+  });
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────
 const saved = localStorage.getItem('fa_token');
 if (saved) _token = saved;
@@ -782,9 +800,18 @@ if (saved) _token = saved;
 // Preenche data fim com hoje
 document.getElementById('bf-end').value = new Date().toLocaleDateString('pt-BR');
 
-checkAgent();
-loadApiTickers();
-setInterval(checkAgent, 15000);
+// Aguarda helpers globais (FAErr, FAToast) terminarem de carregar antes do primeiro fetch
+function _bootSubscriptions() {
+  if (!window.FAErr) { setTimeout(_bootSubscriptions, 30); return; }
+  checkAgent();
+  loadApiTickers();
+  setInterval(checkAgent, 15000);
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _bootSubscriptions);
+} else {
+  _bootSubscriptions();
+}
 </script>
 <script src="/static/empty_state.js"></script>
 <script src="/static/onboarding.js"></script>

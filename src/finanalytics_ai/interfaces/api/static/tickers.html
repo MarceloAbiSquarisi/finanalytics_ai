@@ -211,7 +211,7 @@ tr:hover td{background:rgba(0,212,255,.02)}
     <svg width="20" height="20" fill="none" stroke="var(--accent)" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
     Profit Tickers
   </div>
-  <p class="page-sub">Gerenciamento de tickers subscritos no Profit Agent (Nelogica) - porta 8001</p>
+  <p class="page-sub">Gerenciamento de tickers subscritos no Profit Agent (Nelogica) - porta 8002</p>
 
   <div id="agentStatusBar" class="status-bar status-bar-warn">
     <span class="dot dot-warn dot-pulse" id="agentDot"></span>
@@ -295,7 +295,7 @@ tr:hover td{background:rgba(0,212,255,.02)}
 </div>
 
 <script>
-var AGENT = 'http://localhost:8001';
+var AGENT = '/api/v1/agent';
 var API   = '/api/v1';
 
 function tok() { return localStorage.getItem('access_token'); }
@@ -384,7 +384,7 @@ async function loadStatus() {
   } catch(e) {
     bar.className = 'status-bar status-bar-err';
     dot.className = 'dot dot-err dot-pulse';
-    msg.textContent = 'Profit Agent offline (porta 8001 inacessivel)';
+    msg.textContent = 'Profit Agent offline (porta 8002 inacessivel)';
     document.getElementById('statMarket').textContent  = '--';
     document.getElementById('statRouting').textContent = '--';
     document.getElementById('statTicks').textContent   = '--';

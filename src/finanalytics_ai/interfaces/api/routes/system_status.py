@@ -268,6 +268,51 @@ async def system_status(_: User = Depends(require_admin)) -> dict:
             }
         )
 
+    # Coletor: Profit Agent (DLL Nelogica realtime)
+    try:
+        import os as _os_pa
+
+        import httpx as _httpx
+
+        agent_url = _os_pa.getenv("PROFIT_AGENT_URL", "http://host.docker.internal:8002")
+        async with _httpx.AsyncClient(timeout=2.5) as _client:
+            _r = await _client.get(f"{agent_url}/status")
+            _s = _r.json() if _r.status_code == 200 else {}
+        _subs = _s.get("subscribed_tickers") or []
+        _ticks = _s.get("total_ticks", 0)
+        _ok = bool(_s.get("market_connected"))
+        _routing = bool(_s.get("routing_connected"))
+        _detail = f"{len(_subs)} tickers, {_ticks} ticks" + (
+            ", roteamento ON" if _routing else ", roteamento OFF"
+        )
+        result["data_collectors"].append(
+            {
+                "name": "Profit Agent (DLL)",
+                "description": "Ticks realtime + ordens via Nelogica ProfitDLL",
+                "key": "profit_agent",
+                "status": "ok" if _ok else "warning",
+                "last_update": None,
+                "next_update": None,
+                "detail": _detail,
+                "can_restart": False,
+                "running": _ok,
+            }
+        )
+    except Exception as _pe:
+        result["data_collectors"].append(
+            {
+                "name": "Profit Agent (DLL)",
+                "description": "Ticks realtime + ordens via Nelogica ProfitDLL",
+                "key": "profit_agent",
+                "status": "error",
+                "last_update": None,
+                "next_update": None,
+                "detail": f"Offline: {str(_pe)[:80]}",
+                "can_restart": False,
+                "running": False,
+            }
+        )
+
     # Coletor: OHLC
     result["data_collectors"].append(
         {
