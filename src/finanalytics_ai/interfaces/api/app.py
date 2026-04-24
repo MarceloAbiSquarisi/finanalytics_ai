@@ -1011,9 +1011,11 @@ def create_app() -> FastAPI:
     from finanalytics_ai.interfaces.api.routes import events_admin as events_admin_routes
 
     app.include_router(events_admin_routes.router, tags=["Events Admin"])
-    from finanalytics_ai.infrastructure.database.connection import get_session
+    # FastAPI dependency_overrides espera async generator nu (sem @asynccontextmanager).
+    # get_session em connection.py e' context manager — usar get_db_session (ja tem o shape certo).
+    from finanalytics_ai.interfaces.api.dependencies import get_db_session
 
-    app.dependency_overrides[hub_routes.get_db] = get_session
+    app.dependency_overrides[hub_routes.get_db] = get_db_session
 
     app.include_router(marketdata_routes.router, prefix="/api/v1/marketdata", tags=["Market Data"])
     try:
