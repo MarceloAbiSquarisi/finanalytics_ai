@@ -52,6 +52,54 @@ async def etf_categories() -> list[str]:
     return ETF_CATEGORIES
 
 
+# ── Metadados editaveis (C3b 24/abr) ──────────────────────────────────────
+
+
+class EtfMetadataUpsert(BaseModel):
+    name: str | None = Field(None, max_length=200)
+    benchmark: str | None = Field(None, max_length=100)
+    mgmt_fee: float | None = Field(None, ge=0, le=100, description="Taxa administração em %")
+    perf_fee: float | None = Field(None, ge=0, le=100, description="Taxa performance em %")
+    isin: str | None = Field(None, max_length=12)
+    note: str | None = Field(None, max_length=500)
+
+
+def _repo():
+    from finanalytics_ai.infrastructure.database.repositories.wallet_repo import WalletRepository
+    return WalletRepository()
+
+
+@router.get("/metadata")
+async def list_etf_metadata(tickers: str | None = Query(None, description="CSV de tickers (opcional)")) -> list[dict]:
+    """Lista metadata de ETFs. Sem filtro: retorna todos seed + cadastrados."""
+    ts = [t.strip().upper() for t in tickers.split(",")] if tickers else None
+    return await _repo().list_etf_metadata(ts)
+
+
+@router.get("/metadata/{ticker}")
+async def get_etf_metadata(ticker: str) -> dict:
+    data = await _repo().get_etf_metadata(ticker)
+    if not data:
+        raise HTTPException(404, "ETF não cadastrado")
+    return data
+
+
+@router.put("/metadata/{ticker}")
+async def upsert_etf_metadata(ticker: str, body: EtfMetadataUpsert) -> dict:
+    """Cria ou atualiza metadata do ETF. Idempotente."""
+    from finanalytics_ai.interfaces.api.dependencies import get_current_user  # noqa: F401
+    # TODO: require_admin ou require_master aqui? Por enquanto aberto a qualquer usuario logado.
+    data = body.model_dump(exclude_none=False)
+    return await _repo().upsert_etf_metadata(ticker, data, updated_by=None)
+
+
+@router.delete("/metadata/{ticker}", status_code=204)
+async def delete_etf_metadata(ticker: str) -> None:
+    ok = await _repo().delete_etf_metadata(ticker)
+    if not ok:
+        raise HTTPException(404, "ETF não cadastrado")
+
+
 # ── Comparativo ───────────────────────────────────────────────────────────────
 
 

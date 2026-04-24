@@ -49,6 +49,8 @@ class InvestmentAccountModel(Base):
     # Default FALSE — conta recem-criada so pode operar simulador ate admin liberar
     # (evita acidente de rodar estrategia em conta real sem autorizacao).
     real_operations_allowed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Saldo cash settled (Feature C, 24/abr). Mantido pelo AccountTransactionService.
+    cash_balance: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=Decimal("0"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -111,6 +113,49 @@ class OtherAssetModel(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class EtfMetadataModel(Base):
+    """Metadata de ETF por ticker (benchmark, taxa adm/perf). C3b (24/abr).
+
+    Atributo do PAPEL (nao do trade individual). Ao comprar BOVA11 em qualquer
+    data, os fees/benchmark sao os mesmos — por isso tabela separada com
+    PK=ticker, consultada pelo frontend ao abrir o form de trade ETF.
+    """
+    __tablename__ = "etf_metadata"
+    ticker: Mapped[str] = mapped_column(String(20), primary_key=True)
+    name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    benchmark: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    mgmt_fee: Mapped[Decimal | None] = mapped_column(Numeric(6, 4), nullable=True)
+    perf_fee: Mapped[Decimal | None] = mapped_column(Numeric(6, 4), nullable=True)
+    isin: Mapped[str | None] = mapped_column(String(12), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+
+class AccountTransactionModel(Base):
+    """Feature C (24/abr): movimentacao de caixa por investment_account.
+
+    amount positivo = credito, negativo = debito. status pending|settled|cancelled.
+    cash_balance em investment_accounts e mantido pelo AccountTransactionService.
+    """
+
+    __tablename__ = "account_transactions"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    account_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    tx_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="BRL")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="settled")
+    reference_date: Mapped[date] = mapped_column(Date, nullable=False)
+    settlement_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    related_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    related_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 # ── Helper ────────────────────────────────────────────────────────────────
@@ -323,6 +368,258 @@ class WalletRepository:
             await s.refresh(m)
             return _model_to_dict(m)
 
+    # ── Feature C: account_transactions (cash ledger) ────────────────────────
+
+    async def create_transaction(
+        self,
+        *,
+        user_id: str,
+        account_id: str,
+        tx_type: str,
+        amount: Decimal,
+        reference_date: date,
+        settlement_date: date | None = None,
+        status: str = "settled",
+        related_type: str | None = None,
+        related_id: str | None = None,
+        note: str | None = None,
+    ) -> dict:
+        """Cria tx e atualiza cash_balance atomicamente (se settled).
+
+        Para status=pending, cash_balance nao muda ate settle_transaction rodar
+        (scheduler diario ou manual).
+        """
+        from sqlalchemy import update as sql_update
+
+        tx_id = str(uuid.uuid4())
+        if settlement_date is None:
+            settlement_date = reference_date  # D+0 default
+        async with get_session() as s:
+            # Insere tx
+            s.add(
+                AccountTransactionModel(
+                    id=tx_id,
+                    user_id=user_id,
+                    account_id=account_id,
+                    tx_type=tx_type,
+                    amount=amount,
+                    status=status,
+                    reference_date=reference_date,
+                    settlement_date=settlement_date,
+                    related_type=related_type,
+                    related_id=related_id,
+                    note=note,
+                    settled_at=(datetime.now() if status == "settled" else None),
+                )
+            )
+            # Se ja settled, atualiza cash_balance da conta
+            if status == "settled":
+                await s.execute(
+                    sql_update(InvestmentAccountModel)
+                    .where(InvestmentAccountModel.id == account_id)
+                    .where(InvestmentAccountModel.user_id == user_id)
+                    .values(cash_balance=InvestmentAccountModel.cash_balance + amount)
+                )
+            await s.commit()
+            m = await s.get(AccountTransactionModel, tx_id)
+            return _model_to_dict(m) if m else {}
+
+    async def settle_transaction(self, tx_id: str, user_id: str) -> dict | None:
+        """Marca tx pending como settled e aplica o amount no cash_balance.
+        Idempotente (tx ja settled e no-op)."""
+        from sqlalchemy import update as sql_update
+
+        async with get_session() as s:
+            m = await s.get(AccountTransactionModel, tx_id)
+            if not m or m.user_id != user_id:
+                return None
+            if m.status == "settled":
+                return _model_to_dict(m)
+            if m.status == "cancelled":
+                return _model_to_dict(m)
+            m.status = "settled"
+            m.settled_at = datetime.now()
+            await s.execute(
+                sql_update(InvestmentAccountModel)
+                .where(InvestmentAccountModel.id == m.account_id)
+                .values(cash_balance=InvestmentAccountModel.cash_balance + m.amount)
+            )
+            await s.commit()
+            await s.refresh(m)
+            return _model_to_dict(m)
+
+    async def cancel_transaction(self, tx_id: str, user_id: str) -> dict | None:
+        """Cancela tx. Se ja estava settled, reverte o cash_balance."""
+        from sqlalchemy import update as sql_update
+
+        async with get_session() as s:
+            m = await s.get(AccountTransactionModel, tx_id)
+            if not m or m.user_id != user_id:
+                return None
+            if m.status == "cancelled":
+                return _model_to_dict(m)
+            was_settled = m.status == "settled"
+            m.status = "cancelled"
+            if was_settled:
+                # Reverte o efeito no cash_balance
+                await s.execute(
+                    sql_update(InvestmentAccountModel)
+                    .where(InvestmentAccountModel.id == m.account_id)
+                    .values(cash_balance=InvestmentAccountModel.cash_balance - m.amount)
+                )
+            await s.commit()
+            await s.refresh(m)
+            return _model_to_dict(m)
+
+    async def list_transactions(
+        self,
+        user_id: str,
+        account_id: str | None = None,
+        status: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[dict]:
+        async with get_session() as s:
+            q = (
+                select(AccountTransactionModel)
+                .where(AccountTransactionModel.user_id == user_id)
+                .order_by(
+                    AccountTransactionModel.reference_date.desc(),
+                    AccountTransactionModel.created_at.desc(),
+                )
+                .limit(limit)
+                .offset(offset)
+            )
+            if account_id:
+                q = q.where(AccountTransactionModel.account_id == account_id)
+            if status:
+                q = q.where(AccountTransactionModel.status == status)
+            rows = (await s.execute(q)).scalars().all()
+            return [_model_to_dict(r) for r in rows]
+
+    async def get_cash_summary(self, account_id: str, user_id: str) -> dict | None:
+        """Retorna cash_balance + pending_in + pending_out + available_to_invest."""
+        async with get_session() as s:
+            acc = await s.execute(
+                select(InvestmentAccountModel).where(
+                    InvestmentAccountModel.id == account_id,
+                    InvestmentAccountModel.user_id == user_id,
+                )
+            )
+            acc_m = acc.scalar_one_or_none()
+            if not acc_m:
+                return None
+
+            cash = float(acc_m.cash_balance or Decimal("0"))
+
+            # Soma pending in/out via SQL agregado
+            pending = await s.execute(
+                text(
+                    "SELECT "
+                    "COALESCE(SUM(CASE WHEN amount > 0 THEN amount END), 0) AS pending_in, "
+                    "COALESCE(SUM(CASE WHEN amount < 0 THEN amount END), 0) AS pending_out "
+                    "FROM account_transactions "
+                    "WHERE account_id = :aid AND user_id = :uid AND status = 'pending'"
+                ),
+                {"aid": account_id, "uid": user_id},
+            )
+            row = pending.mappings().first() or {}
+            p_in = float(row.get("pending_in") or 0)
+            p_out = float(row.get("pending_out") or 0)  # negativo
+            return {
+                "account_id": account_id,
+                "cash_balance": cash,
+                "pending_in": p_in,
+                "pending_out": p_out,  # negativo
+                "available_to_invest": cash + p_out,  # subtrai saidas agendadas
+            }
+
+    # ── Feature C3b: ETF metadata ────────────────────────────────────────────
+
+    async def list_etf_metadata(self, tickers: list[str] | None = None) -> list[dict]:
+        async with get_session() as s:
+            q = select(EtfMetadataModel).order_by(EtfMetadataModel.ticker)
+            if tickers:
+                q = q.where(EtfMetadataModel.ticker.in_([t.upper() for t in tickers]))
+            rows = (await s.execute(q)).scalars().all()
+            return [_model_to_dict(r) for r in rows]
+
+    async def get_etf_metadata(self, ticker: str) -> dict | None:
+        async with get_session() as s:
+            m = await s.get(EtfMetadataModel, ticker.upper())
+            return _model_to_dict(m) if m else None
+
+    async def upsert_etf_metadata(self, ticker: str, data: dict, updated_by: str | None = None) -> dict:
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+        ticker = ticker.upper()
+        payload = {
+            "ticker": ticker,
+            "name": data.get("name"),
+            "benchmark": data.get("benchmark"),
+            "mgmt_fee": Decimal(str(data["mgmt_fee"])) if data.get("mgmt_fee") is not None else None,
+            "perf_fee": Decimal(str(data["perf_fee"])) if data.get("perf_fee") is not None else None,
+            "isin": data.get("isin"),
+            "note": data.get("note"),
+            "updated_by": updated_by,
+        }
+        async with get_session() as s:
+            stmt = pg_insert(EtfMetadataModel).values(**payload)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["ticker"],
+                set_={k: v for k, v in payload.items() if k != "ticker"},
+            )
+            await s.execute(stmt)
+            await s.commit()
+            m = await s.get(EtfMetadataModel, ticker)
+            return _model_to_dict(m) if m else {}
+
+    async def delete_etf_metadata(self, ticker: str) -> bool:
+        async with get_session() as s:
+            m = await s.get(EtfMetadataModel, ticker.upper())
+            if not m:
+                return False
+            await s.delete(m)
+            await s.commit()
+            return True
+
+    async def settle_due_transactions(self, today: date | None = None) -> int:
+        """Varre pending com settlement_date <= hoje e marca como settled.
+        Usa UPDATE com RETURNING + UPDATE atomico de cash_balance por conta."""
+        from sqlalchemy import update as sql_update
+
+        target = today or date.today()
+        async with get_session() as s:
+            # 1. Pega ids dos tx a liquidar
+            result = await s.execute(
+                select(AccountTransactionModel).where(
+                    AccountTransactionModel.status == "pending",
+                    AccountTransactionModel.settlement_date <= target,
+                )
+            )
+            due = result.scalars().all()
+            if not due:
+                return 0
+
+            # 2. Agrupa amount por conta
+            by_account: dict[str, Decimal] = {}
+            for tx in due:
+                by_account[tx.account_id] = by_account.get(tx.account_id, Decimal("0")) + tx.amount
+                tx.status = "settled"
+                tx.settled_at = datetime.now()
+
+            # 3. Atualiza cash_balance das contas
+            for acc_id, delta in by_account.items():
+                await s.execute(
+                    sql_update(InvestmentAccountModel)
+                    .where(InvestmentAccountModel.id == acc_id)
+                    .values(cash_balance=InvestmentAccountModel.cash_balance + delta)
+                )
+
+            await s.commit()
+            log.info("account_transactions.settled", count=len(due), accounts=len(by_account))
+            return len(due)
+
     async def delete_account(self, account_id: str, user_id: str) -> bool:
         async with get_session() as s:
             q = select(InvestmentAccountModel).where(
@@ -421,6 +718,8 @@ class WalletRepository:
     # ── Trades ────────────────────────────────────────────────────────────
 
     async def create_trade(self, data: dict) -> dict:
+        from datetime import timedelta as _td
+
         data.setdefault("id", str(uuid.uuid4()))
         if "total_cost" not in data:
             data["total_cost"] = float(data["quantity"]) * float(data["unit_price"]) + float(
@@ -433,7 +732,52 @@ class WalletRepository:
             s.add(m)
             await s.commit()
             await s.refresh(m)
-            return _model_to_dict(m)
+            trade_dict = _model_to_dict(m)
+
+        # Feature C — Hook C3: cria account_transaction pending D+1 (B3 T+1).
+        # Aplica so quando trade vinculado a uma investment_account + operation
+        # gera fluxo de caixa (buy/sell). Splits/bonus nao mexem em cash.
+        op = (data.get("operation") or "").lower()
+        acc_id = data.get("investment_account_id")
+        if acc_id and op in ("buy", "sell"):
+            trade_date = data.get("trade_date")
+            if isinstance(trade_date, str):
+                trade_date = date.fromisoformat(trade_date[:10])
+            total_cost = Decimal(str(data["total_cost"]))
+            amount = -total_cost if op == "buy" else total_cost
+            settlement = (trade_date or date.today()) + _td(days=1)
+            ticker = (data.get("ticker") or "").upper()
+            qty = data.get("quantity")
+            unit = data.get("unit_price")
+            note = f"{op.upper()} {ticker} x{qty} @ R$ {unit}"
+            try:
+                await self.create_transaction(
+                    user_id=str(data["user_id"]),
+                    account_id=acc_id,
+                    tx_type=f"trade_{op}",
+                    amount=amount,
+                    reference_date=trade_date or date.today(),
+                    settlement_date=settlement,
+                    status="pending",
+                    related_type="trade",
+                    related_id=trade_dict.get("id"),
+                    note=note,
+                )
+                trade_dict["cash_tx_created"] = True
+                # Checa saldo para warning (nao bloqueante)
+                summary = await self.get_cash_summary(acc_id, str(data["user_id"]))
+                if summary and op == "buy":
+                    after = summary["cash_balance"] + summary["pending_out"]  # pending_out e negativo
+                    if after < 0:
+                        trade_dict["warning"] = (
+                            f"Saldo ficará negativo (R$ {after:.2f}) após esta compra liquidar em D+1. "
+                            f"Considere aportar antes."
+                        )
+            except Exception as exc:  # noqa: BLE001
+                log.warning("trade.cash_tx.failed", trade_id=trade_dict.get("id"), error=str(exc))
+                trade_dict["cash_tx_created"] = False
+
+        return trade_dict
 
     async def list_trades(
         self,
@@ -465,7 +809,20 @@ class WalletRepository:
                 return False
             await s.delete(m)
             await s.commit()
-            return True
+
+        # Feature C: cancela tx(s) vinculada(s) a este trade (reverte cash_balance se settled)
+        async with get_session() as s2:
+            txs = (await s2.execute(
+                select(AccountTransactionModel).where(
+                    AccountTransactionModel.related_type == "trade",
+                    AccountTransactionModel.related_id == trade_id,
+                    AccountTransactionModel.user_id == user_id,
+                    AccountTransactionModel.status != "cancelled",
+                )
+            )).scalars().all()
+            for tx in txs:
+                await self.cancel_transaction(tx.id, user_id)
+        return True
 
     async def get_positions_summary(
         self, user_id: str, asset_class: str | None = None, portfolio_id: str | None = None
@@ -519,6 +876,7 @@ class WalletRepository:
                 CryptoHoldingModel.investment_account_id == data.get("investment_account_id"),
             )
             m = (await s.execute(q)).scalar_one_or_none()
+            old_qty = Decimal(str(m.quantity)) if m else Decimal("0")
             if m:
                 for k, v in data.items():
                     if hasattr(m, k) and k not in ("id", "user_id", "created_at"):
@@ -535,7 +893,38 @@ class WalletRepository:
                 s.add(m)
             await s.commit()
             await s.refresh(m)
-            return _model_to_dict(m)
+            holding = _model_to_dict(m)
+
+        # Feature C4: hook cash transaction D+0 (cripto e OTC, liquidacao imediata).
+        acc_id = data.get("investment_account_id")
+        if acc_id:
+            try:
+                new_qty = Decimal(str(holding.get("quantity", 0)))
+                delta_qty = new_qty - old_qty
+                price = Decimal(str(holding.get("average_price_brl") or 0))
+                if delta_qty != Decimal("0") and price > 0:
+                    total = (delta_qty * price).quantize(Decimal("0.01"))
+                    tx_type = "crypto_buy" if delta_qty > 0 else "crypto_sell"
+                    amount = -total if delta_qty > 0 else abs(total)
+                    today = date.today()
+                    symbol = (holding.get("symbol") or data.get("symbol") or "?").upper()
+                    await self.create_transaction(
+                        user_id=str(data["user_id"]),
+                        account_id=acc_id,
+                        tx_type=tx_type,
+                        amount=amount,
+                        reference_date=today,
+                        settlement_date=today,
+                        status="settled",
+                        related_type="crypto",
+                        related_id=holding.get("id"),
+                        note=f"{'Aporte' if delta_qty > 0 else 'Redução'} {symbol} {delta_qty:+}",
+                    )
+                    holding["cash_tx_created"] = True
+            except Exception as exc:  # noqa: BLE001
+                log.warning("crypto.cash_tx.failed", holding_id=holding.get("id"), error=str(exc))
+
+        return holding
 
     async def list_crypto(self, user_id: str, portfolio_id: str | None = None) -> list[dict]:
         async with get_session() as s:
@@ -547,6 +936,11 @@ class WalletRepository:
             return [_model_to_dict(r) for r in rows]
 
     async def delete_crypto(self, crypto_id: str, user_id: str) -> bool:
+        # Captura holding ANTES do delete para computar tx (sell = fechar posicao)
+        acc_id = None
+        symbol = None
+        qty = Decimal("0")
+        price = Decimal("0")
         async with get_session() as s:
             q = select(CryptoHoldingModel).where(
                 CryptoHoldingModel.id == crypto_id, CryptoHoldingModel.user_id == user_id
@@ -554,12 +948,41 @@ class WalletRepository:
             m = (await s.execute(q)).scalar_one_or_none()
             if not m:
                 return False
+            acc_id = m.investment_account_id
+            symbol = m.symbol
+            qty = Decimal(str(m.quantity))
+            price = Decimal(str(m.average_price_brl or 0))
             await s.delete(m)
             await s.commit()
-            return True
+
+        # Feature C4: crypto_sell settled D+0 se fecha posicao > 0
+        if acc_id and qty > 0 and price > 0:
+            try:
+                total = (qty * price).quantize(Decimal("0.01"))
+                today = date.today()
+                await self.create_transaction(
+                    user_id=user_id,
+                    account_id=acc_id,
+                    tx_type="crypto_sell",
+                    amount=total,
+                    reference_date=today,
+                    settlement_date=today,
+                    status="settled",
+                    related_type="crypto",
+                    related_id=crypto_id,
+                    note=f"Venda total {symbol} x{qty}",
+                )
+            except Exception as exc:  # noqa: BLE001
+                log.warning("crypto.delete_cash_tx.failed", crypto_id=crypto_id, error=str(exc))
+        return True
 
     async def redeem_crypto(self, crypto_id: str, user_id: str, qty: float) -> dict | None:
-        """Decrementa quantity. Se chegar a zero ou negativo, remove o holding."""
+        """Decrementa quantity. Se chegar a zero ou negativo, remove o holding.
+        Feature C4: hook cash (crypto_sell settled D+0 = +qty * avg_price_brl)."""
+        acc_id = None
+        symbol = None
+        price = Decimal("0")
+        result: dict | None = None
         async with get_session() as s:
             q = select(CryptoHoldingModel).where(
                 CryptoHoldingModel.id == crypto_id, CryptoHoldingModel.user_id == user_id
@@ -567,15 +990,41 @@ class WalletRepository:
             m = (await s.execute(q)).scalar_one_or_none()
             if not m:
                 return None
+            acc_id = m.investment_account_id
+            symbol = m.symbol
+            price = Decimal(str(m.average_price_brl or 0))
             new_qty = float(m.quantity) - qty
             if new_qty <= 0:
                 await s.delete(m)
                 await s.commit()
-                return {"removed": True, "remaining_quantity": 0}
-            m.quantity = new_qty
-            await s.commit()
-            await s.refresh(m)
-            return {"removed": False, "remaining_quantity": float(m.quantity)}
+                result = {"removed": True, "remaining_quantity": 0}
+            else:
+                m.quantity = new_qty
+                await s.commit()
+                await s.refresh(m)
+                result = {"removed": False, "remaining_quantity": float(m.quantity)}
+
+        # Cash tx: crypto_sell settled D+0
+        if acc_id and price > 0 and qty > 0:
+            try:
+                total = (Decimal(str(qty)) * price).quantize(Decimal("0.01"))
+                today = date.today()
+                await self.create_transaction(
+                    user_id=user_id,
+                    account_id=acc_id,
+                    tx_type="crypto_sell",
+                    amount=total,
+                    reference_date=today,
+                    settlement_date=today,
+                    status="settled",
+                    related_type="crypto",
+                    related_id=crypto_id,
+                    note=f"Resgate {symbol} x{qty}",
+                )
+                result["cash_credit"] = float(total)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("crypto.redeem_cash_tx.failed", crypto_id=crypto_id, error=str(exc))
+        return result
 
     # ── Other Assets ──────────────────────────────────────────────────────
 

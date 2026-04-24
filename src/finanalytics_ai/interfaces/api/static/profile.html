@@ -480,6 +480,73 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
     </div>
   </div>
 
+  <!-- Modal: Depósito / Saque (Feature C) -->
+  <div id="modal-cash" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;align-items:center;justify-content:center" onclick="if(event.target===this)closeCashModal()">
+    <div style="background:var(--s1);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:10px;padding:22px;min-width:400px;max-width:460px">
+      <h3 id="cash-modal-title" style="color:var(--gold);font-size:15px;margin-bottom:4px">Depósito</h3>
+      <p id="cash-modal-subtitle" style="font-size:13px;color:var(--muted);margin-bottom:14px">Conta: —</p>
+
+      <div class="form-group">
+        <label>Valor (R$) *</label>
+        <input type="number" id="cash-amount" step="0.01" min="0.01" placeholder="EX: 1000.00" style="width:100%">
+      </div>
+      <div class="form-group">
+        <label>Data (opcional)</label>
+        <input type="date" id="cash-date" style="width:100%">
+      </div>
+      <div class="form-group">
+        <label>Nota (opcional)</label>
+        <input type="text" id="cash-note" placeholder="EX: TED do Itaú" style="width:100%">
+      </div>
+      <div id="cash-warn" style="display:none;padding:8px 10px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);border-radius:5px;font-size:12px;color:var(--gold);margin-bottom:10px"></div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button class="btn" onclick="closeCashModal()" style="background:transparent;border:1px solid var(--border);color:var(--text)">Cancelar</button>
+        <button class="btn btn-gold" onclick="submitCashMove()" id="cash-submit">Confirmar</button>
+      </div>
+      <div class="msg" id="msg-cash" style="margin-top:10px"></div>
+    </div>
+  </div>
+
+  <!-- Modal: Lista de transações (Feature C) -->
+  <div id="modal-tx-list" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;align-items:center;justify-content:center" onclick="if(event.target===this)closeTxList()">
+    <div style="background:var(--s1);border:1px solid var(--border);border-left:3px solid var(--accent,#00d4ff);border-radius:10px;padding:22px;min-width:600px;max-width:800px;max-height:85vh;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <h3 style="color:var(--accent,#00d4ff);font-size:15px;margin-bottom:2px">Movimentações</h3>
+          <p id="tx-list-subtitle" style="font-size:12px;color:var(--muted)">Conta: —</p>
+        </div>
+        <div style="display:flex;gap:6px">
+          <select id="tx-status-filter" onchange="loadTxList()" style="padding:5px 10px;background:#080c14;border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px">
+            <option value="">Todos</option>
+            <option value="pending">Pendente</option>
+            <option value="settled">Liquidada</option>
+            <option value="cancelled">Cancelada</option>
+          </select>
+          <button class="btn" onclick="closeTxList()" style="padding:5px 12px;font-size:12px">✕</button>
+        </div>
+      </div>
+      <div style="overflow-y:auto;flex:1">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead style="position:sticky;top:0;background:var(--s1)">
+            <tr style="border-bottom:1px solid var(--border)">
+              <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);text-transform:uppercase">Data</th>
+              <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);text-transform:uppercase">Tipo</th>
+              <th style="text-align:right;padding:6px 8px;font-size:11px;color:var(--muted);text-transform:uppercase">Valor</th>
+              <th style="text-align:center;padding:6px 8px;font-size:11px;color:var(--muted);text-transform:uppercase">Status</th>
+              <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);text-transform:uppercase">Liquidação</th>
+              <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);text-transform:uppercase">Nota</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tx-list-tbody">
+            <tr><td colspan="7" style="padding:20px;text-align:center;color:var(--muted)">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Conectar Profit DLL em uma conta existente -->
   <div id="modal-connect-dll" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;align-items:center;justify-content:center" onclick="if(event.target===this)closeConnectDLLModal()">
     <div style="background:var(--s1);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:10px;padding:22px;min-width:440px;max-width:520px;max-height:90vh;overflow-y:auto">
@@ -703,6 +770,25 @@ function renderInvAccounts() {
         </div>`;
     }
 
+    // Feature C: seção de saldo + botões depositar/sacar
+    const cash = Number(a.cash_balance || 0);
+    const cashColor = cash < 0 ? 'var(--red)' : (cash === 0 ? 'var(--muted)' : 'var(--green)');
+    const cashSection = `
+      <div style="margin-top:8px;padding:8px 10px;background:rgba(240,180,41,.04);border:1px solid rgba(240,180,41,.2);border-radius:5px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Saldo em caixa</div>
+          <div style="font-family:monospace;font-size:17px;color:${cashColor};font-weight:700">R$ ${cash.toFixed(2)}</div>
+          <div id="cash-detail-${id}" style="font-size:10px;color:var(--muted);margin-top:2px">—</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn" style="padding:5px 10px;font-size:12px;background:transparent;border:1px solid var(--green);color:var(--green)" onclick="openCashModal('${id}','${_escapeHtml(a.apelido||a.institution_name||'')}','deposit')" title="Registrar depósito nesta conta">+ Depositar</button>
+          <button class="btn" style="padding:5px 10px;font-size:12px;background:transparent;border:1px solid var(--red);color:var(--red)" onclick="openCashModal('${id}','${_escapeHtml(a.apelido||a.institution_name||'')}','withdraw')" title="Registrar saque desta conta">− Sacar</button>
+          <button class="btn" style="padding:5px 10px;font-size:12px;background:transparent;border:1px solid var(--muted);color:var(--muted)" onclick="openTransactionsList('${id}','${_escapeHtml(a.apelido||a.institution_name||'')}')" title="Histórico de movimentações">📋</button>
+        </div>
+      </div>`;
+    // Async: popula detail com pending in/out depois
+    setTimeout(() => loadCashDetail(id), 50);
+
     return `
       <div style="border:1px solid var(--border);border-left:3px solid ${leftBorder};border-radius:6px;padding:12px 14px;background:${isDllActive ? 'rgba(240,180,41,.04)' : 'transparent'}">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
@@ -720,9 +806,173 @@ function renderInvAccounts() {
             <button class="btn" style="padding:5px 10px;font-size:12px;background:transparent;border:1px solid var(--red);color:var(--red)" onclick="deleteInvAccount('${id}','${_escapeHtml(a.apelido||a.titular||'')}')">×</button>
           </div>
         </div>
+        ${cashSection}
         ${dllSection}
       </div>`;
   }).join('');
+}
+
+// ── Feature C: cash ledger (deposito, saque, historico) ───────────────────
+let _cashAction = 'deposit';     // 'deposit' | 'withdraw'
+let _cashAccountId = null;
+let _txListAccountId = null;
+
+async function loadCashDetail(accountId) {
+  try {
+    const token = getToken();
+    const r = await fetch(`/api/v1/wallet/accounts/${accountId}/cash-summary`, {
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+    if (!r.ok) return;
+    const d = await r.json();
+    const el = document.getElementById('cash-detail-' + accountId);
+    if (!el) return;
+    const parts = [];
+    if (d.pending_in > 0) parts.push(`<span style="color:var(--green)">+R$ ${d.pending_in.toFixed(2)} a receber</span>`);
+    if (d.pending_out < 0) parts.push(`<span style="color:var(--red)">R$ ${d.pending_out.toFixed(2)} a debitar</span>`);
+    parts.push(`disponível: R$ ${d.available_to_invest.toFixed(2)}`);
+    el.innerHTML = parts.join(' · ');
+  } catch(_) {}
+}
+
+function openCashModal(accountId, label, action) {
+  _cashAccountId = accountId;
+  _cashAction = action;
+  document.getElementById('modal-cash').style.display = 'flex';
+  document.getElementById('cash-modal-title').textContent = action === 'deposit' ? 'Depósito' : 'Saque';
+  document.getElementById('cash-modal-subtitle').textContent = 'Conta: ' + label;
+  document.getElementById('cash-amount').value = '';
+  document.getElementById('cash-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('cash-note').value = '';
+  document.getElementById('msg-cash').className = 'msg';
+  document.getElementById('msg-cash').textContent = '';
+  document.getElementById('cash-warn').style.display = 'none';
+  const btn = document.getElementById('cash-submit');
+  btn.textContent = action === 'deposit' ? 'Depositar' : 'Sacar';
+  btn.className = 'btn ' + (action === 'deposit' ? 'btn-gold' : '');
+  btn.style.background = action === 'withdraw' ? 'transparent' : '';
+  btn.style.border = action === 'withdraw' ? '1px solid var(--red)' : '';
+  btn.style.color = action === 'withdraw' ? 'var(--red)' : '';
+  setTimeout(() => document.getElementById('cash-amount').focus(), 40);
+}
+function closeCashModal() { document.getElementById('modal-cash').style.display = 'none'; }
+
+async function submitCashMove() {
+  const msg = document.getElementById('msg-cash');
+  const amount = parseFloat(document.getElementById('cash-amount').value);
+  if (!amount || amount <= 0) {
+    msg.className = 'msg err'; msg.textContent = 'Valor inválido.';
+    return;
+  }
+  const body = {
+    amount: amount,
+    reference_date: document.getElementById('cash-date').value || null,
+    note: document.getElementById('cash-note').value.trim() || null,
+  };
+  try {
+    const token = getToken();
+    const r = await fetch(`/api/v1/wallet/accounts/${_cashAccountId}/${_cashAction}`, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + token },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      msg.className = 'msg err';
+      msg.textContent = (typeof err.detail === 'string') ? err.detail : ('Erro HTTP ' + r.status);
+      return;
+    }
+    const tx = await r.json();
+    if (tx.warning && window.FAToast) FAToast.warn(tx.warning);
+    closeCashModal();
+    await loadInvAccounts();
+    if (window.FAToast) FAToast.ok(_cashAction === 'deposit' ? 'Depósito registrado' : 'Saque registrado');
+  } catch (e) {
+    msg.className = 'msg err'; msg.textContent = e.message || String(e);
+  }
+}
+
+function openTransactionsList(accountId, label) {
+  _txListAccountId = accountId;
+  document.getElementById('modal-tx-list').style.display = 'flex';
+  document.getElementById('tx-list-subtitle').textContent = 'Conta: ' + label;
+  document.getElementById('tx-status-filter').value = '';
+  loadTxList();
+}
+function closeTxList() { document.getElementById('modal-tx-list').style.display = 'none'; }
+
+const _TX_TYPE_LABELS = {
+  deposit: '📥 Depósito', withdraw: '📤 Saque',
+  trade_buy: '🛒 Compra', trade_sell: '💰 Venda',
+  crypto_buy: '🪙 Cripto (buy)', crypto_sell: '🪙 Cripto (sell)',
+  rf_apply: '📊 RF aplicação', rf_redeem: '📊 RF resgate',
+  dividend: '💵 Dividendo', interest: '🪙 Juros',
+  fee: '💸 Taxa', tax: '📑 Imposto', adjustment: '⚙️ Ajuste',
+};
+const _TX_STATUS_LABELS = {
+  pending: '<span style="color:var(--gold)">⏳ Pendente</span>',
+  settled: '<span style="color:var(--green)">✓ Liquidada</span>',
+  cancelled: '<span style="color:var(--muted);text-decoration:line-through">✕ Cancelada</span>',
+};
+
+async function loadTxList() {
+  if (!_txListAccountId) return;
+  const tb = document.getElementById('tx-list-tbody');
+  tb.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--muted)">Carregando...</td></tr>';
+  try {
+    const token = getToken();
+    const st = document.getElementById('tx-status-filter').value;
+    const qs = st ? `?status=${st}` : '';
+    const r = await fetch(`/api/v1/wallet/accounts/${_txListAccountId}/transactions${qs}`, {
+      headers: { 'Authorization':'Bearer ' + token },
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const txs = await r.json();
+    if (!txs.length) {
+      tb.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--muted);font-style:italic">Nenhuma movimentação.</td></tr>';
+      return;
+    }
+    tb.innerHTML = txs.map(t => {
+      const amt = Number(t.amount);
+      const color = amt >= 0 ? 'var(--green)' : 'var(--red)';
+      const typeLbl = _TX_TYPE_LABELS[t.tx_type] || t.tx_type;
+      const stLbl = _TX_STATUS_LABELS[t.status] || t.status;
+      const canCancel = t.status !== 'cancelled';
+      return `
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:6px 8px;font-family:monospace;font-size:12px">${(t.reference_date||'').slice(0,10)}</td>
+          <td style="padding:6px 8px">${typeLbl}</td>
+          <td style="padding:6px 8px;text-align:right;font-family:monospace;color:${color};font-weight:600">${amt >= 0 ? '+' : ''}R$ ${amt.toFixed(2)}</td>
+          <td style="padding:6px 8px;text-align:center;font-size:12px">${stLbl}</td>
+          <td style="padding:6px 8px;font-family:monospace;font-size:12px;color:var(--muted)">${(t.settlement_date||'').slice(0,10) || '—'}</td>
+          <td style="padding:6px 8px;font-size:12px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_escapeHtml(t.note||'')}">${_escapeHtml(t.note||'—')}</td>
+          <td style="padding:6px 8px;text-align:right">
+            ${canCancel ? `<button class="btn" style="padding:3px 8px;font-size:11px;background:transparent;border:1px solid var(--red);color:var(--red)" onclick="cancelTx('${t.id}')">Cancelar</button>` : ''}
+          </td>
+        </tr>`;
+    }).join('');
+  } catch(e) {
+    tb.innerHTML = `<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--red)">Falha: ${e.message || e}</td></tr>`;
+  }
+}
+
+async function cancelTx(txId) {
+  const ok = window.FAModal
+    ? await FAModal.confirm({ title:'Cancelar movimentação', text:'Cancelar esta transação? Se já estiver liquidada, o saldo será revertido.', variant:'danger' })
+    : window.confirm('Cancelar?');
+  if (!ok) return;
+  try {
+    const token = getToken();
+    const r = await fetch(`/api/v1/wallet/transactions/${txId}/cancel`, {
+      method:'POST', headers:{'Authorization':'Bearer ' + token },
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    await loadTxList();
+    await loadInvAccounts();
+    if (window.FAToast) FAToast.ok('Transação cancelada');
+  } catch(e) {
+    if (window.FAToast) FAToast.err('Falha: ' + (e.message || e));
+  }
 }
 
 // ── Conexao DLL ────────────────────────────────────────────────────────────

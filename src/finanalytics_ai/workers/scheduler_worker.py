@@ -552,6 +552,31 @@ async def cleanup_event_records_job() -> dict:
         return {"status": "error", "error": str(exc)}
 
 
+async def settle_cash_transactions_job() -> dict[str, Any]:
+    """Feature C (24/abr): liquida transacoes pending com settlement_date <= hoje.
+
+    - trade_buy / trade_sell → D+1 (B3 T+1)
+    - rf_redeem → D+liquidity_days do titulo
+    - Outras pendentes criadas manualmente
+
+    Atualiza account_transactions.status='settled' + cash_balance da conta.
+    Idempotente (re-rodar nao muda nada — tx ja settled e skip).
+    """
+    try:
+        from finanalytics_ai.infrastructure.database.repositories.wallet_repo import WalletRepository
+        from datetime import date as _date
+
+        repo = WalletRepository()
+        count = await repo.settle_due_transactions(_date.today())
+        logger.info("scheduler.settle_cash.done", settled=count)
+        _record("settle_cash", "ok")
+        return {"status": "ok", "settled": count, "date": _date.today().isoformat()}
+    except Exception as exc:  # noqa: BLE001
+        logger.error("scheduler.settle_cash.failed", error=str(exc), exc_info=True)
+        _record("settle_cash", "error")
+        return {"status": "error", "error": str(exc)}
+
+
 async def reconcile_job() -> dict[str, Any]:
     """V4 (21/abr): chama GET /positions/dll no profit_agent.
 
@@ -696,6 +721,23 @@ async def schedule_loop() -> None:
             await asyncio.sleep(wait)
             await cleanup_event_records_job()
 
+    async def settle_cash_loop() -> None:
+        # Feature C5 (24/abr): liquida tx pending com settlement_date <= today.
+        # Roda 00:05 BRT + mais uma vez 09:00 BRT (antes do pregao abrir).
+        import os as _os_sc
+        settle_hour = int(_os_sc.getenv("SCHEDULER_SETTLE_HOUR", "0"))  # 00 BRT default
+        logger.info("scheduler.settle_cash.start", daily_hour=settle_hour)
+        while True:
+            next_run = _next_run_utc(settle_hour)
+            wait = _seconds_until(next_run)
+            logger.info(
+                "scheduler.settle_cash.next",
+                next_utc=next_run.isoformat(),
+                wait_min=round(wait / 60),
+            )
+            await asyncio.sleep(wait)
+            await settle_cash_transactions_job()
+
     async def reconcile_loop() -> None:
         # V4: interval-based em vez de daily — roda a cada N min,
         # silenciosamente skippa fora do pregao via reconcile_job().
@@ -746,6 +788,10 @@ async def schedule_loop() -> None:
         tasks.append(asyncio.create_task(cleanup_loop()))
     if RECONCILE_ENABLED:
         tasks.append(asyncio.create_task(reconcile_loop()))
+    # Feature C5: liquidacao diaria (on by default, simples e idempotente)
+    import os as _os_sc
+    if _os_sc.getenv("SCHEDULER_SETTLE_CASH_ENABLED", "true").lower() == "true":
+        tasks.append(asyncio.create_task(settle_cash_loop()))
 
     if not tasks:
         logger.warning(

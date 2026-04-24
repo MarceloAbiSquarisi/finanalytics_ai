@@ -263,6 +263,107 @@ class RealOperationsRequest(BaseModel):
     allowed: bool = Field(..., description="TRUE libera envio de ordens reais pela conta")
 
 
+# ── Feature C: cash ledger (depositos, saques, resumo) ────────────────────
+
+
+class CashMoveRequest(BaseModel):
+    amount: float = Field(..., gt=0, description="Valor em BRL (sempre positivo)")
+    reference_date: str | None = Field(None, description="YYYY-MM-DD — default hoje")
+    note: str | None = Field(None, max_length=300)
+
+
+@router.post("/accounts/{account_id}/deposit")
+async def deposit(
+    account_id: str,
+    body: CashMoveRequest,
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Credita cash na conta. Status=settled imediato (dinheiro ja entrou)."""
+    from datetime import date as _date
+    ref = _date.fromisoformat(body.reference_date) if body.reference_date else _date.today()
+    from decimal import Decimal as _Dec
+    tx = await _repo().create_transaction(
+        user_id=str(user.user_id),
+        account_id=account_id,
+        tx_type="deposit",
+        amount=_Dec(str(body.amount)),
+        reference_date=ref,
+        settlement_date=ref,
+        status="settled",
+        note=body.note,
+    )
+    return tx
+
+
+@router.post("/accounts/{account_id}/withdraw")
+async def withdraw(
+    account_id: str,
+    body: CashMoveRequest,
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Debita cash da conta. Permite saldo negativo (com aviso no response)."""
+    from datetime import date as _date
+    from decimal import Decimal as _Dec
+
+    ref = _date.fromisoformat(body.reference_date) if body.reference_date else _date.today()
+    amount = -_Dec(str(body.amount))  # debito = negativo
+    summary = await _repo().get_cash_summary(account_id, str(user.user_id))
+    if not summary:
+        raise HTTPException(404, "Conta não encontrada")
+    will_be = summary["cash_balance"] + float(amount)
+    tx = await _repo().create_transaction(
+        user_id=str(user.user_id),
+        account_id=account_id,
+        tx_type="withdraw",
+        amount=amount,
+        reference_date=ref,
+        settlement_date=ref,
+        status="settled",
+        note=body.note,
+    )
+    tx["warning"] = (
+        f"Saldo ficará negativo (R$ {will_be:.2f}). Considere aportar antes."
+        if will_be < 0
+        else None
+    )
+    return tx
+
+
+@router.get("/accounts/{account_id}/cash-summary")
+async def cash_summary(account_id: str, user: User = Depends(get_current_user)) -> dict:
+    """cash_balance + pending_in + pending_out + available_to_invest."""
+    data = await _repo().get_cash_summary(account_id, str(user.user_id))
+    if not data:
+        raise HTTPException(404, "Conta não encontrada")
+    return data
+
+
+@router.get("/accounts/{account_id}/transactions")
+async def list_account_transactions(
+    account_id: str,
+    status_filter: str | None = Query(None, alias="status", description="pending|settled|cancelled"),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    user: User = Depends(get_current_user),
+) -> list[dict]:
+    return await _repo().list_transactions(
+        user_id=str(user.user_id),
+        account_id=account_id,
+        status=status_filter,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.post("/transactions/{tx_id}/cancel")
+async def cancel_transaction(tx_id: str, user: User = Depends(get_current_user)) -> dict:
+    """Cancela tx. Se settled, reverte o efeito no cash_balance."""
+    tx = await _repo().cancel_transaction(tx_id, str(user.user_id))
+    if not tx:
+        raise HTTPException(404, "Transação não encontrada")
+    return tx
+
+
 @router.patch("/accounts/{account_id}/real-operations")
 async def set_real_operations(
     account_id: str,
