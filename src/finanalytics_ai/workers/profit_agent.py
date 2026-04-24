@@ -1378,13 +1378,15 @@ class ProfitAgent:
                 from datetime import datetime
 
                 self._total_ticks += 1
+                _exch_legacy = asset_id.bolsa or "B"
+                self._last_tick_at[f"{ticker}:{_exch_legacy}"] = datetime.now(tz=UTC)
 
                 self._db_queue.put_nowait(
                     {
                         "_type": "tick",
                         "time": datetime.now(tz=UTC),
                         "ticker": ticker,
-                        "exchange": asset_id.bolsa or "B",
+                        "exchange": _exch_legacy,
                         "price": price,
                         "quantity": qty,
                         "volume": vol,
@@ -2127,6 +2129,7 @@ class ProfitAgent:
             now = datetime.now(tz=UTC)
 
             agent._total_ticks += 1
+            agent._last_tick_at[f"{ticker}:{asset_id.Exchange or 'B'}"] = now
 
             try:
                 agent._db_queue.put_nowait(
