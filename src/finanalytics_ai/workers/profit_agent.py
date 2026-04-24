@@ -1219,6 +1219,9 @@ class ProfitAgent:
         # Contadores
 
         self._total_ticks = 0
+        # D6 (24/abr): DLL retorna 0 em SubscribeTicker mesmo para ticker inexistente
+        # — precisamos rastrear ticks recebidos para validar. Chave "TICKER:EXCHANGE".
+        self._last_tick_at: dict[str, datetime] = {}
 
         self._total_orders = 0
 
@@ -1698,12 +1701,18 @@ class ProfitAgent:
 
         log.info("profit_agent.v2_callbacks_registered")
 
-    def _subscribe(self, ticker: str, exchange: str = "B") -> None:
+    def _subscribe(self, ticker: str, exchange: str = "B") -> tuple[bool, int]:
+        """Subscreve ticker na DLL. Retorna (sucesso, ret_code_dll).
 
+        ret_code_dll != 0 tipicamente indica:
+          - ticker inexistente no feed
+          - licenca nao permite (limite de subscricoes atingido)
+          - mercado especifico nao liberado
+        """
         key = f"{ticker}:{exchange}"
 
         if key in self._subscribed:
-            return
+            return True, 0  # ja subscrito — idempotente
 
         ret_t = self._dll.SubscribeTicker(c_wchar_p(ticker), c_wchar_p(exchange))
 
@@ -1723,11 +1732,11 @@ class ProfitAgent:
 
         if ret_t == 0:
             self._subscribed.add(key)
-
             log.info("profit_agent.subscribed ticker=%s exchange=%s", ticker, exchange)
+            return True, 0
 
-        else:
-            log.warning("profit_agent.subscribe_failed ticker=%s ret=%d", ticker, ret_t)
+        log.warning("profit_agent.subscribe_failed ticker=%s ret=%d", ticker, ret_t)
+        return False, ret_t
 
     # ------------------------------------------------------------------
 
@@ -1940,6 +1949,7 @@ class ProfitAgent:
             agent._total_ticks += 1
 
             now = datetime.now(tz=UTC)
+            agent._last_tick_at[f"{ticker}:{asset_id.bolsa or 'B'}"] = now
 
             try:
                 agent._db_queue.put_nowait(
@@ -4495,11 +4505,36 @@ class ProfitAgent:
 
                 elif self.path == "/tickers":
                     full = agent._db.list_tickers_full() if agent._db else []
+                    # Enriquece com: subscribed (set DLL) + has_recent_data (ticks recentes) + last_tick_age_sec
+                    _now = datetime.now(tz=UTC)
+                    for _row in full:
+                        _key = f"{_row.get('ticker','')}:{_row.get('exchange','')}"
+                        _row["subscribed"] = _key in agent._subscribed
+                        _last = agent._last_tick_at.get(_key)
+                        if _last:
+                            _age = int((_now - _last).total_seconds())
+                            _row["last_tick_age_sec"] = _age
+                            _row["has_recent_data"] = _age <= 600  # 10min = mercado ativo
+                        else:
+                            _row["last_tick_age_sec"] = None
+                            _row["has_recent_data"] = False
 
                     self._send_json({"tickers": full, "count": len(full)})
 
                 elif self.path == "/tickers/active":
                     active = agent._db.list_tickers_full(only_active=True) if agent._db else []
+                    _now = datetime.now(tz=UTC)
+                    for _row in active:
+                        _key = f"{_row.get('ticker','')}:{_row.get('exchange','')}"
+                        _row["subscribed"] = _key in agent._subscribed
+                        _last = agent._last_tick_at.get(_key)
+                        if _last:
+                            _age = int((_now - _last).total_seconds())
+                            _row["last_tick_age_sec"] = _age
+                            _row["has_recent_data"] = _age <= 600
+                        else:
+                            _row["last_tick_age_sec"] = None
+                            _row["has_recent_data"] = False
 
                     self._send_json({"tickers": active, "count": len(active)})
 
@@ -4738,10 +4773,17 @@ class ProfitAgent:
 
                         # Subscreve em tempo real se active=True
 
+                        _dll_ok, _dll_ret = (True, 0)
                         if ok and body.get("active", True):
-                            agent._subscribe(tkr, exch)
+                            _dll_ok, _dll_ret = agent._subscribe(tkr, exch)
 
-                        self._send_json({"ok": ok, "ticker": tkr, "exchange": exch})
+                        self._send_json({
+                            "ok": ok,
+                            "ticker": tkr,
+                            "exchange": exch,
+                            "dll_subscribed": _dll_ok,
+                            "dll_ret": _dll_ret,
+                        })
 
                 elif self.path == "/tickers/remove":
                     self._send_json(agent.unsubscribe_ticker(body))
@@ -4759,10 +4801,17 @@ class ProfitAgent:
 
                         _ok = agent._db.toggle_ticker(_tkr, _exch, _act)
 
+                        _dll_ok, _dll_ret = (True, 0)
                         if _ok and _act:
-                            agent._subscribe(_tkr, _exch)
+                            _dll_ok, _dll_ret = agent._subscribe(_tkr, _exch)
 
-                        self._send_json({"ok": _ok, "ticker": _tkr, "active": _act})
+                        self._send_json({
+                            "ok": _ok,
+                            "ticker": _tkr,
+                            "active": _act,
+                            "dll_subscribed": _dll_ok,
+                            "dll_ret": _dll_ret,
+                        })
 
                 elif self.path == "/collect_history":
                     _t0 = time.time()

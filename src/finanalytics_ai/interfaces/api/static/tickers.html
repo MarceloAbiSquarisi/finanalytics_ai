@@ -65,6 +65,7 @@ tr:hover td{background:rgba(0,212,255,.02)}
 .badge-on{background:rgba(0,230,118,.1);color:var(--green);border:1px solid rgba(0,230,118,.2)}
 .badge-off{background:rgba(255,61,90,.1);color:var(--red);border:1px solid rgba(255,61,90,.2)}
 .badge-warn{background:rgba(251,191,36,.1);color:var(--gold);border:1px solid rgba(251,191,36,.2)}
+.badge-error{background:rgba(255,61,90,.1);color:var(--red);border:1px solid rgba(255,61,90,.3)}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;display:none;align-items:center;justify-content:center}
 .modal-overlay.open{display:flex}
 .modal{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:24px;width:420px;max-width:95vw}
@@ -223,11 +224,11 @@ tr:hover td{background:rgba(0,212,255,.02)}
   </div>
 
   <div class="stat-row" id="statRow">
-    <div class="stat-card"><div class="stat-label">Market Data</div><div class="stat-value" id="statMarket">--</div></div>
-    <div class="stat-card"><div class="stat-label">Roteamento</div><div class="stat-value" id="statRouting">--</div></div>
-    <div class="stat-card"><div class="stat-label">Total Ticks</div><div class="stat-value" id="statTicks">--</div></div>
-    <div class="stat-card"><div class="stat-label">Fila DB</div><div class="stat-value" id="statQueue">--</div></div>
-    <div class="stat-card"><div class="stat-label">Tickers no DB</div><div class="stat-value" id="statCount">--</div></div>
+    <div class="stat-card" title="Conexao com o servidor de cotacoes da Nelogica (market data). ON = recebendo feed de precos em tempo real."><div class="stat-label">Market Data</div><div class="stat-value" id="statMarket">--</div></div>
+    <div class="stat-card" title="Conexao com a corretora para envio de ordens (roteamento). ON = pode enviar ordens. OFF = so market data."><div class="stat-label">Roteamento</div><div class="stat-value" id="statRouting">--</div></div>
+    <div class="stat-card" title="Total de negociacoes (trades) recebidas via market data desde o inicio da sessao do profit_agent."><div class="stat-label">Total Ticks</div><div class="stat-value" id="statTicks">--</div></div>
+    <div class="stat-card" title="Ticks aguardando gravacao no TimescaleDB. Valores altos (>10k) indicam gargalo de persistencia."><div class="stat-label">Fila DB</div><div class="stat-value" id="statQueue">--</div></div>
+    <div class="stat-card" title="Quantos tickers estao realmente subscritos na DLL recebendo ticks em tempo real (limite varia por licenca Nelogica)."><div class="stat-label">Tickers no DB</div><div class="stat-value" id="statCount">--</div></div>
   </div>
 
   <div class="sec-header">
@@ -238,13 +239,19 @@ tr:hover td{background:rgba(0,212,255,.02)}
     </button>
   </div>
 
+  <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
+    <input id="tickerFilter" placeholder="🔎 Filtrar ticker (ex: PETR, VALE...)" oninput="filterTickers(this.value)"
+      style="flex:1;padding:8px 12px;background:#080c14;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:14px">
+    <span id="tickerFilterCount" style="font-size:12px;color:var(--muted);font-family:monospace;white-space:nowrap"></span>
+  </div>
+
   <div class="tbl-wrap">
     <table data-fa-table>
       <thead>
         <tr>
           <th>Ticker</th>
           <th>Exchange</th>
-          <th>Status DLL</th>
+          <th>Status Coleta</th>
           <th>Notas</th>
           <th>Acao</th>
         </tr>
@@ -369,7 +376,7 @@ async function loadStatus() {
     document.getElementById('statRouting').textContent = s.routing_connected ? 'ON' : 'OFF';
     document.getElementById('statRouting').className   = 'stat-value ' + (s.routing_connected ? 'ok' : 'err');
     document.getElementById('statTicks').textContent   = (s.total_ticks || 0).toLocaleString('pt-BR');
-    document.getElementById('statQueue').textContent   = s.db_queue_size || 0;
+    document.getElementById('statQueue').textContent   = (s.db_queue_size || 0).toLocaleString('pt-BR');
     document.getElementById('statCount').textContent   = (s.subscribed_tickers || []).length;
 
     if (s.market_connected) {
@@ -407,18 +414,46 @@ async function loadTickers() {
         cta: { label: '+ Adicionar Ticker', variant: 'primary', onClick: "openModal('modalAdd')" } });
       return;
     }
-    var html = '';
+    // Ordena: coletando (subscribed+recent) > subscrito s/ ticks > inativos alfabetico
+    tickers.sort(function(a, b) {
+      var aScore = (a.subscribed ? 2 : 0) + (a.has_recent_data ? 1 : 0);
+      var bScore = (b.subscribed ? 2 : 0) + (b.has_recent_data ? 1 : 0);
+      if (aScore !== bScore) return bScore - aScore;
+      return (a.ticker || '').localeCompare(b.ticker || '');
+    });
+    var activeCount = tickers.filter(function(t){ return t.subscribed && t.has_recent_data; }).length;
+    var waitingCount = tickers.filter(function(t){ return t.subscribed && !t.has_recent_data; }).length;
+    var inactiveCount = tickers.filter(function(t){ return !t.subscribed; }).length;
+    var html = '<tr><td colspan="5" style="padding:8px 14px;background:rgba(0,212,255,.04);color:var(--muted);font-size:12px;border-bottom:1px solid var(--border)">'
+      + '<span style="display:inline-flex;align-items:center;gap:12px;flex-wrap:wrap">'
+      +   '<span><strong style="color:var(--green)">' + activeCount + '</strong> coletando</span>'
+      + (waitingCount > 0 ? '<span><strong style="color:var(--gold)">' + waitingCount + '</strong> aguardando feed</span>' : '')
+      +   '<span><strong style="color:var(--muted)">' + inactiveCount + '</strong> inativos</span>'
+      + (inactiveCount > 0 ? '<button class="btn btn-sm" style="background:transparent;border:1px solid var(--green);color:var(--green);padding:3px 10px;margin-left:8px" onclick="activateBulk(10)" title="Ativa os proximos 10 tickers inativos (respeite limite da licenca!)">+ Ativar próximos 10 inativos</button>' : '')
+      + '</span></td></tr>';
     for (var i = 0; i < tickers.length; i++) {
       var t = tickers[i];
-      var badge = t.subscribed
-        ? '<span class="badge badge-on">Subscrito</span>'
-        : '<span class="badge badge-warn">Pendente</span>';
+      var badge;
+      if (t.subscribed && t.has_recent_data) {
+        badge = '<span class="badge badge-on" title="Recebendo ticks em tempo real. Ultimo tick: ' + (t.last_tick_age_sec || 0) + 's atras">● Coleta Ativa</span>';
+      } else if (t.subscribed) {
+        // Subscribed mas sem ticks = ticker invalido OU mercado fechado OU licenca insuficiente
+        badge = '<span class="badge badge-warn" title="Subscribed na DLL mas sem ticks recentes. Pode ser ticker inexistente, mercado fechado, ou feed nao autorizado pela licenca.">⌛ Aguardando feed</span>';
+      } else if (t.active) {
+        badge = '<span class="badge badge-error" title="Marcado active=true no banco mas a DLL nunca confirmou o subscribe. Veja logs do profit_agent.">⚠ Falha DLL</span>';
+      } else {
+        badge = '<span class="badge badge-warn" title="Cadastrado no banco mas nao subscrito na DLL. Clique Ativar para subscrever.">○ Inativo</span>';
+      }
+      var actionBtn = t.subscribed
+        ? '<button class="btn btn-sm" style="background:transparent;border:1px solid var(--muted);color:var(--muted);margin-right:4px" onclick="toggleTicker(\'' + t.ticker + '\',\'' + t.exchange + '\',false)" title="Desativar subscricao">Desativar</button>'
+        : '<button class="btn btn-sm" style="background:transparent;border:1px solid var(--green);color:var(--green);margin-right:4px" onclick="toggleTicker(\'' + t.ticker + '\',\'' + t.exchange + '\',true)" title="Subscrever em realtime na DLL">Ativar</button>';
       html += '<tr>'
         + '<td><strong style="color:#e2eaf4;font-family:monospace;font-size:17px">' + t.ticker + '</strong></td>'
         + '<td><span style="font-family:monospace;color:var(--muted)">' + t.exchange + '</span></td>'
         + '<td>' + badge + '</td>'
         + '<td style="color:var(--muted)">' + (t.notes || '--') + '</td>'
-        + '<td><button class="btn btn-sm btn-danger" onclick="removeTicker(\'' + t.ticker + '\',\'' + t.exchange + '\')">Remover</button></td>'
+        + '<td>' + actionBtn
+        + '<button class="btn btn-sm btn-danger" onclick="removeTicker(\'' + t.ticker + '\',\'' + t.exchange + '\')">Remover</button></td>'
         + '</tr>';
     }
     tb.innerHTML = html;
@@ -451,6 +486,97 @@ async function addTicker() {
   } catch(e) {
     showMsg('addMsg', 'Profit Agent inacessivel.', 'error');
   }
+}
+
+async function toggleTicker(ticker, exchange, active) {
+  var toast = window.FAToast;
+  if (toast) toast.info((active ? 'Ativando ' : 'Desativando ') + ticker + '...');
+  try {
+    var res = await fetch(AGENT + '/tickers/toggle', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ticker: ticker, exchange: exchange, active: active})
+    });
+    var data = await res.json();
+    if (!data.ok) {
+      if (toast) toast.err('Erro: ' + (data.error || JSON.stringify(data)));
+      return;
+    }
+    // Alerta se DB=OK mas DLL recusou subscribe (licenca cheia / ticker invalido)
+    if (active && data.dll_subscribed === false) {
+      if (toast) toast.warn(ticker + ': DB atualizado mas DLL RECUSOU (ret=' + (data.dll_ret || '?') + '). Veja logs.');
+      console.warn('[toggleTicker] DLL subscribe failed', data);
+    } else if (toast) {
+      toast.ok(ticker + (active ? ' ativado.' : ' desativado.'));
+    }
+    // Delay pequeno: DLL subscribe callback chega em ~100-300ms
+    await new Promise(r => setTimeout(r, 400));
+    await loadAll();
+  } catch(e) {
+    console.error('[toggleTicker]', e);
+    if (toast) toast.err('Falha: ' + (e.message || e));
+  }
+}
+
+async function activateBulk(n) {
+  // Pega os primeiros N inativos (ordem alfabetica, conforme ja ordenada na UI)
+  var tb = document.getElementById('tickersTbody');
+  if (!tb) return;
+  // Dispara toggle direto da cache — mas precisamos da lista. Refaz fetch.
+  var toast = window.FAToast;
+  try {
+    var data = await fetch(AGENT + '/tickers').then(r => r.json());
+    var pool = (data.tickers || [])
+      .filter(function(t) { return !t.subscribed; })
+      .slice(0, n);
+    if (!pool.length) { if (toast) toast.info('Sem inativos para ativar.'); return; }
+    if (toast) toast.info('Ativando ' + pool.length + ' tickers...');
+    var okCount = 0, dllFail = 0, failed = [];
+    for (var i = 0; i < pool.length; i++) {
+      var t = pool[i];
+      try {
+        var res = await fetch(AGENT + '/tickers/toggle', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ticker: t.ticker, exchange: t.exchange, active: true}),
+        });
+        var d = await res.json();
+        if (d.ok) {
+          okCount++;
+          if (d.dll_subscribed === false) dllFail++;
+        } else {
+          failed.push(t.ticker);
+        }
+      } catch(_) { failed.push(t.ticker); }
+    }
+    if (toast) {
+      var msg = okCount + ' ativados';
+      if (dllFail > 0) msg += ' (' + dllFail + ' com falha DLL)';
+      if (failed.length) msg += ' · ' + failed.length + ' falharam';
+      toast.ok(msg);
+    }
+    await loadAll();
+  } catch(e) {
+    if (toast) toast.err('Falha no bulk: ' + (e.message || e));
+  }
+}
+
+function filterTickers(query) {
+  var q = (query || '').trim().toUpperCase();
+  var tb = document.getElementById('tickersTbody');
+  if (!tb) return;
+  var rows = tb.querySelectorAll('tr');
+  var shown = 0, hidden = 0;
+  rows.forEach(function(r) {
+    // Pula header/summary row (colspan 5)
+    if (r.querySelector('td[colspan]')) return;
+    var text = r.textContent.toUpperCase();
+    var match = !q || text.indexOf(q) !== -1;
+    r.style.display = match ? '' : 'none';
+    if (match) shown++; else hidden++;
+  });
+  var lbl = document.getElementById('tickerFilterCount');
+  if (lbl) lbl.textContent = q ? (shown + ' visíveis · ' + hidden + ' ocultos') : '';
 }
 
 async function removeTicker(ticker, exchange) {
