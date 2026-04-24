@@ -350,10 +350,13 @@ tr:hover td{background:rgba(0,212,255,.015)}
     <div class="section">
       <div class="sec-header">
         <div class="sec-title">Profit Agent (Nelogica)</div>
-        <a href="/profit-tickers" style="font-size:14px;color:var(--accent);text-decoration:none;display:flex;align-items:center;gap:4px">
-          <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          Gerenciar Tickers
-        </a>
+        <div style="display:flex;gap:10px;align-items:center">
+          <button class="btn-restart" onclick="restartProfitAgent()" title="Reinicia o profit_agent (requer senha)">⟳ Reiniciar Agent</button>
+          <a href="/profit-tickers" style="font-size:14px;color:var(--accent);text-decoration:none;display:flex;align-items:center;gap:4px">
+            <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            Gerenciar Tickers
+          </a>
+        </div>
       </div>
       <div class="tbl-wrap">
         <table data-fa-table>
@@ -429,6 +432,54 @@ async function loadProfitAgent() {
       '<tr><td>Fila DB</td><td><span style="font-family:monospace;color:' + (s.db_queue_size > 1000 ? 'var(--red)' : 'var(--green)') + '">' + (s.db_queue_size || 0) + '</span></td><td style="font-size:14px;color:var(--muted)">Registros aguardando gravacao</td></tr>';
   } catch(e) {
     tb.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--red)">Profit Agent offline (localhost:8002 inacessivel)</td></tr>';
+  }
+}
+
+async function restartProfitAgent() {
+  if (!window.FASudo) {
+    if (window.FAToast) FAToast.err('Helper sudo nao carregado.'); return;
+  }
+  try {
+    await FASudo.fetchJson('/api/v1/agent/restart', {
+      method: 'POST',
+      sudoTitle: 'Reiniciar Profit Agent',
+      sudoMessage: 'Isso vai encerrar o processo atual. Com NSSM instalado, reinicia em 2-5s. Digite sua senha para confirmar.',
+    });
+    if (window.FAToast) FAToast.ok('Comando enviado. Agent reiniciando...');
+
+    // Marca badge como OFF imediatamente (processo morreu ou vai morrer)
+    var badge = document.getElementById('badge-profit');
+    if (badge) { badge.textContent = '...'; badge.className = 'infra-badge badge-warning'; }
+    var tb = document.getElementById('profitTbody');
+    if (tb) tb.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--muted)">Aguardando agent voltar...</td></tr>';
+
+    // Poll a cada 1s ate /health responder 200 (ou desiste apos 30s)
+    var started = Date.now();
+    var pollId = setInterval(function() {
+      fetch('/api/v1/agent/health').then(function(r) {
+        if (r.ok) {
+          clearInterval(pollId);
+          if (window.FAToast) FAToast.ok('Agent online.');
+          loadProfitAgent();
+          checkInfra();
+        } else if (Date.now() - started > 30000) {
+          clearInterval(pollId);
+          if (window.FAToast) FAToast.warn('Agent nao voltou em 30s. Verifique NSSM / logs.');
+          loadProfitAgent();
+          checkInfra();
+        }
+      }).catch(function() {
+        if (Date.now() - started > 30000) {
+          clearInterval(pollId);
+          if (window.FAToast) FAToast.err('Agent offline apos 30s. Verifique NSSM / logs.');
+          loadProfitAgent();
+          checkInfra();
+        }
+      });
+    }, 1000);
+  } catch(e) {
+    if (e && e.cancelled) return;  // usuario cancelou o modal
+    if (window.FAToast) FAToast.err('Falha ao reiniciar: ' + (e.message || e));
   }
 }
 
@@ -567,7 +618,14 @@ async function checkInfra() {
       if (!el) return;
       var ctrl = new AbortController();
       var tid = setTimeout(function(){ ctrl.abort(); }, 2000);
-      fetch(item.url, {signal: ctrl.signal, mode: 'no-cors'})
+      // Same-origin (/...): checa .ok real. Cross-origin: no-cors (opaque, "responde a porta")
+      var sameOrigin = item.url.charAt(0) === '/';
+      var fetchOpts = sameOrigin ? {signal: ctrl.signal} : {signal: ctrl.signal, mode: 'no-cors'};
+      fetch(item.url, fetchOpts)
+        .then(function(r) {
+          if (sameOrigin && !r.ok) throw new Error('HTTP ' + r.status);
+          return r;
+        })
         .then(function() {
           clearTimeout(tid);
           el.textContent = 'UP';
@@ -663,6 +721,7 @@ init();
 </script>
 <script src="/static/sidebar.js"></script>
   <script src="/static/modal.js"></script>
+  <script src="/static/sudo.js"></script>
   <script src="/static/form_validate.js"></script>
   <script src="/static/i18n.js"></script>
   <script src="/static/theme_toggle.js"></script>

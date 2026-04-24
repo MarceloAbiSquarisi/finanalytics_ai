@@ -111,6 +111,69 @@ async def get_current_user(
     return user
 
 
+async def require_sudo(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> User:
+    """
+    Exige sudo_token valido no header X-Sudo-Token. Uso:
+        @router.post(..., dependencies=[Depends(require_sudo)])
+    ou:
+        async def handler(user: User = Depends(require_sudo)): ...
+
+    Fluxo esperado do cliente:
+      1. Chama POST /api/v1/auth/sudo com {password} -> recebe sudo_token (5min)
+      2. Chama endpoint destrutivo com header X-Sudo-Token: <token>
+
+    Erros:
+      401 "Sudo confirmation required" -> cliente deve abrir modal FASudo
+      401 "Sudo token expired"         -> cliente renova via /auth/sudo
+      403 "Sudo user mismatch"         -> token nao pertence ao usuario logado
+    """
+    from finanalytics_ai.domain.auth.entities import TokenExpiredError, TokenInvalidError
+    from finanalytics_ai.infrastructure.auth.jwt_handler import get_jwt_handler
+    from finanalytics_ai.infrastructure.database.repositories.user_repo import UserRepository
+
+    token = request.headers.get("X-Sudo-Token") or request.headers.get("x-sudo-token")
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sudo confirmation required.",
+            headers={"X-Sudo-Required": "true"},
+        )
+    try:
+        payload = get_jwt_handler().decode(token)
+    except TokenExpiredError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sudo token expired.",
+            headers={"X-Sudo-Required": "true"},
+        ) from None
+    except TokenInvalidError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sudo token invalid.",
+            headers={"X-Sudo-Required": "true"},
+        ) from None
+
+    if payload.token_type != "sudo":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type for sudo.",
+            headers={"X-Sudo-Required": "true"},
+        )
+    if payload.sub != current_user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Sudo user mismatch.",
+        )
+    user = await UserRepository(session).find_by_id(payload.sub)
+    if user is None or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User inactive.")
+    return user
+
+
 async def get_portfolio_service(
     session: AsyncSession = Depends(get_db_session), brapi: BrapiClient = Depends(get_brapi_client)
 ) -> PortfolioService:

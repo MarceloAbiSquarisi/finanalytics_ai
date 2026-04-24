@@ -87,6 +87,12 @@ class JWTHandler:
         """Token temporário (5min) para aguardar código TOTP."""
         return self._create_token(user, "totp_pending", timedelta(minutes=5))
 
+    def create_sudo_token(self, user: User, ttl_minutes: int = 5) -> str:
+        """Token sudo (padrao 5min) para confirmacao de acoes destrutivas.
+        Emitido so apos re-autenticacao por senha via POST /api/v1/auth/sudo.
+        Consumido por Depends(require_sudo)."""
+        return self._create_token(user, "sudo", timedelta(minutes=ttl_minutes))
+
     def create_token_pair_remember(self, user: User) -> TokenPair:
         """Token pair com access de 24h para remember_me=True."""
         access = self._create_token(user, "access", timedelta(hours=24))

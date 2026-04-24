@@ -1583,9 +1583,10 @@ class ProfitAgent:
             self._db.seed_tickers_from_env(self._subscribe_tickers)
 
         else:
-            log.warning("profit_agent.db_unavailable continuing_without_persistence")
-
-            self._db = None
+            # NAO setar self._db = None — mantem o DBWriter instanciado para permitir
+            # reconect lazy via _ensure_connected() nos handlers. Persistencia fica
+            # desativada temporariamente, reativa automaticamente quando DB voltar.
+            log.warning("profit_agent.db_initial_connect_failed continuing_with_lazy_reconnect")
 
         # 6. Inicia worker de DB em thread separada
 
@@ -4673,6 +4674,25 @@ class ProfitAgent:
 
                 body = self._read_body()
 
+                if self.path == "/restart":
+                    # Mata o processo; watchdog (NSSM) reinicia em 2-5s.
+                    # Sem NSSM, o profit_agent fica offline ate start manual.
+                    # Protecao de auth feita no proxy FastAPI (require_sudo).
+                    import os as _os_r
+                    import threading as _th_r
+
+                    self._send_json({"ok": True, "message": "restarting"})
+                    log.warning("profit_agent.restart_requested via_http")
+
+                    def _exit_soon():
+                        import time as _tm_r
+
+                        _tm_r.sleep(0.5)  # deixa resposta HTTP chegar no cliente
+                        _os_r._exit(0)
+
+                    _th_r.Thread(target=_exit_soon, daemon=True).start()
+                    return
+
                 if self.path == "/order/send":
                     self._send_json(agent._send_order_legacy(body))
 
@@ -4699,7 +4719,7 @@ class ProfitAgent:
 
                     #        "subscribe_book":false,"priority":10,"notes":"..."}
 
-                    if not agent._db:
+                    if not agent._db or not agent._db._ensure_connected():
                         self._send_json({"error": "db_unavailable"}, 503)
 
                     else:
@@ -4727,7 +4747,7 @@ class ProfitAgent:
                     self._send_json(agent.unsubscribe_ticker(body))
 
                 elif self.path == "/tickers/toggle":
-                    if not agent._db:
+                    if not agent._db or not agent._db._ensure_connected():
                         self._send_json({"error": "db_unavailable"}, 503)
 
                     else:
@@ -4755,7 +4775,7 @@ class ProfitAgent:
 
                     #        "collect_from":"2026-01-01 09:00:00","notes":"..."}
 
-                    if not agent._db:
+                    if not agent._db or not agent._db._ensure_connected():
                         self._send_json({"error": "db_unavailable"}, 503)
 
                     else:
@@ -4772,7 +4792,7 @@ class ProfitAgent:
                 elif self.path == "/history/tickers/toggle":
                     # Body: {"ticker":"WINFUT","exchange":"F","active":false}
 
-                    if not agent._db:
+                    if not agent._db or not agent._db._ensure_connected():
                         self._send_json({"error": "db_unavailable"}, 503)
 
                     else:
@@ -4789,7 +4809,7 @@ class ProfitAgent:
 
                     # Body opcional: {"timeout": 300}
 
-                    if not agent._db:
+                    if not agent._db or not agent._db._ensure_connected():
                         self._send_json({"error": "db_unavailable"}, 503)
 
                         return

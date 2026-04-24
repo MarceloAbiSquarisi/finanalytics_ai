@@ -12,9 +12,12 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 import httpx
 import structlog
+
+from finanalytics_ai.domain.auth.entities import User
+from finanalytics_ai.interfaces.api.dependencies import require_sudo
 
 logger = structlog.get_logger(__name__)
 
@@ -321,3 +324,17 @@ async def agent_history_tickers_add(body: dict):
 @router.post("/history/tickers/toggle", tags=["Agent"])
 async def agent_history_tickers_toggle(body: dict):
     return await _post("/history/tickers/toggle", body)
+
+
+# ── Controle (requer sudo) ────────────────────────────────────────────────────
+
+
+@router.post("/restart", tags=["Agent"])
+async def agent_restart(user: User = Depends(require_sudo)):
+    """
+    Reinicia o profit_agent no host Windows. Requer X-Sudo-Token valido
+    (5min, obtido via POST /api/v1/auth/sudo apos re-autenticar senha).
+    Com NSSM instalado, o watchdog recria o processo em 2-5s.
+    """
+    logger.warning("agent.restart.requested", user=user.email)
+    return await _post("/restart", {})

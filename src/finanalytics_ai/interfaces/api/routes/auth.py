@@ -158,6 +158,41 @@ async def logout(current_user: User = Depends(get_current_user)) -> None:
     logger.info("auth.logout", user_id=current_user.user_id)
 
 
+# ── Sudo mode (re-autenticacao para acoes destrutivas) ─────────────────────────
+
+
+class SudoRequest(BaseModel):
+    password: str = Field(..., min_length=1, max_length=128)
+    ttl_minutes: int = Field(default=5, ge=1, le=15)
+
+
+class SudoResponse(BaseModel):
+    sudo_token: str
+    expires_in: int
+
+
+@router.post("/sudo", response_model=SudoResponse)
+async def sudo_confirm(
+    body: SudoRequest,
+    current_user: User = Depends(get_current_user),
+) -> SudoResponse:
+    """
+    Re-autentica o usuario logado via senha e emite sudo_token (JWT tipo 'sudo',
+    padrao 5min). Deve ser chamado ANTES de qualquer acao destrutiva; o cliente
+    envia o sudo_token no header X-Sudo-Token. Inspirado no GitHub sudo mode.
+    """
+    hasher = get_password_hasher()
+    if not hasher.verify(body.password, current_user.hashed_password):
+        logger.warning("auth.sudo.failed", user_id=current_user.user_id)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Senha incorreta.",
+        )
+    token = get_jwt_handler().create_sudo_token(current_user, ttl_minutes=body.ttl_minutes)
+    logger.info("auth.sudo.granted", user_id=current_user.user_id, ttl=body.ttl_minutes)
+    return SudoResponse(sudo_token=token, expires_in=body.ttl_minutes * 60)
+
+
 # ── Reset de Senha ────────────────────────────────────────────────────────────
 
 
