@@ -187,48 +187,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as _pe:
         logger.warning("pushover.subscriber.FAILED", error=str(_pe))
 
-    # ── AccountService ────────────────────────────────────────────────────────
-    try:
-        from finanalytics_ai.infrastructure.database.connection import (
-            get_session_factory as _gsf_acc,
-        )
-        from finanalytics_ai.infrastructure.database.repositories.sql_account_repo import (
-            TradingAccountModel,  # noqa: F401 — registra tabela no metadata
-        )
-
-        _account_service = AccountService(_gsf_acc())
-        logger.info("account_service.ready")
-
-        # Seed: garante conta simulador do .env no banco
-        if settings.profit_sim_broker_id and settings.profit_sim_account_id:
-            try:
-                from finanalytics_ai.domain.accounts import DuplicateAccountError
-
-                await _account_service.create(
-                    {
-                        "broker_id": str(settings.profit_sim_broker_id),
-                        "account_id": str(settings.profit_sim_account_id),
-                        "account_type": "simulator",
-                        "label": "Simulador Nelogica",
-                        "routing_password": settings.profit_sim_routing_password,
-                    }
-                )
-                logger.info("account.seed.created")
-            except DuplicateAccountError:
-                logger.debug("account.seed.exists")
-            except Exception as _se:
-                logger.warning("account.seed.FAILED", error=str(_se))
-
-        # Garante que pelo menos uma conta esteja ativa
-        try:
-            await _account_service.get_active()
-        except Exception:
-            _all_accounts = await _account_service.list()
-            if _all_accounts:
-                await _account_service.set_active(_all_accounts[0].uuid)
-                logger.info("account.auto_activated", uuid=_all_accounts[0].uuid)
-    except Exception as _ace:
-        logger.warning("account_service.FAILED", error=str(_ace))
+    # ── AccountService (DEPRECATED — Unificacao U3 24/abr) ───────────────────
+    # trading_accounts foi unificado em investment_accounts. O agent.py proxy
+    # agora consulta WalletRepository.get_dll_active() em vez de AccountService.
+    # Bloco desativado para permitir DROP TABLE trading_accounts.
+    _account_service = None
+    logger.info("account_service.deprecated use_investment_accounts_instead")
 
     # ── 4. Kafka consumer ─────────────────────────────────────────────────────
     kafka_ok = False

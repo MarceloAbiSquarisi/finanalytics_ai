@@ -328,16 +328,19 @@ tr:hover td{background:rgba(0,212,255,.02)}
 </div>
 </div>
 
-  <!-- CONTAS -->
+  <!-- CONTAS (read-only — CRUD migrado para /profile#invest em 24/abr) -->
   <div class="tab-panel active" id="panel-contas">
     <div class="sec-header">
       <span class="sec-title">Contas de Investimento</span>
-      <button class="btn btn-primary btn-sm" onclick="openModal('modal-account')">+ Nova Conta</button>
+      <a href="/profile#invest" class="btn btn-primary btn-sm" style="text-decoration:none">⚙ Gerenciar em /profile</a>
 </div>
+    <div style="padding:10px 14px;background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.2);border-radius:6px;font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5">
+      Cadastro, edição e exclusão de contas agora ficam em <a href="/profile#invest" style="color:var(--accent)">Perfil › Contas</a>. Aqui você vê a lista apenas para referência.
+    </div>
     <div class="tbl-wrap">
       <table id="tbl-accounts" data-fa-table>
-        <thead><tr><th>Instituição</th><th>Tipo</th><th>Agência</th><th>Conta</th><th>País</th><th>Moeda</th><th>Status</th><th></th></tr></thead>
-        <tbody id="tbody-accounts"><tr><td colspan="8" class="empty">Carregando...</td></tr></tbody>
+        <thead><tr><th>Instituição</th><th>Tipo</th><th>Agência</th><th>Conta</th><th>País</th><th>Moeda</th><th>Status</th></tr></thead>
+        <tbody id="tbody-accounts"><tr><td colspan="7" class="empty">Carregando...</td></tr></tbody>
       </table>
 </div>
 </div>

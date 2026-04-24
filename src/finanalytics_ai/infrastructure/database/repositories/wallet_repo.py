@@ -38,6 +38,17 @@ class InvestmentAccountModel(Base):
     account_type: Mapped[str] = mapped_column(String(30), nullable=False, default="corretora")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Credenciais Profit DLL (unificacao U1, 24/abr) — conta pode ou nao ter conexao DLL
+    dll_broker_id: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    dll_account_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    dll_sub_account_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    dll_routing_password: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dll_account_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # 'real' | 'simulator'
+    is_dll_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Flag ADMIN-only: libera envio de ordens REAIS para esta conta (C3 24/abr).
+    # Default FALSE — conta recem-criada so pode operar simulador ate admin liberar
+    # (evita acidente de rodar estrategia em conta real sem autorizacao).
+    real_operations_allowed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -105,10 +116,17 @@ class OtherAssetModel(Base):
 # ── Helper ────────────────────────────────────────────────────────────────
 
 
-def _model_to_dict(m: Any) -> dict:
+_SENSITIVE_FIELDS: frozenset[str] = frozenset({"dll_routing_password"})
+
+
+def _model_to_dict(m: Any, *, include_sensitive: bool = False) -> dict:
     d = {}
     for c in m.__table__.columns:
         v = getattr(m, c.name)
+        if c.name in _SENSITIVE_FIELDS and not include_sensitive:
+            # Ocultar mas indicar presenca (boolean flag util para UI)
+            d[f"{c.name}_set"] = bool(v)
+            continue
         if isinstance(v, Decimal):
             v = float(v)
         elif isinstance(v, (date, datetime)):
@@ -159,6 +177,10 @@ class WalletRepository:
             return _model_to_dict(m) if m else None
 
     async def update_account(self, account_id: str, user_id: str, data: dict) -> dict | None:
+        # Campos proibidos no PATCH genérico (usar endpoints dedicados)
+        blocked = {"id", "user_id", "created_at",
+                   "dll_broker_id", "dll_account_id", "dll_sub_account_id",
+                   "dll_routing_password", "dll_account_type", "is_dll_active"}
         async with get_session() as s:
             q = select(InvestmentAccountModel).where(
                 InvestmentAccountModel.id == account_id,
@@ -168,8 +190,135 @@ class WalletRepository:
             if not m:
                 return None
             for k, v in data.items():
-                if hasattr(m, k) and k not in ("id", "user_id", "created_at"):
+                if hasattr(m, k) and k not in blocked:
                     setattr(m, k, v)
+            await s.commit()
+            await s.refresh(m)
+            return _model_to_dict(m)
+
+    # ── Operacoes DLL dedicadas (Unificacao U2, 24/abr) ──────────────────────
+
+    async def connect_dll(
+        self,
+        account_id: str,
+        user_id: str,
+        *,
+        account_type: str,  # 'real' | 'simulator'
+        broker_id: str | None = None,
+        dll_account_id: str | None = None,
+        routing_password: str | None = None,
+        sub_account_id: str | None = None,
+    ) -> dict | None:
+        """Vincula credenciais Profit DLL a uma investment_account existente.
+
+        Regras:
+          - account_type='simulator' NAO requer broker_id/account_id/password
+            (usa fallback PROFIT_SIM_* do .env)
+          - account_type='real' EXIGE broker_id, dll_account_id e password
+          - account_type e imutavel apos primeira conexao (checa no service)
+        """
+        if account_type not in ("real", "simulator"):
+            raise ValueError(f"account_type deve ser 'real' ou 'simulator', recebi {account_type!r}")
+        if account_type == "real" and not (broker_id and dll_account_id and routing_password):
+            raise ValueError("Conta real requer broker_id, dll_account_id e routing_password")
+
+        async with get_session() as s:
+            q = select(InvestmentAccountModel).where(
+                InvestmentAccountModel.id == account_id,
+                InvestmentAccountModel.user_id == user_id,
+            )
+            m = (await s.execute(q)).scalar_one_or_none()
+            if not m:
+                return None
+            # account_type imutavel se ja tinha DLL conectada
+            if m.dll_account_type and m.dll_account_type != account_type:
+                raise ValueError(
+                    f"account_type DLL imutavel: conta ja esta como {m.dll_account_type!r}"
+                )
+            m.dll_account_type = account_type
+            m.dll_broker_id = broker_id
+            m.dll_account_id = dll_account_id
+            m.dll_routing_password = routing_password
+            m.dll_sub_account_id = sub_account_id
+            await s.commit()
+            await s.refresh(m)
+            return _model_to_dict(m)
+
+    async def disconnect_dll(self, account_id: str, user_id: str) -> dict | None:
+        async with get_session() as s:
+            q = select(InvestmentAccountModel).where(
+                InvestmentAccountModel.id == account_id,
+                InvestmentAccountModel.user_id == user_id,
+            )
+            m = (await s.execute(q)).scalar_one_or_none()
+            if not m:
+                return None
+            m.dll_broker_id = None
+            m.dll_account_id = None
+            m.dll_sub_account_id = None
+            m.dll_routing_password = None
+            m.dll_account_type = None
+            m.is_dll_active = False
+            await s.commit()
+            await s.refresh(m)
+            return _model_to_dict(m)
+
+    async def set_dll_active(self, account_id: str, user_id: str) -> dict | None:
+        """Marca conta como DLL ativa (unica por user). Transacional."""
+        async with get_session() as s:
+            # Desativa todas as outras do mesmo user
+            await s.execute(
+                select(InvestmentAccountModel)
+                .where(InvestmentAccountModel.user_id == user_id)
+                .where(InvestmentAccountModel.is_dll_active.is_(True))
+            )
+            # Usar UPDATE direto para evitar ORM overhead / conflito com unique index
+            from sqlalchemy import update as sql_update
+            await s.execute(
+                sql_update(InvestmentAccountModel)
+                .where(InvestmentAccountModel.user_id == user_id)
+                .where(InvestmentAccountModel.id != account_id)
+                .values(is_dll_active=False)
+            )
+            # Ativa a desejada (exige DLL conectada)
+            q = select(InvestmentAccountModel).where(
+                InvestmentAccountModel.id == account_id,
+                InvestmentAccountModel.user_id == user_id,
+            )
+            m = (await s.execute(q)).scalar_one_or_none()
+            if not m:
+                return None
+            if not m.dll_account_type:
+                raise ValueError("Conta nao tem credenciais DLL conectadas — conecte primeiro via /connect-dll")
+            m.is_dll_active = True
+            await s.commit()
+            await s.refresh(m)
+            return _model_to_dict(m)
+
+    async def get_dll_active(self, user_id: str | None = None) -> dict | None:
+        """Retorna a conta DLL ativa (para o proxy profit_agent).
+
+        Se user_id for None, retorna qualquer conta dll_active=True (uso em dev/single-user).
+        """
+        async with get_session() as s:
+            q = select(InvestmentAccountModel).where(InvestmentAccountModel.is_dll_active.is_(True))
+            if user_id:
+                q = q.where(InvestmentAccountModel.user_id == user_id)
+            m = (await s.execute(q)).scalar_one_or_none()
+            return _model_to_dict(m, include_sensitive=True) if m else None
+
+    async def set_real_operations(self, account_id: str, user_id: str, allowed: bool) -> dict | None:
+        """Liga/desliga permissao de envio de ordens REAIS (ADMIN/MASTER-only).
+        Validacao de role feita na rota antes de chamar."""
+        async with get_session() as s:
+            q = select(InvestmentAccountModel).where(
+                InvestmentAccountModel.id == account_id,
+                InvestmentAccountModel.user_id == user_id,
+            )
+            m = (await s.execute(q)).scalar_one_or_none()
+            if not m:
+                return None
+            m.real_operations_allowed = bool(allowed)
             await s.commit()
             await s.refresh(m)
             return _model_to_dict(m)

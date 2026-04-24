@@ -195,6 +195,98 @@ async def deactivate_account(account_id: str, user: User = Depends(get_current_u
         raise HTTPException(404, "Conta não encontrada")
 
 
+# ── Credenciais Profit DLL na conta (unificacao U3, 24/abr) ──────────────
+
+
+class DLLConnectRequest(BaseModel):
+    account_type: str = Field(..., description="'real' ou 'simulator'")
+    broker_id: str | None = Field(None, max_length=20)
+    dll_account_id: str | None = Field(None, max_length=50)
+    routing_password: str | None = Field(None, max_length=200)
+    sub_account_id: str | None = Field(None, max_length=50)
+
+
+@router.post("/accounts/{account_id}/connect-dll")
+async def connect_dll(
+    account_id: str,
+    body: DLLConnectRequest,
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Conecta credenciais Profit DLL a uma conta de investimento.
+
+    Para account_type='simulator', broker_id/dll_account_id/password
+    sao ignorados — o profit_agent usa fallback PROFIT_SIM_* do .env.
+    Apenas uma conta 'simulator' pode existir no sistema (unique index).
+
+    account_type e imutavel apos a primeira conexao — se precisar mudar,
+    desconecte primeiro via /disconnect-dll.
+    """
+    try:
+        data = await _repo().connect_dll(
+            account_id=account_id,
+            user_id=str(user.user_id),
+            account_type=body.account_type,
+            broker_id=body.broker_id,
+            dll_account_id=body.dll_account_id,
+            routing_password=body.routing_password,
+            sub_account_id=body.sub_account_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
+    if not data:
+        raise HTTPException(404, "Conta não encontrada")
+    return data
+
+
+@router.post("/accounts/{account_id}/disconnect-dll")
+async def disconnect_dll(account_id: str, user: User = Depends(get_current_user)) -> dict:
+    """Remove credenciais Profit DLL de uma conta (e desativa se ativa)."""
+    data = await _repo().disconnect_dll(account_id, str(user.user_id))
+    if not data:
+        raise HTTPException(404, "Conta não encontrada")
+    return data
+
+
+@router.post("/accounts/{account_id}/activate-dll")
+async def activate_dll(account_id: str, user: User = Depends(get_current_user)) -> dict:
+    """Marca a conta como DLL ativa (desativa qualquer outra do mesmo user)."""
+    try:
+        data = await _repo().set_dll_active(account_id, str(user.user_id))
+    except ValueError as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
+    if not data:
+        raise HTTPException(404, "Conta não encontrada")
+    return data
+
+
+class RealOperationsRequest(BaseModel):
+    allowed: bool = Field(..., description="TRUE libera envio de ordens reais pela conta")
+
+
+@router.patch("/accounts/{account_id}/real-operations")
+async def set_real_operations(
+    account_id: str,
+    body: RealOperationsRequest,
+    user: User = Depends(get_current_user),
+) -> dict:
+    """ADMIN/MASTER-only: libera ou bloqueia envio de ordens REAIS para esta conta.
+
+    Motivacao: cada conta real na Nelogica consome 1 licenca separada + expoe
+    risco financeiro real. Por default a flag e FALSE — o usuario comum pode
+    conectar DLL real mas nao consegue enviar ordens ate um admin liberar.
+    """
+    from finanalytics_ai.domain.auth.entities import UserRole
+    if user.role not in (UserRole.ADMIN, UserRole.MASTER):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Apenas ADMIN ou MASTER pode alterar permissao de operacoes reais.",
+        )
+    data = await _repo().set_real_operations(account_id, str(user.user_id), body.allowed)
+    if not data:
+        raise HTTPException(404, "Conta não encontrada")
+    return data
+
+
 # ── Trades ────────────────────────────────────────────────────────────────
 
 

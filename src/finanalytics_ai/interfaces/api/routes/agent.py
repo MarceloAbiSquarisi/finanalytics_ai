@@ -31,40 +31,65 @@ router = APIRouter(prefix="/api/v1/agent")
 
 
 async def _inject_account(body: dict) -> dict:
-    """Resolve conta ativa e injeta credenciais no body para o profit_agent.
+    """Resolve conta DLL ativa e injeta credenciais no body do profit_agent.
 
-    Se a conta ativa for account_type='simulator', NAO injeta as credenciais
-    salvas — deixa o profit_agent usar o fallback do .env (PROFIT_SIM_*).
-    Motivo: DLL Nelogica tem 1 unica credencial de simulador; a conta
-    'Simulador Nelogica' no banco e so uma label/referencia, as credenciais
-    canonicas estao no .env. Ver Feature B (23/abr) + Decisao de produto.
+    Unificacao U2 (24/abr): usa investment_accounts.is_dll_active=TRUE
+    (antes era trading_accounts). Modelo agora e 1 so:
+      - dll_account_type='simulator' -> NAO injeta creds (usa PROFIT_SIM_* do .env)
+      - dll_account_type='real' -> injeta broker/account/password salvos
+
+    Se nenhuma conta tiver is_dll_active=TRUE, profit_agent cai no
+    fallback do .env (PROFIT_SIM_* em env=simulation).
+
+    Guard C3 (24/abr): se conta ativa e 'real' e real_operations_allowed=FALSE,
+    RECUSA a ordem com HTTP 403. Evita acidente de rodar estrategia em conta
+    real sem liberacao explicita do ADMIN.
     """
-    from finanalytics_ai.interfaces.api.app import get_account_service
-
-    svc = get_account_service()
-    if not svc:
-        return body
     try:
-        account = await svc.get_active()
-        # Para contas simulador: nao injeta broker_id/password — profit_agent
-        # cai no fallback PROFIT_SIM_BROKER_ID/ACCOUNT_ID/ROUTING_PASSWORD do .env.
-        if getattr(account, "account_type", None) and str(account.account_type) == "simulator":
-            # Ainda marca user_account_id para rastreabilidade em profit_orders
-            body.setdefault("env", "simulation")
-            if not body.get("user_account_id") or body["user_account_id"] == "sem_conta":
-                body["user_account_id"] = account.uuid
-            return body
+        from finanalytics_ai.infrastructure.database.repositories.wallet_repo import WalletRepository
+        account = await WalletRepository().get_dll_active()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("agent.inject_account.failed", error=str(exc))
+        return body
 
-        # Conta real: injeta creds salvas
-        body["_account_broker_id"] = account.broker_id
-        body["_account_id"] = account.account_id
-        body["_routing_password"] = account.routing_password or ""
-        body["_sub_account_id"] = account.sub_account_id or ""
+    if not account:
+        return body  # sem conta DLL ativa -> fallback .env
+
+    dll_type = account.get("dll_account_type")
+    if dll_type == "simulator":
+        body.setdefault("env", "simulation")
+        if not body.get("user_account_id") or body["user_account_id"] == "sem_conta":
+            body["user_account_id"] = account["id"]
+        return body
+
+    if dll_type == "real" and account.get("dll_broker_id"):
+        # Guard: conta real exige real_operations_allowed=TRUE (ADMIN libera)
+        if not account.get("real_operations_allowed"):
+            logger.warning(
+                "agent.real_operations_blocked",
+                account_id=account.get("id"),
+                apelido=account.get("apelido"),
+            )
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "error": "real_operations_not_allowed",
+                    "message": (
+                        "Conta DLL ativa e 'real' mas esta sem permissao para "
+                        "operacoes reais. Peca para um ADMIN liberar via "
+                        "PATCH /api/v1/wallet/accounts/{id}/real-operations."
+                    ),
+                    "account_id": account.get("id"),
+                    "account_label": account.get("apelido") or account.get("institution_name"),
+                },
+            )
+        body["_account_broker_id"] = account["dll_broker_id"]
+        body["_account_id"] = account["dll_account_id"] or ""
+        body["_routing_password"] = account.get("dll_routing_password") or ""
+        body["_sub_account_id"] = account.get("dll_sub_account_id") or ""
         body.setdefault("env", "production")
         if not body.get("user_account_id") or body["user_account_id"] == "sem_conta":
-            body["user_account_id"] = account.uuid
-    except Exception:
-        pass  # Sem conta ativa → profit_agent usa env vars (fallback)
+            body["user_account_id"] = account["id"]
     return body
 
 

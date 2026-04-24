@@ -280,22 +280,29 @@ async def system_status(_: User = Depends(require_admin)) -> dict:
             _s = _r.json() if _r.status_code == 200 else {}
         _subs = _s.get("subscribed_tickers") or []
         _ticks = _s.get("total_ticks", 0)
-        _ok = bool(_s.get("market_connected"))
+        _market = bool(_s.get("market_connected"))
         _routing = bool(_s.get("routing_connected"))
-        _detail = f"{len(_subs)} tickers, {_ticks} ticks" + (
-            ", roteamento ON" if _routing else ", roteamento OFF"
+        _db = bool(_s.get("db_connected"))
+        _status = "ok" if (_market and _routing and _db) else (
+            "warning" if _market or _routing else "error"
         )
+        _parts = []
+        _parts.append(f"market={'ON' if _market else 'OFF'}")
+        _parts.append(f"routing={'ON' if _routing else 'OFF'}")
+        _parts.append(f"db={'ON' if _db else 'OFF'}")
+        _parts.append(f"{len(_subs)} tickers, {_ticks} ticks")
+        _detail = " · ".join(_parts)
         result["data_collectors"].append(
             {
                 "name": "Profit Agent (DLL)",
                 "description": "Ticks realtime + ordens via Nelogica ProfitDLL",
                 "key": "profit_agent",
-                "status": "ok" if _ok else "warning",
+                "status": _status,
                 "last_update": None,
                 "next_update": None,
                 "detail": _detail,
                 "can_restart": False,
-                "running": _ok,
+                "running": _market,
             }
         )
     except Exception as _pe:
