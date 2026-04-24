@@ -31,7 +31,14 @@ router = APIRouter(prefix="/api/v1/agent")
 
 
 async def _inject_account(body: dict) -> dict:
-    """Resolve conta ativa e injeta credenciais no body para o profit_agent."""
+    """Resolve conta ativa e injeta credenciais no body para o profit_agent.
+
+    Se a conta ativa for account_type='simulator', NAO injeta as credenciais
+    salvas — deixa o profit_agent usar o fallback do .env (PROFIT_SIM_*).
+    Motivo: DLL Nelogica tem 1 unica credencial de simulador; a conta
+    'Simulador Nelogica' no banco e so uma label/referencia, as credenciais
+    canonicas estao no .env. Ver Feature B (23/abr) + Decisao de produto.
+    """
     from finanalytics_ai.interfaces.api.app import get_account_service
 
     svc = get_account_service()
@@ -39,10 +46,21 @@ async def _inject_account(body: dict) -> dict:
         return body
     try:
         account = await svc.get_active()
+        # Para contas simulador: nao injeta broker_id/password — profit_agent
+        # cai no fallback PROFIT_SIM_BROKER_ID/ACCOUNT_ID/ROUTING_PASSWORD do .env.
+        if getattr(account, "account_type", None) and str(account.account_type) == "simulator":
+            # Ainda marca user_account_id para rastreabilidade em profit_orders
+            body.setdefault("env", "simulation")
+            if not body.get("user_account_id") or body["user_account_id"] == "sem_conta":
+                body["user_account_id"] = account.uuid
+            return body
+
+        # Conta real: injeta creds salvas
         body["_account_broker_id"] = account.broker_id
         body["_account_id"] = account.account_id
         body["_routing_password"] = account.routing_password or ""
         body["_sub_account_id"] = account.sub_account_id or ""
+        body.setdefault("env", "production")
         if not body.get("user_account_id") or body["user_account_id"] == "sem_conta":
             body["user_account_id"] = account.uuid
     except Exception:

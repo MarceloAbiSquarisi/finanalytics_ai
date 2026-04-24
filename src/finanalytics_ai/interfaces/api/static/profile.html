@@ -261,8 +261,32 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
   <div class="page-sub">Gerencie suas informações e segurança da conta.
 </div>
 
+  <!-- Barra de abas -->
+  <style>
+    .fa-prof-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:16px;padding:0}
+    .fa-prof-tab{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:8px 16px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:500;transition:.15s;display:flex;align-items:center;gap:6px}
+    .fa-prof-tab:hover{color:var(--text)}
+    .fa-prof-tab.active{color:var(--gold);border-bottom-color:var(--gold);font-weight:600}
+    .card[data-tab]:not(.active-tab){display:none}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  </style>
+  <div class="fa-prof-tabs" role="tablist">
+    <button class="fa-prof-tab active" data-target="perfil" onclick="showProfileTab('perfil')" role="tab">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Perfil
+    </button>
+    <button class="fa-prof-tab" data-target="invest" onclick="showProfileTab('invest')" role="tab">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      Contas de Investimento
+    </button>
+    <button class="fa-prof-tab" data-target="daytrade" onclick="showProfileTab('daytrade')" role="tab">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      DayTrade (Profit DLL)
+    </button>
+  </div>
+
   <!-- Info da conta -->
-  <div class="card">
+  <div class="card" data-tab="perfil">
     <div class="card-title">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       Informações da Conta
@@ -296,7 +320,7 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 </div>
 
   <!-- Alterar senha -->
-  <div class="card">
+  <div class="card" data-tab="perfil">
     <div class="card-title">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       Alterar Senha
@@ -322,7 +346,7 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 </div>
 
   <!-- 2FA -->
-  <div class="card">
+  <div class="card" data-tab="perfil">
     <div class="card-title">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       Autenticação de Dois Fatores (2FA)
@@ -393,6 +417,144 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 </div>
 </div>
 </div>
+
+  <!-- Contas de Investimento (investment_accounts — corretora XP/BTG/etc) -->
+  <div class="card" data-tab="invest">
+    <div class="card-title">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      Contas de Investimento
+    </div>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:14px;line-height:1.5">
+      Contas em corretoras (XP, BTG, Clear, etc) que agrupam seus portfolios e investimentos.
+      Cada portfolio (Ações, Renda Fixa, Cripto, FIIs) pertence a uma dessas contas.
+    </p>
+
+    <div id="inv-accounts-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+      <div style="font-size:14px;color:var(--muted);font-style:italic">Carregando...</div>
+    </div>
+
+    <button class="btn btn-gold" onclick="openNewInvAccountModal()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      + Nova Conta de Investimento
+    </button>
+    <div class="msg" id="msg-inv-accounts"></div>
+  </div>
+
+  <!-- Modal Nova Conta de Investimento -->
+  <div id="modal-new-inv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;align-items:center;justify-content:center" onclick="if(event.target===this)closeNewInvAccountModal()">
+    <div style="background:var(--s1);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:10px;padding:22px;min-width:460px;max-width:520px;max-height:90vh;overflow-y:auto">
+      <h3 id="modal-new-inv-title" style="color:var(--gold);font-size:15px;margin-bottom:14px;letter-spacing:.03em">Nova Conta de Investimento</h3>
+
+      <div class="form-group">
+        <label>Apelido</label>
+        <input type="text" id="inv-apelido" placeholder="EX: XP Principal" style="width:100%">
+      </div>
+      <div class="form-group">
+        <label>Titular *</label>
+        <input type="text" id="inv-titular" placeholder="EX: João da Silva" style="width:100%">
+      </div>
+      <div class="form-group">
+        <label>CPF *</label>
+        <input type="text" id="inv-cpf" placeholder="EX: 000.000.000-00" maxlength="14" style="width:100%">
+      </div>
+      <div class="form-group">
+        <label>Corretora (código) *</label>
+        <input type="text" id="inv-inst-code" placeholder="EX: 3 (XP), 386 (BTG), 102 (Clear)" style="width:100%">
+      </div>
+      <div class="form-group">
+        <label>Corretora (nome) *</label>
+        <input type="text" id="inv-inst-name" placeholder="EX: XP Investimentos" style="width:100%">
+      </div>
+      <div style="display:flex;gap:10px">
+        <div class="form-group" style="flex:1">
+          <label>Agência *</label>
+          <input type="text" id="inv-agency" placeholder="EX: 0001" style="width:100%">
+        </div>
+        <div class="form-group" style="flex:2">
+          <label>Conta *</label>
+          <input type="text" id="inv-number" placeholder="EX: 123456-7" style="width:100%">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+        <button class="btn" onclick="closeNewInvAccountModal()" style="background:transparent;border:1px solid var(--border);color:var(--text)">Cancelar</button>
+        <button class="btn btn-gold" onclick="submitNewInvAccount()" id="btn-inv-submit">Criar</button>
+      </div>
+      <div class="msg" id="msg-new-inv" style="margin-top:10px"></div>
+    </div>
+  </div>
+
+  <!-- Contas DayTrade (Profit DLL Nelogica) -->
+  <div class="card" data-tab="daytrade">
+    <div class="card-title">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg>
+      Contas DayTrade (Profit DLL)
+    </div>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:14px;line-height:1.5">
+      Contas usadas pelo Profit Agent para envio de ordens.
+      <strong style="color:var(--gold)">O tipo (Real/Simulador) é definido na criação e não pode ser alterado.</strong>
+      Apenas uma conta simulador pode existir (DLL tem 1 credencial de simulação no .env).
+    </p>
+
+    <div id="accounts-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+      <div style="font-size:14px;color:var(--muted);font-style:italic">Carregando...</div>
+    </div>
+
+    <button class="btn btn-gold" onclick="openNewAccountModal()" id="btn-new-account">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      + Nova Conta
+    </button>
+    <div class="msg" id="msg-accounts"></div>
+  </div>
+
+  <!-- Modal Nova Conta -->
+  <div id="modal-new-account" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;align-items:center;justify-content:center" onclick="if(event.target===this)closeNewAccountModal()">
+    <div style="background:var(--s1);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:10px;padding:22px;min-width:420px;max-width:500px">
+      <h3 style="color:var(--gold);font-size:15px;margin-bottom:14px;letter-spacing:.03em">Nova Conta DayTrade</h3>
+
+      <div class="form-group">
+        <label>Tipo da Conta <span style="color:var(--red)">* imutável</span></label>
+        <select id="na-type" style="width:100%;padding:8px 10px;background:#080c14;border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:inherit;font-size:14px" onchange="onAccountTypeChange()">
+          <option value="real">Real — credenciais da corretora</option>
+          <option value="simulator">Simulador — usa PROFIT_SIM_* do .env</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Apelido</label>
+        <input type="text" id="na-label" placeholder="EX: XP Real Principal" style="width:100%">
+      </div>
+
+      <div id="na-real-fields">
+        <div class="form-group">
+          <label>Broker ID</label>
+          <input type="text" id="na-broker-id" placeholder="EX: 227 (XP), 386 (Clear), 15011 (Sim Nelogica)" style="width:100%">
+        </div>
+        <div class="form-group">
+          <label>Account ID</label>
+          <input type="text" id="na-account-id" placeholder="EX: 123456789" style="width:100%">
+        </div>
+        <div class="form-group">
+          <label>Sub Account ID (opcional)</label>
+          <input type="text" id="na-sub-id" placeholder="EX: (vazio para padrão)" style="width:100%">
+        </div>
+        <div class="form-group">
+          <label>Senha de Roteamento</label>
+          <input type="password" id="na-pwd" placeholder="Senha usada pela DLL para enviar ordens" style="width:100%" autocomplete="new-password">
+        </div>
+      </div>
+
+      <div id="na-sim-info" style="display:none;padding:10px 12px;background:rgba(240,180,41,.08);border:1px solid rgba(240,180,41,.3);border-radius:6px;font-size:13px;color:var(--text);line-height:1.5;margin-bottom:14px">
+        💡 Simulador usa automaticamente as credenciais <code style="color:var(--gold)">PROFIT_SIM_*</code> configuradas no <code style="color:var(--gold)">.env</code>. Não é necessário preencher broker_id, account_id ou senha.
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+        <button class="btn" onclick="closeNewAccountModal()" style="background:transparent;border:1px solid var(--border);color:var(--text)">Cancelar</button>
+        <button class="btn btn-gold" onclick="submitNewAccount()">Criar Conta</button>
+      </div>
+      <div class="msg" id="msg-new-account" style="margin-top:10px"></div>
+    </div>
+  </div>
 </div>
 </div>
 
@@ -444,6 +606,10 @@ async function initProfile() {
     document.getElementById('info-email').textContent = payload.email || '—';
     document.getElementById('info-id').textContent = payload.sub || '—';
   } catch {}
+  // Aba inicial: hash ou 'perfil'
+  var initialTab = (location.hash || '').replace('#', '') || 'perfil';
+  if (!['perfil','invest','daytrade'].includes(initialTab)) initialTab = 'perfil';
+  showProfileTab(initialTab);
   try {
     const res = await fetch('/api/v1/auth/me', {
       headers: { 'Authorization': 'Bearer ' + token }
@@ -473,6 +639,334 @@ async function initProfile() {
       }
     }
   } catch {}
+}
+
+// ── Abas do Perfil ────────────────────────────────────────────────────────
+function showProfileTab(name) {
+  document.querySelectorAll('.fa-prof-tab').forEach(b => b.classList.toggle('active', b.dataset.target === name));
+  document.querySelectorAll('.card[data-tab]').forEach(c => c.classList.toggle('active-tab', c.dataset.tab === name));
+  try { history.replaceState(null, '', '#' + name); } catch(_) {}
+  if (name === 'invest') loadInvAccounts();
+  if (name === 'daytrade') loadAccounts();
+}
+
+// ── Investment accounts (corretora XP/BTG/etc) ─────────────────────────────
+let _invAccountsCache = [];
+
+async function loadInvAccounts() {
+  const token = getToken();
+  if (!token) return;
+  try {
+    const r = await fetch('/api/v1/wallet/accounts', { headers: { 'Authorization': 'Bearer ' + token } });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    _invAccountsCache = await r.json();
+    renderInvAccounts();
+  } catch (e) {
+    const list = document.getElementById('inv-accounts-list');
+    if (list) list.innerHTML = '<div style="color:var(--red);font-size:13px">Erro ao carregar: ' + (e.message || e) + '</div>';
+  }
+}
+
+function renderInvAccounts() {
+  const list = document.getElementById('inv-accounts-list');
+  if (!list) return;
+  if (!_invAccountsCache.length) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:13px;font-style:italic">Nenhuma conta cadastrada. Crie uma para começar a organizar seus portfolios.</div>';
+    return;
+  }
+  list.innerHTML = _invAccountsCache.map(a => {
+    const isDefault = a.is_default || false;
+    const cpfFmt = a.cpf ? String(a.cpf).replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : '—';
+    return `
+      <div style="border:1px solid var(--border);border-left:3px solid ${isDefault ? 'var(--gold)' : 'var(--border2)'};border-radius:6px;padding:12px 14px;background:${isDefault ? 'rgba(240,180,41,.04)' : 'transparent'}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <span style="font-weight:600;font-size:15px">${_escapeHtml(a.apelido || a.titular || '(sem apelido)')}</span>
+              ${isDefault ? '<span style="background:rgba(240,180,41,.18);color:var(--gold);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">PADRÃO</span>' : ''}
+            </div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.5">
+              ${_escapeHtml(a.institution_name || '?')} <span style="color:var(--border2)">•</span> Ag ${_escapeHtml(a.agency || '—')} / Conta ${_escapeHtml(a.account_number || '—')}<br>
+              <span style="color:var(--muted)">Titular: ${_escapeHtml(a.titular || '—')} (${cpfFmt})</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            ${!isDefault ? `<button class="btn" style="padding:5px 10px;font-size:12px;background:transparent;border:1px solid var(--border);color:var(--text)" onclick="setDefaultInvAccount('${a.account_id}')">Definir Padrão</button>` : ''}
+            <button class="btn" style="padding:5px 10px;font-size:12px;background:transparent;border:1px solid var(--red);color:var(--red)" onclick="deleteInvAccount('${a.account_id}','${_escapeHtml(a.apelido||a.titular||'')}')">×</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function openNewInvAccountModal() {
+  document.getElementById('modal-new-inv').style.display = 'flex';
+  ['inv-apelido','inv-titular','inv-cpf','inv-inst-code','inv-inst-name','inv-agency','inv-number'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('msg-new-inv').className = 'msg';
+  document.getElementById('msg-new-inv').textContent = '';
+  setTimeout(() => document.getElementById('inv-apelido').focus(), 40);
+}
+function closeNewInvAccountModal() { document.getElementById('modal-new-inv').style.display = 'none'; }
+
+async function submitNewInvAccount() {
+  const msg = document.getElementById('msg-new-inv');
+  const body = {
+    apelido: document.getElementById('inv-apelido').value.trim(),
+    titular: document.getElementById('inv-titular').value.trim(),
+    cpf: document.getElementById('inv-cpf').value.trim(),
+    institution_code: document.getElementById('inv-inst-code').value.trim(),
+    institution_name: document.getElementById('inv-inst-name').value.trim(),
+    agency: document.getElementById('inv-agency').value.trim(),
+    account_number: document.getElementById('inv-number').value.trim(),
+  };
+  if (!body.titular || !body.cpf || !body.institution_code || !body.institution_name || !body.agency || !body.account_number) {
+    msg.className = 'msg err'; msg.textContent = 'Todos os campos com * são obrigatórios.'; return;
+  }
+  try {
+    const token = getToken();
+    const r = await fetch('/api/v1/wallet/accounts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      msg.className = 'msg err';
+      msg.textContent = (typeof err.detail === 'string') ? err.detail : ('Erro HTTP ' + r.status);
+      return;
+    }
+    closeNewInvAccountModal();
+    await loadInvAccounts();
+    if (window.FAToast) FAToast.ok('Conta criada');
+  } catch (e) {
+    msg.className = 'msg err'; msg.textContent = e.message || String(e);
+  }
+}
+
+async function setDefaultInvAccount(accountId) {
+  try {
+    const token = getToken();
+    const r = await fetch('/api/v1/wallet/accounts/' + accountId, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ is_default: true }),
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    await loadInvAccounts();
+    if (window.FAToast) FAToast.ok('Padrão atualizado');
+  } catch (e) {
+    if (window.FAToast) FAToast.err('Falha: ' + (e.message || e));
+  }
+}
+
+async function deleteInvAccount(accountId, label) {
+  const ok = window.FAModal
+    ? await FAModal.confirm({ title: 'Excluir conta de investimento', text: `Excluir "${label}"? Portfolios vinculados ficam órfãos.`, variant: 'danger' })
+    : window.confirm('Excluir "' + label + '"?');
+  if (!ok) return;
+  try {
+    const token = getToken();
+    const r = await fetch('/api/v1/wallet/accounts/' + accountId, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    await loadInvAccounts();
+    if (window.FAToast) FAToast.ok('Conta removida');
+  } catch (e) {
+    if (window.FAToast) FAToast.err('Falha: ' + (e.message || e));
+  }
+}
+
+// ── Trading accounts (DayTrade Profit DLL) ────────────────────────────────
+let _accountsCache = [];
+
+async function loadAccounts() {
+  const token = getToken();
+  if (!token) return;
+  try {
+    const r = await fetch('/api/v1/accounts/', { headers: { 'Authorization': 'Bearer ' + token } });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    _accountsCache = Array.isArray(data) ? data : (data.accounts || []);
+    renderAccounts();
+  } catch (e) {
+    const list = document.getElementById('accounts-list');
+    if (list) list.innerHTML = '<div style="color:var(--red);font-size:13px">Erro ao carregar contas: ' + (e.message || e) + '</div>';
+  }
+}
+
+function renderAccounts() {
+  const list = document.getElementById('accounts-list');
+  if (!list) return;
+  const hasSimulator = _accountsCache.some(a => a.account_type === 'simulator');
+  // Desabilita botao de nova conta simulador se ja existe uma
+  const typeSel = document.getElementById('na-type');
+  if (typeSel) {
+    const simOpt = typeSel.querySelector('option[value="simulator"]');
+    if (simOpt) {
+      simOpt.disabled = hasSimulator;
+      simOpt.textContent = hasSimulator
+        ? 'Simulador — (já existe uma conta simulador)'
+        : 'Simulador — usa PROFIT_SIM_* do .env';
+    }
+  }
+
+  if (!_accountsCache.length) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:13px;font-style:italic">Nenhuma conta cadastrada.</div>';
+    return;
+  }
+
+  list.innerHTML = _accountsCache.map(a => {
+    const isSim = a.account_type === 'simulator';
+    const isActive = a.status === 'active';
+    const badge = isSim
+      ? '<span style="background:rgba(240,180,41,.15);color:var(--gold);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.05em">SIMULADOR</span>'
+      : '<span style="background:rgba(0,230,118,.12);color:var(--green);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.05em">REAL</span>';
+    const activeDot = isActive
+      ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:6px;animation:pulse 2s infinite"></span>'
+      : '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--muted);margin-right:6px"></span>';
+    return `
+      <div style="border:1px solid var(--border);border-left:3px solid ${isActive ? 'var(--green)' : 'var(--border2)'};border-radius:6px;padding:12px 14px;background:${isActive ? 'rgba(0,230,118,.04)' : 'transparent'}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              ${activeDot}<span style="font-weight:600;font-size:15px">${_escapeHtml(a.label || '(sem apelido)')}</span> ${badge}
+              ${isActive ? '<span style="font-size:11px;color:var(--green);font-weight:600">ATIVA</span>' : ''}
+            </div>
+            <div style="font-size:12px;color:var(--muted);font-family:monospace">
+              ${isSim ? 'creds do .env' : `broker=${a.broker_id} • account=${a.account_id}`}
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            ${!isActive ? `<button class="btn" style="padding:5px 10px;font-size:12px;background:transparent;border:1px solid var(--border);color:var(--text)" onclick="activateAccount('${a.uuid}')">Ativar</button>` : ''}
+            <button class="btn" style="padding:5px 10px;font-size:12px;background:transparent;border:1px solid var(--red);color:var(--red)" onclick="deleteAccount('${a.uuid}','${_escapeHtml(a.label||'')}')">×</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function _escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function openNewAccountModal() {
+  const hasSim = _accountsCache.some(a => a.account_type === 'simulator');
+  const modal = document.getElementById('modal-new-account');
+  modal.style.display = 'flex';
+  document.getElementById('na-type').value = hasSim ? 'real' : 'simulator';
+  document.getElementById('na-label').value = '';
+  document.getElementById('na-broker-id').value = '';
+  document.getElementById('na-account-id').value = '';
+  document.getElementById('na-sub-id').value = '';
+  document.getElementById('na-pwd').value = '';
+  document.getElementById('msg-new-account').className = 'msg';
+  document.getElementById('msg-new-account').textContent = '';
+  onAccountTypeChange();
+  setTimeout(() => document.getElementById('na-label').focus(), 40);
+}
+
+function closeNewAccountModal() {
+  document.getElementById('modal-new-account').style.display = 'none';
+}
+
+function onAccountTypeChange() {
+  const type = document.getElementById('na-type').value;
+  const isSim = type === 'simulator';
+  document.getElementById('na-real-fields').style.display = isSim ? 'none' : 'block';
+  document.getElementById('na-sim-info').style.display = isSim ? 'block' : 'none';
+}
+
+async function submitNewAccount() {
+  const msg = document.getElementById('msg-new-account');
+  const type = document.getElementById('na-type').value;
+  const label = document.getElementById('na-label').value.trim();
+  const SIM_BROKER = '15011', SIM_ACCOUNT = '216541264267275';
+
+  if (!label) { msg.className = 'msg err'; msg.textContent = 'Apelido obrigatorio'; return; }
+
+  let body;
+  if (type === 'simulator') {
+    body = {
+      broker_id: SIM_BROKER,
+      account_id: SIM_ACCOUNT,
+      account_type: 'simulator',
+      label: label,
+    };
+  } else {
+    const broker = document.getElementById('na-broker-id').value.trim();
+    const acc = document.getElementById('na-account-id').value.trim();
+    const sub = document.getElementById('na-sub-id').value.trim();
+    const pwd = document.getElementById('na-pwd').value;
+    if (!broker || !acc || !pwd) {
+      msg.className = 'msg err'; msg.textContent = 'Broker ID, Account ID e Senha sao obrigatorios para conta real.'; return;
+    }
+    body = {
+      broker_id: broker,
+      account_id: acc,
+      account_type: 'real',
+      label: label,
+      routing_password: pwd,
+      sub_account_id: sub || null,
+    };
+  }
+
+  try {
+    const token = getToken();
+    const r = await fetch('/api/v1/accounts/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      msg.className = 'msg err';
+      msg.textContent = err.detail || ('Erro HTTP ' + r.status);
+      return;
+    }
+    closeNewAccountModal();
+    await loadAccounts();
+    if (window.FAToast) FAToast.ok('Conta criada');
+  } catch (e) {
+    msg.className = 'msg err'; msg.textContent = e.message || String(e);
+  }
+}
+
+async function activateAccount(uuid) {
+  try {
+    const token = getToken();
+    const r = await fetch('/api/v1/accounts/' + uuid + '/activate', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    await loadAccounts();
+    if (window.FAToast) FAToast.ok('Conta ativada');
+  } catch (e) {
+    if (window.FAToast) FAToast.err('Falha ao ativar: ' + (e.message || e));
+  }
+}
+
+async function deleteAccount(uuid, label) {
+  const ok = window.FAModal
+    ? await FAModal.confirm({ title: 'Excluir conta', text: `Excluir "${label}"? Esta acao nao pode ser desfeita.`, variant: 'danger' })
+    : window.confirm('Excluir "' + label + '"?');
+  if (!ok) return;
+  try {
+    const token = getToken();
+    const r = await fetch('/api/v1/accounts/' + uuid, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    await loadAccounts();
+    if (window.FAToast) FAToast.ok('Conta removida');
+  } catch (e) {
+    if (window.FAToast) FAToast.err('Falha ao remover: ' + (e.message || e));
+  }
 }
 
 function update2FAStatus(enabled) {
