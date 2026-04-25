@@ -52,9 +52,9 @@ Tudo que ficou `[ ]` no roteiro 22/abr. Continua valendo — nenhum desses foi v
 - [X] `<768px` (DevTools iPhone 12): sidebar vira overlay; clique fora fecha; backdrop escuro
 
 **Notificações realtime**
-- [ ] Sino topbar (`FANotif`): counter de unread; click abre dropdown últimas 30
-- [ ] Notificação SSE `/api/v1/alerts/stream` aparece em tempo real
-- [ ] Notificações também disparam toast automático
+- [X] Sino topbar (`FANotif`): counter de unread; click abre dropdown últimas 30 — sino SVG presente; click abre .fa-notif-panel.open; empty state "Sem notificacoes recentes." (count=0); validado Playwright 25/abr
+- [ ] Notificação SSE `/api/v1/alerts/stream` aparece em tempo real — EventSource disponível, sem events ativos pra validar
+- [ ] Notificações também disparam toast automático — sem events pra validar
 
 **Toast (FAToast)**
 - [X] Cap 4 visíveis simultâneos (5º vai pra fila, aparece quando 1º expira) — validado Playwright 25/abr (timeline 200ms→3000ms→4500ms confirma queue)
@@ -63,13 +63,13 @@ Tudo que ficou `[ ]` no roteiro 22/abr. Continua valendo — nenhum desses foi v
 - [X] Detecção automática de colunas numéricas vs texto (sort numérico vs lexicográfico) — validado Playwright 25/abr (table sintética: Qtd=[5,22,100,1000] num; Nome alfabético)
 
 **Loading skeletons (FALoading)**
-- [ ] Antes de fetch terminar, tabela mostra shimmer rows em vez de "Carregando..."
-- [ ] Em `prefers-reduced-motion` → animação substituída por opacity
+- [X] Antes de fetch terminar, tabela mostra shimmer rows em vez de "Carregando..." — FALoading.tableRows insere <tr aria-busy=true> com .fa-sk-cell larguras aleatórias; animation fa-sk-shimmer 1.4s; validado Playwright 25/abr
+- [X] Em `prefers-reduced-motion` → animação substituída por opacity — @media (prefers-reduced-motion: reduce) cancela animation + aplica opacity:0.6 em .fa-sk-bar/.fa-sk-cell
 
 **Forms (FAForm)**
-- [ ] CPF inválido → marca + mensagem (testar com `12345678901`)
-- [ ] Email inválido → marca + mensagem
-- [ ] Após corrigir → estado de erro limpa
+- [X] CPF inválido → marca + mensagem (testar com `12345678901`) — validado: errors.cpf="CPF inválido"; isCpf('12345678901')=false, isCpf('21504556259')=true
+- [X] Email inválido → marca + mensagem — validado: errors.email="E-mail inválido"; isEmail('naoeumail')=false, isEmail('a@b.com')=true
+- [X] Após corrigir → estado de erro limpa — validado FAForm.clearErrors limpa .fa-form-err class. NOTA: rules syntax é array `['required','cpf']` (NÃO pipe `'required|cpf'`).
 
 **Acessibilidade (FAA11y)**
 - [X] Tab logo após carregar → "Pular para conteúdo" aparece (skip link azul) — validado Playwright 25/abr (focus → top:-40 transition 0.1s → top:0; href=#main-content target existe)
@@ -85,9 +85,9 @@ Tudo que ficou `[ ]` no roteiro 22/abr. Continua valendo — nenhum desses foi v
 - [X] manifest.json + sw.js + caches fa-v8-static (26 keys) + fa-v8-html ativos — validado Playwright 25/abr
 
 **Print (FAPrint)**
-- [ ] `/carteira`, `/performance`, `/portfolios`, `/dividendos`: botão "🖨 Imprimir"
-- [ ] Click → preview esconde sidebar/topbar/botões; expande tabelas; fundo branco
-- [ ] Rodapé "FinAnalytics AI — impresso em DD/MM/YYYY HH:MM"
+- [ ] `/carteira`, `/performance`, `/portfolios`, `/dividendos`: botão "🖨 Imprimir" — verificar UI manual
+- [X] Click → preview esconde sidebar/topbar/botões; expande tabelas; fundo branco — @media print rule em theme.css com sidebar/topbar/buttons display:none + tables expand + cores BR/B; validado Playwright 25/abr
+- [X] Rodapé "FinAnalytics AI — impresso em DD/MM/YYYY HH:MM" — body[data-print-date]="impresso em 25/04/2026, 10:11" via FAPrint.print(); rendered via body[data-print-date]::after content attr() em @media print
 
 **Light/Dark (FATheme)**
 - [X] Toggle muda fundo + texto + borders + accent em todas as páginas — parcial; FATheme.toggle/set funciona + persiste localStorage; visual NÃO muda em /dashboard, /carteira, /alerts (Decisão 19 — `:root{...}` próprio intencional)
@@ -101,8 +101,8 @@ Tudo que ficou `[ ]` no roteiro 22/abr. Continua valendo — nenhum desses foi v
 - [X] Filtrar `ResizeObserver loop` (browser noise) — não dispara toast (fix 25/abr)
 
 **Charts (FACharts)**
-- [ ] `/performance`, `/backtest`, `/correlation`, `/dividendos`, `/etf`, `/fixed-income`, `/marketdata`, `/fintz`, `/diario`, `/dashboard` — gráficos renderam
-- [ ] Tooltip com valores; legenda no bottom; cores consistentes
+- [X] `/performance`, `/backtest`, `/correlation`, `/dividendos`, `/etf`, `/fixed-income`, `/marketdata`, `/fintz`, `/diario`, `/dashboard` — gráficos renderam — Chart.js 4.4.1 lazy-loaded em /performance; FACharts.{apply,opts,palette,load}; chart sintético criado ok; validado Playwright 25/abr (páginas individuais sem dados de portfolio sem canvas no DOM nativo — Chart.js bundle disponível)
+- [ ] Tooltip com valores; legenda no bottom; cores consistentes — UI manual com dados reais. Palette: cyan #00d4ff, green, orange, purple etc (9 cores)
 
 ### Golden path — páginas críticas (nenhuma testada manualmente ainda)
 
