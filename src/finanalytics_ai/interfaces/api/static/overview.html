@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Overview — FinAnalytics AI</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<meta name="description" content="Overview de posições com cards e sparklines.">
+<meta name="robots" content="noindex, nofollow">
+<script>(function(){try{var t=localStorage.getItem('fa_theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script>
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#00d4ff">
+<style>
+.ov-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+  padding: 8px 0;
+}
+.ov-card {
+  background: var(--card, #0e1a2e);
+  border: 1px solid var(--border, #1c2535);
+  border-radius: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: transform .15s, border-color .15s, box-shadow .15s;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+}
+.ov-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(58,191,248,.5);
+  box-shadow: 0 8px 24px rgba(0,0,0,.3);
+}
+.ov-card.up    { border-left: 3px solid var(--green, #00e676); }
+.ov-card.down  { border-left: 3px solid var(--red, #ff3d5a); }
+.ov-card.flat  { border-left: 3px solid var(--muted, #4a6a8a); }
+.ov-head { display: flex; justify-content: space-between; align-items: baseline; }
+.ov-ticker { font-size: 18px; font-weight: 800; letter-spacing: .5px; color: var(--accent, #00d4ff); font-family: 'DM Mono', monospace; }
+.ov-qty { font-size: 11px; color: var(--muted, #4a6a8a); }
+.ov-price { font-size: 22px; font-weight: 700; font-family: 'DM Mono', monospace; }
+.ov-chg { font-size: 13px; font-weight: 600; font-family: 'DM Mono', monospace; }
+.ov-chg.up    { color: var(--green, #00e676); }
+.ov-chg.down  { color: var(--red, #ff3d5a); }
+.ov-chg.flat  { color: var(--muted, #4a6a8a); }
+.ov-spark {
+  width: 100%;
+  height: 40px;
+  margin-top: 4px;
+  pointer-events: none;
+}
+.ov-spark path.line.up   { stroke: var(--green, #00e676); }
+.ov-spark path.line.down { stroke: var(--red, #ff3d5a); }
+.ov-spark path.line.flat { stroke: var(--muted, #4a6a8a); }
+.ov-spark path.fill.up   { fill: rgba(0,230,118,.10); }
+.ov-spark path.fill.down { fill: rgba(255,61,90,.10); }
+.ov-spark path.fill.flat { fill: rgba(74,106,138,.06); }
+.ov-pm { font-size: 10px; color: var(--muted, #4a6a8a); }
+.ov-empty { padding: 60px 20px; text-align: center; color: var(--muted, #4a6a8a); }
+.ov-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 16px; }
+.ov-meta { font-size: 12px; color: var(--muted, #4a6a8a); display: flex; gap: 14px; align-items: center; }
+.ov-refresh-btn {
+  background: transparent; border: 1px solid var(--border, #1c2535); color: var(--accent, #00d4ff);
+  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-family: 'DM Mono', monospace;
+}
+.ov-refresh-btn:hover { border-color: var(--accent, #00d4ff); }
+.ov-card-loading { opacity: .5; pointer-events: none; }
+.ov-skeleton { background: linear-gradient(90deg, rgba(255,255,255,.04), rgba(255,255,255,.10), rgba(255,255,255,.04)); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+</style>
+</head>
+<body>
+
+<div data-fa-include="sidebar.html"></div>
+
+<main id="main-content" class="fa-page-content" style="padding: 16px 24px;">
+  <div class="ov-toolbar">
+    <div>
+      <h1 style="font-size:22px; margin:0; color:var(--text); font-family:'Syne',sans-serif">📊 Overview · Posições</h1>
+      <div style="font-size:13px; color:var(--muted); margin-top:4px">Cards das posições da sua carteira. Click → abre no /dashboard.</div>
+    </div>
+    <div class="ov-meta">
+      <span id="ov-status">—</span>
+      <span id="ov-updated" title="Última atualização">—</span>
+      <button class="ov-refresh-btn" onclick="loadOverview()">↻ Atualizar</button>
+    </div>
+  </div>
+
+  <div id="ov-grid" class="ov-grid"></div>
+  <div id="ov-empty" class="ov-empty" style="display:none">
+    <div style="font-size:48px; margin-bottom:10px">📭</div>
+    <div style="font-size:16px; margin-bottom:6px">Nenhuma posição ativa</div>
+    <div style="font-size:13px">Adicione trades em <a href="/carteira" style="color:var(--accent)">Carteira</a> para ver as posições aqui.</div>
+  </div>
+</main>
+
+<script src="/static/auth_guard.js"></script>
+<script src="/static/sidebar.js"></script>
+<script src="/static/error_handler.js"></script>
+<script src="/static/toast.js"></script>
+<script src="/static/theme_toggle.js"></script>
+
+<script>
+'use strict';
+
+let _refreshInterval = null;
+const REFRESH_MS = 30000;        // auto-refresh 30s
+const SPARK_BARS = 30;           // últimos 30 candles diários
+const SPARK_RES = '1d';
+
+function $(id) { return document.getElementById(id); }
+function f2(n) { return (n == null || isNaN(n)) ? '—' : (+n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+function buildSparkline(closes, w, h) {
+  if (!closes || closes.length < 2) return '';
+  const n = closes.length;
+  const min = Math.min(...closes);
+  const max = Math.max(...closes);
+  const range = max - min || 1;
+  const stepX = w / (n - 1);
+  const pts = closes.map((c, i) => {
+    const x = (i * stepX).toFixed(1);
+    const y = (h - ((c - min) / range) * h).toFixed(1);
+    return [x, y];
+  });
+  const linePath = 'M ' + pts.map(p => p[0] + ',' + p[1]).join(' L ');
+  const fillPath = linePath + ` L ${w},${h} L 0,${h} Z`;
+  // Direção: comparar primeiro vs último
+  const first = closes[0], last = closes[n - 1];
+  const dir = last > first ? 'up' : (last < first ? 'down' : 'flat');
+  return `<svg class="ov-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    <path class="fill ${dir}" d="${fillPath}"/>
+    <path class="line ${dir}" d="${linePath}" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
+
+async function fetchPositions() {
+  const tok = localStorage.getItem('access_token');
+  if (!tok) { window.location.href = '/login'; return []; }
+  const r = await fetch('/api/v1/wallet/positions', { headers: { Authorization: 'Bearer ' + tok } });
+  if (!r.ok) throw new Error('Falha ao buscar positions: ' + r.status);
+  const data = await r.json();
+  return Array.isArray(data) ? data : (data.positions || []);
+}
+
+async function fetchSparkline(ticker) {
+  // Busca últimos 30 candles diários (para sparkline + chg do dia anterior)
+  try {
+    const r = await fetch(`/api/v1/marketdata/candles/${ticker}?resolution=${SPARK_RES}&limit=${SPARK_BARS}`);
+    if (!r.ok) return { closes: [], last: null, prev: null };
+    const d = await r.json();
+    const candles = d.candles || [];
+    const closes = candles.map(c => +c.close);
+    const last = closes.length ? closes[closes.length - 1] : null;
+    const prev = closes.length > 1 ? closes[closes.length - 2] : null;
+    return { closes, last, prev };
+  } catch (e) {
+    return { closes: [], last: null, prev: null };
+  }
+}
+
+function renderCard(pos, sparkData) {
+  const last = sparkData.last;
+  const prev = sparkData.prev;
+  let chg = null, chgPct = null, dir = 'flat';
+  if (last != null && prev != null && prev !== 0) {
+    chg = last - prev;
+    chgPct = (chg / prev) * 100;
+    dir = chg > 0 ? 'up' : (chg < 0 ? 'down' : 'flat');
+  }
+  const priceTxt = last != null ? 'R$ ' + f2(last) : '—';
+  const chgTxt = (chg == null) ? '—' : `${chg >= 0 ? '+' : ''}${f2(chg)} (${chg >= 0 ? '+' : ''}${chgPct.toFixed(2)}%)`;
+  const spark = buildSparkline(sparkData.closes, 220, 40);
+  const pmTxt = pos.average_price != null ? `Pm R$ ${f2(pos.average_price)}` : '';
+  return `
+    <a class="ov-card ${dir}" href="/dashboard?ticker=${encodeURIComponent(pos.ticker)}" title="Abrir ${pos.ticker} no dashboard">
+      <div class="ov-head">
+        <span class="ov-ticker">${pos.ticker}</span>
+        <span class="ov-qty">${pos.quantity != null ? f2(pos.quantity).replace(',00','') + ' un' : ''}</span>
+      </div>
+      <div class="ov-price">${priceTxt}</div>
+      <div class="ov-chg ${dir}">${chgTxt}</div>
+      ${spark}
+      <div class="ov-pm">${pmTxt}</div>
+    </a>
+  `;
+}
+
+async function loadOverview() {
+  const grid = $('ov-grid');
+  const empty = $('ov-empty');
+  const status = $('ov-status');
+  const updated = $('ov-updated');
+
+  status.textContent = 'Carregando...';
+  empty.style.display = 'none';
+
+  let positions = [];
+  try {
+    positions = await fetchPositions();
+  } catch (e) {
+    status.textContent = 'Erro: ' + e.message;
+    if (window.FAToast) FAToast.err('Falha ao carregar posições: ' + e.message);
+    return;
+  }
+
+  if (!positions.length) {
+    grid.innerHTML = '';
+    empty.style.display = 'block';
+    status.textContent = '0 posições';
+    updated.textContent = new Date().toLocaleTimeString('pt-BR');
+    return;
+  }
+
+  // Skeleton enquanto sparklines carregam
+  grid.innerHTML = positions.map(p => `
+    <div class="ov-card flat ov-card-loading">
+      <div class="ov-head"><span class="ov-ticker">${p.ticker}</span><span class="ov-qty">${f2(p.quantity).replace(',00','') } un</span></div>
+      <div class="ov-skeleton" style="height:22px"></div>
+      <div class="ov-skeleton" style="height:13px; width:60%"></div>
+      <div class="ov-skeleton" style="height:40px; margin-top:4px"></div>
+    </div>
+  `).join('');
+
+  status.textContent = `${positions.length} posições`;
+
+  // Busca sparklines em paralelo (limita 6 concorrentes pra não sobrecarregar)
+  const results = [];
+  const BATCH = 6;
+  for (let i = 0; i < positions.length; i += BATCH) {
+    const batch = positions.slice(i, i + BATCH);
+    const sparks = await Promise.all(batch.map(p => fetchSparkline(p.ticker)));
+    sparks.forEach((s, j) => results.push({ pos: batch[j], spark: s }));
+  }
+
+  grid.innerHTML = results.map(r => renderCard(r.pos, r.spark)).join('');
+  updated.textContent = 'atualizado ' + new Date().toLocaleTimeString('pt-BR');
+}
+
+// Auto-refresh
+function startAutoRefresh() {
+  if (_refreshInterval) clearInterval(_refreshInterval);
+  _refreshInterval = setInterval(loadOverview, REFRESH_MS);
+}
+
+// Boot
+window.addEventListener('DOMContentLoaded', async () => {
+  if (window.FAAuth && FAAuth.requireAuth) {
+    try { await FAAuth.requireAuth(); } catch (e) { return; }
+  }
+  loadOverview();
+  startAutoRefresh();
+});
+
+// Pause refresh quando aba não visível
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    if (_refreshInterval) { clearInterval(_refreshInterval); _refreshInterval = null; }
+  } else {
+    if (!_refreshInterval) { loadOverview(); startAutoRefresh(); }
+  }
+});
+</script>
+
+</body>
+</html>
