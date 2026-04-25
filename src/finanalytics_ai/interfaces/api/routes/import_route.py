@@ -879,3 +879,88 @@ async def get_positions(
     if tipo:
         pos = [p for p in pos if p.get("tipo", "").lower() == tipo.lower()]
     return {"total": len(pos), "positions": pos}
+
+
+# ── Feature C6: Dividendos ───────────────────────────────────────────────────
+
+
+@router.post("/dividends/preview", summary="Preview parser de dividendos (CSV/OFX)")
+async def preview_dividends(
+    account_id: str = Query(..., min_length=1),
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    """Parse extrato (CSV/OFX) detectando dividendos/JCP/rendimentos.
+
+    Faz match com positions do account_id; retorna preview SEM commit.
+    """
+    from finanalytics_ai.application.services.dividend_import_service import DividendImportService
+
+    if not file.filename:
+        raise HTTPException(400, "Nome do arquivo obrigatorio")
+    content = await file.read()
+    fn = file.filename.lower()
+
+    svc = DividendImportService()
+    if fn.endswith(".csv"):
+        parsed = svc.parse_csv(content)
+    elif fn.endswith(".ofx") or fn.endswith(".qfx"):
+        parsed = svc.parse_ofx(content)
+    else:
+        raise HTTPException(400, f"Formato nao suportado: {fn.split('.')[-1]}. Use CSV ou OFX.")
+
+    matched = await svc.match_to_positions(parsed, account_id)
+
+    return {
+        "filename": file.filename,
+        "total_lines": len(parsed),
+        "matched": [
+            {
+                "ticker": m.matched_ticker or m.parsed.ticker,
+                "amount": m.parsed.amount,
+                "date": m.parsed.date.isoformat(),
+                "type": m.parsed.detected_type,
+                "status": m.match_status,
+                "position_id": m.matched_position_id,
+                "candidates": m.candidates,
+                "description": m.parsed.description[:120],
+            }
+            for m in matched
+        ],
+        "summary": {
+            "matched": sum(1 for m in matched if m.match_status == "matched"),
+            "unmatched": sum(1 for m in matched if m.match_status == "unmatched"),
+            "ambiguous": sum(1 for m in matched if m.match_status == "ambiguous"),
+        },
+    }
+
+
+@router.post("/dividends/commit", summary="Confirma e cria account_transactions de dividendos")
+async def commit_dividends(
+    account_id: str = Query(..., min_length=1),
+    user_id: str = Query(..., min_length=1, description="user_id (master pode importar para qualquer)"),
+    only_matched: bool = Query(False, description="Se true, ignora linhas unmatched/ambiguous"),
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    """Re-parse + commit. Cria tx_type=dividend status=settled em account_transactions.
+
+    Idempotente: linhas com mesma data+amount+ticker pulam (skip).
+    Linhas unmatched ficam com related_id=None e podem ser reconciliadas manualmente depois.
+    """
+    from finanalytics_ai.application.services.dividend_import_service import DividendImportService
+
+    if not file.filename:
+        raise HTTPException(400, "Nome do arquivo obrigatorio")
+    content = await file.read()
+    fn = file.filename.lower()
+
+    svc = DividendImportService()
+    if fn.endswith(".csv"):
+        parsed = svc.parse_csv(content)
+    elif fn.endswith(".ofx") or fn.endswith(".qfx"):
+        parsed = svc.parse_ofx(content)
+    else:
+        raise HTTPException(400, f"Formato nao suportado: {fn.split('.')[-1]}.")
+
+    matched = await svc.match_to_positions(parsed, account_id)
+    result = await svc.commit_dividends(matched, user_id=user_id, account_id=account_id, only_matched=only_matched)
+    return result
