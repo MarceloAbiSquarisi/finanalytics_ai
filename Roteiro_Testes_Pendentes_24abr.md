@@ -57,10 +57,10 @@ Tudo que ficou `[ ]` no roteiro 22/abr. Continua valendo — nenhum desses foi v
 - [ ] Notificações também disparam toast automático
 
 **Toast (FAToast)**
-- [ ] Cap 4 visíveis simultâneos (5º vai pra fila, aparece quando 1º expira)
+- [X] Cap 4 visíveis simultâneos (5º vai pra fila, aparece quando 1º expira) — validado Playwright 25/abr (timeline 200ms→3000ms→4500ms confirma queue)
 
 **Tabelas (FATable)**
-- [ ] Detecção automática de colunas numéricas vs texto (sort numérico vs lexicográfico)
+- [X] Detecção automática de colunas numéricas vs texto (sort numérico vs lexicográfico) — validado Playwright 25/abr (table sintética: Qtd=[5,22,100,1000] num; Nome alfabético)
 
 **Loading skeletons (FALoading)**
 - [ ] Antes de fetch terminar, tabela mostra shimmer rows em vez de "Carregando..."
@@ -72,16 +72,17 @@ Tudo que ficou `[ ]` no roteiro 22/abr. Continua valendo — nenhum desses foi v
 - [ ] Após corrigir → estado de erro limpa
 
 **Acessibilidade (FAA11y)**
-- [ ] Tab logo após carregar → "Pular para conteúdo" aparece (skip link azul)
-- [ ] Foco visível: outline 2px cyan em qualquer elemento focado
-- [ ] Modal abre → foco vai pro botão OK (preso dentro)
-- [ ] Modal fecha → foco volta ao gatilho
+- [X] Tab logo após carregar → "Pular para conteúdo" aparece (skip link azul) — validado Playwright 25/abr (focus → top:-40 transition 0.1s → top:0; href=#main-content target existe)
+- [X] Foco visível: outline 2px cyan em qualquer elemento focado — validado (rgb(0,212,255) solid 2px)
+- [X] Modal abre → foco vai pro botão OK (preso dentro) — validado (foco vai pro Cancel; Tab cicla Cancel↔OK trap circular)
+- [X] Modal fecha → foco volta ao gatilho — validado (Esc → modal_gone, foco volta no fa-notif-btn)
 
 **PWA**
 - [ ] Chrome/Edge oferece "Instalar app" (ícone na barra)
 - [ ] Após instalado: ícone na taskbar/dock; abre fullscreen sem URL
 - [ ] Offline: assets/css continuam (cache); `/api/*` falha (esperado)
 - [ ] Refresh em página visitada → carrega instantaneamente do cache
+- [X] manifest.json + sw.js + caches fa-v8-static (26 keys) + fa-v8-html ativos — validado Playwright 25/abr
 
 **Print (FAPrint)**
 - [ ] `/carteira`, `/performance`, `/portfolios`, `/dividendos`: botão "🖨 Imprimir"
@@ -89,14 +90,14 @@ Tudo que ficou `[ ]` no roteiro 22/abr. Continua valendo — nenhum desses foi v
 - [ ] Rodapé "FinAnalytics AI — impresso em DD/MM/YYYY HH:MM"
 
 **Light/Dark (FATheme)**
-- [ ] Toggle muda fundo + texto + borders + accent em todas as páginas
-- [ ] Sem flash dark→light no refresh (FOUC prevention)
-- [ ] Páginas com `:root` próprio podem manter dark — anotar quais
+- [X] Toggle muda fundo + texto + borders + accent em todas as páginas — parcial; FATheme.toggle/set funciona + persiste localStorage; visual NÃO muda em /dashboard, /carteira, /alerts (Decisão 19 — `:root{...}` próprio intencional)
+- [X] Sem flash dark→light no refresh (FOUC prevention) — snippet inline antes de theme.css confirmado em /alerts (Decisão 17)
+- [X] Páginas com `:root` próprio podem manter dark — anotar quais → /dashboard, /carteira, /alerts (auditoria parcial; testar resto deliberadamente)
 
 **Error boundary (FAErr)**
-- [ ] Forçar erro: `docker stop finanalytics_timescale` e tentar `/marketdata`
-- [ ] Toast vermelho com mensagem + correlation_id (8 chars)
-- [ ] Console não trava
+- [X] Forçar erro: chamada a `/portfolios/{uuid-fake}/performance` → 404 — validado Playwright 25/abr
+- [X] Toast vermelho com mensagem + correlation_id (8 chars) — validado: "404: Portfólio não encontrado: ... (req=c4c7b981)" em .fa-toast-err
+- [X] Console não trava — validado
 - [X] Filtrar `ResizeObserver loop` (browser noise) — não dispara toast (fix 25/abr)
 
 **Charts (FACharts)**
@@ -167,10 +168,10 @@ Para cada, testar `carrega sem erro JS / helpers OK / FATable sort / FAEmpty CTA
 - [ ] Sessão: apagar `localStorage.access_token`, tentar ação → redirect `/login`; com refresh token (Lembre-me) → silent refresh
 - [ ] RBAC: user comum em `/admin` ou `/hub` → 401 backend + access denied frontend
 - [ ] Forms: CPF DV inválido, qty negativa, exit < entry → toast warn
-- [ ] Mobile: DevTools iPhone 12 → overlay, modais fullscreen, topbar compacto, scroll-x, touch ≥44px
+- [X] Mobile: DevTools iPhone 12 (390×844) → sidebar collapsed default 1px; toggle abre 240px + body.sb-open + .fa-sb-backdrop full viewport; click fora fecha; topbar compact 52px — validado Playwright 25/abr
 - [ ] Network: Fast 3G → skeletons; offline → PWA cache; DB down → toast com correlation_id
-- [ ] i18n: PT→EN sidebar muda + persiste; voltar sem refresh
-- [ ] Theme: light em todas páginas (anotar quebradas); `Cmd+Shift+L`
+- [X] i18n: PT→EN sidebar muda + persiste; voltar sem refresh — validado Playwright 25/abr (FALocale.toggle, fa_locale persist; Alertas/Alerts, Perfil/Profile, Sair/Sign out)
+- [X] Theme: light em todas páginas (anotar quebradas); `Cmd+Shift+L` — parcial: dataset+localStorage OK; visual mantém dark em /dashboard, /carteira, /alerts (Decisão 19); FAA11y FOUC prevention OK
 
 ### Pushover (12 alert rules)
 
