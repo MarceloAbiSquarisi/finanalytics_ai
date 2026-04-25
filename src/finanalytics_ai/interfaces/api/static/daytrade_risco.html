@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Day Trade - GestÃ£o de Risco | FinAnalytics AI</title>
+<title>Day Trade - Gestão de Risco | FinAnalytics AI</title>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <meta name="description" content="FinAnalytics AI — plataforma quant para análise financeira, gestão de carteira e day trade.">
 <meta name="robots" content="noindex, nofollow">
@@ -107,8 +107,8 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
       </button>
       <div class="fa-sb-submenu open" id="dt-submenu">
         <a href="/daytrade/setups" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg><span>Setups</span></a>
-        <a href="/diario" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>DiÃ¡rio de Trade</span></a>
-        <a href="/daytrade/risco" class="fa-sb-sub-link active"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>GestÃ£o de Risco</span></a>
+        <a href="/diario" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Diário de Trade</span></a>
+        <a href="/daytrade/risco" class="fa-sb-sub-link active"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Gestão de Risco</span></a>
       <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
 </div>
     <a href="/pnl" class="fa-sb-sub-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>P&amp;L Intraday</span></a>
@@ -148,17 +148,17 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 </aside>
 
 <div class="fa-page-content">
-  <div class="page-title">&#128737; Day Trade â€” GestÃ£o de Risco
+  <div class="page-title">&#128737; Day Trade — Gestão de Risco
 </div>
-  <div class="page-sub">Calcule tamanho de posiÃ§Ã£o, stop e alvo com base no seu capital
+  <div class="page-sub">Calcule tamanho de posição, stop e alvo com base no seu capital
 </div>
 
   <div class="grid">
-    <!-- Calculadora de PosiÃ§Ã£o -->
+    <!-- Calculadora de Posição -->
     <div class="card">
       <div class="card-title">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="11" y2="14"/></svg>
-        Calculadora de PosiÃ§Ã£o
+        Calculadora de Posição
 </div>
       <div class="field-row">
         <div class="field-label">Capital total (R$)
@@ -166,22 +166,22 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
         <input class="field-input" id="capital" type="number" value="50000" min="1000">
 </div>
       <div class="field-row">
-        <div class="field-label">Risco por operaÃ§Ã£o (%)
+        <div class="field-label">Risco por operação (%)
 </div>
         <input class="field-input" id="risco-pct" type="number" value="1" min="0.1" max="5" step="0.1">
 </div>
       <div class="field-row">
-        <div class="field-label">PreÃ§o de entrada (R$)
+        <div class="field-label">Preço de entrada (R$)
 </div>
         <input class="field-input" id="preco-entrada" type="number" value="48.50" step="0.01">
 </div>
       <div class="field-row">
-        <div class="field-label">PreÃ§o de stop (R$)
+        <div class="field-label">Preço de stop (R$)
 </div>
         <input class="field-input" id="preco-stop" type="number" value="47.00" step="0.01">
 </div>
       <div class="field-row">
-        <div class="field-label">PreÃ§o alvo (R$)
+        <div class="field-label">Preço alvo (R$)
 </div>
         <input class="field-input" id="preco-alvo" type="number" value="51.00" step="0.01">
 </div>
@@ -194,10 +194,10 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
     <div class="card">
       <div class="card-title">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        Regras de ProteÃ§Ã£o
+        Regras de Proteção
 </div>
       <div class="field-row">
-        <div class="field-label">Loss mÃ¡ximo do dia (R$)
+        <div class="field-label">Loss máximo do dia (R$)
 </div>
         <input class="field-input" id="loss-max" type="number" value="500">
 </div>
@@ -207,17 +207,17 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
         <input class="field-input" id="gain-alvo" type="number" value="1500">
 </div>
       <div class="field-row">
-        <div class="field-label">MÃ¡x. operaÃ§Ãµes por dia
+        <div class="field-label">Máx. operações por dia
 </div>
         <input class="field-input" id="max-ops" type="number" value="5" min="1" max="20">
 </div>
       <div class="field-row">
-        <div class="field-label">P&L do dia (R$) â€” atual
+        <div class="field-label">P&L do dia (R$) — atual
 </div>
         <input class="field-input" id="pnl-dia" type="number" value="0" step="10">
 </div>
       <div class="field-row">
-        <div class="field-label">OperaÃ§Ãµes realizadas hoje
+        <div class="field-label">Operações realizadas hoje
 </div>
         <input class="field-input" id="ops-hoje" type="number" value="0" min="0">
 </div>
@@ -231,10 +231,10 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
   <div class="card">
     <div class="card-title">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      ExposiÃ§Ã£o de Risco
+      Exposição de Risco
 </div>
     <div class="meter-wrap">
-      <div class="meter-label" id="meter-label">Configure os parÃ¢metros acima e calcule
+      <div class="meter-label" id="meter-label">Configure os parâmetros acima e calcule
 </div>
       <div class="meter-bar"><div class="meter-fill green" id="meter-fill" style="width:0%">
 </div>
@@ -268,10 +268,10 @@ function calcPosicao(){
   var pctCap=valorPos/cap*100;
 
   var html='';
-  html+='<div class="result-row"><span class="result-label">Quantidade</span><span class="result-value val-blue">'+qtd+' aÃ§Ãµes</span></div>';
-  html+='<div class="result-row"><span class="result-label">Valor da posiÃ§Ã£o</span><span class="result-value val-gold">R$ '+valorPos.toFixed(2)+'</span></div>';
+  html+='<div class="result-row"><span class="result-label">Quantidade</span><span class="result-value val-blue">'+qtd+' ações</span></div>';
+  html+='<div class="result-row"><span class="result-label">Valor da posição</span><span class="result-value val-gold">R$ '+valorPos.toFixed(2)+'</span></div>';
   html+='<div class="result-row"><span class="result-label">% do capital</span><span class="result-value '+(pctCap>20?'val-red':'val-green')+'">'+pctCap.toFixed(1)+'%</span></div>';
-  html+='<div class="result-row"><span class="result-label">Risco mÃ¡x. (stop)</span><span class="result-value val-red">-R$ '+stopLoss.toFixed(2)+'</span></div>';
+  html+='<div class="result-row"><span class="result-label">Risco máx. (stop)</span><span class="result-value val-red">-R$ '+stopLoss.toFixed(2)+'</span></div>';
   if(gainAlvo!==null){
     html+='<div class="result-row"><span class="result-label">Ganho potencial</span><span class="result-value val-green">+R$ '+gainAlvo.toFixed(2)+'</span></div>';
     html+='<div class="result-row"><span class="result-label">Risco/Retorno</span><span class="result-value '+(rr>=2?'val-green':rr>=1?'val-gold':'val-red')+'">1:'+rr.toFixed(2)+'</span></div>';
@@ -301,17 +301,17 @@ function checkRegras(){
 
   // Regra 1: loss do dia
   if(pnl<=-lossMax){regras.push({cls:'fail',icon:'&#9888;',name:'STOP DO DIA ATINGIDO',desc:'Perda de R$ '+Math.abs(pnl).toFixed(2)+' de R$ '+lossMax.toFixed(2)+' limite'});}
-  else if(pnl<-lossMax*0.7){regras.push({cls:'warn',icon:'&#9733;',name:'PrÃ³ximo do stop do dia',desc:'Perda atual: R$ '+Math.abs(pnl).toFixed(2)+' ('+((Math.abs(pnl)/lossMax)*100).toFixed(0)+'% do limite)'});}
+  else if(pnl<-lossMax*0.7){regras.push({cls:'warn',icon:'&#9733;',name:'Próximo do stop do dia',desc:'Perda atual: R$ '+Math.abs(pnl).toFixed(2)+' ('+((Math.abs(pnl)/lossMax)*100).toFixed(0)+'% do limite)'});}
   else{regras.push({cls:'ok',icon:'&#10003;',name:'Loss do dia OK',desc:'R$ '+Math.abs(pnl<0?pnl:0).toFixed(2)+' de R$ '+lossMax.toFixed(2)+' limite'});}
 
   // Regra 2: gain do dia
-  if(pnl>=gainAlvo){regras.push({cls:'ok',icon:'&#127881;',name:'Meta do dia atingida!',desc:'Gain: R$ '+pnl.toFixed(2)+' â€” considere encerrar o dia'});}
+  if(pnl>=gainAlvo){regras.push({cls:'ok',icon:'&#127881;',name:'Meta do dia atingida!',desc:'Gain: R$ '+pnl.toFixed(2)+' — considere encerrar o dia'});}
   else{regras.push({cls:'ok',icon:'&#8226;',name:'Meta do dia',desc:'R$ '+pnl.toFixed(2)+' de R$ '+gainAlvo.toFixed(2)+' alvo'});}
 
-  // Regra 3: operaÃ§Ãµes
-  if(ops>=maxOps){regras.push({cls:'fail',icon:'&#9888;',name:'Limite de operaÃ§Ãµes atingido',desc:ops+' de '+maxOps+' operaÃ§Ãµes realizadas'});}
-  else if(ops>=maxOps-1){regras.push({cls:'warn',icon:'&#9733;',name:'Ãšltima operaÃ§Ã£o permitida',desc:ops+' de '+maxOps+' operaÃ§Ãµes'});}
-  else{regras.push({cls:'ok',icon:'&#10003;',name:'OperaÃ§Ãµes OK',desc:ops+' de '+maxOps+' realizadas'});}
+  // Regra 3: operações
+  if(ops>=maxOps){regras.push({cls:'fail',icon:'&#9888;',name:'Limite de operações atingido',desc:ops+' de '+maxOps+' operações realizadas'});}
+  else if(ops>=maxOps-1){regras.push({cls:'warn',icon:'&#9733;',name:'Ãšltima operação permitida',desc:ops+' de '+maxOps+' operações'});}
+  else{regras.push({cls:'ok',icon:'&#10003;',name:'Operações OK',desc:ops+' de '+maxOps+' realizadas'});}
 
   var html='';
   regras.forEach(function(r){
