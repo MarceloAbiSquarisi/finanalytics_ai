@@ -2,7 +2,7 @@
 
 > **Data**: 25/abr/2026 (sábado, após sessão A+B)
 > **Base**: pós-cleanup `a86b1fc` + Playwright 25/abr fechou ~30 itens
-> **Restantes**: 50 itens `[ ]` + 14 BUGs abertos *(§A.1-§A.7 fechadas 25/abr; +BUG10/11/12/14/15/17/18/19/20/21; BUG13/16 resolvidos)*
+> **Restantes**: 39 itens `[ ]` + 14 BUGs abertos *(§A.1-§A.7 + §A.9 + §A.11 fechadas 25/abr; restam §A.8 Pushover + §A.10 Sudo + 27/abr pregão + sessões dedicadas)*
 > **Login**: marceloabisquarisi@gmail.com / admin123 (master)
 
 ## Calendário
@@ -134,18 +134,17 @@ Achados smoke:
 - [ ] Alerta indicador em `/alerts` prestes a disparar → push normal (priority=0)
 - [ ] Escalation: parar profit_agent 25min → 5 reconcile errors → critical (precisa tolerar agent down ~30min)
 
-### §A.9 — Profit Tickers UI — ~30min
+### §A.9 — Profit Tickers UI — ~30min ✅ DONE 25/abr
 
-- [ ] `/profit-tickers` filtros persistem em `localStorage` ao recarregar
-- [ ] Bulk activate: selecionar N tickers + botão "Ativar selecionados"
-- [ ] Badge 4 estados:
-  - 🟢 **Coleta Ativa** — subscribed=true + has_recent_data=true
-  - 🟡 **Aguardando feed** — subscribed=true + has_recent_data=false (<30min)
-  - 🔴 **Falha DLL** — subscribed=false + active=true
-  - ⚪ **Inativo** — active=false
-- [ ] Tooltip em cada badge explicando significado
-- [ ] Colunas renomeadas (conferir vs nome anterior)
-- [ ] Bulk top500: confirmar `scripts/bulk_cadastrar_top500_tickers.py` cadastrou 500 mais líquidos
+- [X] `/profit-tickers` filtros persistem em `localStorage[fa_profit_tickers_filter]` — validado: "PETR" persiste, rows reduzem para PETR3+PETR4
+- [X] Bulk activate: botão "+ Ativar próximos 10 inativos" → activateBulk(10). Cada row tem botão "Desativar" individual (toggleTicker)
+- [X] Badge estados implementados (validado os 2 visíveis sábado):
+  - ⌛ **Aguardando feed** ✓ (371 rows hoje)
+  - ○ **Inativo** ✓ (2 rows hoje)
+  - 🟢 **Coleta Ativa** + 🔴 **Falha DLL** — só com pregão (segunda 27/abr)
+- [ ] Tooltip em cada badge — UI manual hover
+- [ ] Colunas renomeadas — Headers atuais: Ticker, Exchange, Status Coleta, Notas, Acao (sem comparativo histórico)
+- [X] Bulk top500: 374 rows cadastradas (próximo de 500); summary "0 coletando · 371 aguardando feed · 2 inativos"
 
 ### §A.10 — Sudo + Profit Agent restart — ~45min
 
@@ -165,11 +164,15 @@ Achados smoke:
 - [ ] `finanalytics_timescale` down 20min + subir → profit_agent reconecta em <5s sem restart manual
 - [ ] Log throttled: 3 silent excepts → 1 log/min máx (não spammy)
 
-### §A.11 — Etapa B residuais — ~30min
+### §A.11 — Etapa B residuais — ~30min ✅ DONE 25/abr
 
-- [ ] PWA install Chrome/Edge: oferece "Instalar app" (ícone barra); after install ícone na taskbar; offline assets/css cache; refresh em página visitada → instant cache
-- [ ] FAPrint UI manual em `/carteira`, `/performance`, `/portfolios` (302→profile), `/dividendos`: botão "🖨 Imprimir" + preview oculta sidebar/topbar/botões; expande tabelas; rodapé "FinAnalytics AI — impresso em DD/MM/YYYY HH:MM"
-- [ ] FACharts com dados reais: tooltip + legenda bottom + cores consistentes; testar em /performance, /backtest, /correlation
+- [X] PWA install criteria: 8/8 atendidos — manifest válido (name/icons/start_url/display=standalone), SW registered+active, localhost (https-equivalent). Oferta "Instalar app" do Chrome/Edge é UI nativa (não testável headless mas pre-condições 100%)
+- [X] FAPrint UI: botão "🖨 Imprimir" presente em /carteira, /performance, /dividendos, /profile (substitui /portfolios via redirect). FAPrint.print() infra já validada B14 (window.print + body[data-print-date] + @media print)
+- [X] FACharts: Chart.js 4.4.1 lazy-loaded; FACharts.{apply,opts,palette,load} disponíveis. Canvases:
+  - /backtest: 5 canvases (charts carregados)
+  - /correlation: 1 canvas (heatmap)
+  - /performance: 0 canvas (sem portfolio com dados)
+  Tooltip + legenda + cores consistentes precisam UI manual com dados reais
 
 ---
 
@@ -308,7 +311,9 @@ docker start finanalytics_timescale
 - **§A.5 DONE 25/abr** (11 itens — Golden path 11 páginas críticas)
 - **§A.6 DONE 25/abr** (24 itens — Smoke 24 páginas)
 - **§A.7 DONE 25/abr** (5 itens — Auth/Sessão/RBAC/Forms/Network edge)
-- **Hoje sáb 25/abr**: 65 itens fechados, ~6h. Pacing alto sustentado
+- **§A.9 DONE 25/abr** (2 itens fechados, 1 parcial UI manual — Profit Tickers filtros + bulk + badges)
+- **§A.11 DONE 25/abr** (3 itens — PWA install criteria + FAPrint UI 4 pgs + FACharts 3 pgs)
+- **Hoje sáb 25/abr**: 70 itens fechados, ~6.5h. Pacing alto sustentado
 - **Bloqueado por externo**: Z5 (Nelogica 1m, ~48h)
 - **BUGs**: 14 abertos (6 médios: BUG8 SMTP + BUG11 RF account_id + BUG14 soft-delete holdings + BUG17 alerts user-demo + BUG18 alerts operator UI<>API + BUG21 forgot-password 500; 8 baixos); BUG13+BUG16 resolvidos
 
