@@ -314,9 +314,18 @@ docker start finanalytics_timescale
 - **§A.9 DONE 25/abr** (2 itens fechados, 1 parcial UI manual — Profit Tickers filtros + bulk + badges)
 - **§A.10 DONE 25/abr estrutural** (3 itens — FASudo + endpoint require_sudo + log throttled; restart real adiado)
 - **§A.11 DONE 25/abr** (3 itens — PWA install criteria + FAPrint UI 4 pgs + FACharts 3 pgs)
-- **Hoje sáb 25/abr**: 73 itens fechados + 4 BUGs adicionais fixados (BUG10/14/18/21) ~7.5h. Pacing alto sustentado
+- **Hoje sáb 25/abr**: 73 itens fechados + 7 BUGs fixados (BUG7+13+16+10+14+18+21) ~7.5h. Pacing alto sustentado
 - **Bloqueado por externo**: Z5 (Nelogica 1m, ~48h)
-- **BUGs**: 10 abertos (3 médios: BUG8 SMTP + BUG11 RF account_id + BUG17 alerts user-demo; 7 baixos); 7 resolvidos hoje (BUG7+13+16+10+14+18+21)
+- **BUGs**: 10 abertos (3 médios: BUG8 SMTP + BUG11 RF account_id + BUG17 alerts user-demo; 7 baixos); 7 resolvidos hoje
+
+### Cleanup state (final do dia 25/abr 18h):
+- **Users**: 1 ativo (master `marceloabisquarisi@gmail.com`); user_comum_test desativado via PATCH /admin/users/{id}/active
+- **Contas**: 2 ativas — Simulador Nelogica (DLL ativa, cash 0) + XP Teste 2 (cash 1000, dado real preservado). 8 contas teste já soft-deletadas
+- **Portfolios**: 2 ativos (1 por conta, ambos "Portfolio")
+- **Alerts**: 0 ativos user-demo (3 cancelled)
+- **TX órfãs**: 34 (14 cancelled + 20 settled) vinculadas a contas inativas — histórico preservado
+- **Containers**: 18 healthy
+- **API**: ok
 
 ---
 
