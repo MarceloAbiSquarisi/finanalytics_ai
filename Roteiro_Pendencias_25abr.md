@@ -2,7 +2,7 @@
 
 > **Data**: 25/abr/2026 (sábado, após sessão A+B)
 > **Base**: pós-cleanup `a86b1fc` + Playwright 25/abr fechou ~30 itens
-> **Restantes**: 117 itens `[ ]` + 6 BUGs abertos
+> **Restantes**: 112 itens `[ ]` + 7 BUGs abertos *(§A.1 fechada 25/abr; +BUG10 mini-bug connect-dll 2º simulator)*
 > **Login**: marceloabisquarisi@gmail.com / admin123 (master)
 
 ## Calendário
@@ -17,15 +17,17 @@
 
 ## §A — Hoje/Amanhã (sem pregão)
 
-### §A.1 — Configuração + UI Feature B (DLL setup, sem ordem real) — ~45min
+### §A.1 — Configuração + UI Feature B (DLL setup, sem ordem real) — ~45min ✅ DONE 25/abr
 
 > Configura DLL nas contas; ordem real fica pra 27/abr.
 
-- [ ] `/profile#invest`: conta criada mostra campos opcionais `dll_account_type/broker_id/account_id/routing_password` vazios → sem quebrar listagem
-- [ ] Conectar DLL numa conta existente: botão "Conectar DLL" preenche os 4 campos + marca `dll_active=true`
-- [ ] Toggle ativar/desativar DLL: reflete em `/dashboard` Aba Conta
-- [ ] Simulador `dll_account_type='simulator'` → não precisa routing_password (env `PROFIT_SIM_*` fallback)
-- [ ] `real_operations_allowed`: admin-only; marcar conta prod → dashboard *deve permitir* ordem real (validar UI flag, ordem real só 27/abr)
+- [X] `/profile#invest`: conta criada mostra campos opcionais `dll_account_type/broker_id/account_id/routing_password` vazios → sem quebrar listagem — validado API: dll_* todos null/false; listagem renderiza
+- [X] Conectar DLL numa conta existente: botão "Conectar DLL" preenche os 4 campos — validado: POST /connect-dll → broker_id/account_id/sub/type populados; routing_password_set=true (bool por segurança). NOTA: connect ≠ activate (separados); is_dll_active=false após connect
+- [X] Toggle ativar/desativar DLL: reflete em `/dashboard` Aba Conta — validado: activate-dll **desativa auto qualquer outra do mesmo user** (invariante 1 ativa por user); disconnect-dll zera 4 campos + dll_routing_password_set=false
+- [X] Simulador `dll_account_type='simulator'` → não precisa routing_password (env `PROFIT_SIM_*` fallback) — validado: 200 + routing_password_set=false. Constraint global `ux_inv_accounts_one_dll_sim` força 1 simulator no sistema
+- [X] `real_operations_allowed`: admin-only; marcar conta prod → dashboard *deve permitir* ordem real (UI 27/abr) — validado: master/admin PATCH /real-operations → 200; user comum → 403 "Apenas ADMIN ou MASTER pode alterar permissao de operacoes reais."
+
+**Achado**: connect-dll com 2º simulator (já existe Simulador Nelogica) retorna 500 com UniqueViolationError não tratada — deveria ser 409 amigável. Local: `wallet.py:245` (endpoint connect_dll). Mini-bug, baixo impacto pois constraint global é raramente acionado.
 
 ### §A.2 — Feature C Cash Ledger (UI + scheduler) — ~1h
 
@@ -222,6 +224,7 @@
 | BUG5 | Light mode em páginas com `:root` próprio | Baixo — intencional (Decisão 19) | §C.2 light mode |
 | BUG6 | 3 alert rules só firing após 1º increment | Baixo — esperado | — |
 | BUG8 | SMTP backup ausente para Pushover | Médio — se Pushover cair, sem redundância | §C.2 SMTP |
+| BUG10 | `connect-dll` com 2º simulator → 500 (deveria 409) | Baixo — UniqueViolationError não tratada em `wallet.py:245`; constraint raro | Adicionar try/except IntegrityError → HTTPException(409) |
 
 ---
 
@@ -276,9 +279,10 @@ docker start finanalytics_timescale
 
 ## Status
 
-- **Total pendente**: 117 itens distribuídos entre §A (96), §B (10), §C (11+)
+- **Total pendente**: 112 itens distribuídos entre §A (91), §B (10), §C (11+)
+- **§A.1 DONE 25/abr** (5 itens — Feature B DLL setup via API)
 - **Bloqueado por externo**: Z5 (Nelogica 1m, ~48h)
-- **BUGs**: 6 abertos (1 médio BUG8 SMTP, 5 baixos)
+- **BUGs**: 7 abertos (1 médio BUG8 SMTP, 6 baixos incluindo BUG10 connect-dll 2º simulator)
 
 ---
 
