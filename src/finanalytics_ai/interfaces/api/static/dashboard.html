@@ -1872,9 +1872,12 @@ function renderPriceChart(bars, bb) {
   // MA overlays
   drawAllMAOverlays(bars);
 
-  // Candlestick patterns
-  if (indVisible.patterns) drawPatterns(bars);
-  else { patternMarkers = []; if(priceSeries) priceSeries.setMarkers([]); }
+  // Candle counters (reset diário, abaixo do mínimo)
+  candleCounterMarkers = indVisibleCounter ? computeCandleCounters(_bars2) : [];
+
+  // Candlestick patterns (já chama applyAllMarkers internamente)
+  if (indVisible.patterns) drawPatterns(_bars2);
+  else { patternMarkers = []; applyAllMarkers(); }
 
   priceChart.timeScale().fitContent();
   // Re-fit após render assíncrono dos overlays (MA/BB/patterns) — garante zoom correto ao carregar
@@ -2247,7 +2250,7 @@ function applyIndPopup() {
   if (indCache._bars) renderPriceChart(indCache._bars, indCache.bollinger);
   else if (priceSeries) {
     if (indVisible.patterns) drawPatterns(indCache._bars || []);
-    else { patternMarkers=[]; priceSeries.setMarkers([]); }
+    else { patternMarkers=[]; applyAllMarkers(); }
   }
 }
 
@@ -2492,7 +2495,7 @@ function detectPatterns(bars) {
 
 function drawPatterns(bars) {
   if (!priceSeries || !bars || !bars.length) return;
-  if (!indVisible.patterns) { priceSeries.setMarkers([]); return; }
+  if (!indVisible.patterns) { applyAllMarkers(); return; }
 
   const detected = detectPatterns(bars);
   // Deduplica por time (mantém o primeiro de cada candle)
@@ -2516,7 +2519,53 @@ function drawPatterns(bars) {
   });
   markers.sort((a,b) => a.time - b.time);
   patternMarkers = markers;
-  priceSeries.setMarkers(markers);
+  applyAllMarkers();
+}
+
+// -- CANDLE COUNTERS (reset diário, abaixo do mínimo) -------------------------
+let candleCounterMarkers = [];
+let indVisibleCounter = true;  // toggle (poderia virar item em indicadores)
+
+function computeCandleCounters(bars) {
+  if (!bars || !bars.length) return [];
+  // Conta candles por dia (timezone local BRT). Reset quando muda o dia.
+  // Intercalado: mostra apenas em candles ímpares (1, 3, 5, 7, ...)
+  // Mantém a contagem real (1..N), mas esconde marker dos pares.
+  let lastDay = null;
+  let counter = 0;
+  const markers = [];
+  bars.forEach((b) => {
+    const t = typeof b.time === 'number' ? b.time : (new Date(b.time).getTime() / 1000);
+    const d = new Date(t * 1000);
+    const day = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+    if (day !== lastDay) {
+      counter = 1;
+      lastDay = day;
+    } else {
+      counter++;
+    }
+    // Intercalado: só ímpar (reduz visual ~50%)
+    if (counter % 2 !== 1) return;
+    markers.push({
+      time: t,
+      position: 'belowBar',
+      color: 'rgba(106,158,191,.85)',
+      shape: 'circle',
+      text: String(counter),
+      size: 0,
+    });
+  });
+  return markers;
+}
+
+// Mergeia patternMarkers + candleCounterMarkers e aplica no chart.
+// Quando há pattern num bar, oculta counter (pra não sobrepor).
+function applyAllMarkers() {
+  if (!priceSeries) return;
+  const patternTimes = new Set(patternMarkers.map(m => m.time));
+  const counters = candleCounterMarkers.filter(m => !patternTimes.has(m.time));
+  const merged = [...patternMarkers, ...counters].sort((a, b) => a.time - b.time);
+  priceSeries.setMarkers(merged);
 }
 
 function calcSMA(closes, period) {
