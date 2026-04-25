@@ -5,18 +5,39 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Overview — FinAnalytics AI</title>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-<meta name="description" content="Overview de posições com cards e sparklines.">
+<meta name="description" content="Overview consolidado de posições, watchlist, crypto e RF com sinais ML.">
 <meta name="robots" content="noindex, nofollow">
 <script>(function(){try{var t=localStorage.getItem('fa_theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script>
 <link rel="stylesheet" href="/static/theme.css">
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#00d4ff">
 <style>
+.ov-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.ov-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.ov-tab {
+  background: transparent; border: 1px solid var(--border, #1c2535); color: var(--muted, #4a6a8a);
+  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-family: 'DM Mono', monospace;
+  transition: all .15s;
+}
+.ov-tab:hover { color: var(--accent, #00d4ff); border-color: var(--accent, #00d4ff); }
+.ov-tab.active { background: rgba(58,191,248,.15); color: var(--accent, #00d4ff); border-color: var(--accent, #00d4ff); }
+.ov-tab .ov-tab-count { font-size: 10px; opacity: .7; margin-left: 4px; }
+.ov-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ov-controls select, .ov-controls input {
+  background: var(--card, #0e1a2e); border: 1px solid var(--border, #1c2535); color: var(--text);
+  padding: 6px 10px; border-radius: 5px; font-family: 'DM Mono', monospace; font-size: 12px;
+}
+.ov-meta { font-size: 11px; color: var(--muted, #4a6a8a); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.ov-refresh-btn {
+  background: transparent; border: 1px solid var(--border, #1c2535); color: var(--accent, #00d4ff);
+  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-family: 'DM Mono', monospace;
+}
+.ov-refresh-btn:hover { border-color: var(--accent, #00d4ff); }
+
 .ov-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 14px;
-  padding: 8px 0;
 }
 .ov-card {
   background: var(--card, #0e1a2e);
@@ -41,17 +62,20 @@
 .ov-card.down  { border-left: 3px solid var(--red, #ff3d5a); }
 .ov-card.flat  { border-left: 3px solid var(--muted, #4a6a8a); }
 .ov-head { display: flex; justify-content: space-between; align-items: baseline; }
-.ov-ticker { font-size: 18px; font-weight: 800; letter-spacing: .5px; color: var(--accent, #00d4ff); font-family: 'DM Mono', monospace; }
-.ov-qty { font-size: 11px; color: var(--muted, #4a6a8a); }
-.ov-price { font-size: 22px; font-weight: 700; font-family: 'DM Mono', monospace; }
-.ov-chg { font-size: 13px; font-weight: 600; font-family: 'DM Mono', monospace; }
+.ov-ticker { font-size: 17px; font-weight: 800; letter-spacing: .5px; color: var(--accent, #00d4ff); font-family: 'DM Mono', monospace; }
+.ov-tag { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; opacity: .7; padding: 2px 5px; border-radius: 3px; border: 1px solid var(--border); }
+.ov-tag.tag-pos    { color: var(--accent, #00d4ff); border-color: rgba(58,191,248,.3); }
+.ov-tag.tag-watch  { color: var(--gold, #F0B429); border-color: rgba(240,180,41,.3); }
+.ov-tag.tag-crypto { color: #ff9800; border-color: rgba(255,152,0,.3); }
+.ov-tag.tag-rf     { color: #b388ff; border-color: rgba(179,136,255,.3); }
+.ov-price { font-size: 21px; font-weight: 700; font-family: 'DM Mono', monospace; }
+.ov-chg { font-size: 12px; font-weight: 600; font-family: 'DM Mono', monospace; }
 .ov-chg.up    { color: var(--green, #00e676); }
 .ov-chg.down  { color: var(--red, #ff3d5a); }
 .ov-chg.flat  { color: var(--muted, #4a6a8a); }
 .ov-spark {
   width: 100%;
-  height: 40px;
-  margin-top: 4px;
+  height: 36px;
   pointer-events: none;
 }
 .ov-spark path.line.up   { stroke: var(--green, #00e676); }
@@ -60,18 +84,21 @@
 .ov-spark path.fill.up   { fill: rgba(0,230,118,.10); }
 .ov-spark path.fill.down { fill: rgba(255,61,90,.10); }
 .ov-spark path.fill.flat { fill: rgba(74,106,138,.06); }
-.ov-pm { font-size: 10px; color: var(--muted, #4a6a8a); }
-.ov-empty { padding: 60px 20px; text-align: center; color: var(--muted, #4a6a8a); }
-.ov-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 16px; }
-.ov-meta { font-size: 12px; color: var(--muted, #4a6a8a); display: flex; gap: 14px; align-items: center; }
-.ov-refresh-btn {
-  background: transparent; border: 1px solid var(--border, #1c2535); color: var(--accent, #00d4ff);
-  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-family: 'DM Mono', monospace;
+.ov-foot { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 10px; color: var(--muted, #4a6a8a); }
+.ov-ml {
+  font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 700;
+  padding: 2px 6px; border-radius: 4px; border: 1px solid; letter-spacing: .5px;
 }
-.ov-refresh-btn:hover { border-color: var(--accent, #00d4ff); }
-.ov-card-loading { opacity: .5; pointer-events: none; }
+.ov-ml.buy   { color: var(--green, #00e676); border-color: rgba(0,230,118,.4); background: rgba(0,230,118,.10); }
+.ov-ml.sell  { color: var(--red, #ff3d5a);   border-color: rgba(255,61,90,.4); background: rgba(255,61,90,.10); }
+.ov-ml.hold  { color: var(--gold, #F0B429);  border-color: rgba(240,180,41,.4); background: rgba(240,180,41,.08); }
+.ov-ml.none  { color: var(--muted);          border-color: var(--border); background: transparent; opacity: .55; }
+.ov-ml-pct { margin-left: 4px; opacity: .8; font-weight: 500; }
+
+.ov-empty { padding: 60px 20px; text-align: center; color: var(--muted, #4a6a8a); }
 .ov-skeleton { background: linear-gradient(90deg, rgba(255,255,255,.04), rgba(255,255,255,.10), rgba(255,255,255,.04)); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; }
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.ov-card-loading { opacity: .55; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -79,14 +106,41 @@
 <div data-fa-include="sidebar.html"></div>
 
 <main id="main-content" class="fa-page-content" style="padding: 16px 24px;">
+  <div style="margin-bottom:12px">
+    <h1 style="font-size:22px; margin:0; color:var(--text); font-family:'Syne',sans-serif">📊 Overview Consolidado</h1>
+    <div style="font-size:13px; color:var(--muted); margin-top:4px">Posições, watchlist, crypto e RF · sinais ML calibrados · click no card → /dashboard</div>
+  </div>
+
   <div class="ov-toolbar">
-    <div>
-      <h1 style="font-size:22px; margin:0; color:var(--text); font-family:'Syne',sans-serif">📊 Overview · Posições</h1>
-      <div style="font-size:13px; color:var(--muted); margin-top:4px">Cards das posições da sua carteira. Click → abre no /dashboard.</div>
+    <div class="ov-tabs" id="ov-tabs">
+      <button class="ov-tab active" data-tab="all">Todos <span class="ov-tab-count" data-count="all">0</span></button>
+      <button class="ov-tab" data-tab="position">Posições <span class="ov-tab-count" data-count="position">0</span></button>
+      <button class="ov-tab" data-tab="watchlist">Watchlist <span class="ov-tab-count" data-count="watchlist">0</span></button>
+      <button class="ov-tab" data-tab="crypto">Crypto <span class="ov-tab-count" data-count="crypto">0</span></button>
+      <button class="ov-tab" data-tab="rf">Renda Fixa <span class="ov-tab-count" data-count="rf">0</span></button>
+    </div>
+    <div class="ov-controls">
+      <input type="search" id="ov-search" placeholder="🔎 ticker..." style="width:130px"/>
+      <select id="ov-sort">
+        <option value="ticker">Ticker A-Z</option>
+        <option value="chg-desc">Variação% ↓</option>
+        <option value="chg-asc">Variação% ↑</option>
+        <option value="value-desc">Valor ↓</option>
+        <option value="value-asc">Valor ↑</option>
+        <option value="ml-buy">ML Sinais BUY ↑</option>
+        <option value="ml-sell">ML Sinais SELL ↑</option>
+      </select>
+      <select id="ov-ml-filter">
+        <option value="all">ML: todos</option>
+        <option value="BUY">Apenas BUY</option>
+        <option value="SELL">Apenas SELL</option>
+        <option value="HOLD">Apenas HOLD</option>
+      </select>
     </div>
     <div class="ov-meta">
       <span id="ov-status">—</span>
       <span id="ov-updated" title="Última atualização">—</span>
+      <button class="ov-refresh-btn" onclick="loadMLSignals()" title="Carrega ML signals (lento, ~1min)">🤖 ML</button>
       <button class="ov-refresh-btn" onclick="loadOverview()">↻ Atualizar</button>
     </div>
   </div>
@@ -94,8 +148,8 @@
   <div id="ov-grid" class="ov-grid"></div>
   <div id="ov-empty" class="ov-empty" style="display:none">
     <div style="font-size:48px; margin-bottom:10px">📭</div>
-    <div style="font-size:16px; margin-bottom:6px">Nenhuma posição ativa</div>
-    <div style="font-size:13px">Adicione trades em <a href="/carteira" style="color:var(--accent)">Carteira</a> para ver as posições aqui.</div>
+    <div style="font-size:16px; margin-bottom:6px">Nada por aqui</div>
+    <div style="font-size:13px">Adicione trades, watchlists, crypto ou aplicações em <a href="/carteira" style="color:var(--accent)">Carteira</a>.</div>
   </div>
 </main>
 
@@ -108,156 +162,340 @@
 <script>
 'use strict';
 
-let _refreshInterval = null;
-const REFRESH_MS = 30000;        // auto-refresh 30s
-const SPARK_BARS = 30;           // últimos 30 candles diários
+const REFRESH_MS = 30000;
+const SPARK_BARS = 30;
 const SPARK_RES = '1d';
+
+let _allItems = [];           // [{ticker, source, qty?, avg?, ...}]
+let _quotes = {};             // ticker → {last, prev, closes}
+let _signals = {};            // ticker → {signal, predicted_return_pct, error}
+let _activeTab = 'all';
+let _activeSort = 'ticker';
+let _activeMlFilter = 'all';
+let _searchQ = '';
+let _refreshInterval = null;
 
 function $(id) { return document.getElementById(id); }
 function f2(n) { return (n == null || isNaN(n)) ? '—' : (+n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function tok() { return localStorage.getItem('access_token'); }
+async function authFetch(url) {
+  return fetch(url, { headers: { Authorization: 'Bearer ' + tok() } }).then(r => r.ok ? r.json() : Promise.reject(new Error(url + ' → ' + r.status)));
+}
 
 function buildSparkline(closes, w, h) {
   if (!closes || closes.length < 2) return '';
   const n = closes.length;
-  const min = Math.min(...closes);
-  const max = Math.max(...closes);
+  const min = Math.min(...closes), max = Math.max(...closes);
   const range = max - min || 1;
   const stepX = w / (n - 1);
-  const pts = closes.map((c, i) => {
-    const x = (i * stepX).toFixed(1);
-    const y = (h - ((c - min) / range) * h).toFixed(1);
-    return [x, y];
-  });
+  const pts = closes.map((c, i) => [(i * stepX).toFixed(1), (h - ((c - min) / range) * h).toFixed(1)]);
   const linePath = 'M ' + pts.map(p => p[0] + ',' + p[1]).join(' L ');
   const fillPath = linePath + ` L ${w},${h} L 0,${h} Z`;
-  // Direção: comparar primeiro vs último
-  const first = closes[0], last = closes[n - 1];
-  const dir = last > first ? 'up' : (last < first ? 'down' : 'flat');
+  const dir = closes[n - 1] > closes[0] ? 'up' : (closes[n - 1] < closes[0] ? 'down' : 'flat');
   return `<svg class="ov-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
     <path class="fill ${dir}" d="${fillPath}"/>
     <path class="line ${dir}" d="${linePath}" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>`;
 }
 
+// ── DATA SOURCES ─────────────────────────────────────────────────────────
 async function fetchPositions() {
-  const tok = localStorage.getItem('access_token');
-  if (!tok) { window.location.href = '/login'; return []; }
-  const r = await fetch('/api/v1/wallet/positions', { headers: { Authorization: 'Bearer ' + tok } });
-  if (!r.ok) throw new Error('Falha ao buscar positions: ' + r.status);
-  const data = await r.json();
-  return Array.isArray(data) ? data : (data.positions || []);
+  try {
+    const data = await authFetch('/api/v1/wallet/positions');
+    const arr = Array.isArray(data) ? data : (data.positions || []);
+    return arr.map(p => ({
+      ticker: p.ticker, source: 'position', qty: p.quantity, avg: p.average_price, value: (p.quantity || 0) * (p.average_price || 0),
+    }));
+  } catch (e) { console.warn('positions fail:', e.message); return []; }
+}
+async function fetchWatchlist() {
+  try {
+    const data = await authFetch('/api/v1/watchlist');
+    const items = Array.isArray(data) ? data : (data.items || data.tickers || []);
+    const tickers = items.map(it => typeof it === 'string' ? it : (it.ticker || it.symbol)).filter(Boolean);
+    const dedup = [...new Set(tickers)];
+    return dedup.map(t => ({ ticker: t, source: 'watchlist' }));
+  } catch (e) { console.warn('watchlist fail:', e.message); return []; }
+}
+async function fetchCrypto() {
+  try {
+    const data = await authFetch('/api/v1/wallet/crypto');
+    const arr = Array.isArray(data) ? data : [];
+    return arr.map(c => ({
+      ticker: c.symbol || c.ticker, source: 'crypto', qty: c.quantity, avg: c.average_price_brl,
+      value: (c.quantity || 0) * (c.average_price_brl || 0),
+    }));
+  } catch (e) { console.warn('crypto fail:', e.message); return []; }
+}
+async function fetchRF() {
+  // RF holdings precisam portfolio_id; pegamos todos portfolios e iteramos.
+  try {
+    const portfolios = await authFetch('/api/v1/portfolios');
+    const arr = Array.isArray(portfolios) ? portfolios : [];
+    const all = [];
+    for (const p of arr) {
+      try {
+        const det = await authFetch(`/api/v1/fixed-income/portfolio/${p.portfolio_id}`);
+        const holdings = det.holdings || [];
+        holdings.forEach(h => all.push({
+          ticker: h.bond_id || h.bond_name || '?', source: 'rf', qty: 1, avg: h.invested,
+          value: h.invested || 0, bond_name: h.bond_name, indexer: h.indexer,
+        }));
+      } catch (e2) { /* skip */ }
+    }
+    return all;
+  } catch (e) { console.warn('rf fail:', e.message); return []; }
 }
 
 async function fetchSparkline(ticker) {
-  // Busca últimos 30 candles diários (para sparkline + chg do dia anterior)
   try {
     const r = await fetch(`/api/v1/marketdata/candles/${ticker}?resolution=${SPARK_RES}&limit=${SPARK_BARS}`);
     if (!r.ok) return { closes: [], last: null, prev: null };
     const d = await r.json();
     const candles = d.candles || [];
     const closes = candles.map(c => +c.close);
-    const last = closes.length ? closes[closes.length - 1] : null;
-    const prev = closes.length > 1 ? closes[closes.length - 2] : null;
-    return { closes, last, prev };
-  } catch (e) {
-    return { closes: [], last: null, prev: null };
-  }
+    return {
+      closes,
+      last: closes.length ? closes[closes.length - 1] : null,
+      prev: closes.length > 1 ? closes[closes.length - 2] : null,
+    };
+  } catch (e) { return { closes: [], last: null, prev: null }; }
 }
 
-function renderCard(pos, sparkData) {
-  const last = sparkData.last;
-  const prev = sparkData.prev;
+async function fetchAllSignals(timeoutMs = 60000) {
+  // Batch calibrado — pode demorar (5min em alguns casos). Aborta se timeout.
+  try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), timeoutMs);
+    const r = await fetch('/api/v1/ml/signals?limit=500', { headers: { Authorization: 'Bearer ' + tok() }, signal: ctrl.signal });
+    clearTimeout(tid);
+    if (!r.ok) return {};
+    const data = await r.json();
+    const items = data.items || [];
+    const map = {};
+    items.forEach(it => { map[it.ticker] = it; });
+    return map;
+  } catch (e) { console.warn('signals fail:', e.message); return {}; }
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────────
+function renderCard(item) {
+  const ticker = item.ticker;
+  const q = _quotes[ticker] || { closes: [], last: null, prev: null };
+  const sig = _signals[ticker] || null;
+  const last = q.last;
+  const prev = q.prev;
   let chg = null, chgPct = null, dir = 'flat';
   if (last != null && prev != null && prev !== 0) {
     chg = last - prev;
     chgPct = (chg / prev) * 100;
     dir = chg > 0 ? 'up' : (chg < 0 ? 'down' : 'flat');
   }
-  const priceTxt = last != null ? 'R$ ' + f2(last) : '—';
-  const chgTxt = (chg == null) ? '—' : `${chg >= 0 ? '+' : ''}${f2(chg)} (${chg >= 0 ? '+' : ''}${chgPct.toFixed(2)}%)`;
-  const spark = buildSparkline(sparkData.closes, 220, 40);
-  const pmTxt = pos.average_price != null ? `Pm R$ ${f2(pos.average_price)}` : '';
+  const priceTxt = last != null ? 'R$ ' + f2(last) : (item.source === 'rf' ? 'R$ ' + f2(item.value) : '—');
+  const chgTxt = (chg == null) ? (item.source === 'rf' ? '(RF)' : '—') : `${chg >= 0 ? '+' : ''}${f2(chg)} (${chg >= 0 ? '+' : ''}${chgPct.toFixed(2)}%)`;
+  const spark = item.source === 'rf' ? '' : buildSparkline(q.closes, 220, 36);
+  const tagText = { position: 'POS', watchlist: 'WL', crypto: 'CRP', rf: 'RF' }[item.source] || '?';
+  const tagCls = { position: 'tag-pos', watchlist: 'tag-watch', crypto: 'tag-crypto', rf: 'tag-rf' }[item.source] || '';
+
+  // ML signal badge
+  let mlHtml = '';
+  if (sig && !sig.error) {
+    const cls = sig.signal === 'BUY' ? 'buy' : (sig.signal === 'SELL' ? 'sell' : 'hold');
+    const pctTxt = sig.predicted_return_pct != null ? ` <span class="ov-ml-pct">${sig.predicted_return_pct >= 0 ? '+' : ''}${sig.predicted_return_pct.toFixed(2)}%</span>` : '';
+    mlHtml = `<span class="ov-ml ${cls}" title="ML signal · horizon ${sig.horizon_days}d · sharpe ${sig.best_sharpe?.toFixed(2) || '—'}">${sig.signal}${pctTxt}</span>`;
+  } else {
+    mlHtml = `<span class="ov-ml none" title="${sig?.error || 'sem modelo calibrado'}">—</span>`;
+  }
+
+  const footRight = item.source === 'position' && item.avg != null ? `Pm R$ ${f2(item.avg)}` : (item.source === 'crypto' && item.avg != null ? `Pm R$ ${f2(item.avg)}` : (item.source === 'rf' ? (item.indexer || '') : ''));
+
+  // Para RF não tem ticker B3 padrão; click leva a /fixed-income; demais → /dashboard
+  const href = item.source === 'rf' ? '/fixed-income' : `/dashboard?ticker=${encodeURIComponent(ticker)}`;
+
   return `
-    <a class="ov-card ${dir}" href="/dashboard?ticker=${encodeURIComponent(pos.ticker)}" title="Abrir ${pos.ticker} no dashboard">
+    <a class="ov-card ${dir}" href="${href}" title="Abrir ${ticker}">
       <div class="ov-head">
-        <span class="ov-ticker">${pos.ticker}</span>
-        <span class="ov-qty">${pos.quantity != null ? f2(pos.quantity).replace(',00','') + ' un' : ''}</span>
+        <span class="ov-ticker">${ticker}</span>
+        <span class="ov-tag ${tagCls}">${tagText}</span>
       </div>
       <div class="ov-price">${priceTxt}</div>
       <div class="ov-chg ${dir}">${chgTxt}</div>
       ${spark}
-      <div class="ov-pm">${pmTxt}</div>
+      <div class="ov-foot">
+        ${mlHtml}
+        <span>${footRight}</span>
+      </div>
     </a>
   `;
 }
 
-async function loadOverview() {
-  const grid = $('ov-grid');
-  const empty = $('ov-empty');
-  const status = $('ov-status');
-  const updated = $('ov-updated');
-
-  status.textContent = 'Carregando...';
-  empty.style.display = 'none';
-
-  let positions = [];
-  try {
-    positions = await fetchPositions();
-  } catch (e) {
-    status.textContent = 'Erro: ' + e.message;
-    if (window.FAToast) FAToast.err('Falha ao carregar posições: ' + e.message);
-    return;
+function applyFilters(items) {
+  let arr = items.slice();
+  if (_activeTab !== 'all') arr = arr.filter(i => i.source === _activeTab);
+  if (_searchQ) {
+    const q = _searchQ.toLowerCase();
+    arr = arr.filter(i => i.ticker.toLowerCase().includes(q));
   }
-
-  if (!positions.length) {
-    grid.innerHTML = '';
-    empty.style.display = 'block';
-    status.textContent = '0 posições';
-    updated.textContent = new Date().toLocaleTimeString('pt-BR');
-    return;
+  if (_activeMlFilter !== 'all') {
+    arr = arr.filter(i => {
+      const sig = _signals[i.ticker];
+      return sig && sig.signal === _activeMlFilter;
+    });
   }
-
-  // Skeleton enquanto sparklines carregam
-  grid.innerHTML = positions.map(p => `
-    <div class="ov-card flat ov-card-loading">
-      <div class="ov-head"><span class="ov-ticker">${p.ticker}</span><span class="ov-qty">${f2(p.quantity).replace(',00','') } un</span></div>
-      <div class="ov-skeleton" style="height:22px"></div>
-      <div class="ov-skeleton" style="height:13px; width:60%"></div>
-      <div class="ov-skeleton" style="height:40px; margin-top:4px"></div>
-    </div>
-  `).join('');
-
-  status.textContent = `${positions.length} posições`;
-
-  // Busca sparklines em paralelo (limita 6 concorrentes pra não sobrecarregar)
-  const results = [];
-  const BATCH = 6;
-  for (let i = 0; i < positions.length; i += BATCH) {
-    const batch = positions.slice(i, i + BATCH);
-    const sparks = await Promise.all(batch.map(p => fetchSparkline(p.ticker)));
-    sparks.forEach((s, j) => results.push({ pos: batch[j], spark: s }));
-  }
-
-  grid.innerHTML = results.map(r => renderCard(r.pos, r.spark)).join('');
-  updated.textContent = 'atualizado ' + new Date().toLocaleTimeString('pt-BR');
+  // Sort
+  const sortFns = {
+    'ticker':     (a, b) => a.ticker.localeCompare(b.ticker),
+    'chg-desc':   (a, b) => (chgPctOf(b) ?? -Infinity) - (chgPctOf(a) ?? -Infinity),
+    'chg-asc':    (a, b) => (chgPctOf(a) ?? Infinity)  - (chgPctOf(b) ?? Infinity),
+    'value-desc': (a, b) => (b.value || 0) - (a.value || 0),
+    'value-asc':  (a, b) => (a.value || 0) - (b.value || 0),
+    'ml-buy':     (a, b) => (predOf(b)  ?? -Infinity) - (predOf(a)  ?? -Infinity),
+    'ml-sell':    (a, b) => (predOf(a)  ?? Infinity)  - (predOf(b)  ?? Infinity),
+  };
+  arr.sort(sortFns[_activeSort] || sortFns.ticker);
+  return arr;
+}
+function chgPctOf(item) {
+  const q = _quotes[item.ticker];
+  if (!q || q.last == null || q.prev == null || q.prev === 0) return null;
+  return ((q.last - q.prev) / q.prev) * 100;
+}
+function predOf(item) {
+  const s = _signals[item.ticker];
+  return s && !s.error ? s.predicted_return_pct : null;
 }
 
-// Auto-refresh
+function rerender() {
+  const grid = $('ov-grid');
+  const empty = $('ov-empty');
+  const filtered = applyFilters(_allItems);
+  if (!filtered.length) {
+    grid.innerHTML = '';
+    empty.style.display = 'block';
+    $('ov-status').textContent = `0 / ${_allItems.length}`;
+    return;
+  }
+  empty.style.display = 'none';
+  grid.innerHTML = filtered.map(renderCard).join('');
+  $('ov-status').textContent = `${filtered.length} / ${_allItems.length}`;
+  // Atualiza counts dos tabs
+  ['all','position','watchlist','crypto','rf'].forEach(k => {
+    const el = document.querySelector(`[data-count="${k}"]`);
+    if (!el) return;
+    el.textContent = k === 'all' ? _allItems.length : _allItems.filter(i => i.source === k).length;
+  });
+}
+
+// ── ORQUESTRA ────────────────────────────────────────────────────────────
+async function loadOverview() {
+  if (!tok()) { window.location.href = '/login'; return; }
+  $('ov-status').textContent = 'Carregando...';
+  _allItems = [];
+  _quotes = {};
+  rerender();
+
+  // Render progressivo — cada fonte rerender assim que chega.
+  const addItems = (newItems) => {
+    const seen = new Set(_allItems.map(i => i.source + ':' + i.ticker));
+    newItems.forEach(it => {
+      const key = it.source + ':' + it.ticker;
+      if (!seen.has(key)) { _allItems.push(it); seen.add(key); }
+    });
+    rerender();
+    fetchSparklinesBatch();
+  };
+
+  // Dispara as 4 fontes em paralelo, mas cada uma renderiza ao chegar
+  fetchPositions().then(addItems);
+  fetchCrypto().then(addItems);
+  fetchWatchlist().then(addItems);
+  fetchRF().then(items => { addItems(items); $('ov-updated').textContent = 'atualizado ' + new Date().toLocaleTimeString('pt-BR'); });
+
+  // ML signals — cache em sessionStorage com TTL 30min (evita travar API com batch pesado)
+  const cached = sessionStorage.getItem('overview_signals');
+  const cachedAt = parseInt(sessionStorage.getItem('overview_signals_at') || '0');
+  const TTL = 30 * 60 * 1000;  // 30min
+  if (cached && (Date.now() - cachedAt) < TTL) {
+    try {
+      _signals = JSON.parse(cached);
+      console.info('[overview] ML signals from cache:', Object.keys(_signals).length);
+      rerender();
+    } catch (e) { /* ignore */ }
+  } else {
+    // Fetch background, mas só se user clicar no botão "Carregar ML"
+    // (chamada custosa: pode demorar 5min pra 200 tickers)
+    console.info('[overview] ML signals cache vazio — clique "Carregar ML" para buscar.');
+  }
+}
+
+// Função exposta pra botão "Carregar ML"
+async function loadMLSignals() {
+  $('ov-status').textContent = 'Carregando ML signals (pode demorar até 1min)...';
+  const signals = await fetchAllSignals(120000);
+  if (Object.keys(signals).length > 0) {
+    _signals = signals;
+    sessionStorage.setItem('overview_signals', JSON.stringify(signals));
+    sessionStorage.setItem('overview_signals_at', String(Date.now()));
+    console.info('[overview] ML signals loaded + cached:', Object.keys(signals).length);
+    rerender();
+    $('ov-status').textContent = `${_allItems.length} itens · ML carregado`;
+  } else {
+    $('ov-status').textContent = `${_allItems.length} itens · ML falhou`;
+    if (window.FAToast) FAToast.warn('ML signals indisponíveis (timeout ou backend ocupado)');
+  }
+}
+
+// Carrega sparklines pendentes (idempotente — só busca tickers ainda sem _quotes)
+let _sparkInflight = false;
+async function fetchSparklinesBatch() {
+  if (_sparkInflight) return;
+  _sparkInflight = true;
+  try {
+    const pending = _allItems
+      .filter(it => it.source !== 'rf' && !(it.ticker in _quotes))
+      .map(it => it.ticker);
+    const unique = [...new Set(pending)];
+    const BATCH = 6;
+    for (let i = 0; i < unique.length; i += BATCH) {
+      const batch = unique.slice(i, i + BATCH);
+      const sparks = await Promise.all(batch.map(t => fetchSparkline(t)));
+      sparks.forEach((s, j) => { _quotes[batch[j]] = s; });
+      rerender();
+    }
+  } finally { _sparkInflight = false; }
+}
+
+// Eventos
 function startAutoRefresh() {
   if (_refreshInterval) clearInterval(_refreshInterval);
   _refreshInterval = setInterval(loadOverview, REFRESH_MS);
 }
 
-// Boot
 window.addEventListener('DOMContentLoaded', async () => {
   if (window.FAAuth && FAAuth.requireAuth) {
     try { await FAAuth.requireAuth(); } catch (e) { return; }
   }
+
+  // Tabs
+  document.querySelectorAll('.ov-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.ov-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _activeTab = btn.dataset.tab;
+      rerender();
+    });
+  });
+  // Sort
+  $('ov-sort').addEventListener('change', e => { _activeSort = e.target.value; rerender(); });
+  // ML filter
+  $('ov-ml-filter').addEventListener('change', e => { _activeMlFilter = e.target.value; rerender(); });
+  // Search
+  $('ov-search').addEventListener('input', e => { _searchQ = e.target.value.trim(); rerender(); });
+
   loadOverview();
   startAutoRefresh();
 });
 
-// Pause refresh quando aba não visível
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
     if (_refreshInterval) { clearInterval(_refreshInterval); _refreshInterval = null; }
