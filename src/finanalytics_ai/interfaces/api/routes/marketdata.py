@@ -228,8 +228,20 @@ async def get_candles(
     # subquery explodia em 56s). Tenta ohlc_1m primeiro (BRAPI ingestor,
     # acoes Bovespa); se vazio, tenta ohlc_1m_from_ticks (continuous
     # aggregate sobre profit_ticks, futuros DLL). <500ms cada.
+    # NOTA: filtro relativo ao último close válido exclui bars com escala errada
+    # (~31k/ticker em ohlc_1m populados por ingestor legacy `tick_agg_v1` que dividia
+    # por 100). Janela [last*0.4, last*2.5] suporta penny stocks legítimos B3 (ex: VIIA3 ~R$0.40)
+    # mas filtra dados em escala 100x menor.
+    # Fix backend definitivo: migration para reescalar (×100) ou deletar bars antigos.
     sql_template = """
-        WITH bucketed AS (
+        WITH last_valid AS (
+            SELECT close AS ref
+            FROM {source}
+            WHERE ticker = $1 AND close > 0.001
+            ORDER BY time DESC
+            LIMIT 1
+        ),
+        bucketed AS (
             SELECT
                 time_bucket('{bucket}', time)              AS ts,
                 (array_agg(open  ORDER BY time ASC))[1]    AS open,
@@ -238,9 +250,11 @@ async def get_candles(
                 (array_agg(close ORDER BY time DESC))[1]   AS close,
                 SUM(volume)                                AS volume,
                 SUM(trades)                                AS trades
-            FROM {source}
+            FROM {source}, last_valid
             WHERE ticker = $1
               AND time >= NOW() - (INTERVAL '1 minute' * $3)
+              AND close BETWEEN last_valid.ref * 0.4 AND last_valid.ref * 2.5
+              AND open  BETWEEN last_valid.ref * 0.4 AND last_valid.ref * 2.5
             GROUP BY 1
         )
         SELECT ts, open, high, low, close, volume, trades
