@@ -83,6 +83,11 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
             await session.commit()
         except Exception as exc:
             await session.rollback()
+            # ValueError + HTTPException são domain errors que o caller trata
+            # (ex: F7 delete account com saldo != 0). Não engolir como DatabaseError.
+            from fastapi import HTTPException
+            if isinstance(exc, (ValueError, HTTPException)):
+                raise
             raise DatabaseError(
                 message=f"Erro na sessão do banco: {exc}",
                 context={"error": str(exc)},

@@ -2,7 +2,7 @@
 
 > **Data**: 25/abr/2026 (sábado, após sessão A+B)
 > **Base**: pós-cleanup `a86b1fc` + Playwright 25/abr fechou ~30 itens
-> **Restantes**: 104 itens `[ ]` + 9 BUGs abertos *(§A.1+§A.2 fechadas 25/abr; +BUG10/11/12)*
+> **Restantes**: 95 itens `[ ]` + 10 BUGs abertos *(§A.1+§A.2+§A.3 fechadas 25/abr; +BUG10/11/12/14/15; BUG13 resolvido)*
 > **Login**: marceloabisquarisi@gmail.com / admin123 (master)
 
 ## Calendário
@@ -45,22 +45,23 @@
   - Scheduler `settle_due_transactions_job` processa pendentes due_date≤hoje (validado manual).
   - **Gap arquitetural minor**: carteira RF criada via /fixed-income/portfolio NÃO seta investment_account_id → cash hooks skipped silenciosamente. Workaround: usar Portfolio existente da conta como portfolio_id das holdings.
 
-### §A.3 — Feature F UX 8 refinements — ~1.5h
+### §A.3 — Feature F UX 8 refinements — ~1.5h ✅ DONE 25/abr
 
-- [ ] **F1** Modal Histórico em `/profile#invest`:
-  - Filtros período (início/fim), direção (crédito/débito/todos), include_pending toggle
-  - Linha **Total** no footer (soma créditos − débitos)
-  - Botão Imprimir → layout clean com FAPrint
-- [ ] **F2** Withdraw/trade/crypto deixaria caixa < 0 → FAModal.confirm antes de submeter
-- [ ] **F3** Campo valor vazio/0/negativo → input highlighted + toast warn + não submete
-- [ ] **F4** Apelido em listings: `/carteira` Trades, `/crypto` cada linha mostra apelido conta ("XP Principal"); filtrar por conta funciona
-- [ ] **F5** Crypto aporte/resgate: `/crypto` botões **Aportar** + **Resgate parcial** (qty validada contra holding.qty)
-- [ ] **F6** RF Aplicar: `/fixed-income` aba "Buscar Títulos" cada linha botão verde **Aplicar** → modal cascade Conta → Portfolio → campos principal/data; SEM `window.prompt()` nativo
-- [ ] **F7** Delete conta com saldo:
-  - cash_balance > 0 → 409 "Há saldo em caixa" *(backend OK; UI guard)*
-  - holdings → 409 "Há investimentos vinculados"
-  - zerada + sem holdings → soft-delete `is_active=false`
-- [ ] **F8** `/fixed-income` layout: sidebar aberta NÃO sobrepõe content; colapsada content até `--sb-w-collapsed` margin; transição cubic-bezier .22s
+- [X] **F1** Modal Histórico em `/profile` aba Contas (botão 📋):
+  - Filtros tx-date-from/tx-date-to (default hoje), tx-direction-filter, tx-status-filter, tx-include-pending ✓
+  - Coluna **Saldo** com running_balance ✓
+  - Footer "Saldo Final +R$ 67500.00 R$ 49000.00" (Total créditos − débitos + saldo final) ✓
+  - Botão "🖨 Imprimir" → printTxHistory() ✓
+- [X] **F2** Withdraw deixaria caixa < 0 → FAModal.confirm("Saldo ficará negativo") antes de submeter; cancel reverte
+- [X] **F3** Campo valor vazio/0/negativo → class `.fa-invalid-input` + msg inline "Valor inválido — informe um número maior que zero." (NÃO toast — msg inline com class "msg err"); cash NÃO muda
+- [X] **F4** Apelido em listings: `/carteira` 4 tabelas (Trades, Crypto, RF, Outros) com coluna "Conta" mostrando apelido. **Render minor**: "Itau A.2Itau" (apelido + institution_name colados sem separador)
+- [X] **F5** Crypto botões — PARTIAL: Resgate inline `💰` em cada holding ✓ (qty atual passada via redeemCrypto); botão "+ Cripto" no topo da tab faz aporte geral (PUT upsert que aumenta qty) — não há "+ Aportar" inline por holding como literal no roteiro, mas semanticamente equivalente
+- [X] **F6** RF Aplicar — perfeito: `/fixed-income` aba "🔍 Busca de Títulos" cada bond linha tem botão verde "Aplicar" → onclick applyBondQuick(...) → modal `#modal-apply-rf` cascade: (1) Conta select (2) Portfolio depende da conta (3) Valor + Data. **SEM window.prompt() nativo** ✓
+- [X] **F7** Delete conta — PARTIAL com **fix BUG13 aplicado**:
+  - cash_balance > 0 → 409 "Saldo R$ X diferente de zero. Zere via saque/depósito antes de excluir." ✓ (após fix connection.py)
+  - **GAP detectado**: cash=0 + 2 trades + 2 RF holdings ATIVOS → 204 (soft-delete sem bloquear). Roteiro especificava 409 "Há investimentos vinculados"; só cash é validado backend
+  - zerada + sem holdings → 204 ✓
+- [X] **F8** `/fixed-income` layout: sidebar aberta `--sb-w=220px` → content margin-left=220px (no_overlap); colapsada `--sb-w-collapsed=52px` → margin-left=52px; transition exato "margin-left 0.22s cubic-bezier(0.4, 0, 0.2, 1)" ✓
 
 ### §A.4 — G2 Rename portfolio inline — ~15min
 
@@ -227,6 +228,9 @@
 | BUG10 | `connect-dll` com 2º simulator → 500 (deveria 409) | Baixo — UniqueViolationError não tratada em `wallet.py:245`; constraint raro | Adicionar try/except IntegrityError → HTTPException(409) |
 | BUG11 | RF carteira via `/fixed-income/portfolio` sem investment_account_id → cash hooks skipped | Médio — fluxo correto exige usar Portfolio da conta (1:1 refactor) | Aceitar `investment_account_id` em CreatePortfolioRFRequest OU deprecar /fixed-income/portfolio e usar /api/v1/portfolios direto |
 | BUG12 | ETF metadata schema falta `liquidity_days` | Baixo — UI/roteiro mencionavam mas schema só tem 3 fee fields | Decidir: adicionar coluna OU remover do roteiro |
+| ~~BUG13~~ | ~~`connection.py:84` engolia `ValueError`/`HTTPException` em `DatabaseError` → 500 em vez de 409~~ | **RESOLVIDO 25/abr** — fix aplicado: `if isinstance(exc, (ValueError, HTTPException)): raise` antes do wrap. Validado: F7 delete com cash>0 → 500→409 com msg amigável. | — |
+| BUG14 | Soft-delete de conta com holdings ativos não bloqueia (gap F7) | Médio — UI pode esconder conta com investimentos vinculados sem warn | Adicionar check em wallet_repo.delete_account: if has_holdings → raise ValueError("Há investimentos vinculados") |
+| BUG15 | F4 render Conta: "Itau A.2Itau" (apelido + institution_name colados) | Baixo — cosmético em /carteira tabelas | Adicionar separador (espaço/dot/dash) entre <span apelido> e <span inst> |
 
 ---
 
@@ -281,11 +285,12 @@ docker start finanalytics_timescale
 
 ## Status
 
-- **Total pendente**: 104 itens distribuídos entre §A (83), §B (10), §C (11+)
+- **Total pendente**: 95 itens distribuídos entre §A (74), §B (10), §C (11+)
 - **§A.1 DONE 25/abr** (5 itens — Feature B DLL setup via API)
 - **§A.2 DONE 25/abr** (8 itens — Feature C cash UI + scheduler + RF/Crypto/ETF hooks)
+- **§A.3 DONE 25/abr** (7 itens — Feature F UX refinements + fix BUG13)
 - **Bloqueado por externo**: Z5 (Nelogica 1m, ~48h)
-- **BUGs**: 9 abertos (2 médios BUG8 SMTP + BUG11 RF account_id; 7 baixos)
+- **BUGs**: 10 abertos (3 médios: BUG8 SMTP + BUG11 RF account_id + BUG14 soft-delete holdings; 7 baixos); BUG13 resolvido
 
 ---
 
