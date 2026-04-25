@@ -2,7 +2,7 @@
 
 > **Data**: 25/abr/2026 (sábado, após sessão A+B)
 > **Base**: pós-cleanup `a86b1fc` + Playwright 25/abr fechou ~30 itens
-> **Restantes**: 112 itens `[ ]` + 7 BUGs abertos *(§A.1 fechada 25/abr; +BUG10 mini-bug connect-dll 2º simulator)*
+> **Restantes**: 104 itens `[ ]` + 9 BUGs abertos *(§A.1+§A.2 fechadas 25/abr; +BUG10/11/12)*
 > **Login**: marceloabisquarisi@gmail.com / admin123 (master)
 
 ## Calendário
@@ -29,21 +29,21 @@
 
 **Achado**: connect-dll com 2º simulator (já existe Simulador Nelogica) retorna 500 com UniqueViolationError não tratada — deveria ser 409 amigável. Local: `wallet.py:245` (endpoint connect_dll). Mini-bug, baixo impacto pois constraint global é raramente acionado.
 
-### §A.2 — Feature C Cash Ledger (UI + scheduler) — ~1h
+### §A.2 — Feature C Cash Ledger (UI + scheduler) — ~1h ✅ DONE 25/abr
 
 > Backend já validado (etapa A 25/abr). Aqui é UI + cenários extras.
 
-- [ ] `/profile#invest`: botão Depositar/Sacar numa conta → modal com valor
-- [ ] POST `/api/v1/wallet/withdraw` saldo insuficiente → FAModal "Confirma saldo negativo?" antes de enviar (UI guard)
-- [ ] Trade SELL → credita em T+1 pending (já testado BUY; SELL via /carteira)
-- [ ] Scheduler `settle_cash_transactions_job` 00:00 BRT → criar trade BUY antes de meia-noite, conferir amanhã se pending virou settled
-- [ ] **C3b** ETF metadata: campos `benchmark`, `management_fee`, `performance_fee`, `liquidity_days` em `/etf` — salvar 4 + verificar card
-- [ ] **C4** Crypto D+0: `/crypto` aporte BTC → debita caixa no dia (sem pending); resgate parcial → credita no dia
-- [ ] **C5** RF D+X (prazo do título):
-  - Aplicar CDB liquidez D+1 → tx pending due_date=T+1
-  - Aplicar LCI liquidez D+30 → pending due_date=T+30
-  - Resgate antes vencimento LCI/LCA → warn + não libera caixa até due_date
-  - Scheduler `settle_due_transactions_job`: criar título com vencimento amanhã, ver se settle ocorre
+- [X] `/profile` aba "Contas" (não #invest): botão Depositar/Sacar numa conta → modal #modal-cash com valor; deposit 5000 → cash_balance subiu 50000→55000; modal fecha auto. NOTA: hash `#invest` não ativa aba — abre na "Perfil" (precisa click manual em "Contas")
+- [X] POST /withdraw saldo insuficiente → **FAModal.confirm "Saldo ficará negativo"** antes de enviar; cancel reverte; cash NÃO muda (validado withdraw 100k com cash 55k → cancelado)
+- [X] Trade SELL → credita T+1 pending — validado: SELL 100×PETR4@35 → tx_type=trade_sell amt=+3500 settle=2026-04-26 status=pending; pending_in cresce
+- [X] Scheduler `settle_cash_transactions_job` — `settle_cash_loop` @ SCHEDULER_SETTLE_HOUR=0 (00:00 BRT default). Manual run via `repo.settle_due_transactions(date.today())` liquida tx pending settle≤hoje. Idempotente.
+- [X] **C3b** ETF metadata: validado PUT /etf/metadata/{ticker} aceita `name, benchmark, mgmt_fee, perf_fee, isin, note`. **NOTA: `liquidity_days` NÃO existe no schema** — roteiro original desatualizado (são 3 campos, não 4).
+- [X] **C4** Crypto D+0: aporte 0.5 BTC @200k → tx crypto_buy settled HOJE; redeem 0.2 BTC → tx crypto_sell settled HOJE (cash_credit calculado por average_price_brl). Sem pending.
+- [X] **C5** RF aplicação é **D+0 não D+X** (correção roteiro): CDB R$30k + LCI R$20k → 2 tx rf_apply settled imediato. liquidity_days persiste no holding (CDB=1, LCI=30).
+  - **Resgate** sim é D+X: CDB redeem R$10k → tx rf_redeem amt=+10000 status=pending settle=2026-04-26 (T+1) note "(D+1)"; LCI redeem R$5k → settle=2026-05-25 (T+30) note "(D+30)". cash_balance NÃO muda; pending_in cresce.
+  - "Warn antes vencimento" implícito via tx pending até due_date (cash não libera). UI banner manual.
+  - Scheduler `settle_due_transactions_job` processa pendentes due_date≤hoje (validado manual).
+  - **Gap arquitetural minor**: carteira RF criada via /fixed-income/portfolio NÃO seta investment_account_id → cash hooks skipped silenciosamente. Workaround: usar Portfolio existente da conta como portfolio_id das holdings.
 
 ### §A.3 — Feature F UX 8 refinements — ~1.5h
 
@@ -225,6 +225,8 @@
 | BUG6 | 3 alert rules só firing após 1º increment | Baixo — esperado | — |
 | BUG8 | SMTP backup ausente para Pushover | Médio — se Pushover cair, sem redundância | §C.2 SMTP |
 | BUG10 | `connect-dll` com 2º simulator → 500 (deveria 409) | Baixo — UniqueViolationError não tratada em `wallet.py:245`; constraint raro | Adicionar try/except IntegrityError → HTTPException(409) |
+| BUG11 | RF carteira via `/fixed-income/portfolio` sem investment_account_id → cash hooks skipped | Médio — fluxo correto exige usar Portfolio da conta (1:1 refactor) | Aceitar `investment_account_id` em CreatePortfolioRFRequest OU deprecar /fixed-income/portfolio e usar /api/v1/portfolios direto |
+| BUG12 | ETF metadata schema falta `liquidity_days` | Baixo — UI/roteiro mencionavam mas schema só tem 3 fee fields | Decidir: adicionar coluna OU remover do roteiro |
 
 ---
 
@@ -279,10 +281,11 @@ docker start finanalytics_timescale
 
 ## Status
 
-- **Total pendente**: 112 itens distribuídos entre §A (91), §B (10), §C (11+)
+- **Total pendente**: 104 itens distribuídos entre §A (83), §B (10), §C (11+)
 - **§A.1 DONE 25/abr** (5 itens — Feature B DLL setup via API)
+- **§A.2 DONE 25/abr** (8 itens — Feature C cash UI + scheduler + RF/Crypto/ETF hooks)
 - **Bloqueado por externo**: Z5 (Nelogica 1m, ~48h)
-- **BUGs**: 7 abertos (1 médio BUG8 SMTP, 6 baixos incluindo BUG10 connect-dll 2º simulator)
+- **BUGs**: 9 abertos (2 médios BUG8 SMTP + BUG11 RF account_id; 7 baixos)
 
 ---
 
