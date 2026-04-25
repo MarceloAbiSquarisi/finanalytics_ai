@@ -65,6 +65,7 @@ class Portfolio:
     currency: Currency = Currency.BRL
     positions: dict[str, Position] = field(default_factory=dict)
     cash: Money = field(default_factory=lambda: Money.of("0"))
+    investment_account_id: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 

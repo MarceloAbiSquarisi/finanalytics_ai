@@ -2,7 +2,7 @@
 
 > **Data**: 25/abr/2026 (sábado, após sessão A+B)
 > **Base**: pós-cleanup `a86b1fc` + Playwright 25/abr fechou ~30 itens
-> **Restantes**: 95 itens `[ ]` + 10 BUGs abertos *(§A.1+§A.2+§A.3 fechadas 25/abr; +BUG10/11/12/14/15; BUG13 resolvido)*
+> **Restantes**: 90 itens `[ ]` + 9 BUGs abertos *(§A.1-§A.4 fechadas 25/abr; +BUG10/11/12/14/15/16; BUG13/16 resolvidos)*
 > **Login**: marceloabisquarisi@gmail.com / admin123 (master)
 
 ## Calendário
@@ -63,13 +63,13 @@
   - zerada + sem holdings → 204 ✓
 - [X] **F8** `/fixed-income` layout: sidebar aberta `--sb-w=220px` → content margin-left=220px (no_overlap); colapsada `--sb-w-collapsed=52px` → margin-left=52px; transition exato "margin-left 0.22s cubic-bezier(0.4, 0, 0.2, 1)" ✓
 
-### §A.4 — G2 Rename portfolio inline — ~15min
+### §A.4 — G2 Rename portfolio inline — ~15min ✅ DONE 25/abr
 
-- [ ] `/profile#invest` card de conta mostra **1 carteira "Portfolio"** (não mais lista N)
-- [ ] Botão **✎** ao lado do portfolio → modal/prompt rename → PATCH `/api/v1/portfolios/{id}`
-- [ ] Rename gera entry em `portfolio_name_history` (old, new, when)
-- [ ] Seção atualiza sem reload após rename
-- [ ] `/fixed-income` aba Carteira RF: botão rename também disponível
+- [X] `/profile` aba Contas: cada conta mostra "Carteiras / Portfolios (1)" — após **fix BUG16** (Portfolio entity + PortfolioModel sem `investment_account_id` mapeado, apesar de migration 0018 já ter coluna no DB)
+- [X] Botão **✎** ao lado do portfolio → `renameInvPortfolio(id, name)` → `window.prompt('Novo nome para a carteira:', name)` → PATCH `/api/v1/portfolios/{id}` `{name}`. Validado: "Portfolio" → "Carteira Principal A.4" → 200. NOTA minor: usa prompt nativo (não FAModal)
+- [X] Rename gera entry em `portfolio_name_history` (old_name, new_name, changed_at, changed_by=user_id master). Validado SQL após PATCH.
+- [X] Seção atualiza sem reload — `renameInvPortfolio` chama `loadAccounts()` após PATCH ok
+- [X] `/fixed-income` aba "💼 Carteira RF" tem botão **"✎ Renomear"** (id `btn-rename-pf`); display:none por default, aparece após select carteira em `#pf-select`. onclick=`renamePortfolio()`
 
 ### §A.5 — Golden path páginas críticas (sem pregão) — ~1.5h
 
@@ -231,6 +231,7 @@
 | ~~BUG13~~ | ~~`connection.py:84` engolia `ValueError`/`HTTPException` em `DatabaseError` → 500 em vez de 409~~ | **RESOLVIDO 25/abr** — fix aplicado: `if isinstance(exc, (ValueError, HTTPException)): raise` antes do wrap. Validado: F7 delete com cash>0 → 500→409 com msg amigável. | — |
 | BUG14 | Soft-delete de conta com holdings ativos não bloqueia (gap F7) | Médio — UI pode esconder conta com investimentos vinculados sem warn | Adicionar check em wallet_repo.delete_account: if has_holdings → raise ValueError("Há investimentos vinculados") |
 | BUG15 | F4 render Conta: "Itau A.2Itau" (apelido + institution_name colados) | Baixo — cosmético em /carteira tabelas | Adicionar separador (espaço/dot/dash) entre <span apelido> e <span inst> |
+| ~~BUG16~~ | ~~PortfolioModel + Portfolio entity sem `investment_account_id` mapeado → `/api/v1/portfolios` retorna sempre null + UI /profile mostra "Carteiras (0)"~~ | **RESOLVIDO 25/abr** — fix em 3 arquivos: domain/entities/portfolio.py (field), infrastructure/database/repositories/portfolio_repo.py (mapped_column + populate em _hydrate). Migration 0018 já tinha a coluna no DB; só faltou ORM mapping. Validado: 6 portfolios listados com investment_account_id correto; UI /profile mostra "(1)" carteira por conta. | — |
 
 ---
 
@@ -285,12 +286,14 @@ docker start finanalytics_timescale
 
 ## Status
 
-- **Total pendente**: 95 itens distribuídos entre §A (74), §B (10), §C (11+)
+- **Total pendente**: 90 itens distribuídos entre §A (69), §B (10), §C (11+)
 - **§A.1 DONE 25/abr** (5 itens — Feature B DLL setup via API)
 - **§A.2 DONE 25/abr** (8 itens — Feature C cash UI + scheduler + RF/Crypto/ETF hooks)
 - **§A.3 DONE 25/abr** (7 itens — Feature F UX refinements + fix BUG13)
+- **§A.4 DONE 25/abr** (5 itens — G2 rename portfolio + fix BUG16)
+- **Hoje sáb 25/abr**: 25 itens fechados, ~3h. Pacing OK
 - **Bloqueado por externo**: Z5 (Nelogica 1m, ~48h)
-- **BUGs**: 10 abertos (3 médios: BUG8 SMTP + BUG11 RF account_id + BUG14 soft-delete holdings; 7 baixos); BUG13 resolvido
+- **BUGs**: 9 abertos (3 médios: BUG8 SMTP + BUG11 RF account_id + BUG14 soft-delete holdings; 6 baixos); BUG13+BUG16 resolvidos
 
 ---
 

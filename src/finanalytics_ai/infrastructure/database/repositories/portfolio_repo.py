@@ -43,6 +43,7 @@ class PortfolioModel(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="BRL")
     cash: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0)
+    investment_account_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -281,6 +282,7 @@ class SQLPortfolioRepository:
             is_active=bool(pm.is_active),
             currency=Currency(str(pm.currency)),
             cash=Money(Decimal(str(pm.cash)), Currency(str(pm.currency))),
+            investment_account_id=str(pm.investment_account_id) if pm.investment_account_id else None,
             created_at=pm.created_at,  # type: ignore[arg-type]
             updated_at=pm.updated_at,  # type: ignore[arg-type]
         )
