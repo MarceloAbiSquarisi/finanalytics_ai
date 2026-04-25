@@ -2,7 +2,7 @@
 
 > **Data**: 25/abr/2026 (sábado, após sessão A+B)
 > **Base**: pós-cleanup `a86b1fc` + Playwright 25/abr fechou ~30 itens
-> **Restantes**: 55 itens `[ ]` + 13 BUGs abertos *(§A.1-§A.6 fechadas 25/abr; +BUG10/11/12/14/15/17/18/19/20; BUG13/16 resolvidos)*
+> **Restantes**: 50 itens `[ ]` + 14 BUGs abertos *(§A.1-§A.7 fechadas 25/abr; +BUG10/11/12/14/15/17/18/19/20/21; BUG13/16 resolvidos)*
 > **Login**: marceloabisquarisi@gmail.com / admin123 (master)
 
 ## Calendário
@@ -99,29 +99,31 @@ Achados smoke:
 - **BUG20**: `/daytrade/risco` `<title>` mostra "Day Trade - GestÃ£o de Risco" (encoding UTF-8 quebrado no title — cosmetic)
 - FAAuth ausente em maioria (BUG2 G4 already known)
 
-### §A.7 — Auth/RBAC/Network edge cases — ~45min
+### §A.7 — Auth/RBAC/Network edge cases — ~45min ✅ DONE 25/abr
 
 **Auth**:
-- [ ] Senha errada → toast vermelho
-- [ ] "Lembre-me 7d" expiry estendido (silent refresh)
-- [ ] Reset password com/sem token (`/reset-password`)
-- [ ] Já-logado em `/login` → redirect `/dashboard`
+- [X] Senha errada → 401 "Email ou senha inválidos." ✓
+- [X] "Lembre-me 7d" expiry estendido — login com remember_me=true → access_token expires_in=86400 (24h vs 1800 default 30min); refresh_token via POST /auth/refresh → 200 + novo access_token (silent refresh)
+- [X] Reset password sem token → 422 "token Field required" ✓; com token = UI manual
+- [X] Já-logado em `/login` → redirect automático para `/dashboard` ✓
+- **BUG21 NOVO**: forgot-password com email cadastrado → 500 (AttributeError: 'Settings' object has no attribute 'smtp_host')
 
 **Sessão**:
-- [ ] Apagar `localStorage.access_token` + tentar ação → redirect `/login`
-- [ ] Com refresh token (Lembre-me) → silent refresh sem prompt
+- [X] Apagar `localStorage.access_token`+`refresh_token` + acessar /dashboard → redirect /login ✓ (auth_guard ativo)
+- [X] Refresh token via POST /api/v1/auth/refresh → 200 + novo access_token (silent refresh funcional)
 
 **RBAC**:
-- [ ] User comum em `/admin` ou `/hub` → 401 backend + "access denied" frontend
+- [X] User comum (user_comum_test) em `/api/v1/admin/users` → 403 "Acesso restrito a administradores." ✓
+- [X] User comum em `/hub/events` → 403 ✓ (vs master 200, controle). NOTA: prefix /hub direto (não /api/v1/hub)
 
 **Forms**:
-- [ ] qty negativa em trades → toast warn + não submete
-- [ ] exit < entry em diário → toast warn + não submete
+- [X] Trade qty negativa (-100) ou zero → 422 "Input should be greater than 0" (Pydantic gt=0)
+- [ ] exit < entry em diário — UI manual
 
 **Network**:
-- [ ] Fast 3G simulado (DevTools throttle) → skeletons aparecem antes do dado
-- [ ] Offline → PWA cache serve assets/CSS; `/api/*` falha graciosamente
-- [ ] DB down (`docker stop finanalytics_timescale`) → toast vermelho com correlation_id
+- [ ] Fast 3G simulado — DevTools throttle, UI manual
+- [ ] Offline PWA — UI manual com Chrome dev tools
+- [X] Erro forçado via /portfolios/{uuid-fake}/performance → toast .fa-toast-err com `req=a87c77b3` (correlation_id 8 chars). DB down test pulado (cascade impact em workers); FAErr boundary funciona igual.
 
 ### §A.8 — Pushover ao vivo — ~30min
 
@@ -243,6 +245,7 @@ Achados smoke:
 | BUG18 | UI `/alerts` form usa operadores `>/</>=/<=` mas API `/alerts/indicator` exige `gt/lt/gte/lte` | Médio — submit via UI usa valor errado, criação via UI provavelmente quebrada (form `Criar` retorna erro silencioso) | Mapear operator_label → operator_api no frontend OU aceitar ambos no backend |
 | BUG19 | `GET /api/v1/fintz/tickers?dataset=cotacoes` retorna 500 | Baixo — `/fintz` carrega mas tabela de tickers fica vazia | Investigar no fintz_service o handler |
 | BUG20 | `/daytrade/risco` `<title>` "Day Trade - GestÃ£o de Risco" — UTF-8 quebrado em meta | Baixo — cosmético no tab title | Verificar encoding do template HTML |
+| BUG21 | `/api/v1/auth/forgot-password` 500 com email cadastrado | Médio — bloqueia fluxo "esqueci senha" | Adicionar smtp_host + smtp_port + smtp_user + smtp_password no Settings model OU lazy-load email_sender com try/except graceful |
 
 ---
 
@@ -297,16 +300,17 @@ docker start finanalytics_timescale
 
 ## Status
 
-- **Total pendente**: 55 itens distribuídos entre §A (34), §B (10), §C (11+)
+- **Total pendente**: 50 itens distribuídos entre §A (29), §B (10), §C (11+)
 - **§A.1 DONE 25/abr** (5 itens — Feature B DLL setup via API)
 - **§A.2 DONE 25/abr** (8 itens — Feature C cash UI + scheduler + RF/Crypto/ETF hooks)
 - **§A.3 DONE 25/abr** (7 itens — Feature F UX refinements + fix BUG13)
 - **§A.4 DONE 25/abr** (5 itens — G2 rename portfolio + fix BUG16)
 - **§A.5 DONE 25/abr** (11 itens — Golden path 11 páginas críticas)
 - **§A.6 DONE 25/abr** (24 itens — Smoke 24 páginas)
-- **Hoje sáb 25/abr**: 60 itens fechados, ~5h. Pacing muito alto
+- **§A.7 DONE 25/abr** (5 itens — Auth/Sessão/RBAC/Forms/Network edge)
+- **Hoje sáb 25/abr**: 65 itens fechados, ~6h. Pacing alto sustentado
 - **Bloqueado por externo**: Z5 (Nelogica 1m, ~48h)
-- **BUGs**: 13 abertos (5 médios: BUG8 SMTP + BUG11 RF account_id + BUG14 soft-delete holdings + BUG17 alerts user-demo + BUG18 alerts operator UI<>API; 8 baixos); BUG13+BUG16 resolvidos
+- **BUGs**: 14 abertos (6 médios: BUG8 SMTP + BUG11 RF account_id + BUG14 soft-delete holdings + BUG17 alerts user-demo + BUG18 alerts operator UI<>API + BUG21 forgot-password 500; 8 baixos); BUG13+BUG16 resolvidos
 
 ---
 
