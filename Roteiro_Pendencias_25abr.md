@@ -2,7 +2,7 @@
 
 > **Data**: 25/abr/2026 (sábado, após sessão A+B)
 > **Base**: pós-cleanup `a86b1fc` + Playwright 25/abr fechou ~30 itens
-> **Restantes**: 79 itens `[ ]` + 11 BUGs abertos *(§A.1-§A.5 fechadas 25/abr; +BUG10/11/12/14/15/17/18; BUG13/16 resolvidos)*
+> **Restantes**: 55 itens `[ ]` + 13 BUGs abertos *(§A.1-§A.6 fechadas 25/abr; +BUG10/11/12/14/15/17/18/19/20; BUG13/16 resolvidos)*
 > **Login**: marceloabisquarisi@gmail.com / admin123 (master)
 
 ## Calendário
@@ -85,12 +85,19 @@
 - [X] `/admin` — tabela users com 8 cols: Nome, E-mail, Role, **Admin (checkbox)**, Status, Último login, 2FA, Ações. Role select "Usuário" + "Master" (Admin virou flag ortogonal — refactor 25/abr ✓)
 - [X] `/hub` — admin-only via _require_admin; 4 tabelas: Serviços (Status/Detalhe/Latência/Ação) + Sources/agendamentos. Botões "Limpar Concluidos" → cleanupCompleted() + "Reprocessar Todos" → reprocessAll()
 
-### §A.6 — Smoke 24 páginas (carrega/helpers/sort/empty CTA) — ~1h
+### §A.6 — Smoke 24 páginas (carrega/helpers/sort/empty CTA) — ~1h ✅ DONE 25/abr
 
-- [ ] `/correlation`, `/anomaly`, `/sentiment`, `/forecast`, `/backtest`, `/optimizer`, `/var`
-- [ ] `/dividendos`, `/etf`, `/laminas`, `/fundos`, `/patrimony`
-- [ ] `/opcoes`, `/opcoes/estrategias`, `/vol-surface`, `/daytrade/setups`, `/daytrade/risco`, `/tape`
-- [ ] `/marketdata`, `/macro`, `/fintz`, `/import`, `/subscriptions`, `/whatsapp`
+24/24 páginas HTTP 200 + carregam sem JS critical errors:
+
+- [X] **Análise & ML (7)**: `/correlation`, `/anomaly`, `/sentiment`, `/forecast`, `/backtest`, `/optimizer`, `/var`
+- [X] **Investimentos (5)**: `/dividendos`, `/etf`, `/laminas`, `/fundos`, `/patrimony`
+- [X] **Trading (6)**: `/opcoes`, `/opcoes/estrategias`, `/vol-surface`, `/daytrade/setups`, `/daytrade/risco`, `/tape`
+- [X] **Dados & Sistema (6)**: `/marketdata`, `/macro`, `/fintz`, `/import`, `/subscriptions`, `/whatsapp`
+
+Achados smoke:
+- **BUG19**: `/fintz` GET `/api/v1/fintz/tickers?dataset=cotacoes` → 500 (backend issue não bloqueante, tabela fica vazia)
+- **BUG20**: `/daytrade/risco` `<title>` mostra "Day Trade - GestÃ£o de Risco" (encoding UTF-8 quebrado no title — cosmetic)
+- FAAuth ausente em maioria (BUG2 G4 already known)
 
 ### §A.7 — Auth/RBAC/Network edge cases — ~45min
 
@@ -234,6 +241,8 @@
 | ~~BUG16~~ | ~~PortfolioModel + Portfolio entity sem `investment_account_id` mapeado → `/api/v1/portfolios` retorna sempre null + UI /profile mostra "Carteiras (0)"~~ | **RESOLVIDO 25/abr** — fix em 3 arquivos: domain/entities/portfolio.py (field), infrastructure/database/repositories/portfolio_repo.py (mapped_column + populate em _hydrate). Migration 0018 já tinha a coluna no DB; só faltou ORM mapping. Validado: 6 portfolios listados com investment_account_id correto; UI /profile mostra "(1)" carteira por conta. | — |
 | BUG17 | `/api/v1/alerts/indicator` POST usa user_id="user-demo" placeholder (não JWT) | Médio — multi-tenant quebrado para alertas fundamentalistas; alertas vão pro user genérico | Substituir Query(user_id) por Depends(get_current_user) + repo filter por user_id real |
 | BUG18 | UI `/alerts` form usa operadores `>/</>=/<=` mas API `/alerts/indicator` exige `gt/lt/gte/lte` | Médio — submit via UI usa valor errado, criação via UI provavelmente quebrada (form `Criar` retorna erro silencioso) | Mapear operator_label → operator_api no frontend OU aceitar ambos no backend |
+| BUG19 | `GET /api/v1/fintz/tickers?dataset=cotacoes` retorna 500 | Baixo — `/fintz` carrega mas tabela de tickers fica vazia | Investigar no fintz_service o handler |
+| BUG20 | `/daytrade/risco` `<title>` "Day Trade - GestÃ£o de Risco" — UTF-8 quebrado em meta | Baixo — cosmético no tab title | Verificar encoding do template HTML |
 
 ---
 
@@ -288,15 +297,16 @@ docker start finanalytics_timescale
 
 ## Status
 
-- **Total pendente**: 79 itens distribuídos entre §A (58), §B (10), §C (11+)
+- **Total pendente**: 55 itens distribuídos entre §A (34), §B (10), §C (11+)
 - **§A.1 DONE 25/abr** (5 itens — Feature B DLL setup via API)
 - **§A.2 DONE 25/abr** (8 itens — Feature C cash UI + scheduler + RF/Crypto/ETF hooks)
 - **§A.3 DONE 25/abr** (7 itens — Feature F UX refinements + fix BUG13)
 - **§A.4 DONE 25/abr** (5 itens — G2 rename portfolio + fix BUG16)
 - **§A.5 DONE 25/abr** (11 itens — Golden path 11 páginas críticas)
-- **Hoje sáb 25/abr**: 36 itens fechados, ~4.5h. Pacing alto
+- **§A.6 DONE 25/abr** (24 itens — Smoke 24 páginas)
+- **Hoje sáb 25/abr**: 60 itens fechados, ~5h. Pacing muito alto
 - **Bloqueado por externo**: Z5 (Nelogica 1m, ~48h)
-- **BUGs**: 11 abertos (5 médios: BUG8 SMTP + BUG11 RF account_id + BUG14 soft-delete holdings + BUG17 alerts user-demo + BUG18 alerts operator UI<>API; 6 baixos); BUG13+BUG16 resolvidos
+- **BUGs**: 13 abertos (5 médios: BUG8 SMTP + BUG11 RF account_id + BUG14 soft-delete holdings + BUG17 alerts user-demo + BUG18 alerts operator UI<>API; 8 baixos); BUG13+BUG16 resolvidos
 
 ---
 
