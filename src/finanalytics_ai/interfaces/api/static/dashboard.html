@@ -1779,6 +1779,12 @@ function renderPriceChart(bars, bb) {
     upColor:'#2ED47A', downColor:'#E05555',
     borderUpColor:'#2ED47A', borderDownColor:'#E05555',
     wickUpColor:'#2ED47A', wickDownColor:'#E05555',
+    // Linha do último preço discreta (não cruza todo gráfico chamativa)
+    priceLineVisible: true,
+    priceLineWidth: 1,
+    priceLineColor: 'rgba(58,191,248,.35)',
+    priceLineStyle: 2,  // dashed
+    lastValueVisible: true,
   });
   // Garante timestamps numericos antes de setData
   var _bars2 = bars.map(function(b){
@@ -1791,7 +1797,31 @@ function renderPriceChart(bars, bb) {
     }
     return {time:t, open:b.open, high:b.high, low:b.low, close:b.close, volume:b.volume};
   });
+
+  // Filtro de outliers (impede candles em escala diferente — split não ajustado, dados legados)
+  // Heurística robusta: usa o ÚLTIMO close como referência e filtra bars cujo close esteja
+  // fora de [last*0.4, last*2.5]. Quando >50% dos dados estão na escala errada, IQR falha,
+  // então comparamos com o close mais recente (que é a escala "real" atual).
+  if (_bars2.length >= 5) {
+    var lastClose = _bars2[_bars2.length - 1].close;
+    if (isFinite(lastClose) && lastClose > 0) {
+      var loBound = lastClose * 0.4;
+      var hiBound = lastClose * 2.5;
+      var beforeLen = _bars2.length;
+      _bars2 = _bars2.filter(function(b){
+        return isFinite(b.close) && b.close >= loBound && b.close <= hiBound
+            && isFinite(b.high)  && b.high  >= loBound && b.high  <= hiBound
+            && isFinite(b.low)   && b.low   >= loBound && b.low   <= hiBound;
+      });
+      var droppedCount = beforeLen - _bars2.length;
+      if (droppedCount > 0) console.info('[chart] dropped', droppedCount, 'bars fora da escala [' + loBound.toFixed(2) + ', ' + hiBound.toFixed(2) + '] (ref last close ' + lastClose.toFixed(2) + ')');
+    }
+  }
+
   priceSeries.setData(_bars2);
+
+  // Auto-scale Y baseado em close prices (ignora outliers ainda presentes nos wicks)
+  priceChart.priceScale('right').applyOptions({ autoScale: true, mode: 0 });
 
   // Volume
   volSeries = priceChart.addHistogramSeries({
@@ -1835,6 +1865,13 @@ function renderPriceChart(bars, bb) {
   else { patternMarkers = []; if(priceSeries) priceSeries.setMarkers([]); }
 
   priceChart.timeScale().fitContent();
+  // Re-fit após render assíncrono dos overlays (MA/BB/patterns) — garante zoom correto ao carregar
+  setTimeout(function(){
+    if (window.priceChart) window.priceChart.timeScale().fitContent();
+  }, 50);
+  setTimeout(function(){
+    if (window.priceChart) window.priceChart.timeScale().fitContent();
+  }, 300);
   // Separadores de dia: drawDaySeparators(chart,bars,container) chamado abaixo
   // Exibe ultimo preco imediatamente apos carregar
   if (bars && bars.length) {
