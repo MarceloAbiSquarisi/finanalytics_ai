@@ -745,7 +745,9 @@ class WalletRepository:
             return len(due)
 
     async def delete_account(self, account_id: str, user_id: str) -> bool:
-        """Soft-delete: is_active=False. Bloqueia se cash_balance != 0 (F7)."""
+        """Soft-delete: is_active=False. Bloqueia se cash_balance != 0 (F7) ou holdings (BUG14)."""
+        from sqlalchemy import text as sql_text
+
         async with get_session() as s:
             q = select(InvestmentAccountModel).where(
                 InvestmentAccountModel.id == account_id,
@@ -758,6 +760,24 @@ class WalletRepository:
                 # Rota converte para HTTPException 409 via ValueError
                 raise ValueError(
                     f"Saldo R$ {m.cash_balance} diferente de zero. Zere via saque/depósito antes de excluir."
+                )
+            # BUG14 fix: bloqueia se há holdings ativos (trades, crypto, RF, outros)
+            counts = (await s.execute(
+                sql_text("""
+                    SELECT
+                      (SELECT COUNT(*) FROM trades WHERE investment_account_id = :acc) AS trades,
+                      (SELECT COUNT(*) FROM crypto_holdings WHERE investment_account_id = :acc) AS crypto,
+                      (SELECT COUNT(*) FROM other_assets WHERE investment_account_id = :acc) AS other,
+                      (SELECT COUNT(*) FROM rf_holdings rh
+                         JOIN portfolios p ON p.id = rh.portfolio_id
+                         WHERE p.investment_account_id = :acc) AS rf
+                """),
+                {"acc": account_id},
+            )).mappings().first() or {}
+            total = sum(int(counts.get(k, 0) or 0) for k in ("trades", "crypto", "other", "rf"))
+            if total > 0:
+                raise ValueError(
+                    f"Há investimentos vinculados ({total}: {dict(counts)}). Remova-os antes de excluir."
                 )
             m.is_active = False
             await s.commit()

@@ -149,8 +149,11 @@ class IndicatorAlertService:
             raise ValueError(
                 f"Indicador '{indicator}' nao suportado. Use: {', '.join(SUPPORTED_INDICATORS)}"
             )
+        # BUG18 fix: aceita tanto símbolos (>, <, >=, <=) quanto labels (gt, lt, gte, lte)
+        _SYMBOL_TO_OP = {">": "gt", "<": "lt", ">=": "gte", "<=": "lte"}
+        operator = _SYMBOL_TO_OP.get(operator, operator)
         if operator not in _OPERATORS:
-            raise ValueError(f"Operador '{operator}' invalido. Use: gt, lt, gte, lte")
+            raise ValueError(f"Operador '{operator}' invalido. Use: gt, lt, gte, lte (ou >, <, >=, <=)")
 
         condition = IndicatorAlertCondition(
             indicator=indicator,

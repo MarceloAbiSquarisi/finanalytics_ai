@@ -253,6 +253,15 @@ async def connect_dll(
         )
     except ValueError as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
+    except Exception as e:  # noqa: BLE001
+        # BUG10 fix: UniqueViolation de ux_inv_accounts_one_dll_sim → 409 amigável
+        msg = str(e)
+        if "ux_inv_accounts_one_dll_sim" in msg or "duplicate key" in msg.lower():
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail="Já existe uma conta 'simulator' ativa no sistema. Desconecte-a primeiro via /disconnect-dll.",
+            ) from e
+        raise
     if not data:
         raise HTTPException(404, "Conta não encontrada")
     return data

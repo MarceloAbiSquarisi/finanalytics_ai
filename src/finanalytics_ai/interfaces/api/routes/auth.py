@@ -247,15 +247,21 @@ async def forgot_password(
     base_url = str(request.base_url).rstrip("/")
     reset_url = f"{base_url}/reset-password?token={token}"
 
-    # Tenta enviar e-mail
-    sender = get_email_sender()
-    email_sent = sender.send_reset_password(user.email, user.full_name, reset_url)
+    # Tenta enviar e-mail (BUG21 fix: graceful fallback se Settings sem smtp_*)
+    try:
+        sender = get_email_sender()
+        email_sent = sender.send_reset_password(user.email, user.full_name, reset_url)
+        smtp_configured = sender.is_configured
+    except (AttributeError, Exception) as e:  # noqa: BLE001
+        logger.warning("auth.forgot_password.email_sender_unavailable", error=str(e))
+        email_sent = False
+        smtp_configured = False
 
     logger.info(
         "auth.forgot_password",
         user_id=user.user_id,
         email_sent=email_sent,
-        smtp_configured=sender.is_configured,
+        smtp_configured=smtp_configured,
     )
 
     if email_sent:

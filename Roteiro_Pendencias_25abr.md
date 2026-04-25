@@ -2,7 +2,7 @@
 
 > **Data**: 25/abr/2026 (sábado, após sessão A+B)
 > **Base**: pós-cleanup `a86b1fc` + Playwright 25/abr fechou ~30 itens
-> **Restantes**: 36 itens `[ ]` + 14 BUGs abertos *(§A.1-§A.7 + §A.9 + §A.10 estrutural + §A.11 fechadas 25/abr; restam §A.8 Pushover + 27/abr pregão + sessões dedicadas)*
+> **Restantes**: 36 itens `[ ]` + 10 BUGs abertos *(§A.1-§A.7 + §A.9 + §A.10 estrutural + §A.11 fechadas 25/abr; restam §A.8 Pushover + 27/abr pregão + sessões dedicadas; +4 BUGs fixados 18h: BUG10/14/18/21)*
 > **Login**: marceloabisquarisi@gmail.com / admin123 (master)
 
 ## Calendário
@@ -237,18 +237,18 @@ Achados smoke:
 | BUG5 | Light mode em páginas com `:root` próprio | Baixo — intencional (Decisão 19) | §C.2 light mode |
 | BUG6 | 3 alert rules só firing após 1º increment | Baixo — esperado | — |
 | BUG8 | SMTP backup ausente para Pushover | Médio — se Pushover cair, sem redundância | §C.2 SMTP |
-| BUG10 | `connect-dll` com 2º simulator → 500 (deveria 409) | Baixo — UniqueViolationError não tratada em `wallet.py:245`; constraint raro | Adicionar try/except IntegrityError → HTTPException(409) |
+| ~~BUG10~~ | ~~`connect-dll` com 2º simulator → 500 (deveria 409)~~ | **RESOLVIDO 25/abr** — `wallet.py:254` adicionou `except Exception` detectando `ux_inv_accounts_one_dll_sim`/`duplicate key` → 409 com mensagem amigável "Já existe uma conta 'simulator' ativa no sistema. Desconecte-a primeiro via /disconnect-dll." | — |
 | BUG11 | RF carteira via `/fixed-income/portfolio` sem investment_account_id → cash hooks skipped | Médio — fluxo correto exige usar Portfolio da conta (1:1 refactor) | Aceitar `investment_account_id` em CreatePortfolioRFRequest OU deprecar /fixed-income/portfolio e usar /api/v1/portfolios direto |
 | BUG12 | ETF metadata schema falta `liquidity_days` | Baixo — UI/roteiro mencionavam mas schema só tem 3 fee fields | Decidir: adicionar coluna OU remover do roteiro |
 | ~~BUG13~~ | ~~`connection.py:84` engolia `ValueError`/`HTTPException` em `DatabaseError` → 500 em vez de 409~~ | **RESOLVIDO 25/abr** — fix aplicado: `if isinstance(exc, (ValueError, HTTPException)): raise` antes do wrap. Validado: F7 delete com cash>0 → 500→409 com msg amigável. | — |
-| BUG14 | Soft-delete de conta com holdings ativos não bloqueia (gap F7) | Médio — UI pode esconder conta com investimentos vinculados sem warn | Adicionar check em wallet_repo.delete_account: if has_holdings → raise ValueError("Há investimentos vinculados") |
+| ~~BUG14~~ | ~~Soft-delete de conta com holdings ativos não bloqueia (gap F7)~~ | **RESOLVIDO 25/abr** — `wallet_repo.delete_account` adicionou query consolidada (trades + crypto_holdings + rf_holdings via JOIN portfolios + other_assets) → ValueError("Há investimentos vinculados (N: {detalhe})") → 409. Validado: trade 1×PETR4 → 409 com counts corretos. | — |
 | BUG15 | F4 render Conta: "Itau A.2Itau" (apelido + institution_name colados) | Baixo — cosmético em /carteira tabelas | Adicionar separador (espaço/dot/dash) entre <span apelido> e <span inst> |
 | ~~BUG16~~ | ~~PortfolioModel + Portfolio entity sem `investment_account_id` mapeado → `/api/v1/portfolios` retorna sempre null + UI /profile mostra "Carteiras (0)"~~ | **RESOLVIDO 25/abr** — fix em 3 arquivos: domain/entities/portfolio.py (field), infrastructure/database/repositories/portfolio_repo.py (mapped_column + populate em _hydrate). Migration 0018 já tinha a coluna no DB; só faltou ORM mapping. Validado: 6 portfolios listados com investment_account_id correto; UI /profile mostra "(1)" carteira por conta. | — |
 | BUG17 | `/api/v1/alerts/indicator` POST usa user_id="user-demo" placeholder (não JWT) | Médio — multi-tenant quebrado para alertas fundamentalistas; alertas vão pro user genérico | Substituir Query(user_id) por Depends(get_current_user) + repo filter por user_id real |
-| BUG18 | UI `/alerts` form usa operadores `>/</>=/<=` mas API `/alerts/indicator` exige `gt/lt/gte/lte` | Médio — submit via UI usa valor errado, criação via UI provavelmente quebrada (form `Criar` retorna erro silencioso) | Mapear operator_label → operator_api no frontend OU aceitar ambos no backend |
+| ~~BUG18~~ | ~~UI `/alerts` form usa operadores `>/</>=/<=` mas API `/alerts/indicator` exige `gt/lt/gte/lte`~~ | **RESOLVIDO 25/abr** — `indicator_alert_service.py:152` adicionou `_SYMBOL_TO_OP = {">": "gt", "<": "lt", ">=": "gte", "<=": "lte"}` antes da validação. Backend agora aceita ambos. Validado: POST com operator=">" → 201 com operator="gt" gravado. | — |
 | BUG19 | `GET /api/v1/fintz/tickers?dataset=cotacoes` retorna 500 | Baixo — `/fintz` carrega mas tabela de tickers fica vazia | Investigar no fintz_service o handler |
 | BUG20 | `/daytrade/risco` `<title>` "Day Trade - GestÃ£o de Risco" — UTF-8 quebrado em meta | Baixo — cosmético no tab title | Verificar encoding do template HTML |
-| BUG21 | `/api/v1/auth/forgot-password` 500 com email cadastrado | Médio — bloqueia fluxo "esqueci senha" | Adicionar smtp_host + smtp_port + smtp_user + smtp_password no Settings model OU lazy-load email_sender com try/except graceful |
+| ~~BUG21~~ | ~~`/api/v1/auth/forgot-password` 500 com email cadastrado~~ | **RESOLVIDO 25/abr** — `auth.py:251` envolveu `get_email_sender()` em try/except graceful. Quando Settings sem smtp_host, log warning + retorna 200 com `dev_reset_url` (modo dev fallback). Validado: forgot-password com master email → 200 + dev_reset_url + dev_token. | — |
 
 ---
 
@@ -314,9 +314,9 @@ docker start finanalytics_timescale
 - **§A.9 DONE 25/abr** (2 itens fechados, 1 parcial UI manual — Profit Tickers filtros + bulk + badges)
 - **§A.10 DONE 25/abr estrutural** (3 itens — FASudo + endpoint require_sudo + log throttled; restart real adiado)
 - **§A.11 DONE 25/abr** (3 itens — PWA install criteria + FAPrint UI 4 pgs + FACharts 3 pgs)
-- **Hoje sáb 25/abr**: 73 itens fechados, ~7h. Pacing alto sustentado
+- **Hoje sáb 25/abr**: 73 itens fechados + 4 BUGs adicionais fixados (BUG10/14/18/21) ~7.5h. Pacing alto sustentado
 - **Bloqueado por externo**: Z5 (Nelogica 1m, ~48h)
-- **BUGs**: 14 abertos (6 médios: BUG8 SMTP + BUG11 RF account_id + BUG14 soft-delete holdings + BUG17 alerts user-demo + BUG18 alerts operator UI<>API + BUG21 forgot-password 500; 8 baixos); BUG13+BUG16 resolvidos
+- **BUGs**: 10 abertos (3 médios: BUG8 SMTP + BUG11 RF account_id + BUG17 alerts user-demo; 7 baixos); 7 resolvidos hoje (BUG7+13+16+10+14+18+21)
 
 ---
 
