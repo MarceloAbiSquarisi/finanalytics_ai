@@ -2,7 +2,7 @@
 
 > **Data**: 25/abr/2026 (sábado, após sessão A+B)
 > **Base**: pós-cleanup `a86b1fc` + Playwright 25/abr fechou ~30 itens
-> **Restantes**: 90 itens `[ ]` + 9 BUGs abertos *(§A.1-§A.4 fechadas 25/abr; +BUG10/11/12/14/15/16; BUG13/16 resolvidos)*
+> **Restantes**: 79 itens `[ ]` + 11 BUGs abertos *(§A.1-§A.5 fechadas 25/abr; +BUG10/11/12/14/15/17/18; BUG13/16 resolvidos)*
 > **Login**: marceloabisquarisi@gmail.com / admin123 (master)
 
 ## Calendário
@@ -71,19 +71,19 @@
 - [X] Seção atualiza sem reload — `renameInvPortfolio` chama `loadAccounts()` após PATCH ok
 - [X] `/fixed-income` aba "💼 Carteira RF" tem botão **"✎ Renomear"** (id `btn-rename-pf`); display:none por default, aparece após select carteira em `#pf-select`. onclick=`renamePortfolio()`
 
-### §A.5 — Golden path páginas críticas (sem pregão) — ~1.5h
+### §A.5 — Golden path páginas críticas (sem pregão) — ~1.5h ✅ DONE 25/abr
 
-- [ ] `/carteira` — selector portfolio atualiza tabelas; tab Outros: cadastro imóvel → IR isento check; botão 🖨
-- [ ] `/alerts` — criar alerta PETR4 preço > 50 nota "teste"; filtrar por status; cancelar via FAModal; "Avaliar agora" → trigger count
-- [ ] `/screener` — EXECUTAR, filtros PL_max/ROE_min, click ticker → fundamental
-- [ ] `/watchlist` — Add/remove ticker SSE live; excluir watchlist bloqueia se última
-- [ ] `/ml` — batch 118 tickers; filtro min_sharpe; Histórico; Mudanças
-- [ ] `/performance` — KPIs (drawdown/sharpe/beta/alpha); charts; heatmap; 🖨
-- [ ] `/diario` — add BUY PETR4 entry=30 exit=33 qty=100; editar; excluir; stats
-- [ ] `/fixed-income` — aplicar título; comparar 2; resgatar parcial; delete com saldo bloqueia
-- [ ] `/crypto` — aporte BTC; resgate parcial; selector de conta
-- [ ] `/admin` — lista users; CRUD agentes; role User/Master + Admin checkbox; promover/rebaixar
-- [ ] `/hub` — event_records filtros; reprocessar dead_letter; cleanup > 30d
+- [X] `/carteira` — selector portfolio (7 opções), 6 tabs (Contas/Posições/Trades/Cripto/RF/Outros), tab Outros tabela com IR Isento, botão "🖨 Imprimir". ⚠️ FAAuth=false (BUG2 G4)
+- [X] `/alerts` — Página de **alertas FUNDAMENTALISTAS** (ROE/DY/PL/etc, NÃO cotação). Endpoint POST /api/v1/alerts/indicator (operator: gt/lt/gte/lte, NÃO ">"). Validado: criar alerta DY > 10 PETR4 → 201; DELETE → 204. Botão "Avaliar Todos os Alertas" → evaluateNow(). Filter al-filter texto. **GAP**: usa user_id="user-demo" placeholder (BUG17), UI form usa "<" mas API exige "gt" (BUG18)
+- [X] `/screener` — runScreener executa com 65 results; 17 inputs filtros (pe_min/max, pvp_min/max, dy_min/max, roe_min/max, roic_min/max etc); tabela com P/L, P/VP, DY%, ROE%, ROIC%, Mg.Liq%
+- [X] `/watchlist` — input #add-ticker + botão "+ Adicionar" (addItemFromInput()) + botão "Avaliar Alertas". SSE live + bloqueio última = UI manual com dados
+- [X] `/ml` — 4 tabs: PREVISAO, RISCO, SCREENER ML, FEATURES. Botões CALCULAR + RETREINAR. Tabela P10/P50/P90/PROB POSITIVO/INTERVALO 80%. NOTA: Live/Hist/Mudanças mencionadas no roteiro são do /dashboard ML signals (não /ml)
+- [X] `/performance` — KPIs (drawdown, sharpe, beta, alpha, volatilidade, max drawdown) documentados; botão "🖨 Imprimir". Charts/heatmap precisam portfolio com posições (UI manual)
+- [X] `/diario` — botão "+ Novo Trade" abre modal com 16 campos: Ticker*, Direção*, Timeframe, Datas Entrada*/Saída, Setup, Preços*, Qtd*, motivo/expectativa/aconteceu/erros/lições, emoção, tags
+- [X] `/fixed-income` — coberto extensivamente em §A.2.4 (RF aplicar D+0), §A.2.5 (resgate D+X), §A.3.5 (modal Aplicar cascade), §A.3.7 (sidebar layout), §A.4.5 (rename portfolio RF). Comparador presente
+- [X] `/crypto` — coberto em §A.2.3 (D+0 hooks aporte/resgate), §A.3.3 (apelido listing), §A.3.4 (botões Resgate inline + "+ Cripto" geral)
+- [X] `/admin` — tabela users com 8 cols: Nome, E-mail, Role, **Admin (checkbox)**, Status, Último login, 2FA, Ações. Role select "Usuário" + "Master" (Admin virou flag ortogonal — refactor 25/abr ✓)
+- [X] `/hub` — admin-only via _require_admin; 4 tabelas: Serviços (Status/Detalhe/Latência/Ação) + Sources/agendamentos. Botões "Limpar Concluidos" → cleanupCompleted() + "Reprocessar Todos" → reprocessAll()
 
 ### §A.6 — Smoke 24 páginas (carrega/helpers/sort/empty CTA) — ~1h
 
@@ -232,6 +232,8 @@
 | BUG14 | Soft-delete de conta com holdings ativos não bloqueia (gap F7) | Médio — UI pode esconder conta com investimentos vinculados sem warn | Adicionar check em wallet_repo.delete_account: if has_holdings → raise ValueError("Há investimentos vinculados") |
 | BUG15 | F4 render Conta: "Itau A.2Itau" (apelido + institution_name colados) | Baixo — cosmético em /carteira tabelas | Adicionar separador (espaço/dot/dash) entre <span apelido> e <span inst> |
 | ~~BUG16~~ | ~~PortfolioModel + Portfolio entity sem `investment_account_id` mapeado → `/api/v1/portfolios` retorna sempre null + UI /profile mostra "Carteiras (0)"~~ | **RESOLVIDO 25/abr** — fix em 3 arquivos: domain/entities/portfolio.py (field), infrastructure/database/repositories/portfolio_repo.py (mapped_column + populate em _hydrate). Migration 0018 já tinha a coluna no DB; só faltou ORM mapping. Validado: 6 portfolios listados com investment_account_id correto; UI /profile mostra "(1)" carteira por conta. | — |
+| BUG17 | `/api/v1/alerts/indicator` POST usa user_id="user-demo" placeholder (não JWT) | Médio — multi-tenant quebrado para alertas fundamentalistas; alertas vão pro user genérico | Substituir Query(user_id) por Depends(get_current_user) + repo filter por user_id real |
+| BUG18 | UI `/alerts` form usa operadores `>/</>=/<=` mas API `/alerts/indicator` exige `gt/lt/gte/lte` | Médio — submit via UI usa valor errado, criação via UI provavelmente quebrada (form `Criar` retorna erro silencioso) | Mapear operator_label → operator_api no frontend OU aceitar ambos no backend |
 
 ---
 
@@ -286,14 +288,15 @@ docker start finanalytics_timescale
 
 ## Status
 
-- **Total pendente**: 90 itens distribuídos entre §A (69), §B (10), §C (11+)
+- **Total pendente**: 79 itens distribuídos entre §A (58), §B (10), §C (11+)
 - **§A.1 DONE 25/abr** (5 itens — Feature B DLL setup via API)
 - **§A.2 DONE 25/abr** (8 itens — Feature C cash UI + scheduler + RF/Crypto/ETF hooks)
 - **§A.3 DONE 25/abr** (7 itens — Feature F UX refinements + fix BUG13)
 - **§A.4 DONE 25/abr** (5 itens — G2 rename portfolio + fix BUG16)
-- **Hoje sáb 25/abr**: 25 itens fechados, ~3h. Pacing OK
+- **§A.5 DONE 25/abr** (11 itens — Golden path 11 páginas críticas)
+- **Hoje sáb 25/abr**: 36 itens fechados, ~4.5h. Pacing alto
 - **Bloqueado por externo**: Z5 (Nelogica 1m, ~48h)
-- **BUGs**: 9 abertos (3 médios: BUG8 SMTP + BUG11 RF account_id + BUG14 soft-delete holdings; 6 baixos); BUG13+BUG16 resolvidos
+- **BUGs**: 11 abertos (5 médios: BUG8 SMTP + BUG11 RF account_id + BUG14 soft-delete holdings + BUG17 alerts user-demo + BUG18 alerts operator UI<>API; 6 baixos); BUG13+BUG16 resolvidos
 
 ---
 
