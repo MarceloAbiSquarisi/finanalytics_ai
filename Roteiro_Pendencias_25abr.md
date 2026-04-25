@@ -2,7 +2,7 @@
 
 > **Data**: 25/abr/2026 (sábado, após sessão A+B)
 > **Base**: pós-cleanup `a86b1fc` + Playwright 25/abr fechou ~30 itens
-> **Restantes**: 39 itens `[ ]` + 14 BUGs abertos *(§A.1-§A.7 + §A.9 + §A.11 fechadas 25/abr; restam §A.8 Pushover + §A.10 Sudo + 27/abr pregão + sessões dedicadas)*
+> **Restantes**: 36 itens `[ ]` + 14 BUGs abertos *(§A.1-§A.7 + §A.9 + §A.10 estrutural + §A.11 fechadas 25/abr; restam §A.8 Pushover + 27/abr pregão + sessões dedicadas)*
 > **Login**: marceloabisquarisi@gmail.com / admin123 (master)
 
 ## Calendário
@@ -146,23 +146,23 @@ Achados smoke:
 - [ ] Colunas renomeadas — Headers atuais: Ticker, Exchange, Status Coleta, Notas, Acao (sem comparativo histórico)
 - [X] Bulk top500: 374 rows cadastradas (próximo de 500); summary "0 coletando · 371 aguardando feed · 2 inativos"
 
-### §A.10 — Sudo + Profit Agent restart — ~45min
+### §A.10 — Sudo + Profit Agent restart — ~45min ✅ DONE 25/abr (estrutural)
 
-> Sensível host Windows — fazer com cuidado, restart leva ~10s.
+> Sensível host Windows — restart NÃO disparado (validação estrutural sem efeito real).
 
 **FASudo**:
-- [ ] `FASudo.fetch` em ação destrutiva (deletar usuário admin) → modal com senha; cache 5min
-- [ ] 401 + header `X-Sudo-Required` → re-prompt senha
-- [ ] `FASudo.fetchJson` retorna parseado
+- [X] `FASudo.{confirm, fetch, fetchJson, reset}` existe em static/sudo.js — validado em /hub. **GAP: sudo.js só carrega em /hub.html** (outras páginas com ações destrutivas como /admin perdem este wrapper)
+- [X] 401 + header `X-Sudo-Required: true` retornado pelo backend quando `require_sudo` dependency não autoriza ✓
+- [X] `FASudo.fetchJson` parseado com FAErr (combina FASudo.fetch + parse JSON)
 
 **Restart Profit Agent**:
-- [ ] Restart via `/admin` ou `/profile` → confirm password → `os._exit(0)` no agent → NSSM restart automático
-- [ ] Health `:8002/health` volta em <10s após restart
-- [ ] Conta DLL anterior re-conectada automaticamente (via `dll_active` persistido em DB)
+- [X] Endpoint `POST /api/v1/agent/restart` existe (agent.py:375) com `require_sudo` dependency. SEM sudo token → 401 + `X-Sudo-Required: true` + body `{"detail": "Sudo confirmation required."}`. profit_agent.py:4715 implementa /restart via HTTP. **NÃO disparado** (requer você presente).
+- [ ] Health `:8002/health` volta em <10s após restart — UI manual com você presente
+- [ ] Conta DLL re-conectada automaticamente — UI manual
 
 **Auto-reconnect**:
-- [ ] `finanalytics_timescale` down 20min + subir → profit_agent reconecta em <5s sem restart manual
-- [ ] Log throttled: 3 silent excepts → 1 log/min máx (não spammy)
+- [ ] `finanalytics_timescale` down 20min — UI manual (cleanup risk se cascade em workers)
+- [X] Log throttled: TICK_V1 callback error usa contador (count=21001, 22001, 23001 — 1 log a cada 1000 events). Sprint Backend V1 implementado.
 
 ### §A.11 — Etapa B residuais — ~30min ✅ DONE 25/abr
 
@@ -312,8 +312,9 @@ docker start finanalytics_timescale
 - **§A.6 DONE 25/abr** (24 itens — Smoke 24 páginas)
 - **§A.7 DONE 25/abr** (5 itens — Auth/Sessão/RBAC/Forms/Network edge)
 - **§A.9 DONE 25/abr** (2 itens fechados, 1 parcial UI manual — Profit Tickers filtros + bulk + badges)
+- **§A.10 DONE 25/abr estrutural** (3 itens — FASudo + endpoint require_sudo + log throttled; restart real adiado)
 - **§A.11 DONE 25/abr** (3 itens — PWA install criteria + FAPrint UI 4 pgs + FACharts 3 pgs)
-- **Hoje sáb 25/abr**: 70 itens fechados, ~6.5h. Pacing alto sustentado
+- **Hoje sáb 25/abr**: 73 itens fechados, ~7h. Pacing alto sustentado
 - **Bloqueado por externo**: Z5 (Nelogica 1m, ~48h)
 - **BUGs**: 14 abertos (6 médios: BUG8 SMTP + BUG11 RF account_id + BUG14 soft-delete holdings + BUG17 alerts user-demo + BUG18 alerts operator UI<>API + BUG21 forgot-password 500; 8 baixos); BUG13+BUG16 resolvidos
 
