@@ -788,6 +788,18 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
         <div class="tb-chg flat" id="tk-chg">—
 </div>
 </div>
+      <!-- Clocks: relógio + candle countdown + pregão countdown -->
+      <div id="dt-clocks" style="display:flex;align-items:center;gap:14px;font-family:DM Mono,monospace;font-size:13px;margin-left:10px">
+        <div title="Hora atual" style="color:var(--muted)">
+          <span style="opacity:.6">⏱</span> <span id="clk-now" style="color:var(--text)">--:--:--</span>
+        </div>
+        <div title="Tempo até fechamento do candle atual" style="color:var(--muted)">
+          <span style="opacity:.6">▮</span> Candle <span id="clk-candle" style="color:var(--accent)">--:--</span>
+        </div>
+        <div title="Tempo até fechamento do pregão (17h BRT)" style="color:var(--muted)">
+          <span style="opacity:.6">🏛</span> Pregão <span id="clk-market" style="color:var(--gold)">--:--:--</span>
+        </div>
+      </div>
       <div class="ctrl-bar">
         <div class="sep">
 </div>
@@ -3389,6 +3401,90 @@ async function refreshProducerStatus() {
 // Atualiza status do producer a cada 10s
 refreshProducerStatus();
 setInterval(refreshProducerStatus, 10000);
+
+// -- CLOCKS: hora atual + countdown candle + countdown pregão -----------------
+// B3: 10:00-17:00 BRT pregão regular; 17:00-17:25 leilão de fechamento; 17:25 close.
+// Aqui usamos 17:00 como close. Edge cases: sex/sáb/dom/feriados.
+const _MARKET_OPEN_H = 10, _MARKET_OPEN_M = 0;
+const _MARKET_CLOSE_H = 17, _MARKET_CLOSE_M = 0;
+const _CANDLE_MIN = {'1m':1,'2m':2,'5m':5,'15m':15,'30m':30,'60m':60,'90m':90,'1h':60,'1d':1440};
+
+function _pad2(n){return String(Math.floor(n)).padStart(2,'0');}
+function _fmtMs(ms){
+  if (ms < 0) return '--:--';
+  var s = Math.floor(ms/1000);
+  var h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  return h>0 ? _pad2(h)+':'+_pad2(m)+':'+_pad2(sec) : _pad2(m)+':'+_pad2(sec);
+}
+
+function _isMarketOpen(now){
+  var dow = now.getDay(); // 0=dom 6=sáb
+  if (dow === 0 || dow === 6) return false;
+  var h = now.getHours(), m = now.getMinutes();
+  var nowMin = h*60 + m;
+  return nowMin >= (_MARKET_OPEN_H*60 + _MARKET_OPEN_M) && nowMin < (_MARKET_CLOSE_H*60 + _MARKET_CLOSE_M);
+}
+
+function _nextMarketOpen(now){
+  // Próxima 10h00 em dia útil
+  var d = new Date(now);
+  var h = now.getHours(), m = now.getMinutes();
+  var afterClose = (h*60+m) >= (_MARKET_CLOSE_H*60 + _MARKET_CLOSE_M);
+  // Se já passou 17h hoje OU é fim de semana, avança pra próximo dia útil
+  if (afterClose) d.setDate(d.getDate()+1);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate()+1);
+  d.setHours(_MARKET_OPEN_H, _MARKET_OPEN_M, 0, 0);
+  return d;
+}
+
+function updateClocks(){
+  var now = new Date();
+  // Relógio HH:MM:SS
+  var clkNow = document.getElementById('clk-now');
+  if (clkNow) clkNow.textContent = _pad2(now.getHours())+':'+_pad2(now.getMinutes())+':'+_pad2(now.getSeconds());
+
+  // Candle countdown — depende do interval atual (default 5m)
+  var clkCandle = document.getElementById('clk-candle');
+  if (clkCandle){
+    var candleMin = _CANDLE_MIN[currentInterval] || 5;
+    if (candleMin >= 1440){
+      // Diário ou maior: tempo até 00h do próximo dia
+      var nextDay = new Date(now);
+      nextDay.setDate(nextDay.getDate()+1);
+      nextDay.setHours(0,0,0,0);
+      clkCandle.textContent = _fmtMs(nextDay - now);
+    } else {
+      // Próximo múltiplo de candleMin minutos
+      var nowMs = now.getTime();
+      var bucketMs = candleMin * 60 * 1000;
+      var nextClose = Math.ceil(nowMs / bucketMs) * bucketMs;
+      // Se cair exato no candle, avança
+      if (nextClose <= nowMs) nextClose += bucketMs;
+      clkCandle.textContent = _fmtMs(nextClose - nowMs);
+    }
+  }
+
+  // Pregão countdown
+  var clkMarket = document.getElementById('clk-market');
+  if (clkMarket){
+    if (_isMarketOpen(now)){
+      var closeT = new Date(now);
+      closeT.setHours(_MARKET_CLOSE_H, _MARKET_CLOSE_M, 0, 0);
+      clkMarket.textContent = _fmtMs(closeT - now);
+      clkMarket.style.color = 'var(--gold)';
+      clkMarket.title = 'Pregão fecha em '+ _fmtMs(closeT - now);
+    } else {
+      var nextOpen = _nextMarketOpen(now);
+      clkMarket.textContent = 'fechado · abre ' + _fmtMs(nextOpen - now);
+      clkMarket.style.color = 'var(--muted)';
+      clkMarket.title = 'Próximo pregão: ' + nextOpen.toLocaleString('pt-BR');
+    }
+  }
+}
+
+// Inicia loop de relógios (1Hz)
+updateClocks();
+setInterval(updateClocks, 1000);
 
 // -- ALERTAS ------------------------------------------------------------------
 let alertsCache = [];
