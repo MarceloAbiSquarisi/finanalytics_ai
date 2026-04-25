@@ -1,9 +1,48 @@
 # FinAnalytics AI — Pendências consolidadas
 
-> **Data**: 25/abr/2026 (sábado, após sessão A+B)
-> **Base**: pós-cleanup `a86b1fc` + Playwright 25/abr fechou ~30 itens
-> **Restantes**: 36 itens `[ ]` + 10 BUGs abertos *(§A.1-§A.7 + §A.9 + §A.10 estrutural + §A.11 fechadas 25/abr; restam §A.8 Pushover + 27/abr pregão + sessões dedicadas; +4 BUGs fixados 18h: BUG10/14/18/21)*
+> **Data**: 25/abr/2026 (sábado, após sessão A+B+C parcial)
+> **Base**: pós-cleanup `a86b1fc` + 16 commits no dia (último: `7cb27c6` C6 Fase 1)
+> **Restantes**: 32 itens `[ ]` + 10 BUGs abertos
 > **Login**: marceloabisquarisi@gmail.com / admin123 (master)
+
+---
+
+## 🛑 Ponto de parada — sáb 25/abr 18h45
+
+**Última sessão fechou** (~7.5h trabalho):
+- ✅ Etapas A backend automated + B Playwright helpers (24 itens)
+- ✅ §A.1-§A.7 + §A.9 + §A.10 estrutural + §A.11 (49 itens)
+- ✅ 7 BUGs fixados: BUG7, BUG13, BUG16, BUG10, BUG14, BUG18, BUG21
+- ✅ Cleanup raiz (50 files, -12834 linhas) commit `a86b1fc`
+- ✅ §C.1 C6 Dividendos **Fase 1/5 done**: backend `DividendImportService` + endpoints preview/commit (commit `7cb27c6`)
+- ✅ Cleanup state DB final: 1 user ativo, 2 contas legítimas, 0 alerts teste
+
+**Onde retomar** (próximas sessões):
+
+### A. Curto prazo — finalizar §A
+- [ ] **§A.8 Pushover** (~30min) — precisa **celular ligado com app Pushover** + você presente
+- [ ] **§A.10 restart real** (~30min) — restart end-to-end (FASudo prompt → senha → POST → os._exit → NSSM auto-restart) — precisa você presente
+
+### B. Segunda 27/abr (pregão 10h-18h BRT)
+- [ ] **§B.1-B.3** (~2h15min) — DLL viva: cancel order individual, cotação live profit_agent, OCO, indicadores tick-dependent, reconcile real-time
+
+### C. Sessões dedicadas
+- [ ] **§C.1 C6 Dividendos Fases 2-5** (~3h) — UI /import dividendos + UI /movimentacoes + reconciliação manual + tests BTG/XP samples
+  - Fase 1 (backend) ✅ done — endpoints `POST /api/v1/import/dividends/{preview, commit}` funcionando
+  - Fase 2: UI `/import` botão "Importar Dividendos" → upload + preview modal + confirm (~45min)
+  - Fase 3: UI `/movimentacoes` nova rota com filtros ticker/portfolio/direção/período (~60min)
+  - Fase 4: Reconciliação manual de unmatched (~45min)
+  - Fase 5: Tests com samples reais BTG/XP (~30min)
+- [ ] **§C.2 Tech debt** (variado): G4 auth refactor 21 páginas, G6 i18n spread, BUG8 SMTP backup, light mode cleanup, Etapa 2 portfolio refactor
+- [ ] **§C.3 BUGs restantes** (10): 3 médios (BUG8/11/17) + 7 baixos (BUG2/3/4/5/6/12/15/19/20)
+- [ ] **Z5** Nelogica 1m bars (bloqueado externo, ~48h após pedido)
+
+### D. Outras funcionalidades — backlog
+> Adicionar pelo user — features novas além de C6 Dividendos.
+
+- [ ] **TBD**: <a definir nas próximas sessões>
+
+---
 
 ## Calendário
 
@@ -209,14 +248,25 @@ Achados smoke:
 
 ## §C — Sessões dedicadas (qualquer dia)
 
-### §C.1 — C6 Dividendos (não iniciado) — ~5h
+### §C.1 — C6 Dividendos (Fase 1/5 done 25/abr) — ~3h restantes
 
-- [ ] Parser de extrato (PDF/CSV/OFX) detecta "DIVIDENDOS RECEBIDOS" / "JCP" / "RENDIMENTOS"
-- [ ] Auto-reconciliação: casa CNPJ+data+valor com holding em `positions` → cria `account_transactions` tipo=dividend, direction=credit, settled_at=data
-- [ ] UI em `/import`: botão "Importar Dividendos" separado
-- [ ] UI Movimentações global: página `/movimentacoes` (ou aba em `/carteira`) listando todas transactions agregadas (depósito/saque/trade/cripto/RF/dividendos) com filtros ticker/portfolio/direção/período
-- [ ] Reconciliação manual: linha não-casada → operador anexa ao ticker correto
-- [ ] Tests: import de extrato exemplo BTG e XP
+**Fase 1 ✅ DONE 25/abr** (commit `7cb27c6`):
+- [X] `DividendImportService` em `application/services/dividend_import_service.py`
+- [X] Parser CSV (auto-detect delimiter + header) + OFX (regex em `<STMTTRN>`)
+- [X] Detecção keywords: DIVIDENDOS RECEBIDOS, DIVIDENDO, JCP, JUROS SOBRE CAPITAL, RENDIMENTO
+- [X] Extração ticker B3 (regex `[A-Z]{4,5}\d{1,2}`) + classificação tipo (dividendo/jcp/rendimento)
+- [X] Match positions por ticker exato (matched/unmatched/ambiguous)
+- [X] Endpoints `POST /api/v1/import/dividends/preview` + `/commit`
+- [X] Idempotência via duplicate detection (data+amount+ticker)
+- [X] Suporte BR (R$ 1.234,56) + US (R$ 234.50)
+- [X] Validado com sample sintético: 4 linhas detectadas, 2 matched commit OK, cash_balance atualizou
+
+**Fases 2-5 pendentes** (~3h):
+- [ ] **Fase 2** UI /import (~45min): botão "Importar Dividendos" → upload + preview modal + confirm; mostra matched/unmatched/ambiguous + count
+- [ ] **Fase 3** UI /movimentacoes (~60min): nova rota; tabela agregada todas account_transactions com filtros ticker/portfolio/direção (in/out)/período/tipo (dividend/trade/etc)
+- [ ] **Fase 4** Reconciliação manual (~45min): linha unmatched → modal "Selecione ticker" → POST `/api/v1/wallet/transactions/{id}/reconcile` (precisa criar endpoint)
+- [ ] **Fase 5** Tests (~30min): import sample CSV BTG + XP reais (precisa user fornecer samples)
+- [ ] **Bonus** PDF support (deferred, ~1h): pdfplumber + heurísticas BTG/XP layouts
 
 ### §C.2 — Tech debt — variado
 
@@ -303,29 +353,22 @@ docker start finanalytics_timescale
 
 ## Status
 
-- **Total pendente**: 50 itens distribuídos entre §A (29), §B (10), §C (11+)
-- **§A.1 DONE 25/abr** (5 itens — Feature B DLL setup via API)
-- **§A.2 DONE 25/abr** (8 itens — Feature C cash UI + scheduler + RF/Crypto/ETF hooks)
-- **§A.3 DONE 25/abr** (7 itens — Feature F UX refinements + fix BUG13)
-- **§A.4 DONE 25/abr** (5 itens — G2 rename portfolio + fix BUG16)
-- **§A.5 DONE 25/abr** (11 itens — Golden path 11 páginas críticas)
-- **§A.6 DONE 25/abr** (24 itens — Smoke 24 páginas)
-- **§A.7 DONE 25/abr** (5 itens — Auth/Sessão/RBAC/Forms/Network edge)
-- **§A.9 DONE 25/abr** (2 itens fechados, 1 parcial UI manual — Profit Tickers filtros + bulk + badges)
-- **§A.10 DONE 25/abr estrutural** (3 itens — FASudo + endpoint require_sudo + log throttled; restart real adiado)
-- **§A.11 DONE 25/abr** (3 itens — PWA install criteria + FAPrint UI 4 pgs + FACharts 3 pgs)
-- **Hoje sáb 25/abr**: 73 itens fechados + 7 BUGs fixados (BUG7+13+16+10+14+18+21) ~7.5h. Pacing alto sustentado
+- **Total pendente**: 32 itens distribuídos entre §A (2 — A.8+A.10 real), §B (10), §C (20+ incluindo C.1 fases 2-5)
+- **§A.1-A.7 + A.9 + A.10 estrutural + A.11 DONE 25/abr** (49 itens — Features B/C/F/G2 + Golden path + smoke 24 pgs + edge cases + sudo + PWA)
+- **§C.1 C6 Dividendos Fase 1/5 DONE 25/abr** (1 fase fechada — backend service + 2 endpoints validados)
+- **Hoje sáb 25/abr**: 73 itens validados + 7 BUGs fixados + Fase 1 C6 (~7.5h). Sessão 16 commits
 - **Bloqueado por externo**: Z5 (Nelogica 1m, ~48h)
 - **BUGs**: 10 abertos (3 médios: BUG8 SMTP + BUG11 RF account_id + BUG17 alerts user-demo; 7 baixos); 7 resolvidos hoje
 
-### Cleanup state (final do dia 25/abr 18h):
+### Cleanup state (final do dia 25/abr 18h45):
 - **Users**: 1 ativo (master `marceloabisquarisi@gmail.com`); user_comum_test desativado via PATCH /admin/users/{id}/active
-- **Contas**: 2 ativas — Simulador Nelogica (DLL ativa, cash 0) + XP Teste 2 (cash 1000, dado real preservado). 8 contas teste já soft-deletadas
+- **Contas**: 2 ativas — Simulador Nelogica (DLL ativa, cash 0) + XP Teste 2 (cash 1000, dado real preservado). 9 contas teste já soft-deletadas
 - **Portfolios**: 2 ativos (1 por conta, ambos "Portfolio")
 - **Alerts**: 0 ativos user-demo (3 cancelled)
 - **TX órfãs**: 34 (14 cancelled + 20 settled) vinculadas a contas inativas — histórico preservado
 - **Containers**: 18 healthy
 - **API**: ok
+- **Pos-fix env**: connection.py + auth.py + wallet.py + indicator_alert_service.py + portfolio_repo.py todos com fixes deployed
 
 ---
 
