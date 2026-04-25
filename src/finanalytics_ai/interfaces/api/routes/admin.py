@@ -36,7 +36,7 @@ MASTER_EMAIL = "marceloabisquarisi@gmail.com"
 
 
 def require_master(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role not in (UserRole.MASTER, UserRole.ADMIN):
+    if not current_user.has_admin_access:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Acesso restrito a administradores.")
     return current_user
 
@@ -49,10 +49,15 @@ class CreateUserRequest(BaseModel):
     full_name: str = Field(..., min_length=2)
     password: str = Field(..., min_length=8)
     role: str = Field(default="user")
+    is_admin: bool = Field(default=False)
 
 
 class ChangeRoleRequest(BaseModel):
     role: str
+
+
+class ChangeAdminFlagRequest(BaseModel):
+    is_admin: bool
 
 
 class ResetPasswordRequest(BaseModel):
@@ -124,6 +129,7 @@ async def list_users(
             "email": u.email,
             "full_name": u.full_name,
             "role": u.role,
+            "is_admin": bool(getattr(u, "is_admin", False)),
             "is_active": u.is_active,
             "created_at": u.created_at.isoformat() if u.created_at else None,
             "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None,
@@ -156,10 +162,16 @@ async def create_user(
         full_name=body.full_name,
         role=role,
         is_active=True,
+        is_admin=bool(body.is_admin),
     )
     created = await repo.create(user)
     await session.commit()
-    return {"user_id": created.user_id, "email": created.email, "role": created.role.value}
+    return {
+        "user_id": created.user_id,
+        "email": created.email,
+        "role": created.role.value,
+        "is_admin": created.is_admin,
+    }
 
 
 @router.patch("/users/{user_id}/role")
@@ -184,6 +196,12 @@ async def change_role(
         raise HTTPException(
             status.HTTP_403_FORBIDDEN, detail="Não é possível rebaixar o usuário master do sistema."
         )
+    # 'admin' virou flag ortogonal (use /admin-flag), não é mais role valido.
+    if body.role == "admin":
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Admin agora é flag separada. Use PATCH /users/{id}/admin-flag.",
+        )
     try:
         UserRole(body.role)
     except ValueError:
@@ -196,6 +214,30 @@ async def change_role(
     await session.commit()
     logger.info("admin.role_changed", target=user_id, role=body.role, actor=actor.user_id)
     return {"user_id": user_id, "role": body.role}
+
+
+@router.patch("/users/{user_id}/admin-flag")
+async def change_admin_flag(
+    user_id: str,
+    body: ChangeAdminFlagRequest,
+    actor: User = Depends(require_master),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Liga/desliga a flag is_admin — ortogonal a role (user/master)."""
+    from sqlalchemy import select, update as sa_update
+
+    res = await session.execute(select(UserModel).where(UserModel.user_id == user_id))
+    target = res.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado.")
+    await session.execute(
+        sa_update(UserModel).where(UserModel.user_id == user_id).values(is_admin=bool(body.is_admin))
+    )
+    await session.commit()
+    logger.info(
+        "admin.admin_flag_changed", target=user_id, is_admin=body.is_admin, actor=actor.user_id
+    )
+    return {"user_id": user_id, "is_admin": bool(body.is_admin)}
 
 
 @router.patch("/users/{user_id}/active")

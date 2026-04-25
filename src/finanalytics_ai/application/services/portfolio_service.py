@@ -1,9 +1,9 @@
 """
 PortfolioService — Casos de uso de portfólio.
 
-v2: suporte a múltiplas carteiras por usuário.
-  Novos casos de uso: update_portfolio, delete_portfolio,
-  set_default, compare_portfolios.
+Refactor 25/abr: 1 portfolio por conta de investimento (1:1).
+  Casos de uso: create_portfolio, update_portfolio, deactivate, reactivate,
+  compare_portfolios. set_default removido (nao faz sentido com 1 por conta).
 """
 
 from __future__ import annotations
@@ -47,7 +47,6 @@ class PortfolioSnapshot:
     name: str
     description: str
     benchmark: str
-    is_default: bool
     user_id: str
     cash: str
     currency: str
@@ -83,30 +82,51 @@ class PortfolioService:
         initial_cash: Decimal = Decimal("0"),
         description: str = "",
         benchmark: str = "",
+        investment_account_id: str | None = None,
     ) -> Portfolio:
-        # Guardrail: limite de carteiras por usuário
+        # Invariante: 1 portfolio por conta. Sem account_id rejeitamos.
+        if not investment_account_id:
+            raise ValueError(
+                "investment_account_id obrigatorio: cada portfolio deve estar vinculado a uma conta."
+            )
+        # Guardrail: limite global por usuario (proteca acidental)
         existing = await self._repo.find_by_user(user_id)
         if len(existing) >= _MAX_PORTFOLIOS_PER_USER:
             raise ValueError(f"Limite de {_MAX_PORTFOLIOS_PER_USER} carteiras atingido.")
-
-        # Primeira carteira do usuário é sempre default
-        is_default = len(existing) == 0
 
         portfolio = Portfolio(
             user_id=user_id,
             name=name,
             description=description,
             benchmark=benchmark.upper().strip() if benchmark else "",
-            is_default=is_default,
         )
         if initial_cash > Decimal("0"):
             portfolio.cash = Money.of(initial_cash)
         await self._repo.save(portfolio)
+        # link_to_account valida que a conta existe e pertence ao user.
+        # O unique partial index ux_portfolios_one_active_per_account dispara
+        # IntegrityError se a conta ja tem portfolio ativo — convertemos em
+        # ValueError 409 para o caller.
+        try:
+            linked = await self._repo.link_to_account(
+                portfolio_id=portfolio.portfolio_id,
+                account_id=investment_account_id,
+                user_id=user_id,
+            )
+        except Exception as exc:  # noqa: BLE001
+            msg = str(exc)
+            if "ux_portfolios_one_active_per_account" in msg or "unique" in msg.lower():
+                raise ValueError(
+                    "Conta ja possui portfolio ativo. Cada conta pode ter apenas 1 portfolio."
+                ) from exc
+            raise
+        if not linked:
+            raise ValueError("Conta de investimento inválida ou não pertence ao usuário.")
         logger.info(
             "portfolio.created",
             portfolio_id=portfolio.portfolio_id,
             user_id=user_id,
-            is_default=is_default,
+            investment_account_id=investment_account_id,
         )
         return portfolio
 
@@ -152,13 +172,9 @@ class PortfolioService:
         """
         Soft-delete: marca portfolio como inativo. Preserva historico/FKs.
 
-        Restricoes:
-        - Recusa (409) se houver holdings com saldo > 0 em qualquer
-          tabela dependente (positions, crypto_holdings, rf_holdings,
-          other_assets). Trades historicas NAO bloqueiam.
-        - Se for o default, promove o portfolio ativo mais antigo restante
-          como novo default. Se nao houver outro ativo, mantem flag
-          (usuario fica sem default ate criar/reativar outro).
+        Recusa (409) se houver holdings com saldo > 0 em qualquer
+        tabela dependente (positions, crypto_holdings, rf_holdings,
+        other_assets). Trades historicas NAO bloqueiam.
         """
         from fastapi import HTTPException, status
 
@@ -178,44 +194,19 @@ class PortfolioService:
                 ),
             )
 
-        # Promove novo default se necessario
-        if portfolio.is_default:
-            others_active = [
-                p
-                for p in await self._repo.find_by_user(user_id, include_inactive=False)
-                if p.portfolio_id != portfolio_id
-            ]
-            if others_active:
-                oldest = min(others_active, key=lambda p: p.created_at)
-                oldest.is_default = True
-                await self._repo.save(oldest)
-            portfolio.is_default = False
-
         portfolio.is_active = False
         await self._repo.save(portfolio)
         logger.info("portfolio.deactivated", portfolio_id=portfolio_id, user_id=user_id)
         return portfolio
 
     async def reactivate_portfolio(self, portfolio_id: str, user_id: str) -> Portfolio:
-        """Reativa um portfolio inativo. Idempotente; nao toca em is_default."""
+        """Reativa um portfolio inativo. Idempotente."""
         portfolio = await self._get_and_assert_owner(portfolio_id, user_id)
         if portfolio.is_active:
             return portfolio
         portfolio.is_active = True
         await self._repo.save(portfolio)
         logger.info("portfolio.reactivated", portfolio_id=portfolio_id, user_id=user_id)
-        return portfolio
-
-    async def set_default(self, portfolio_id: str, user_id: str) -> Portfolio:
-        """Define uma carteira como default. Remove o flag das demais."""
-        portfolio = await self._get_and_assert_owner(portfolio_id, user_id)
-        if portfolio.is_default:
-            return portfolio  # já é default, noop
-        # Remove default de todas as carteiras do usuário atomicamente
-        await self._repo.clear_default(user_id)
-        portfolio.is_default = True
-        await self._repo.save(portfolio)
-        logger.info("portfolio.set_default", portfolio_id=portfolio_id, user_id=user_id)
         return portfolio
 
     async def compare_portfolios(
@@ -265,7 +256,6 @@ class PortfolioService:
                     "portfolio_id": p.portfolio_id,
                     "name": p.name,
                     "benchmark": p.benchmark,
-                    "is_default": str(p.is_default),
                     "total_invested": str(total_invested.amount),
                     "current_value": str(current_value.amount),
                     "total_profit_loss": str(total_pl.amount),
@@ -351,7 +341,6 @@ class PortfolioService:
             name=portfolio.name,
             description=portfolio.description,
             benchmark=portfolio.benchmark,
-            is_default=portfolio.is_default,
             user_id=portfolio.user_id,
             cash=str(portfolio.cash.amount),
             currency=portfolio.currency.value,

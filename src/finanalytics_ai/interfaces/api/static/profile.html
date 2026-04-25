@@ -488,7 +488,7 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 
       <div class="form-group">
         <label>Valor (R$) *</label>
-        <input type="number" id="cash-amount" step="0.01" min="0.01" placeholder="EX: 1000.00" style="width:100%">
+        <input type="number" id="cash-amount" step="0.01" min="0.01" placeholder="EX: 1000.00" style="width:100%" oninput="_validateCashAmount(this)">
       </div>
       <div class="form-group">
         <label>Data (opcional)</label>
@@ -508,44 +508,95 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
     </div>
   </div>
 
-  <!-- Modal: Lista de transações (Feature C) -->
+  <!-- Modal: Lista de transações (Feature C + F1 24/abr) -->
   <div id="modal-tx-list" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;align-items:center;justify-content:center" onclick="if(event.target===this)closeTxList()">
-    <div style="background:var(--s1);border:1px solid var(--border);border-left:3px solid var(--accent,#00d4ff);border-radius:10px;padding:22px;min-width:600px;max-width:800px;max-height:85vh;display:flex;flex-direction:column">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div id="tx-list-card" style="background:var(--s1);border:1px solid var(--border);border-left:3px solid var(--accent,#00d4ff);border-radius:10px;padding:22px;min-width:780px;max-width:960px;max-height:90vh;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px" class="tx-list-header">
         <div>
           <h3 style="color:var(--accent,#00d4ff);font-size:15px;margin-bottom:2px">Movimentações</h3>
           <p id="tx-list-subtitle" style="font-size:12px;color:var(--muted)">Conta: —</p>
         </div>
-        <div style="display:flex;gap:6px">
+        <div style="display:flex;gap:6px" class="tx-list-actions">
+          <button class="btn" onclick="printTxHistory()" title="Imprimir histórico filtrado" style="padding:5px 10px;font-size:12px;background:transparent;border:1px solid var(--muted);color:var(--muted)">🖨 Imprimir</button>
+          <button class="btn" onclick="closeTxList()" style="padding:5px 12px;font-size:12px">✕</button>
+        </div>
+      </div>
+
+      <!-- F1: filtros avançados -->
+      <div class="tx-filter-bar" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:rgba(0,212,255,.03);border:1px solid var(--border);border-radius:6px;margin-bottom:10px;font-size:12px;align-items:end">
+        <div>
+          <div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">De</div>
+          <input type="date" id="tx-date-from" onchange="loadTxList()" style="padding:4px 8px;background:#080c14;border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px">
+        </div>
+        <div>
+          <div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Até</div>
+          <input type="date" id="tx-date-to" onchange="loadTxList()" style="padding:4px 8px;background:#080c14;border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px">
+        </div>
+        <div>
+          <div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Direção</div>
+          <select id="tx-direction-filter" onchange="loadTxList()" style="padding:5px 10px;background:#080c14;border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px">
+            <option value="">Todos</option>
+            <option value="credit">↓ Créditos</option>
+            <option value="debit">↑ Débitos</option>
+          </select>
+        </div>
+        <div>
+          <div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Status</div>
           <select id="tx-status-filter" onchange="loadTxList()" style="padding:5px 10px;background:#080c14;border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px">
             <option value="">Todos</option>
             <option value="pending">Pendente</option>
             <option value="settled">Liquidada</option>
             <option value="cancelled">Cancelada</option>
           </select>
-          <button class="btn" onclick="closeTxList()" style="padding:5px 12px;font-size:12px">✕</button>
         </div>
+        <label style="display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;cursor:pointer;user-select:none;margin-bottom:4px">
+          <input type="checkbox" id="tx-include-pending" checked onchange="loadTxList()">
+          Incluir lançamentos futuros
+        </label>
       </div>
+
       <div style="overflow-y:auto;flex:1">
         <table style="width:100%;border-collapse:collapse;font-size:13px">
-          <thead style="position:sticky;top:0;background:var(--s1)">
+          <thead style="position:sticky;top:0;background:var(--s1);z-index:1">
             <tr style="border-bottom:1px solid var(--border)">
               <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);text-transform:uppercase">Data</th>
               <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);text-transform:uppercase">Tipo</th>
               <th style="text-align:right;padding:6px 8px;font-size:11px;color:var(--muted);text-transform:uppercase">Valor</th>
+              <th style="text-align:right;padding:6px 8px;font-size:11px;color:var(--muted);text-transform:uppercase">Saldo</th>
               <th style="text-align:center;padding:6px 8px;font-size:11px;color:var(--muted);text-transform:uppercase">Status</th>
               <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);text-transform:uppercase">Liquidação</th>
               <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);text-transform:uppercase">Nota</th>
-              <th></th>
+              <th class="tx-list-actions"></th>
             </tr>
           </thead>
           <tbody id="tx-list-tbody">
-            <tr><td colspan="7" style="padding:20px;text-align:center;color:var(--muted)">Carregando...</td></tr>
+            <tr><td colspan="8" style="padding:20px;text-align:center;color:var(--muted)">Carregando...</td></tr>
           </tbody>
+          <tfoot>
+            <tr id="tx-list-footer" style="border-top:2px solid var(--gold);background:rgba(240,180,41,.08);font-weight:700">
+              <td colspan="2" style="padding:10px 8px;color:var(--gold);text-transform:uppercase;letter-spacing:.05em;font-size:11px">Saldo Final</td>
+              <td id="tx-list-total-amount" style="padding:10px 8px;text-align:right;font-family:monospace;color:var(--gold)">R$ 0,00</td>
+              <td id="tx-list-total-balance" style="padding:10px 8px;text-align:right;font-family:monospace;color:var(--gold);font-size:15px">R$ 0,00</td>
+              <td colspan="4"></td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </div>
   </div>
+
+  <style>
+    .fa-invalid-input { border-color: var(--red, #ff3d5a) !important; background: rgba(255,61,90,.05) !important; }
+    @media print {
+      body > :not(#modal-tx-list) { display: none !important; }
+      #modal-tx-list { background: white !important; position: static !important; display: block !important; }
+      #tx-list-card { min-width: 0 !important; max-width: none !important; max-height: none !important; border: none !important; box-shadow: none !important; background: white !important; color: black !important; padding: 10px !important }
+      #tx-list-card * { color: black !important; background: white !important; border-color: #888 !important }
+      .tx-list-actions, .tx-filter-bar label input { display: none !important; }
+      .tx-filter-bar { border: 1px solid #aaa !important; padding: 6px !important; }
+      thead { background: #eee !important; }
+    }
+  </style>
 
   <!-- Modal: Conectar Profit DLL em uma conta existente -->
   <div id="modal-connect-dll" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;align-items:center;justify-content:center" onclick="if(event.target===this)closeConnectDLLModal()">
@@ -688,15 +739,28 @@ function showProfileTab(name) {
 
 // ── Investment accounts (corretora XP/BTG/etc) ─────────────────────────────
 let _invAccountsCache = [];
+let _allPortfoliosCache = [];  // G2: para mostrar portfolios vinculados por conta
 let _currentUserRole = '';  // preenchido em initProfile via /auth/me
 
 function _isAdminOrMaster() {
   return _currentUserRole === 'admin' || _currentUserRole === 'master';
 }
 
+async function _loadAllPortfolios() {
+  const token = getToken();
+  if (!token) return;
+  try {
+    const r = await fetch('/api/v1/portfolios?include_inactive=false', {
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+    if (r.ok) _allPortfoliosCache = await r.json();
+  } catch(_) { _allPortfoliosCache = []; }
+}
+
 async function loadInvAccounts() {
   const token = getToken();
   if (!token) return;
+  await _loadAllPortfolios();
   try {
     const r = await fetch('/api/v1/wallet/accounts', { headers: { 'Authorization': 'Bearer ' + token } });
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -789,6 +853,25 @@ function renderInvAccounts() {
     // Async: popula detail com pending in/out depois
     setTimeout(() => loadCashDetail(id), 50);
 
+    // G2: seção de portfolios vinculados à conta (com rename)
+    const accPortfolios = (_allPortfoliosCache || []).filter(p => p.investment_account_id === id);
+    const portfoliosSection = `
+      <div style="margin-top:8px;padding:8px 10px;background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.15);border-radius:5px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Carteiras / Portfolios (${accPortfolios.length})</div>
+          <button class="btn" style="padding:3px 8px;font-size:11px;background:transparent;border:1px solid var(--accent,#00d4ff);color:var(--accent,#00d4ff)" onclick="openNewPortfolioPrompt('${id}','${_escapeHtml(a.apelido||a.institution_name||'')}')" title="Criar nova carteira nesta conta">+ Nova</button>
+        </div>
+        ${accPortfolios.length === 0
+          ? '<div style="color:var(--muted);font-size:12px;font-style:italic">Nenhuma carteira.</div>'
+          : accPortfolios.map(p => `
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px dashed var(--border2);font-size:12px">
+              <span><strong style="color:var(--text)">${_escapeHtml(p.name)}</strong> <span style="color:var(--muted)">(${p.positions || 0} pos)</span>${p.is_default ? ' <span style="color:var(--gold);font-size:10px;font-weight:700">[padrão]</span>' : ''}</span>
+              <span>
+                <button class="btn" style="padding:2px 8px;font-size:11px;background:transparent;border:1px solid var(--muted);color:var(--muted)" onclick="renameInvPortfolio('${p.portfolio_id}','${_escapeHtml(p.name)}')" title="Renomear">✎</button>
+              </span>
+            </div>`).join('')}
+      </div>`;
+
     return `
       <div style="border:1px solid var(--border);border-left:3px solid ${leftBorder};border-radius:6px;padding:12px 14px;background:${isDllActive ? 'rgba(240,180,41,.04)' : 'transparent'}">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
@@ -807,9 +890,54 @@ function renderInvAccounts() {
           </div>
         </div>
         ${cashSection}
+        ${portfoliosSection}
         ${dllSection}
       </div>`;
   }).join('');
+}
+
+// ── F3: validacao de campo de valor ───────────────────────────────────────
+function _validateCashAmount(input) {
+  const v = parseFloat(input.value);
+  const invalid = !input.value || !v || v <= 0 || !isFinite(v);
+  input.classList.toggle('fa-invalid-input', invalid);
+}
+
+// ── G2: Portfolio rename/create inline em /profile ────────────────────────
+async function renameInvPortfolio(portfolioId, currentName) {
+  const newName = window.prompt('Novo nome para a carteira:', currentName);
+  if (!newName || !newName.trim() || newName.trim() === currentName) return;
+  try {
+    const token = getToken();
+    const r = await fetch(`/api/v1/portfolios/${portfolioId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + token },
+      body: JSON.stringify({ name: newName.trim() }),
+    });
+    if (!r.ok) { const err = await r.json().catch(()=>({})); throw new Error(err.detail || 'HTTP ' + r.status); }
+    if (window.FAToast) FAToast.ok('Carteira renomeada.');
+    await loadInvAccounts();
+  } catch(e) {
+    if (window.FAToast) FAToast.err('Falha: ' + (e.message || e));
+  }
+}
+
+async function openNewPortfolioPrompt(accountId, accountLabel) {
+  const name = window.prompt(`Nova carteira na conta "${accountLabel}":\n\nNome:`, '');
+  if (!name || !name.trim()) return;
+  try {
+    const token = getToken();
+    const r = await fetch(`/api/v1/wallet/accounts/${accountId}/portfolios`, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + token },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    if (!r.ok) { const err = await r.json().catch(()=>({})); throw new Error(err.detail || 'HTTP ' + r.status); }
+    if (window.FAToast) FAToast.ok('Carteira criada e vinculada à conta.');
+    await loadInvAccounts();
+  } catch(e) {
+    if (window.FAToast) FAToast.err('Falha: ' + (e.message || e));
+  }
 }
 
 // ── Feature C: cash ledger (deposito, saque, historico) ───────────────────
@@ -859,9 +987,13 @@ function closeCashModal() { document.getElementById('modal-cash').style.display 
 
 async function submitCashMove() {
   const msg = document.getElementById('msg-cash');
-  const amount = parseFloat(document.getElementById('cash-amount').value);
-  if (!amount || amount <= 0) {
-    msg.className = 'msg err'; msg.textContent = 'Valor inválido.';
+  const input = document.getElementById('cash-amount');
+  const amount = parseFloat(input.value);
+  // F3: validação cliente
+  if (!amount || amount <= 0 || !isFinite(amount)) {
+    msg.className = 'msg err'; msg.textContent = 'Valor inválido — informe um número maior que zero.';
+    input.classList.add('fa-invalid-input');
+    setTimeout(() => input.classList.remove('fa-invalid-input'), 2000);
     return;
   }
   const body = {
@@ -871,6 +1003,25 @@ async function submitCashMove() {
   };
   try {
     const token = getToken();
+    // F2: se saque, checa se ficara negativo ANTES e pede confirmacao
+    if (_cashAction === 'withdraw') {
+      const summary = await fetch(`/api/v1/wallet/accounts/${_cashAccountId}/cash-summary`, {
+        headers: { 'Authorization':'Bearer ' + token },
+      }).then(r => r.json()).catch(() => null);
+      if (summary) {
+        const projected = Number(summary.cash_balance) - amount;
+        if (projected < 0) {
+          const ok = window.FAModal
+            ? await FAModal.confirm({
+                title: 'Saldo ficará negativo',
+                text: `Após este saque o saldo será R$ ${projected.toFixed(2)}. Deseja mesmo prosseguir?`,
+                variant: 'danger',
+              })
+            : window.confirm(`Saldo ficará R$ ${projected.toFixed(2)}. Prosseguir?`);
+          if (!ok) return;
+        }
+      }
+    }
     const r = await fetch(`/api/v1/wallet/accounts/${_cashAccountId}/${_cashAction}`, {
       method: 'POST',
       headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + token },
@@ -894,11 +1045,18 @@ async function submitCashMove() {
 
 function openTransactionsList(accountId, label) {
   _txListAccountId = accountId;
+  _txListAccountLabel = label;
   document.getElementById('modal-tx-list').style.display = 'flex';
   document.getElementById('tx-list-subtitle').textContent = 'Conta: ' + label;
+  // Reset filtros — periodo default = sem 'de' (desde inicio), 'ate' = hoje
   document.getElementById('tx-status-filter').value = '';
+  document.getElementById('tx-direction-filter').value = '';
+  document.getElementById('tx-date-from').value = '';
+  document.getElementById('tx-date-to').value = new Date().toISOString().slice(0,10);
+  document.getElementById('tx-include-pending').checked = true;
   loadTxList();
 }
+let _txListAccountLabel = '';
 function closeTxList() { document.getElementById('modal-tx-list').style.display = 'none'; }
 
 const _TX_TYPE_LABELS = {
@@ -918,23 +1076,45 @@ const _TX_STATUS_LABELS = {
 async function loadTxList() {
   if (!_txListAccountId) return;
   const tb = document.getElementById('tx-list-tbody');
-  tb.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--muted)">Carregando...</td></tr>';
+  tb.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--muted)">Carregando...</td></tr>';
   try {
     const token = getToken();
+    const params = new URLSearchParams();
     const st = document.getElementById('tx-status-filter').value;
-    const qs = st ? `?status=${st}` : '';
+    if (st) params.set('status', st);
+    const dir = document.getElementById('tx-direction-filter').value;
+    if (dir) params.set('direction', dir);
+    const df = document.getElementById('tx-date-from').value;
+    if (df) params.set('date_from', df);
+    const dt = document.getElementById('tx-date-to').value;
+    if (dt) params.set('date_to', dt);
+    const incPending = document.getElementById('tx-include-pending').checked;
+    params.set('include_pending', incPending ? 'true' : 'false');
+    const qs = params.toString() ? '?' + params.toString() : '';
     const r = await fetch(`/api/v1/wallet/accounts/${_txListAccountId}/transactions${qs}`, {
       headers: { 'Authorization':'Bearer ' + token },
     });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const txs = await r.json();
     if (!txs.length) {
-      tb.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--muted);font-style:italic">Nenhuma movimentação.</td></tr>';
+      tb.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--muted);font-style:italic">Nenhuma movimentação no período filtrado.</td></tr>';
+      document.getElementById('tx-list-total-amount').textContent = 'R$ 0,00';
+      document.getElementById('tx-list-total-balance').textContent = 'R$ 0,00';
       return;
     }
+    let sumAmount = 0;
+    let lastBalance = 0;
     tb.innerHTML = txs.map(t => {
       const amt = Number(t.amount);
+      sumAmount += amt;
+      const bal = Number(t.running_balance || 0);
+      // A tx mais recente (primeira na lista desc) tem o maior saldo,
+      // mas queremos mostrar o saldo "final" (última settled) no footer.
+      // Ordenado DESC: primeira linha = maior date. Para saldo FINAL do periodo
+      // filtrado pegamos a primeira tx que tem running_balance (settled).
+      if (t.status === 'settled' && lastBalance === 0) lastBalance = bal;
       const color = amt >= 0 ? 'var(--green)' : 'var(--red)';
+      const balColor = bal < 0 ? 'var(--red)' : (bal === 0 ? 'var(--muted)' : 'var(--text)');
       const typeLbl = _TX_TYPE_LABELS[t.tx_type] || t.tx_type;
       const stLbl = _TX_STATUS_LABELS[t.status] || t.status;
       const canCancel = t.status !== 'cancelled';
@@ -943,17 +1123,38 @@ async function loadTxList() {
           <td style="padding:6px 8px;font-family:monospace;font-size:12px">${(t.reference_date||'').slice(0,10)}</td>
           <td style="padding:6px 8px">${typeLbl}</td>
           <td style="padding:6px 8px;text-align:right;font-family:monospace;color:${color};font-weight:600">${amt >= 0 ? '+' : ''}R$ ${amt.toFixed(2)}</td>
+          <td style="padding:6px 8px;text-align:right;font-family:monospace;color:${balColor}">${t.status === 'settled' ? 'R$ ' + bal.toFixed(2) : '—'}</td>
           <td style="padding:6px 8px;text-align:center;font-size:12px">${stLbl}</td>
           <td style="padding:6px 8px;font-family:monospace;font-size:12px;color:var(--muted)">${(t.settlement_date||'').slice(0,10) || '—'}</td>
           <td style="padding:6px 8px;font-size:12px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_escapeHtml(t.note||'')}">${_escapeHtml(t.note||'—')}</td>
-          <td style="padding:6px 8px;text-align:right">
+          <td class="tx-list-actions" style="padding:6px 8px;text-align:right">
             ${canCancel ? `<button class="btn" style="padding:3px 8px;font-size:11px;background:transparent;border:1px solid var(--red);color:var(--red)" onclick="cancelTx('${t.id}')">Cancelar</button>` : ''}
           </td>
         </tr>`;
     }).join('');
+    const amountColor = sumAmount >= 0 ? 'var(--green)' : 'var(--red)';
+    document.getElementById('tx-list-total-amount').textContent = (sumAmount >= 0 ? '+' : '') + 'R$ ' + sumAmount.toFixed(2);
+    document.getElementById('tx-list-total-amount').style.color = amountColor;
+    // Saldo final = cash_balance atual da conta (via summary)
+    try {
+      const sumRes = await fetch(`/api/v1/wallet/accounts/${_txListAccountId}/cash-summary`, {
+        headers: { 'Authorization':'Bearer ' + token },
+      }).then(r2 => r2.json());
+      const finalBal = Number(sumRes.cash_balance || 0);
+      document.getElementById('tx-list-total-balance').textContent = 'R$ ' + finalBal.toFixed(2);
+      document.getElementById('tx-list-total-balance').style.color = finalBal < 0 ? 'var(--red)' : 'var(--gold)';
+    } catch(_) {}
   } catch(e) {
-    tb.innerHTML = `<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--red)">Falha: ${e.message || e}</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--red)">Falha: ${e.message || e}</td></tr>`;
   }
+}
+
+function printTxHistory() {
+  // Injeta title + subtitle tempraimente para o print ficar com contexto
+  const prev = document.title;
+  document.title = 'Movimentações — ' + (_txListAccountLabel || 'Conta');
+  window.print();
+  document.title = prev;
 }
 
 async function cancelTx(txId) {
@@ -1148,6 +1349,15 @@ async function submitNewInvAccount() {
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify(body),
     });
+    if (r.status === 409) {
+      const err = await r.json().catch(() => ({}));
+      msg.className = 'msg err';
+      msg.textContent = (typeof err.detail === 'string') ? err.detail : 'CPF já cadastrado.';
+      // Destaca o campo CPF
+      const cpfInput = document.getElementById('inv-cpf');
+      if (cpfInput) { cpfInput.classList.add('fa-cpf-invalid'); cpfInput.focus(); }
+      return;
+    }
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
       msg.className = 'msg err';
@@ -1189,6 +1399,12 @@ async function deleteInvAccount(accountId, label) {
       method: 'DELETE',
       headers: { 'Authorization': 'Bearer ' + token },
     });
+    if (r.status === 409) {
+      // F7: saldo != 0 bloqueia delete
+      const err = await r.json().catch(() => ({}));
+      if (window.FAToast) FAToast.err(typeof err.detail === 'string' ? err.detail : 'Conta com saldo não pode ser excluída.');
+      return;
+    }
     if (!r.ok) throw new Error('HTTP ' + r.status);
     await loadInvAccounts();
     if (window.FAToast) FAToast.ok('Conta removida');

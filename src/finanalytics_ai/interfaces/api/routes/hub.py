@@ -25,7 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 import structlog
 
-from finanalytics_ai.domain.auth.entities import User, UserRole
+from finanalytics_ai.domain.auth.entities import User
 from finanalytics_ai.domain.events.models import DomainEvent, EventPayload, EventStatus
 from finanalytics_ai.domain.events.value_objects import CorrelationId, EventType
 from finanalytics_ai.infrastructure.event_processor.repository import SqlEventRepository
@@ -40,8 +40,8 @@ router = APIRouter(prefix="/hub", tags=["hub"])
 
 
 def _require_admin(current_user: User = Depends(get_current_user)) -> User:
-    """Guarda RBAC: apenas ADMIN ou MASTER acessam endpoints do hub."""
-    if current_user.role not in (UserRole.ADMIN, UserRole.MASTER):
+    """Guarda RBAC: apenas quem tem flag is_admin ou role MASTER acessa hub."""
+    if not current_user.has_admin_access:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Acesso restrito a administradores.",

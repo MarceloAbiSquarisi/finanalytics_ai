@@ -201,7 +201,53 @@ class WalletRepository:
             s.add(m)
             await s.commit()
             await s.refresh(m)
-            return _model_to_dict(m)
+            acc = _model_to_dict(m)
+
+        # G1 (24/abr): auto-criar portfolio Principal + RF Padrao vinculados
+        try:
+            await self._ensure_default_portfolios(
+                user_id=str(data["user_id"]),
+                account_id=acc["id"],
+                account_label=acc.get("apelido") or acc.get("institution_name") or "Conta",
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("account.auto_portfolios.failed", account_id=acc["id"], error=str(exc))
+        return acc
+
+    async def _ensure_default_portfolios(
+        self, *, user_id: str, account_id: str, account_label: str
+    ) -> None:
+        """Cria 1 portfolio chamado 'Portfolio' vinculado a uma conta, se nao existir.
+
+        Refactor 25/abr: modelo simplificado de N para 1 portfolio por conta.
+        Chamado em create_account (automatico) e no backfill para contas antigas.
+        Idempotente: checa antes de criar.
+        """
+        from sqlalchemy import text as sql_text
+
+        async with get_session() as s:
+            # Checa se ja existe portfolio ativo nesta conta
+            pf_row = (await s.execute(
+                sql_text(
+                    "SELECT id FROM portfolios "
+                    "WHERE investment_account_id = :a AND user_id = :u "
+                    "AND COALESCE(is_active, true) = true LIMIT 1"
+                ),
+                {"a": account_id, "u": user_id},
+            )).scalar_one_or_none()
+            if not pf_row:
+                pf_id = str(uuid.uuid4())
+                await s.execute(
+                    sql_text(
+                        "INSERT INTO portfolios "
+                        "(id, user_id, name, investment_account_id, currency, cash, is_active, created_at, updated_at) "
+                        "VALUES (:id, :u, 'Portfolio', :a, 'BRL', 0, true, NOW(), NOW())"
+                    ),
+                    {"id": pf_id, "u": user_id, "a": account_id},
+                )
+                log.info("account.auto_portfolio.created", account_id=account_id, portfolio_id=pf_id)
+
+            await s.commit()
 
     async def list_accounts(self, user_id: str, include_inactive: bool = False) -> list[dict]:
         async with get_session() as s:
@@ -478,6 +524,10 @@ class WalletRepository:
         status: str | None = None,
         limit: int = 100,
         offset: int = 0,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        direction: str | None = None,  # 'debit' | 'credit' | None (todos)
+        include_pending: bool = True,
     ) -> list[dict]:
         async with get_session() as s:
             q = (
@@ -494,7 +544,47 @@ class WalletRepository:
                 q = q.where(AccountTransactionModel.account_id == account_id)
             if status:
                 q = q.where(AccountTransactionModel.status == status)
+            if date_from:
+                q = q.where(AccountTransactionModel.reference_date >= date_from)
+            if date_to:
+                q = q.where(AccountTransactionModel.reference_date <= date_to)
+            if direction == "debit":
+                q = q.where(AccountTransactionModel.amount < 0)
+            elif direction == "credit":
+                q = q.where(AccountTransactionModel.amount > 0)
+            if not include_pending:
+                q = q.where(AccountTransactionModel.status != "pending")
             rows = (await s.execute(q)).scalars().all()
+            # Calcula running_balance (saldo apos cada tx) por conta.
+            # So faz sentido se filtrou por uma unica conta (senao, misturar
+            # accounts distintos nao produz saldo util). E precisa considerar
+            # TODAS as tx (nao so filtradas) para ter o saldo real — por isso
+            # fazemos 2 passes: calcula running com todas, filtra para retorno.
+            if account_id:
+                # Pega todas as tx da conta (sem filtros de periodo/dir/status)
+                # e ordena por data ASC para acumular
+                all_q = select(AccountTransactionModel).where(
+                    AccountTransactionModel.user_id == user_id,
+                    AccountTransactionModel.account_id == account_id,
+                ).order_by(
+                    AccountTransactionModel.reference_date.asc(),
+                    AccountTransactionModel.created_at.asc(),
+                )
+                all_rows = (await s.execute(all_q)).scalars().all()
+                balance_map: dict[str, Decimal] = {}
+                acc_bal = Decimal("0")
+                for tx in all_rows:
+                    # Pending nao entra no saldo real — mas marcamos o saldo atual
+                    # (sem aplicar) para o front decidir mostrar projecao
+                    if tx.status == "settled":
+                        acc_bal += tx.amount
+                    balance_map[tx.id] = acc_bal
+                out = []
+                for r in rows:
+                    d = _model_to_dict(r)
+                    d["running_balance"] = float(balance_map.get(r.id, Decimal("0")))
+                    out.append(d)
+                return out
             return [_model_to_dict(r) for r in rows]
 
     async def get_cash_summary(self, account_id: str, user_id: str) -> dict | None:
@@ -533,6 +623,40 @@ class WalletRepository:
                 "pending_out": p_out,  # negativo
                 "available_to_invest": cash + p_out,  # subtrai saidas agendadas
             }
+
+    async def create_portfolio_in_account(
+        self, *, user_id: str, account_id: str, name: str
+    ) -> dict | None:
+        """G2: cria portfolio vinculado a investment_account via SQL direto.
+        Retorna dict com id + name, ou None se conta não existir ou não pertence ao user."""
+        from sqlalchemy import text as sql_text
+
+        async with get_session() as s:
+            # Valida conta
+            acc = (await s.execute(
+                sql_text("SELECT id FROM investment_accounts WHERE id = :a AND user_id = :u AND is_active"),
+                {"a": account_id, "u": user_id},
+            )).scalar_one_or_none()
+            if not acc:
+                return None
+            pf_id = str(uuid.uuid4())
+            try:
+                await s.execute(
+                    sql_text(
+                        "INSERT INTO portfolios "
+                        "(id, user_id, name, investment_account_id, currency, cash, is_active, created_at, updated_at) "
+                        "VALUES (:id, :u, :n, :a, 'BRL', 0, true, NOW(), NOW())"
+                    ),
+                    {"id": pf_id, "u": user_id, "n": name.strip(), "a": account_id},
+                )
+                await s.commit()
+            except Exception as exc:  # noqa: BLE001
+                if "ux_portfolios_one_active_per_account" in str(exc):
+                    # Conta ja tem portfolio ativo (invariante 1:1)
+                    await s.rollback()
+                    return None
+                raise
+            return {"portfolio_id": pf_id, "name": name.strip(), "investment_account_id": account_id}
 
     # ── Feature C3b: ETF metadata ────────────────────────────────────────────
 
@@ -621,6 +745,7 @@ class WalletRepository:
             return len(due)
 
     async def delete_account(self, account_id: str, user_id: str) -> bool:
+        """Soft-delete: is_active=False. Bloqueia se cash_balance != 0 (F7)."""
         async with get_session() as s:
             q = select(InvestmentAccountModel).where(
                 InvestmentAccountModel.id == account_id,
@@ -629,6 +754,11 @@ class WalletRepository:
             m = (await s.execute(q)).scalar_one_or_none()
             if not m:
                 return False
+            if m.cash_balance and Decimal(str(m.cash_balance)) != Decimal("0"):
+                # Rota converte para HTTPException 409 via ValueError
+                raise ValueError(
+                    f"Saldo R$ {m.cash_balance} diferente de zero. Zere via saque/depósito antes de excluir."
+                )
             m.is_active = False
             await s.commit()
             return True
@@ -673,35 +803,32 @@ class WalletRepository:
     # ── Portfolio resolution ─────────────────────────────────────────────
 
     async def get_default_portfolio_id(self, user_id: str) -> str | None:
-        """Retorna id do portfolio default do usuario, ou None se nao existir."""
+        """Retorna id do portfolio mais antigo do usuario (1 por conta).
+        Refactor 25/abr: removeu coluna is_default; ordem por created_at."""
         async with get_session() as s:
             r = await s.execute(
-                text("SELECT id FROM portfolios WHERE user_id=:u AND is_default=true LIMIT 1"),
+                text(
+                    "SELECT id FROM portfolios WHERE user_id=:u "
+                    "AND is_active=true ORDER BY created_at LIMIT 1"
+                ),
                 {"u": user_id},
             )
             row = r.first()
-            if row:
-                return row[0]
-            r2 = await s.execute(
-                text("SELECT id FROM portfolios WHERE user_id=:u ORDER BY created_at LIMIT 1"),
-                {"u": user_id},
-            )
-            row2 = r2.first()
-            return row2[0] if row2 else None
+            return row[0] if row else None
 
-    async def ensure_default_portfolio(self, user_id: str, name: str = "Carteira Principal") -> str:
-        """Garante portfolio para o usuario; cria 'Carteira Principal' como
-        is_default=true se nenhum existir. Retorna sempre o id."""
+    async def ensure_default_portfolio(self, user_id: str, name: str = "Portfolio") -> str:
+        """Garante 1 portfolio para o usuario sem conta vinculada (legacy fallback).
+        Refactor 25/abr: o caminho normal e _ensure_default_portfolios (com conta)."""
         existing = await self.get_default_portfolio_id(user_id)
         if existing:
             return existing
         new_id = str(uuid.uuid4())
         async with get_session() as s:
             await s.execute(
-                text("""
-                INSERT INTO portfolios (id, user_id, name, currency, cash, is_default)
-                VALUES (:id, :u, :n, 'BRL', 0, true)
-            """),
+                text(
+                    "INSERT INTO portfolios (id, user_id, name, currency, cash, is_active) "
+                    "VALUES (:id, :u, :n, 'BRL', 0, true)"
+                ),
                 {"id": new_id, "u": user_id, "n": name},
             )
             await s.commit()

@@ -55,6 +55,7 @@ class UserResponse(BaseModel):
     full_name: str
     role: str
     is_active: bool
+    is_admin: bool = False
 
 
 # ── DI ────────────────────────────────────────────────────────────────────────
@@ -146,6 +147,7 @@ async def me(current_user: User = Depends(get_current_user)) -> UserResponse:
         full_name=current_user.full_name,
         role=current_user.role.value,
         is_active=current_user.is_active,
+        is_admin=bool(getattr(current_user, "is_admin", False)),
     )
 
 

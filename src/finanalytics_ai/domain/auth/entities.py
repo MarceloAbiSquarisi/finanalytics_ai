@@ -35,8 +35,9 @@ if TYPE_CHECKING:
 
 class UserRole(StrEnum):
     USER = "user"
-    ADMIN = "admin"
     MASTER = "master"  # pode ver carteiras de outros usuarios, sem movimentacao
+    # Nota: ADMIN deixou de ser role e virou flag ortogonal (User.is_admin).
+    # Um usuario pode ser user OU master, e ALEM disso carregar is_admin=true.
 
 
 class AuthErrorCode(StrEnum):
@@ -112,6 +113,7 @@ class User:
     full_name: str
     role: UserRole = UserRole.USER
     is_active: bool = True
+    is_admin: bool = False
     created_at: datetime | None = None
     last_login_at: datetime | None = None
     totp_secret: str | None = None
@@ -119,7 +121,11 @@ class User:
 
     @staticmethod
     def new(
-        email: str, hashed_password: str, full_name: str, role: UserRole = UserRole.USER
+        email: str,
+        hashed_password: str,
+        full_name: str,
+        role: UserRole = UserRole.USER,
+        is_admin: bool = False,
     ) -> User:
         """Factory: cria novo usuário com UUID gerado no domínio."""
         return User(
@@ -129,14 +135,20 @@ class User:
             full_name=full_name.strip(),
             role=role,
             is_active=True,
+            is_admin=is_admin,
         )
 
     def ensure_active(self) -> None:
         if not self.is_active:
             raise InactiveUserError()
 
+    @property
+    def has_admin_access(self) -> bool:
+        """Admin ortogonal OU master tem poderes de admin."""
+        return self.is_admin or self.role == UserRole.MASTER
+
     def ensure_admin(self) -> None:
-        if self.role != UserRole.ADMIN:
+        if not self.has_admin_access:
             raise InsufficientPermissionsError()
 
 
@@ -150,6 +162,7 @@ class TokenPayload:
     exp: int  # Unix timestamp de expiração
     token_type: str  # "access" | "refresh"
     jti: str = ""  # JWT ID — para revogação futura
+    is_admin: bool = False
 
 
 @dataclass

@@ -15,6 +15,9 @@
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="/static/charts.js"></script>
+<!-- FAAuth precisa estar disponivel antes do script inline pra injetar Authorization
+     via FAErr.fetchJson. Sem isso, todas as chamadas api() retornam 401. -->
+<script src="/static/auth_guard.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap');
 
@@ -75,7 +78,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .up{color:var(--green)}.dn{color:var(--red)}
 
 /* MAIN */
-.main{display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;min-height:0;width:100%;min-width:0;padding-bottom:32px}
+.main{display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;min-height:0;width:100%;min-width:0;padding:14px 16px 32px}
 
 /* TICKER BAR */
 .tb{padding:10px 18px;border-bottom:1px solid var(--border);
@@ -242,6 +245,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   letter-spacing:.8px;text-transform:uppercase;border:none;background:transparent;color:var(--muted);cursor:pointer;transition:all .2s}
 .ttab.buy.active{background:rgba(46,212,122,.15);color:var(--green)}
 .ttab.sell.active{background:rgba(224,85,85,.15);color:var(--red)}
+/* DT main tab grid (Ordem/OCO/Pos/Ordens/Signals/Conta) */
+.dttab-main{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.dttab-main .ttab{flex:none;border:1px solid var(--border);border-radius:5px;background:rgba(10,22,40,.35);padding:6px 4px;letter-spacing:.4px}
+.dttab-main .ttab:hover{border-color:rgba(58,191,248,.35);color:var(--white)}
+.dttab-main .ttab.active{background:rgba(58,191,248,.15);border-color:rgba(58,191,248,.5);color:var(--blue)}
+.dttab-main .ttab.buy.active{background:rgba(46,212,122,.18);border-color:rgba(46,212,122,.5);color:var(--green)}
 .fld{display:flex;flex-direction:column;gap:3px;margin-bottom:7px}
 .fld label{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
 .fld input{background:rgba(10,22,40,.6);border:1px solid var(--border);color:var(--white);
@@ -701,10 +710,6 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
       .fa-quick a .badge-new{background:var(--gold);color:#0a1628;font-size:10px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.05em;margin-left:4px}
     </style>
     <div class="fa-quick" id="fa-quick-bar">
-      <a href="/portfolios" title="Gerenciar carteiras nomeadas (criar, renomear, desativar)">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>
-        Portfolios <span class="badge-new">NOVO</span>
-      </a>
       <a href="/alerts" title="Alertas fundamentalistas (ROE, P/L, Dividend Yield...)">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         Alertas <span class="badge-new">NOVO</span>
@@ -1063,14 +1068,14 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     <!-- Painel DayTrade -->
     <div class="trade-box" style="padding-bottom:10px">
 
-      <!-- Abas principais -->
-      <div style="display:flex;gap:3px;margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:8px">
-        <button id="dttab-order"   class="ttab buy active" style="flex:1;font-size:11px;padding:4px 2px;text-align:center" onclick="dtTab('order')">Ordem</button>
-        <button id="dttab-oco"     class="ttab"            style="flex:1;font-size:11px;padding:4px 2px;text-align:center" onclick="dtTab('oco')">OCO</button>
-        <button id="dttab-pos"     class="ttab"            style="flex:1;font-size:11px;padding:4px 2px;text-align:center" onclick="dtTab('pos')">Pos.</button>
-        <button id="dttab-list"    class="ttab"            style="flex:1;font-size:11px;padding:4px 2px;text-align:center" onclick="dtTab('list')">Ordens</button>
-        <button id="dttab-signals" class="ttab"            style="flex:1;font-size:11px;padding:4px 2px;text-align:center" onclick="dtTab('signals')">Signals</button>
-        <button id="dttab-account" class="ttab"            style="flex:1;font-size:11px;padding:4px 2px;text-align:center" onclick="dtTab('account')">Conta</button>
+      <!-- Abas principais (3 col × 2 linhas, cada botao com borda propria) -->
+      <div class="dttab-main">
+        <button id="dttab-order"   class="ttab buy active" style="font-size:12px;text-align:center" onclick="dtTab('order')">Ordem</button>
+        <button id="dttab-oco"     class="ttab"            style="font-size:12px;text-align:center" onclick="dtTab('oco')">OCO</button>
+        <button id="dttab-pos"     class="ttab"            style="font-size:12px;text-align:center" onclick="dtTab('pos')">Pos.</button>
+        <button id="dttab-list"    class="ttab"            style="font-size:12px;text-align:center" onclick="dtTab('list')">Ordens</button>
+        <button id="dttab-signals" class="ttab"            style="font-size:12px;text-align:center" onclick="dtTab('signals')">Signals</button>
+        <button id="dttab-account" class="ttab"            style="font-size:12px;text-align:center" onclick="dtTab('account')">Conta</button>
       </div>
 
       <!-- ── ABA ORDEM ─────────────────────────────────────────────── -->
@@ -1127,30 +1132,35 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
         <div class="fld"><label>Ticker</label>
           <input id="oco-tk" placeholder="ex: PETR4" maxlength="10" oninput="this.value=this.value.toUpperCase()">
         </div>
-        <div class="frow">
-          <div class="fld" style="margin:0"><label>Qtd</label>
-            <input id="oco-q" type="number" placeholder="100" min="1">
-          </div>
-          <div class="fld" style="margin:0"><label>Lado</label>
-            <select id="oco-side" class="sel" style="width:100%;font-size:13px">
-              <option value="sell">Venda</option>
-              <option value="buy">Compra</option>
-            </select>
+        <div class="fld">
+          <label>Lado</label>
+          <div class="ttabs">
+            <button type="button" class="ttab buy"        id="oco-side-buy"  onclick="setOcoSide('buy')">Comprar</button>
+            <button type="button" class="ttab sell active" id="oco-side-sell" onclick="setOcoSide('sell')">Vender</button>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:2px">
+        <div class="fld">
+          <label>Qtd</label>
+          <input id="oco-q" type="number" placeholder="100" min="1">
+        </div>
+        <!-- 3 precos em 1 coluna; todos opcionais. Combinacoes:
+             so TP -> ordem limit; so SL+Lim -> stop-limit; TP+SL -> OCO real. -->
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:2px">
           <div class="fld" style="margin:0">
-            <label style="color:var(--green)">Take Profit R$</label>
-            <input id="oco-tp" type="number" placeholder="52.00" step=".01">
+            <label style="color:var(--green)">Take Profit R$ <span style="color:var(--muted);letter-spacing:0">(opcional)</span></label>
+            <input id="oco-tp" type="number" placeholder="52.00" step=".01" style="width:100%">
           </div>
           <div class="fld" style="margin:0">
-            <label style="color:var(--red)">Stop Disparo R$</label>
-            <input id="oco-sl" type="number" placeholder="47.00" step=".01">
+            <label style="color:var(--red)">Stop Disparo R$ <span style="color:var(--muted);letter-spacing:0">(opcional)</span></label>
+            <input id="oco-sl" type="number" placeholder="47.00" step=".01" style="width:100%">
           </div>
-          <div class="fld" style="margin:0;grid-column:1/-1">
-            <label style="color:var(--red)">Stop Limite R$</label>
-            <input id="oco-lim" type="number" placeholder="46.50" step=".01">
+          <div class="fld" style="margin:0">
+            <label style="color:var(--red)">Stop Limite R$ <span style="color:var(--muted);letter-spacing:0">(opcional, default = Stop)</span></label>
+            <input id="oco-lim" type="number" placeholder="46.50" step=".01" style="width:100%">
           </div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4">
+          Preencha <b style="color:var(--green)">TP</b> e <b style="color:var(--red)">Stop</b> para OCO. Apenas TP envia ordem <b>limit</b>. Apenas Stop envia ordem <b>stop-limit</b>.
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin:6px 0">
           <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;cursor:pointer">
@@ -1265,45 +1275,19 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
       </div>
 
       <!-- ── ABA CONTA ──────────────────────────────────────────────── -->
+      <!-- Painel de SELECAO da conta ativa (criacao/edicao em /profile#invest) -->
       <div id="dt-pane-account" style="display:none">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <span style="font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">Contas</span>
-          <button onclick="dtAccToggleForm()" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:13px;font-family:Syne,sans-serif;font-weight:700" id="acc-add-btn">+ Nova</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">Selecionar conta</span>
+          <a href="/profile#invest" style="color:var(--blue);font-size:12px;font-family:Syne,sans-serif;font-weight:700;text-decoration:none" title="Criar/editar contas no Perfil">Gerenciar →</a>
         </div>
-
-        <!-- Mini form criar/editar -->
-        <div id="acc-form" style="display:none;background:rgba(13,33,68,.6);border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:8px">
-          <input type="hidden" id="acc-edit-uuid">
-          <div class="fld" style="margin:0 0 4px"><label style="font-size:11px">Label</label>
-            <input id="acc-label" placeholder="Simulador Nelogica" style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--white);font-family:DM Mono,monospace;font-size:13px;padding:4px 8px;border-radius:4px;outline:none">
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
-            <div class="fld" style="margin:0"><label style="font-size:11px">Broker ID</label>
-              <input id="acc-broker" placeholder="15011" style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--white);font-family:DM Mono,monospace;font-size:13px;padding:4px 8px;border-radius:4px;outline:none">
-            </div>
-            <div class="fld" style="margin:0"><label style="font-size:11px">Account ID</label>
-              <input id="acc-accid" placeholder="216541264267275" style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--white);font-family:DM Mono,monospace;font-size:13px;padding:4px 8px;border-radius:4px;outline:none">
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px">
-            <div class="fld" style="margin:0"><label style="font-size:11px">Tipo</label>
-              <select id="acc-type" class="sel" style="width:100%;font-size:12px;padding:4px 6px">
-                <option value="simulator">Simulador</option>
-                <option value="real">Real</option>
-              </select>
-            </div>
-            <div class="fld" style="margin:0"><label style="font-size:11px">Senha Roteamento</label>
-              <input id="acc-pwd" type="password" placeholder="••••" style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--white);font-family:DM Mono,monospace;font-size:13px;padding:4px 8px;border-radius:4px;outline:none">
-            </div>
-          </div>
-          <div style="display:flex;gap:6px;margin-top:6px">
-            <button onclick="dtAccSave()" style="flex:1;background:linear-gradient(135deg,var(--blue-dk),var(--blue));color:var(--navy);border:none;font-family:Syne,sans-serif;font-weight:700;font-size:12px;padding:6px;border-radius:4px;cursor:pointer">Salvar</button>
-            <button onclick="dtAccToggleForm()" style="flex:0 0 60px;background:rgba(224,85,85,.15);color:var(--red);border:1px solid rgba(224,85,85,.3);font-family:Syne,sans-serif;font-weight:700;font-size:12px;padding:6px;border-radius:4px;cursor:pointer">Fechar</button>
-          </div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.4">
+          Clique em <b style="color:var(--green)">Ativar</b> para usar a conta em ordens.
+          Cadastro e credenciais DLL em <a href="/profile#invest" style="color:var(--blue)">Perfil</a>.
         </div>
 
         <!-- Lista de contas -->
-        <div id="acc-list" style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto">
+        <div id="acc-list" style="display:flex;flex-direction:column;gap:4px;max-height:340px;overflow-y:auto">
           <div style="font-size:12px;color:var(--muted)">Carregando...</div>
         </div>
       </div>
@@ -1486,18 +1470,18 @@ function buildWL() {
   const tickers = wl ? wl.tickers : [];
 
   container.innerHTML =
-    `<div style="display:flex;gap:4px;padding:6px 12px">
+    `<div style="display:flex;flex-direction:column;gap:6px;padding:6px 12px">
       <input id="wl-input" autocomplete="off" placeholder="Ticker (ex: PETR4)..."
-        style="flex:1;background:rgba(255,255,255,.06);border:1px solid var(--border);
+        style="background:rgba(255,255,255,.06);border:1px solid var(--border);
                border-radius:5px;color:var(--white);font-family:DM Mono,monospace;
-               font-size:15px;padding:5px 8px;outline:none"
+               font-size:15px;padding:5px 8px;outline:none;width:100%"
         onkeydown="if(event.key==='Enter')addToWL()"
         onfocus="this.style.borderColor='var(--blue)'"
         onblur="this.style.borderColor='var(--border)'">
       <button onclick="addToWL()"
         style="background:var(--blue);border:none;border-radius:5px;color:var(--navy);
-               font-weight:700;font-size:17px;padding:4px 10px;cursor:pointer;flex-shrink:0"
-        title="Adicionar ativo">+</button></div>` +
+               font-weight:700;font-size:14px;letter-spacing:.05em;padding:6px 12px;cursor:pointer;width:100%"
+        title="Adicionar ativo">+ Adicionar ativo</button></div>` +
     (tickers.length === 0
       ? `<div style="font-size:13px;color:var(--muted);font-family:DM Mono,monospace;padding:4px 14px">
            Nenhum ativo — digite um ticker acima</div>`
@@ -3006,43 +2990,101 @@ async function dtCancelAll() {
 
 // ── sendOCO ───────────────────────────────────────────────────────────────────
 const _ocoPairs = {}; // tp_id → par
+let _ocoSide = 'sell'; // default Venda (era o default no <select> legado)
+function setOcoSide(side) {
+  _ocoSide = side;
+  const buy  = document.getElementById('oco-side-buy');
+  const sell = document.getElementById('oco-side-sell');
+  if (buy)  buy.classList.toggle('active',  side === 'buy');
+  if (sell) sell.classList.toggle('active', side === 'sell');
+}
 async function sendOCO() {
-  const tk  = document.getElementById('oco-tk').value.trim();
-  const q   = document.getElementById('oco-q').value;
-  const tp  = document.getElementById('oco-tp').value;
-  const sl  = document.getElementById('oco-sl').value;
-  const lim = document.getElementById('oco-lim').value;
-  const side= document.getElementById('oco-side').value;
-  const dt  = document.getElementById('oco-dt').checked;
-  const sim = document.getElementById('oco-sim').checked;
-  const st  = document.getElementById('oco-status');
+  const tk     = document.getElementById('oco-tk').value.trim();
+  const qStr   = document.getElementById('oco-q').value.trim();
+  const tpStr  = document.getElementById('oco-tp').value.trim();
+  const slStr  = document.getElementById('oco-sl').value.trim();
+  const limStr = document.getElementById('oco-lim').value.trim();
+  const side   = _ocoSide;
+  const dt     = document.getElementById('oco-dt').checked;
+  const sim    = document.getElementById('oco-sim').checked;
+  const st     = document.getElementById('oco-status');
 
-  if (!tk||!q||!tp||!sl) { toast('Preencha todos os campos OCO','err'); return; }
+  if (!tk || !qStr) { toast('Preencha ticker e quantidade.', 'err'); return; }
+  if (!tpStr && !slStr) { toast('Preencha pelo menos Take Profit ou Stop Disparo.', 'err'); return; }
+
+  const env = sim ? 'simulation' : 'production';
+  const accId = document.getElementById('fa-account-sel').value || 'sem_conta';
+  const baseBody = {
+    env, ticker: tk, exchange: 'B', quantity: parseInt(qStr),
+    order_side: side, is_daytrade: dt,
+    user_account_id: accId, portfolio_id: 'carteira_principal',
+  };
 
   st.textContent = 'Enviando...';
   st.style.color = 'var(--muted)';
+
   try {
-    const r = await post('/api/v1/agent/order/oco', {
-      env:         sim?'simulation':'production',
-      ticker:      tk, exchange:'B', quantity:parseInt(q),
-      take_profit: parseFloat(tp), stop_loss:parseFloat(sl),
-      stop_limit:  parseFloat(lim||sl),
-      order_side:  side, is_daytrade:dt,
-      user_account_id: document.getElementById('fa-account-sel').value || 'sem_conta', portfolio_id:'carteira_principal', strategy_id:'oco_dash',
-    });
-    if (r.ok) {
-      _ocoPairs[r.take_profit.local_order_id] = r;
-      st.textContent = `✓ TP:${r.take_profit.local_order_id} SL:${r.stop_loss.local_order_id}`;
-      st.style.color = 'var(--green)';
-      toast(`OCO ${tk} enviado!`,'ok');
-      renderOCOPairs();
-      // Poll status
-      setTimeout(()=>pollOCOStatus(r.take_profit.local_order_id, sim?'simulation':'production'), 3000);
+    let r, mode;
+    if (tpStr && slStr) {
+      // ── OCO real: TP (limit) + SL (stop-limit) com auto-cancelamento ─────
+      mode = 'OCO';
+      const tp = parseFloat(tpStr);
+      const sl = parseFloat(slStr);
+      const lim = limStr ? parseFloat(limStr) : sl;
+      r = await post('/api/v1/agent/order/oco', {
+        ...baseBody,
+        take_profit: tp, stop_loss: sl, stop_limit: lim,
+        strategy_id: 'oco_dash',
+      });
+      if (r && r.ok) {
+        _ocoPairs[r.take_profit.local_order_id] = r;
+        st.textContent = `✓ OCO TP:${r.take_profit.local_order_id} SL:${r.stop_loss.local_order_id}`;
+        st.style.color = 'var(--green)';
+        toast(`OCO ${tk} enviado!`, 'ok');
+        renderOCOPairs();
+        setTimeout(() => pollOCOStatus(r.take_profit.local_order_id, env), 3000);
+      }
+    } else if (tpStr) {
+      // ── Single-leg LIMIT ───────────────────────────────────────────────
+      mode = 'limit';
+      r = await post('/api/v1/agent/order/send', {
+        ...baseBody,
+        order_type: 'limit',
+        price: parseFloat(tpStr),
+        stop_price: -1,
+        strategy_id: 'oco_tp_only',
+      });
+      if (r && r.ok) {
+        st.textContent = `✓ LIMIT enviado (id ${r.local_order_id ?? '?'})`;
+        st.style.color = 'var(--green)';
+        toast(`Ordem limit ${tk} enviada!`, 'ok');
+      }
     } else {
-      st.textContent = r.error||'Erro';
-      st.style.color = 'var(--red)';
+      // ── Single-leg STOP-LIMIT ──────────────────────────────────────────
+      mode = 'stop';
+      const sl = parseFloat(slStr);
+      const lim = limStr ? parseFloat(limStr) : sl;
+      r = await post('/api/v1/agent/order/send', {
+        ...baseBody,
+        order_type: 'stop',
+        price: lim,
+        stop_price: sl,
+        strategy_id: 'oco_sl_only',
+      });
+      if (r && r.ok) {
+        st.textContent = `✓ STOP enviado (id ${r.local_order_id ?? '?'})`;
+        st.style.color = 'var(--green)';
+        toast(`Stop ${tk} enviado!`, 'ok');
+      }
     }
-  } catch(e) {
+    if (!r || !r.ok) {
+      st.textContent = (r && r.error) || `Erro no envio (${mode})`;
+      st.style.color = 'var(--red)';
+      toast(st.textContent, 'err');
+      return;
+    }
+    setTimeout(refreshOrders, 1000);
+  } catch (e) {
     st.textContent = e.message;
     st.style.color = 'var(--red)';
   }
@@ -3132,8 +3174,32 @@ async function refreshOrders() {
 async function cancelOrder(localId) {
   try {
     const r = await post('/api/v1/agent/order/cancel', {local_order_id:localId,env:'simulation'});
-    toast('Ordem cancelada','ok');
-    setTimeout(refreshOrders, 1000);
+    // profit_agent retorna {ok:bool, ret:int}. ret=0 e sucesso na DLL.
+    // Se a DLL recusa (ordem ja executada, ID invalido, etc) o status nao muda.
+    if (r && r.ok === false) {
+      toast(`Cancel rejeitado pela DLL (ret=${r.ret??'?'})`, 'err');
+      return;
+    }
+    if (r && r.error) {
+      toast('Erro: ' + r.error, 'err');
+      return;
+    }
+    toast('Cancel enviado, aguardando confirmacao...', 'ok');
+    // Callback assincrono da DLL atualiza profit_orders em ~1-5s.
+    // Polling escalonado pra nao perder o update.
+    [600, 2000, 5000].forEach(ms => setTimeout(refreshOrders, ms));
+    // Fallback: apos 10s, se status ainda nao mudou, forca reconcile via
+    // EnumerateAllOrders (DLL). Isso cobre o caso do callback nao disparar.
+    setTimeout(async () => {
+      try {
+        const list = await fetch('/api/v1/agent/orders').then(r => r.json());
+        const o = (list.orders || []).find(x => x.local_order_id === localId);
+        if (o && ![2, 4, 8].includes(o.order_status)) {
+          await fetch('/api/v1/agent/positions/dll?env=simulation').catch(()=>{});
+          await refreshOrders();
+        }
+      } catch {}
+    }, 10000);
   } catch(e) { toast('Erro: '+e.message,'err'); }
 }
 
@@ -3659,7 +3725,6 @@ function setRefreshInterval(ms) {
   if (ms === -1 || ms > 0) { _refreshTimer = setInterval(_doRefresh, ms === -1 ? 500 : ms); }
 }
 (function(){ setRefreshInterval(-1); })(); // sempre por tick
-setInterval(checkProfitStatus, 5000);
 setInterval(refreshWLPrices, 10000);
 
 </script>
@@ -3710,6 +3775,8 @@ async function checkProfitStatus() {
     if (connected) refreshWLPrices();
   } catch {}
 }
+checkProfitStatus();
+setInterval(checkProfitStatus, 5000);
 </script>
 
 <script>
@@ -3735,13 +3802,23 @@ function faDTToggle(btn){
 })();
 
 // ── Account CRUD ─────────────────────────────────────────────────────────────
+// Feature B (24/abr): endpoint migrado de /api/v1/accounts/ -> /api/v1/wallet/accounts.
+// Shape diferente:
+//   antigo: {uuid, label, account_type, status:'active', broker_id, account_id, routing_password}
+//   novo:   {id, apelido, institution_name, dll_account_type, is_dll_active, dll_broker_id, dll_account_id,
+//            dll_routing_password_set, is_active}
+// Filtramos para contas com DLL conectada (dll_account_type != null) pois só essas
+// servem ao seletor do DayTrade (precisa de credenciais pra enviar ordem).
 async function loadAccounts() {
   try {
-    const accounts = await get('/api/v1/accounts/');
+    // api() delega para FAErr.fetchJson e injeta Authorization automaticamente.
+    const all = await api('/api/v1/wallet/accounts');
+    const accounts = (all || []).filter(a => a.is_active);
     renderAccountList(accounts);
     populateAccountSelector(accounts);
   } catch(e) {
-    document.getElementById('acc-list').innerHTML = '<div style="font-size:12px;color:var(--red)">Erro: '+e.message+'</div>';
+    const lst = document.getElementById('acc-list');
+    if (lst) lst.innerHTML = '<div style="font-size:12px;color:var(--red)">Erro: '+e.message+'</div>';
   }
 }
 
@@ -3750,10 +3827,13 @@ function populateAccountSelector(accounts) {
   const cur = sel.value;
   sel.innerHTML = '<option value="">Nenhuma conta</option>';
   accounts.forEach(a => {
+    // Só mostra contas com DLL conectada (senão não tem como enviar ordem)
+    if (!a.dll_account_type) return;
     const opt = document.createElement('option');
-    opt.value = a.uuid;
-    opt.textContent = a.label + (a.account_type==='simulator'?' [SIM]':' [REAL]');
-    if (a.status === 'active') opt.selected = true;
+    opt.value = a.id;
+    const label = a.apelido || a.institution_name || ('Conta ' + a.id.slice(0,6));
+    opt.textContent = label + (a.dll_account_type === 'simulator' ? ' [SIM]' : ' [REAL]');
+    if (a.is_dll_active) opt.selected = true;
     sel.appendChild(opt);
   });
   // Restore previous selection if still valid
@@ -3762,108 +3842,56 @@ function populateAccountSelector(accounts) {
 
 function renderAccountList(accounts) {
   const list = document.getElementById('acc-list');
+  if (!list) return;
   if (!accounts.length) { list.innerHTML = '<div style="font-size:12px;color:var(--muted)">Nenhuma conta cadastrada</div>'; return; }
   list.innerHTML = accounts.map(a => {
-    const isActive = a.status === 'active';
-    const typeBadge = a.account_type === 'simulator'
-      ? '<span style="font-size:10px;background:rgba(240,180,41,.15);color:var(--gold);padding:1px 5px;border-radius:3px">SIM</span>'
-      : '<span style="font-size:10px;background:rgba(224,85,85,.15);color:var(--red);padding:1px 5px;border-radius:3px">REAL</span>';
+    const isActive = !!a.is_dll_active;
+    const hasDll = !!a.dll_account_type;
+    const typeBadge = !hasDll
+      ? '<span style="font-size:10px;background:rgba(255,255,255,.08);color:var(--muted);padding:1px 5px;border-radius:3px">SEM DLL</span>'
+      : a.dll_account_type === 'simulator'
+        ? '<span style="font-size:10px;background:rgba(240,180,41,.15);color:var(--gold);padding:1px 5px;border-radius:3px">SIM</span>'
+        : '<span style="font-size:10px;background:rgba(224,85,85,.15);color:var(--red);padding:1px 5px;border-radius:3px">REAL</span>';
     const activeBadge = isActive
       ? '<span style="font-size:10px;background:rgba(46,212,122,.15);color:var(--green);padding:1px 5px;border-radius:3px">ATIVA</span>'
       : '';
+    const label = a.apelido || a.institution_name || 'Conta';
+    const brokerInfo = hasDll
+      ? `Broker: ${a.dll_broker_id||'—'} &middot; Conta: ${a.dll_account_id||'—'}`
+      : 'DLL nao conectada — use /profile#invest para vincular';
     return `<div style="background:rgba(13,33,68,.6);border:1px solid ${isActive?'rgba(46,212,122,.3)':'var(--border)'};border-radius:6px;padding:8px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <span style="font-size:13px;font-weight:600;color:var(--white)">${a.label}</span>
+        <span style="font-size:13px;font-weight:600;color:var(--white)">${escapeHtmlDt(label)}</span>
         <span style="display:flex;gap:4px">${typeBadge}${activeBadge}</span>
       </div>
-      <div style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace;margin-bottom:6px">
-        Broker: ${a.broker_id} &middot; Conta: ${a.account_id}
-      </div>
+      <div style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace;margin-bottom:6px">${brokerInfo}</div>
       <div style="display:flex;gap:4px">
-        ${!isActive ? `<button onclick="activateAccount('${a.uuid}')" style="font-size:11px;background:rgba(46,212,122,.12);color:var(--green);border:1px solid rgba(46,212,122,.3);padding:3px 8px;border-radius:4px;cursor:pointer;font-family:Syne,sans-serif;font-weight:600">Ativar</button>` : ''}
-        <button onclick="dtAccEdit('${a.uuid}','${a.label.replace(/'/g,"\\'")}','${a.routing_password||''}')" style="font-size:11px;background:rgba(58,191,248,.1);color:var(--blue);border:1px solid rgba(58,191,248,.25);padding:3px 8px;border-radius:4px;cursor:pointer;font-family:Syne,sans-serif;font-weight:600">Editar</button>
-        ${!isActive ? `<button onclick="deleteAccount('${a.uuid}')" style="font-size:11px;background:rgba(224,85,85,.1);color:var(--red);border:1px solid rgba(224,85,85,.25);padding:3px 8px;border-radius:4px;cursor:pointer;font-family:Syne,sans-serif;font-weight:600">Excluir</button>` : ''}
+        ${(!isActive && hasDll) ? `<button onclick="activateAccount('${a.id}')" style="font-size:11px;background:rgba(46,212,122,.12);color:var(--green);border:1px solid rgba(46,212,122,.3);padding:3px 8px;border-radius:4px;cursor:pointer;font-family:Syne,sans-serif;font-weight:600">Ativar</button>` : ''}
+        <a href="/profile#invest" style="font-size:11px;background:rgba(58,191,248,.1);color:var(--blue);border:1px solid rgba(58,191,248,.25);padding:3px 8px;border-radius:4px;cursor:pointer;font-family:Syne,sans-serif;font-weight:600;text-decoration:none">Gerenciar</a>
       </div>
     </div>`;
   }).join('');
 }
 
-async function activateAccount(uuid) {
+function escapeHtmlDt(s) {
+  return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function activateAccount(id) {
   try {
-    await fetch('/api/v1/accounts/'+uuid+'/activate', {method:'PUT',headers:{'Content-Type':'application/json'}});
+    const r = await fetch('/api/v1/wallet/accounts/'+id+'/activate-dll', {
+      method:'POST',
+      headers:{'Content-Type':'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('access_token')}
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
     toast('Conta ativada!','ok');
     await loadAccounts();
   } catch(e) { toast('Erro: '+e.message,'err'); }
 }
 
-async function deleteAccount(uuid) {
-  if (!await FAModal.confirm('Excluir esta conta?')) return;
-  try {
-    const r = await fetch('/api/v1/accounts/'+uuid, {method:'DELETE'});
-    if (r.status === 409) { toast('Não é possível excluir conta ativa','err'); return; }
-    toast('Conta excluída','ok');
-    await loadAccounts();
-  } catch(e) { toast('Erro: '+e.message,'err'); }
-}
-
-function dtAccToggleForm() {
-  const f = document.getElementById('acc-form');
-  if (f.style.display === 'none') {
-    f.style.display = '';
-    document.getElementById('acc-edit-uuid').value = '';
-    document.getElementById('acc-label').value = '';
-    document.getElementById('acc-broker').value = '';
-    document.getElementById('acc-accid').value = '';
-    document.getElementById('acc-pwd').value = '';
-    document.getElementById('acc-type').value = 'simulator';
-    document.getElementById('acc-broker').disabled = false;
-    document.getElementById('acc-accid').disabled = false;
-    document.getElementById('acc-type').disabled = false;
-  } else {
-    f.style.display = 'none';
-  }
-}
-
-function dtAccEdit(uuid, label, pwd) {
-  const f = document.getElementById('acc-form');
-  f.style.display = '';
-  document.getElementById('acc-edit-uuid').value = uuid;
-  document.getElementById('acc-label').value = label;
-  document.getElementById('acc-pwd').value = '';
-  // Disable fields that can't be edited
-  document.getElementById('acc-broker').disabled = true;
-  document.getElementById('acc-accid').disabled = true;
-  document.getElementById('acc-type').disabled = true;
-}
-
-async function dtAccSave() {
-  const uuid  = document.getElementById('acc-edit-uuid').value;
-  const label = document.getElementById('acc-label').value.trim();
-  const pwd   = document.getElementById('acc-pwd').value;
-
-  if (uuid) {
-    // Edit existing
-    const body = {};
-    if (label) body.label = label;
-    if (pwd)   body.routing_password = pwd;
-    try {
-      await fetch('/api/v1/accounts/'+uuid, {method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-      toast('Conta atualizada','ok');
-    } catch(e) { toast('Erro: '+e.message,'err'); return; }
-  } else {
-    // Create new
-    const broker = document.getElementById('acc-broker').value.trim();
-    const accid  = document.getElementById('acc-accid').value.trim();
-    const atype  = document.getElementById('acc-type').value;
-    if (!broker || !accid || !label) { toast('Preencha broker, conta e label','err'); return; }
-    try {
-      await post('/api/v1/accounts/', {broker_id:broker, account_id:accid, account_type:atype, label:label, routing_password:pwd||null});
-      toast('Conta criada!','ok');
-    } catch(e) { toast('Erro: '+e.message,'err'); return; }
-  }
-  document.getElementById('acc-form').style.display = 'none';
-  await loadAccounts();
-}
+// dtAccToggleForm / dtAccEdit / dtAccSave / deleteAccount removidas 24/abr:
+// CRUD de contas migrou para /profile#invest (Feature B). O painel DT Conta
+// agora e somente SELECAO — criar/editar/excluir sai daqui.
 
 function onAccountSelChange(uuid) {
   if (uuid) activateAccount(uuid);

@@ -5,7 +5,7 @@ Endpoints:
   PATCH  /portfolios/{id}              — editar nome/descrição/benchmark
   POST   /portfolios/{id}/deactivate   — soft-delete (valida saldo zero)
   POST   /portfolios/{id}/reactivate   — reativa portfolio inativo
-  POST   /portfolios/{id}/set-default  — definir como carteira padrão
+  (POST /set-default removido — 1 portfolio por conta)
   GET    /portfolios?include_inactive  — lista (opcional inclui inativos)
   GET    /portfolios/compare           — comparar N carteiras
 """
@@ -34,6 +34,10 @@ class CreatePortfolioRequest(BaseModel):
     description: str = Field(default="", max_length=500)
     benchmark: str = Field(default="", max_length=20, description="Ex: IBOV, CDI, IPCA")
     initial_cash: Decimal = Field(default=Decimal("0"), ge=0)
+    investment_account_id: str | None = Field(
+        default=None,
+        description="ID da investment_account a vincular. Opcional na API pública, obrigatório pela UI (/portfolios).",
+    )
 
 
 class UpdatePortfolioRequest(BaseModel):
@@ -58,7 +62,6 @@ class PortfolioResponse(BaseModel):
     name: str
     description: str
     benchmark: str
-    is_default: bool
     user_id: str
     message: str = "ok"
 
@@ -68,10 +71,10 @@ class PortfolioSummary(BaseModel):
     name: str
     description: str
     benchmark: str
-    is_default: bool
     is_active: bool
     cash: str
     positions: int
+    investment_account_id: str | None = None
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -83,19 +86,23 @@ async def create_portfolio(
     current_user: User = Depends(get_current_user),
     svc: PortfolioService = Depends(get_portfolio_service),
 ) -> PortfolioResponse:
-    p = await svc.create_portfolio(
-        user_id=current_user.user_id,
-        name=body.name,
-        initial_cash=body.initial_cash,
-        description=body.description,
-        benchmark=body.benchmark,
-    )
+    try:
+        p = await svc.create_portfolio(
+            user_id=current_user.user_id,
+            name=body.name,
+            initial_cash=body.initial_cash,
+            description=body.description,
+            benchmark=body.benchmark,
+            investment_account_id=body.investment_account_id,
+        )
+    except ValueError as exc:
+        # Limite de carteiras / conta inválida / conta não pertence ao user
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return PortfolioResponse(
         portfolio_id=p.portfolio_id,
         name=p.name,
         description=p.description,
         benchmark=p.benchmark,
-        is_default=p.is_default,
         user_id=p.user_id,
     )
 
@@ -113,10 +120,10 @@ async def list_portfolios(
             name=p.name,
             description=p.description,
             benchmark=p.benchmark,
-            is_default=p.is_default,
             is_active=p.is_active,
             cash=str(p.cash.amount),
             positions=p.position_count(),
+            investment_account_id=getattr(p, "investment_account_id", None),
         )
         for p in portfolios
     ]
@@ -170,7 +177,6 @@ async def update_portfolio(
         name=p.name,
         description=p.description,
         benchmark=p.benchmark,
-        is_default=p.is_default,
         user_id=p.user_id,
         message="Portfólio atualizado",
     )
@@ -214,7 +220,6 @@ async def deactivate_portfolio(
         name=p.name,
         description=p.description,
         benchmark=p.benchmark,
-        is_default=p.is_default,
         user_id=p.user_id,
         message="Portfolio desativado",
     )
@@ -226,36 +231,20 @@ async def reactivate_portfolio(
     current_user: User = Depends(get_current_user),
     svc: PortfolioService = Depends(get_portfolio_service),
 ) -> PortfolioResponse:
-    """Reativa um portfolio inativo. Idempotente; nao toca em is_default."""
+    """Reativa um portfolio inativo. Idempotente."""
     p = await svc.reactivate_portfolio(portfolio_id, current_user.user_id)
     return PortfolioResponse(
         portfolio_id=p.portfolio_id,
         name=p.name,
         description=p.description,
         benchmark=p.benchmark,
-        is_default=p.is_default,
         user_id=p.user_id,
         message="Portfolio reativado",
     )
 
 
-@router.post("/{portfolio_id}/set-default", response_model=PortfolioResponse)
-async def set_default(
-    portfolio_id: str,
-    current_user: User = Depends(get_current_user),
-    svc: PortfolioService = Depends(get_portfolio_service),
-) -> PortfolioResponse:
-    """Define esta carteira como a carteira padrão do usuário."""
-    p = await svc.set_default(portfolio_id, current_user.user_id)
-    return PortfolioResponse(
-        portfolio_id=p.portfolio_id,
-        name=p.name,
-        description=p.description,
-        benchmark=p.benchmark,
-        is_default=p.is_default,
-        user_id=p.user_id,
-        message="Carteira definida como padrão",
-    )
+# Endpoint /set-default removido 25/abr — modelo agora e 1 portfolio por conta;
+# nao existe mais conceito de "default entre varios".
 
 
 @router.post("/{portfolio_id}/buy", response_model=PortfolioResponse)
@@ -279,7 +268,6 @@ async def buy_asset(
         name=p.name,
         description=p.description,
         benchmark=p.benchmark,
-        is_default=p.is_default,
         user_id=p.user_id,
         message="Compra registrada",
     )
@@ -306,7 +294,6 @@ async def sell_asset(
         name=p.name,
         description=p.description,
         benchmark=p.benchmark,
-        is_default=p.is_default,
         user_id=p.user_id,
         message="Venda registrada",
     )
@@ -330,7 +317,6 @@ async def deposit(
         name=p.name,
         description=p.description,
         benchmark=p.benchmark,
-        is_default=p.is_default,
         user_id=p.user_id,
         message=f"Depósito de R$ {body.amount} realizado",
     )
@@ -361,7 +347,6 @@ async def withdraw(
         name=p.name,
         description=p.description,
         benchmark=p.benchmark,
-        is_default=p.is_default,
         user_id=p.user_id,
         message=f"Resgate de R$ {body.amount} realizado",
     )

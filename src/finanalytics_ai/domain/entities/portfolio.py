@@ -1,11 +1,10 @@
 """
-Entidade Portfolio e Position — v2: múltiplas carteiras por usuário.
+Entidade Portfolio e Position — 1 portfolio por conta de investimento.
 
   - description: objetivo/estratégia (ex: "Renda fixa conservadora")
   - benchmark: referência de performance (ex: "IBOV", "CDI", "IPCA+5")
-  - is_default: apenas uma carteira por usuário pode ser default
-    Invariante garantida na camada de serviço (domínio não conhece
-    outros portfolios do usuário).
+  - investment_account_id (no schema): cardinalidade 1:1 com conta — invariante
+    garantido pelo unique partial index no DB e por validacao no service.
 """
 
 from __future__ import annotations
@@ -59,10 +58,9 @@ class Portfolio:
 
     portfolio_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     user_id: str = ""
-    name: str = "Portfólio Principal"
+    name: str = "Portfolio"
     description: str = ""
     benchmark: str = ""
-    is_default: bool = False
     is_active: bool = True
     currency: Currency = Currency.BRL
     positions: dict[str, Position] = field(default_factory=dict)

@@ -32,7 +32,19 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20
 .nav-links a{color:var(--muted);text-decoration:none;font-size:16px;font-weight:600;padding:4px 10px;border-radius:4px;letter-spacing:.5px;transition:all .15s}
 .nav-links a:hover,.nav-links a.active{color:var(--accent);background:rgba(0,196,140,.08)}
 
-.page{max-width:1360px;margin:0 auto;padding:20px}
+/* Bug historico: <div class="fa-page-content"> nunca foi aberto no HTML
+   (so tem o comentario de fechamento), entao o CSS .fa-page-content
+   nunca aplicou. Aplicamos o offset de sidebar direto em .page. */
+.page{
+  max-width:1360px;
+  margin-left:var(--sb-w-collapsed);
+  padding:20px;
+  overflow-x:auto;
+  transition:margin-left .22s cubic-bezier(.4,0,.2,1);
+}
+body.sb-open .page,
+.fa-sidebar.open ~ .page { margin-left: var(--sb-w); }
+.tab-panel{min-width:0}
 
 /* HEADER */
 .page-
@@ -311,6 +323,9 @@ canvas{max-height:280px}
   transition: margin-left .22s cubic-bezier(.4,0,.2,1);
 }
 body.sb-open .fa-page-content { margin-left: var(--sb-w); }
+/* Fallback: se body.sb-open nao estiver sincronizado (race com sidebar.js
+   override), usa seletor sibling para garantir offset correto. */
+.fa-sidebar.open ~ .fa-page-content { margin-left: var(--sb-w); }
 
 @keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
 /* Day Trade submenu */
@@ -553,6 +568,51 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     <button class="tab"        onclick="switchTab('portfolio')">💼 Carteira RF</button>
 </div>
 
+  <!-- Modal Aplicar RF — cascata Conta → Portfolio (24/abr) -->
+  <div id="modal-apply-rf" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;align-items:center;justify-content:center" onclick="if(event.target===this)closeApplyModal()">
+    <div style="background:#0b1520;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;padding:22px;min-width:500px;max-width:580px">
+      <h3 style="color:var(--accent);font-size:16px;margin-bottom:4px">Aplicação em Renda Fixa</h3>
+      <div id="apply-bond-info" style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5">—</div>
+
+      <!-- Passo 1: Conta de Investimento -->
+      <div class="form-group" style="margin-bottom:10px">
+        <label class="form-label">1. Conta de Investimento (origem do débito) *</label>
+        <select class="form-input" id="apply-account-select" onchange="_onApplyAccountChange()">
+          <option value="">— Selecione a conta —</option>
+        </select>
+      </div>
+      <div id="apply-account-info" style="padding:8px 10px;background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.2);border-radius:5px;font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5;display:none"></div>
+
+      <!-- Passo 2: Portfolio (filtrado pela conta) -->
+      <div class="form-group" style="margin-bottom:10px">
+        <label class="form-label">2. Carteira / Portfolio *</label>
+        <select class="form-input" id="apply-portfolio-select" disabled>
+          <option value="">— Selecione primeiro a conta —</option>
+        </select>
+      </div>
+
+      <!-- Passo 3: Valor + Data -->
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">3. Valor a aplicar (R$) *</label>
+          <input class="form-input" type="number" id="apply-amount" step="0.01" min="0.01" value="5000">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Data</label>
+          <input class="form-input" type="date" id="apply-date">
+        </div>
+      </div>
+
+      <div id="apply-warn" style="display:none;padding:8px 10px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:5px;font-size:12px;color:#ffb300;margin-bottom:10px"></div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn-secondary" onclick="closeApplyModal()">Cancelar</button>
+        <button class="btn-primary" onclick="submitApplyBond()" id="apply-submit-btn">Aplicar</button>
+      </div>
+      <div class="msg" id="msg-apply" style="margin-top:10px"></div>
+    </div>
+  </div>
+
   <!-- ═══ TAB: BROWSER ═══════════════════════════════════════════════════════ -->
   <div id="tab-browser" class="tab-panel active">
     <div class="filters">
@@ -639,6 +699,9 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 
   <!-- ═══ TAB: COMPARADOR ═══════════════════════════════════════════════════ -->
   <div id="tab-compare" class="tab-panel">
+    <div style="padding:10px 14px;background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.25);border-radius:6px;margin-bottom:12px;font-size:13px;color:var(--muted);line-height:1.5">
+      ⚖ <strong style="color:var(--text)">Comparador</strong>: selecione <strong>2 ou mais</strong> títulos para comparar rendimentos lado a lado. Para aplicar em um único título, use a aba <strong>Busca de Títulos</strong> → botão <strong style="color:#00c48c">Aplicar</strong>.
+    </div>
     <div class="compare-grid">
       <div class="card">
         <div class="card-header"><span class="card-title">Selecionar Títulos</span>
@@ -814,7 +877,10 @@ function renderBondsTable(bonds) {
       <td>${min}</td>
       <td style="font-size:14px;color:var(--muted)">${b.liquidity}</td>
       <td>${ir}</td>
-      <td><button class="btn" style="padding:3px 8px;font-size:14px" onclick="event.stopPropagation();selectBondForCalc('${b.bond_id}')">Calcular</button></td></tr>`;
+      <td style="white-space:nowrap">
+        <button class="btn" style="padding:3px 8px;font-size:14px;margin-right:4px;background:transparent;border:1px solid #00c48c;color:#00c48c" onclick="event.stopPropagation();applyBondQuick('${b.bond_id}','${(b.name||'').replace(/'/g,"\\'")}',${b.rate_annual},'${b.indexer}','${b.bond_type}','${b.ir_exempt?'t':'f'}',${b.rate_pct_indexer?'true':'false'},'${b.maturity_date||''}','${(b.issuer||'').replace(/'/g,"\\'")}')" title="Aplicar neste título (vai direto para a Carteira RF)">Aplicar</button>
+        <button class="btn" style="padding:3px 8px;font-size:14px" onclick="event.stopPropagation();selectBondForCalc('${b.bond_id}')">Calcular</button>
+      </td></tr>`;
   }).join('');
 }
 
@@ -852,6 +918,187 @@ function selectBondForCalc(bondId) {
   document.getElementById('calc-bond').value = bondId;
   calcTitleInfo();
   switchTab('calc');
+}
+
+// F6 (24/abr): modal custom com cascata Conta → Portfolio.
+let _applyBondCtx = null;
+let _applyAccountsCache = [];
+let _applyPortfoliosCache = [];
+
+async function applyBondQuick(bondId, name, rateAnnual, indexer, bondType, irExempt, ratePctIndexer, maturity, issuer) {
+  _applyBondCtx = { bondId, name, rateAnnual, indexer, bondType, irExempt, ratePctIndexer, maturity, issuer };
+
+  // Info do título
+  const rateTxt = ratePctIndexer ? `${rateAnnual}% ${indexer}` : `${indexer} + ${rateAnnual}%`;
+  document.getElementById('apply-bond-info').innerHTML =
+    `<strong style="color:var(--text)">${name}</strong><br>` +
+    `<span style="color:var(--accent)">${rateTxt}</span>` +
+    (irExempt === 't' ? ' · <span style="color:#00c48c">Isento IR</span>' : ' · IR regressivo') +
+    (maturity ? ` · Venc: ${maturity.slice(0,10)}` : '');
+
+  document.getElementById('apply-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('apply-amount').value = '5000';
+  document.getElementById('msg-apply').textContent = '';
+  document.getElementById('msg-apply').className = 'msg';
+  document.getElementById('apply-warn').style.display = 'none';
+  document.getElementById('apply-account-info').style.display = 'none';
+
+  // Carrega contas de investimento + portfolios
+  await _loadApplyAccounts();
+  await _loadApplyPortfolios();
+
+  // Reseta cascata
+  const accSel = document.getElementById('apply-account-select');
+  const pfSel = document.getElementById('apply-portfolio-select');
+  accSel.value = '';
+  pfSel.innerHTML = '<option value="">— Selecione primeiro a conta —</option>';
+  pfSel.disabled = true;
+
+  // Auto-seleciona se só há 1 conta com portfolios
+  const accountsWithPortfolios = _applyAccountsCache.filter(a =>
+    _applyPortfoliosCache.some(p => p.investment_account_id === a.id)
+  );
+  if (accountsWithPortfolios.length === 1) {
+    accSel.value = accountsWithPortfolios[0].id;
+    await _onApplyAccountChange();
+  }
+
+  document.getElementById('modal-apply-rf').style.display = 'flex';
+  setTimeout(() => accSel.focus(), 50);
+}
+
+function closeApplyModal() { document.getElementById('modal-apply-rf').style.display = 'none'; }
+
+async function _loadApplyAccounts() {
+  try {
+    const tok = localStorage.getItem('access_token') || '';
+    const data = await fetch('/api/v1/wallet/accounts', {
+      headers: tok ? { Authorization: 'Bearer ' + tok } : {},
+    }).then(r => r.json());
+    _applyAccountsCache = Array.isArray(data) ? data : [];
+    const sel = document.getElementById('apply-account-select');
+    sel.innerHTML = '<option value="">— Selecione a conta —</option>';
+    _applyAccountsCache.forEach(a => {
+      const label = a.apelido || a.titular || a.institution_name || '(sem nome)';
+      sel.appendChild(new Option(`${label} · ${a.institution_name}`, a.id));
+    });
+  } catch(_) {
+    _applyAccountsCache = [];
+  }
+}
+
+async function _loadApplyPortfolios() {
+  try {
+    const tok = localStorage.getItem('access_token') || '';
+    const data = await fetch('/api/v1/portfolios?include_inactive=false', {
+      headers: tok ? { Authorization: 'Bearer ' + tok } : {},
+    }).then(r => r.json());
+    _applyPortfoliosCache = Array.isArray(data) ? data : [];
+  } catch(_) {
+    _applyPortfoliosCache = [];
+  }
+}
+
+async function _onApplyAccountChange() {
+  const accId = document.getElementById('apply-account-select').value;
+  const pfSel = document.getElementById('apply-portfolio-select');
+  const accInfo = document.getElementById('apply-account-info');
+
+  if (!accId) {
+    pfSel.innerHTML = '<option value="">— Selecione primeiro a conta —</option>';
+    pfSel.disabled = true;
+    accInfo.style.display = 'none';
+    return;
+  }
+
+  // Mostra saldo da conta
+  const acc = _applyAccountsCache.find(a => a.id === accId);
+  try {
+    const tok = localStorage.getItem('access_token') || '';
+    const sum = await fetch(`/api/v1/wallet/accounts/${accId}/cash-summary`, {
+      headers: tok ? { Authorization: 'Bearer ' + tok } : {},
+    }).then(r => r.json());
+    const cash = Number(sum.cash_balance || 0);
+    const avail = Number(sum.available_to_invest || cash);
+    const color = cash < 0 ? '#ff4757' : 'var(--text)';
+    accInfo.innerHTML =
+      `💰 <strong style="color:${color}">R$ ${cash.toFixed(2)}</strong> em caixa` +
+      ` · <span style="color:var(--muted)">disponível para aplicar:</span> ` +
+      `<strong style="color:${avail < 0 ? '#ff4757' : '#00c48c'}">R$ ${avail.toFixed(2)}</strong>`;
+    accInfo.style.display = 'block';
+  } catch(_) {
+    accInfo.style.display = 'none';
+  }
+
+  // Filtra portfolios dessa conta
+  const filtered = _applyPortfoliosCache.filter(p => p.investment_account_id === accId);
+  pfSel.innerHTML = '';
+  if (!filtered.length) {
+    pfSel.innerHTML = '<option value="">— Nenhum portfolio nesta conta —</option>';
+    pfSel.disabled = true;
+    FAToast.warn(`A conta "${acc ? (acc.apelido || acc.institution_name) : ''}" não tem portfolios. Crie um primeiro em /portfolios.`);
+    return;
+  }
+  pfSel.disabled = false;
+  pfSel.innerHTML = '<option value="">— Escolha a carteira —</option>';
+  filtered.forEach(p => {
+    const dft = p.is_default ? ' [default]' : '';
+    pfSel.appendChild(new Option(`${p.name}${dft} (${p.positions} pos)`, p.portfolio_id));
+  });
+  // Auto-seleciona se só há 1
+  if (filtered.length === 1) pfSel.value = filtered[0].portfolio_id;
+}
+
+async function submitApplyBond() {
+  if (!_applyBondCtx) return;
+  const msg = document.getElementById('msg-apply');
+  const accId = document.getElementById('apply-account-select').value;
+  const pfId = document.getElementById('apply-portfolio-select').value;
+  const amount = parseFloat(document.getElementById('apply-amount').value);
+
+  if (!accId) { msg.className = 'msg err'; msg.textContent = 'Selecione a conta de investimento.'; return; }
+  if (!pfId) { msg.className = 'msg err'; msg.textContent = 'Selecione o portfolio.'; return; }
+  if (!amount || amount <= 0) { msg.className = 'msg err'; msg.textContent = 'Valor inválido.'; return; }
+
+  try {
+    const ctx = _applyBondCtx;
+    const body = {
+      bond_id: ctx.bondId,
+      bond_name: ctx.name,
+      bond_type: ctx.bondType,
+      indexer: ctx.indexer,
+      issuer: ctx.issuer || '',
+      invested: amount,
+      rate_annual: ctx.rateAnnual,
+      rate_pct_indexer: ctx.ratePctIndexer,
+      purchase_date: document.getElementById('apply-date').value || new Date().toISOString().slice(0,10),
+      maturity_date: ctx.maturity || null,
+      ir_exempt: ctx.irExempt === 't',
+    };
+    const r = await fetch(`/api/v1/fixed-income/portfolio/${pfId}/holdings`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) { const err = await r.json().catch(()=>({})); throw new Error(err.detail || 'HTTP ' + r.status); }
+    FAToast.ok(`Aplicado R$ ${amount.toFixed(2)} em ${ctx.name}.`);
+    closeApplyModal();
+    // Sincroniza o select da aba Carteira RF
+    const pfMain = document.getElementById('pf-select');
+    if (pfMain) pfMain.value = pfId;
+    switchTab('portfolio');
+    await loadPortfolio();
+  } catch(e) {
+    msg.className = 'msg err'; msg.textContent = e.message || String(e);
+  }
+}
+
+async function ensurePortfoliosLoaded() {
+  const sel = document.getElementById('pf-select');
+  if (sel && sel.options.length > 1) return;
+  if (typeof loadUserPortfolios === 'function') {
+    try { await loadUserPortfolios(''); } catch(_) {}
+  }
 }
 
 // ── Calc info ─────────────────────────────────────────────────────────────────
@@ -1435,9 +1682,10 @@ window.switchTab = function(tab) {
           <option value="">— Selecione uma carteira —</option>
         </select>
         <button class="btn-secondary" onclick="showNewPortfolioForm()">+ Nova Carteira</button>
+        <button class="btn-secondary" onclick="renamePortfolio()" id="btn-rename-pf" style="display:none">✎ Renomear</button>
         <button class="btn-secondary" onclick="deletePortfolio()" id="btn-del-pf" style="display:none;border-color:#ff4757;color:#ff4757">🗑 Excluir</button>
 </div>
-      <button class="btn-primary" onclick="showAddHoldingForm()" id="btn-add-holding" style="display:none">+ Adicionar Título</button>
+      <button class="btn-primary" onclick="showAddHoldingForm()" id="btn-add-holding" style="display:none">+ Aplicar em Título</button>
 </div>
 
     <!-- Form: nova carteira (hidden by default) -->
@@ -1455,9 +1703,9 @@ window.switchTab = function(tab) {
       <input type="hidden" id="new-pf-user" value="">
 </div>
 
-    <!-- Form: adicionar holding (hidden by default) -->
+    <!-- Form: aplicar em holding (hidden by default) -->
     <div id="add-holding-form" style="display:none;background:#0b1520;border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px">
-      <div style="font-size:16px;font-weight:700;color:var(--accent);margin-bottom:10px">Adicionar Título à Carteira
+      <div style="font-size:16px;font-weight:700;color:var(--accent);margin-bottom:10px">Nova Aplicação em Título
 </div>
       <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-bottom:8px">
         <div class="form-group">
@@ -1474,7 +1722,7 @@ window.switchTab = function(tab) {
 </div>
 </div>
       <div style="display:flex;gap:8px">
-        <button class="btn-primary" onclick="addHolding()">Adicionar</button>
+        <button class="btn-primary" onclick="addHolding()">Aplicar</button>
         <button class="btn-secondary" onclick="document.getElementById('add-holding-form').style.display='none'">Cancelar</button>
 </div>
 </div>
@@ -1630,6 +1878,7 @@ async function loadPortfolio() {
   const hasPortfolio = !!pid;
   document.getElementById('btn-add-holding').style.display  = hasPortfolio ? 'inline-block' : 'none';
   document.getElementById('btn-del-pf').style.display       = hasPortfolio ? 'inline-block' : 'none';
+  document.getElementById('btn-rename-pf').style.display    = hasPortfolio ? 'inline-block' : 'none';
   document.getElementById('pf-totals').style.display        = hasPortfolio ? 'grid' : 'none';
   document.getElementById('pf-sub-tabs').style.display      = hasPortfolio ? 'block' : 'none';
   if (!pid) { document.getElementById('pf-holdings').innerHTML = ''; return; }
@@ -1698,9 +1947,12 @@ function renderHoldings(holdings, portfolioId) {
         <div style="text-align:right">
           <div class="${retCls}">${ret >= 0 ? '+' : ''}${ret.toFixed(2)}%</div>
           <div style="font-size:14px;color:var(--muted);margin-top:2px">${h.net_annual_return_pct?.toFixed(2) || '—'}% a.a.</div>
-          <button onclick="deleteHolding('${h.holding_id}','${portfolioId}')"
-            style="margin-top:8px;background:none;border:1px solid #ff475733;color:#ff4757;border-radius:4px;padding:2px 8px;font-size:14px;cursor:pointer">
-            remover</button></div></div>`;
+          <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:8px">
+            <button onclick="redeemHolding('${h.holding_id}','${portfolioId}',${h.invested},'${h.bond_name.replace(/'/g, "\\'")}')"
+              style="background:none;border:1px solid #00c48c;color:#00c48c;border-radius:4px;padding:2px 8px;font-size:14px;cursor:pointer" title="Resgate parcial (credita em D+liquidity)">resgatar</button>
+            <button onclick="deleteHolding('${h.holding_id}','${portfolioId}')"
+              style="background:none;border:1px solid #ff475733;color:#ff4757;border-radius:4px;padding:2px 8px;font-size:14px;cursor:pointer">remover</button>
+          </div></div></div>`;
   }).join('');
 }
 
@@ -1805,6 +2057,57 @@ async function deleteHolding(holdingId, portfolioId) {
   if (!await FAModal.confirm('Remover este título?')) return;
   await fetch(`/api/v1/fixed-income/portfolio/${portfolioId}/holdings/${holdingId}`, {method:'DELETE'});
   await loadPortfolio();
+}
+
+async function redeemHolding(holdingId, portfolioId, totalInvested, bondName) {
+  const amountStr = window.prompt(
+    `Resgate parcial de "${bondName}" (investido: R$ ${totalInvested.toFixed(2)})\n\n` +
+    `Informe o valor a resgatar em R$:`, totalInvested.toFixed(2));
+  if (!amountStr) return;
+  const amount = parseFloat(amountStr.replace(',', '.').replace(/[^\d.]/g, ''));
+  if (!amount || amount <= 0 || amount > totalInvested) {
+    FAToast.err(`Valor inválido (0 < R$ ≤ ${totalInvested.toFixed(2)}).`);
+    return;
+  }
+  try {
+    const r = await fetch(`/api/v1/fixed-income/portfolio/${portfolioId}/holdings/${holdingId}/redeem`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ amount }),
+    });
+    if (!r.ok) { const err = await r.json().catch(()=>({})); throw new Error(err.detail || 'HTTP ' + r.status); }
+    const data = await r.json();
+    const liqMsg = data.liquidity_days
+      ? ` · liquidação D+${data.liquidity_days} (${data.settlement_date})`
+      : '';
+    FAToast.ok(`Resgate R$ ${amount.toFixed(2)}${liqMsg}`);
+    await loadPortfolio();
+  } catch(e) {
+    FAToast.err('Falha: ' + (e.message || e));
+  }
+}
+
+async function renamePortfolio() {
+  if (!_currentPortfolioId) return;
+  const sel = document.getElementById('pf-select');
+  const currentName = sel.options[sel.selectedIndex]?.textContent.replace(/\s*\(\d+\s*posicoes\).*$/, '').replace(/\s*\[default\].*$/, '').trim() || '';
+  const newName = window.prompt('Novo nome para a carteira:', currentName);
+  if (!newName || newName.trim() === '' || newName === currentName) return;
+  try {
+    const tok = localStorage.getItem('access_token') || '';
+    const r = await fetch(`/api/v1/portfolios/${_currentPortfolioId}`, {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json', ...(tok ? {Authorization:'Bearer '+tok} : {})},
+      body: JSON.stringify({ name: newName.trim() }),
+    });
+    if (!r.ok) { const err = await r.json().catch(()=>({})); throw new Error(err.detail || 'HTTP '+r.status); }
+    FAToast.ok('Carteira renomeada.');
+    await loadUserPortfolios('');
+    sel.value = _currentPortfolioId;
+    await loadPortfolio();
+  } catch(e) {
+    FAToast.err('Falha: ' + (e.message || e));
+  }
 }
 
 async function deletePortfolio() {

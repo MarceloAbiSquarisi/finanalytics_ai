@@ -118,7 +118,6 @@ class RFPortfolioRepository:
             name=f"RF: {name}",
             description="Carteira de Renda Fixa (criada via /fixed-income)",
             benchmark="CDI",
-            is_default=False,
             is_active=True,
             currency="BRL",
             cash=0,

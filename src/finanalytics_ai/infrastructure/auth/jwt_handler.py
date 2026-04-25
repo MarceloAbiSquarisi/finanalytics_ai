@@ -123,6 +123,7 @@ class JWTHandler:
                 exp=payload["exp"],
                 token_type=payload.get("token_type", "access"),
                 jti=payload.get("jti", ""),
+                is_admin=bool(payload.get("is_admin", False)),
             )
 
         except Exception as exc:
@@ -148,6 +149,7 @@ class JWTHandler:
             "sub": user.user_id,
             "email": user.email,
             "role": user.role.value,
+            "is_admin": bool(getattr(user, "is_admin", False)),
             "token_type": token_type,
             "jti": str(uuid.uuid4()),
             "iat": int(now.timestamp()),
@@ -208,6 +210,7 @@ class JWTHandler:
                 exp=payload["exp"],
                 token_type=payload.get("token_type", "access"),
                 jti=payload.get("jti", ""),
+                is_admin=bool(payload.get("is_admin", False)),
             )
         except (TokenExpiredError, TokenInvalidError):
             raise

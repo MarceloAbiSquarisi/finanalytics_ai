@@ -19,10 +19,6 @@ class TestPortfolioNewFields:
         p = Portfolio(user_id="u1", name="Teste")
         assert p.benchmark == ""
 
-    def test_default_is_default_false(self) -> None:
-        p = Portfolio(user_id="u1", name="Teste")
-        assert p.is_default is False
-
     def test_can_set_description(self) -> None:
         p = Portfolio(user_id="u1", name="Teste", description="Carteira conservadora")
         assert p.description == "Carteira conservadora"
@@ -30,10 +26,6 @@ class TestPortfolioNewFields:
     def test_can_set_benchmark(self) -> None:
         p = Portfolio(user_id="u1", name="Teste", benchmark="IBOV")
         assert p.benchmark == "IBOV"
-
-    def test_can_set_is_default(self) -> None:
-        p = Portfolio(user_id="u1", name="Principal", is_default=True)
-        assert p.is_default is True
 
 
 class TestUpdateMetadata:
@@ -83,23 +75,6 @@ class TestUpdateMetadata:
         assert p.benchmark == "CDI"  # não alterado
 
 
-class TestPortfolioIsDefault:
-    def test_multiple_portfolios_only_one_default(self) -> None:
-        """Invariante: apenas um portfolio por usuário deve ser default.
-        O domínio não enforce isso — é responsabilidade do service.
-        Este teste documenta o comportamento esperado ao nível de entidade."""
-        p1 = Portfolio(user_id="u1", name="P1", is_default=True)
-        p2 = Portfolio(user_id="u1", name="P2", is_default=False)
-        p3 = Portfolio(user_id="u1", name="P3", is_default=False)
-
-        # Simula o que o service faz ao definir p2 como default
-        p1.is_default = False
-        p2.is_default = True
-
-        defaults = [p for p in [p1, p2, p3] if p.is_default]
-        assert len(defaults) == 1
-        assert defaults[0].name == "P2"
-
-    def test_is_default_false_by_default(self) -> None:
-        p = Portfolio(user_id="u1", name="Qualquer")
-        assert not p.is_default
+# Refactor 25/abr: removido TestPortfolioIsDefault — modelo simplificado
+# para 1 portfolio por conta (1:1). Conceito de "default" entre varios
+# portfolios deixa de existir.

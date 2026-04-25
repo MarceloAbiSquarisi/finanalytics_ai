@@ -25,7 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from finanalytics_ai.domain.auth.entities import User, UserRole
+from finanalytics_ai.domain.auth.entities import User
 from finanalytics_ai.domain.events.models import EventStatus
 from finanalytics_ai.infrastructure.event_processor.idempotency import RedisIdempotencyStore
 from finanalytics_ai.infrastructure.event_processor.repository import SqlEventRepository
@@ -38,7 +38,7 @@ REPROCESSABLE_STATUSES = {EventStatus.FAILED, EventStatus.DEAD_LETTER}
 
 
 def _require_admin(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role not in (UserRole.ADMIN, UserRole.MASTER):
+    if not current_user.has_admin_access:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Acesso restrito a administradores."
         )

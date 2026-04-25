@@ -911,7 +911,7 @@ async function loadTrades() {
         <td class="td-right">${fmt(t.unit_price)}</td>
         <td class="td-right">${fmt(t.total_cost)}</td>
         <td class="td-right">${t.fees>0?fmt(t.fees):'—'}</td>
-        <td>${acc?acc.institution_name:'—'}</td>
+        <td>${acc ? (acc.apelido ? `<strong>${acc.apelido}</strong><br><small style="color:var(--muted)">${acc.institution_name}</small>` : acc.institution_name) : '—'}</td>
         <td><button class="btn btn-danger btn-sm" onclick="deleteTrade('${t.id}')">✕</button></td></tr>`;
     }).join('');
   } catch(e) { console.error(e); }
@@ -1002,10 +1002,37 @@ async function loadCrypto() {
         <td class="td-right">${fmt(c.average_price_brl)}</td>
         <td class="td-right">${c.average_price_usd?fmt(c.average_price_usd,'$ '):'—'}</td>
         <td>${c.exchange||'—'}</td>
-        <td>${acc?acc.institution_name:'—'}</td>
-        <td><button class="btn btn-danger btn-sm" onclick="deleteCrypto('${c.id}')">✕</button></td></tr>`;
+        <td>${acc ? (acc.apelido ? `<strong>${acc.apelido}</strong><br><small style="color:var(--muted)">${acc.institution_name}</small>` : acc.institution_name) : '—'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-sm" style="background:transparent;border:1px solid var(--green);color:var(--green);margin-right:4px" onclick="redeemCrypto('${c.id}', '${c.symbol}', ${Number(c.quantity)}, ${Number(c.average_price_brl)})" title="Resgate parcial (credita cash)">💰</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteCrypto('${c.id}')">✕</button></td></tr>`;
     }).join('');
   } catch(e) { console.error(e); }
+}
+
+async function redeemCrypto(cryptoId, symbol, totalQty, avgPrice) {
+  // FAModal custom via prompt (simples — TODO: usar FAModal.custom se existir)
+  const qtyStr = window.prompt(
+    `Resgate parcial de ${symbol} (total: ${totalQty}, preço médio: R$ ${avgPrice.toFixed(2)})\n\n` +
+    `Informe a quantidade a resgatar:`, '');
+  if (!qtyStr) return;
+  const qty = parseFloat(qtyStr.replace(',', '.'));
+  if (!qty || qty <= 0 || qty > totalQty) {
+    FAToast.err(`Quantidade inválida (0 < qty ≤ ${totalQty}).`);
+    return;
+  }
+  try {
+    const r = await api(`/crypto/${cryptoId}/redeem`, {
+      method: 'POST',
+      body: JSON.stringify({ quantity: qty }),
+    });
+    const creditBrl = qty * avgPrice;
+    FAToast.ok(`${symbol} resgate ${qty} → +R$ ${creditBrl.toFixed(2)} na conta (${r.status || 'ok'})`);
+    loadCrypto();
+    loadSummary();
+  } catch(e) {
+    FAToast.err('Falha: ' + (e.message || e));
+  }
 }
 
 async function saveCrypto() {
@@ -1055,7 +1082,7 @@ async function loadOther() {
         <td>${gain(o.current_value,o.invested_value)}</td>
         <td>${o.currency}</td>
         <td style="color:${o.ir_exempt?'var(--green)':'var(--muted)'}">${o.ir_exempt?'Sim':'Não'}</td>
-        <td>${acc?acc.institution_name:'—'}</td>
+        <td>${acc ? (acc.apelido ? `<strong>${acc.apelido}</strong><br><small style="color:var(--muted)">${acc.institution_name}</small>` : acc.institution_name) : '—'}</td>
         <td><button class="btn btn-danger btn-sm" onclick="deleteOther('${o.id}')">✕</button></td></tr>`;
     }).join('');
   } catch(e) { console.error(e); }

@@ -89,6 +89,9 @@ test_history.py
 # Claude Code (config local, state, logs)
 .claude/
 
+# Playwright MCP (logs/screenshots/network captures de browser)
+.playwright-mcp/
+
 # Backups automáticos timestamped (docker-compose.*.backup_YYYYMMDD_HHMM etc)
 *.backup_*
 

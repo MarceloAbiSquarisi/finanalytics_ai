@@ -98,14 +98,21 @@
     return m.indexOf('401') === 0 || m.indexOf('unauthorized') >= 0;
   }
 
+  // Ruídos conhecidos do browser (benignos) — não mostrar toast.
+  // ResizeObserver loop errors disparam em layouts com charts/resize sync; não indicam bug real.
+  var _BROWSER_NOISE = /ResizeObserver loop (completed with undelivered notifications|limit exceeded)/i;
+
   global.addEventListener('unhandledrejection', function (event) {
     var reason = event.reason;
     if (_isAuthError(reason)) return; // auth_guard cuida
+    var msg = reason && (reason.message || reason);
+    if (typeof msg === 'string' && _BROWSER_NOISE.test(msg)) return;
     handle(reason, 'Promise');
   });
 
   global.addEventListener('error', function (event) {
     if (event && event.message && /Script error/i.test(event.message)) return; // CORS noise
+    if (event && event.message && _BROWSER_NOISE.test(event.message)) return;
     if (event && event.message) {
       handle(event.message, 'JS');
     }

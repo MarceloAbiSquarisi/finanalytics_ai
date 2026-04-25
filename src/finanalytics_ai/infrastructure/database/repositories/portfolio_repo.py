@@ -40,7 +40,6 @@ class PortfolioModel(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(String(500), nullable=True)
     benchmark: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="BRL")
     cash: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=0)
@@ -96,7 +95,6 @@ class SQLPortfolioRepository:
             existing.name = portfolio.name
             existing.description = portfolio.description  # type: ignore[assignment]
             existing.benchmark = portfolio.benchmark  # type: ignore[assignment]
-            existing.is_default = portfolio.is_default  # type: ignore[assignment]
             existing.is_active = portfolio.is_active  # type: ignore[assignment]
             existing.cash = portfolio.cash.amount  # type: ignore[assignment]
             existing.updated_at = datetime.now(UTC)  # type: ignore[assignment]
@@ -107,7 +105,6 @@ class SQLPortfolioRepository:
                 name=portfolio.name,
                 description=portfolio.description,
                 benchmark=portfolio.benchmark,
-                is_default=portfolio.is_default,
                 is_active=portfolio.is_active,
                 currency=portfolio.currency.value,
                 cash=portfolio.cash.amount,
@@ -151,6 +148,44 @@ class SQLPortfolioRepository:
 
     async def delete(self, portfolio_id: str) -> None:
         await self._session.execute(delete(PortfolioModel).where(PortfolioModel.id == portfolio_id))
+
+    async def link_to_account(
+        self, portfolio_id: str, account_id: str, user_id: str
+    ) -> bool:
+        """Associa portfolio a uma investment_account. Valida propriedade + atividade.
+        Retorna True se linkou, False se conta inválida/não pertence/inativa."""
+        from sqlalchemy import text as sql_text
+
+        # Valida conta: dona do user + ativa
+        acc_ok = (
+            await self._session.execute(
+                sql_text(
+                    "SELECT 1 FROM investment_accounts "
+                    "WHERE id = :a AND user_id = :u AND is_active = true"
+                ),
+                {"a": account_id, "u": user_id},
+            )
+        ).scalar_one_or_none()
+        if not acc_ok:
+            return False
+        # Valida portfolio pertence ao user (defesa em profundidade)
+        pf_ok = (
+            await self._session.execute(
+                sql_text("SELECT 1 FROM portfolios WHERE id = :p AND user_id = :u"),
+                {"p": portfolio_id, "u": user_id},
+            )
+        ).scalar_one_or_none()
+        if not pf_ok:
+            return False
+        await self._session.execute(
+            sql_text(
+                "UPDATE portfolios SET investment_account_id = :a, updated_at = NOW() "
+                "WHERE id = :p"
+            ),
+            {"a": account_id, "p": portfolio_id},
+        )
+        await self._session.flush()
+        return True
 
     async def record_name_change(
         self,
@@ -225,12 +260,6 @@ class SQLPortfolioRepository:
                 out[str(classe)] = int(n)
         return out
 
-    async def clear_default(self, user_id: str) -> None:
-        """Remove is_default de todas as carteiras do usuário."""
-        await self._session.execute(
-            update(PortfolioModel).where(PortfolioModel.user_id == user_id).values(is_default=False)
-        )
-
     async def _hydrate(self, pm: PortfolioModel) -> Portfolio:
         stmt = select(PositionModel).where(PositionModel.portfolio_id == pm.id)
         result = await self._session.execute(stmt)
@@ -249,7 +278,6 @@ class SQLPortfolioRepository:
             name=str(pm.name),
             description=str(pm.description) if pm.description else "",
             benchmark=str(pm.benchmark) if pm.benchmark else "",
-            is_default=bool(pm.is_default),
             is_active=bool(pm.is_active),
             currency=Currency(str(pm.currency)),
             cash=Money(Decimal(str(pm.cash)), Currency(str(pm.currency))),

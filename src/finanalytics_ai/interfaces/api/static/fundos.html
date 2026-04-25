@@ -185,7 +185,7 @@ async function init() {
   document.getElementById('mainContent').style.display = 'block';
   document.getElementById('topbarEmail').textContent = _user.email;
   document.getElementById('avatarInitial').textContent = (_user.full_name || _user.email)[0].toUpperCase();
-  if (_user.role === 'admin' || _user.role === 'master') {
+  if (_user.is_admin || _user.role === 'master') {
     document.getElementById('syncSection').style.display = 'block';
   }
   await loadTipos();

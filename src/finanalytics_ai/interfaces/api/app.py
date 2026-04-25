@@ -1181,9 +1181,12 @@ def create_app() -> FastAPI:
     async def serve_alerts() -> HTMLResponse:
         return _html("alerts.html")
 
-    @app.get("/portfolios", response_class=HTMLResponse, include_in_schema=False)
-    async def serve_portfolios() -> HTMLResponse:
-        return _html("portfolios.html")
+    @app.get("/portfolios", include_in_schema=False)
+    async def serve_portfolios():
+        # Refactor 25/abr: modelo simplificado para 1 portfolio por conta.
+        # /portfolios deprecada — gerenciamento centralizado em /profile#invest.
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/profile#invest", status_code=302)
 
     @app.get("/fundos", response_class=HTMLResponse, include_in_schema=False)
     async def serve_fundos() -> HTMLResponse:

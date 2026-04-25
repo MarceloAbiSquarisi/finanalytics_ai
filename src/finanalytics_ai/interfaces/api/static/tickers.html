@@ -313,7 +313,7 @@ async function init() {
   try {
     var me = await fetch(API + '/auth/me', {headers: H()}).then(function(r){ return r.json(); });
     if (!me.user_id) { location.href = '/'; return; }
-    if (me.role !== 'master' && me.role !== 'admin') {
+    if (me.role !== 'master' && !me.is_admin) {
       document.querySelector('.main').innerHTML = '<div class="empty" style="padding:80px"><p style="font-size:24px;margin-bottom:8px">Acesso Restrito</p><p style="color:var(--muted)">Exclusivo para administradores.</p></div>';
       return;
     }

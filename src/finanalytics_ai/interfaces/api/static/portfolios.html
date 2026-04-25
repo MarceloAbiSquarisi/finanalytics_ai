@@ -200,7 +200,7 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
 </div>
 
 <!-- Modal: Renomear -->
-<div class="modal-overlay" id="modalRename" onclick="if(event.target===this) closeModal('modalRename')">
+<div class="modal-overlay" id="modalRename" onclick="_maybeCloseOnOverlay(event,'modalRename')">
   <div class="modal">
     <div class="modal-title">
       <span>Renomear portfolio</span>
@@ -220,7 +220,7 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
 </div>
 
 <!-- Modal: Historico -->
-<div class="modal-overlay" id="modalHistory" onclick="if(event.target===this) closeModal('modalHistory')">
+<div class="modal-overlay" id="modalHistory" onclick="_maybeCloseOnOverlay(event,'modalHistory')">
   <div class="modal" style="width:560px">
     <div class="modal-title">
       <span>Historico de nomes — <span id="hist-current-name" style="color:var(--accent)"></span></span>
@@ -233,7 +233,7 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
 </div>
 
 <!-- Modal: Operar -->
-<div class="modal-overlay" id="modalOperate" onclick="if(event.target===this) closeModal('modalOperate')">
+<div class="modal-overlay" id="modalOperate" onclick="_maybeCloseOnOverlay(event,'modalOperate')">
   <div class="modal" style="width:540px">
     <div class="modal-title">
       <span>Operar — <span id="op-pf-name" style="color:var(--accent)"></span></span>
@@ -313,13 +313,20 @@ tr.inactive td:first-child{border-left:3px solid var(--muted)}
 </div>
 
 <!-- Modal: Criar -->
-<div class="modal-overlay" id="modalCreate" onclick="if(event.target===this) closeModal('modalCreate')">
+<div class="modal-overlay" id="modalCreate" onclick="_maybeCloseOnOverlay(event,'modalCreate')">
   <div class="modal">
     <div class="modal-title">
       <span>Novo portfolio</span>
       <button class="modal-close" onclick="closeModal('modalCreate')">&times;</button>
     </div>
-    <label for="cr-name">Nome <span style="color:var(--red)">*</span></label>
+    <label for="cr-account">Conta de investimento <span style="color:var(--red)">*</span></label>
+    <select id="cr-account" required>
+      <option value="">Carregando contas...</option>
+    </select>
+    <div id="cr-account-empty" style="display:none;margin-top:6px;font-size:13px;color:var(--red)">
+      Nenhuma conta de investimento ativa. Cadastre uma em <a href="/profile#invest" style="color:var(--accent)">Perfil → Contas</a>.
+    </div>
+    <label for="cr-name" style="margin-top:12px">Nome <span style="color:var(--red)">*</span></label>
     <input type="text" id="cr-name" maxlength="200" placeholder="Ex: Long-term Equity" required>
     <label for="cr-description" style="margin-top:12px">Descricao</label>
     <input type="text" id="cr-description" maxlength="500" placeholder="Opcional">
@@ -516,8 +523,21 @@ async function reactivate(id, name) {
 // ── Rename ───────────────────────────────────────────────────────────────────
 let _renameTarget = null;  // {id, oldName}
 
-function openModal(id) { document.getElementById(id).classList.add('open'); }
+function openModal(id) {
+  const el = document.getElementById(id);
+  el.classList.add('open');
+  // Guard: ignora click-para-fechar nos primeiros 300ms.
+  // Evita que o mesmo click que abriu bubble-e feche o modal, ou
+  // que um mouseup deslocado acerte o overlay.
+  el.dataset.openedAt = String(performance.now());
+}
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function _maybeCloseOnOverlay(ev, id) {
+  if (ev.target !== ev.currentTarget) return;
+  const opened = parseFloat(ev.currentTarget.dataset.openedAt || '0') || 0;
+  if (performance.now() - opened < 300) return;
+  closeModal(id);
+}
 
 function openRename(id, name) {
   _renameTarget = { id, oldName: name };
@@ -684,26 +704,58 @@ async function setDefault(id, name) {
 }
 
 // ── Criar ────────────────────────────────────────────────────────────────────
+async function _loadAccountsForCreate() {
+  const sel = document.getElementById('cr-account');
+  const empty = document.getElementById('cr-account-empty');
+  sel.innerHTML = '<option value="">Carregando contas...</option>';
+  empty.style.display = 'none';
+  try {
+    const list = await FAErr.fetchJson(API + '/wallet/accounts?include_inactive=false', { headers: H() });
+    if (!list || !list.length) {
+      sel.innerHTML = '<option value="">Nenhuma conta ativa</option>';
+      sel.disabled = true;
+      empty.style.display = 'block';
+      return;
+    }
+    sel.disabled = false;
+    sel.innerHTML = '<option value="">-- Selecione uma conta --</option>' + list.map(a => {
+      const label = escapeHtml(a.apelido || a.institution_name || a.titular || ('Conta ' + (a.id||'').slice(0,6)));
+      const extra = a.institution_name && a.apelido ? ' (' + escapeHtml(a.institution_name) + ')' : '';
+      return `<option value="${escapeHtml(a.id)}">${label}${extra}</option>`;
+    }).join('');
+  } catch (e) {
+    sel.innerHTML = '<option value="">Erro ao carregar</option>';
+    toast('Falha ao carregar contas: ' + e.message, 'err');
+  }
+}
+
 function openCreate() {
   document.getElementById('cr-name').value = '';
   document.getElementById('cr-description').value = '';
   document.getElementById('cr-benchmark').value = '';
   document.getElementById('cr-cash').value = '';
+  _loadAccountsForCreate();
   openModal('modalCreate');
-  setTimeout(() => document.getElementById('cr-name').focus(), 50);
+  setTimeout(() => document.getElementById('cr-account').focus(), 50);
 }
 
 async function saveCreate() {
+  const accountId   = document.getElementById('cr-account').value;
   const name        = document.getElementById('cr-name').value.trim();
   const description = document.getElementById('cr-description').value.trim();
   const benchmark   = document.getElementById('cr-benchmark').value.trim();
   const cashStr     = document.getElementById('cr-cash').value.trim();
 
+  if (!accountId) {
+    toast('Selecione a conta de investimento.', 'err');
+    document.getElementById('cr-account').focus();
+    return;
+  }
   if (!name) {
     toast('Nome e obrigatorio.', 'err');
     return;
   }
-  const body = { name };
+  const body = { name, investment_account_id: accountId };
   if (description) body.description = description;
   if (benchmark)   body.benchmark   = benchmark;
   if (cashStr)     body.initial_cash = parseFloat(cashStr);

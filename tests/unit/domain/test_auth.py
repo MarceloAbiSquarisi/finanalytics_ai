@@ -69,9 +69,14 @@ class TestUser:
         with pytest.raises(InsufficientPermissionsError):
             u.ensure_admin()
 
-    def test_ensure_admin_passes_for_admin(self):
-        u = User.new("a@b.com", "h", "A", role=UserRole.ADMIN)
+    def test_ensure_admin_passes_for_admin_flag(self):
+        # Admin agora é flag ortogonal — user com is_admin=True passa.
+        u = User.new("a@b.com", "h", "A", is_admin=True)
         u.ensure_admin()  # não deve lançar
+
+    def test_ensure_admin_passes_for_master(self):
+        u = User.new("a@b.com", "h", "A", role=UserRole.MASTER)
+        u.ensure_admin()  # master tem acesso admin por herança
 
 
 # ── UserRegistration ──────────────────────────────────────────────────────────
@@ -286,10 +291,17 @@ class TestJWTHandler:
         assert payload.jti is not None
 
     def test_role_preserved_in_token(self, handler):
-        admin = User.new("admin@test.com", "h", "Admin", role=UserRole.ADMIN)
-        token = handler.create_access_token(admin)
+        master = User.new("m@test.com", "h", "Master", role=UserRole.MASTER)
+        token = handler.create_access_token(master)
         payload = handler.decode(token)
-        assert payload.role == "admin"
+        assert payload.role == "master"
+
+    def test_is_admin_flag_preserved_in_token(self, handler):
+        u = User.new("a@test.com", "h", "Admin", is_admin=True)
+        token = handler.create_access_token(u)
+        payload = handler.decode(token)
+        assert payload.is_admin is True
+        assert payload.role == "user"  # admin virou flag ortogonal
 
 
 # ── Password Hasher ───────────────────────────────────────────────────────────

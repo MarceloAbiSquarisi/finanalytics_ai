@@ -113,7 +113,13 @@
     }
 
     var role = String(me.role || '').toLowerCase();
-    if (allowed.length > 0 && allowed.indexOf(role) === -1) {
+    // Admin virou flag ortogonal (is_admin) — se a lista permitida incluir
+    // 'admin', usuarios com me.is_admin=true passam independente do role.
+    var allowsAdmin = allowed.indexOf('admin') !== -1;
+    var passes = allowed.length === 0
+      || allowed.indexOf(role) !== -1
+      || (allowsAdmin && me.is_admin === true);
+    if (!passes) {
       if (onDenied) {
         onDenied(role);
       } else {

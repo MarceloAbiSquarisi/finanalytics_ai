@@ -16,7 +16,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
 
-from finanalytics_ai.domain.auth.entities import User, UserRole
+from finanalytics_ai.domain.auth.entities import User
 from finanalytics_ai.infrastructure.database.repositories.wallet_repo import WalletRepository
 from finanalytics_ai.interfaces.api.dependencies import get_current_user
 
@@ -28,7 +28,7 @@ def _repo() -> WalletRepository:
 
 
 def _require_master_or_admin(user: User) -> User:
-    if user.role not in (UserRole.ADMIN, UserRole.MASTER):
+    if not user.has_admin_access:
         raise HTTPException(status_code=403, detail="Acesso negado: requer perfil MASTER ou ADMIN")
     return user
 
@@ -166,7 +166,24 @@ async def list_accounts(
 async def create_account(body: AccountCreate, user: User = Depends(get_current_user)) -> dict:
     data = body.model_dump()
     data["user_id"] = str(user.user_id)
-    return await _repo().create_account(data)
+    try:
+        return await _repo().create_account(data)
+    except Exception as exc:  # noqa: BLE001
+        msg = str(exc)
+        if "uq_inv_accounts_user_inst_ag_acc" in msg:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Já existe uma conta cadastrada para esta corretora "
+                    "com a mesma agência e número. Verifique os dados."
+                ),
+            ) from exc
+        if "duplicate key" in msg:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Conta duplicada (constraint violada): " + msg[:200],
+            ) from exc
+        raise
 
 
 @router.get("/accounts/{account_id}")
@@ -190,7 +207,10 @@ async def update_account(
 
 @router.delete("/accounts/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def deactivate_account(account_id: str, user: User = Depends(get_current_user)) -> None:
-    ok = await _repo().delete_account(account_id, str(user.user_id))
+    try:
+        ok = await _repo().delete_account(account_id, str(user.user_id))
+    except ValueError as e:  # saldo != 0 (F7)
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(e)) from e
     if not ok:
         raise HTTPException(404, "Conta não encontrada")
 
@@ -342,16 +362,27 @@ async def cash_summary(account_id: str, user: User = Depends(get_current_user)) 
 async def list_account_transactions(
     account_id: str,
     status_filter: str | None = Query(None, alias="status", description="pending|settled|cancelled"),
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(500, ge=1, le=5000),
     offset: int = Query(0, ge=0),
+    date_from: str | None = Query(None, description="YYYY-MM-DD — default sem filtro"),
+    date_to: str | None = Query(None, description="YYYY-MM-DD — default hoje"),
+    direction: str | None = Query(None, pattern="^(debit|credit)$", description="debit=saídas, credit=entradas"),
+    include_pending: bool = Query(True, description="Incluir lançamentos futuros (pending)"),
     user: User = Depends(get_current_user),
 ) -> list[dict]:
+    from datetime import date as _date
+    df = _date.fromisoformat(date_from) if date_from else None
+    dt = _date.fromisoformat(date_to) if date_to else None
     return await _repo().list_transactions(
         user_id=str(user.user_id),
         account_id=account_id,
         status=status_filter,
         limit=limit,
         offset=offset,
+        date_from=df,
+        date_to=dt,
+        direction=direction,
+        include_pending=include_pending,
     )
 
 
@@ -362,6 +393,28 @@ async def cancel_transaction(tx_id: str, user: User = Depends(get_current_user))
     if not tx:
         raise HTTPException(404, "Transação não encontrada")
     return tx
+
+
+class CreatePortfolioForAccount(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+
+
+@router.post("/accounts/{account_id}/portfolios", status_code=status.HTTP_201_CREATED)
+async def create_portfolio_for_account(
+    account_id: str,
+    body: CreatePortfolioForAccount,
+    user: User = Depends(get_current_user),
+) -> dict:
+    """G2 (24/abr): cria portfolio ja vinculado a esta investment_account.
+    Permite criar portfolios extras alem dos 2 auto-criados (Principal + RF)."""
+    data = await _repo().create_portfolio_in_account(
+        user_id=str(user.user_id),
+        account_id=account_id,
+        name=body.name,
+    )
+    if not data:
+        raise HTTPException(404, "Conta não encontrada ou inativa.")
+    return data
 
 
 @router.patch("/accounts/{account_id}/real-operations")
@@ -376,8 +429,7 @@ async def set_real_operations(
     risco financeiro real. Por default a flag e FALSE — o usuario comum pode
     conectar DLL real mas nao consegue enviar ordens ate um admin liberar.
     """
-    from finanalytics_ai.domain.auth.entities import UserRole
-    if user.role not in (UserRole.ADMIN, UserRole.MASTER):
+    if not user.has_admin_access:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Apenas ADMIN ou MASTER pode alterar permissao de operacoes reais.",

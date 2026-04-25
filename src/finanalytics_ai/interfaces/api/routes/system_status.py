@@ -10,7 +10,7 @@ import time
 from fastapi import APIRouter, Depends, HTTPException
 import structlog
 
-from finanalytics_ai.domain.auth.entities import User, UserRole
+from finanalytics_ai.domain.auth.entities import User
 from finanalytics_ai.interfaces.api.dependencies import get_current_user
 
 logger = structlog.get_logger(__name__)
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/api/v1/system", tags=["System"])
 
 
 def require_admin(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role not in (UserRole.MASTER, UserRole.ADMIN):
+    if not current_user.has_admin_access:
         raise HTTPException(403, detail="Acesso restrito a administradores.")
     return current_user
 

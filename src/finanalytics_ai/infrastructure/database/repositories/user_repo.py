@@ -46,6 +46,7 @@ class UserModel(Base):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     role: Mapped[str] = mapped_column(String(20), nullable=False, default=UserRole.USER.value)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -72,6 +73,7 @@ class UserRepository:
             full_name=user.full_name,
             role=user.role.value,
             is_active=user.is_active,
+            is_admin=user.is_admin,
         )
         self._session.add(model)
         await self._session.flush()
@@ -110,13 +112,23 @@ class UserRepository:
 
     @staticmethod
     def _to_domain(m: UserModel) -> User:
+        # Tolera registros legacy com role='admin' (pré-migração 0017):
+        # mapeia para role=USER + is_admin=True.
+        raw_role = (m.role or "user").lower()
+        if raw_role == "admin":
+            role = UserRole.USER
+            is_admin = True
+        else:
+            role = UserRole(raw_role) if raw_role in UserRole._value2member_map_ else UserRole.USER
+            is_admin = bool(getattr(m, "is_admin", False))
         return User(
             user_id=m.user_id,
             email=m.email,
             hashed_password=m.hashed_password,
             full_name=m.full_name,
-            role=UserRole(m.role),
+            role=role,
             is_active=m.is_active,
+            is_admin=is_admin,
             created_at=m.created_at,
             last_login_at=m.last_login_at,
             totp_secret=m.totp_secret,
