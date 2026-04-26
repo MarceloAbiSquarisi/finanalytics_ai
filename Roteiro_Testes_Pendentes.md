@@ -1,136 +1,93 @@
 # Roteiro de Testes Pendentes — FinAnalytics AI
 
-> **Reorganizado**: 26/abr/2026 — passos numerados em ordem de execução
+> **Reorganizado**: 26/abr/2026 — classificação por dependência (pregão aberto/fechado/outras)
 > **Login dev**: `marceloabisquarisi@gmail.com` / `admin123` (master)
-> **DB seedado** (commit `7555662`) — 2 contas teste populadas: "Teste Ações XP" + "Teste Renda Fixa BTG"
+> **DB seedado**: 2 contas teste (XP + BTG) populadas — commits `7555662` + `7fe44ff`
 > **Cache**: SW v43 — `Ctrl+Shift+R` na 1ª abertura de cada página
-
-## Resumo executivo
-
-| Bloco | Quando | Conteúdo |
-|---|---|---|
-| **Passos 0-9** (Bloco A — sem pregão) | agora, ~1h45 | Smoke + features novas (UI, dados seed) |
-| **Passo 10** (pré-pregão) | hoje à tarde ou domingo | restart profit_agent, validar rotas /oco/* |
-| **Passos 11-15** (Bloco B — pregão) | segunda 27/abr 10h-18h BRT | DLL viva, ordens reais, OCO end-to-end |
-| **Bloqueados** (C-F) | quando contexto disponível | Pushover, sudo presencial, samples, Nelogica |
 
 ---
 
-## 🟢 BLOCO A — Sem pregão (executar agora, ordem sequencial)
+## ✅ Status atual (validações automáticas concluídas)
 
-### PASSO 0 — Pré-flight (~5min)
+| Camada | Status | Detalhe |
+|---|---|---|
+| **Backend pré-flight** | ✅ | 18 containers UP, /health 200 nos 2 (api+agent), login OK |
+| **Smoke 14 páginas** | ✅ | Todas 200 |
+| **Backend filtro conta** | ✅ | XP=6 positions / BTG=2 positions; trades XP=7 / BTG=2 |
+| **Backend tabs** | ✅ | trades=9, crypto=1, rf=3, other=1, tx=20 |
+| **Backend dividendos** | ✅ | preview 3/3 matched, commit OK (após fix `7fe44ff`) |
+| **Alerts BUG17** | ✅ | user_id JWT correto |
+| **G4 auth flow** | ✅ | sem token=401, remember_me=86400s, refresh OK |
+| **OCO Phase A+B+C+D** | ✅ profit_agent live | rotas /oco/* respondendo, profit_agent já restartado |
 
-> Garantir que tudo está respondendo antes de testar.
+**Falta apenas**: testes UI/visual (browser) + testes que dependem de **pregão aberto**.
 
-- [ ] **0.1** Containers up:
-  ```bash
-  docker ps --filter name=finanalytics --format "{{.Names}}: {{.Status}}"
-  ```
-  Esperado: `finanalytics_api`, `finanalytics_postgres`, `finanalytics_timescale`, `finanalytics_redis`, `finanalytics_kafka`, `finanalytics_grafana`, `finanalytics_prometheus`, scheduler/workers todos `Up`.
-- [ ] **0.2** Health endpoints:
-  ```bash
-  curl -s http://localhost:8000/health
-  curl -s http://localhost:8002/health
-  ```
-  Esperado: `{"ok":true,...}` em ambos.
-- [ ] **0.3** Login devolve token:
-  ```bash
-  TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
-    -H "Content-Type: application/json" \
-    -d '{"email":"marceloabisquarisi@gmail.com","password":"admin123"}' \
-    | python -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
-  echo $TOKEN | head -c 50
-  ```
-  Esperado: JWT base64 começando com `eyJ...`.
+---
 
-### PASSO 1 — Smoke das 14 páginas privadas (~5min)
+## 🟢 BLOCO A — Pregão FECHADO (pode fazer agora ~1h50)
 
-> 200 em todas confirma que G4 (auth refactor) e i18n não quebraram nada.
+> Tudo é render UI ou usa dados do seed. Não precisa tick/ordem viva.
 
-- [ ] **1.1**
-  ```bash
-  for r in /dashboard /carteira /movimentacoes /alerts /import /screener /watchlist \
-           /admin /hub /performance /diario /fundamental /forecast /macro; do
-    code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8000${r}")
-    echo "${r}: ${code}"
-  done
-  ```
-  Esperado: todas `200`.
+### A.1 — /carteira filtro de conta (~5min)
 
-### PASSO 2 — /carteira filtro de conta (~10min)
+- [ ] **A.1.1** Abrir http://localhost:8000/carteira (`Ctrl+Shift+R` se 1ª vez)
+- [ ] **A.1.2** Selector "Conta" no topo mostra **3 opções**: Todas as contas / Teste Ações XP (XPI) / Teste Renda Fixa BTG (BTG Pactual)
+- [ ] **A.1.3** DevTools (F12) console — `[carteira] acc-filter populado com 2 contas`
+- [ ] **A.1.4** Selecionar **XP** → info inline `caixa: R$ 50.000,00`
+- [ ] **A.1.5** Selecionar **BTG** → `caixa: R$ 30.000,00`
+- [ ] **A.1.6** F5 mantém seleção (localStorage `fa_carteira_account_id`)
 
-> Valida o filtro novo introduzido em commits `eaf77fb` + `9ac1bf8`.
+### A.2 — /carteira tabs render (~15min)
 
-- [ ] **2.1** Abrir http://localhost:8000/carteira (`Ctrl+Shift+R` se 1ª vez)
-- [ ] **2.2** Selector "Conta" no topo mostra **3 opções**: Todas as contas / Teste Ações XP (XPI) / Teste Renda Fixa BTG (BTG Pactual)
-- [ ] **2.3** DevTools (F12) console — deve aparecer `[carteira] acc-filter populado com 2 contas`
-- [ ] **2.4** Selecionar **Teste Ações XP** → info inline aparece `caixa: R$ 50.000,00`
-- [ ] **2.5** Selecionar **Teste Renda Fixa BTG** → `caixa: R$ 30.000,00`
-- [ ] **2.6** F5 mantém seleção (localStorage `fa_carteira_account_id`)
+**Overview (1ª, default)**:
+- [ ] **A.2.1** Iframe carrega `/overview` — 8 cards (PETR4/VALE3/ITUB4/WEGE3/BBSE3/KNRI11/BBAS3/BOVA11)
+- [ ] **A.2.2** Sparklines SVG inline aparecem (carregam via /candles)
+- [ ] **A.2.3** Filtro "Apenas BUY" reduz cards (depende ML signals — pode estar `—`)
+- [ ] **A.2.4** Seção "Últimas movimentações" no rodapé do iframe — 5 tx (das 20 do seed)
 
-### PASSO 3 — /carteira tabs com seed (~25min)
+**Contas**:
+- [ ] **A.2.5** Lista 2 contas com institution_name + apelido em **2 linhas** (BUG15 fix: bold/small)
 
-> 7 tabs com dados reais do seed.
+**Posições** (filtro = "Todas"):
+- [ ] **A.2.6** 8 linhas (PETR4 70 net, VALE3, ITUB4, WEGE3, BBSE3, KNRI11, BBAS3, BOVA11)
+- [ ] **A.2.7** Colunas: Ticker · Classe · Qtd · Preço Médio · **Atual** · **P/L** · **SL** · Total · Trades
+- [ ] **A.2.8** "Atual" preenche progressivamente (placeholder `—`)
+- [ ] **A.2.9** P/L verde/vermelho com pct embaixo
+- [ ] **A.2.10** Trocar pra "XP" → 6 linhas; "BTG" → 2 linhas
 
-**Tab Overview (1ª, default ativa)**:
-- [ ] **3.1** Iframe carrega `/overview` dentro da tab — vê cards das posições (BBSE3, ITUB4, KNRI11, PETR4, VALE3, WEGE3, BOVA11, BBAS3 — 8 cards considerando ambas contas)
-- [ ] **3.2** Sparklines, P/L, badge ML (após scheduler 18:30 BRT — pode ficar `—` agora)
-- [ ] **3.3** Filtro "Apenas BUY" reduz cards
-- [ ] **3.4** Seção "Últimas movimentações" no rodapé do iframe — 5 tx (das 20 do seed)
+**Trades**:
+- [ ] **A.2.11** Filtro "Todas" = 9 / "BTG" = 2 (BBAS3/BOVA11) / "XP" = 7
+- [ ] **A.2.12** Coluna "Conta" mostra apelido bold + institution small (BUG15)
 
-**Tab Contas**:
-- [ ] **3.5** Lista as 2 contas com institution_name + apelido em **2 linhas** (BUG15 fix: apelido bold + small institution_name embaixo)
+**Cripto**:
+- [ ] **A.2.13** Filtro "XP" → 1 linha BTC qty 0.025 avg R$ 280.000
+- [ ] **A.2.14** Botão 💰 (resgate parcial) abre prompt
 
-**Tab Posições** (com filtro = "Todas"):
-- [ ] **3.6** 8 linhas (PETR4 70 net, VALE3, ITUB4, WEGE3, BBSE3, KNRI11, BBAS3, BOVA11)
-- [ ] **3.7** Colunas: Ticker, Classe, Qtd, Preço Médio, **Atual**, **P/L**, **SL**, Total Investido, Trades
-- [ ] **3.8** "Atual" carrega via `/marketdata/candles` (placeholder `—` substituído ao chegar)
-- [ ] **3.9** P/L formatado verde/vermelho com pct embaixo
-- [ ] **3.10** Mudar filtro pra "Teste Ações XP" → 6 linhas (sem BBAS3/BOVA11)
+**Renda Fixa**:
+- [ ] **A.2.15** Filtro "BTG" → 3 títulos (CDB BTG 110%, LCI BTG 95%, Tesouro IPCA+ 2030)
 
-**Tab Trades**:
-- [ ] **3.11** Filtro "Todas" → 9 trades; filtro "BTG" → 2 trades (BBAS3 + BOVA11); filtro "XP" → 7 trades
-- [ ] **3.12** Coluna "Conta" mostra apelido bold + institution small (BUG15 fix)
+**Outros**:
+- [ ] **A.2.16** Filtro "XP" → 1 linha "Apartamento SP" R$ 450.000
 
-**Tab Cripto**:
-- [ ] **3.13** Filtro "Todas" ou "XP" → 1 linha BTC com qty 0.025, avg R$ 280.000,00
-- [ ] **3.14** Colunas Atual + P/L (pode ficar `—` se símbolo BTC sem candles)
-- [ ] **3.15** Botão 💰 (resgate) abre prompt
+### A.3 — /movimentacoes UI (~15min)
 
-**Tab Renda Fixa**:
-- [ ] **3.16** Filtro "Todas" ou "BTG" → 3 títulos (CDB BTG, LCI BTG, Tesouro IPCA+)
-- [ ] **3.17** Colunas Nome, Tipo, Emissor, Taxa, Vencimento, Investido, IR, Conta
+- [ ] **A.3.1** Abrir http://localhost:8000/movimentacoes
+- [ ] **A.3.2** Tabela mostra 20 tx
+- [ ] **A.3.3** Filtros: Conta=XP → 13 tx; Conta=BTG → 7 tx; Direção=saídas → 12 tx; Tipo=dividend → 5 tx
+- [ ] **A.3.4** Sort por coluna: clicar "Data" inverte ↑/↓; "Valor" ordena por amount
+- [ ] **A.3.5** Paginação 50/100/200/500 funciona (relevante com mais volume)
+- [ ] **A.3.6** **Export CSV**: botão 📥 baixa `movimentacoes_2026-04-26.csv` com BOM UTF-8
+- [ ] **A.3.7** Totais no rodapé refletem TODO o filtrado (não só a página)
+- [ ] **A.3.8** **5 dividendos** têm botão 🔗 amarelo (related_id=null)
+- [ ] **A.3.9** Click 🔗 em "DIVIDENDOS PETR4" → modal pede ticker → digita PETR4 → toast OK + tx vinculada
+- [ ] **A.3.10** Botão 🖨 Imprimir abre window.print
 
-**Tab Outros**:
-- [ ] **3.18** Filtro "Todas" ou "XP" → 1 linha "Apartamento SP" R$ 450.000
+### A.4 — /import C6 Dividendos (~15min)
 
-### PASSO 4 — /movimentacoes cross-account (~15min)
-
-> Página nova com seed populado (20 tx).
-
-- [ ] **4.1** Abrir http://localhost:8000/movimentacoes
-- [ ] **4.2** Tabela mostra 20 tx (paginação 100 default — só 1 página)
-- [ ] **4.3** Filtros funcionam:
-  - Conta = Teste Ações XP → 13 tx (1 deposit, 6 trade_buy, 1 trade_sell, 1 crypto_buy, 4 dividend)
-  - Conta = Teste Renda Fixa BTG → 7 tx (1 deposit, 3 rf_apply, 2 trade_buy, 1 dividend)
-  - Direção = "Saídas (-)" → 12 tx
-  - Direção = "Entradas (+)" → 8 tx
-  - Tipo = "rf_apply" → 3 tx
-  - Tipo = "dividend" → 5 tx (4 XP + 1 BTG)
-- [ ] **4.4** Sort por coluna: clicar "Data" inverte ↑/↓; clicar "Valor" ordena por amount
-- [ ] **4.5** Paginação 50/100/200/500 (só relevante com volume maior)
-- [ ] **4.6** **Export CSV**: botão 📥 baixa `movimentacoes_2026-04-26.csv` com BOM UTF-8
-- [ ] **4.7** Totais no rodapé refletem TODO o filtrado (não só a página)
-- [ ] **4.8** **Reconciliação manual**: 5 linhas de tipo `dividend` têm botão 🔗 amarelo
-- [ ] **4.9** Click 🔗 em "DIVIDENDOS PETR4" → modal pede ticker → digita PETR4 → toast OK + tx vinculada (DB: `related_id` setado)
-- [ ] **4.10** Botão 🖨 Imprimir abre window.print
-
-### PASSO 5 — /import C6 Dividendos (~15min)
-
-- [ ] **5.1** Abrir http://localhost:8000/import
-- [ ] **5.2** Card verde "💰 Importar Dividendos" presente
-- [ ] **5.3** Click → modal abre, select Conta carrega 2 opções (XP + BTG)
-- [ ] **5.4** **Sample CSV sintético**: criar `/tmp/div.csv`:
+- [ ] **A.4.1** Abrir http://localhost:8000/import
+- [ ] **A.4.2** Card verde "💰 Importar Dividendos" presente na seção "Dividendos / Rendimentos"
+- [ ] **A.4.3** Click → modal abre, select Conta carrega 2 opções (XP + BTG)
+- [ ] **A.4.4** Sample CSV sintético:
   ```bash
   cat > /tmp/div.csv << 'EOF'
   data,desc,valor
@@ -139,210 +96,249 @@
   22/04/2026,RENDIMENTO KNRI11,95.30
   EOF
   ```
-- [ ] **5.5** Selecionar conta XP + upload `/tmp/div.csv` → click "Analisar"
-- [ ] **5.6** Tabela preview mostra 3 linhas, todas **matched** (verde) — porque PETR4/ITUB4/KNRI11 existem como positions
-- [ ] **5.7** Tags summary: matched=3, ambiguous=0, unmatched=0
-- [ ] **5.8** Click "Confirmar Importação" → toast OK → `/movimentacoes` mostra 3 dividendos novos
-- [ ] **5.9** Sem pdfplumber → upload PDF deve dar 400 amigável (testar com qualquer PDF)
+- [ ] **A.4.5** Selecionar XP + upload `/tmp/div.csv` → "Analisar"
+- [ ] **A.4.6** Tabela preview mostra **3 linhas matched** (verde) — PETR4/ITUB4/KNRI11
+- [ ] **A.4.7** Tags: matched=3, ambiguous=0, unmatched=0
+- [ ] **A.4.8** "Confirmar Importação" → toast OK → /movimentacoes mostra 3 dividendos novos
+- [ ] **A.4.9** PDF sintético: erro 400 amigável se pdfplumber faltar
 
-### PASSO 6 — /alerts BUG17 fix (~5min)
+### A.5 — /alerts criar/listar/cancelar (~5min)
 
-- [ ] **6.1** Abrir http://localhost:8000/alerts
-- [ ] **6.2** Criar: ticker=PETR4, indicador=ROE, operador=`>`, threshold=15 → click Criar
-- [ ] **6.3** Toast OK, alerta aparece na lista
-- [ ] **6.4** DB:
-  ```bash
-  docker exec finanalytics_postgres psql -U finanalytics -d finanalytics \
-    -c "SELECT user_id, ticker, condition FROM indicator_alerts ORDER BY created_at DESC LIMIT 1;"
-  ```
-  Esperado: `user_id` = `09d05145-bf74-481e-ab1d-efa3ea9775b5` (NÃO `user-demo`)
-- [ ] **6.5** Listar `/api/v1/alerts/indicator` (com auth header) → retorna só os do user logado
+- [ ] **A.5.1** Abrir http://localhost:8000/alerts
+- [ ] **A.5.2** Criar: ticker=PETR4, indicador=ROE, operador=`>`, threshold=15 → "Criar"
+- [ ] **A.5.3** Toast OK, alerta aparece na lista
+- [ ] **A.5.4** Click ✕ no alerta → cancela; lista atualiza
 
-### PASSO 7 — i18n PT/EN (~10min)
+### A.6 — i18n PT/EN toggle (~10min)
 
-- [ ] **7.1** Botão `PT/EN` na topbar (esquerda do toggle 🌙/☀️)
-- [ ] **7.2** Click → cycle pra EN; localStorage `fa_locale=en`
-- [ ] **7.3** Pages que devem trocar:
+- [ ] **A.6.1** Botão `PT/EN` na topbar (esquerda do 🌙/☀️)
+- [ ] **A.6.2** Click → cycle pra EN; localStorage `fa_locale=en`
+- [ ] **A.6.3** Páginas que devem trocar:
   - `/dashboard` (tabs DT)
-  - `/carteira` (title, subtitle, tabs Overview/Posições/Trades/etc, sec titles, botões)
-  - `/movimentacoes` (filtros, colunas, totais)
+  - `/carteira` (title, subtitle, tabs Overview/Posições/Trades/Cripto/RF/Outros, sec titles, botões)
+  - `/movimentacoes` (filtros, colunas, totais, status badges)
   - `/alerts` (form labels, botões, colunas)
   - `/import` (title + 5 seções)
-  - `/screener`, `/watchlist`, `/profile`, `/admin`, `/hub`, `/macro`, `/forecast`, etc
-- [ ] **7.4** Sidebar mostra "Visão Geral" → "Overview" em EN; "Movimentações" → "Transactions"
-- [ ] **7.5** F5 mantém locale
-- [ ] **7.6** Texto NÃO marcado com `data-i18n` continua em PT (intencional)
-- [ ] **7.7** Voltar pra PT — todas mensagens revertem
+  - `/screener`, `/watchlist`, `/profile`, `/admin`, `/hub`
+  - `/macro`, `/forecast`, `/performance`, `/fundamental`, `/diario`
+  - `/backtest`, `/correlation`, `/anomaly`, `/etf`
+- [ ] **A.6.4** Sidebar mostra "Visão Geral" → "Overview" em EN; "Movimentações" → "Transactions"
+- [ ] **A.6.5** F5 mantém locale
+- [ ] **A.6.6** Texto sem `data-i18n` continua em PT (intencional — fall-through)
+- [ ] **A.6.7** Voltar pra PT — todas mensagens revertem
 
-### PASSO 8 — G4 auth refactor end-to-end (~10min)
+### A.7 — G4 auth flow visual (~5min)
 
-> 14/14 páginas migradas pra FAAuth.requireAuth.
+- [ ] **A.7.1** Logout em /dashboard (FAModal "Deseja sair?") → redirect /login
+- [ ] **A.7.2** Login com "Lembrar-me 7 dias" marcado
+- [ ] **A.7.3** Após login, /dashboard carrega chip user com email
+- [ ] **A.7.4** Acessar /carteira → mantém sessão; F5 mantém
 
-- [ ] **8.1** Logout em `/dashboard` (FAModal "Deseja sair?") → redirect `/login`
-- [ ] **8.2** Acessar `/carteira` sem token → redirect `/login`
-- [ ] **8.3** Login com "Lembrar-me 7 dias" marcado
-- [ ] **8.4** Após login, qualquer página privada respeita FAAuth
-- [ ] **8.5** Manualmente apagar `localStorage.access_token` → próxima ação faz silent refresh (se refresh_token ainda válido) ou redireciona pro login
+### A.8 — /dashboard OCO modal (sem submeter) (~15min)
 
-### PASSO 9 — /dashboard OCO modal (sem disparar ordens) (~20min)
+> Validações UI das Phases A+B+C sem disparar ordens. Pode rodar SEM pregão pq não precisa de fill.
 
-> Validações UI das Phases A+B+C sem afetar mercado.
+> Pré-requisito: ter pelo menos 1 ordem em status PendingNew. Se não tem, segunda no pregão você cria uma e testa lá. Se tiver alguma de teste anterior persistida, dá pra exercitar agora.
 
-- [ ] **9.1** Abrir `/dashboard` aba "Ordens" (lista) — pode estar vazia se sem ordens hoje
-- [ ] **9.2** Pra testar modal sem ordens reais: enviar uma ordem **simulação** distante do mercado (ex: BUY PETR4 100 @ R$10) — vai ficar PendingNew
-- [ ] **9.3** Em "Ordens" aparece com botão 🛡 (azul) + ✕ (vermelho)
-- [ ] **9.4** Click 🛡 → modal "Anexar OCO" abre
-- [ ] **9.5** **Phase A** (1 nível): TP=15 SL=8 → counter "100/100 ✓ verde"
-- [ ] **9.6** **Phase B** (split): click "+ nível" → 2º com qty=0; editar qty 60/40 → confirmar OK
-- [ ] **9.7** Validação sum: 50/40 (=90) → bloqueia com mensagem
-- [ ] **9.8** Validação proteção: nível com TP+SL ambos desmarcados → erro
-- [ ] **9.9** **Phase C Trailing**: checkbox "🔄 TRAILING" → trail-box revela
-- [ ] **9.10** Radio R$ ↔ % muda placeholder
-- [ ] **9.11** Trailing sem SL marcado → erro "trailing requer SL marcado"
-- [ ] **9.12** Submit envia POST `/api/v1/agent/order/attach_oco` — retorna `{ok:true,group_id:...}` se profit_agent restartado, ou `{"error":"not found"}` se ainda código antigo
-- [ ] **9.13** Cancelar a ordem mãe (✕) — limpa o teste
+- [ ] **A.8.1** Abrir /dashboard aba "Ordens"
+- [ ] **A.8.2** Em ordem com botão 🛡 (azul) → click abre modal "Anexar OCO"
+- [ ] **A.8.3** **Phase A**: 1 nível com TP=52 SL=47 → counter "X/X ✓ verde"
+- [ ] **A.8.4** **Phase B**: click "+ nível" → 2º com qty=0; editar qty 60/40 → confirmar OK no counter
+- [ ] **A.8.5** Validação sum: tentar 50/40 (=90) → bloqueia com "Soma das qty (90) deve bater parent.qty (X)"
+- [ ] **A.8.6** Validação proteção: nível com TP+SL ambos desmarcados → erro "Nível N: marque ao menos TP ou SL"
+- [ ] **A.8.7** **Phase C Trailing**: checkbox "🔄 TRAILING (Phase C)" → trail-box revela
+- [ ] **A.8.8** Radio R$ ↔ % muda placeholder do input
+- [ ] **A.8.9** Trailing sem SL marcado → erro "trailing requer SL marcado"
+- [ ] **A.8.10** **NÃO submeter** — clicar "Cancelar"
 
----
+### A.9 — /dashboard outras tabs (~10min)
 
-## 🟡 PASSO 10 — Pré-pregão (executar antes de segunda 10h BRT) (~10min)
+- [ ] **A.9.1** Tab **Order** renderiza form (sem enviar)
+- [ ] **A.9.2** Tab **OCO** legacy renderiza
+- [ ] **A.9.3** Tab **Pos.** renderiza search ticker + lista assets
+- [ ] **A.9.4** Tab **List** = Ordens (já testado A.8)
+- [ ] **A.9.5** Tab **Signals** mostra ML signals (sub-tabs Live/Hist/Mudanças)
+- [ ] **A.9.6** Tab **Conta** mostra contas + ativa DLL
 
-> **Necessário** pra Bloco B funcionar.
+### A.10 — Smoke visual 14 páginas (~15min)
 
-- [ ] **10.1** Restart `profit_agent` (Windows host) com código novo (Phase A+B+C+D + ML refactor):
-  ```powershell
-  $pid = (Get-NetTCPConnection -LocalPort 8002 -State Listen).OwningProcess
-  Stop-Process -Id $pid -Force  # pode pedir admin
-  Start-Process -FilePath ".venv\Scripts\python.exe" `
-    -ArgumentList "src\finanalytics_ai\workers\profit_agent.py" `
-    -WindowStyle Hidden -RedirectStandardOutput ".profit_agent.log"
-  ```
-- [ ] **10.2** Aguardar 10s → testar rotas novas:
-  ```bash
-  curl -s http://localhost:8000/api/v1/agent/oco/groups
-  # esperado: {"groups":[],"count":0}
-  curl -s http://localhost:8000/api/v1/agent/oco/state/reload
-  # esperado: {"ok":true,"groups_loaded":0}
-  ```
-- [ ] **10.3** `tail -f .profit_agent.log` — deve aparecer `oco_groups_monitor.started`, `trail_monitor.started`, `oco.state_loaded groups=0`
-- [ ] **10.4** Conta DLL re-conectada (verificar via `/profile` aba Contas — DLL ATIVA)
+> Já testado HTTP 200. Aqui é só passar o olho em cada uma.
 
----
-
-## 🔴 BLOCO B — Pregão aberto (segunda 27/abr 10h-18h BRT)
-
-### PASSO 11 — DT básico (~30min)
-
-- [ ] **11.1** **Cancel order** (BUG7 fix): BUY PETR4 R$30 longe → ✕ → CANCELED em ~5s; fallback `/positions/dll` em 10s
-- [ ] **11.2** **Aba Ordem**: BUY PETR4 100 @ Market → toast ok + aparece em Ordens
-- [ ] **11.3** **Aba OCO** (legacy): TP 35 + SL 28 stop_limit 27.50 → ordem em "Ordens" + polling
-- [ ] **11.4** **Aba Pos.**: search PETR4 → GetPositionV2 traz preço médio + qty
-- [ ] **11.5** **Cotação live PETR4**: profit_agent :8002/quotes (subscrito) → Yahoo → BRAPI (Decisão 20)
-- [ ] **11.6** Aba Trades em /carteira: criar BUY/SELL → confirma trade chega no DLL + status reflete em /positions
-
-### PASSO 12 — OCO Phase A end-to-end (~20min)
-
-- [ ] **12.1** Limit BUY PETR4 100 @ R$30 longe → enviar (PendingNew)
-- [ ] **12.2** Click 🛡 → modal → TP=52, SL=28, SL limit=27.50 → "Anexar OCO"
-- [ ] **12.3** Toast: "OCO anexado · group XXXXXXXX · 1 nível(eis)"
-- [ ] **12.4** DB: `SELECT status, parent_order_id FROM profit_oco_groups` → 1 row `awaiting`
-- [ ] **12.5** `/api/v1/agent/oco/groups` → 1 group; `/oco/groups/{id}` → mostra parent + 1 level
-- [ ] **12.6** Reduzir preço da mãe pra fillar → status vira `active` ou `partial`
-- [ ] **12.7** TP/SL gerados aparecem em "Ordens"
-- [ ] **12.8** Log profit_agent: `oco_group.dispatched group=... filled=N/M levels=K`
-
-### PASSO 13 — OCO Phase B Splits (~15min)
-
-- [ ] **13.1** Limit BUY VALE3 100 @ valor longe → pending
-- [ ] **13.2** 🛡 OCO → +nível, qty 60/40, TP1=72 SL1=58, TP2=75 SL2=58 → confirma
-- [ ] **13.3** DB: 2 rows em `profit_oco_levels` com `level_idx` 1 e 2
-- [ ] **13.4** Validação sum: tentar com 50/40 → mensagem `Soma das qty (90) deve bater parent.qty (100)`
-
-### PASSO 14 — OCO Phase C Trailing (~25min)
-
-- [ ] **14.1** **Trail R$**: BUY PETR4 100 @ market → fill imediato; OCO 1 nível: TP=35 SL=28 + ☑ Trailing R$ 0,50
-- [ ] **14.2** Mover preço pra +R$ 1 → log `trailing.adjusted group=... lv=1 hw=31.0000 new_sl=30.5000`
-- [ ] **14.3** **Trail %**: OCO com Trailing 1.5% (radio %) em VALE3; mover +2% → SL atualiza proporcionalmente
-- [ ] **14.4** **Immediate trigger** (Decisão 6): OCO com SL trigger 50 (acima do last 48), trailing R$ 0,50 → log `trailing.immediate_trigger`; market sell disparada imediato
-
-### PASSO 15 — OCO Phase D persistence + cancel manual (~15min)
-
-- [ ] **15.1** Com 1+ group active → restart profit_agent (admin)
-- [ ] **15.2** Log inicial: `oco.state_loaded groups=N levels=M order_index=K`
-- [ ] **15.3** `/api/v1/agent/oco/groups` retorna mesmos groups, status preservado
-- [ ] **15.4** Cross-cancel continua funcionando após restart (TP fill → SL cancela)
-- [ ] **15.5** **Cancel manual**: `POST /api/v1/agent/oco/groups/{group_id}/cancel` → resposta `{ok:true, cancelled_orders:N}`; DB `status='cancelled'` + `completed_at` setado
-
-### PASSO 16 — Tick-dependent + reconcile (~20min)
-
-- [ ] **16.1** Aviso saldo insuficiente antes de confirmar trade BUY (UI guard real-time)
-- [ ] **16.2** Indicadores em `/marketdata?ticker=PETR4` — RSI/MACD/Bollinger reflete tick recente
-- [ ] **16.3** `/dashboard` painel ML signals Live: tickers com BUY/SELL atualizados
-- [ ] **16.4** DI1 realtime: `di1_tick_age_high` deve ficar resolved durante pregão (tick < 120s)
-- [ ] **16.5** Scheduler `reconcile_loop` (a cada 5min em 10h-18h BRT) executa
-- [ ] **16.6** Order enviada via dashboard → após 5min, status no DB confere com DLL
+- [ ] **A.10.1** /dashboard (já em A.8/A.9)
+- [ ] **A.10.2** /carteira (já em A.1/A.2)
+- [ ] **A.10.3** /movimentacoes (já em A.3)
+- [ ] **A.10.4** /alerts (já em A.5)
+- [ ] **A.10.5** /import (já em A.4)
+- [ ] **A.10.6** /screener — input filtros + Executar Screener
+- [ ] **A.10.7** /watchlist — adicionar ticker, listar
+- [ ] **A.10.8** /admin — tabela users
+- [ ] **A.10.9** /hub — status serviços (admin-only)
+- [ ] **A.10.10** /performance — KPIs (precisa portfolio com dados — pode aparecer vazio)
+- [ ] **A.10.11** /diario — botão "+ Novo Trade"
+- [ ] **A.10.12** /fundamental — gerar relatório
+- [ ] **A.10.13** /forecast — controls
+- [ ] **A.10.14** /macro — snap grid
 
 ---
 
-## 🟠 BLOCO C — Pushover (precisa celular ligado com app)
+## 🔴 BLOCO B — Pregão ABERTO (segunda 27/abr 10h-18h BRT, ~3h)
 
-- [ ] **17.1** Grafana UI → Alerting → rule → "Test" → push chega no celular
-- [ ] **17.2** `di1_tick_age_high` firing fora pregão → critical com siren (priority=1)
-- [ ] **17.3** Alerta indicador em `/alerts` prestes a disparar → push normal (priority=0)
-- [ ] **17.4** Escalation: parar profit_agent 25min → 5 reconcile errors → critical
+> Precisa DLL aceitar ordem viva ou tick real fluindo.
+
+> ✅ **Pré-requisito JÁ FEITO**: profit_agent rodando com Phase A+B+C+D (validado no batch — descoberta `5cf12d0` ativo).
+
+### B.1 — DT cancel order (~5min)
+
+- [ ] **B.1.1** Limit BUY PETR4 R$30 (longe do mercado) → enviar (PendingNew)
+- [ ] **B.1.2** Em "Ordens" → click ✕
+- [ ] **B.1.3** Status CANCELED em ~5s (polling 600/2000/5000ms)
+- [ ] **B.1.4** Fallback `/positions/dll` em 10s consolida estado
+
+### B.2 — DT enviar ordem real (~5min)
+
+- [ ] **B.2.1** Aba Ordem: BUY PETR4 100 @ Market simulação → toast ok
+- [ ] **B.2.2** Aparece em Ordens com status FILLED
+- [ ] **B.2.3** Aba Pos. mostra posição
+
+### B.3 — OCO legacy (~10min)
+
+- [ ] **B.3.1** Aba OCO: TP 35 + SL 28 stop_limit 27.50 → enviar
+- [ ] **B.3.2** Ordem em "Ordens" + polling automático monitora par
+- [ ] **B.3.3** Quando uma perna fillar, outra cancela auto
+
+### B.4 — GetPositionV2 (~5min)
+
+- [ ] **B.4.1** Aba Pos. → search PETR4
+- [ ] **B.4.2** Retorna preço médio + qty real-time
+
+### B.5 — Cotação live PETR4 (~5min)
+
+- [ ] **B.5.1** Cotação aparece em /dashboard
+- [ ] **B.5.2** Origem: profit_agent /quotes (DLL subscrita) primeiro
+- [ ] **B.5.3** Fallback Yahoo/BRAPI se profit_agent vazio (Decisão 20)
+
+### B.6 — OCO Phase A end-to-end (~15min)
+
+- [ ] **B.6.1** Limit BUY PETR4 100 @ R$30 longe → enviar
+- [ ] **B.6.2** Click 🛡 → modal → TP=52, SL=28 limit=27.50 → "Anexar OCO"
+- [ ] **B.6.3** Toast: "OCO anexado · group XXXXXXXX · 1 nível(eis)"
+- [ ] **B.6.4** DB: `SELECT status, parent_order_id FROM profit_oco_groups` → 1 row `awaiting`
+- [ ] **B.6.5** `/api/v1/agent/oco/groups` retorna 1 group
+- [ ] **B.6.6** Reduzir preço da mãe pra fillar
+- [ ] **B.6.7** Status vira `active` ou `partial`; TP+SL aparecem em "Ordens"
+- [ ] **B.6.8** Log profit_agent: `oco_group.dispatched group=... filled=N/M levels=K`
+
+### B.7 — OCO Phase B Splits (~15min)
+
+- [ ] **B.7.1** Limit BUY VALE3 100 @ valor longe → pending
+- [ ] **B.7.2** 🛡 OCO → "+ nível", qty 60/40, TP1=72 SL1=58, TP2=75 SL2=58 → confirma
+- [ ] **B.7.3** DB: 2 rows em `profit_oco_levels` com level_idx 1 e 2
+- [ ] **B.7.4** Validação sum: tentar 50/40 → mensagem `Soma das qty (90) deve bater parent.qty (100)`
+
+### B.8 — OCO Phase C Trailing R$ (~15min)
+
+- [ ] **B.8.1** BUY PETR4 100 @ market → fill imediato
+- [ ] **B.8.2** OCO 1 nível: TP=35 SL=28 + ☑ Trailing R$ 0,50 → confirmar
+- [ ] **B.8.3** Mover preço pra +R$ 1 (PETR4 sobe pra ~31)
+- [ ] **B.8.4** Log: `trailing.adjusted group=... lv=1 hw=31.0000 new_sl=30.5000`
+- [ ] **B.8.5** SL trigger no DB ajusta pra 30.50
+
+### B.9 — OCO Phase C Trailing % (~10min)
+
+- [ ] **B.9.1** OCO em VALE3 com Trailing 1.5% (radio %)
+- [ ] **B.9.2** Mover preço +2% → SL trigger atualiza proporcionalmente
+
+### B.10 — OCO Phase C Immediate trigger (~10min)
+
+- [ ] **B.10.1** OCO com SL trigger 50 (ACIMA do last 48 — long, sell), trailing R$ 0,50
+- [ ] **B.10.2** Já no submit: log `trailing.immediate_trigger group=... lv=N last=48 trigger=50 side=2`
+- [ ] **B.10.3** Ordem market sell disparada imediato pra fechar
+- [ ] **B.10.4** DB: `sl_status='sent'` com novo `sl_order_id` (market)
+
+### B.11 — OCO Phase D Cross-cancel live (~15min)
+
+- [ ] **B.11.1** Group active com 2+ níveis
+- [ ] **B.11.2** Mover preço pra cima do TP1 → fillar
+- [ ] **B.11.3** Log: `oco.tp_filled→sl_cancel group=... lv=1`
+- [ ] **B.11.4** Level 1 SL = `cancelled` no DB
+- [ ] **B.11.5** Group continua `partial` enquanto outros níveis ativos
+- [ ] **B.11.6** Repetir até último nível → `completed`, `completed_at` setado
+
+### B.12 — OCO Phase D Persistence + restart (~15min)
+
+- [ ] **B.12.1** Com 1+ group active no DB, parar profit_agent (admin)
+- [ ] **B.12.2** Subir novo: `Start-Process .venv\Scripts\python.exe ...`
+- [ ] **B.12.3** Log inicial: `oco.state_loaded groups=N levels=M order_index=K`
+- [ ] **B.12.4** `/api/v1/agent/oco/groups` retorna mesmos groups, status preservado
+- [ ] **B.12.5** Cross-cancel continua funcionando após restart
+
+### B.13 — Cancel manual de group (~5min)
+
+- [ ] **B.13.1** Group active → `POST /api/v1/agent/oco/groups/{group_id}/cancel`
+- [ ] **B.13.2** Resposta: `{ok:true, cancelled_orders:N}` (TP+SL pending)
+- [ ] **B.13.3** DB: `status='cancelled'`, `completed_at` setado
+- [ ] **B.13.4** Aba Ordens: TP e SL daquele group ficam CANCELED
+
+### B.14 — Indicadores tick-dependent (~10min)
+
+- [ ] **B.14.1** /marketdata?ticker=PETR4 — RSI/MACD/Bollinger reflete tick recente
+- [ ] **B.14.2** /dashboard painel ML signals Live: tickers atualizados pós-pregão
+
+### B.15 — DI1 realtime (~5min)
+
+- [ ] **B.15.1** `di1_tick_age_high` deve ficar **resolved** durante pregão (tick < 120s)
+- [ ] **B.15.2** Grafana dashboard DI1: 3 painéis com dados frescos
+
+### B.16 — Reconcile loop scheduler (~10min)
+
+- [ ] **B.16.1** Scheduler `reconcile_loop` (a cada 5min em 10h-18h BRT) executa
+- [ ] **B.16.2** Order enviada via dashboard → após 5min, status no DB confere com DLL
+- [ ] **B.16.3** Se DLL retorna order com status diff, log `reconcile.discrepancy.fixed`
+
+### B.17 — Trade /carteira → DLL (~10min)
+
+- [ ] **B.17.1** Aba Trades em /carteira: criar BUY/SELL
+- [ ] **B.17.2** Trade chega no DLL (verifica em /positions)
+- [ ] **B.17.3** Status reflete em /positions
 
 ---
 
-## 🟠 BLOCO D — Sudo manual (você presente, fora pregão)
+## 🟠 BLOCO C — Outras dependências (não pregão)
 
-- [ ] **18.1** Endpoint `POST /api/v1/agent/restart` com `require_sudo` → 401 + `X-Sudo-Required: true` sem token
-- [ ] **18.2** FASudo.confirm prompt → senha → POST com header → 200
-- [ ] **18.3** Health `:8002/health` volta em <10s após restart
-- [ ] **18.4** Conta DLL re-conectada automaticamente
-- [ ] **18.5** Phase D log: `oco.state_loaded groups=N` mostra groups in-flight recarregados
-- [ ] **18.6** Auto-reconnect TimescaleDB: down 20min → reconnect lazy
-- [ ] **18.7** Log throttled: TICK_V1 callback error usa contador (count=21001, 22001 — Sprint Backend V1)
+### C.1 — Pushover (precisa celular ligado com app) (~15min)
 
----
+- [ ] **C.1.1** Grafana UI → Alerting → rule → "Test" → push chega no celular
+- [ ] **C.1.2** `di1_tick_age_high` firing fora pregão → critical com siren (priority=1)
+- [ ] **C.1.3** Alerta indicador em /alerts prestes a disparar → push normal (priority=0)
+- [ ] **C.1.4** Escalation: parar profit_agent 25min → 5 reconcile errors → critical
 
-## 🔵 BLOCO E — Samples reais BTG/XP (você fornecer arquivos)
+### C.2 — Sudo manual (você presente, fora pregão) (~30min)
 
-> C6 Fase 5 — validação real após Bloco A passar.
+- [ ] **C.2.1** Endpoint `POST /api/v1/agent/restart` com `require_sudo` → 401 + `X-Sudo-Required: true` sem token
+- [ ] **C.2.2** FASudo.confirm prompt → senha → POST com header → 200
+- [ ] **C.2.3** Health `:8002/health` volta em <10s após restart
+- [ ] **C.2.4** Conta DLL re-conectada automaticamente
+- [ ] **C.2.5** Phase D log: `oco.state_loaded groups=N` recarregado
+- [ ] **C.2.6** Auto-reconnect TimescaleDB: down 20min → reconnect lazy
+- [ ] **C.2.7** Log throttled: TICK_V1 callback error (count=21001, 22001 — Sprint Backend V1)
 
-- [ ] **19.1** Sample CSV BTG → `/import` Dividendos → preview matched ≥80%
-- [ ] **19.2** Sample OFX BTG → idem
-- [ ] **19.3** Sample PDF BTG (se houver) → `parse_pdf` extrai e classifica
-- [ ] **19.4** Sample CSV/OFX/PDF XP → idem
-- [ ] **19.5** Edge cases reais: linhas com R$ + IRRF, datas exóticas, tickers com sufixo (PETR4F), valores negativos (devolução)
-- [ ] **19.6** Após validação, **importar dados reais** dos investimentos (substitui dados teste do seed) — gatilho da migração final
+### C.3 — Samples reais BTG/XP (você fornecer) (~30min)
 
----
+- [ ] **C.3.1** Sample CSV BTG real → /import preview matched ≥80%
+- [ ] **C.3.2** Sample OFX BTG → idem
+- [ ] **C.3.3** Sample PDF BTG (se houver) → parse_pdf extrai e classifica
+- [ ] **C.3.4** Sample CSV/OFX/PDF XP → idem
+- [ ] **C.3.5** Edge cases reais: linhas com R$ + IRRF, datas exóticas, tickers com sufixo (PETR4F), valores negativos
+- [ ] **C.3.6** Após validação OK: **importar dados reais** dos investimentos (substitui seed teste)
 
-## ⚫ BLOCO F — Externo (bloqueado por terceiros)
+### C.4 — Bloqueado externo (~48h após pedido)
 
-### PASSO 20 — Nelogica 1m bars (~48h após pedido)
-
-- [ ] **20.1** Quando arquivo chegar: rodar `runbook_import_dados_historicos.md`
-- [ ] **20.2** `scripts/import_historical_1m.py` → `ohlc_1m` (source='nelogica_1m')
-- [ ] **20.3** `populate_daily_bars.py --source 1m` → `profit_daily_bars`
-- [ ] **20.4** `resample_ohlc.py` 5m/15m/30m/60m → `ohlc_resampled`
-
-### PASSO 21 — Z5 ML multi-horizon (após Nelogica)
-
-- [ ] **21.1** Adaptar `retrain_top20_h21.py` pra h3, h5, h21
-- [ ] **21.2** Treinar pickles para top tickers em cada horizon
-- [ ] **21.3** `/api/v1/ml/predict_ensemble` ganha utilidade real (multi-horizon)
-- [ ] **21.4** Validar via `/dashboard` Aba Signals e `/overview` ML badge
-
----
-
-## Status atual (26/abr/2026 madrugada)
-
-- ✅ **53 commits** acumulados no fds (super sessão)
-- ✅ **DB seedado** com 2 contas teste (commit `7555662`)
-- ✅ **Backend** deployado: API container restartado, rotas novas live (`/oco/*`, `/wallet/transactions`, `/wallet/transactions/{id}/reconcile`, `/import/dividends/*`)
-- ✅ **Frontend** deployado: SW v43, 42 páginas com i18n, /carteira refatorada (filtro conta + Overview tab + sem portfolio selector)
-- ⚠️ **profit_agent**: deployado em disco mas precisa restart pra Phase A+B+C+D ativarem (Passo 10)
-- ⚠️ **dashboard.html G4**: migrado, validar Passo 8
+- [ ] **C.4.1** Nelogica 1m bars chegarem
+- [ ] **C.4.2** Importar via `scripts/import_historical_1m.py` → `ohlc_1m`
+- [ ] **C.4.3** `populate_daily_bars.py --source 1m` → `profit_daily_bars`
+- [ ] **C.4.4** `resample_ohlc.py` 5m/15m/30m/60m → `ohlc_resampled`
+- [ ] **C.4.5** Treinar pickles ML h3/h5/h21 (Z5)
+- [ ] **C.4.6** `/api/v1/ml/predict_ensemble` ganha multi-horizon real
 
 ---
 
@@ -358,7 +354,7 @@ docker exec finanalytics_timescale psql -U finanalytics -d market_data -c \
 ```bash
 docker exec finanalytics_postgres psql -U finanalytics -d finanalytics -c \
   "SELECT 'accounts' AS tbl, count(*) FROM investment_accounts
-   UNION ALL SELECT 'portfolios', count(*) FROM portfolios
+   UNION ALL SELECT 'positions', count(*) FROM positions
    UNION ALL SELECT 'trades', count(*) FROM trades
    UNION ALL SELECT 'crypto', count(*) FROM crypto_holdings
    UNION ALL SELECT 'rf', count(*) FROM rf_holdings
@@ -377,6 +373,28 @@ docker exec -i finanalytics_postgres psql -U finanalytics -d finanalytics \
   < scripts/seed_test_accounts.sql
 ```
 
+### Restart profit_agent (Windows host, admin)
+```powershell
+$pid = (Get-NetTCPConnection -LocalPort 8002 -State Listen).OwningProcess
+Stop-Process -Id $pid -Force
+Start-Process -FilePath ".venv\Scripts\python.exe" `
+  -ArgumentList "src\finanalytics_ai\workers\profit_agent.py" `
+  -WindowStyle Hidden -RedirectStandardOutput ".profit_agent.log"
+```
+
 ---
 
-**Próximo gatilho**: você executa Passos 0-9 agora (~1h45 total). Reporta achados (qualquer FAIL) inline. Passo 10 (restart agent) hoje à tarde ou domingo. Bloco B (passos 11-16) segunda 27/abr no pregão.
+## Resumo executivo
+
+| Bloco | Quando | Sub-itens | Tempo |
+|---|---|---|---|
+| 🟢 **A** Pregão fechado | agora | 10 seções (~64 checks) | ~1h50 |
+| 🔴 **B** Pregão aberto | seg 27/abr 10h-18h BRT | 17 seções (~50 checks) | ~3h |
+| 🟠 **C.1** Pushover | celular ligado | 4 checks | ~15min |
+| 🟠 **C.2** Sudo presencial | você presente | 7 checks | ~30min |
+| 🔵 **C.3** Samples reais | você fornecer | 6 checks | ~30min |
+| ⚫ **C.4** Externo | Nelogica chegar | 6 checks | — |
+
+**Validações backend já 100% verdes** (commit `7fe44ff`) — falta só UI/visual + pregão.
+
+**Próximo gatilho**: você executa Bloco A (~1h50, qualquer hora). Reporta inline qualquer FAIL pra eu corrigir na hora. Bloco B segunda 27/abr no pregão.
