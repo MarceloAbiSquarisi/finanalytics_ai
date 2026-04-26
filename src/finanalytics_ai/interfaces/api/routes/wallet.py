@@ -544,10 +544,14 @@ async def delete_trade(trade_id: str, user: User = Depends(get_current_user)) ->
 async def get_positions(
     asset_class: str | None = None,
     portfolio_id: str | None = None,
+    account_id: str | None = None,
     user: User = Depends(get_current_user),
 ) -> list[dict]:
     return await _repo().get_positions_summary(
-        str(user.user_id), asset_class, portfolio_id=portfolio_id
+        str(user.user_id),
+        asset_class,
+        portfolio_id=portfolio_id,
+        account_id=account_id,
     )
 
 
@@ -556,9 +560,13 @@ async def get_positions(
 
 @router.get("/crypto")
 async def list_crypto(
-    portfolio_id: str | None = None, user: User = Depends(get_current_user)
+    portfolio_id: str | None = None,
+    account_id: str | None = None,
+    user: User = Depends(get_current_user),
 ) -> list[dict]:
-    return await _repo().list_crypto(str(user.user_id), portfolio_id=portfolio_id)
+    return await _repo().list_crypto(
+        str(user.user_id), portfolio_id=portfolio_id, account_id=account_id
+    )
 
 
 @router.put("/crypto", status_code=status.HTTP_200_OK)
@@ -603,9 +611,15 @@ async def delete_crypto(crypto_id: str, user: User = Depends(get_current_user)) 
 async def list_other(
     asset_type: str | None = None,
     portfolio_id: str | None = None,
+    account_id: str | None = None,
     user: User = Depends(get_current_user),
 ) -> list[dict]:
-    return await _repo().list_other_assets(str(user.user_id), asset_type, portfolio_id=portfolio_id)
+    return await _repo().list_other_assets(
+        str(user.user_id),
+        asset_type,
+        portfolio_id=portfolio_id,
+        account_id=account_id,
+    )
 
 
 @router.post("/other", status_code=status.HTTP_201_CREATED)

@@ -277,8 +277,14 @@ tr:hover td{background:rgba(0,212,255,.02)}
   <div class="page-sub" data-i18n="carteira.subtitle">Gerencie seus ativos, contas de investimento e acompanhe o preço médio.
 </div>
 
-  <!-- Portfolio selector REMOVIDO 26/abr (refactor) — /carteira agora mostra agregado de todas as carteiras do user. -->
-  <!-- Carteira é 1:1 com conta de investimento; tabs internas (Overview, Posições, etc) são as "carteiras" lógicas. -->
+  <!-- Filtro de Conta (26/abr) — default 'Todas' agrega tudo. -->
+  <div id="acc-filter-bar" style="display:flex;align-items:center;gap:12px;margin:10px 0 18px;padding:10px 14px;background:var(--s1);border:1px solid var(--border);border-radius:8px;flex-wrap:wrap">
+    <span style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600" data-i18n="carteira.filter.account">Conta</span>
+    <select id="acc-filter" onchange="onAccountChange()" style="background:var(--s2);border:1px solid var(--border2);border-radius:5px;color:var(--text);font-size:14px;padding:6px 10px;outline:none;font-family:inherit;min-width:240px">
+      <option value="" data-i18n="carteira.filter.all_accounts">Todas as contas</option>
+    </select>
+    <span id="acc-filter-info" style="font-size:13px;color:var(--muted);font-family:monospace"></span>
+  </div>
 
 
   <!-- Summary -->
@@ -667,15 +673,80 @@ function gain(cur, inv) {
   const g = cur - inv; const pct = g/inv*100;
   return `<span class="${g>=0?'val-pos':'val-neg'}">${g>=0?'+':''}${fmt(g)} (${pct.toFixed(1)}%)</span>`;
 }
-// Portfolio selector REMOVIDO 26/abr — /carteira agora agrega tudo do user.
-// api() simplificado: sem portfolio_id na query/body. Backend retorna todas as
-// posições/trades/crypto do user logado via JWT.
+// Filtro de conta (26/abr) — substitui antigo portfolio selector.
+// Default = '' (todas as contas); persistido em localStorage.
+let _currentAccountId = localStorage.getItem('fa_carteira_account_id') || '';
+
+function _appendAccountQS(path) {
+  if (!_currentAccountId) return path;
+  // /accounts (lista contas) não filtra por conta — sempre todas
+  if (path.startsWith('/accounts')) return path;
+  const sep = path.includes('?') ? '&' : '?';
+  return path + sep + 'account_id=' + encodeURIComponent(_currentAccountId);
+}
 
 async function api(path, opts={}) {
   // Sprint UI G (21/abr): delega para FAErr.fetchJson — error toast
-  // + correlation_id automaticos.
+  // + correlation_id automaticos. Injeta account_id quando filtro ativo.
   opts.headers = { ...authHeader(), ...(opts.headers || {}) };
-  return FAErr.fetchJson(API + path, opts);
+  return FAErr.fetchJson(API + _appendAccountQS(path), opts);
+}
+
+function _refreshAccountInfo() {
+  const info = document.getElementById('acc-filter-info');
+  if (!info) return;
+  if (!_currentAccountId) {
+    info.textContent = '(mostrando dados de todas as contas)';
+    return;
+  }
+  const a = (accounts || []).find(x => x.id === _currentAccountId);
+  if (!a) { info.textContent = ''; return; }
+  const cash = parseFloat(a.cash_balance || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2});
+  info.textContent = `caixa: R$ ${cash}`;
+}
+
+async function onAccountChange() {
+  _currentAccountId = document.getElementById('acc-filter').value;
+  if (_currentAccountId) localStorage.setItem('fa_carteira_account_id', _currentAccountId);
+  else localStorage.removeItem('fa_carteira_account_id');
+  _refreshAccountInfo();
+  // Recarrega aba ativa
+  const activeTab = document.querySelector('.tab.active');
+  if (activeTab) {
+    const tabs = ['overview','contas','posicoes','trades','crypto','rf','outros'];
+    const idx = Array.from(document.querySelectorAll('.tab')).indexOf(activeTab);
+    const name = tabs[idx];
+    if (name === 'posicoes') loadPositions();
+    if (name === 'trades') loadTrades();
+    if (name === 'crypto') loadCrypto();
+    if (name === 'outros') loadOther();
+    // overview é iframe, não precisa reload (mostra todas as fontes)
+    // contas sempre mostra todas (não filtra)
+  }
+}
+
+function _populateAccountFilter() {
+  const sel = document.getElementById('acc-filter');
+  if (!sel || !accounts || !accounts.length) return;
+  // Reset (mantém option "Todas as contas")
+  const allOpt = sel.options[0];
+  sel.innerHTML = '';
+  sel.appendChild(allOpt);
+  accounts.forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a.id;
+    const lbl = a.apelido || a.titular || a.institution_name || a.id.slice(0, 8);
+    opt.textContent = a.institution_name && a.apelido ? `${lbl} (${a.institution_name})` : lbl;
+    sel.appendChild(opt);
+  });
+  // Restaura seleção do localStorage se ainda válida
+  if (_currentAccountId && accounts.some(a => a.id === _currentAccountId)) {
+    sel.value = _currentAccountId;
+  } else {
+    _currentAccountId = '';
+    localStorage.removeItem('fa_carteira_account_id');
+  }
+  _refreshAccountInfo();
 }
 function showMsg(id, text, type='error') {
   const el = document.getElementById(id); el.textContent = text;
@@ -734,6 +805,7 @@ async function loadAccounts() {
   FALoading.tableRows(tbody, { rows: 3, cols: 8 });
   try {
     accounts = await api('/accounts');
+    _populateAccountFilter();  // popula filtro topo após accounts carregar
     if (!accounts.length) {
       FAEmpty.tableRow(tbody, { colspan: 8, title: 'Nenhuma conta cadastrada',
         text: 'Cadastre sua primeira conta de corretora ou banco para começar.',
