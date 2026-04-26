@@ -295,6 +295,28 @@ class FintzRepo:
             for r in rows
         ]
 
+    async def list_tickers(self, dataset: str = "cotacoes") -> list[str]:
+        """Lista tickers únicos disponíveis num dataset Fintz (BUG19 fix 26/abr).
+
+        dataset:
+          - 'cotacoes' → fintz_cotacoes
+          - 'indicadores' → fintz_indicadores
+          - 'itens' → fintz_itens_contabeis
+        """
+        table_map = {
+            "cotacoes": "fintz_cotacoes",
+            "indicadores": "fintz_indicadores",
+            "itens": "fintz_itens_contabeis",
+        }
+        table = table_map.get(dataset)
+        if not table:
+            raise ValueError(f"dataset desconhecido: {dataset}")
+        sql = text(f"SELECT DISTINCT ticker FROM {table} ORDER BY ticker")
+        async with get_session() as session:
+            result = await session.execute(sql)
+            rows = result.fetchall()
+        return [r.ticker for r in rows if r.ticker]
+
     async def get_cotacoes(
         self,
         ticker: str,
