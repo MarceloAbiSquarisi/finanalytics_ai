@@ -1331,28 +1331,19 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 </div>
 </div>
 
-<!-- Modal Attach OCO (Phase A) -->
+<!-- Modal Attach OCO (Phase A + B splits) -->
 <div class="modal" id="modal-attach-oco">
-  <div class="mbox" style="width:440px">
+  <div class="mbox" style="width:520px;max-height:90vh;overflow-y:auto">
     <div class="mtitle">🛡 Anexar OCO</div>
     <div id="oco-parent-info" style="font-size:12px;color:var(--muted);margin-bottom:12px"></div>
 
-    <div class="mfld">
-      <label style="display:flex;align-items:center;gap:6px">
-        <input type="checkbox" id="oco-enable-tp" checked style="width:auto;margin:0"> TAKE PROFIT
-      </label>
-      <input id="oco-tp" type="number" step="0.01" placeholder="Preço alvo (ex: 52.00)">
-    </div>
+    <div id="oco-levels-container"></div>
 
-    <div class="mfld">
-      <label style="display:flex;align-items:center;gap:6px">
-        <input type="checkbox" id="oco-enable-sl" checked style="width:auto;margin:0"> STOP LOSS
-      </label>
-      <input id="oco-sl-trigger" type="number" step="0.01" placeholder="Preço gatilho (ex: 47.00)">
-      <input id="oco-sl-limit" type="number" step="0.01" placeholder="Preço limite (default = trigger)" style="margin-top:6px">
-    </div>
+    <button onclick="addOcoLevel()" style="background:rgba(58,191,248,.15);border:1px dashed var(--blue,#3abff8);color:var(--blue,#3abff8);cursor:pointer;width:100%;padding:6px;border-radius:6px;font-size:12px;margin-top:6px">+ nível (split parcial)</button>
 
-    <div id="oco-msg" style="font-size:11px;color:var(--red);min-height:14px;margin-bottom:6px"></div>
+    <div id="oco-totals" style="font-size:12px;color:var(--muted);margin-top:10px;text-align:right"></div>
+
+    <div id="oco-msg" style="font-size:11px;color:var(--red);min-height:14px;margin:6px 0"></div>
 
     <div class="mbtns">
       <button class="btn-x" onclick="closeAttachOcoModal()">Cancelar</button>
@@ -1360,6 +1351,20 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     </div>
   </div>
 </div>
+
+<style>
+.oco-level-row { background: rgba(10,22,40,.5); border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:8px; position:relative }
+.oco-level-row .lv-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px }
+.oco-level-row .lv-title { font-size:11px; letter-spacing:2px; color:var(--muted); font-weight:700 }
+.oco-level-row .lv-remove { background:rgba(224,85,85,.2); border:none; color:var(--red); cursor:pointer; padding:2px 6px; border-radius:3px; font-size:11px }
+.oco-level-row .lv-qty { width:100%; margin-bottom:6px }
+.oco-level-row .lv-prot { display:grid; grid-template-columns:auto 1fr; gap:6px; align-items:center; margin-top:4px }
+.oco-level-row .lv-prot input[type="checkbox"] { width:auto; margin:0 }
+.oco-level-row .lv-prot label { font-size:10px; letter-spacing:1.5px; color:var(--muted) }
+.oco-level-row input[type="number"] { background:rgba(10,22,40,.6); border:1px solid var(--border); color:var(--white); font-family:DM Mono,monospace; font-size:14px; padding:5px 8px; border-radius:5px; outline:none; width:100% }
+.oco-level-row input[type="number"]:focus { border-color:var(--blue) }
+.oco-level-row .lv-sl-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:4px }
+</style>
 <div class="toast" id="toast">
 </div>
 
@@ -3302,24 +3307,24 @@ async function refreshOrders() {
   }
 }
 
-// ── Attach OCO modal (Phase A) ────────────────────────────────────────────
+// ── Attach OCO modal (Phase A + B splits) ─────────────────────────────────
 let _attachOcoCtx = null;  // {localId, ticker, qty, side}
+let _ocoLevelSeq = 0;       // contador interno pra gerar IDs únicos de inputs
 
 function openAttachOcoModal(localId, ticker, qty, sideInt) {
   _attachOcoCtx = { localId, ticker, qty, side: sideInt };
-  // Side oposto pra proteção: parent buy(1) → SL/TP sell(2). Texto exibido pro user.
   const protSide = sideInt === 1 ? 'venda' : 'compra';
   document.getElementById('oco-parent-info').innerHTML =
     `Parent <strong>#${localId}</strong> · ${ticker} · qty <strong>${qty}</strong> · proteção será <strong>${protSide}</strong> (oposto do parent).<br>` +
-    `<small>Marque ao menos uma proteção (TP, SL ou ambas).</small>`;
-  document.getElementById('oco-tp').value = '';
-  document.getElementById('oco-sl-trigger').value = '';
-  document.getElementById('oco-sl-limit').value = '';
-  document.getElementById('oco-enable-tp').checked = true;
-  document.getElementById('oco-enable-sl').checked = true;
+    `<small>Cada nível precisa ao menos uma proteção (TP, SL ou ambas). Sem limite de níveis.</small>`;
   document.getElementById('oco-msg').textContent = '';
+  // Reseta com 1 nível inicial cobrindo qty total
+  const container = document.getElementById('oco-levels-container');
+  container.innerHTML = '';
+  _ocoLevelSeq = 0;
+  addOcoLevel(qty);
+  updateOcoTotals();
   document.getElementById('modal-attach-oco').classList.add('show');
-  setTimeout(() => document.getElementById('oco-tp').focus(), 80);
 }
 
 function closeAttachOcoModal() {
@@ -3327,40 +3332,127 @@ function closeAttachOcoModal() {
   _attachOcoCtx = null;
 }
 
+function addOcoLevel(presetQty) {
+  if (!_attachOcoCtx) return;
+  _ocoLevelSeq++;
+  const id = _ocoLevelSeq;
+  const container = document.getElementById('oco-levels-container');
+  // Se não passou qty, sugere o que falta dividido em 1 (ou 0 se nada falta)
+  if (presetQty == null) {
+    const used = sumOcoLevelsQty();
+    presetQty = Math.max(0, _attachOcoCtx.qty - used);
+  }
+  const row = document.createElement('div');
+  row.className = 'oco-level-row';
+  row.dataset.lvId = id;
+  row.innerHTML = `
+    <div class="lv-head">
+      <span class="lv-title">Nível ${countOcoLevels() + 1}</span>
+      <button class="lv-remove" onclick="removeOcoLevel(${id})" title="Remover nível">✕</button>
+    </div>
+    <input class="lv-qty" type="number" step="1" min="1" value="${presetQty}"
+           placeholder="Qty do nível" oninput="updateOcoTotals()">
+    <div class="lv-prot">
+      <input type="checkbox" id="lv${id}-tpen" checked>
+      <label for="lv${id}-tpen">TAKE PROFIT</label>
+    </div>
+    <input class="lv-tp" type="number" step="0.01" placeholder="TP preço alvo (ex: 52.00)">
+    <div class="lv-prot" style="margin-top:8px">
+      <input type="checkbox" id="lv${id}-slen" checked>
+      <label for="lv${id}-slen">STOP LOSS</label>
+    </div>
+    <div class="lv-sl-grid">
+      <input class="lv-sl-trig" type="number" step="0.01" placeholder="SL trigger">
+      <input class="lv-sl-lim" type="number" step="0.01" placeholder="SL limit (= trigger)">
+    </div>
+  `;
+  container.appendChild(row);
+  updateOcoTotals();
+  renumberOcoLevels();
+}
+
+function removeOcoLevel(lvId) {
+  const row = document.querySelector(`.oco-level-row[data-lv-id="${lvId}"]`);
+  if (row) row.remove();
+  if (countOcoLevels() === 0) addOcoLevel(_attachOcoCtx.qty);  // sempre pelo menos 1
+  renumberOcoLevels();
+  updateOcoTotals();
+}
+
+function countOcoLevels() {
+  return document.querySelectorAll('#oco-levels-container .oco-level-row').length;
+}
+
+function renumberOcoLevels() {
+  document.querySelectorAll('#oco-levels-container .oco-level-row').forEach((row, idx) => {
+    row.querySelector('.lv-title').textContent = `Nível ${idx + 1}`;
+  });
+}
+
+function sumOcoLevelsQty() {
+  let s = 0;
+  document.querySelectorAll('#oco-levels-container .oco-level-row .lv-qty').forEach(el => {
+    s += parseInt(el.value) || 0;
+  });
+  return s;
+}
+
+function updateOcoTotals() {
+  if (!_attachOcoCtx) return;
+  const used = sumOcoLevelsQty();
+  const total = _attachOcoCtx.qty;
+  const ok = used === total;
+  const color = ok ? 'var(--green)' : (used > total ? 'var(--red)' : 'var(--gold,#F0B429)');
+  const symbol = ok ? '✓' : (used > total ? '⚠ excede' : '⚠ falta');
+  document.getElementById('oco-totals').innerHTML =
+    `<span style="color:${color}">${symbol}</span> Total: <strong style="color:${color}">${used}</strong> / ${total}`;
+}
+
 async function submitAttachOco() {
   if (!_attachOcoCtx) return;
   const msg = document.getElementById('oco-msg');
   msg.textContent = '';
-  const tpEnabled = document.getElementById('oco-enable-tp').checked;
-  const slEnabled = document.getElementById('oco-enable-sl').checked;
-  const tpVal = parseFloat(document.getElementById('oco-tp').value);
-  const slTrig = parseFloat(document.getElementById('oco-sl-trigger').value);
-  const slLim = parseFloat(document.getElementById('oco-sl-limit').value);
-
-  const level = { qty: _attachOcoCtx.qty };
-  if (tpEnabled) {
-    if (!tpVal || tpVal <= 0) { msg.textContent = 'TP inválido. Desmarque ou preencha um preço.'; return; }
-    level.tp_price = tpVal;
+  const rows = Array.from(document.querySelectorAll('#oco-levels-container .oco-level-row'));
+  const levels = [];
+  for (const [idx, row] of rows.entries()) {
+    const qty = parseInt(row.querySelector('.lv-qty').value);
+    if (!qty || qty <= 0) { msg.textContent = `Nível ${idx + 1}: qty inválida.`; return; }
+    const tpEn = row.querySelector('.lv-prot input[type="checkbox"][id$="-tpen"]').checked;
+    const slEn = row.querySelector('.lv-prot input[type="checkbox"][id$="-slen"]').checked;
+    const tpVal = parseFloat(row.querySelector('.lv-tp').value);
+    const slTrig = parseFloat(row.querySelector('.lv-sl-trig').value);
+    const slLim = parseFloat(row.querySelector('.lv-sl-lim').value);
+    if (!tpEn && !slEn) { msg.textContent = `Nível ${idx + 1}: marque ao menos TP ou SL.`; return; }
+    const level = { qty };
+    if (tpEn) {
+      if (!tpVal || tpVal <= 0) { msg.textContent = `Nível ${idx + 1}: TP inválido.`; return; }
+      level.tp_price = tpVal;
+    }
+    if (slEn) {
+      if (!slTrig || slTrig <= 0) { msg.textContent = `Nível ${idx + 1}: SL trigger inválido.`; return; }
+      level.sl_trigger = slTrig;
+      if (!isNaN(slLim) && slLim > 0) level.sl_limit = slLim;
+    }
+    levels.push(level);
   }
-  if (slEnabled) {
-    if (!slTrig || slTrig <= 0) { msg.textContent = 'SL trigger inválido.'; return; }
-    level.sl_trigger = slTrig;
-    if (!isNaN(slLim) && slLim > 0) level.sl_limit = slLim;
+  const sumQty = levels.reduce((a, l) => a + l.qty, 0);
+  if (sumQty !== _attachOcoCtx.qty) {
+    msg.textContent = `Soma das qty (${sumQty}) deve bater parent.qty (${_attachOcoCtx.qty}).`;
+    return;
   }
-  if (!tpEnabled && !slEnabled) { msg.textContent = 'Marque ao menos uma proteção (TP ou SL).'; return; }
 
   try {
     const body = {
       env: 'simulation',
       parent_order_id: _attachOcoCtx.localId,
-      levels: [level],
+      levels,
       is_daytrade: true,
-      notes: 'attach via dashboard'
+      notes: `attach via dashboard · ${levels.length} níveis`,
     };
     const r = await post('/api/v1/agent/order/attach_oco', body);
     if (!r.ok) { msg.textContent = r.error || 'Falha ao anexar OCO'; return; }
     closeAttachOcoModal();
-    toast(`OCO anexado · group ${r.group_id.slice(0, 8)} · disparará ao fill`, 'ok');
+    toast(`OCO anexado · group ${r.group_id.slice(0, 8)} · ${levels.length} nível(eis) · disparará ao fill`, 'ok');
     refreshOrders();
   } catch (e) {
     msg.textContent = 'Erro de rede: ' + e.message;
