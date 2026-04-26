@@ -90,6 +90,7 @@
 .ov-tag.tag-watch  { color: var(--gold, #F0B429); border-color: rgba(240,180,41,.3); }
 .ov-tag.tag-crypto { color: #ff9800; border-color: rgba(255,152,0,.3); }
 .ov-tag.tag-rf     { color: #b388ff; border-color: rgba(179,136,255,.3); }
+.ov-tag.tag-other  { color: #94a3b8; border-color: rgba(148,163,184,.3); }
 .ov-price { font-size: 21px; font-weight: 700; font-family: 'DM Mono', monospace; }
 .ov-chg { font-size: 12px; font-weight: 600; font-family: 'DM Mono', monospace; }
 .ov-chg.up    { color: var(--green, #00e676); }
@@ -173,6 +174,7 @@ try { if (window.parent !== window) document.documentElement.classList.add('fa-e
       <button class="ov-tab" data-tab="watchlist">Watchlist <span class="ov-tab-count" data-count="watchlist">0</span></button>
       <button class="ov-tab" data-tab="crypto">Crypto <span class="ov-tab-count" data-count="crypto">0</span></button>
       <button class="ov-tab" data-tab="rf">Renda Fixa <span class="ov-tab-count" data-count="rf">0</span></button>
+      <button class="ov-tab" data-tab="other">Outros <span class="ov-tab-count" data-count="other">0</span></button>
     </div>
     <div class="ov-controls">
       <input type="search" id="ov-search" placeholder="🔎 ticker..." style="width:130px"/>
@@ -312,6 +314,26 @@ async function fetchCrypto() {
     }));
   } catch (e) { console.warn('crypto fail:', e.message); return []; }
 }
+async function fetchOther() {
+  try {
+    const data = await authFetch('/api/v1/wallet/other' + _accQS());
+    const arr = Array.isArray(data) ? data : [];
+    return arr.map(o => {
+      const cur = parseFloat(o.current_value) || 0;
+      const inv = parseFloat(o.invested_value) || cur;
+      return {
+        ticker: o.name || '?',
+        source: 'other',
+        qty: 1,
+        avg: inv,
+        value: cur,
+        _other_current: cur,
+        asset_type: o.asset_type,
+      };
+    });
+  } catch (e) { console.warn('other fail:', e.message); return []; }
+}
+
 async function fetchRF() {
   // RF holdings via portfolios. Backend retorna current_net_value já calculado
   // com taxas CDI/SELIC/IPCA default. Usamos como 'last' e P/L é current - invested.
@@ -504,20 +526,23 @@ function renderCard(item) {
     chgPct = (chg / prev) * 100;
     dir = chg > 0 ? 'up' : (chg < 0 ? 'down' : 'flat');
   }
-  // RF: usa current_net_value calculado pelo backend (vai pra `last`); chg = atual - investido
-  let rfChg = null, rfChgPct = null;
-  if (item.source === 'rf' && item._rf_current != null && item.avg) {
-    rfChg = item._rf_current - item.avg;
-    rfChgPct = item.avg !== 0 ? (rfChg / item.avg) * 100 : 0;
-    dir = rfChg > 0 ? 'up' : (rfChg < 0 ? 'down' : 'flat');
+  // RF e Other: usa current_value calculado/registrado pelo backend
+  let altChg = null, altChgPct = null;
+  let altCurrent = null;
+  if (item.source === 'rf' && item._rf_current != null && item.avg) altCurrent = item._rf_current;
+  else if (item.source === 'other' && item._other_current != null && item.avg) altCurrent = item._other_current;
+  if (altCurrent != null) {
+    altChg = altCurrent - item.avg;
+    altChgPct = item.avg !== 0 ? (altChg / item.avg) * 100 : 0;
+    dir = altChg > 0 ? 'up' : (altChg < 0 ? 'down' : 'flat');
   }
-  const priceTxt = last != null ? 'R$ ' + f2(last) : (item.source === 'rf' ? 'R$ ' + f2(item.value) : '—');
-  const chgTxt = (item.source === 'rf' && rfChg != null)
-    ? `${rfChg >= 0 ? '+' : ''}${f2(rfChg)} (${rfChg >= 0 ? '+' : ''}${rfChgPct.toFixed(2)}%)`
-    : ((chg == null) ? (item.source === 'rf' ? '(RF)' : '—') : `${chg >= 0 ? '+' : ''}${f2(chg)} (${chg >= 0 ? '+' : ''}${chgPct.toFixed(2)}%)`);
-  const spark = item.source === 'rf' ? '' : buildSparkline(q.closes, 220, 36);
-  const tagText = { position: 'POS', watchlist: 'WL', crypto: 'CRP', rf: 'RF' }[item.source] || '?';
-  const tagCls = { position: 'tag-pos', watchlist: 'tag-watch', crypto: 'tag-crypto', rf: 'tag-rf' }[item.source] || '';
+  const priceTxt = last != null ? 'R$ ' + f2(last) : (item.source === 'rf' || item.source === 'other' ? 'R$ ' + f2(item.value) : '—');
+  const chgTxt = (altChg != null)
+    ? `${altChg >= 0 ? '+' : ''}${f2(altChg)} (${altChg >= 0 ? '+' : ''}${altChgPct.toFixed(2)}%)`
+    : ((chg == null) ? (item.source === 'rf' ? '(RF)' : (item.source === 'other' ? '(OUT)' : '—')) : `${chg >= 0 ? '+' : ''}${f2(chg)} (${chg >= 0 ? '+' : ''}${chgPct.toFixed(2)}%)`);
+  const spark = (item.source === 'rf' || item.source === 'other') ? '' : buildSparkline(q.closes, 220, 36);
+  const tagText = { position: 'POS', watchlist: 'WL', crypto: 'CRP', rf: 'RF', other: 'OUT' }[item.source] || '?';
+  const tagCls = { position: 'tag-pos', watchlist: 'tag-watch', crypto: 'tag-crypto', rf: 'tag-rf', other: 'tag-other' }[item.source] || '';
 
   // ML signal badge + botão live recalc per-card (Phase D backlog)
   let mlHtml = '';
@@ -541,6 +566,9 @@ function renderCard(item) {
   } else if (item.source === 'rf' && item._rf_current != null && item.avg != null) {
     pnl = item._rf_current - item.avg;
     pnlPct = item.avg !== 0 ? (pnl / item.avg) * 100 : 0;
+  } else if (item.source === 'other' && item._other_current != null && item.avg != null) {
+    pnl = item._other_current - item.avg;
+    pnlPct = item.avg !== 0 ? (pnl / item.avg) * 100 : 0;
   }
   if (pnl != null) {
     const pnlDir = pnl > 0 ? 'up' : (pnl < 0 ? 'down' : 'flat');
@@ -554,10 +582,15 @@ function renderCard(item) {
     ? `<span class="ov-sl" title="Stop-loss ativo · stop R$ ${f2(sl.stop_price)} · qty ${sl.qty}${sl.count > 1 ? ' · ' + sl.count + ' ordens' : ''}">🛡 SL ${f2(sl.stop_price)}</span>`
     : '';
 
-  const footRight = item.source === 'position' && item.avg != null ? `Pm R$ ${f2(item.avg)}` : (item.source === 'crypto' && item.avg != null ? `Pm R$ ${f2(item.avg)}` : (item.source === 'rf' ? (item.indexer || '') : ''));
+  const footRight = item.source === 'position' && item.avg != null ? `Pm R$ ${f2(item.avg)}`
+    : (item.source === 'crypto' && item.avg != null ? `Pm R$ ${f2(item.avg)}`
+    : (item.source === 'rf' ? (item.indexer || '')
+    : (item.source === 'other' ? (item.asset_type || '') : '')));
 
-  // Para RF não tem ticker B3 padrão; click leva a /fixed-income; demais → /dashboard
-  const href = item.source === 'rf' ? '/fixed-income' : `/dashboard?ticker=${encodeURIComponent(ticker)}`;
+  // RF → /fixed-income; Other → /carteira (não tem página específica); demais → /dashboard
+  const href = item.source === 'rf' ? '/fixed-income'
+    : (item.source === 'other' ? '/carteira'
+    : `/dashboard?ticker=${encodeURIComponent(ticker)}`);
 
   return `
     <a class="ov-card ${dir}" href="${href}" title="Abrir ${ticker}">
@@ -643,7 +676,7 @@ function rerender() {
   const snapTxt = _signalsSnapshot ? ` · ML ${_signalsSnapshot}` : '';
   $('ov-status').textContent = `${filtered.length} / ${_allItems.length}${snapTxt}`;
   // Atualiza counts dos tabs
-  ['all','position','watchlist','crypto','rf'].forEach(k => {
+  ['all','position','watchlist','crypto','rf','other'].forEach(k => {
     const el = document.querySelector(`[data-count="${k}"]`);
     if (!el) return;
     el.textContent = k === 'all' ? _allItems.length : _allItems.filter(i => i.source === k).length;
@@ -669,10 +702,11 @@ async function loadOverview() {
     fetchSparklinesBatch();
   };
 
-  // Dispara as 4 fontes em paralelo, mas cada uma renderiza ao chegar
+  // Dispara as 5 fontes em paralelo, cada uma renderiza ao chegar
   fetchPositions().then(addItems);
   fetchCrypto().then(addItems);
   fetchWatchlist().then(addItems);
+  fetchOther().then(addItems);
   fetchRF().then(items => { addItems(items); $('ov-updated').textContent = 'atualizado ' + new Date().toLocaleTimeString('pt-BR'); });
 
   // Stop-loss orders ativas (independente das fontes — re-renderiza ao chegar)
