@@ -287,30 +287,11 @@ tr:hover td{background:rgba(0,212,255,.02)}
   </div>
 
 
-  <!-- Summary -->
-  <div class="summary-grid" id="summary-grid">
-    <div class="sum-card"><div class="sum-label">Contas
-</div><div class="sum-value" id="s-accounts">—
-</div>
-</div>
-    <div class="sum-card"><div class="sum-label">Tickers
-</div><div class="sum-value" id="s-tickers">—
-</div>
-</div>
-    <div class="sum-card"><div class="sum-label">Criptomoedas
-</div><div class="sum-value" id="s-crypto">—
-</div>
-</div>
-    <div class="sum-card"><div class="sum-label">Outros Ativos
-</div><div class="sum-value" id="s-other">—
-</div>
-</div>
-    <div class="sum-card"><div class="sum-label">Total Investido
-</div><div class="sum-value" id="s-invested">—
-</div><div class="sum-sub">ações + ETFs + FIIs
-</div>
-</div>
-</div>
+  <!-- Summary cards REMOVIDOS 26/abr — informação redundante com Overview tab + filtro Conta.
+       Spans hidden mantidos pra não quebrar JS legado que faz textContent neles. -->
+  <div style="display:none">
+    <span id="s-accounts"></span><span id="s-tickers"></span><span id="s-crypto"></span><span id="s-other"></span><span id="s-invested"></span>
+  </div>
 
   <!-- Tabs (Overview = nova aba 1ª, default ativa) -->
   <div class="tabs">
