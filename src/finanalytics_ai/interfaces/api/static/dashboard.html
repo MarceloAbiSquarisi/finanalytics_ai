@@ -1369,14 +1369,9 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 </div>
 
 <script>
-// ── Auth Guard — redireciona para /login se não autenticado ──────────────────
-(function authGuard() {
-  const token   = localStorage.getItem('access_token');
-  const expires = parseInt(localStorage.getItem('token_expires_at') || '0');
-  if (!token || expires < Date.now() + 60000) {
-    window.location.replace('/login');
-  }
-})();
+// G4 refactor 26/abr — usa FAAuth.requireAuth (silent refresh + lembre-me 7d).
+// auth_guard.js já carregado no <head> (linha ~20).
+(function(){function go(){if(window.FAAuth)FAAuth.requireAuth({});else setTimeout(go,30);}if(document.readyState!=="loading")go();else document.addEventListener("DOMContentLoaded",go);})();
 
 const API   = window.location.origin;
 // Watchlist persistida no localStorage
