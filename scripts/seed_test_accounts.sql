@@ -80,6 +80,18 @@ INSERT INTO trades (id, user_id, investment_account_id, portfolio_id, ticker, as
 ('t-008', :USER_ID, :ACC2_ID, :PF2_ID, 'BBAS3',  'stock', 'buy', 100, 28.90, 2890.00, 4.50, 'BRL', '2026-03-25', 'Compra Banco do Brasil', NOW()),
 ('t-009', :USER_ID, :ACC2_ID, :PF2_ID, 'BOVA11', 'etf',   'buy', 50,  130.00, 6500.00, 4.50, 'BRL', '2026-04-08', 'ETF Ibovespa', NOW());
 
+-- ── Positions table (derivada de trades, mas consumida direto pelo dividend match) ─
+-- Necessária pra match_to_positions encontrar tickers via investment_account_id.
+INSERT INTO positions (portfolio_id, investment_account_id, ticker, quantity, average_price, asset_class) VALUES
+(:PF1_ID, :ACC1_ID, 'PETR4',  70,  35.50,  'stock'),  -- 100 buy - 30 sell
+(:PF1_ID, :ACC1_ID, 'VALE3',  50,  68.20,  'stock'),
+(:PF1_ID, :ACC1_ID, 'ITUB4',  200, 32.10,  'stock'),
+(:PF1_ID, :ACC1_ID, 'WEGE3',  80,  42.80,  'stock'),
+(:PF1_ID, :ACC1_ID, 'BBSE3',  150, 38.40,  'stock'),
+(:PF1_ID, :ACC1_ID, 'KNRI11', 30,  140.50, 'fii'),
+(:PF2_ID, :ACC2_ID, 'BBAS3',  100, 28.90,  'stock'),
+(:PF2_ID, :ACC2_ID, 'BOVA11', 50,  130.00, 'etf');
+
 -- ── Crypto (BTC) na conta XP ─────────────────────────────────────────────────
 INSERT INTO crypto_holdings (id, user_id, investment_account_id, portfolio_id, symbol, quantity, average_price_brl, average_price_usd, exchange, note, updated_at) VALUES
 ('c-001', :USER_ID, :ACC1_ID, :PF1_ID, 'BTC', 0.025, 280000.00, 56000.00, 'Binance', 'Compras DCA', NOW());
