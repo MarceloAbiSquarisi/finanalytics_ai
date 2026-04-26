@@ -140,7 +140,7 @@
     <div class="ov-meta">
       <span id="ov-status">—</span>
       <span id="ov-updated" title="Última atualização">—</span>
-      <button class="ov-refresh-btn" onclick="loadMLSignals()" title="Carrega ML signals (lento, ~1min)">🤖 ML</button>
+      <button class="ov-refresh-btn" onclick="loadMLSignals()" title="Recarrega ML signals do último snapshot diário">🤖 ML</button>
       <button class="ov-refresh-btn" onclick="loadOverview()">↻ Atualizar</button>
     </div>
   </div>
@@ -168,7 +168,8 @@ const SPARK_RES = '1d';
 
 let _allItems = [];           // [{ticker, source, qty?, avg?, ...}]
 let _quotes = {};             // ticker → {last, prev, closes}
-let _signals = {};            // ticker → {signal, predicted_return_pct, error}
+let _signals = {};            // ticker → {signal, predicted_return_pct, snapshot_date, ...}
+let _signalsSnapshot = null;  // ISO date do snapshot mais recente
 let _activeTab = 'all';
 let _activeSort = 'ticker';
 let _activeMlFilter = 'all';
@@ -262,20 +263,37 @@ async function fetchSparkline(ticker) {
   } catch (e) { return { closes: [], last: null, prev: null }; }
 }
 
-async function fetchAllSignals(timeoutMs = 60000) {
-  // Batch calibrado — pode demorar (5min em alguns casos). Aborta se timeout.
+async function fetchAllSignals(timeoutMs = 8000) {
+  // Lê o último snapshot diário (signal_history) — query SELECT, retorna em <100ms.
+  // limit=500 cobre os ~120 tickers calibrados do snapshot mais recente.
   try {
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), timeoutMs);
-    const r = await fetch('/api/v1/ml/signals?limit=500', { headers: { Authorization: 'Bearer ' + tok() }, signal: ctrl.signal });
+    const r = await fetch('/api/v1/ml/signal_history?limit=500', { headers: { Authorization: 'Bearer ' + tok() }, signal: ctrl.signal });
     clearTimeout(tid);
-    if (!r.ok) return {};
-    const data = await r.json();
-    const items = data.items || [];
+    if (!r.ok) return { map: {}, snapshot: null };
+    const items = await r.json();
+    if (!Array.isArray(items) || items.length === 0) return { map: {}, snapshot: null };
+    // Items vêm ordenados por snapshot_date DESC, ticker — primeiro de cada ticker = mais recente.
     const map = {};
-    items.forEach(it => { map[it.ticker] = it; });
-    return map;
-  } catch (e) { console.warn('signals fail:', e.message); return {}; }
+    let snapshot = null;
+    items.forEach(it => {
+      if (!(it.ticker in map)) {
+        map[it.ticker] = it;
+        if (!snapshot || it.snapshot_date > snapshot) snapshot = it.snapshot_date;
+      }
+    });
+    return { map, snapshot };
+  } catch (e) { console.warn('signal_history fail:', e.message); return { map: {}, snapshot: null }; }
+}
+
+async function recalcLiveSignal(ticker) {
+  // Chamada per-ticker pra recalcular ML em tempo real (~4s). Usado pelo botão por card.
+  try {
+    const r = await fetch(`/api/v1/ml/predict_mvp/${ticker}`, { headers: { Authorization: 'Bearer ' + tok() } });
+    if (!r.ok) throw new Error('http ' + r.status);
+    return await r.json();
+  } catch (e) { console.warn('predict_mvp fail:', ticker, e.message); return null; }
 }
 
 // ── RENDER ───────────────────────────────────────────────────────────────
@@ -302,7 +320,8 @@ function renderCard(item) {
   if (sig && !sig.error) {
     const cls = sig.signal === 'BUY' ? 'buy' : (sig.signal === 'SELL' ? 'sell' : 'hold');
     const pctTxt = sig.predicted_return_pct != null ? ` <span class="ov-ml-pct">${sig.predicted_return_pct >= 0 ? '+' : ''}${sig.predicted_return_pct.toFixed(2)}%</span>` : '';
-    mlHtml = `<span class="ov-ml ${cls}" title="ML signal · horizon ${sig.horizon_days}d · sharpe ${sig.best_sharpe?.toFixed(2) || '—'}">${sig.signal}${pctTxt}</span>`;
+    const snapTxt = sig.snapshot_date ? ` · snap ${sig.snapshot_date}` : '';
+    mlHtml = `<span class="ov-ml ${cls}" title="ML signal · h${sig.horizon_days}d · sharpe ${sig.best_sharpe?.toFixed(2) || '—'}${snapTxt}">${sig.signal}${pctTxt}</span>`;
   } else {
     mlHtml = `<span class="ov-ml none" title="${sig?.error || 'sem modelo calibrado'}">—</span>`;
   }
@@ -377,7 +396,8 @@ function rerender() {
   }
   empty.style.display = 'none';
   grid.innerHTML = filtered.map(renderCard).join('');
-  $('ov-status').textContent = `${filtered.length} / ${_allItems.length}`;
+  const snapTxt = _signalsSnapshot ? ` · ML ${_signalsSnapshot}` : '';
+  $('ov-status').textContent = `${filtered.length} / ${_allItems.length}${snapTxt}`;
   // Atualiza counts dos tabs
   ['all','position','watchlist','crypto','rf'].forEach(k => {
     const el = document.querySelector(`[data-count="${k}"]`);
@@ -411,37 +431,38 @@ async function loadOverview() {
   fetchWatchlist().then(addItems);
   fetchRF().then(items => { addItems(items); $('ov-updated').textContent = 'atualizado ' + new Date().toLocaleTimeString('pt-BR'); });
 
-  // ML signals — cache em sessionStorage com TTL 30min (evita travar API com batch pesado)
+  // ML signals — snapshot diário (signal_history). Query rápida (<100ms),
+  // cache curto pra evitar refetch em tab-switches dentro da mesma sessão.
   const cached = sessionStorage.getItem('overview_signals');
+  const cachedSnap = sessionStorage.getItem('overview_signals_snapshot');
   const cachedAt = parseInt(sessionStorage.getItem('overview_signals_at') || '0');
-  const TTL = 30 * 60 * 1000;  // 30min
+  const TTL = 5 * 60 * 1000;  // 5min — snapshot é diário, mas user pode reabrir página várias vezes/h
   if (cached && (Date.now() - cachedAt) < TTL) {
     try {
       _signals = JSON.parse(cached);
-      console.info('[overview] ML signals from cache:', Object.keys(_signals).length);
+      _signalsSnapshot = cachedSnap || null;
+      console.info('[overview] ML signals from cache:', Object.keys(_signals).length, 'snapshot:', _signalsSnapshot);
       rerender();
     } catch (e) { /* ignore */ }
   } else {
-    // Fetch background, mas só se user clicar no botão "Carregar ML"
-    // (chamada custosa: pode demorar 5min pra 200 tickers)
-    console.info('[overview] ML signals cache vazio — clique "Carregar ML" para buscar.');
+    loadMLSignals();  // auto-load (rápido, usa signal_history)
   }
 }
 
-// Função exposta pra botão "Carregar ML"
+// Recarrega snapshot ML (botão 🤖 ML ou auto-load).
 async function loadMLSignals() {
-  $('ov-status').textContent = 'Carregando ML signals (pode demorar até 1min)...';
-  const signals = await fetchAllSignals(120000);
-  if (Object.keys(signals).length > 0) {
-    _signals = signals;
-    sessionStorage.setItem('overview_signals', JSON.stringify(signals));
+  const { map, snapshot } = await fetchAllSignals();
+  if (Object.keys(map).length > 0) {
+    _signals = map;
+    _signalsSnapshot = snapshot;
+    sessionStorage.setItem('overview_signals', JSON.stringify(map));
+    sessionStorage.setItem('overview_signals_snapshot', snapshot || '');
     sessionStorage.setItem('overview_signals_at', String(Date.now()));
-    console.info('[overview] ML signals loaded + cached:', Object.keys(signals).length);
+    console.info('[overview] ML signals loaded:', Object.keys(map).length, 'snapshot:', snapshot);
     rerender();
-    $('ov-status').textContent = `${_allItems.length} itens · ML carregado`;
   } else {
-    $('ov-status').textContent = `${_allItems.length} itens · ML falhou`;
-    if (window.FAToast) FAToast.warn('ML signals indisponíveis (timeout ou backend ocupado)');
+    console.warn('[overview] signal_history vazio (scheduler não rodou?)');
+    if (window.FAToast) FAToast.warn('ML signals indisponíveis (snapshot vazio)');
   }
 }
 
