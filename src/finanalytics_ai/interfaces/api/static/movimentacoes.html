@@ -37,6 +37,8 @@
   display:flex; gap:18px; font-size:12px; flex-wrap:wrap }
 .mv-totals strong { font-family:'DM Mono',monospace }
 .mv-tx-type { font-size:10px; text-transform:uppercase; color:var(--muted); letter-spacing:.5px }
+.sort-ind { font-size:10px; opacity:.7; margin-left:3px }
+.sort-ind.active { color:var(--blue,#3abff8); opacity:1 }
 </style>
 </head>
 <body>
@@ -46,6 +48,7 @@
     <h1><span data-i18n="mv.title">📋 Movimentações</span></h1>
     <span class="mv-meta" id="mv-meta">—</span>
     <button class="ov-refresh-btn" onclick="loadTransactions()" style="background:rgba(58,191,248,.15);border:1px solid var(--blue,#3abff8);color:var(--blue,#3abff8);padding:6px 12px;border-radius:5px;cursor:pointer;font-size:12px" data-i18n="mv.refresh">↻ Atualizar</button>
+    <button class="ov-refresh-btn" onclick="exportCsv()" style="background:rgba(95,217,154,.15);border:1px solid var(--green,#5fd99a);color:var(--green,#5fd99a);padding:6px 12px;border-radius:5px;cursor:pointer;font-size:12px" data-i18n="mv.export_csv">📥 CSV</button>
     <button class="ov-refresh-btn" onclick="window.print()" style="background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);padding:6px 12px;border-radius:5px;cursor:pointer;font-size:12px" data-i18n="mv.print">🖨 Imprimir</button>
   </div>
 
@@ -71,12 +74,29 @@
   <div class="mv-table-wrap">
     <table class="mv-table">
       <thead><tr>
-        <th data-i18n="mv.col.date">Data</th><th data-i18n="mv.col.account">Conta</th><th data-i18n="mv.col.type">Tipo</th><th data-i18n="mv.col.ticker">Ticker</th>
-        <th style="text-align:right" data-i18n="mv.col.amount">Valor</th><th data-i18n="mv.col.status">Status</th><th data-i18n="mv.col.description">Descrição</th><th></th>
+        <th onclick="sortBy('reference_date')" style="cursor:pointer" data-i18n="mv.col.date">Data <span class="sort-ind" data-col="reference_date"></span></th>
+        <th onclick="sortBy('account_id')" style="cursor:pointer" data-i18n="mv.col.account">Conta <span class="sort-ind" data-col="account_id"></span></th>
+        <th onclick="sortBy('tx_type')" style="cursor:pointer" data-i18n="mv.col.type">Tipo <span class="sort-ind" data-col="tx_type"></span></th>
+        <th onclick="sortBy('ticker')" style="cursor:pointer" data-i18n="mv.col.ticker">Ticker <span class="sort-ind" data-col="ticker"></span></th>
+        <th onclick="sortBy('amount')" style="text-align:right;cursor:pointer" data-i18n="mv.col.amount">Valor <span class="sort-ind" data-col="amount"></span></th>
+        <th onclick="sortBy('status')" style="cursor:pointer" data-i18n="mv.col.status">Status <span class="sort-ind" data-col="status"></span></th>
+        <th data-i18n="mv.col.description">Descrição</th><th></th>
       </tr></thead>
       <tbody id="mv-tbody"><tr><td colspan="8" class="mv-empty">Carregando...</td></tr></tbody>
     </table>
     <div class="mv-totals" id="mv-totals">—</div>
+    <div id="mv-paging" style="padding:8px 14px;background:rgba(10,22,40,.4);border-top:1px solid var(--border);display:flex;gap:10px;align-items:center;font-size:12px;color:var(--muted);justify-content:flex-end">
+      <span>Por página:</span>
+      <select id="mv-page-size" onchange="changePageSize()" style="background:rgba(10,22,40,.6);border:1px solid var(--border);color:var(--white);padding:3px 6px;border-radius:4px;font-size:12px">
+        <option value="50">50</option>
+        <option value="100" selected>100</option>
+        <option value="200">200</option>
+        <option value="500">500</option>
+      </select>
+      <button onclick="changePage(-1)" id="mv-prev" style="background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);padding:3px 10px;border-radius:4px;cursor:pointer">← Anterior</button>
+      <span id="mv-page-info">—</span>
+      <button onclick="changePage(1)" id="mv-next" style="background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);padding:3px 10px;border-radius:4px;cursor:pointer">Próxima →</button>
+    </div>
   </div>
 </main>
 
@@ -114,6 +134,10 @@
 
 let _allTx = [];
 let _accountsMap = {};   // id -> {apelido, institution_name}
+let _sortCol = 'reference_date';
+let _sortDir = -1;       // -1 desc, 1 asc
+let _page = 1;
+let _pageSize = 100;
 
 function $(id) { return document.getElementById(id); }
 function tok() { return localStorage.getItem('access_token'); }
@@ -163,8 +187,7 @@ function populateTypeFilter() {
   sel.value = cur;
 }
 
-function rerender() {
-  const tbody = $('mv-tbody');
+function applyFilters() {
   const q = $('f-q').value.toLowerCase().trim();
   const acc = $('f-acc').value;
   const type = $('f-type').value;
@@ -172,13 +195,91 @@ function rerender() {
   if (q) arr = arr.filter(t => (t.ticker || '').toLowerCase().includes(q) || (t.note || '').toLowerCase().includes(q) || (t.tx_type || '').toLowerCase().includes(q));
   if (acc) arr = arr.filter(t => t.account_id === acc);
   if (type) arr = arr.filter(t => t.tx_type === type);
+  return arr;
+}
 
-  if (!arr.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="mv-empty">Nenhuma movimentação para os filtros selecionados.</td></tr>';
+function applySort(arr) {
+  return arr.slice().sort((a, b) => {
+    let va = a[_sortCol];
+    let vb = b[_sortCol];
+    if (_sortCol === 'amount') { va = parseFloat(va) || 0; vb = parseFloat(vb) || 0; }
+    else { va = (va || '').toString(); vb = (vb || '').toString(); }
+    if (va < vb) return -1 * _sortDir;
+    if (va > vb) return 1 * _sortDir;
+    return 0;
+  });
+}
+
+function sortBy(col) {
+  if (_sortCol === col) _sortDir = -_sortDir;
+  else { _sortCol = col; _sortDir = 1; }
+  _page = 1;
+  rerender();
+}
+
+function changePage(delta) {
+  const filtered = applyFilters();
+  const totalPages = Math.max(1, Math.ceil(filtered.length / _pageSize));
+  _page = Math.max(1, Math.min(totalPages, _page + delta));
+  rerender();
+}
+
+function changePageSize() {
+  _pageSize = parseInt($('mv-page-size').value) || 100;
+  _page = 1;
+  rerender();
+}
+
+function exportCsv() {
+  const filtered = applyFilters();  // exporta tudo filtrado, não só a página
+  const sorted = applySort(filtered);
+  const header = ['Data', 'Conta', 'Tipo', 'Ticker', 'Valor', 'Status', 'Descricao'];
+  const rows = sorted.map(t => {
+    const acc = _accountsMap[t.account_id];
+    const accLbl = acc ? (acc.apelido || acc.institution_name || t.account_id.slice(0, 8)) : t.account_id.slice(0, 8);
+    const date = (t.reference_date || t.created_at || '').slice(0, 10);
+    return [date, accLbl, t.tx_type || '', t.ticker || '', t.amount, t.status || '', (t.note || '').replace(/[\r\n,;]/g, ' ')];
+  });
+  const csv = [header, ...rows].map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `movimentacoes_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
+
+function updateSortIndicators() {
+  document.querySelectorAll('.sort-ind').forEach(el => {
+    el.classList.remove('active');
+    el.textContent = '';
+    if (el.dataset.col === _sortCol) {
+      el.classList.add('active');
+      el.textContent = _sortDir === 1 ? '↑' : '↓';
+    }
+  });
+}
+
+function rerender() {
+  const tbody = $('mv-tbody');
+  const filtered = applyFilters();
+  updateSortIndicators();
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="mv-empty">Nenhuma movimentação para os filtros selecionados.</td></tr>';
     $('mv-meta').textContent = `0 / ${_allTx.length}`;
     $('mv-totals').textContent = '—';
+    $('mv-page-info').textContent = '0 de 0';
     return;
   }
+  const sorted = applySort(filtered);
+  const totalPages = Math.max(1, Math.ceil(sorted.length / _pageSize));
+  _page = Math.min(_page, totalPages);
+  const start = (_page - 1) * _pageSize;
+  const arr = sorted.slice(start, start + _pageSize);
+  $('mv-page-info').textContent = `Pág ${_page} de ${totalPages} (${start + 1}-${Math.min(start + _pageSize, sorted.length)} de ${sorted.length})`;
 
   tbody.innerHTML = arr.map(t => {
     const acc = _accountsMap[t.account_id];
@@ -207,17 +308,17 @@ function rerender() {
     </tr>`;
   }).join('');
 
-  // Totais
-  const totalCredit = arr.filter(t => t.amount > 0 && t.status === 'settled').reduce((a, t) => a + parseFloat(t.amount), 0);
-  const totalDebit = arr.filter(t => t.amount < 0 && t.status === 'settled').reduce((a, t) => a + parseFloat(t.amount), 0);
-  const totalPending = arr.filter(t => t.status === 'pending').reduce((a, t) => a + parseFloat(t.amount), 0);
+  // Totais (sobre TODO o filtrado, não só a página)
+  const totalCredit = sorted.filter(t => t.amount > 0 && t.status === 'settled').reduce((a, t) => a + parseFloat(t.amount), 0);
+  const totalDebit = sorted.filter(t => t.amount < 0 && t.status === 'settled').reduce((a, t) => a + parseFloat(t.amount), 0);
+  const totalPending = sorted.filter(t => t.status === 'pending').reduce((a, t) => a + parseFloat(t.amount), 0);
   const net = totalCredit + totalDebit;
   $('mv-totals').innerHTML =
     `<span>Entradas liquidadas: <strong class="mv-amt-pos">+R$ ${f2(totalCredit)}</strong></span>` +
     `<span>Saídas liquidadas: <strong class="mv-amt-neg">R$ ${f2(totalDebit)}</strong></span>` +
     `<span>Pendentes: <strong>${totalPending >= 0 ? '+' : ''}R$ ${f2(totalPending)}</strong></span>` +
     `<span style="margin-left:auto">Net liquidado: <strong style="color:${net >= 0 ? 'var(--green)' : 'var(--red)'}">${net >= 0 ? '+' : ''}R$ ${f2(net)}</strong></span>`;
-  $('mv-meta').textContent = `${arr.length} / ${_allTx.length} movimentações`;
+  $('mv-meta').textContent = `${sorted.length} / ${_allTx.length} movimentações`;
 }
 
 // ── Reconciliação manual (C6 Fase 4) ──────────────────────────────────────

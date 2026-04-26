@@ -119,6 +119,7 @@
   "mv.title": "📋 Transactions",
   "mv.refresh": "↻ Refresh",
   "mv.print": "🖨 Print",
+  "mv.export_csv": "📥 CSV",
   "mv.f.search": "Search (ticker/desc)",
   "mv.f.search_ph": "PETR4, dividend...",
   "mv.f.account": "Account",
