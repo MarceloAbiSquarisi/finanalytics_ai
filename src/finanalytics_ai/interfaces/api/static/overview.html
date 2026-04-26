@@ -145,6 +145,19 @@
 </head>
 <body>
 
+<script>
+// Detecta iframe (parent !== self) e marca body. CSS abaixo esconde sidebar
+// e remove margin-left no modo embedded.
+try { if (window.parent !== window) document.documentElement.classList.add('fa-embedded'); } catch (_) {}
+</script>
+<style>
+.fa-embedded #fa-sidebar, .fa-embedded [data-fa-include="sidebar.html"], .fa-embedded .fa-sidebar, .fa-embedded .fa-topbar { display: none !important; }
+.fa-embedded .fa-page-content { margin-left: 0 !important; padding: 12px 16px !important; }
+.fa-embedded body { background: transparent !important; }
+.fa-embedded h1 { display: none !important; }
+.fa-embedded .ov-wrap > div:first-child > div:nth-child(2) { display: none !important; }
+</style>
+
 <div data-fa-include="sidebar.html"></div>
 
 <main id="main-content" class="fa-page-content" style="padding: 16px 24px;">
