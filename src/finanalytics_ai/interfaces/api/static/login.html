@@ -192,8 +192,8 @@ body{
     </div>
 
     <div class="tabs">
-      <button class="tab active" onclick="switchTab('login')">Entrar</button>
-      <button class="tab" onclick="switchTab('register')">Criar Conta</button>
+      <button class="tab active" onclick="switchTab('login')" data-i18n="login.tab.login">Entrar</button>
+      <button class="tab" onclick="switchTab('register')" data-i18n="login.tab.register">Criar Conta</button>
     </div>
 
     <div id="error-box" class="error-msg"></div>
@@ -202,11 +202,11 @@ body{
     <!-- LOGIN -->
     <div id="form-login">
       <div class="form-group">
-        <label class="form-label">Email</label>
+        <label class="form-label" data-i18n="auth.email">Email</label>
         <input class="form-input" type="email" id="login-email" placeholder="seu@email.com" autocomplete="email">
       </div>
       <div class="form-group">
-        <label class="form-label">Senha</label>
+        <label class="form-label" data-i18n="auth.password">Senha</label>
         <input class="form-input" type="password" id="login-password" placeholder="••••••••"
           autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
       </div>
@@ -214,11 +214,11 @@ body{
       <div class="form-row">
         <label class="remember" title="Permanece logado por 7 dias — refresh token automatico">
           <input type="checkbox" id="remember-me" checked>
-          <span>Lembrar de mim (7 dias)</span>
+          <span data-i18n="auth.remember_me">Lembrar de mim (7 dias)</span>
         </label>
-        <a href="/reset-password" class="forgot-link">Esqueci a senha</a>
+        <a href="/reset-password" class="forgot-link" data-i18n="auth.forgot_password">Esqueci a senha</a>
       </div>
-      <button class="btn-submit" id="btn-login" onclick="doLogin()">Entrar</button>
+      <button class="btn-submit" id="btn-login" onclick="doLogin()" data-i18n="auth.login">Entrar</button>
     </div>
 
     <!-- REGISTER -->

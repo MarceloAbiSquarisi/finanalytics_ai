@@ -261,5 +261,12 @@
   "profile.email": "E-mail",
   "profile.fullname": "Nome completo",
   "profile.role": "Perfil",
-  "profile.status": "Status"
+  "profile.status": "Status",
+
+  "tickers.title": "Profit Tickers",
+  "tickers.subtitle": "Gerenciamento de tickers subscritos no Profit Agent (Nelogica) - porta 8002",
+  "portfolios.title": "Portfolios",
+  "portfolios.subtitle": "Gerencia carteiras nomeadas. Inativacao preserva historico — exige saldo zero em todas as aplicacoes.",
+  "login.tab.login": "Entrar",
+  "login.tab.register": "Criar Conta"
 }

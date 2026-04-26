@@ -261,5 +261,12 @@
   "profile.email": "E-mail",
   "profile.fullname": "Full name",
   "profile.role": "Role",
-  "profile.status": "Status"
+  "profile.status": "Status",
+
+  "tickers.title": "Profit Tickers",
+  "tickers.subtitle": "Management of tickers subscribed in Profit Agent (Nelogica) - port 8002",
+  "portfolios.title": "Portfolios",
+  "portfolios.subtitle": "Manages named portfolios. Deactivation preserves history — requires zero balance in all investments.",
+  "login.tab.login": "Sign in",
+  "login.tab.register": "Sign up"
 }
