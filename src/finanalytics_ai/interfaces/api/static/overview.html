@@ -201,6 +201,14 @@ try { if (window.parent !== window) document.documentElement.classList.add('fa-e
     <div class="ov-meta">
       <span id="ov-status">—</span>
       <span id="ov-updated" title="Última atualização">—</span>
+      <select id="ov-refresh-sel" onchange="changeRefreshInterval()" title="Intervalo de auto-refresh" style="padding:4px 6px;font-size:11px">
+        <option value="0">⏸ Off</option>
+        <option value="5000">⏱ 5s</option>
+        <option value="10000">⏱ 10s</option>
+        <option value="30000">⏱ 30s</option>
+        <option value="60000">⏱ 1min</option>
+        <option value="300000">⏱ 5min</option>
+      </select>
       <button class="ov-refresh-btn" id="ov-density-btn" onclick="toggleDensity()" title="Alternar entre Compact (mais cards) e Detail (mais info)">📐 Compact</button>
       <button class="ov-refresh-btn" onclick="loadMLSignals()" title="Recarrega ML signals do último snapshot diário">🤖 ML</button>
       <button class="ov-refresh-btn" onclick="loadOverview()">↻ Atualizar</button>
@@ -233,7 +241,8 @@ try { if (window.parent !== window) document.documentElement.classList.add('fa-e
 <script>
 'use strict';
 
-const REFRESH_MS = 30000;
+// Default 30s; user pode alterar via select #ov-refresh-sel (persist localStorage)
+let _refreshMs = parseInt(localStorage.getItem('ov_refresh_ms') || '30000');
 const SPARK_BARS = 30;
 const SPARK_RES = '1d';
 
@@ -786,8 +795,20 @@ async function fetchSparklinesBatch() {
 
 // Eventos
 function startAutoRefresh() {
-  if (_refreshInterval) clearInterval(_refreshInterval);
-  _refreshInterval = setInterval(loadOverview, REFRESH_MS);
+  if (_refreshInterval) { clearInterval(_refreshInterval); _refreshInterval = null; }
+  if (_refreshMs > 0) _refreshInterval = setInterval(loadOverview, _refreshMs);
+}
+
+function changeRefreshInterval() {
+  const sel = document.getElementById('ov-refresh-sel');
+  if (!sel) return;
+  _refreshMs = parseInt(sel.value) || 0;
+  localStorage.setItem('ov_refresh_ms', String(_refreshMs));
+  startAutoRefresh();
+  if (window.FAToast) {
+    const lbl = _refreshMs === 0 ? 'Auto-refresh OFF' : `Auto-refresh ${_refreshMs/1000}s`;
+    FAToast.info(lbl);
+  }
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -810,6 +831,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   $('ov-ml-filter').addEventListener('change', e => { _activeMlFilter = e.target.value; rerender(); });
   // Search
   $('ov-search').addEventListener('input', e => { _searchQ = e.target.value.trim(); rerender(); });
+  // Refresh interval — restaura selecao do localStorage
+  const refSel = $('ov-refresh-sel');
+  if (refSel) refSel.value = String(_refreshMs);
 
   loadOverview();
   startAutoRefresh();
