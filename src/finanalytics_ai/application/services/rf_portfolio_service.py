@@ -66,8 +66,12 @@ class RFPortfolioService:
 
     # ── Carteiras ──────────────────────────────────────────────────────────────
 
-    async def create_portfolio(self, user_id: str, name: str) -> dict[str, Any]:
-        p = await self._repo.create_portfolio(user_id, name)
+    async def create_portfolio(
+        self, user_id: str, name: str, investment_account_id: str | None = None
+    ) -> dict[str, Any]:
+        """investment_account_id obrigatório (BUG11 26/abr) — propaga ao mirror
+        portfolio pra cash hooks rf_apply/rf_redeem dispararem corretamente."""
+        p = await self._repo.create_portfolio(user_id, name, investment_account_id)
         return {
             "portfolio_id": p.portfolio_id,
             "user_id": p.user_id,

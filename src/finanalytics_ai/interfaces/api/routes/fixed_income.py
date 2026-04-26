@@ -338,6 +338,11 @@ from finanalytics_ai.application.services.rf_portfolio_service import RFPortfoli
 class CreatePortfolioRFRequest(BaseModel):
     user_id: str = Field(..., min_length=1)
     name: str = Field(..., min_length=1, max_length=200)
+    # BUG11 fix (26/abr): obrigatório pra cash hooks rf_apply/rf_redeem dispararem.
+    # Sem isso o portfolio fica órfão e os cash hooks fazem skip silencioso.
+    investment_account_id: str = Field(
+        ..., min_length=1, description="ID da investment_account dona desta carteira RF"
+    )
 
 
 class AddHoldingRequest(BaseModel):
@@ -364,8 +369,11 @@ def _rf_svc(session) -> RFPortfolioService:
 async def create_rf_portfolio(
     body: CreatePortfolioRFRequest, session: AsyncSession = Depends(get_db_session)
 ) -> dict:
-    """Cria uma nova carteira de Renda Fixa para o usuário."""
-    return await _rf_svc(session).create_portfolio(body.user_id, body.name)
+    """Cria uma nova carteira de Renda Fixa para o usuário, vinculada a uma
+    investment_account (BUG11 fix 26/abr — sem isso cash hooks fazem skip)."""
+    return await _rf_svc(session).create_portfolio(
+        body.user_id, body.name, body.investment_account_id
+    )
 
 
 @router.get("/portfolio")

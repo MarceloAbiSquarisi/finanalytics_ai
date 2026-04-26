@@ -98,7 +98,9 @@ class RFPortfolioRepository:
 
     # ── Portfolio ──────────────────────────────────────────────────────────────
 
-    async def create_portfolio(self, user_id: str, name: str) -> RFPortfolio:
+    async def create_portfolio(
+        self, user_id: str, name: str, investment_account_id: str | None = None
+    ) -> RFPortfolio:
         # Bug fix (21/abr): rf_holdings.portfolio_id tem FK para portfolios.id
         # (sistema unificado), nao para rf_portfolios. Antes, rf_portfolios
         # gerava UUID novo que nunca existia em portfolios — qualquer add_holding
@@ -106,6 +108,8 @@ class RFPortfolioRepository:
         # mesmo PK e marcar nome como "RF: <name>" para distinguir na UI
         # /portfolios. Followup ideal: migrar /fixed-income para usar
         # portfolios direto e dropar rf_portfolios.
+        # BUG11 fix (26/abr): aceita investment_account_id pra cash hooks
+        # rf_apply/rf_redeem encontrarem a conta dona e atualizarem cash_balance.
         from finanalytics_ai.infrastructure.database.repositories.portfolio_repo import (
             PortfolioModel,
         )
@@ -115,6 +119,7 @@ class RFPortfolioRepository:
         portfolio_mirror = PortfolioModel(
             id=pid,
             user_id=user_id,
+            investment_account_id=investment_account_id,
             name=f"RF: {name}",
             description="Carteira de Renda Fixa (criada via /fixed-income)",
             benchmark="CDI",
