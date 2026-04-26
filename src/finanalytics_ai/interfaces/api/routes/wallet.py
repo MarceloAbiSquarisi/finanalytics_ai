@@ -404,16 +404,17 @@ async def list_all_transactions(
     date_to: str | None = Query(None, description="YYYY-MM-DD"),
     direction: str | None = Query(None, pattern="^(debit|credit)$"),
     include_pending: bool = Query(True),
+    account_id: str | None = Query(None, description="Filtra por conta (default: todas)"),
     user: User = Depends(get_current_user),
 ) -> list[dict]:
-    """Cross-account: lista TODAS as transações do usuário (todas as contas).
-    Usado pela página /movimentacoes (C6 Fase 3 — 26/abr)."""
+    """Cross-account por default; filtra por conta se account_id for fornecido.
+    Usado pela página /movimentacoes (C6 Fase 3 — 26/abr) e /overview."""
     from datetime import date as _date
     df = _date.fromisoformat(date_from) if date_from else None
     dt = _date.fromisoformat(date_to) if date_to else None
     return await _repo().list_transactions(
         user_id=str(user.user_id),
-        account_id=None,  # cross-account
+        account_id=account_id,
         status=status_filter,
         limit=limit,
         offset=offset,

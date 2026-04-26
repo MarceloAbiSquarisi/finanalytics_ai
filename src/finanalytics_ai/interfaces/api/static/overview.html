@@ -13,15 +13,18 @@
 <meta name="theme-color" content="#00d4ff">
 <style>
 .ov-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-.ov-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.ov-tabs { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 8px 10px; border: 1px solid var(--border, #1c2535); border-radius: 8px; background: var(--card, #0e1a2e); }
+.ov-tabs-label { font-size: 11px; color: var(--muted, #4a6a8a); text-transform: uppercase; letter-spacing: .5px; margin-right: 4px; font-family: 'DM Mono', monospace; }
 .ov-tab {
+  display: inline-flex; align-items: center; gap: 6px;
   background: transparent; border: 1px solid var(--border, #1c2535); color: var(--muted, #4a6a8a);
-  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-family: 'DM Mono', monospace;
-  transition: all .15s;
+  padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-family: 'DM Mono', monospace;
+  transition: all .15s; user-select: none;
 }
+.ov-tab input[type="checkbox"] { margin: 0; cursor: pointer; accent-color: var(--accent, #00d4ff); }
 .ov-tab:hover { color: var(--accent, #00d4ff); border-color: var(--accent, #00d4ff); }
 .ov-tab.active { background: rgba(58,191,248,.15); color: var(--accent, #00d4ff); border-color: var(--accent, #00d4ff); }
-.ov-tab .ov-tab-count { font-size: 10px; opacity: .7; margin-left: 4px; }
+.ov-tab .ov-tab-count { font-size: 10px; opacity: .7; }
 .ov-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .ov-controls select, .ov-controls input {
   background: var(--card, #0e1a2e); border: 1px solid var(--border, #1c2535); color: var(--text);
@@ -110,6 +113,7 @@
 .ov-spark path.fill.down { fill: rgba(255,61,90,.10); }
 .ov-spark path.fill.flat { fill: rgba(74,106,138,.06); }
 .ov-foot { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 10px; color: var(--muted, #4a6a8a); }
+.ov-foot .ov-pm { color: var(--text, #e6edf3); font-weight: 600; }
 .ov-ml {
   font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 700;
   padding: 2px 6px; border-radius: 4px; border: 1px solid; letter-spacing: .5px;
@@ -157,6 +161,8 @@ try { if (window.parent !== window) document.documentElement.classList.add('fa-e
 .fa-embedded #fa-sidebar, .fa-embedded [data-fa-include="sidebar.html"], .fa-embedded .fa-sidebar, .fa-embedded .fa-topbar { display: none !important; }
 .fa-embedded .fa-page-content { margin-left: 0 !important; padding: 12px 16px !important; }
 .fa-embedded body { background: transparent !important; }
+:fullscreen body, :-webkit-full-screen body { background: var(--bg, #08111c) !important; overflow: auto !important; }
+:fullscreen .fa-page-content, :-webkit-full-screen .fa-page-content { padding: 16px 24px !important; }
 .fa-embedded h1 { display: none !important; }
 .fa-embedded .ov-wrap > div:first-child > div:nth-child(2) { display: none !important; }
 </style>
@@ -171,14 +177,15 @@ try { if (window.parent !== window) document.documentElement.classList.add('fa-e
 
   <div class="ov-toolbar">
     <div class="ov-tabs" id="ov-tabs">
-      <button class="ov-tab active" data-tab="all">Todos <span class="ov-tab-count" data-count="all">0</span></button>
-      <button class="ov-tab" data-tab="position">Posições <span class="ov-tab-count" data-count="position">0</span></button>
-      <button class="ov-tab" data-tab="fii">FIIs <span class="ov-tab-count" data-count="fii">0</span></button>
-      <button class="ov-tab" data-tab="fundo">Fundos <span class="ov-tab-count" data-count="fundo">0</span></button>
-      <button class="ov-tab" data-tab="watchlist">Watchlist <span class="ov-tab-count" data-count="watchlist">0</span></button>
-      <button class="ov-tab" data-tab="crypto">Crypto <span class="ov-tab-count" data-count="crypto">0</span></button>
-      <button class="ov-tab" data-tab="rf">Renda Fixa <span class="ov-tab-count" data-count="rf">0</span></button>
-      <button class="ov-tab" data-tab="other">Outros <span class="ov-tab-count" data-count="other">0</span></button>
+      <span class="ov-tabs-label">Mostrar:</span>
+      <label class="ov-tab" data-src="all"><input type="checkbox" data-src="all" checked> Todos</label>
+      <label class="ov-tab active" data-src="position"><input type="checkbox" data-src="position" checked> Posições <span class="ov-tab-count" data-count="position">0</span></label>
+      <label class="ov-tab active" data-src="fii"><input type="checkbox" data-src="fii" checked> FIIs <span class="ov-tab-count" data-count="fii">0</span></label>
+      <label class="ov-tab active" data-src="fundo"><input type="checkbox" data-src="fundo" checked> Fundos <span class="ov-tab-count" data-count="fundo">0</span></label>
+      <label class="ov-tab active" data-src="watchlist"><input type="checkbox" data-src="watchlist" checked> Watchlist <span class="ov-tab-count" data-count="watchlist">0</span></label>
+      <label class="ov-tab active" data-src="crypto"><input type="checkbox" data-src="crypto" checked> Crypto <span class="ov-tab-count" data-count="crypto">0</span></label>
+      <label class="ov-tab active" data-src="rf"><input type="checkbox" data-src="rf" checked> Renda Fixa <span class="ov-tab-count" data-count="rf">0</span></label>
+      <label class="ov-tab active" data-src="other"><input type="checkbox" data-src="other" checked> Outros <span class="ov-tab-count" data-count="other">0</span></label>
     </div>
     <div class="ov-controls">
       <input type="search" id="ov-search" placeholder="🔎 ticker..." style="width:130px"/>
@@ -210,6 +217,7 @@ try { if (window.parent !== window) document.documentElement.classList.add('fa-e
         <option value="300000">⏱ 5min</option>
       </select>
       <button class="ov-refresh-btn" id="ov-density-btn" onclick="toggleDensity()" title="Alternar entre Compact (mais cards) e Detail (mais info)">📐 Compact</button>
+      <button class="ov-refresh-btn" id="ov-fs-btn" onclick="toggleFullscreen()" title="Tela cheia (F11 / Esc para sair)">⛶ Tela cheia</button>
       <button class="ov-refresh-btn" onclick="loadMLSignals()" title="Recarrega ML signals do último snapshot diário">🤖 ML</button>
       <button class="ov-refresh-btn" onclick="loadOverview()">↻ Atualizar</button>
     </div>
@@ -253,7 +261,15 @@ let _signalsSnapshot = null;  // ISO date do snapshot mais recente
 let _stopLoss = {};           // ticker → {stop_price, qty, count} (active stop-limit orders no profit_agent)
 let _accountsMap = {};        // id → {apelido, institution_name} (pra rotular tx em "Últimas movs")
 let _density = localStorage.getItem('ov_density') || 'compact';  // 'compact' | 'detail'
-let _activeTab = 'all';
+const ALL_SOURCES = ['position','fii','fundo','watchlist','crypto','rf','other'];
+let _enabledSources = (function() {
+  try {
+    const raw = localStorage.getItem('fa_overview_sources');
+    if (!raw) return new Set(ALL_SOURCES);
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) && arr.length ? arr : ALL_SOURCES);
+  } catch { return new Set(ALL_SOURCES); }
+})();
 let _activeSort = 'ticker';
 let _activeMlFilter = 'all';
 let _searchQ = '';
@@ -419,12 +435,12 @@ function renderRecentTransactions(tx) {
     const stColor = t.status === 'pending' ? 'var(--gold,#F0B429)' : 'var(--white,#fff)';
     const acc = _accountsMap[t.account_id];
     const accLbl = acc ? (acc.apelido || acc.titular || acc.institution_name || t.account_id.slice(0, 8)) : (t.account_id ? t.account_id.slice(0, 8) : '—');
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+    return `<div style="display:grid;grid-template-columns:90px 1fr 160px 130px 70px;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">
       <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--white,#fff)">${dt}</span>
-      <span style="flex:1;margin:0 12px;color:var(--white,#fff)"><strong>${t.ticker || '—'}</strong> · ${t.tx_type || '—'}</span>
-      <span style="font-size:11px;color:var(--white,#fff);margin-right:10px;min-width:120px;text-align:right">${accLbl}</span>
-      <span style="font-family:'DM Mono',monospace;color:${color};font-weight:600">${sign}R$ ${f2(amt)}</span>
-      <span style="margin-left:10px;font-size:10px;color:${stColor};text-transform:uppercase">${t.status || '—'}</span>
+      <span style="color:var(--white,#fff);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><strong>${t.ticker || '—'}</strong> · ${t.tx_type || '—'}</span>
+      <span style="font-size:11px;color:var(--white,#fff);text-align:center">${accLbl}</span>
+      <span style="font-family:'DM Mono',monospace;color:${color};font-weight:600;text-align:right">${sign}R$ ${f2(amt)}</span>
+      <span style="font-size:10px;color:${stColor};text-transform:uppercase;text-align:right">${t.status || '—'}</span>
     </div>`;
   }).join('');
 }
@@ -611,6 +627,7 @@ function renderCard(item) {
     : (item.source === 'crypto' && item.avg != null ? `Pm R$ ${f2(item.avg)}`
     : (item.source === 'rf' ? (item.indexer || '')
     : ((item.source === 'other' || item.source === 'fundo') ? (item.asset_type || '') : '')));
+  const footRightCls = footRight.startsWith('Pm R$') ? 'ov-pm' : '';
 
   // RF → /fixed-income; Other/Fundo → /carteira (sem página dedicada); demais (POS/FII/CRP) → /dashboard
   const href = item.source === 'rf' ? '/fixed-income'
@@ -630,7 +647,7 @@ function renderCard(item) {
       <div class="ov-foot">
         ${mlHtml}
         ${slHtml}
-        <span>${footRight}</span>
+        <span class="${footRightCls}">${footRight}</span>
       </div>
     </a>
   `;
@@ -638,7 +655,7 @@ function renderCard(item) {
 
 function applyFilters(items) {
   let arr = items.slice();
-  if (_activeTab !== 'all') arr = arr.filter(i => i.source === _activeTab);
+  arr = arr.filter(i => _enabledSources.has(i.source));
   if (_searchQ) {
     const q = _searchQ.toLowerCase();
     arr = arr.filter(i => i.ticker.toLowerCase().includes(q));
@@ -684,6 +701,27 @@ function toggleDensity() {
   localStorage.setItem('ov_density', _density);
   applyDensity();
 }
+
+function toggleFullscreen() {
+  // Fullscreen do documento — quando embarcado em iframe, o próprio iframe vira tela cheia
+  // (browser exige <iframe allowfullscreen>, já configurado em /carteira)
+  const root = document.documentElement;
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  try {
+    if (!fsEl) {
+      const req = root.requestFullscreen || root.webkitRequestFullscreen;
+      if (req) req.call(root);
+    } else {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exit) exit.call(document);
+    }
+  } catch (e) { console.warn('fullscreen toggle fail:', e.message); }
+}
+
+document.addEventListener('fullscreenchange', () => {
+  const btn = document.getElementById('ov-fs-btn');
+  if (btn) btn.textContent = document.fullscreenElement ? '⛶ Sair' : '⛶ Tela cheia';
+});
 
 function rerender() {
   const grid = $('ov-grid');
@@ -819,15 +857,41 @@ window.addEventListener('DOMContentLoaded', async () => {
     try { await FAAuth.requireAuth(); } catch (e) { return; }
   }
 
-  // Tabs
-  document.querySelectorAll('.ov-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.ov-tab').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      _activeTab = btn.dataset.tab;
+  // Source checkboxes (multi-select)
+  function _syncSourceUI() {
+    document.querySelectorAll('.ov-tab').forEach(lbl => {
+      const src = lbl.dataset.src;
+      if (src === 'all') {
+        const allOn = ALL_SOURCES.every(s => _enabledSources.has(s));
+        lbl.classList.toggle('active', allOn);
+        const cb = lbl.querySelector('input[type="checkbox"]');
+        if (cb) cb.checked = allOn;
+      } else {
+        const on = _enabledSources.has(src);
+        lbl.classList.toggle('active', on);
+        const cb = lbl.querySelector('input[type="checkbox"]');
+        if (cb) cb.checked = on;
+      }
+    });
+  }
+  function _persistSources() {
+    try { localStorage.setItem('fa_overview_sources', JSON.stringify([..._enabledSources])); } catch {}
+  }
+  document.querySelectorAll('.ov-tab input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const src = cb.dataset.src;
+      if (src === 'all') {
+        if (cb.checked) ALL_SOURCES.forEach(s => _enabledSources.add(s));
+        else _enabledSources.clear();
+      } else {
+        if (cb.checked) _enabledSources.add(src); else _enabledSources.delete(src);
+      }
+      _persistSources();
+      _syncSourceUI();
       rerender();
     });
   });
+  _syncSourceUI();
   // Sort
   $('ov-sort').addEventListener('change', e => { _activeSort = e.target.value; rerender(); });
   // ML filter

@@ -3,7 +3,7 @@
 > **Reorganizado**: 26/abr/2026 — classificação por dependência (pregão aberto/fechado/outras)
 > **Login dev**: `marceloabisquarisi@gmail.com` / `admin123` (master)
 > **DB seedado**: 2 contas teste (XP + BTG) populadas — commits `7555662` + `7fe44ff`
-> **Cache**: SW v43 — `Ctrl+Shift+R` na 1ª abertura de cada página
+> **Cache**: SW v66 — `Ctrl+Shift+R` na 1ª abertura de cada página
 
 ---
 
@@ -30,12 +30,12 @@
 
 ### A.1 — /carteira filtro de conta (~5min)
 
-- [ ] **A.1.1** Abrir http://localhost:8000/carteira (`Ctrl+Shift+R` se 1ª vez)
-- [ ] **A.1.2** Selector "Conta" no topo mostra **3 opções**: Todas as contas / Teste Ações XP (XPI) / Teste Renda Fixa BTG (BTG Pactual)
-- [ ] **A.1.3** DevTools (F12) console — `[carteira] acc-filter populado com 2 contas`
-- [ ] **A.1.4** Selecionar **XP** → info inline `caixa: R$ 50.000,00`
-- [ ] **A.1.5** Selecionar **BTG** → `caixa: R$ 30.000,00`
-- [ ] **A.1.6** F5 mantém seleção (localStorage `fa_carteira_account_id`)
+- [X] **A.1.1** Abrir http://localhost:8000/carteira (`Ctrl+Shift+R` se 1ª vez)
+- [X] **A.1.2** Selector "Conta" no topo mostra **3 opções**: Todas as contas / Teste Ações XP (XPI) / Teste Renda Fixa BTG (BTG Pactual)
+- [X] **A.1.3** DevTools (F12) console — `[carteira] acc-filter populado com 2 contas`
+- [X] **A.1.4** Selecionar **XP** → info inline `caixa: R$ 50.000,00`
+- [X] **A.1.5** Selecionar **BTG** → `caixa: R$ 30.000,00`
+- [X] **A.1.6** F5 mantém seleção (localStorage `fa_carteira_account_id`)
 
 ### A.2 — /carteira tabs render (~15min)
 
@@ -159,6 +159,23 @@
 - [ ] **A.9.4** Tab **List** = Ordens (já testado A.8)
 - [ ] **A.9.5** Tab **Signals** mostra ML signals (sub-tabs Live/Hist/Mudanças)
 - [ ] **A.9.6** Tab **Conta** mostra contas + ativa DLL
+
+### A.11 — /overview UI refinements (sessão 26/abr noite) (~10min)
+
+> Mudanças aplicadas nesta sessão (SW v62→v66): PM destacado, conta centralizada, checkbox-group, fullscreen.
+
+- [ ] **A.11.1** Backend `/api/v1/wallet/transactions?account_id=<uuid>` aceita filtro de conta (era hardcoded `None`)
+- [ ] **A.11.2** Em /carteira → trocar conta no filtro topo → "Últimas movimentações" recarrega só com tx daquela conta (DevTools Network: `?account_id=...&limit=5`)
+- [ ] **A.11.3** PM nos cards (`Pm R$ XX,XX`) aparece em **branco bold** — não mais cinza opaco
+- [ ] **A.11.4** Coluna "Conta" na tabela de últimas movimentações está **centralizada** (grid 5 colunas estável entre linhas)
+- [ ] **A.11.5** Toolbar mostra caixa `Mostrar:` com **8 checkboxes** (Todos + 7 fontes: Posições/FIIs/Fundos/Watchlist/Crypto/RF/Outros)
+- [ ] **A.11.6** Desmarcar "Crypto" + "Outros" → cards reduzem; "Todos" desmarca para refletir
+- [ ] **A.11.7** F5 mantém seleção (localStorage `fa_overview_sources`)
+- [ ] **A.11.8** Marcar "Todos" → todas as fontes voltam; desmarcar "Todos" → grid vazio
+- [ ] **A.11.9** Botão `⛶ Tela cheia` ao lado do `📐 Compact`
+- [ ] **A.11.10** Click → iframe Overview ocupa tela inteira (sidebar/topbar/abas do /carteira somem)
+- [ ] **A.11.11** Em fullscreen: background opaco (não transparente), label vira `⛶ Sair`
+- [ ] **A.11.12** Esc ou click `⛶ Sair` retorna ao layout normal
 
 ### A.10 — Smoke visual 14 páginas (~15min)
 
@@ -388,7 +405,7 @@ Start-Process -FilePath ".venv\Scripts\python.exe" `
 
 | Bloco | Quando | Sub-itens | Tempo |
 |---|---|---|---|
-| 🟢 **A** Pregão fechado | agora | 10 seções (~64 checks) | ~1h50 |
+| 🟢 **A** Pregão fechado | agora | 11 seções (~76 checks) | ~2h |
 | 🔴 **B** Pregão aberto | seg 27/abr 10h-18h BRT | 17 seções (~50 checks) | ~3h |
 | 🟠 **C.1** Pushover | celular ligado | 4 checks | ~15min |
 | 🟠 **C.2** Sudo presencial | você presente | 7 checks | ~30min |
