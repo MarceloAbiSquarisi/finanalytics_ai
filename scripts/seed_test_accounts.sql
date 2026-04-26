@@ -96,6 +96,13 @@ INSERT INTO positions (portfolio_id, investment_account_id, ticker, quantity, av
 INSERT INTO crypto_holdings (id, user_id, investment_account_id, portfolio_id, symbol, quantity, average_price_brl, average_price_usd, exchange, note, updated_at) VALUES
 ('c-001', :USER_ID, :ACC1_ID, :PF1_ID, 'BTC', 0.025, 280000.00, 56000.00, 'Binance', 'Compras DCA', NOW());
 
+-- ── rf_portfolios (espelho legacy do sistema unificado) ─────────────────────
+-- /api/v1/fixed-income/portfolio/{id} consulta esta tabela. Sem entry, retorna
+-- 404 e /overview não consegue listar holdings RF nos cards.
+INSERT INTO rf_portfolios (portfolio_id, user_id, name, created_at) VALUES
+(:PF1_ID, :USER_ID, 'Portfolio', '2026-04-26'),
+(:PF2_ID, :USER_ID, 'Portfolio', '2026-04-26');
+
 -- ── Renda Fixa (BTG) — CDB + LCI + Tesouro ───────────────────────────────────
 INSERT INTO rf_holdings (holding_id, portfolio_id, investment_account_id, bond_id, bond_name, bond_type, indexer, issuer, invested, rate_annual, rate_pct_indexer, purchase_date, maturity_date, ir_exempt, note, liquidity_days) VALUES
 ('rf-001', :PF2_ID, :ACC2_ID, 'cdb-btg-2027', 'CDB BTG 110% CDI', 'CDB', 'CDI', 'BTG Pactual', 10000.00, 110.0, true, '2026-01-15', '2027-01-15', false, 'CDB pos pra emergência', 1),
