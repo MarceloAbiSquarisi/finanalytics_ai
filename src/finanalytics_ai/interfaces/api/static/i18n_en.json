@@ -221,5 +221,16 @@
   "vol_surface.title": "📈 Volatility Surface",
   "vol_surface.subtitle": "Implied Volatility by Strike and Expiration — Smile and Term Structure",
   "var.title": "🛡 Value at Risk (VaR)",
-  "var.subtitle": "Portfolio market risk — Historical VaR, Parametric and CVaR"
+  "var.subtitle": "Portfolio market risk — Historical VaR, Parametric and CVaR",
+
+  "sentiment.title": "💬 News Sentiment",
+  "sentiment.subtitle": "Financial news analysis via Claude Haiku 4.5 (~$0.001/news)",
+  "optimizer.title": "⚙ Portfolio Optimizer",
+  "optimizer.subtitle": "Markowitz, Risk Parity and Black-Litterman with real Fintz data",
+  "tape.title": "🎵 Tape Reading",
+  "tape.subtitle": "Real-time trade flow via ProfitDLL — Aggression, B/S Ratio and Volume Profile",
+  "opcoes.title": "○ Options - Greeks and IV",
+  "opcoes.subtitle": "Black-Scholes pricing, Greeks and Implied Volatility",
+  "opcoes_estrat.title": "○ Options - Strategies",
+  "opcoes_estrat.subtitle": "Pricing of compound strategies: Straddle, Strangle, Spreads, Iron Condor, Butterfly, Covered Call"
 }

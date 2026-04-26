@@ -221,5 +221,16 @@
   "vol_surface.title": "📈 Superficie de Volatilidade",
   "vol_surface.subtitle": "Volatilidade Implicita por Strike e Vencimento — Smile e Estrutura a Termo",
   "var.title": "🛡 Value at Risk (VaR)",
-  "var.subtitle": "Risco de mercado da carteira — VaR Historico, Parametrico e CVaR"
+  "var.subtitle": "Risco de mercado da carteira — VaR Historico, Parametrico e CVaR",
+
+  "sentiment.title": "💬 Sentimento de Noticias",
+  "sentiment.subtitle": "Analise de noticias financeiras via Claude Haiku 4.5 (~$0.001/noticia)",
+  "optimizer.title": "⚙ Otimizador de Carteira",
+  "optimizer.subtitle": "Markowitz, Risk Parity e Black-Litterman com dados reais do Fintz",
+  "tape.title": "🎵 Tape Reading",
+  "tape.subtitle": "Fluxo de negocios em tempo real via ProfitDLL — Agressao, Ratio C/V e Volume Profile",
+  "opcoes.title": "○ Opcoes - Greeks e IV",
+  "opcoes.subtitle": "Precificacao Black-Scholes, Greeks e Volatilidade Implicita",
+  "opcoes_estrat.title": "○ Opcoes - Estrategias",
+  "opcoes_estrat.subtitle": "Precificacao de estrategias compostas: Straddle, Strangle, Spreads, Iron Condor, Butterfly, Covered Call"
 }
