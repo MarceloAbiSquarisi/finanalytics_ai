@@ -94,6 +94,18 @@
 .ov-ml.hold  { color: var(--gold, #F0B429);  border-color: rgba(240,180,41,.4); background: rgba(240,180,41,.08); }
 .ov-ml.none  { color: var(--muted);          border-color: var(--border); background: transparent; opacity: .55; }
 .ov-ml-pct { margin-left: 4px; opacity: .8; font-weight: 500; }
+.ov-pnl { font-size: 11px; font-weight: 600; font-family: 'DM Mono', monospace; margin-top: 2px; }
+.ov-pnl.up    { color: var(--green, #00e676); }
+.ov-pnl.down  { color: var(--red, #ff3d5a); }
+.ov-pnl.flat  { color: var(--muted, #4a6a8a); }
+.ov-pnl-label { opacity: .6; font-weight: 500; margin-right: 4px; }
+.ov-sl {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 700;
+  padding: 2px 5px; border-radius: 4px; letter-spacing: .3px;
+  color: var(--red, #ff3d5a); border: 1px solid rgba(255,61,90,.4);
+  background: rgba(255,61,90,.08);
+}
 
 .ov-empty { padding: 60px 20px; text-align: center; color: var(--muted, #4a6a8a); }
 .ov-skeleton { background: linear-gradient(90deg, rgba(255,255,255,.04), rgba(255,255,255,.10), rgba(255,255,255,.04)); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; }
@@ -170,6 +182,7 @@ let _allItems = [];           // [{ticker, source, qty?, avg?, ...}]
 let _quotes = {};             // ticker → {last, prev, closes}
 let _signals = {};            // ticker → {signal, predicted_return_pct, snapshot_date, ...}
 let _signalsSnapshot = null;  // ISO date do snapshot mais recente
+let _stopLoss = {};           // ticker → {stop_price, qty, count} (active stop-limit orders no profit_agent)
 let _activeTab = 'all';
 let _activeSort = 'ticker';
 let _activeMlFilter = 'all';
@@ -287,6 +300,36 @@ async function fetchAllSignals(timeoutMs = 8000) {
   } catch (e) { console.warn('signal_history fail:', e.message); return { map: {}, snapshot: null }; }
 }
 
+async function fetchStopLossOrders() {
+  // Lê ordens ativas no profit_agent. Filtra stop-limit (order_type=4) com status pendente.
+  // status: 0=New, 1=PartialFilled, 10=PendingNew → ativos
+  try {
+    const r = await fetch('/api/v1/agent/orders', { headers: { Authorization: 'Bearer ' + tok() } });
+    if (!r.ok) return {};
+    const data = await r.json();
+    const orders = data.orders || [];
+    const map = {};
+    orders.forEach(o => {
+      if (o.order_type !== 4) return;                     // só stop-limit
+      if (![0, 1, 10].includes(o.order_status)) return;   // só ativos
+      const t = o.ticker;
+      if (!map[t]) map[t] = { stop_price: o.stop_price, qty: o.quantity, count: 0 };
+      map[t].count++;
+      // se houver mais de uma SL pro ticker, mostramos a maior (pior caso)
+      if (o.stop_price != null && (map[t].stop_price == null || o.stop_price > map[t].stop_price)) {
+        map[t].stop_price = o.stop_price;
+      }
+    });
+    return map;
+  } catch (e) { console.warn('orders fail:', e.message); return {}; }
+}
+
+async function loadStopLoss() {
+  _stopLoss = await fetchStopLossOrders();
+  console.info('[overview] stop-loss orders:', Object.keys(_stopLoss).length);
+  rerender();
+}
+
 async function recalcLiveSignal(ticker) {
   // Chamada per-ticker pra recalcular ML em tempo real (~4s). Usado pelo botão por card.
   try {
@@ -326,6 +369,22 @@ function renderCard(item) {
     mlHtml = `<span class="ov-ml none" title="${sig?.error || 'sem modelo calibrado'}">—</span>`;
   }
 
+  // P/L (positions e crypto): (last - avg) * qty
+  let pnlHtml = '';
+  if ((item.source === 'position' || item.source === 'crypto') && item.avg != null && item.qty != null && last != null) {
+    const pnl = (last - item.avg) * item.qty;
+    const pnlPct = item.avg !== 0 ? ((last - item.avg) / item.avg) * 100 : 0;
+    const pnlDir = pnl > 0 ? 'up' : (pnl < 0 ? 'down' : 'flat');
+    const sign = pnl >= 0 ? '+' : '';
+    pnlHtml = `<div class="ov-pnl ${pnlDir}"><span class="ov-pnl-label">P/L</span>${sign}R$ ${f2(pnl)} (${sign}${pnlPct.toFixed(2)}%)</div>`;
+  }
+
+  // Stop-loss badge — qualquer ticker com stop-limit ativo
+  const sl = _stopLoss[ticker];
+  const slHtml = sl
+    ? `<span class="ov-sl" title="Stop-loss ativo · stop R$ ${f2(sl.stop_price)} · qty ${sl.qty}${sl.count > 1 ? ' · ' + sl.count + ' ordens' : ''}">🛡 SL ${f2(sl.stop_price)}</span>`
+    : '';
+
   const footRight = item.source === 'position' && item.avg != null ? `Pm R$ ${f2(item.avg)}` : (item.source === 'crypto' && item.avg != null ? `Pm R$ ${f2(item.avg)}` : (item.source === 'rf' ? (item.indexer || '') : ''));
 
   // Para RF não tem ticker B3 padrão; click leva a /fixed-income; demais → /dashboard
@@ -339,9 +398,11 @@ function renderCard(item) {
       </div>
       <div class="ov-price">${priceTxt}</div>
       <div class="ov-chg ${dir}">${chgTxt}</div>
+      ${pnlHtml}
       ${spark}
       <div class="ov-foot">
         ${mlHtml}
+        ${slHtml}
         <span>${footRight}</span>
       </div>
     </a>
@@ -430,6 +491,9 @@ async function loadOverview() {
   fetchCrypto().then(addItems);
   fetchWatchlist().then(addItems);
   fetchRF().then(items => { addItems(items); $('ov-updated').textContent = 'atualizado ' + new Date().toLocaleTimeString('pt-BR'); });
+
+  // Stop-loss orders ativas (independente das fontes — re-renderiza ao chegar)
+  loadStopLoss();
 
   // ML signals — snapshot diário (signal_history). Query rápida (<100ms),
   // cache curto pra evitar refetch em tab-switches dentro da mesma sessão.
