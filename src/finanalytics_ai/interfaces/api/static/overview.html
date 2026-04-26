@@ -39,6 +39,10 @@
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 14px;
 }
+.ov-grid.compact {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+}
 .ov-card {
   background: var(--card, #0e1a2e);
   border: 1px solid var(--border, #1c2535);
@@ -53,6 +57,24 @@
   color: inherit;
   position: relative;
 }
+.ov-grid.compact .ov-card {
+  padding: 8px 10px;
+  gap: 4px;
+  border-radius: 7px;
+}
+.ov-grid.compact .ov-ticker { font-size: 13px; letter-spacing: .3px }
+.ov-grid.compact .ov-tag { font-size: 8px; padding: 1px 4px }
+.ov-grid.compact .ov-price { font-size: 15px }
+.ov-grid.compact .ov-chg { font-size: 10px }
+.ov-grid.compact .ov-pnl { font-size: 9px; margin-top: 0 }
+.ov-grid.compact .ov-pnl .ov-pnl-label { display: none }
+.ov-grid.compact .ov-spark { height: 18px }
+.ov-grid.compact .ov-foot { font-size: 8px; gap: 3px; flex-wrap: wrap }
+.ov-grid.compact .ov-ml { font-size: 8px; padding: 1px 3px; letter-spacing: .3px }
+.ov-grid.compact .ov-ml-pct { font-size: 7px }
+.ov-grid.compact .ov-ml-recalc { padding: 1px 3px; font-size: 9px }
+.ov-grid.compact .ov-sl { font-size: 8px; padding: 1px 3px }
+.ov-grid.compact .ov-foot > span:last-child { display: none }  /* esconde "Pm R$" no compact */
 .ov-card:hover {
   transform: translateY(-2px);
   border-color: rgba(58,191,248,.5);
@@ -160,6 +182,7 @@
     <div class="ov-meta">
       <span id="ov-status">—</span>
       <span id="ov-updated" title="Última atualização">—</span>
+      <button class="ov-refresh-btn" id="ov-density-btn" onclick="toggleDensity()" title="Alternar entre Compact (mais cards) e Detail (mais info)">📐 Compact</button>
       <button class="ov-refresh-btn" onclick="loadMLSignals()" title="Recarrega ML signals do último snapshot diário">🤖 ML</button>
       <button class="ov-refresh-btn" onclick="loadOverview()">↻ Atualizar</button>
     </div>
@@ -201,6 +224,7 @@ let _signals = {};            // ticker → {signal, predicted_return_pct, snaps
 let _signalsSnapshot = null;  // ISO date do snapshot mais recente
 let _stopLoss = {};           // ticker → {stop_price, qty, count} (active stop-limit orders no profit_agent)
 let _accountsMap = {};        // id → {apelido, institution_name} (pra rotular tx em "Últimas movs")
+let _density = localStorage.getItem('ov_density') || 'compact';  // 'compact' | 'detail'
 let _activeTab = 'all';
 let _activeSort = 'ticker';
 let _activeMlFilter = 'all';
@@ -532,10 +556,24 @@ function predOf(item) {
   return s && !s.error ? s.predicted_return_pct : null;
 }
 
+function applyDensity() {
+  const grid = $('ov-grid');
+  const btn = $('ov-density-btn');
+  if (grid) grid.classList.toggle('compact', _density === 'compact');
+  if (btn) btn.textContent = _density === 'compact' ? '📐 Detail' : '📐 Compact';
+}
+
+function toggleDensity() {
+  _density = _density === 'compact' ? 'detail' : 'compact';
+  localStorage.setItem('ov_density', _density);
+  applyDensity();
+}
+
 function rerender() {
   const grid = $('ov-grid');
   const empty = $('ov-empty');
   const filtered = applyFilters(_allItems);
+  applyDensity();  // garante classe compact aplicada após DOM ready
   if (!filtered.length) {
     grid.innerHTML = '';
     empty.style.display = 'block';
