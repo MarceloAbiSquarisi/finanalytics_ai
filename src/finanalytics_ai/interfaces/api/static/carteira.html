@@ -1261,11 +1261,23 @@ async function loadSummary() {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────
-document.getElementById('tr-date').valueAsDate = new Date();
-loadAll();
-// Backup: garante que filtro acc seja populado mesmo se loadAll race/falha
-setTimeout(() => { _populateAccountFilter(); }, 1500);
-loadSummary();
+// Aguarda DOMContentLoaded pra garantir que helpers compartilhados (FAErr,
+// FALoading, FAEmpty, FAToast, etc carregados via <script> abaixo) estejam
+// disponíveis antes de chamar api()/loadAccounts() etc.
+function _faCarteiraInit() {
+  const dt = document.getElementById('tr-date');
+  if (dt) dt.valueAsDate = new Date();
+  loadAll();
+  // Backup: garante que filtro acc seja populado mesmo se loadAll race/falha
+  setTimeout(() => { _populateAccountFilter(); }, 1500);
+  loadSummary();
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _faCarteiraInit);
+} else {
+  // DOMContentLoaded já disparou — espera tick extra pros <script> seguintes resolverem
+  setTimeout(_faCarteiraInit, 0);
+}
 </script>
 <script src="/static/a11y.js"></script>
   <script src="/static/sidebar.js"></script>
