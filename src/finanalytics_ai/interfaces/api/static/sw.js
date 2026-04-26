@@ -9,7 +9,7 @@
  *
  * CACHE_VERSION incrementa a cada deploy de assets criticos para invalidar caches antigos.
  */
-const CACHE_VERSION = 'fa-v24';
+const CACHE_VERSION = 'fa-v25';
 const STATIC_CACHE = CACHE_VERSION + '-static';
 const HTML_CACHE = CACHE_VERSION + '-html';
 

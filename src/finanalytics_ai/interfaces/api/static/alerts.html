@@ -125,9 +125,9 @@ tr:hover td{background:rgba(0,212,255,.015)}
     <div>
       <div class="page-title">
         <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        Alertas Fundamentalistas
+        <span data-i18n="alerts.title">Alertas Fundamentalistas</span>
       </div>
-      <div class="page-sub">Notifica quando indicadores Fintz (ROE, P/L, Dividend Yield, etc) cruzam um threshold.</div>
+      <div class="page-sub" data-i18n="alerts.subtitle">Notifica quando indicadores Fintz (ROE, P/L, Dividend Yield, etc) cruzam um threshold.</div>
     </div>
   </div>
 
@@ -135,21 +135,21 @@ tr:hover td{background:rgba(0,212,255,.015)}
   <div class="section">
     <div class="sec-title">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Novo Alerta
+      <span data-i18n="alerts.new">Novo Alerta</span>
     </div>
     <form class="form-grid" onsubmit="event.preventDefault(); createAlert();">
       <label>
-        Ticker
+        <span data-i18n="alerts.ticker">Ticker</span>
         <input type="text" id="al-ticker" placeholder="Ex: PETR4" maxlength="10" required style="text-transform:uppercase">
       </label>
       <label>
-        Indicador
+        <span data-i18n="alerts.indicator">Indicador</span>
         <select id="al-indicator" required>
-          <option value="">Carregando...</option>
+          <option value="" data-i18n="common.loading">Carregando...</option>
         </select>
       </label>
       <label>
-        Operador
+        <span data-i18n="alerts.operator">Operador</span>
         <select id="al-operator" required>
           <option value="gt">&gt;</option>
           <option value="gte">&gt;=</option>
@@ -158,16 +158,16 @@ tr:hover td{background:rgba(0,212,255,.015)}
         </select>
       </label>
       <label>
-        Threshold
+        <span data-i18n="alerts.threshold">Threshold</span>
         <input type="number" id="al-threshold" step="any" placeholder="15" required>
       </label>
       <label>
-        Nota (opcional)
+        <span data-i18n="alerts.note">Nota (opcional)</span>
         <input type="text" id="al-note" placeholder="Ex: triagem dividend yield" maxlength="200">
       </label>
       <label>
         &nbsp;
-        <button type="submit" class="btn" id="btn-create">Criar</button>
+        <button type="submit" class="btn" id="btn-create" data-i18n="alerts.create">Criar</button>
       </label>
     </form>
     <div class="help-text">
@@ -180,17 +180,17 @@ tr:hover td{background:rgba(0,212,255,.015)}
     <div class="sec-title" style="display:flex;justify-content:space-between;align-items:center">
       <span style="display:flex;align-items:center;gap:8px;color:var(--gold);text-transform:uppercase;letter-spacing:.08em;font-size:15px;font-weight:700">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-        Alertas Ativos
+        <span data-i18n="alerts.active">Alertas Ativos</span>
       </span>
-      <input type="text" id="al-filter" placeholder="Buscar..." style="background:var(--s2);border:1px solid var(--border2);border-radius:5px;color:var(--text);font-size:13px;padding:5px 10px;outline:none;font-family:inherit;width:160px;margin-right:8px">
-      <button class="btn" onclick="loadAlerts()" style="font-size:13px;padding:5px 12px">Atualizar</button>
+      <input type="text" id="al-filter" placeholder="Buscar..." data-i18n-attr="placeholder:common.search" style="background:var(--s2);border:1px solid var(--border2);border-radius:5px;color:var(--text);font-size:13px;padding:5px 10px;outline:none;font-family:inherit;width:160px;margin-right:8px">
+      <button class="btn" onclick="loadAlerts()" style="font-size:13px;padding:5px 12px" data-i18n="common.refresh">Atualizar</button>
     </div>
     <div class="tbl-wrap">
       <table data-fa-table>
         <thead>
           <tr>
-            <th>Ticker</th><th>Indicador</th><th>Condição</th><th>Status</th>
-            <th>Disparado em</th><th>Nota</th><th style="width:60px"></th>
+            <th data-i18n="alerts.col.ticker">Ticker</th><th data-i18n="alerts.col.indicator">Indicador</th><th data-i18n="alerts.col.condition">Condição</th><th data-i18n="alerts.col.status">Status</th>
+            <th data-i18n="alerts.col.triggered_at">Disparado em</th><th data-i18n="alerts.col.note">Nota</th><th style="width:60px"></th>
           </tr>
         </thead>
         <tbody id="alertList">
@@ -204,11 +204,11 @@ tr:hover td{background:rgba(0,212,255,.015)}
   <div class="section" id="evalSection" style="display:none">
     <div class="sec-title">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-      Avaliar Manualmente <span style="color:var(--muted);font-weight:400;text-transform:none;font-size:13px;margin-left:6px">(admin)</span>
+      <span data-i18n="alerts.eval_manually">Avaliar Manualmente</span> <span style="color:var(--muted);font-weight:400;text-transform:none;font-size:13px;margin-left:6px">(admin)</span>
     </div>
     <div style="display:flex;gap:12px;align-items:center">
-      <button class="btn btn-warn" onclick="evaluateNow()" id="btn-evaluate">Avaliar Todos os Alertas</button>
-      <span style="color:var(--muted);font-size:14px">Em produção a avaliação roda periodicamente.</span>
+      <button class="btn btn-warn" onclick="evaluateNow()" id="btn-evaluate" data-i18n="alerts.eval_all">Avaliar Todos os Alertas</button>
+      <span style="color:var(--muted);font-size:14px" data-i18n="alerts.eval_help">Em produção a avaliação roda periodicamente.</span>
     </div>
     <div class="eval-result" id="evalResult"></div>
   </div>

@@ -43,36 +43,36 @@
 <div id="fa-sidebar"></div>
 <main class="mv-wrap">
   <div class="mv-head">
-    <h1>📋 Movimentações</h1>
+    <h1><span data-i18n="mv.title">📋 Movimentações</span></h1>
     <span class="mv-meta" id="mv-meta">—</span>
-    <button class="ov-refresh-btn" onclick="loadTransactions()" style="background:rgba(58,191,248,.15);border:1px solid var(--blue,#3abff8);color:var(--blue,#3abff8);padding:6px 12px;border-radius:5px;cursor:pointer;font-size:12px">↻ Atualizar</button>
-    <button class="ov-refresh-btn" onclick="window.print()" style="background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);padding:6px 12px;border-radius:5px;cursor:pointer;font-size:12px">🖨 Imprimir</button>
+    <button class="ov-refresh-btn" onclick="loadTransactions()" style="background:rgba(58,191,248,.15);border:1px solid var(--blue,#3abff8);color:var(--blue,#3abff8);padding:6px 12px;border-radius:5px;cursor:pointer;font-size:12px" data-i18n="mv.refresh">↻ Atualizar</button>
+    <button class="ov-refresh-btn" onclick="window.print()" style="background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);padding:6px 12px;border-radius:5px;cursor:pointer;font-size:12px" data-i18n="mv.print">🖨 Imprimir</button>
   </div>
 
   <div class="mv-filters">
-    <div class="fld"><label>Buscar (ticker/desc)</label><input id="f-q" type="text" placeholder="PETR4, dividendo..." oninput="rerender()"></div>
-    <div class="fld"><label>Conta</label><select id="f-acc" onchange="rerender()"><option value="">Todas</option></select></div>
-    <div class="fld"><label>Tipo</label><select id="f-type" onchange="rerender()"><option value="">Todos</option></select></div>
-    <div class="fld"><label>Direção</label><select id="f-dir" onchange="loadTransactions()">
-      <option value="">Ambas</option>
-      <option value="credit">Entradas (+)</option>
-      <option value="debit">Saídas (-)</option>
+    <div class="fld"><label data-i18n="mv.f.search">Buscar (ticker/desc)</label><input id="f-q" type="text" placeholder="PETR4, dividendo..." oninput="rerender()" data-i18n-attr="placeholder:mv.f.search_ph"></div>
+    <div class="fld"><label data-i18n="mv.f.account">Conta</label><select id="f-acc" onchange="rerender()"><option value="" data-i18n="mv.f.all">Todas</option></select></div>
+    <div class="fld"><label data-i18n="mv.f.type">Tipo</label><select id="f-type" onchange="rerender()"><option value="" data-i18n="mv.f.all_m">Todos</option></select></div>
+    <div class="fld"><label data-i18n="mv.f.direction">Direção</label><select id="f-dir" onchange="loadTransactions()">
+      <option value="" data-i18n="mv.f.both">Ambas</option>
+      <option value="credit" data-i18n="mv.f.credit">Entradas (+)</option>
+      <option value="debit" data-i18n="mv.f.debit">Saídas (-)</option>
     </select></div>
-    <div class="fld"><label>Status</label><select id="f-status" onchange="loadTransactions()">
-      <option value="">Todos</option>
-      <option value="settled">Liquidado</option>
-      <option value="pending">Pendente</option>
-      <option value="cancelled">Cancelado</option>
+    <div class="fld"><label data-i18n="mv.f.status">Status</label><select id="f-status" onchange="loadTransactions()">
+      <option value="" data-i18n="mv.f.all_m">Todos</option>
+      <option value="settled" data-i18n="mv.st.settled">Liquidado</option>
+      <option value="pending" data-i18n="mv.st.pending">Pendente</option>
+      <option value="cancelled" data-i18n="mv.st.cancelled">Cancelado</option>
     </select></div>
-    <div class="fld"><label>De</label><input id="f-from" type="date" onchange="loadTransactions()"></div>
-    <div class="fld"><label>Até</label><input id="f-to" type="date" onchange="loadTransactions()"></div>
+    <div class="fld"><label data-i18n="mv.f.from">De</label><input id="f-from" type="date" onchange="loadTransactions()"></div>
+    <div class="fld"><label data-i18n="mv.f.to">Até</label><input id="f-to" type="date" onchange="loadTransactions()"></div>
   </div>
 
   <div class="mv-table-wrap">
     <table class="mv-table">
       <thead><tr>
-        <th>Data</th><th>Conta</th><th>Tipo</th><th>Ticker</th>
-        <th style="text-align:right">Valor</th><th>Status</th><th>Descrição</th><th></th>
+        <th data-i18n="mv.col.date">Data</th><th data-i18n="mv.col.account">Conta</th><th data-i18n="mv.col.type">Tipo</th><th data-i18n="mv.col.ticker">Ticker</th>
+        <th style="text-align:right" data-i18n="mv.col.amount">Valor</th><th data-i18n="mv.col.status">Status</th><th data-i18n="mv.col.description">Descrição</th><th></th>
       </tr></thead>
       <tbody id="mv-tbody"><tr><td colspan="8" class="mv-empty">Carregando...</td></tr></tbody>
     </table>

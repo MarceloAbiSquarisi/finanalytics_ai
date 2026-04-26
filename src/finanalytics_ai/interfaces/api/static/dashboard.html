@@ -532,7 +532,7 @@ body.sb-open .fa-page-content { margin-left: var(--sb-w); }
     <span class="fa-logo-text">Fin<em>Analytics</em> <span class="fa-ai-badge">AI</span></span>
   </a>
 
-  <span id="fa-page-title" style="font-size:16px;font-weight:600;color:#7a95b0;letter-spacing:.06em;margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Dashboard</span>
+  <span id="fa-page-title" style="font-size:16px;font-weight:600;color:#7a95b0;letter-spacing:.06em;margin-left:8px;border-left:1px solid #1c2535;padding-left:12px" data-i18n="dashboard.title">Dashboard</span>
   <nav class="fa-nav"></nav>
   <a href="/marketdata" style="display:flex;align-items:center;gap:6px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.35);border-radius:5px;color:#00e676;font-size:15px;font-weight:700;padding:4px 10px;text-decoration:none;letter-spacing:.5px;transition:.15s;white-space:nowrap" onmouseover="this.style.background='rgba(0,230,118,.2)'" onmouseout="this.style.background='rgba(0,230,118,.1)'">
     <span style="width:7px;height:7px;border-radius:50%;background:#00e676;display:inline-block;animation:livePulse 1.8s ease-in-out infinite"></span>
@@ -1082,12 +1082,12 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 
       <!-- Abas principais (3 col × 2 linhas, cada botao com borda propria) -->
       <div class="dttab-main">
-        <button id="dttab-order"   class="ttab buy active" style="font-size:12px;text-align:center" onclick="dtTab('order')">Ordem</button>
-        <button id="dttab-oco"     class="ttab"            style="font-size:12px;text-align:center" onclick="dtTab('oco')">OCO</button>
-        <button id="dttab-pos"     class="ttab"            style="font-size:12px;text-align:center" onclick="dtTab('pos')">Pos.</button>
-        <button id="dttab-list"    class="ttab"            style="font-size:12px;text-align:center" onclick="dtTab('list')">Ordens</button>
-        <button id="dttab-signals" class="ttab"            style="font-size:12px;text-align:center" onclick="dtTab('signals')">Signals</button>
-        <button id="dttab-account" class="ttab"            style="font-size:12px;text-align:center" onclick="dtTab('account')">Conta</button>
+        <button id="dttab-order"   class="ttab buy active" style="font-size:12px;text-align:center" onclick="dtTab('order')" data-i18n="dashboard.tab.order">Ordem</button>
+        <button id="dttab-oco"     class="ttab"            style="font-size:12px;text-align:center" onclick="dtTab('oco')" data-i18n="dashboard.tab.oco">OCO</button>
+        <button id="dttab-pos"     class="ttab"            style="font-size:12px;text-align:center" onclick="dtTab('pos')" data-i18n="dashboard.tab.pos">Pos.</button>
+        <button id="dttab-list"    class="ttab"            style="font-size:12px;text-align:center" onclick="dtTab('list')" data-i18n="dashboard.tab.list">Ordens</button>
+        <button id="dttab-signals" class="ttab"            style="font-size:12px;text-align:center" onclick="dtTab('signals')" data-i18n="dashboard.tab.signals">Signals</button>
+        <button id="dttab-account" class="ttab"            style="font-size:12px;text-align:center" onclick="dtTab('account')" data-i18n="dashboard.tab.account">Conta</button>
       </div>
 
       <!-- ── ABA ORDEM ─────────────────────────────────────────────── -->
