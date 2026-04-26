@@ -232,5 +232,14 @@
   "opcoes.title": "○ Options - Greeks and IV",
   "opcoes.subtitle": "Black-Scholes pricing, Greeks and Implied Volatility",
   "opcoes_estrat.title": "○ Options - Strategies",
-  "opcoes_estrat.subtitle": "Pricing of compound strategies: Straddle, Strangle, Spreads, Iron Condor, Butterfly, Covered Call"
+  "opcoes_estrat.subtitle": "Pricing of compound strategies: Straddle, Strangle, Spreads, Iron Condor, Butterfly, Covered Call",
+
+  "dt_setups.title": "⚡ Day Trade - Setups",
+  "dt_setups.subtitle": "Configure and monitor automatic setups in real time",
+  "dt_risco.title": "🛡 Day Trade — Risk Management",
+  "dt_risco.subtitle": "Calculate position size, stop and target based on your capital",
+  "marketdata.title": "MARKET DATA",
+  "fintz.title": "Fintz History",
+  "fintz.subtitle": "Quotes · Fundamental Indicators · Accounting Items — point-in-time data via TimescaleDB",
+  "subscriptions.title": "Subscriptions · Profit Agent"
 }

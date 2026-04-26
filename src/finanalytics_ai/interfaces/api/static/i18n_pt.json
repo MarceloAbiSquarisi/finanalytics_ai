@@ -232,5 +232,14 @@
   "opcoes.title": "○ Opcoes - Greeks e IV",
   "opcoes.subtitle": "Precificacao Black-Scholes, Greeks e Volatilidade Implicita",
   "opcoes_estrat.title": "○ Opcoes - Estrategias",
-  "opcoes_estrat.subtitle": "Precificacao de estrategias compostas: Straddle, Strangle, Spreads, Iron Condor, Butterfly, Covered Call"
+  "opcoes_estrat.subtitle": "Precificacao de estrategias compostas: Straddle, Strangle, Spreads, Iron Condor, Butterfly, Covered Call",
+
+  "dt_setups.title": "⚡ Day Trade - Setups",
+  "dt_setups.subtitle": "Configure e monitore setups automaticos em tempo real",
+  "dt_risco.title": "🛡 Day Trade — Gestão de Risco",
+  "dt_risco.subtitle": "Calcule tamanho de posição, stop e alvo com base no seu capital",
+  "marketdata.title": "MARKET DATA",
+  "fintz.title": "Fintz Histórico",
+  "fintz.subtitle": "Cotações · Indicadores Fundamentalistas · Itens Contábeis — dados point-in-time via TimescaleDB",
+  "subscriptions.title": "Subscrições · Profit Agent"
 }
