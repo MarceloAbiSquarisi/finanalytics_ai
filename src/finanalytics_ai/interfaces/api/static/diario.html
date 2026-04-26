@@ -659,12 +659,10 @@ body.sb-open .fa-sb-push{margin-left:var(--sb-w)}
 </div>
 </div>
 
+<script src="/static/auth_guard.js"></script>
 <script>
-(function authGuard(){
-  var token=localStorage.getItem('access_token');
-  var exp=parseInt(localStorage.getItem('token_expires_at')||'0');
-  if(!token||exp<Date.now()+60000) window.location.replace('/login');
-})();
+// G4 refactor 26/abr — usa FAAuth.requireAuth (silent refresh + lembre-me 7d).
+(function(){function go(){if(window.FAAuth)FAAuth.requireAuth({});else setTimeout(go,30);}if(document.readyState!=="loading")go();else document.addEventListener("DOMContentLoaded",go);})();
 
 // ── Sidebar toggle ──────────────────────────────────────────────────────────
 function faSidebarToggle(){

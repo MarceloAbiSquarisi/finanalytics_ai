@@ -492,8 +492,10 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 </div>
 </div>
 
+<script src="/static/auth_guard.js"></script>
 <script>
-(function authGuard(){var t=localStorage.getItem("access_token"),e=parseInt(localStorage.getItem("token_expires_at")||"0");if(!t||e<Date.now()+60000)window.location.replace("/login");})();
+// G4 refactor 26/abr — usa FAAuth.requireAuth (silent refresh + lembre-me 7d).
+(function(){function go(){if(window.FAAuth)FAAuth.requireAuth({});else setTimeout(go,30);}if(document.readyState!=="loading")go();else document.addEventListener("DOMContentLoaded",go);})();
 const fmtBRL  = v => 'R$ ' + Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtPct  = (v,dig=2) => (v>=0?'+':'')+v.toFixed(dig)+'%';
 const clrPL   = v => v >= 0 ? '#00c48c' : '#ff4757';
