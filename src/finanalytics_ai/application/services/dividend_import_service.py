@@ -122,6 +122,42 @@ class DividendImportService:
 
         return results
 
+    def parse_pdf(self, content: bytes) -> list[ParsedDividend]:
+        """Parse PDF (BTG/XP layouts comuns) via pdfplumber.
+
+        Heurística: extrai todo o texto, divide em linhas, e roda _parse_line
+        em cada uma (mesmo regex de CSV — keywords + ticker + valor + data).
+        Tabelas em PDF têm linhas razoavelmente estruturadas, então isso
+        cobre 80% dos casos. Layouts exóticos podem precisar parser dedicado.
+
+        ROI baixo sem samples reais; ainda assim, parser funciona com
+        qualquer extrato cuja estrutura seja "data | descrição | ticker | valor".
+        """
+        try:
+            import pdfplumber
+        except ImportError:
+            logger.error("dividend_import.pdf_no_pdfplumber",
+                         hint="add pdfplumber>=0.10.0 to deps")
+            raise RuntimeError("pdfplumber não instalado — adicione em pyproject.toml")
+
+        results: list[ParsedDividend] = []
+        try:
+            with pdfplumber.open(io.BytesIO(content)) as pdf:
+                for page in pdf.pages:
+                    text = page.extract_text() or ""
+                    for line in text.split("\n"):
+                        line = line.strip()
+                        if not line or not _KEYWORDS_RE.search(line):
+                            continue
+                        parsed = self._parse_line(line)
+                        if parsed is not None:
+                            results.append(parsed)
+        except Exception as exc:
+            logger.exception("dividend_import.pdf_parse_error", error=str(exc))
+            raise RuntimeError(f"Falha ao parsear PDF: {exc}") from exc
+
+        return results
+
     def parse_ofx(self, content: bytes, encoding: str = "utf-8") -> list[ParsedDividend]:
         """Parse OFX simples (regex em <STMTTRN> blocks)."""
         try:

@@ -905,8 +905,13 @@ async def preview_dividends(
         parsed = svc.parse_csv(content)
     elif fn.endswith(".ofx") or fn.endswith(".qfx"):
         parsed = svc.parse_ofx(content)
+    elif fn.endswith(".pdf"):
+        try:
+            parsed = svc.parse_pdf(content)
+        except RuntimeError as exc:
+            raise HTTPException(400, str(exc)) from exc
     else:
-        raise HTTPException(400, f"Formato nao suportado: {fn.split('.')[-1]}. Use CSV ou OFX.")
+        raise HTTPException(400, f"Formato nao suportado: {fn.split('.')[-1]}. Use CSV, OFX ou PDF.")
 
     matched = await svc.match_to_positions(parsed, account_id)
 
@@ -958,6 +963,11 @@ async def commit_dividends(
         parsed = svc.parse_csv(content)
     elif fn.endswith(".ofx") or fn.endswith(".qfx"):
         parsed = svc.parse_ofx(content)
+    elif fn.endswith(".pdf"):
+        try:
+            parsed = svc.parse_pdf(content)
+        except RuntimeError as exc:
+            raise HTTPException(400, str(exc)) from exc
     else:
         raise HTTPException(400, f"Formato nao suportado: {fn.split('.')[-1]}.")
 
