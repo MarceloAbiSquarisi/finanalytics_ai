@@ -75,10 +75,16 @@ INSERT INTO trades (id, user_id, investment_account_id, portfolio_id, ticker, as
 -- Uma venda parcial pra ter delta
 ('t-007', :USER_ID, :ACC1_ID, :PF1_ID, 'PETR4', 'stock', 'sell', 30, 39.20, 1176.00, 5.00, 'BRL', '2026-04-22', 'Venda parcial PETR4 lucro', NOW());
 
--- ── Trades BTG (1 ação + 1 ETF) ──────────────────────────────────────────────
+-- ── Trades BTG (1 ação + 2 ETFs) ─────────────────────────────────────────────
 INSERT INTO trades (id, user_id, investment_account_id, portfolio_id, ticker, asset_class, operation, quantity, unit_price, total_cost, fees, currency, trade_date, note, created_at) VALUES
 ('t-008', :USER_ID, :ACC2_ID, :PF2_ID, 'BBAS3',  'stock', 'buy', 100, 28.90, 2890.00, 4.50, 'BRL', '2026-03-25', 'Compra Banco do Brasil', NOW()),
-('t-009', :USER_ID, :ACC2_ID, :PF2_ID, 'BOVA11', 'etf',   'buy', 50,  130.00, 6500.00, 4.50, 'BRL', '2026-04-08', 'ETF Ibovespa', NOW());
+('t-009', :USER_ID, :ACC2_ID, :PF2_ID, 'BOVA11', 'etf',   'buy', 50,  130.00, 6500.00, 4.50, 'BRL', '2026-04-08', 'ETF Ibovespa', NOW()),
+('t-010', :USER_ID, :ACC2_ID, :PF2_ID, 'DIVO11', 'etf',   'buy', 100, 110.40, 11040.00, 5.00, 'BRL', '2026-04-02', 'ETF Dividendos', NOW());
+
+-- ── Trades XP — ETFs adicionais ──────────────────────────────────────────────
+INSERT INTO trades (id, user_id, investment_account_id, portfolio_id, ticker, asset_class, operation, quantity, unit_price, total_cost, fees, currency, trade_date, note, created_at) VALUES
+('t-etf01', :USER_ID, :ACC1_ID, :PF1_ID, 'IVVB11', 'etf', 'buy', 25, 320.50, 8012.50, 5.00, 'BRL', '2026-03-12', 'ETF S&P 500 hedgeado', NOW()),
+('t-etf02', :USER_ID, :ACC1_ID, :PF1_ID, 'SMAL11', 'etf', 'buy', 60, 95.20, 5712.00, 5.00, 'BRL', '2026-03-18', 'ETF Small Caps', NOW());
 
 -- ── Positions table (derivada de trades, mas consumida direto pelo dividend match) ─
 -- Necessária pra match_to_positions encontrar tickers via investment_account_id.
@@ -89,8 +95,11 @@ INSERT INTO positions (portfolio_id, investment_account_id, ticker, quantity, av
 (:PF1_ID, :ACC1_ID, 'WEGE3',  80,  42.80,  'stock'),
 (:PF1_ID, :ACC1_ID, 'BBSE3',  150, 38.40,  'stock'),
 (:PF1_ID, :ACC1_ID, 'KNRI11', 30,  140.50, 'fii'),
+(:PF1_ID, :ACC1_ID, 'IVVB11', 25,  320.50, 'etf'),
+(:PF1_ID, :ACC1_ID, 'SMAL11', 60,  95.20,  'etf'),
 (:PF2_ID, :ACC2_ID, 'BBAS3',  100, 28.90,  'stock'),
-(:PF2_ID, :ACC2_ID, 'BOVA11', 50,  130.00, 'etf');
+(:PF2_ID, :ACC2_ID, 'BOVA11', 50,  130.00, 'etf'),
+(:PF2_ID, :ACC2_ID, 'DIVO11', 100, 110.40, 'etf');
 
 -- ── Crypto (BTC) na conta XP ─────────────────────────────────────────────────
 INSERT INTO crypto_holdings (id, user_id, investment_account_id, portfolio_id, symbol, quantity, average_price_brl, average_price_usd, exchange, note, updated_at) VALUES
