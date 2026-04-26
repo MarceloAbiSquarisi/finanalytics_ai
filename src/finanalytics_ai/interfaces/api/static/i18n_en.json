@@ -100,6 +100,7 @@
   "carteira.title": "Portfolio",
   "carteira.subtitle": "Manage your assets, investment accounts and track average price.",
   "carteira.print": "🖨 Print",
+  "carteira.tab.overview": "🌐 Overview",
   "carteira.tab.contas": "🏦 Accounts",
   "carteira.tab.posicoes": "📈 Positions",
   "carteira.tab.trades": "🔄 Trades",

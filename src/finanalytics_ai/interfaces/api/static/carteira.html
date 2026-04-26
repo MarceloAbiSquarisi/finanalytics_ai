@@ -277,15 +277,9 @@ tr:hover td{background:rgba(0,212,255,.02)}
   <div class="page-sub" data-i18n="carteira.subtitle">Gerencie seus ativos, contas de investimento e acompanhe o preço médio.
 </div>
 
-  <!-- Seletor de Portfolio (Sprint UX C — 21/abr) -->
-  <div id="pf-selector" style="display:flex;align-items:center;gap:12px;margin:10px 0 18px;padding:10px 14px;background:var(--s1);border:1px solid var(--border);border-radius:8px;flex-wrap:wrap">
-    <span style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600">Portfolio</span>
-    <select id="pf-select" onchange="onPortfolioChange()" style="background:var(--s2);border:1px solid var(--border2);border-radius:5px;color:var(--text);font-size:14px;padding:6px 10px;outline:none;font-family:inherit;min-width:200px">
-      <option value="">— Carregando…</option>
-    </select>
-    <span id="pf-selected-info" style="font-size:13px;color:var(--muted);font-family:monospace"></span>
-    <a href="/portfolios" style="margin-left:auto;color:var(--accent);text-decoration:none;font-size:13px">Gerenciar portfolios →</a>
-  </div>
+  <!-- Portfolio selector REMOVIDO 26/abr (refactor) — /carteira agora mostra agregado de todas as carteiras do user. -->
+  <!-- Carteira é 1:1 com conta de investimento; tabs internas (Overview, Posições, etc) são as "carteiras" lógicas. -->
+
 
   <!-- Summary -->
   <div class="summary-grid" id="summary-grid">
@@ -312,9 +306,10 @@ tr:hover td{background:rgba(0,212,255,.02)}
 </div>
 </div>
 
-  <!-- Tabs -->
+  <!-- Tabs (Overview = nova aba 1ª, default ativa) -->
   <div class="tabs">
-    <div class="tab active" onclick="showTab('contas')"><span data-i18n="carteira.tab.contas">🏦 Contas</span></div>
+    <div class="tab active" onclick="showTab('overview')"><span data-i18n="carteira.tab.overview">🌐 Overview</span></div>
+    <div class="tab" onclick="showTab('contas')"><span data-i18n="carteira.tab.contas">🏦 Contas</span></div>
     <div class="tab" onclick="showTab('posicoes')"><span data-i18n="carteira.tab.posicoes">📈 Posições</span></div>
     <div class="tab" onclick="showTab('trades')"><span data-i18n="carteira.tab.trades">🔄 Trades</span></div>
     <div class="tab" onclick="showTab('crypto')"><span data-i18n="carteira.tab.crypto">₿ Cripto</span></div>
@@ -322,8 +317,13 @@ tr:hover td{background:rgba(0,212,255,.02)}
     <div class="tab" onclick="showTab('outros')"><span data-i18n="carteira.tab.outros">📦 Outros</span></div>
 </div>
 
+  <!-- OVERVIEW (iframe pra /overview — isolado, auth via cookies same-origin) -->
+  <div class="tab-panel active" id="panel-overview">
+    <iframe id="overview-iframe" src="about:blank" style="width:100%;height:calc(100vh - 250px);border:none;background:transparent;display:block"></iframe>
+  </div>
+
   <!-- CONTAS (read-only — CRUD migrado para /profile#invest em 24/abr) -->
-  <div class="tab-panel active" id="panel-contas">
+  <div class="tab-panel" id="panel-contas">
     <div class="sec-header">
       <span class="sec-title" data-i18n="carteira.sec.contas">Contas de Investimento</span>
       <a href="/profile#invest" class="btn btn-primary btn-sm" style="text-decoration:none">⚙ Gerenciar em /profile</a>
@@ -667,102 +667,15 @@ function gain(cur, inv) {
   const g = cur - inv; const pct = g/inv*100;
   return `<span class="${g>=0?'val-pos':'val-neg'}">${g>=0?'+':''}${fmt(g)} (${pct.toFixed(1)}%)</span>`;
 }
-// ── Portfolio selector ───────────────────────────────────────────────────────
-let _currentPortfolioId = localStorage.getItem('fa_carteira_portfolio_id') || '';
-let _portfoliosCache = [];
-
-function _appendPortfolioQS(path) {
-  if (!_currentPortfolioId) return path;
-  // Nao injetar em /accounts (contas independem de portfolio)
-  if (path.startsWith('/accounts')) return path;
-  const sep = path.includes('?') ? '&' : '?';
-  return path + sep + 'portfolio_id=' + encodeURIComponent(_currentPortfolioId);
-}
-
-function _maybeInjectPortfolioInBody(path, opts) {
-  if (!_currentPortfolioId) return opts;
-  if (!opts || !opts.body) return opts;
-  // Aplica apenas para writes em trades/crypto/other onde o schema aceita
-  if (!/^\/(trades|crypto|other)/.test(path)) return opts;
-  try {
-    const body = JSON.parse(opts.body);
-    if (typeof body === 'object' && body && !body.portfolio_id) {
-      body.portfolio_id = _currentPortfolioId;
-      return { ...opts, body: JSON.stringify(body) };
-    }
-  } catch {}
-  return opts;
-}
+// Portfolio selector REMOVIDO 26/abr — /carteira agora agrega tudo do user.
+// api() simplificado: sem portfolio_id na query/body. Backend retorna todas as
+// posições/trades/crypto do user logado via JWT.
 
 async function api(path, opts={}) {
   // Sprint UI G (21/abr): delega para FAErr.fetchJson — error toast
-  // + correlation_id automaticos. Mantem injecao de portfolio_id local.
-  const finalPath = _appendPortfolioQS(path);
-  const finalOpts = _maybeInjectPortfolioInBody(path, opts);
-  finalOpts.headers = { ...authHeader(), ...(finalOpts.headers || {}) };
-  return FAErr.fetchJson(API + finalPath, finalOpts);
-}
-
-async function loadPortfoliosForSelector() {
-  try {
-    const r = await fetch('/api/v1/portfolios?include_inactive=false', { headers: authHeader() });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    _portfoliosCache = await r.json();
-    const sel = document.getElementById('pf-select');
-    const opts = ['<option value="">Todos os portfolios</option>'].concat(
-      _portfoliosCache.map(p => {
-        const lbl = p.name + (p.is_default ? ' (default)' : '');
-        return `<option value="${p.portfolio_id}">${lbl}</option>`;
-      })
-    );
-    sel.innerHTML = opts.join('');
-    // Restaurar selecao: localStorage > default > "Todos"
-    if (_currentPortfolioId && _portfoliosCache.some(p => p.portfolio_id === _currentPortfolioId)) {
-      sel.value = _currentPortfolioId;
-    } else {
-      const def = _portfoliosCache.find(p => p.is_default);
-      _currentPortfolioId = def ? def.portfolio_id : '';
-      sel.value = _currentPortfolioId;
-      if (_currentPortfolioId) localStorage.setItem('fa_carteira_portfolio_id', _currentPortfolioId);
-    }
-    _refreshPortfolioInfo();
-  } catch (e) {
-    document.getElementById('pf-select').innerHTML = '<option value="">— Erro ao carregar</option>';
-    console.error('loadPortfoliosForSelector', e);
-  }
-}
-
-function _refreshPortfolioInfo() {
-  const info = document.getElementById('pf-selected-info');
-  if (!_currentPortfolioId) {
-    info.textContent = '(filtro desligado — mostra dados de todas as carteiras)';
-    return;
-  }
-  const p = _portfoliosCache.find(x => x.portfolio_id === _currentPortfolioId);
-  if (!p) { info.textContent = ''; return; }
-  info.textContent = `caixa: R$ ${parseFloat(p.cash || 0).toLocaleString('pt-BR', {minimumFractionDigits:2})} · ${p.positions} posicao(oes)`;
-}
-
-async function onPortfolioChange() {
-  _currentPortfolioId = document.getElementById('pf-select').value;
-  if (_currentPortfolioId) {
-    localStorage.setItem('fa_carteira_portfolio_id', _currentPortfolioId);
-  } else {
-    localStorage.removeItem('fa_carteira_portfolio_id');
-  }
-  _refreshPortfolioInfo();
-  // Recarrega aba ativa
-  await loadAll();
-  const activeTab = document.querySelector('.tab.active');
-  if (activeTab) {
-    const i = Array.from(document.querySelectorAll('.tab')).indexOf(activeTab);
-    const names = ['contas','posicoes','trades','crypto','rf','outros'];
-    const name = names[i];
-    if (name === 'posicoes') loadPositions();
-    if (name === 'trades') loadTrades();
-    if (name === 'crypto') loadCrypto();
-    if (name === 'outros') loadOther();
-  }
+  // + correlation_id automaticos.
+  opts.headers = { ...authHeader(), ...(opts.headers || {}) };
+  return FAErr.fetchJson(API + path, opts);
 }
 function showMsg(id, text, type='error') {
   const el = document.getElementById(id); el.textContent = text;
@@ -774,14 +687,27 @@ function showMsg(id, text, type='error') {
 function showTab(name) {
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
-  const tabs = ['contas','posicoes','trades','crypto','rf','outros'];
+  const tabs = ['overview','contas','posicoes','trades','crypto','rf','outros'];
   const idx = tabs.indexOf(name);
+  if (idx < 0) return;
   document.querySelectorAll('.tab')[idx].classList.add('active');
   document.getElementById('panel-'+name).classList.add('active');
+  if (name==='overview') loadOverviewIframe();
   if (name==='posicoes') loadPositions();
   if (name==='trades') loadTrades();
   if (name==='crypto') loadCrypto();
   if (name==='outros') loadOther();
+}
+
+// Carrega /overview no iframe lazy (só na 1ª abertura da tab)
+let _overviewIframeLoaded = false;
+function loadOverviewIframe() {
+  if (_overviewIframeLoaded) return;
+  const iframe = document.getElementById('overview-iframe');
+  if (iframe) {
+    iframe.src = '/overview';
+    _overviewIframeLoaded = true;
+  }
 }
 
 // ── Modals ────────────────────────────────────────────────────────────────
@@ -796,7 +722,8 @@ document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click
 let accounts = [];
 
 async function loadAll() {
-  await loadPortfoliosForSelector();
+  // Tab default = Overview (iframe lazy loaded ao mostrar)
+  loadOverviewIframe();
   await loadAccounts();
   loadPositions();
 }

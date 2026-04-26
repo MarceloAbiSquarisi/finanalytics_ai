@@ -100,6 +100,7 @@
   "carteira.title": "Carteira",
   "carteira.subtitle": "Gerencie seus ativos, contas de investimento e acompanhe o preço médio.",
   "carteira.print": "🖨 Imprimir",
+  "carteira.tab.overview": "🌐 Overview",
   "carteira.tab.contas": "🏦 Contas",
   "carteira.tab.posicoes": "📈 Posições",
   "carteira.tab.trades": "🔄 Trades",
