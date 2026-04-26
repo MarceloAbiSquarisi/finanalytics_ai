@@ -1627,6 +1627,12 @@ class ProfitAgent:
         # OCO multi-level (Phase A) — groups com N levels e parent attach
         self._oco_groups = {}
         self._order_to_group = {}
+        # Phase D: recarrega groups awaiting/active/partial do DB ANTES da thread subir
+        try:
+            n_loaded = self._load_oco_state_from_db()
+            log.info("profit_agent.oco_groups_loaded n=%d", n_loaded)
+        except Exception as exc:
+            log.warning("profit_agent.oco_load_failed err=%s (continuando vazio)", exc)
         _oco_grp_thread = threading.Thread(target=self._oco_groups_monitor_loop, daemon=True)
         _oco_grp_thread.start()
         log.info("profit_agent.oco_groups_monitor_started")
@@ -4026,6 +4032,106 @@ class ProfitAgent:
         except Exception as exc:
             log.exception("dispatch_oco_group error group=%s: %s", group_id, exc)
 
+    def _load_oco_state_from_db(self) -> int:
+        """Phase D: recarrega groups awaiting/active/partial do DB para self._oco_groups
+        após restart. Reconstrói também self._order_to_group (reverse index) a partir
+        de tp_order_id e sl_order_id dos levels.
+
+        Retorna número de groups carregados. Idempotente — sobrescreve estado atual.
+        """
+        if self._db is None:
+            return 0
+        try:
+            with self._db._lock:
+                cur = self._db._conn.cursor()
+                cur.execute(
+                    """SELECT group_id::text, parent_order_id, env, ticker, exchange, side,
+                              total_qty, remaining_qty, status, is_daytrade, broker_id,
+                              account_id, sub_account_id, user_account_id, portfolio_id
+                       FROM profit_oco_groups
+                       WHERE status IN ('awaiting','active','partial')
+                       ORDER BY created_at"""
+                )
+                grp_rows = cur.fetchall()
+                if not grp_rows:
+                    cur.close()
+                    return 0
+                group_ids = [r[0] for r in grp_rows]
+                # Carrega levels de todos groups em 1 query
+                cur.execute(
+                    """SELECT level_id::text, group_id::text, level_idx, qty,
+                              tp_price, tp_order_id, tp_status,
+                              sl_trigger, sl_limit, sl_order_id, sl_status,
+                              is_trailing, trail_distance, trail_pct, trail_high_water
+                       FROM profit_oco_levels
+                       WHERE group_id::text = ANY(%s)
+                       ORDER BY group_id, level_idx""",
+                    (group_ids,),
+                )
+                lvl_rows = cur.fetchall()
+                cur.close()
+
+            # Agrupa levels por group_id
+            levels_by_group: dict[str, list[dict]] = {}
+            for lr in lvl_rows:
+                (lid, gid, idx, qty, tp_p, tp_oid, tp_st, sl_t, sl_l, sl_oid, sl_st,
+                 is_tr, t_dist, t_pct, t_hw) = lr
+                levels_by_group.setdefault(gid, []).append({
+                    "level_id": lid, "idx": idx, "qty": int(qty),
+                    "tp_price": float(tp_p) if tp_p is not None else None,
+                    "tp_order_id": int(tp_oid) if tp_oid is not None else None,
+                    "tp_status": tp_st,
+                    "sl_trigger": float(sl_t) if sl_t is not None else None,
+                    "sl_limit": float(sl_l) if sl_l is not None else None,
+                    "sl_order_id": int(sl_oid) if sl_oid is not None else None,
+                    "sl_status": sl_st,
+                    "is_trailing": bool(is_tr),
+                    "trail_distance": float(t_dist) if t_dist is not None else None,
+                    "trail_pct": float(t_pct) if t_pct is not None else None,
+                    "trail_high_water": float(t_hw) if t_hw is not None else None,
+                })
+
+            # Reconstrói self._oco_groups + self._order_to_group
+            self._oco_groups = {}
+            self._order_to_group = {}
+            for gr in grp_rows:
+                (gid, parent_id, env, ticker, exch, side, tot, rem, status, isd,
+                 brk, acct, sub, uacct, pid) = gr
+                self._oco_groups[gid] = {
+                    "parent_order_id": int(parent_id) if parent_id is not None else None,
+                    "env": env,
+                    "ticker": ticker,
+                    "exchange": exch,
+                    "side": int(side),
+                    "total_qty": int(tot),
+                    "remaining_qty": int(rem),
+                    "status": status,
+                    "is_daytrade": bool(isd),
+                    "broker_id": brk,
+                    "account_id": acct,
+                    "sub_account_id": sub,
+                    "user_account_id": uacct,
+                    "portfolio_id": pid,
+                    "levels": levels_by_group.get(gid, []),
+                }
+                # Reverse index: parent + cada TP/SL ainda 'sent'
+                if parent_id is not None and status == "awaiting":
+                    self._order_to_group[int(parent_id)] = (gid, 0, "parent")
+                for lv in levels_by_group.get(gid, []):
+                    if lv["tp_order_id"] is not None:
+                        self._order_to_group[lv["tp_order_id"]] = (gid, lv["idx"], "tp")
+                    if lv["sl_order_id"] is not None:
+                        self._order_to_group[lv["sl_order_id"]] = (gid, lv["idx"], "sl")
+
+            log.info(
+                "oco.state_loaded groups=%d levels=%d order_index=%d",
+                len(self._oco_groups), len(lvl_rows), len(self._order_to_group),
+            )
+            return len(self._oco_groups)
+        except Exception as exc:
+            log.exception("load_oco_state_from_db error: %s", exc)
+            return 0
+
     def _oco_groups_monitor_loop(self) -> None:
         """Background thread: monitora groups OCO multi-level a cada 500ms.
 
@@ -5072,6 +5178,10 @@ class ProfitAgent:
                     _qs_g = _pqs_g(_up_g(self.path).query)
                     _filter = _qs_g.get("status", [None])[0]
                     self._send_json(agent.list_oco_groups(_filter))
+
+                elif self.path == "/oco/state/reload":
+                    n = agent._load_oco_state_from_db()
+                    self._send_json({"ok": True, "groups_loaded": n})
 
                 elif self.path.startswith("/oco/groups/"):
                     _gid = self.path.split("/oco/groups/", 1)[-1].strip("/")

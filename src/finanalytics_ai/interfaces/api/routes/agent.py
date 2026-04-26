@@ -307,6 +307,14 @@ async def agent_cancel_oco_group(group_id: str):
     return await _post(f"/oco/groups/{group_id}/cancel", {})
 
 
+@router.get("/oco/state/reload", tags=["Agent"])
+async def agent_oco_state_reload():
+    """Phase D: reCarrega groups awaiting/active/partial do DB para memória.
+    Útil em debug se o profit_agent perder state in-memory por algum motivo
+    além do restart (que já chama auto)."""
+    return await _get("/oco/state/reload")
+
+
 # ── Posições ──────────────────────────────────────────────────────────────────
 
 
