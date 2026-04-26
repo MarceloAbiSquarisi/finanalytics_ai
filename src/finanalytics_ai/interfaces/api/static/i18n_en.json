@@ -210,5 +210,16 @@
   "anomaly.title": "Anomaly Detection",
   "anomaly.subtitle": "Z-SCORE | BOLLINGER BAND | CUSUM SHIFT | VOLUME SPIKE",
   "etf.title": "📊 ETFs",
-  "laminas.title": "Funds & Sheets"
+  "laminas.title": "Funds & Sheets",
+
+  "admin.title": "Admin Panel",
+  "admin.subtitle": "Management of users and registered financial agents",
+  "hub.title": "Monitoring Center",
+  "hub.subtitle": "Real-time status of all platform services",
+  "patrimony.title": "💎 Consolidated Wealth",
+  "patrimony.subtitle": "Stocks · ETFs · Fixed Income · Cash — unified view",
+  "vol_surface.title": "📈 Volatility Surface",
+  "vol_surface.subtitle": "Implied Volatility by Strike and Expiration — Smile and Term Structure",
+  "var.title": "🛡 Value at Risk (VaR)",
+  "var.subtitle": "Portfolio market risk — Historical VaR, Parametric and CVaR"
 }

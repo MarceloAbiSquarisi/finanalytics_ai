@@ -210,5 +210,16 @@
   "anomaly.title": "Deteccao de Anomalias",
   "anomaly.subtitle": "Z-SCORE | BOLLINGER BAND | CUSUM SHIFT | VOLUME SPIKE",
   "etf.title": "📊 ETFs",
-  "laminas.title": "Fundos & Lâminas"
+  "laminas.title": "Fundos & Lâminas",
+
+  "admin.title": "Painel Administrativo",
+  "admin.subtitle": "Gerenciamento de usuários e agentes financeiros cadastrados no sistema",
+  "hub.title": "Central de Monitoramento",
+  "hub.subtitle": "Status em tempo real de todos os servicos da plataforma",
+  "patrimony.title": "💎 Patrimônio Consolidado",
+  "patrimony.subtitle": "Ações · ETFs · Renda Fixa · Caixa — visão unificada",
+  "vol_surface.title": "📈 Superficie de Volatilidade",
+  "vol_surface.subtitle": "Volatilidade Implicita por Strike e Vencimento — Smile e Estrutura a Termo",
+  "var.title": "🛡 Value at Risk (VaR)",
+  "var.subtitle": "Risco de mercado da carteira — VaR Historico, Parametrico e CVaR"
 }
