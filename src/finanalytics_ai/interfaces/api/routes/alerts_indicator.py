@@ -13,7 +13,7 @@ GET /alerts/stream
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 import structlog
 
@@ -21,6 +21,7 @@ from finanalytics_ai.application.services.indicator_alert_service import (
     SUPPORTED_INDICATORS,
     IndicatorAlertService,
 )
+from finanalytics_ai.interfaces.api.dependencies import get_current_user
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/alerts/indicator", tags=["Alertas Indicadores"])
@@ -32,7 +33,7 @@ class CreateIndicatorAlertRequest(BaseModel):
     operator: str = Field(..., description="gt | lt | gte | lte")
     threshold: float = Field(..., description="Valor em percentual para % ou absoluto para ratios")
     note: str = Field(default="", max_length=200)
-    user_id: str = Field(default="user-demo")
+    # BUG17 fix 26/abr: user_id removido do payload — vem do JWT via Depends.
 
 
 class IndicatorAlertResponse(BaseModel):
@@ -76,6 +77,7 @@ def _to_response(alert: Any) -> IndicatorAlertResponse:
 async def create_indicator_alert(
     body: CreateIndicatorAlertRequest,
     request: Request,
+    user=Depends(get_current_user),
 ) -> IndicatorAlertResponse:
     """
     Cria um alerta de indicador Fintz.
@@ -85,6 +87,8 @@ async def create_indicator_alert(
       - DividendYield >= 6%: indicator=DividendYield, operator=gte, threshold=6
       - P_L < 10:            indicator=P_L, operator=lt, threshold=10
       - Divida/PL <= 1.5:    indicator=DividaLiquida_PatrimonioLiquido, operator=lte, threshold=1.5
+
+    user_id vem do JWT (BUG17 resolvido 26/abr) — multi-tenant correto.
     """
     svc = _get_service(request)
     try:
@@ -93,7 +97,7 @@ async def create_indicator_alert(
             indicator=body.indicator,
             operator=body.operator,
             threshold=body.threshold,
-            user_id=body.user_id,
+            user_id=str(user.user_id),
             note=body.note,
         )
         return _to_response(alert)
@@ -107,11 +111,11 @@ async def create_indicator_alert(
 @router.get("", response_model=list[IndicatorAlertResponse])
 async def list_indicator_alerts(
     request: Request,
-    user_id: str = Query(default="user-demo"),
+    user=Depends(get_current_user),
 ) -> list[IndicatorAlertResponse]:
-    """Lista alertas de indicadores do usuario."""
+    """Lista alertas de indicadores do usuario autenticado (BUG17 resolvido)."""
     svc = _get_service(request)
-    alerts = await svc.list_by_user(user_id)
+    alerts = await svc.list_by_user(str(user.user_id))
     return [_to_response(a) for a in alerts]
 
 
@@ -119,11 +123,11 @@ async def list_indicator_alerts(
 async def cancel_indicator_alert(
     alert_id: str,
     request: Request,
-    user_id: str = Query(default="user-demo"),
+    user=Depends(get_current_user),
 ) -> None:
-    """Cancela um alerta de indicador."""
+    """Cancela um alerta de indicador do usuario autenticado (BUG17 resolvido)."""
     svc = _get_service(request)
-    cancelled = await svc.cancel(alert_id, user_id)
+    cancelled = await svc.cancel(alert_id, str(user.user_id))
     if not cancelled:
         raise HTTPException(404, f"Alerta {alert_id!r} nao encontrado")
 

@@ -300,7 +300,7 @@ async function loadAlerts() {
   const tb = document.getElementById('alertList');
   FALoading.tableRows(tb, { rows: 4, cols: 7 });
   try {
-    const list = await FAErr.fetchJson(API + '/alerts/indicator?user_id=' + encodeURIComponent(_user.user_id), { headers: H() });
+    const list = await FAErr.fetchJson(API + '/alerts/indicator', { headers: H() });  // user_id vem do JWT (BUG17 fix)
     renderAlerts(list);
   } catch (e) {
     tb.innerHTML = `<tr class="empty-row"><td colspan="7">Erro: ${e.message}</td></tr>`;
@@ -362,7 +362,7 @@ async function createAlert() {
     const r = await fetch(API + '/alerts/indicator', {
       method: 'POST',
       headers: H(),
-      body: JSON.stringify({ ticker, indicator, operator, threshold, note, user_id: _user.user_id }),
+      body: JSON.stringify({ ticker, indicator, operator, threshold, note }),  // user_id vem do JWT (BUG17 fix)
     });
     if (!r.ok) {
       const detail = await r.text();
@@ -384,7 +384,7 @@ async function createAlert() {
 async function deleteAlert(id) {
   if (!await FAModal.confirm('Cancelar este alerta?')) return;
   try {
-    const r = await fetch(API + '/alerts/indicator/' + encodeURIComponent(id) + '?user_id=' + encodeURIComponent(_user.user_id), {
+    const r = await fetch(API + '/alerts/indicator/' + encodeURIComponent(id), {  // user_id vem do JWT (BUG17 fix)
       method: 'DELETE', headers: H()
     });
     if (!r.ok && r.status !== 204) throw new Error('HTTP ' + r.status);
