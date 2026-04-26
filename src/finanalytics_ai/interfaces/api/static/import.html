@@ -410,6 +410,87 @@
 
   </div>
 
+  <!-- ── SEÇÃO: Dividendos (C6) ── -->
+  <div class="section-label">Dividendos / Rendimentos</div>
+  <div class="card-grid">
+    <div class="up-card" id="card-dividends" onclick="openDividendsModal()">
+      <span class="card-status" id="st-dividends" style="display:none">…</span>
+      <div class="bank-logo">
+        <svg viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg">
+          <rect width="56" height="56" rx="12" fill="#1a3a2a"/>
+          <text x="28" y="38" text-anchor="middle" font-family="Arial,sans-serif"
+                font-size="28" fill="#5fd99a" font-weight="bold">$</text>
+          <text x="28" y="52" text-anchor="middle" font-family="Arial,sans-serif"
+                font-size="6.5" fill="#5fd99a" letter-spacing=".6">DIVIDEND</text>
+        </svg>
+      </div>
+      <div class="up-title">Importar Dividendos</div>
+      <div class="up-sub">CSV/OFX com dividendos, JCP ou rendimentos. Faz match com posições do account.</div>
+      <div class="up-formats">CSV · OFX · QFX</div>
+    </div>
+  </div>
+
+  <!-- ── Modal Dividendos ── -->
+  <div id="modal-dividends" style="display:none;position:fixed;inset:0;background:rgba(10,22,40,.92);z-index:500;align-items:flex-start;justify-content:center;overflow-y:auto;padding:40px 20px">
+    <div style="background:var(--navy-mid,#142540);border:1px solid var(--border,#2a3f5f);border-radius:12px;padding:24px;width:760px;max-width:95vw">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+        <h2 style="margin:0;font-size:18px;font-weight:700">💰 Importar Dividendos</h2>
+        <button onclick="closeDividendsModal()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:22px">×</button>
+      </div>
+
+      <!-- Step 1: account -->
+      <div id="div-step-1">
+        <label style="font-size:11px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase">Conta de investimento</label>
+        <select id="div-account" style="width:100%;padding:8px;background:rgba(10,22,40,.6);border:1px solid var(--border);color:var(--white);border-radius:6px;margin-top:4px;margin-bottom:14px;font-size:13px">
+          <option value="">Carregando...</option>
+        </select>
+
+        <label style="font-size:11px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase">Arquivo (CSV/OFX/QFX)</label>
+        <input type="file" id="div-file" accept=".csv,.ofx,.qfx" style="width:100%;padding:8px;background:rgba(10,22,40,.6);border:1px solid var(--border);color:var(--white);border-radius:6px;margin-top:4px;margin-bottom:14px;font-size:13px">
+
+        <div id="div-msg" style="font-size:12px;color:var(--red);min-height:14px;margin-bottom:8px"></div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="closeDividendsModal()" style="padding:8px 14px;background:rgba(255,255,255,.08);color:var(--muted);border:none;border-radius:6px;cursor:pointer">Cancelar</button>
+          <button onclick="previewDividends()" style="padding:8px 14px;background:var(--blue,#3abff8);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600">Analisar</button>
+        </div>
+      </div>
+
+      <!-- Step 2: preview -->
+      <div id="div-step-2" style="display:none">
+        <div id="div-summary" style="display:flex;gap:12px;margin-bottom:14px;font-size:12px"></div>
+        <div style="max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:6px">
+          <table style="width:100%;font-size:12px;border-collapse:collapse">
+            <thead style="background:rgba(10,22,40,.7);position:sticky;top:0">
+              <tr>
+                <th style="padding:6px 10px;text-align:left">Data</th>
+                <th style="padding:6px 10px;text-align:left">Ticker</th>
+                <th style="padding:6px 10px;text-align:right">Valor</th>
+                <th style="padding:6px 10px;text-align:left">Tipo</th>
+                <th style="padding:6px 10px;text-align:left">Status</th>
+                <th style="padding:6px 10px;text-align:left;color:var(--muted)">Descrição</th>
+              </tr>
+            </thead>
+            <tbody id="div-preview-tbody"></tbody>
+          </table>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
+            <input type="checkbox" id="div-only-matched" checked> ignorar unmatched/ambiguous no commit
+          </label>
+        </div>
+
+        <div id="div-msg-2" style="font-size:12px;color:var(--red);min-height:14px;margin-top:6px"></div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+          <button onclick="resetDividendsModal()" style="padding:8px 14px;background:rgba(255,255,255,.08);color:var(--muted);border:none;border-radius:6px;cursor:pointer">← Voltar</button>
+          <button onclick="commitDividends()" style="padding:8px 14px;background:var(--green,#5fd99a);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600">Confirmar Importação</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Painel de resultado ── -->
   <div id="result-panel">
     <div class="section-label" style="margin-top:40px">Resultado da Importação</div>
@@ -500,6 +581,143 @@ function showResult(filename, status, data) {
   document.getElementById('result-title').textContent = filename;
   document.getElementById('result-tag').textContent = 'HTTP ' + status;
   document.getElementById('result-json').textContent = JSON.stringify(data, null, 2);
+}
+
+/* ── Dividendos modal (C6 Fase 2) ── */
+let _divFile = null;
+let _divAccountId = null;
+
+function tok() { return localStorage.getItem('access_token') || ''; }
+function authHeaders() { return { Authorization: 'Bearer ' + tok() }; }
+
+async function openDividendsModal() {
+  resetDividendsModal();
+  document.getElementById('modal-dividends').style.display = 'flex';
+  // Carrega contas
+  const sel = document.getElementById('div-account');
+  sel.innerHTML = '<option value="">Carregando...</option>';
+  try {
+    const r = await fetch('/api/v1/wallet/accounts', { headers: authHeaders() });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const accounts = await r.json();
+    if (!accounts.length) {
+      sel.innerHTML = '<option value="">Nenhuma conta cadastrada</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">Selecione...</option>' + accounts.map(a =>
+      `<option value="${a.id}">${a.apelido || a.titular || a.institution_name || a.id.slice(0, 8)}${a.institution_name && a.apelido ? ' (' + a.institution_name + ')' : ''}</option>`
+    ).join('');
+  } catch (e) {
+    sel.innerHTML = '<option value="">Erro ao carregar contas</option>';
+    document.getElementById('div-msg').textContent = 'Falha ao listar contas: ' + e.message;
+  }
+}
+
+function closeDividendsModal() {
+  document.getElementById('modal-dividends').style.display = 'none';
+  resetDividendsModal();
+}
+
+function resetDividendsModal() {
+  document.getElementById('div-step-1').style.display = 'block';
+  document.getElementById('div-step-2').style.display = 'none';
+  document.getElementById('div-msg').textContent = '';
+  document.getElementById('div-msg-2').textContent = '';
+  const fileInput = document.getElementById('div-file');
+  if (fileInput) fileInput.value = '';
+  _divFile = null;
+  _divAccountId = null;
+}
+
+async function previewDividends() {
+  const msg = document.getElementById('div-msg');
+  msg.textContent = '';
+  const accId = document.getElementById('div-account').value;
+  const file = document.getElementById('div-file').files[0];
+  if (!accId) { msg.textContent = 'Selecione uma conta.'; return; }
+  if (!file) { msg.textContent = 'Selecione um arquivo CSV/OFX.'; return; }
+  _divFile = file;
+  _divAccountId = accId;
+
+  msg.textContent = 'Analisando arquivo...';
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const r = await fetch(`/api/v1/import/dividends/preview?account_id=${encodeURIComponent(accId)}`, {
+      method: 'POST', headers: authHeaders(), body: fd
+    });
+    if (!r.ok) {
+      const txt = await r.text();
+      throw new Error(txt || ('HTTP ' + r.status));
+    }
+    const data = await r.json();
+    renderDividendPreview(data);
+  } catch (e) {
+    msg.textContent = 'Falha: ' + e.message;
+  }
+}
+
+function renderDividendPreview(data) {
+  document.getElementById('div-step-1').style.display = 'none';
+  document.getElementById('div-step-2').style.display = 'block';
+  const s = data.summary || { matched: 0, unmatched: 0, ambiguous: 0 };
+  document.getElementById('div-summary').innerHTML =
+    `<span style="background:rgba(95,217,154,.15);color:var(--green,#5fd99a);padding:4px 10px;border-radius:4px;font-weight:600">✓ matched: ${s.matched}</span>` +
+    `<span style="background:rgba(240,180,41,.15);color:var(--gold,#F0B429);padding:4px 10px;border-radius:4px;font-weight:600">⚠ ambiguous: ${s.ambiguous}</span>` +
+    `<span style="background:rgba(224,85,85,.15);color:var(--red,#e05555);padding:4px 10px;border-radius:4px;font-weight:600">? unmatched: ${s.unmatched}</span>` +
+    `<span style="margin-left:auto;color:var(--muted);font-size:11px">Total: ${data.total_lines} linha(s) detectada(s)</span>`;
+  const tbody = document.getElementById('div-preview-tbody');
+  const rows = data.matched || [];
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:14px;text-align:center;color:var(--muted)">Nenhum dividendo detectado no arquivo.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(m => {
+    const stColor = m.status === 'matched' ? 'var(--green,#5fd99a)' :
+                   (m.status === 'ambiguous' ? 'var(--gold,#F0B429)' : 'var(--red,#e05555)');
+    const stIcon = m.status === 'matched' ? '✓' : (m.status === 'ambiguous' ? '⚠' : '?');
+    return `<tr style="border-top:1px solid var(--border)">
+      <td style="padding:6px 10px;font-family:DM Mono,monospace;font-size:11px">${m.date}</td>
+      <td style="padding:6px 10px;font-weight:600">${m.ticker || '—'}</td>
+      <td style="padding:6px 10px;text-align:right;font-family:DM Mono,monospace">R$ ${(+m.amount).toFixed(2)}</td>
+      <td style="padding:6px 10px;font-size:11px;text-transform:uppercase;color:var(--muted)">${m.type || '—'}</td>
+      <td style="padding:6px 10px;color:${stColor};font-weight:600">${stIcon} ${m.status}</td>
+      <td style="padding:6px 10px;font-size:11px;color:var(--muted)">${m.description || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function commitDividends() {
+  const msg = document.getElementById('div-msg-2');
+  msg.textContent = '';
+  if (!_divFile || !_divAccountId) { msg.textContent = 'Estado perdido — refaça preview.'; return; }
+  const onlyMatched = document.getElementById('div-only-matched').checked;
+  // user_id vem da sessão (master pode importar pra qualquer conta)
+  let userId = '';
+  try {
+    const ur = await fetch('/api/v1/auth/me', { headers: authHeaders() });
+    if (ur.ok) { const u = await ur.json(); userId = u.user_id || u.id || ''; }
+  } catch (_) {}
+  if (!userId) { msg.textContent = 'Falha ao obter user_id da sessão.'; return; }
+
+  msg.textContent = 'Importando...';
+  const fd = new FormData();
+  fd.append('file', _divFile);
+  try {
+    const url = `/api/v1/import/dividends/commit?account_id=${encodeURIComponent(_divAccountId)}` +
+                `&user_id=${encodeURIComponent(userId)}&only_matched=${onlyMatched}`;
+    const r = await fetch(url, { method: 'POST', headers: authHeaders(), body: fd });
+    if (!r.ok) {
+      const txt = await r.text();
+      throw new Error(txt || ('HTTP ' + r.status));
+    }
+    const data = await r.json();
+    closeDividendsModal();
+    showResult(_divFile.name, r.status, data);
+    toast(`Importado: ${data.created || 0} dividendos · ${data.skipped || 0} pulados`, 'ok');
+  } catch (e) {
+    msg.textContent = 'Falha no commit: ' + e.message;
+  }
 }
 
 /* ── Toast ── */
