@@ -9,7 +9,7 @@
  *
  * CACHE_VERSION incrementa a cada deploy de assets criticos para invalidar caches antigos.
  */
-const CACHE_VERSION = 'fa-v44';
+const CACHE_VERSION = 'fa-v45';
 const STATIC_CACHE = CACHE_VERSION + '-static';
 const HTML_CACHE = CACHE_VERSION + '-html';
 
@@ -81,12 +81,14 @@ self.addEventListener('fetch', (event) => {
 
   if (isApi(url)) return; // never cache API
 
-  // HTML: network-first
+  // HTML: network-first; só cacheia status 200 (evita cachear 404/500/302)
   if (isHtml(req)) {
     event.respondWith(
       fetch(req).then((res) => {
-        const clone = res.clone();
-        caches.open(HTML_CACHE).then((c) => c.put(req, clone)).catch(() => {});
+        if (res && res.status === 200) {
+          const clone = res.clone();
+          caches.open(HTML_CACHE).then((c) => c.put(req, clone)).catch(() => {});
+        }
         return res;
       }).catch(() => caches.match(req))
     );
