@@ -94,6 +94,14 @@
 .ov-ml.hold  { color: var(--gold, #F0B429);  border-color: rgba(240,180,41,.4); background: rgba(240,180,41,.08); }
 .ov-ml.none  { color: var(--muted);          border-color: var(--border); background: transparent; opacity: .55; }
 .ov-ml-pct { margin-left: 4px; opacity: .8; font-weight: 500; }
+.ov-ml-recalc {
+  background: rgba(58,191,248,.15); border: none; color: var(--blue, #3abff8);
+  cursor: pointer; padding: 2px 5px; margin-left: 4px; border-radius: 3px;
+  font-size: 11px; font-family: 'DM Mono', monospace; line-height: 1;
+}
+.ov-ml-recalc:hover { background: rgba(58,191,248,.3); }
+.ov-ml-recalc.spinning { animation: spin 1s linear infinite }
+@keyframes spin { from { transform: rotate(0) } to { transform: rotate(360deg) } }
 .ov-pnl { font-size: 11px; font-weight: 600; font-family: 'DM Mono', monospace; margin-top: 2px; }
 .ov-pnl.up    { color: var(--green, #00e676); }
 .ov-pnl.down  { color: var(--red, #ff3d5a); }
@@ -339,6 +347,35 @@ async function recalcLiveSignal(ticker) {
   } catch (e) { console.warn('predict_mvp fail:', ticker, e.message); return null; }
 }
 
+// Disparado pelo botão ↻ do badge ML do card. Atualiza só o ticker clicado.
+async function recalcCardSignal(ticker) {
+  // Encontra o botão e adiciona spinner
+  const btns = document.querySelectorAll('.ov-ml-recalc');
+  let btn = null;
+  btns.forEach(b => {
+    if (b.getAttribute('onclick')?.includes(`'${ticker}'`)) btn = b;
+  });
+  if (btn) { btn.textContent = '⟳'; btn.classList.add('spinning'); btn.disabled = true; }
+  const result = await recalcLiveSignal(ticker);
+  if (result) {
+    _signals[ticker] = {
+      ticker,
+      signal: result.signal,
+      predicted_return_pct: result.predicted_return_pct,
+      predicted_log_return: result.predicted_log_return,
+      horizon_days: result.calibration?.horizon_days,
+      best_sharpe: result.calibration?.best_sharpe,
+      live: true,
+      computed_at: new Date().toISOString(),
+    };
+    rerender();  // re-render só o card afetado é overkill; rerender tudo é simples e rápido
+    if (window.FAToast) FAToast.ok(`${ticker}: ${result.signal} (${result.predicted_return_pct?.toFixed(2)}%)`);
+  } else {
+    if (window.FAToast) FAToast.err(`${ticker}: falha no recálculo`);
+    if (btn) { btn.textContent = '↻'; btn.classList.remove('spinning'); btn.disabled = false; }
+  }
+}
+
 // ── RENDER ───────────────────────────────────────────────────────────────
 function renderCard(item) {
   const ticker = item.ticker;
@@ -358,15 +395,17 @@ function renderCard(item) {
   const tagText = { position: 'POS', watchlist: 'WL', crypto: 'CRP', rf: 'RF' }[item.source] || '?';
   const tagCls = { position: 'tag-pos', watchlist: 'tag-watch', crypto: 'tag-crypto', rf: 'tag-rf' }[item.source] || '';
 
-  // ML signal badge
+  // ML signal badge + botão live recalc per-card (Phase D backlog)
   let mlHtml = '';
   if (sig && !sig.error) {
     const cls = sig.signal === 'BUY' ? 'buy' : (sig.signal === 'SELL' ? 'sell' : 'hold');
     const pctTxt = sig.predicted_return_pct != null ? ` <span class="ov-ml-pct">${sig.predicted_return_pct >= 0 ? '+' : ''}${sig.predicted_return_pct.toFixed(2)}%</span>` : '';
-    const snapTxt = sig.snapshot_date ? ` · snap ${sig.snapshot_date}` : '';
-    mlHtml = `<span class="ov-ml ${cls}" title="ML signal · h${sig.horizon_days}d · sharpe ${sig.best_sharpe?.toFixed(2) || '—'}${snapTxt}">${sig.signal}${pctTxt}</span>`;
+    const liveTag = sig.live ? ` · LIVE ${sig.computed_at?.slice(11,16) || ''}` : (sig.snapshot_date ? ` · snap ${sig.snapshot_date}` : '');
+    mlHtml = `<span class="ov-ml ${cls}" title="ML signal · h${sig.horizon_days}d · sharpe ${sig.best_sharpe?.toFixed(2) || '—'}${liveTag}">${sig.signal}${pctTxt}</span>` +
+             `<button class="ov-ml-recalc" onclick="event.preventDefault();event.stopPropagation();recalcCardSignal('${ticker}');" title="Recalcular ML em tempo real (~4s)">↻</button>`;
   } else {
-    mlHtml = `<span class="ov-ml none" title="${sig?.error || 'sem modelo calibrado'}">—</span>`;
+    mlHtml = `<span class="ov-ml none" title="${sig?.error || 'sem modelo calibrado'}">—</span>` +
+             `<button class="ov-ml-recalc" onclick="event.preventDefault();event.stopPropagation();recalcCardSignal('${ticker}');" title="Calcular ML em tempo real (~4s)">↻</button>`;
   }
 
   // P/L (positions e crypto): (last - avg) * qty

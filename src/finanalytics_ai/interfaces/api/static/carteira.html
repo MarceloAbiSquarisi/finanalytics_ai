@@ -911,7 +911,7 @@ async function loadTrades() {
         <td class="td-right">${fmt(t.unit_price)}</td>
         <td class="td-right">${fmt(t.total_cost)}</td>
         <td class="td-right">${t.fees>0?fmt(t.fees):'—'}</td>
-        <td>${acc ? (acc.apelido ? `<strong>${acc.apelido}</strong><br><small style="color:var(--muted)">${acc.institution_name}</small>` : acc.institution_name) : '—'}</td>
+        <td>${acc ? (acc.apelido ? `<div><strong>${acc.apelido}</strong></div><div style="font-size:11px;color:var(--muted);margin-top:2px">${acc.institution_name||''}</div>` : (acc.institution_name||'—')) : '—'}</td>
         <td><button class="btn btn-danger btn-sm" onclick="deleteTrade('${t.id}')">✕</button></td></tr>`;
     }).join('');
   } catch(e) { console.error(e); }
@@ -1083,7 +1083,7 @@ async function loadCrypto() {
         <td class="td-right">${fmt(c.average_price_brl)}</td>
         <td class="td-right">${c.average_price_usd?fmt(c.average_price_usd,'$ '):'—'}</td>
         <td>${c.exchange||'—'}</td>
-        <td>${acc ? (acc.apelido ? `<strong>${acc.apelido}</strong><br><small style="color:var(--muted)">${acc.institution_name}</small>` : acc.institution_name) : '—'}</td>
+        <td>${acc ? (acc.apelido ? `<div><strong>${acc.apelido}</strong></div><div style="font-size:11px;color:var(--muted);margin-top:2px">${acc.institution_name||''}</div>` : (acc.institution_name||'—')) : '—'}</td>
         <td style="white-space:nowrap">
           <button class="btn btn-sm" style="background:transparent;border:1px solid var(--green);color:var(--green);margin-right:4px" onclick="redeemCrypto('${c.id}', '${c.symbol}', ${Number(c.quantity)}, ${Number(c.average_price_brl)})" title="Resgate parcial (credita cash)">💰</button>
           <button class="btn btn-danger btn-sm" onclick="deleteCrypto('${c.id}')">✕</button></td></tr>`;
@@ -1163,7 +1163,7 @@ async function loadOther() {
         <td>${gain(o.current_value,o.invested_value)}</td>
         <td>${o.currency}</td>
         <td style="color:${o.ir_exempt?'var(--green)':'var(--muted)'}">${o.ir_exempt?'Sim':'Não'}</td>
-        <td>${acc ? (acc.apelido ? `<strong>${acc.apelido}</strong><br><small style="color:var(--muted)">${acc.institution_name}</small>` : acc.institution_name) : '—'}</td>
+        <td>${acc ? (acc.apelido ? `<div><strong>${acc.apelido}</strong></div><div style="font-size:11px;color:var(--muted);margin-top:2px">${acc.institution_name||''}</div>` : (acc.institution_name||'—')) : '—'}</td>
         <td><button class="btn btn-danger btn-sm" onclick="deleteOther('${o.id}')">✕</button></td></tr>`;
     }).join('');
   } catch(e) { console.error(e); }
