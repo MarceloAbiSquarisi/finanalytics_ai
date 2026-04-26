@@ -53,10 +53,10 @@
 ### D. Outras funcionalidades — backlog
 
 **OCO + Trailing + Splits parciais** (spec em `Design_OCO_Trailing_Splits.md`):
-- [ ] **OCO Phase A** — attach OCO em ordem pendente (TP+SL aplicado após parent FILL) — bloqueado: aguarda user revisar 6 decisões da spec
-- [ ] **OCO Phase B** — Trailing stop (configurável: tick/pct/atr; ratchet up para long, down para short)
-- [ ] **OCO Phase C** — Splits parciais (TP1/TP2/TP3 com qty% cada; SL ajusta proporcional)
-- [ ] **OCO Phase D** — Persistence + restart safety (state recovery após restart do profit_agent)
+- [X] **OCO Phase A** — attach OCO em ordem pendente (commit `90adb01` 26/abr) — backend + UI deployed; teste end-to-end em §B.4
+- [X] **OCO Phase B** — UI splits parciais N níveis (commit `443acb6` 26/abr) — modal dinâmico add/remove level; teste em §B.4 letra B
+- [ ] **OCO Phase C** — Trailing stop (codar + testar segunda 27/abr — agendado em §B.5)
+- [X] **OCO Phase D** — Persistence + restart safety (commit `f2c60a7` 26/abr) — `_load_oco_state_from_db` + endpoint `/oco/state/reload`; validado live `groups_loaded:0`
 
 **ML / Multi-horizon** (depende de Z5 — Nelogica 1m):
 - [ ] Treinar pickles h3, h5 + h21 por ticker (multi-horizon real)
@@ -257,6 +257,70 @@ Achados smoke:
 - [ ] **Cotação PETR4 live**: primeiro tenta `profit_agent :8002/quotes` (subscrito) → Yahoo → BRAPI (ordem Decisão 20)
 - [ ] Aba Trades em `/carteira`: criar BUY/SELL → confirma trade chega no DLL + status reflete em `/positions`
 
+### §B.4 — OCO Phase A+B+D end-to-end (NOVO 26/abr) — ~1h
+
+> Backend deployado + profit_agent reiniciado às 12h33 BRT 26/abr; rotas `/oco/*` respondem 200; DB vazio. Falta **disparar com ordem real**.
+
+**A) Attach OCO 1 nível (smoke)**:
+- [ ] Limit BUY PETR4 100 @ R$30 (longe pra ficar pending) → enviar
+- [ ] Na lista "Abertas" da aba Ordens, clicar **🛡** (botão azul) na ordem pending
+- [ ] Modal abre: parent info, 1 level com qty=100, TP+SL marcados
+- [ ] Preencher TP=52, SL trigger=28, SL limit=27.50 → "Anexar OCO"
+- [ ] Toast "OCO anexado · group XXXXXX · 1 nível(eis) · disparará ao fill"
+- [ ] DB: `SELECT status, parent_order_id FROM profit_oco_groups` → 1 row status=`awaiting`
+- [ ] `/api/v1/agent/oco/groups` → 1 group; `/oco/groups/{group_id}` → mostra parent + 1 level
+
+**B) Splits parciais (NEW UI)**:
+- [ ] Cancelar a ordem do passo A
+- [ ] Limit BUY VALE3 100 @ valor longe → pending
+- [ ] 🛡 OCO → modal abre com 1 nível pré-preenchido qty=100
+- [ ] Click "+ nível" → 2º nível aparece com qty=0 (sugestão)
+- [ ] Editar nível 1 qty=60, nível 2 qty=40
+- [ ] TP1=72, SL1=58 ; TP2=75, SL2=58 → "Anexar OCO"
+- [ ] Toast "2 níveis"; DB: `SELECT level_idx, qty, tp_price, sl_trigger FROM profit_oco_levels WHERE group_id='...' ORDER BY level_idx` → 2 rows {idx=1,qty=60,tp=72,sl=58},{idx=2,qty=40,tp=75,sl=58}
+- [ ] Validação: tentar enviar com sum(qty) ≠ 100 → modal mostra mensagem `Soma das qty (X) deve bater parent.qty (100).`
+- [ ] Validação: nível sem TP nem SL marcado → `Nível N: marque ao menos TP ou SL.`
+
+**C) Parent fill → dispatch automático**:
+- [ ] Reduzir preço da ordem mãe pra perto do mercado (ou cancelar e enviar nova @ preço de fill)
+- [ ] Aguardar fill (callback assíncrono)
+- [ ] `/api/v1/agent/oco/groups/{group_id}` → status=`active` ou `partial`; cada level com `tp_order_id` e/ou `sl_order_id` populados
+- [ ] Aba Ordens mostra TP (LMT sell) e SL (STP sell) novas geradas pelo dispatch
+- [ ] Log do profit_agent: `oco_group.dispatched group=... filled=N/M levels=K`
+
+**D) Cross-cancel (uma perna fillou → cancela outra)**:
+- [ ] Mover preço de mercado pra cima do TP1 do nível 1 (ou ajustar TP pra perto do mercado)
+- [ ] Quando TP1 executa: log `oco.tp_filled→sl_cancel group=... lv=1`; level 1 SL fica status=`cancelled`
+- [ ] Group continua status=`partial` enquanto níveis restantes ativos
+- [ ] Repetir até último nível → group=`completed`, completed_at populado
+
+**E) Persistence (Phase D)**:
+- [ ] Com 1+ group active no DB, parar profit_agent (Get-Process | Stop-Process — admin necessário)
+- [ ] Subir novo: `Start-Process -FilePath ".venv\Scripts\python.exe" -ArgumentList "src\finanalytics_ai\workers\profit_agent.py" -WindowStyle Hidden -RedirectStandardOutput ".profit_agent.log"`
+- [ ] Log inicial deve conter: `oco.state_loaded groups=N levels=M order_index=K`
+- [ ] `/api/v1/agent/oco/groups` retorna mesmos groups com mesmo status (in-memory restaurado)
+- [ ] Sem regressão: cross-cancel continua funcionando após restart
+
+**F) Cancel manual de group**:
+- [ ] Group active → `POST /api/v1/agent/oco/groups/{group_id}/cancel`
+- [ ] Resposta: `{ok:true, cancelled_orders:N}` (N = TP+SL pendentes)
+- [ ] DB: status=`cancelled`, `completed_at` setado
+- [ ] Aba Ordens: TP e SL daquele group ficam status CANCELED
+
+### §B.5 — OCO Phase C (Trailing) — ~2-3h (CODA + TESTA)
+
+> Backend ainda **não codado** — implementar e testar no mesmo dia, requer pregão pra validar trailing real.
+
+- [ ] Codar `_trail_monitor_loop` que roda a cada N segundos: pra cada level com `is_trailing=true` e SL aberto, busca last_price do `_book` (in-memory) e atualiza `trail_high_water` se favorável
+- [ ] Quando `trail_high_water - trail_distance > sl_trigger atual` (sell long) → chamar `change_order` (SendChangeOrderV2) com novo stop
+- [ ] Decisão 1: aceitar `trail_distance` (R$) OU `trail_pct` (% do high_water) — payload tem ambos campos opcionais
+- [ ] Decisão 6: se ao criar trailing já estiver além do trigger inicial → enviar market do lado oposto imediato + log `trailing.immediate_trigger`
+- [ ] UI dashboard.html: checkbox "Trailing" no level + radio R$/% + input distance — só ativa quando checkbox marcado
+- [ ] Validação UI: trailing só faz sentido se SL marcado; se SL desmarcado, oculta opções de trailing
+- [ ] Smoke: criar level com trailing R$ 0,50, mover preço de mercado +R$ 1 → SL deve ter sido `change_order`-ado pra (last - 0.50)
+- [ ] Smoke %: trailing 1.5%, mover +2% → SL move proporcionalmente
+- [ ] Imediato: criar trailing com SL trigger acima do last (sell long) → ordem market disparada na hora; log gravado
+
 ### §B.2 — Validações dependentes de tick live — ~30min
 
 - [ ] Aviso saldo insuficiente antes de confirmar trade BUY (UI guard real-time, depende de cotação atual)
@@ -379,14 +443,15 @@ docker start finanalytics_timescale
 
 ## Status
 
-- **Total pendente**: 30 itens em §A (2 — A.8+A.10 real), §B (10), §C (12 — C.1 fases 2-5 + tech debt + bugs); §D (8 backlog incluindo 4 fases OCO)
-- **§A.1-A.7 + A.9 + A.10 estrutural + A.11 DONE 25/abr** (49 itens — Features B/C/F/G2 + Golden path + smoke 24 pgs + edge cases + sudo + PWA)
-- **§C.1 C6 Dividendos Fase 1/5 DONE 25/abr** (1 fase fechada — backend service + 2 endpoints validados)
-- **Sessão noite (4.5h add)**: chart fixes + OHLC migration 3.4M bars + mojibake 21 files + clocks/candle counter + /overview novo dashboard + /overview ML via signal_history + /overview P/L+SL + /carteira P/L+SL + OCO design spec
-- **Hoje sáb 25/abr total**: 73 itens validados + 7 BUGs fixados + Fase 1 C6 + 8 features novas (~12h). Sessão 24 commits
+- **Total pendente**: ~28 itens em §A (2 — A.8+A.10 real), §B (16 incluindo §B.4 OCO + §B.5 Phase C trail), §C (5 — C.1 fases 2-5 + bugs); §D (5 backlog ML/UX)
+- **§A.1-A.7 + A.9 + A.10 estrutural + A.11 DONE 25/abr** (49 itens)
+- **§C.1 C6 Dividendos Fase 1/5 DONE 25/abr**
+- **Sessão noite 25/abr (4.5h add)**: chart fixes + OHLC migration 3.4M bars + mojibake 21 files + clocks/candle counter + /overview novo dashboard + /overview ML via signal_history + /overview P/L+SL + /carteira P/L+SL + OCO design spec
+- **Sessão 26/abr (~3h)**: OCO 6 decisões resolvidas (Design doc atualizado) + Phase A backend+UI (commit `90adb01`) + Phase B UI splits (commit `443acb6`) + Phase D persistence (commit `f2c60a7`) + profit_agent restartado live com novo PID (rotas `/api/v1/agent/oco/*` validadas)
+- **Total acumulado 25-26/abr**: ~15h, 28 commits, 7 BUGs fixados, 11 features novas (4 dashboard, 3 overview, 1 carteira, 3 OCO)
 - **Bloqueado por externo**: Z5 (Nelogica 1m, ~48h)
-- **Bloqueado por user review**: OCO Phase A (6 decisões da spec)
-- **BUGs**: 10 abertos (3 médios: BUG8 SMTP + BUG11 RF account_id + BUG17 alerts user-demo; 7 baixos); 7 resolvidos hoje
+- **Próximo gatilho**: segunda 27/abr 10h BRT — §B.1 (DLL viva) + §B.4 (OCO end-to-end) + §B.5 (Phase C Trailing — codar + testar)
+- **BUGs**: 10 abertos (3 médios: BUG8 SMTP + BUG11 RF account_id + BUG17 alerts user-demo; 7 baixos); 7 resolvidos
 
 ### Cleanup state (final do dia 25/abr 23h+):
 - **Users**: 1 ativo (master `marceloabisquarisi@gmail.com`); user_comum_test desativado via PATCH /admin/users/{id}/active
@@ -401,5 +466,5 @@ docker start finanalytics_timescale
 ---
 
 **Documento gerado em**: 25/abr/2026 (sáb, após cleanup `a86b1fc`)
-**Última atualização**: 25/abr/2026 23h+ (após sessão noite — 8 features novas + OCO design)
-**Próximo gatilho**: revisar Design_OCO_Trailing_Splits.md (6 decisões) → §B.1 segunda 10h BRT (pregão) → §C.1 fases 2-5
+**Última atualização**: 26/abr/2026 (dom — após OCO Phase A+B+D codadas e profit_agent restartado live)
+**Próximo gatilho**: segunda 27/abr 10h BRT pregão — §B.1 DLL viva + §B.4 OCO end-to-end (A+B+D) + §B.5 Phase C Trailing (codar+testar)
