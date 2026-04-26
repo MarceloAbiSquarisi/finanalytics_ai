@@ -395,6 +395,35 @@ async def list_account_transactions(
     )
 
 
+@router.get("/transactions")
+async def list_all_transactions(
+    status_filter: str | None = Query(None, alias="status"),
+    limit: int = Query(1000, ge=1, le=10000),
+    offset: int = Query(0, ge=0),
+    date_from: str | None = Query(None, description="YYYY-MM-DD"),
+    date_to: str | None = Query(None, description="YYYY-MM-DD"),
+    direction: str | None = Query(None, pattern="^(debit|credit)$"),
+    include_pending: bool = Query(True),
+    user: User = Depends(get_current_user),
+) -> list[dict]:
+    """Cross-account: lista TODAS as transações do usuário (todas as contas).
+    Usado pela página /movimentacoes (C6 Fase 3 — 26/abr)."""
+    from datetime import date as _date
+    df = _date.fromisoformat(date_from) if date_from else None
+    dt = _date.fromisoformat(date_to) if date_to else None
+    return await _repo().list_transactions(
+        user_id=str(user.user_id),
+        account_id=None,  # cross-account
+        status=status_filter,
+        limit=limit,
+        offset=offset,
+        date_from=df,
+        date_to=dt,
+        direction=direction,
+        include_pending=include_pending,
+    )
+
+
 @router.post("/transactions/{tx_id}/cancel")
 async def cancel_transaction(tx_id: str, user: User = Depends(get_current_user)) -> dict:
     """Cancela tx. Se settled, reverte o efeito no cash_balance."""

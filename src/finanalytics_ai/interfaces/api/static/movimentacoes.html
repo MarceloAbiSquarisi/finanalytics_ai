@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="pt-BR" data-fa-page="movimentacoes">
+<head>
+<meta charset="utf-8">
+<title>Movimentações — FinAnalytics</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script>(function(){try{var t=localStorage.getItem('fa_theme');
+  if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script>
+<link rel="stylesheet" href="/static/theme.css">
+<style>
+.mv-wrap { padding: 20px 24px; max-width: 1280px; margin: 0 auto; }
+.mv-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; flex-wrap: wrap }
+.mv-head h1 { font-size: 22px; margin: 0; font-weight: 700 }
+.mv-meta { font-size: 12px; color: var(--muted); margin-left: auto }
+.mv-filters { display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; padding:12px;
+  background:var(--card,rgba(10,22,40,.5)); border:1px solid var(--border); border-radius:10px; margin-bottom:14px }
+.mv-filters .fld { display:flex; flex-direction:column; gap:3px }
+.mv-filters label { font-size:10px; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase }
+.mv-filters input, .mv-filters select { background:rgba(10,22,40,.6); border:1px solid var(--border); color:var(--white);
+  padding:6px 8px; border-radius:5px; font-size:12px; outline:none; min-width:120px }
+.mv-filters input:focus, .mv-filters select:focus { border-color:var(--blue,#3abff8) }
+.mv-table-wrap { background:var(--card,rgba(10,22,40,.4)); border:1px solid var(--border); border-radius:10px; overflow:hidden }
+.mv-table { width:100%; border-collapse:collapse; font-size:12px }
+.mv-table thead { background:rgba(10,22,40,.7) }
+.mv-table th { padding:8px 10px; text-align:left; font-weight:700; letter-spacing:.5px; text-transform:uppercase; font-size:10px; color:var(--muted); border-bottom:1px solid var(--border) }
+.mv-table td { padding:7px 10px; border-bottom:1px solid var(--border); vertical-align:top }
+.mv-table tbody tr:hover { background:rgba(58,191,248,.04) }
+.mv-mono { font-family:'DM Mono',monospace }
+.mv-amt-pos { color:var(--green,#5fd99a); font-weight:600 }
+.mv-amt-neg { color:var(--red,#e05555); font-weight:600 }
+.mv-tag { font-size:10px; padding:2px 6px; border-radius:3px; font-weight:700; letter-spacing:.5px; text-transform:uppercase }
+.mv-tag-settled { background:rgba(95,217,154,.15); color:var(--green,#5fd99a) }
+.mv-tag-pending { background:rgba(240,180,41,.15); color:var(--gold,#F0B429) }
+.mv-tag-cancelled { background:rgba(224,85,85,.15); color:var(--red,#e05555) }
+.mv-empty { padding:30px; text-align:center; color:var(--muted) }
+.mv-totals { padding:10px 14px; background:rgba(10,22,40,.6); border-top:1px solid var(--border);
+  display:flex; gap:18px; font-size:12px; flex-wrap:wrap }
+.mv-totals strong { font-family:'DM Mono',monospace }
+.mv-tx-type { font-size:10px; text-transform:uppercase; color:var(--muted); letter-spacing:.5px }
+</style>
+</head>
+<body>
+<div id="fa-sidebar"></div>
+<main class="mv-wrap">
+  <div class="mv-head">
+    <h1>📋 Movimentações</h1>
+    <span class="mv-meta" id="mv-meta">—</span>
+    <button class="ov-refresh-btn" onclick="loadTransactions()" style="background:rgba(58,191,248,.15);border:1px solid var(--blue,#3abff8);color:var(--blue,#3abff8);padding:6px 12px;border-radius:5px;cursor:pointer;font-size:12px">↻ Atualizar</button>
+    <button class="ov-refresh-btn" onclick="window.print()" style="background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);padding:6px 12px;border-radius:5px;cursor:pointer;font-size:12px">🖨 Imprimir</button>
+  </div>
+
+  <div class="mv-filters">
+    <div class="fld"><label>Buscar (ticker/desc)</label><input id="f-q" type="text" placeholder="PETR4, dividendo..." oninput="rerender()"></div>
+    <div class="fld"><label>Conta</label><select id="f-acc" onchange="rerender()"><option value="">Todas</option></select></div>
+    <div class="fld"><label>Tipo</label><select id="f-type" onchange="rerender()"><option value="">Todos</option></select></div>
+    <div class="fld"><label>Direção</label><select id="f-dir" onchange="loadTransactions()">
+      <option value="">Ambas</option>
+      <option value="credit">Entradas (+)</option>
+      <option value="debit">Saídas (-)</option>
+    </select></div>
+    <div class="fld"><label>Status</label><select id="f-status" onchange="loadTransactions()">
+      <option value="">Todos</option>
+      <option value="settled">Liquidado</option>
+      <option value="pending">Pendente</option>
+      <option value="cancelled">Cancelado</option>
+    </select></div>
+    <div class="fld"><label>De</label><input id="f-from" type="date" onchange="loadTransactions()"></div>
+    <div class="fld"><label>Até</label><input id="f-to" type="date" onchange="loadTransactions()"></div>
+  </div>
+
+  <div class="mv-table-wrap">
+    <table class="mv-table">
+      <thead><tr>
+        <th>Data</th><th>Conta</th><th>Tipo</th><th>Ticker</th>
+        <th style="text-align:right">Valor</th><th>Status</th><th>Descrição</th>
+      </tr></thead>
+      <tbody id="mv-tbody"><tr><td colspan="7" class="mv-empty">Carregando...</td></tr></tbody>
+    </table>
+    <div class="mv-totals" id="mv-totals">—</div>
+  </div>
+</main>
+
+<script src="/static/auth_guard.js"></script>
+<script src="/static/sidebar.js"></script>
+<script src="/static/error_handler.js"></script>
+<script src="/static/toast.js"></script>
+<script src="/static/theme_toggle.js"></script>
+<script src="/static/locale_toggle.js"></script>
+
+<script>
+'use strict';
+
+let _allTx = [];
+let _accountsMap = {};   // id -> {apelido, institution_name}
+
+function $(id) { return document.getElementById(id); }
+function tok() { return localStorage.getItem('access_token'); }
+function authHeaders() { return { Authorization: 'Bearer ' + tok() }; }
+function f2(n) { return (n == null || isNaN(n)) ? '—' : (+n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+async function loadAccounts() {
+  try {
+    const r = await fetch('/api/v1/wallet/accounts', { headers: authHeaders() });
+    if (!r.ok) return;
+    const accs = await r.json();
+    _accountsMap = {};
+    accs.forEach(a => { _accountsMap[a.id] = { apelido: a.apelido, institution_name: a.institution_name }; });
+    const sel = $('f-acc');
+    sel.innerHTML = '<option value="">Todas</option>' + accs.map(a => {
+      const lbl = (a.apelido || a.titular || a.institution_name || a.id.slice(0, 8));
+      return `<option value="${a.id}">${lbl}</option>`;
+    }).join('');
+  } catch (e) { console.warn('accounts fail:', e.message); }
+}
+
+async function loadTransactions() {
+  const tbody = $('mv-tbody');
+  tbody.innerHTML = '<tr><td colspan="7" class="mv-empty">Carregando...</td></tr>';
+  try {
+    const params = new URLSearchParams();
+    const dir = $('f-dir').value; if (dir) params.set('direction', dir);
+    const st = $('f-status').value; if (st) params.set('status', st);
+    const df = $('f-from').value; if (df) params.set('date_from', df);
+    const dt = $('f-to').value; if (dt) params.set('date_to', dt);
+    params.set('limit', '2000');
+    const r = await fetch('/api/v1/wallet/transactions?' + params.toString(), { headers: authHeaders() });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    _allTx = await r.json();
+    populateTypeFilter();
+    rerender();
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="7" class="mv-empty" style="color:var(--red)">Erro: ${e.message}</td></tr>`;
+  }
+}
+
+function populateTypeFilter() {
+  const types = [...new Set(_allTx.map(t => t.tx_type).filter(Boolean))].sort();
+  const sel = $('f-type');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Todos</option>' + types.map(t => `<option value="${t}">${t}</option>`).join('');
+  sel.value = cur;
+}
+
+function rerender() {
+  const tbody = $('mv-tbody');
+  const q = $('f-q').value.toLowerCase().trim();
+  const acc = $('f-acc').value;
+  const type = $('f-type').value;
+  let arr = _allTx.slice();
+  if (q) arr = arr.filter(t => (t.ticker || '').toLowerCase().includes(q) || (t.note || '').toLowerCase().includes(q) || (t.tx_type || '').toLowerCase().includes(q));
+  if (acc) arr = arr.filter(t => t.account_id === acc);
+  if (type) arr = arr.filter(t => t.tx_type === type);
+
+  if (!arr.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="mv-empty">Nenhuma movimentação para os filtros selecionados.</td></tr>';
+    $('mv-meta').textContent = `0 / ${_allTx.length}`;
+    $('mv-totals').textContent = '—';
+    return;
+  }
+
+  tbody.innerHTML = arr.map(t => {
+    const acc = _accountsMap[t.account_id];
+    const accLbl = acc ? (acc.apelido || acc.institution_name || t.account_id.slice(0, 8)) : t.account_id.slice(0, 8);
+    const amt = parseFloat(t.amount) || 0;
+    const amtCls = amt > 0 ? 'mv-amt-pos' : (amt < 0 ? 'mv-amt-neg' : '');
+    const sign = amt > 0 ? '+' : '';
+    const stCls = `mv-tag mv-tag-${t.status || 'pending'}`;
+    const stLbl = t.status === 'settled' ? 'Liquidado' : (t.status === 'pending' ? 'Pendente' : (t.status === 'cancelled' ? 'Cancelado' : (t.status || '—')));
+    const dateTxt = (t.reference_date || t.created_at || '').slice(0, 10);
+    return `<tr>
+      <td class="mv-mono">${dateTxt}</td>
+      <td>${accLbl}</td>
+      <td><span class="mv-tx-type">${t.tx_type || '—'}</span></td>
+      <td><strong>${t.ticker || '—'}</strong></td>
+      <td class="mv-mono" style="text-align:right" class="${amtCls}"><span class="${amtCls}">${sign}R$ ${f2(amt)}</span></td>
+      <td><span class="${stCls}">${stLbl}</span></td>
+      <td style="font-size:11px;color:var(--muted)">${t.note || '—'}</td>
+    </tr>`;
+  }).join('');
+
+  // Totais
+  const totalCredit = arr.filter(t => t.amount > 0 && t.status === 'settled').reduce((a, t) => a + parseFloat(t.amount), 0);
+  const totalDebit = arr.filter(t => t.amount < 0 && t.status === 'settled').reduce((a, t) => a + parseFloat(t.amount), 0);
+  const totalPending = arr.filter(t => t.status === 'pending').reduce((a, t) => a + parseFloat(t.amount), 0);
+  const net = totalCredit + totalDebit;
+  $('mv-totals').innerHTML =
+    `<span>Entradas liquidadas: <strong class="mv-amt-pos">+R$ ${f2(totalCredit)}</strong></span>` +
+    `<span>Saídas liquidadas: <strong class="mv-amt-neg">R$ ${f2(totalDebit)}</strong></span>` +
+    `<span>Pendentes: <strong>${totalPending >= 0 ? '+' : ''}R$ ${f2(totalPending)}</strong></span>` +
+    `<span style="margin-left:auto">Net liquidado: <strong style="color:${net >= 0 ? 'var(--green)' : 'var(--red)'}">${net >= 0 ? '+' : ''}R$ ${f2(net)}</strong></span>`;
+  $('mv-meta').textContent = `${arr.length} / ${_allTx.length} movimentações`;
+}
+
+window.addEventListener('DOMContentLoaded', async () => {
+  if (window.FAAuth && FAAuth.requireAuth) {
+    try { await FAAuth.requireAuth(); } catch (e) { return; }
+  }
+  await loadAccounts();
+  loadTransactions();
+});
+</script>
+</body>
+</html>

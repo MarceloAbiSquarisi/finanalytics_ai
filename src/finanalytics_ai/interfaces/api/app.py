@@ -1181,6 +1181,10 @@ def create_app() -> FastAPI:
     async def serve_overview() -> HTMLResponse:
         return _html("overview.html")
 
+    @app.get("/movimentacoes", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_movimentacoes() -> HTMLResponse:
+        return _html("movimentacoes.html")
+
     @app.get("/alerts", response_class=HTMLResponse, include_in_schema=False)
     async def serve_alerts() -> HTMLResponse:
         return _html("alerts.html")
