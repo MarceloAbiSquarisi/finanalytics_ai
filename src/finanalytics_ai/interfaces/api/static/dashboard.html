@@ -1330,6 +1330,36 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 </div>
 </div>
 </div>
+
+<!-- Modal Attach OCO (Phase A) -->
+<div class="modal" id="modal-attach-oco">
+  <div class="mbox" style="width:440px">
+    <div class="mtitle">🛡 Anexar OCO</div>
+    <div id="oco-parent-info" style="font-size:12px;color:var(--muted);margin-bottom:12px"></div>
+
+    <div class="mfld">
+      <label style="display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="oco-enable-tp" checked style="width:auto;margin:0"> TAKE PROFIT
+      </label>
+      <input id="oco-tp" type="number" step="0.01" placeholder="Preço alvo (ex: 52.00)">
+    </div>
+
+    <div class="mfld">
+      <label style="display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="oco-enable-sl" checked style="width:auto;margin:0"> STOP LOSS
+      </label>
+      <input id="oco-sl-trigger" type="number" step="0.01" placeholder="Preço gatilho (ex: 47.00)">
+      <input id="oco-sl-limit" type="number" step="0.01" placeholder="Preço limite (default = trigger)" style="margin-top:6px">
+    </div>
+
+    <div id="oco-msg" style="font-size:11px;color:var(--red);min-height:14px;margin-bottom:6px"></div>
+
+    <div class="mbtns">
+      <button class="btn-x" onclick="closeAttachOcoModal()">Cancelar</button>
+      <button class="btn-ok" onclick="submitAttachOco()">Anexar OCO</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast">
 </div>
 
@@ -3251,6 +3281,9 @@ async function refreshOrders() {
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             <span class="${stCls}" style="font-size:10px;text-transform:uppercase">${stLabel}</span>
+            ${canCancel?`<button onclick="openAttachOcoModal(${o.local_order_id}, '${o.ticker}', ${o.quantity}, ${o.order_side})"
+              title="Anexar OCO (TP/SL) — dispara após fill"
+              style="background:rgba(58,191,248,.2);border:none;color:var(--blue,#3abff8);cursor:pointer;font-size:10px;padding:2px 5px;border-radius:3px">🛡</button>`:''}
             ${canCancel?`<button onclick="cancelOrder(${o.local_order_id})"
               style="background:rgba(224,85,85,.2);border:none;color:var(--red);cursor:pointer;font-size:10px;padding:2px 5px;border-radius:3px">✕</button>`:''}
           </div>
@@ -3266,6 +3299,71 @@ async function refreshOrders() {
                  + (done.length?`<div style="font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin:8px 0 2px">Fechadas</div>`+render(done.slice(0,5)):'');
   } catch(e) {
     el.innerHTML = `<div style="font-size:12px;color:var(--red)">${e.message}</div>`;
+  }
+}
+
+// ── Attach OCO modal (Phase A) ────────────────────────────────────────────
+let _attachOcoCtx = null;  // {localId, ticker, qty, side}
+
+function openAttachOcoModal(localId, ticker, qty, sideInt) {
+  _attachOcoCtx = { localId, ticker, qty, side: sideInt };
+  // Side oposto pra proteção: parent buy(1) → SL/TP sell(2). Texto exibido pro user.
+  const protSide = sideInt === 1 ? 'venda' : 'compra';
+  document.getElementById('oco-parent-info').innerHTML =
+    `Parent <strong>#${localId}</strong> · ${ticker} · qty <strong>${qty}</strong> · proteção será <strong>${protSide}</strong> (oposto do parent).<br>` +
+    `<small>Marque ao menos uma proteção (TP, SL ou ambas).</small>`;
+  document.getElementById('oco-tp').value = '';
+  document.getElementById('oco-sl-trigger').value = '';
+  document.getElementById('oco-sl-limit').value = '';
+  document.getElementById('oco-enable-tp').checked = true;
+  document.getElementById('oco-enable-sl').checked = true;
+  document.getElementById('oco-msg').textContent = '';
+  document.getElementById('modal-attach-oco').classList.add('show');
+  setTimeout(() => document.getElementById('oco-tp').focus(), 80);
+}
+
+function closeAttachOcoModal() {
+  document.getElementById('modal-attach-oco').classList.remove('show');
+  _attachOcoCtx = null;
+}
+
+async function submitAttachOco() {
+  if (!_attachOcoCtx) return;
+  const msg = document.getElementById('oco-msg');
+  msg.textContent = '';
+  const tpEnabled = document.getElementById('oco-enable-tp').checked;
+  const slEnabled = document.getElementById('oco-enable-sl').checked;
+  const tpVal = parseFloat(document.getElementById('oco-tp').value);
+  const slTrig = parseFloat(document.getElementById('oco-sl-trigger').value);
+  const slLim = parseFloat(document.getElementById('oco-sl-limit').value);
+
+  const level = { qty: _attachOcoCtx.qty };
+  if (tpEnabled) {
+    if (!tpVal || tpVal <= 0) { msg.textContent = 'TP inválido. Desmarque ou preencha um preço.'; return; }
+    level.tp_price = tpVal;
+  }
+  if (slEnabled) {
+    if (!slTrig || slTrig <= 0) { msg.textContent = 'SL trigger inválido.'; return; }
+    level.sl_trigger = slTrig;
+    if (!isNaN(slLim) && slLim > 0) level.sl_limit = slLim;
+  }
+  if (!tpEnabled && !slEnabled) { msg.textContent = 'Marque ao menos uma proteção (TP ou SL).'; return; }
+
+  try {
+    const body = {
+      env: 'simulation',
+      parent_order_id: _attachOcoCtx.localId,
+      levels: [level],
+      is_daytrade: true,
+      notes: 'attach via dashboard'
+    };
+    const r = await post('/api/v1/agent/order/attach_oco', body);
+    if (!r.ok) { msg.textContent = r.error || 'Falha ao anexar OCO'; return; }
+    closeAttachOcoModal();
+    toast(`OCO anexado · group ${r.group_id.slice(0, 8)} · disparará ao fill`, 'ok');
+    refreshOrders();
+  } catch (e) {
+    msg.textContent = 'Erro de rede: ' + e.message;
   }
 }
 
@@ -3790,8 +3888,9 @@ function renderBacktestResult(d) {
 // Inicia o feed ao carregar a pagina
 startFeed();
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape')hideModal();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){hideModal();closeAttachOcoModal();}});
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===e.currentTarget)hideModal();});
+document.getElementById('modal-attach-oco').addEventListener('click',e=>{if(e.target===e.currentTarget)closeAttachOcoModal();});
 
 // ── Ticker Search ──────────────────────────────────────────────────────────
 var _tkDeb = null;

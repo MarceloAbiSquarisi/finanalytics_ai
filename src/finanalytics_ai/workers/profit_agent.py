@@ -554,6 +554,25 @@ class DBWriter:
                 self._conn = None
             return False
 
+    def fetch_one(self, sql: str, params: tuple = ()) -> tuple | None:
+        """Executa SELECT e retorna primeira linha (ou None). Para INSERT…RETURNING também serve."""
+        if not self._ensure_connected():
+            return None
+        try:
+            with self._lock:
+                cur = self._conn.cursor()
+                cur.execute(sql, params)
+                row = cur.fetchone() if cur.description else None
+                cur.close()
+            return row
+        except Exception as e:
+            log.warning("db.fetch_one_failed error=%s sql=%.100s", e, sql)
+            try:
+                self._conn.rollback()
+            except Exception:
+                self._conn = None
+            raise
+
     def upsert_asset(self, data: dict) -> None:
 
         sql = """
@@ -1604,6 +1623,13 @@ class ProfitAgent:
         _oco_thread = threading.Thread(target=self._oco_monitor_loop, daemon=True)
         _oco_thread.start()
         log.info("profit_agent.oco_monitor_started")
+
+        # OCO multi-level (Phase A) — groups com N levels e parent attach
+        self._oco_groups = {}
+        self._order_to_group = {}
+        _oco_grp_thread = threading.Thread(target=self._oco_groups_monitor_loop, daemon=True)
+        _oco_grp_thread.start()
+        log.info("profit_agent.oco_groups_monitor_started")
 
         # 7. Verifica contagem de contas (catalogo chega via SetAssetListInfoCallbackV2)
 
@@ -3730,6 +3756,439 @@ class ProfitAgent:
                 log.warning("oco_monitor error: %s", e)
             time.sleep(0.5)
 
+    # ──────────────────────────────────────────────────────────────────
+    # OCO multi-level (Phase A 26/abr/2026) — Design_OCO_Trailing_Splits.md
+    # Suporta: attach a parent pending, N levels, TP/SL individualmente
+    # opcionais (Decisão 3), parent fill parcial → re-rateio (Decisão 2).
+    # Trailing (Decisão 1) e UI splits são Phases B/C.
+    # ──────────────────────────────────────────────────────────────────
+
+    def attach_oco(self, params: dict) -> dict:
+        """Cria group OCO anexado a uma ordem pending.
+
+        Params:
+          env, parent_order_id (int), side ('buy'|'sell' opc — default oposto),
+          levels: [{qty, tp_price?, sl_trigger?, sl_limit?, is_trailing?,
+                    trail_distance?, trail_pct?}],
+          is_daytrade, user_account_id, portfolio_id, notes
+        """
+        if self._db is None:
+            return {"ok": False, "error": "DB nao inicializado"}
+        try:
+            parent_id = int(params.get("parent_order_id", 0))
+            levels_in = params.get("levels") or []
+            env = params.get("env", "simulation")
+            if parent_id <= 0:
+                return {"ok": False, "error": "parent_order_id obrigatorio"}
+            if not levels_in:
+                return {"ok": False, "error": "levels[] vazio"}
+
+            # 1. Valida parent: existe + status pending
+            row = self._db.fetch_one(
+                "SELECT ticker, exchange, order_side, quantity, order_status, "
+                "broker_id, account_id, sub_account_id, user_account_id, "
+                "portfolio_id, env FROM profit_orders WHERE local_order_id = %s",
+                (parent_id,),
+            )
+            if not row:
+                return {"ok": False, "error": f"parent {parent_id} nao existe"}
+            (p_ticker, p_exch, p_side_int, p_qty, p_status,
+             p_broker, p_acct, p_sub, p_uacct, p_pid, p_env) = row
+            if p_status not in (0, 10):  # New, PendingNew
+                return {"ok": False, "error": f"parent status={p_status} (precisa pending 0/10)"}
+
+            # 2. Valida levels
+            side_opt = params.get("side")
+            if side_opt:
+                side_int = 1 if str(side_opt).lower() == "buy" else 2
+            else:
+                side_int = 1 if p_side_int == 2 else 2  # oposto do parent
+
+            tot = 0
+            for lv in levels_in:
+                q = int(lv.get("qty", 0))
+                if q <= 0:
+                    return {"ok": False, "error": "level.qty deve ser > 0"}
+                tp = lv.get("tp_price")
+                sl = lv.get("sl_trigger")
+                if tp is None and sl is None:
+                    return {"ok": False, "error": "level precisa ao menos 1 TP ou SL"}
+                if tp is not None and sl is not None:
+                    if side_int == 2 and float(tp) <= float(sl):
+                        return {"ok": False, "error": "tp deve ser > sl em sell (proteger long)"}
+                    if side_int == 1 and float(tp) >= float(sl):
+                        return {"ok": False, "error": "tp deve ser < sl em buy (proteger short)"}
+                tot += q
+            if tot != int(p_qty):
+                return {"ok": False, "error": f"sum(levels.qty)={tot} != parent.qty={p_qty}"}
+
+            # 3. Insere group + levels (constraint unique impede duplo attach)
+            try:
+                grp_row = self._db.fetch_one(
+                    """INSERT INTO profit_oco_groups
+                       (parent_order_id, env, ticker, exchange, side, total_qty, remaining_qty,
+                        status, is_daytrade, broker_id, account_id, sub_account_id,
+                        user_account_id, portfolio_id, notes)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, 'awaiting', %s, %s, %s, %s, %s, %s, %s)
+                       RETURNING group_id::text""",
+                    (parent_id, env, p_ticker, p_exch, side_int, p_qty, p_qty,
+                     bool(params.get("is_daytrade", True)), p_broker, p_acct, p_sub,
+                     p_uacct, p_pid, params.get("notes")),
+                )
+            except Exception as exc:
+                msg = str(exc)
+                if "ux_oco_groups_one_awaiting_per_parent" in msg or "duplicate key" in msg:
+                    return {"ok": False, "error": f"parent {parent_id} ja tem OCO ativo"}
+                raise
+            group_id = grp_row[0]
+
+            level_ids = []
+            for idx, lv in enumerate(levels_in, start=1):
+                tp = lv.get("tp_price")
+                sl = lv.get("sl_trigger")
+                slim = lv.get("sl_limit") if lv.get("sl_limit") is not None else sl
+                lvl_row = self._db.fetch_one(
+                    """INSERT INTO profit_oco_levels
+                       (group_id, level_idx, qty, tp_price, sl_trigger, sl_limit,
+                        is_trailing, trail_distance, trail_pct)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                       RETURNING level_id::text""",
+                    (group_id, idx, int(lv["qty"]),
+                     float(tp) if tp is not None else None,
+                     float(sl) if sl is not None else None,
+                     float(slim) if slim is not None else None,
+                     bool(lv.get("is_trailing", False)),
+                     float(lv["trail_distance"]) if lv.get("trail_distance") is not None else None,
+                     float(lv["trail_pct"]) if lv.get("trail_pct") is not None else None),
+                )
+                level_ids.append(lvl_row[0])
+
+            # 4. State em memória
+            if not hasattr(self, "_oco_groups"):
+                self._oco_groups = {}
+                self._order_to_group = {}
+            self._oco_groups[group_id] = {
+                "parent_order_id": parent_id,
+                "env": env,
+                "ticker": p_ticker,
+                "exchange": p_exch,
+                "side": side_int,
+                "total_qty": int(p_qty),
+                "remaining_qty": int(p_qty),
+                "status": "awaiting",
+                "is_daytrade": bool(params.get("is_daytrade", True)),
+                "broker_id": p_broker,
+                "account_id": p_acct,
+                "sub_account_id": p_sub,
+                "user_account_id": p_uacct,
+                "portfolio_id": p_pid,
+                "levels": [
+                    {
+                        "level_id": lid,
+                        "idx": i + 1,
+                        "qty": int(lv["qty"]),
+                        "tp_price": lv.get("tp_price"),
+                        "tp_order_id": None,
+                        "tp_status": None,
+                        "sl_trigger": lv.get("sl_trigger"),
+                        "sl_limit": lv.get("sl_limit") if lv.get("sl_limit") is not None else lv.get("sl_trigger"),
+                        "sl_order_id": None,
+                        "sl_status": None,
+                        "is_trailing": bool(lv.get("is_trailing", False)),
+                        "trail_distance": lv.get("trail_distance"),
+                        "trail_pct": lv.get("trail_pct"),
+                    }
+                    for i, (lid, lv) in enumerate(zip(level_ids, levels_in))
+                ],
+            }
+            self._order_to_group[parent_id] = (group_id, 0, "parent")
+
+            log.info(
+                "oco_group.attached group=%s parent=%d ticker=%s qty=%d levels=%d",
+                group_id, parent_id, p_ticker, p_qty, len(levels_in),
+            )
+            return {
+                "ok": True, "group_id": group_id,
+                "parent_order_id": parent_id, "ticker": p_ticker,
+                "total_qty": p_qty, "levels": [{"level_id": l, "idx": i + 1}
+                                                for i, l in enumerate(level_ids)],
+            }
+        except Exception as exc:
+            log.exception("attach_oco error: %s", exc)
+            return {"ok": False, "error": str(exc)}
+
+    def _dispatch_oco_group(self, group_id: str, filled_qty: int) -> None:
+        """Dispara TPs e SLs dos levels após parent fill (total ou parcial).
+
+        Decisão 2 (re-rateio): se filled < total, cada level.qty *= filled/total
+        arredondado pra baixo; sobra acumula no último level.
+        """
+        grp = self._oco_groups.get(group_id)
+        if not grp or grp["status"] not in ("awaiting",):
+            return
+        try:
+            total = grp["total_qty"]
+            ratio = filled_qty / total if total > 0 else 0
+            if ratio <= 0:
+                return
+
+            # Re-rateio
+            adjusted_qtys = []
+            running = 0
+            n = len(grp["levels"])
+            for i, lv in enumerate(grp["levels"]):
+                if i == n - 1:
+                    q = filled_qty - running
+                else:
+                    q = int(lv["qty"] * ratio)
+                    running += q
+                adjusted_qtys.append(max(q, 0))
+
+            # Atualiza DB (group + levels qty se mudou)
+            self._db.execute(
+                "UPDATE profit_oco_groups SET total_qty = %s, remaining_qty = %s, "
+                "status = 'active', updated_at = NOW() WHERE group_id = %s",
+                (filled_qty, filled_qty, group_id),
+            )
+            grp["total_qty"] = filled_qty
+            grp["remaining_qty"] = filled_qty
+            grp["status"] = "active"
+
+            for lv, q in zip(grp["levels"], adjusted_qtys):
+                lv["qty"] = q
+                self._db.execute(
+                    "UPDATE profit_oco_levels SET qty = %s, updated_at = NOW() WHERE level_id = %s",
+                    (q, lv["level_id"]),
+                )
+
+            # Envia ordens TP/SL pra cada level com qty > 0
+            base_params = {
+                "env": grp["env"],
+                "ticker": grp["ticker"],
+                "exchange": grp["exchange"],
+                "is_daytrade": grp["is_daytrade"],
+                "user_account_id": grp["user_account_id"],
+                "portfolio_id": grp["portfolio_id"],
+            }
+            side_str = "buy" if grp["side"] == 1 else "sell"
+            for lv in grp["levels"]:
+                if lv["qty"] <= 0:
+                    continue
+                # TP (limit)
+                if lv["tp_price"] is not None:
+                    tp_res = self._send_order_legacy({
+                        **base_params,
+                        "order_type": "limit",
+                        "order_side": side_str,
+                        "price": float(lv["tp_price"]),
+                        "stop_price": -1,
+                        "quantity": int(lv["qty"]),
+                        "strategy_id": f"oco_grp_{group_id[:8]}_lv{lv['idx']}_tp",
+                    })
+                    if tp_res.get("ok"):
+                        lv["tp_order_id"] = tp_res["local_order_id"]
+                        lv["tp_status"] = "sent"
+                        self._db.execute(
+                            "UPDATE profit_oco_levels SET tp_order_id = %s, tp_status = 'sent', "
+                            "updated_at = NOW() WHERE level_id = %s",
+                            (tp_res["local_order_id"], lv["level_id"]),
+                        )
+                        self._order_to_group[tp_res["local_order_id"]] = (group_id, lv["idx"], "tp")
+                    else:
+                        log.warning("oco.tp_send_failed level=%s err=%s", lv["level_id"], tp_res.get("error"))
+                # SL (stop-limit)
+                if lv["sl_trigger"] is not None:
+                    sl_res = self._send_order_legacy({
+                        **base_params,
+                        "order_type": "stop",
+                        "order_side": side_str,
+                        "price": float(lv["sl_limit"]),
+                        "stop_price": float(lv["sl_trigger"]),
+                        "quantity": int(lv["qty"]),
+                        "strategy_id": f"oco_grp_{group_id[:8]}_lv{lv['idx']}_sl",
+                    })
+                    if sl_res.get("ok"):
+                        lv["sl_order_id"] = sl_res["local_order_id"]
+                        lv["sl_status"] = "sent"
+                        self._db.execute(
+                            "UPDATE profit_oco_levels SET sl_order_id = %s, sl_status = 'sent', "
+                            "updated_at = NOW() WHERE level_id = %s",
+                            (sl_res["local_order_id"], lv["level_id"]),
+                        )
+                        self._order_to_group[sl_res["local_order_id"]] = (group_id, lv["idx"], "sl")
+                    else:
+                        log.warning("oco.sl_send_failed level=%s err=%s", lv["level_id"], sl_res.get("error"))
+
+            log.info(
+                "oco_group.dispatched group=%s filled=%d/%d levels=%d",
+                group_id, filled_qty, total, len(grp["levels"]),
+            )
+        except Exception as exc:
+            log.exception("dispatch_oco_group error group=%s: %s", group_id, exc)
+
+    def _oco_groups_monitor_loop(self) -> None:
+        """Background thread: monitora groups OCO multi-level a cada 500ms.
+
+        Responsabilidades:
+        - Detecta parent fill (status=2 ou 1 com leaves==0) → _dispatch_oco_group
+        - Detecta TP/SL fill em levels → cancela contraparte e fecha level
+        - Marca group=completed quando todos levels fechados
+        """
+        log.info("oco_groups_monitor.started")
+        while not self._stop_event.is_set():
+            try:
+                if hasattr(self, "_oco_groups") and self._oco_groups:
+                    result = self.get_positions_dll()
+                    orders_by_id = {o["local_id"]: o for o in result.get("orders", [])}
+                    groups_snapshot = list(self._oco_groups.items())
+                    for group_id, grp in groups_snapshot:
+                        # 1. Awaiting → checa parent fill
+                        if grp["status"] == "awaiting":
+                            parent_order = orders_by_id.get(grp["parent_order_id"])
+                            if parent_order:
+                                pst = parent_order.get("order_status", -1)
+                                traded = int(parent_order.get("traded_qty", 0))
+                                if pst == 2 and traded > 0:  # Filled
+                                    self._dispatch_oco_group(group_id, traded)
+                                elif pst == 1 and traded > 0:  # PartialFilled
+                                    self._dispatch_oco_group(group_id, traded)
+                                elif pst in (4, 8):  # Cancelled/Rejected → cancela group
+                                    self._db.execute(
+                                        "UPDATE profit_oco_groups SET status='cancelled', "
+                                        "completed_at=NOW(), updated_at=NOW() WHERE group_id=%s",
+                                        (group_id,),
+                                    )
+                                    grp["status"] = "cancelled"
+                                    log.info("oco_group.cancelled_with_parent group=%s", group_id)
+                        # 2. Active/partial → checa fills de TP/SL
+                        elif grp["status"] in ("active", "partial"):
+                            self._check_levels_fill(group_id, grp, orders_by_id)
+            except Exception as e:
+                log.warning("oco_groups_monitor error: %s", e)
+            time.sleep(0.5)
+
+    def _check_levels_fill(self, group_id: str, grp: dict, orders_by_id: dict) -> None:
+        """Verifica fills de TP/SL em cada level; cancela contraparte; fecha group quando tudo done."""
+        any_open = False
+        any_filled_now = False
+        for lv in grp["levels"]:
+            tp_oid = lv.get("tp_order_id")
+            sl_oid = lv.get("sl_order_id")
+            tp_st = lv.get("tp_status")
+            sl_st = lv.get("sl_status")
+            level_open = (tp_oid and tp_st in ("sent", "pending")) or (sl_oid and sl_st in ("sent", "pending"))
+            if not level_open:
+                continue
+
+            # TP filled? cancela SL
+            if tp_oid and tp_st == "sent":
+                tpo = orders_by_id.get(tp_oid)
+                if tpo:
+                    s = tpo.get("order_status", -1)
+                    if s == 2:  # filled
+                        lv["tp_status"] = "filled"
+                        self._db.execute(
+                            "UPDATE profit_oco_levels SET tp_status='filled', updated_at=NOW() "
+                            "WHERE level_id=%s", (lv["level_id"],),
+                        )
+                        any_filled_now = True
+                        if sl_oid and sl_st == "sent":
+                            self.cancel_order({"local_order_id": sl_oid, "env": grp["env"]})
+                            lv["sl_status"] = "cancelled"
+                            self._db.execute(
+                                "UPDATE profit_oco_levels SET sl_status='cancelled', updated_at=NOW() "
+                                "WHERE level_id=%s", (lv["level_id"],),
+                            )
+                            log.info("oco.tp_filled→sl_cancel group=%s lv=%d", group_id, lv["idx"])
+                        continue
+                    elif s in (4, 8):
+                        lv["tp_status"] = "cancelled" if s == 4 else "rejected"
+
+            # SL filled? cancela TP
+            if sl_oid and sl_st == "sent":
+                slo = orders_by_id.get(sl_oid)
+                if slo:
+                    s = slo.get("order_status", -1)
+                    if s == 2:
+                        lv["sl_status"] = "filled"
+                        self._db.execute(
+                            "UPDATE profit_oco_levels SET sl_status='filled', updated_at=NOW() "
+                            "WHERE level_id=%s", (lv["level_id"],),
+                        )
+                        any_filled_now = True
+                        if tp_oid and tp_st == "sent":
+                            self.cancel_order({"local_order_id": tp_oid, "env": grp["env"]})
+                            lv["tp_status"] = "cancelled"
+                            self._db.execute(
+                                "UPDATE profit_oco_levels SET tp_status='cancelled', updated_at=NOW() "
+                                "WHERE level_id=%s", (lv["level_id"],),
+                            )
+                            log.info("oco.sl_filled→tp_cancel group=%s lv=%d", group_id, lv["idx"])
+                        continue
+                    elif s in (4, 8):
+                        lv["sl_status"] = "cancelled" if s == 4 else "rejected"
+
+            # Re-avalia se este level ainda tem perna aberta
+            still_open = (lv["tp_status"] == "sent") or (lv["sl_status"] == "sent")
+            if still_open:
+                any_open = True
+
+        # Atualiza status do group
+        if not any_open:
+            self._db.execute(
+                "UPDATE profit_oco_groups SET status='completed', completed_at=NOW(), "
+                "updated_at=NOW() WHERE group_id=%s", (group_id,),
+            )
+            grp["status"] = "completed"
+            log.info("oco_group.completed group=%s", group_id)
+        elif any_filled_now and grp["status"] == "active":
+            self._db.execute(
+                "UPDATE profit_oco_groups SET status='partial', updated_at=NOW() WHERE group_id=%s",
+                (group_id,),
+            )
+            grp["status"] = "partial"
+
+    def get_oco_group(self, group_id: str) -> dict:
+        """Retorna estado do group + levels (lookup em memória)."""
+        if not hasattr(self, "_oco_groups") or group_id not in self._oco_groups:
+            return {"ok": False, "error": f"group {group_id} nao encontrado"}
+        grp = self._oco_groups[group_id]
+        return {"ok": True, "group_id": group_id, **grp}
+
+    def list_oco_groups(self, status_filter: str | None = None) -> dict:
+        """Lista groups em memória (opcionalmente filtrando status)."""
+        if not hasattr(self, "_oco_groups"):
+            return {"groups": []}
+        out = []
+        for gid, g in self._oco_groups.items():
+            if status_filter and g["status"] != status_filter:
+                continue
+            out.append({"group_id": gid, **{k: v for k, v in g.items() if k != "levels"},
+                        "levels_count": len(g["levels"])})
+        return {"groups": out, "count": len(out)}
+
+    def cancel_oco_group(self, group_id: str) -> dict:
+        """Cancela todas ordens abertas de um group."""
+        if not hasattr(self, "_oco_groups") or group_id not in self._oco_groups:
+            return {"ok": False, "error": f"group {group_id} nao encontrado"}
+        grp = self._oco_groups[group_id]
+        cancelled = 0
+        for lv in grp["levels"]:
+            if lv.get("tp_order_id") and lv.get("tp_status") == "sent":
+                self.cancel_order({"local_order_id": lv["tp_order_id"], "env": grp["env"]})
+                cancelled += 1
+            if lv.get("sl_order_id") and lv.get("sl_status") == "sent":
+                self.cancel_order({"local_order_id": lv["sl_order_id"], "env": grp["env"]})
+                cancelled += 1
+        if self._db is not None:
+            self._db.execute(
+                "UPDATE profit_oco_groups SET status='cancelled', completed_at=NOW(), "
+                "updated_at=NOW() WHERE group_id=%s", (group_id,),
+            )
+        grp["status"] = "cancelled"
+        log.info("oco_group.cancel_user group=%s cancelled=%d", group_id, cancelled)
+        return {"ok": True, "group_id": group_id, "cancelled_orders": cancelled}
+
     def list_book(self, ticker: str = "") -> dict:
         """Retorna snapshot atual do book em memoria."""
 
@@ -4608,6 +5067,16 @@ class ProfitAgent:
                     _env_oco = _qs_oco.get("env", ["simulation"])[0]
                     self._send_json(agent.get_oco_status(_tp_id, _env_oco))
 
+                elif self.path == "/oco/groups" or self.path.startswith("/oco/groups?"):
+                    from urllib.parse import parse_qs as _pqs_g, urlparse as _up_g
+                    _qs_g = _pqs_g(_up_g(self.path).query)
+                    _filter = _qs_g.get("status", [None])[0]
+                    self._send_json(agent.list_oco_groups(_filter))
+
+                elif self.path.startswith("/oco/groups/"):
+                    _gid = self.path.split("/oco/groups/", 1)[-1].strip("/")
+                    self._send_json(agent.get_oco_group(_gid))
+
                 elif self.path.startswith("/positions"):
                     from urllib.parse import parse_qs, urlparse
 
@@ -4745,6 +5214,13 @@ class ProfitAgent:
 
                 elif self.path == "/order/oco":
                     self._send_json(agent.send_oco_order(body))
+
+                elif self.path == "/order/attach_oco":
+                    self._send_json(agent.attach_oco(body))
+
+                elif self.path.startswith("/oco/groups/") and self.path.endswith("/cancel"):
+                    _gid = self.path.split("/")[3]
+                    self._send_json(agent.cancel_oco_group(_gid))
 
                 elif self.path == "/order/zero_position":
                     self._send_json(agent.zero_position(body))

@@ -262,6 +262,51 @@ async def agent_oco_status(
     return await _get(f"/oco/status/{tp_id}", {"env": env})
 
 
+# ── OCO multi-level (Phase A 26/abr/2026) ────────────────────────────────────
+
+
+@router.post("/order/attach_oco", tags=["Agent"])
+async def agent_attach_oco(body: dict):
+    """Anexa OCO (1+ levels) a uma ordem pending. Quando parent FILL, dispara TP/SL.
+
+    Levels podem ter TP, SL ou ambos (Decisão 3). Soma das qty deve bater parent.
+    Parent fill PARCIAL re-rateia proporcional (Decisão 2).
+
+    ```json
+    {
+      "env": "simulation",
+      "parent_order_id": 1234567,
+      "side": "sell",
+      "levels": [
+        { "qty": 100, "tp_price": 52.00, "sl_trigger": 47.00, "sl_limit": 46.50 }
+      ],
+      "is_daytrade": true,
+      "notes": "OCO via dashboard"
+    }
+    ```
+    """
+    body = await _inject_account(body)
+    return await _post("/order/attach_oco", body)
+
+
+@router.get("/oco/groups", tags=["Agent"])
+async def agent_list_oco_groups(status: str | None = Query(None)):
+    """Lista groups OCO em memória. status: awaiting|active|partial|completed|cancelled."""
+    return await _get("/oco/groups", {"status": status} if status else {})
+
+
+@router.get("/oco/groups/{group_id}", tags=["Agent"])
+async def agent_get_oco_group(group_id: str):
+    """Retorna estado completo do group + levels."""
+    return await _get(f"/oco/groups/{group_id}", {})
+
+
+@router.post("/oco/groups/{group_id}/cancel", tags=["Agent"])
+async def agent_cancel_oco_group(group_id: str):
+    """Cancela todas as ordens abertas (TP/SL pending) de um group OCO."""
+    return await _post(f"/oco/groups/{group_id}/cancel", {})
+
+
 # ── Posições ──────────────────────────────────────────────────────────────────
 
 
