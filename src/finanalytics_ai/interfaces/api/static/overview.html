@@ -90,6 +90,8 @@
 .ov-tag.tag-watch  { color: var(--gold, #F0B429); border-color: rgba(240,180,41,.3); }
 .ov-tag.tag-crypto { color: #ff9800; border-color: rgba(255,152,0,.3); }
 .ov-tag.tag-rf     { color: #b388ff; border-color: rgba(179,136,255,.3); }
+.ov-tag.tag-fii    { color: #4ade80; border-color: rgba(74,222,128,.3); }
+.ov-tag.tag-fundo  { color: #38bdf8; border-color: rgba(56,189,248,.3); }
 .ov-tag.tag-other  { color: #94a3b8; border-color: rgba(148,163,184,.3); }
 .ov-price { font-size: 21px; font-weight: 700; font-family: 'DM Mono', monospace; }
 .ov-chg { font-size: 12px; font-weight: 600; font-family: 'DM Mono', monospace; }
@@ -171,6 +173,8 @@ try { if (window.parent !== window) document.documentElement.classList.add('fa-e
     <div class="ov-tabs" id="ov-tabs">
       <button class="ov-tab active" data-tab="all">Todos <span class="ov-tab-count" data-count="all">0</span></button>
       <button class="ov-tab" data-tab="position">Posições <span class="ov-tab-count" data-count="position">0</span></button>
+      <button class="ov-tab" data-tab="fii">FIIs <span class="ov-tab-count" data-count="fii">0</span></button>
+      <button class="ov-tab" data-tab="fundo">Fundos <span class="ov-tab-count" data-count="fundo">0</span></button>
       <button class="ov-tab" data-tab="watchlist">Watchlist <span class="ov-tab-count" data-count="watchlist">0</span></button>
       <button class="ov-tab" data-tab="crypto">Crypto <span class="ov-tab-count" data-count="crypto">0</span></button>
       <button class="ov-tab" data-tab="rf">Renda Fixa <span class="ov-tab-count" data-count="rf">0</span></button>
@@ -290,7 +294,13 @@ async function fetchPositions() {
     const data = await authFetch('/api/v1/wallet/positions' + _accQS());
     const arr = Array.isArray(data) ? data : (data.positions || []);
     return arr.map(p => ({
-      ticker: p.ticker, source: 'position', qty: p.quantity, avg: p.average_price, value: (p.quantity || 0) * (p.average_price || 0),
+      ticker: p.ticker,
+      // FIIs (asset_class='fii') vão pra fonte dedicada 'fii'; demais positions ficam 'position'
+      source: p.asset_class === 'fii' ? 'fii' : 'position',
+      qty: p.quantity,
+      avg: p.average_price,
+      value: (p.quantity || 0) * (p.average_price || 0),
+      asset_class: p.asset_class,
     }));
   } catch (e) { console.warn('positions fail:', e.message); return []; }
 }
@@ -323,7 +333,8 @@ async function fetchOther() {
       const inv = parseFloat(o.invested_value) || cur;
       return {
         ticker: o.name || '?',
-        source: 'other',
+        // Fundos CVM (asset_type='fundo') vão pra fonte dedicada 'fundo'; demais ficam 'other'
+        source: o.asset_type === 'fundo' ? 'fundo' : 'other',
         qty: 1,
         avg: inv,
         value: cur,
@@ -526,23 +537,25 @@ function renderCard(item) {
     chgPct = (chg / prev) * 100;
     dir = chg > 0 ? 'up' : (chg < 0 ? 'down' : 'flat');
   }
-  // RF e Other: usa current_value calculado/registrado pelo backend
+  // RF, Other e Fundo: usa current_value calculado/registrado pelo backend
   let altChg = null, altChgPct = null;
   let altCurrent = null;
   if (item.source === 'rf' && item._rf_current != null && item.avg) altCurrent = item._rf_current;
-  else if (item.source === 'other' && item._other_current != null && item.avg) altCurrent = item._other_current;
+  else if ((item.source === 'other' || item.source === 'fundo') && item._other_current != null && item.avg) altCurrent = item._other_current;
   if (altCurrent != null) {
     altChg = altCurrent - item.avg;
     altChgPct = item.avg !== 0 ? (altChg / item.avg) * 100 : 0;
     dir = altChg > 0 ? 'up' : (altChg < 0 ? 'down' : 'flat');
   }
-  const priceTxt = last != null ? 'R$ ' + f2(last) : (item.source === 'rf' || item.source === 'other' ? 'R$ ' + f2(item.value) : '—');
+  const _altSrc = (item.source === 'rf' || item.source === 'other' || item.source === 'fundo');
+  const priceTxt = last != null ? 'R$ ' + f2(last) : (_altSrc ? 'R$ ' + f2(item.value) : '—');
   const chgTxt = (altChg != null)
     ? `${altChg >= 0 ? '+' : ''}${f2(altChg)} (${altChg >= 0 ? '+' : ''}${altChgPct.toFixed(2)}%)`
-    : ((chg == null) ? (item.source === 'rf' ? '(RF)' : (item.source === 'other' ? '(OUT)' : '—')) : `${chg >= 0 ? '+' : ''}${f2(chg)} (${chg >= 0 ? '+' : ''}${chgPct.toFixed(2)}%)`);
-  const spark = (item.source === 'rf' || item.source === 'other') ? '' : buildSparkline(q.closes, 220, 36);
-  const tagText = { position: 'POS', watchlist: 'WL', crypto: 'CRP', rf: 'RF', other: 'OUT' }[item.source] || '?';
-  const tagCls = { position: 'tag-pos', watchlist: 'tag-watch', crypto: 'tag-crypto', rf: 'tag-rf', other: 'tag-other' }[item.source] || '';
+    : ((chg == null) ? (item.source === 'rf' ? '(RF)' : (item.source === 'fundo' ? '(FND)' : (item.source === 'other' ? '(OUT)' : '—'))) : `${chg >= 0 ? '+' : ''}${f2(chg)} (${chg >= 0 ? '+' : ''}${chgPct.toFixed(2)}%)`);
+  // FII tem ticker B3 (sparkline OK); RF/Fundo/Other não
+  const spark = (item.source === 'rf' || item.source === 'other' || item.source === 'fundo') ? '' : buildSparkline(q.closes, 220, 36);
+  const tagText = { position: 'POS', watchlist: 'WL', crypto: 'CRP', rf: 'RF', fii: 'FII', fundo: 'FND', other: 'OUT' }[item.source] || '?';
+  const tagCls = { position: 'tag-pos', watchlist: 'tag-watch', crypto: 'tag-crypto', rf: 'tag-rf', fii: 'tag-fii', fundo: 'tag-fundo', other: 'tag-other' }[item.source] || '';
 
   // ML signal badge + botão live recalc per-card (Phase D backlog)
   let mlHtml = '';
@@ -560,13 +573,13 @@ function renderCard(item) {
   // P/L (positions, crypto, RF): (last - avg) * qty
   let pnlHtml = '';
   let pnl = null, pnlPct = null;
-  if ((item.source === 'position' || item.source === 'crypto') && item.avg != null && item.qty != null && last != null) {
+  if ((item.source === 'position' || item.source === 'crypto' || item.source === 'fii') && item.avg != null && item.qty != null && last != null) {
     pnl = (last - item.avg) * item.qty;
     pnlPct = item.avg !== 0 ? ((last - item.avg) / item.avg) * 100 : 0;
   } else if (item.source === 'rf' && item._rf_current != null && item.avg != null) {
     pnl = item._rf_current - item.avg;
     pnlPct = item.avg !== 0 ? (pnl / item.avg) * 100 : 0;
-  } else if (item.source === 'other' && item._other_current != null && item.avg != null) {
+  } else if ((item.source === 'other' || item.source === 'fundo') && item._other_current != null && item.avg != null) {
     pnl = item._other_current - item.avg;
     pnlPct = item.avg !== 0 ? (pnl / item.avg) * 100 : 0;
   }
@@ -582,14 +595,14 @@ function renderCard(item) {
     ? `<span class="ov-sl" title="Stop-loss ativo · stop R$ ${f2(sl.stop_price)} · qty ${sl.qty}${sl.count > 1 ? ' · ' + sl.count + ' ordens' : ''}">🛡 SL ${f2(sl.stop_price)}</span>`
     : '';
 
-  const footRight = item.source === 'position' && item.avg != null ? `Pm R$ ${f2(item.avg)}`
+  const footRight = (item.source === 'position' || item.source === 'fii') && item.avg != null ? `Pm R$ ${f2(item.avg)}`
     : (item.source === 'crypto' && item.avg != null ? `Pm R$ ${f2(item.avg)}`
     : (item.source === 'rf' ? (item.indexer || '')
-    : (item.source === 'other' ? (item.asset_type || '') : '')));
+    : ((item.source === 'other' || item.source === 'fundo') ? (item.asset_type || '') : '')));
 
-  // RF → /fixed-income; Other → /carteira (não tem página específica); demais → /dashboard
+  // RF → /fixed-income; Other/Fundo → /carteira (sem página dedicada); demais (POS/FII/CRP) → /dashboard
   const href = item.source === 'rf' ? '/fixed-income'
-    : (item.source === 'other' ? '/carteira'
+    : ((item.source === 'other' || item.source === 'fundo') ? '/carteira'
     : `/dashboard?ticker=${encodeURIComponent(ticker)}`);
 
   return `
@@ -676,7 +689,7 @@ function rerender() {
   const snapTxt = _signalsSnapshot ? ` · ML ${_signalsSnapshot}` : '';
   $('ov-status').textContent = `${filtered.length} / ${_allItems.length}${snapTxt}`;
   // Atualiza counts dos tabs
-  ['all','position','watchlist','crypto','rf','other'].forEach(k => {
+  ['all','position','fii','fundo','watchlist','crypto','rf','other'].forEach(k => {
     const el = document.querySelector(`[data-count="${k}"]`);
     if (!el) return;
     el.textContent = k === 'all' ? _allItems.length : _allItems.filter(i => i.source === k).length;
