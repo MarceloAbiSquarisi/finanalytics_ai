@@ -22,11 +22,15 @@
           if (!nw) return;
           nw.addEventListener('statechange', function () {
             if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-              // Nova versao pronta — apenas log; user faz refresh para pegar
-              console.log('[PWA] Nova versao disponivel; refresh para ativar.');
+              // Nova versao pronta — força skipWaiting + reload pra ativar.
+              // Antes era log + toast; comportamento "manual refresh" deixava
+              // SW antigo servindo cached 404s por sessoes inteiras.
+              console.log('[PWA] Nova versao detectada — ativando + reload em 1s');
+              try { nw.postMessage('skipWaiting'); } catch (_) {}
               if (window.FAToast && window.FAToast.info) {
-                window.FAToast.info('Nova versao disponivel — recarregue para atualizar.');
+                window.FAToast.info('Atualizando para nova versão...');
               }
+              setTimeout(function () { window.location.reload(); }, 1000);
             }
           });
         });

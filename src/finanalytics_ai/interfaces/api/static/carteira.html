@@ -784,12 +784,14 @@ function showTab(name) {
 }
 
 // Carrega /overview no iframe lazy (só na 1ª abertura da tab)
+// Cache buster (?_=timestamp) força bypass de SW antigo que possa ter
+// cacheado um 404 de tentativa prévia.
 let _overviewIframeLoaded = false;
 function loadOverviewIframe() {
   if (_overviewIframeLoaded) return;
   const iframe = document.getElementById('overview-iframe');
   if (iframe) {
-    iframe.src = '/overview';
+    iframe.src = '/overview?_=' + Date.now();
     _overviewIframeLoaded = true;
   }
 }
