@@ -1017,17 +1017,23 @@ class WalletRepository:
         portfolio_id: str | None = None,
         account_id: str | None = None,
     ) -> list[dict]:
-        """Calcula posição consolidada (preço médio) por ticker."""
+        """Calcula posição consolidada (preço médio) por (ticker, account).
+
+        Agrupar por account preserva a informação 'qual conta tem essa posição'
+        — útil pra UI mostrar coluna 'Conta'. Se mesmo ticker existir em 2
+        contas, vira 2 linhas distintas (em vez de aggregadas erroneamente).
+        """
         trades = await self.list_trades(
             user_id, asset_class=asset_class, portfolio_id=portfolio_id, account_id=account_id
         )
         from collections import defaultdict
 
-        by_ticker: dict[str, list] = defaultdict(list)
+        # Chave: (ticker, investment_account_id) — None se trade legado sem account
+        by_key: dict[tuple, list] = defaultdict(list)
         for t in trades:
-            by_ticker[t["ticker"]].append(t)
+            by_key[(t["ticker"], t.get("investment_account_id"))].append(t)
         result = []
-        for ticker, tlist in sorted(by_ticker.items()):
+        for (ticker, acc_id), tlist in sorted(by_key.items(), key=lambda x: (x[0][0], x[0][1] or "")):
             total_qty = Decimal("0")
             total_cost = Decimal("0")
             for t in sorted(tlist, key=lambda x: x["trade_date"]):
@@ -1053,6 +1059,7 @@ class WalletRepository:
                         "average_price": round(avg_price, 6),
                         "total_invested": float(total_cost),
                         "trade_count": len(tlist),
+                        "investment_account_id": acc_id,
                     }
                 )
         return result

@@ -362,8 +362,8 @@ tr:hover td{background:rgba(0,212,255,.02)}
 </div>
     <div class="tbl-wrap">
       <table id="tbl-positions" data-fa-table>
-        <thead><tr><th>Ticker</th><th>Classe</th><th>Quantidade</th><th>Preço Médio</th><th>Atual</th><th>P/L</th><th>SL</th><th>Total Investido</th><th>Trades</th></tr></thead>
-        <tbody id="tbody-positions"><tr><td colspan="9" class="empty">Carregando...</td></tr></tbody>
+        <thead><tr><th>Ticker</th><th>Classe</th><th>Conta</th><th>Quantidade</th><th>Preço Médio</th><th>Atual</th><th>P/L</th><th>SL</th><th>Total Investido</th><th>Trades</th></tr></thead>
+        <tbody id="tbody-positions"><tr><td colspan="10" class="empty">Carregando...</td></tr></tbody>
       </table>
 </div>
 </div>
@@ -962,12 +962,12 @@ function updateTradeTotal() {
 // ── Positions ─────────────────────────────────────────────────────────────
 async function loadPositions() {
   const tbody = document.getElementById('tbody-positions');
-  FALoading.tableRows(tbody, { rows: 4, cols: 9 });
+  FALoading.tableRows(tbody, { rows: 4, cols: 10 });
   try {
     const cls = document.getElementById('filter-class')?.value||'';
     const positions = await api('/positions' + (cls?`?asset_class=${cls}`:''));
     if (!positions.length) {
-      FAEmpty.tableRow(tbody, { colspan: 9, title: 'Nenhuma posição',
+      FAEmpty.tableRow(tbody, { colspan: 10, title: 'Nenhuma posição',
         text: 'Posições são derivadas dos trades. Registre seu primeiro trade.',
         cta: { label: '+ Novo Trade', variant: 'primary', onClick: "openModal('modal-trade')" } });
       return;
@@ -975,9 +975,13 @@ async function loadPositions() {
     let total = 0;
     tbody.innerHTML = positions.map(p => {
       total += parseFloat(p.total_invested)||0;
+      // Coluna Conta (texto branco) — busca apelido em accounts cache
+      const acc = (accounts || []).find(a => a.id === p.investment_account_id);
+      const accLbl = acc ? (acc.apelido || acc.titular || acc.institution_name || acc.id.slice(0, 8)) : '—';
       return `<tr data-ticker="${p.ticker}" data-qty="${p.quantity}" data-avg="${p.average_price}">
         <td><strong>${p.ticker}</strong></td>
         <td>${badge(p.asset_class)}</td>
+        <td style="color:var(--white,#fff)">${accLbl}</td>
         <td class="td-right">${fmtQty(p.quantity)}</td>
         <td class="td-right">${fmt(p.average_price)}</td>
         <td class="td-right cell-last">—</td>
