@@ -201,5 +201,14 @@
   "diario.winrate": "Win Rate",
   "diario.pnl": "P&L Total",
   "diario.rating": "Rating Médio",
-  "diario.new_trade": "+ Novo Trade"
+  "diario.new_trade": "+ Novo Trade",
+
+  "backtest.title": "Backtesting de Estrategias",
+  "backtest.subtitle": "Simule estrategias tecnicas em dados historicos reais",
+  "correlation.title": "Correlacao entre Ativos",
+  "correlation.subtitle": "Analisa co-movimento de retornos diarios. Correlacao de Pearson [-1, +1]. Alinhamento por inner join de datas.",
+  "anomaly.title": "Deteccao de Anomalias",
+  "anomaly.subtitle": "Z-SCORE | BOLLINGER BAND | CUSUM SHIFT | VOLUME SPIKE",
+  "etf.title": "📊 ETFs",
+  "laminas.title": "Fundos & Lâminas"
 }
