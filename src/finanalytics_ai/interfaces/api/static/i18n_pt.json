@@ -241,5 +241,15 @@
   "marketdata.title": "MARKET DATA",
   "fintz.title": "Fintz Histórico",
   "fintz.subtitle": "Cotações · Indicadores Fundamentalistas · Itens Contábeis — dados point-in-time via TimescaleDB",
-  "subscriptions.title": "Subscrições · Profit Agent"
+  "subscriptions.title": "Subscrições · Profit Agent",
+
+  "dividendos.title": "💸 Painel de Dividendos",
+  "dividendos.subtitle": "Dividend Yield historico e ranking com dados do Fintz",
+  "fundos.title": "Fundos CVM",
+  "fundos.subtitle": "Catalogo de fundos da CVM + sincronizacao de cadastro e informes diarios.",
+  "whatsapp.title": "💬 WhatsApp Alertas",
+  "whatsapp.subtitle": "Alertas automaticos via Evolution API — Setups, Precos e Sentimento",
+  "pnl.title": "📈 P&L Intraday",
+  "pnl.subtitle": "Resultado do dia por operacao com custo operacional B3",
+  "ml.title": "ML PROBABILISTICO"
 }

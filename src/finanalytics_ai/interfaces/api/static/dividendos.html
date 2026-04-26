@@ -129,10 +129,10 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 
 <div class="fa-page-content">
   <div class="page-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-    <span>&#128184; Painel de Dividendos</span>
-    <button class="btn btn-ghost btn-sm" onclick="FAPrint.print('Dividendos')" aria-label="Imprimir" title="Imprimir (Ctrl+P)" style="font-size:14px;font-weight:400">🖨 Imprimir</button>
+    <span data-i18n="dividendos.title">&#128184; Painel de Dividendos</span>
+    <button class="btn btn-ghost btn-sm" onclick="FAPrint.print('Dividendos')" aria-label="Imprimir" title="Imprimir (Ctrl+P)" style="font-size:14px;font-weight:400" data-i18n="common.print">🖨 Imprimir</button>
   </div>
-  <div class="page-sub">Dividend Yield historico e ranking com dados do Fintz</div>
+  <div class="page-sub" data-i18n="dividendos.subtitle">Dividend Yield historico e ranking com dados do Fintz</div>
 
   <div class="tab-bar">
     <button class="tab-btn active" onclick="showTab('ranking',this)">&#127942; Ranking DY</button>
