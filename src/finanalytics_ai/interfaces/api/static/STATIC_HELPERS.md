@@ -294,3 +294,36 @@ FABreadcrumbs.set([
 | `a11y.js` skip-link + focus trap + ARIA (Sprint UI E) | _pendente_ |
 | `manifest.json` + `sw.js` + `pwa_register.js` PWA (Sprint UI F) | _pendente_ |
 | Migracao carteira/dashboard/fintz `api()` -> FAErr.fetchJson (Sprint UI G) | _pendente_ |
+
+---
+
+## Update 26/abr/2026 — super sessão
+
+**Páginas com `data-i18n`**: 42 (era 0 antes da Sprint UI). ~159 chaves PT+EN cobrindo
+core/pesquisa/ML/análise/sistema/trading/dados/investimentos/auth.
+
+**G4 auth refactor** (FAAuth pattern unificado):
+- Piloto manual: `/watchlist` (`168f977`)
+- Batch via `scripts/refactor_inline_auth.py` (idempotente): 12 páginas em `bba4fbc`
+  (anomaly, backtest, correlation, diario, etf, fixed_income, forecast, laminas,
+  macro, patrimony, performance, screener)
+- **Restante**: `dashboard.html` (manual cuidadoso, lógica DLL/ML/OCO misturada)
+
+**OCO multi-level (Phase A+B+C+D)** em `dashboard.html`:
+- Modal `attach_oco` com N níveis dinâmicos (+ nível, sort de qty, validação sum)
+- Cada nível: TP/SL opcionais individualmente (Decisão 3) + Trailing R$/% (Decisão 1)
+- Backend monitor threads: `_oco_groups_monitor_loop` (500ms) + `_trail_monitor_loop` (1s)
+- Persistence: `_load_oco_state_from_db` no boot
+
+**Novas páginas**:
+- `/overview` — dashboard de cards (positions+watchlist+crypto+RF) com sparkline +
+  ML signal badge + ↻ live recalc per-card + P/L + 🛡 SL
+- `/movimentacoes` — tabela cross-account de account_transactions com filtros, sort,
+  paginação, export CSV, reconciliação manual (C6 Fase 4)
+
+**Tests**:
+- `tests/unit/application/test_dividend_import_service.py` — 19 tests cobrindo
+  parse_csv (BR/US, JCP/dividendo/rendimento), parse_ofx, parse_pdf (RuntimeError sem pdfplumber),
+  _classify_type e _extract_ticker
+
+**Helpers consumidos por** (depois da Sprint UI 21/abr): 42 páginas privadas.

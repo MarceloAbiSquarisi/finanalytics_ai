@@ -171,6 +171,15 @@
     <div style="font-size:16px; margin-bottom:6px">Nada por aqui</div>
     <div style="font-size:13px">Adicione trades, watchlists, crypto ou aplicações em <a href="/carteira" style="color:var(--accent)">Carteira</a>.</div>
   </div>
+
+  <!-- Últimas movimentações (atalho /movimentacoes) -->
+  <div class="ov-recent" style="margin-top:24px;background:var(--card,rgba(10,22,40,.4));border:1px solid var(--border);border-radius:10px;padding:14px 16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <strong style="font-size:14px">📋 Últimas movimentações</strong>
+      <a href="/movimentacoes" style="color:var(--blue,#3abff8);font-size:12px;text-decoration:none">ver todas →</a>
+    </div>
+    <div id="ov-recent-list" style="font-size:12px;color:var(--muted)">Carregando...</div>
+  </div>
 </main>
 
 <script src="/static/auth_guard.js"></script>
@@ -267,6 +276,31 @@ async function fetchRF() {
     }
     return all;
   } catch (e) { console.warn('rf fail:', e.message); return []; }
+}
+
+async function fetchRecentTransactions() {
+  try {
+    const data = await authFetch('/api/v1/wallet/transactions?limit=5');
+    return Array.isArray(data) ? data : [];
+  } catch (e) { console.warn('recent_tx fail:', e.message); return []; }
+}
+
+function renderRecentTransactions(tx) {
+  const el = $('ov-recent-list');
+  if (!tx.length) { el.innerHTML = '<em style="color:var(--muted)">Nenhuma movimentação recente.</em>'; return; }
+  el.innerHTML = tx.slice(0, 5).map(t => {
+    const dt = (t.reference_date || t.created_at || '').slice(0, 10);
+    const amt = parseFloat(t.amount) || 0;
+    const sign = amt >= 0 ? '+' : '';
+    const color = amt > 0 ? 'var(--green,#5fd99a)' : (amt < 0 ? 'var(--red,#e05555)' : 'var(--muted)');
+    const stColor = t.status === 'pending' ? 'var(--gold,#F0B429)' : 'var(--muted)';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+      <span style="font-family:'DM Mono',monospace;font-size:11px">${dt}</span>
+      <span style="flex:1;margin:0 12px;color:var(--white)"><strong>${t.ticker || '—'}</strong> · ${t.tx_type || '—'}</span>
+      <span style="font-family:'DM Mono',monospace;color:${color};font-weight:600">${sign}R$ ${f2(amt)}</span>
+      <span style="margin-left:10px;font-size:10px;color:${stColor};text-transform:uppercase">${t.status || '—'}</span>
+    </div>`;
+  }).join('');
 }
 
 async function fetchSparkline(ticker) {
@@ -533,6 +567,9 @@ async function loadOverview() {
 
   // Stop-loss orders ativas (independente das fontes — re-renderiza ao chegar)
   loadStopLoss();
+
+  // Últimas movimentações (atalho na home)
+  fetchRecentTransactions().then(renderRecentTransactions);
 
   // ML signals — snapshot diário (signal_history). Query rápida (<100ms),
   // cache curto pra evitar refetch em tab-switches dentro da mesma sessão.
