@@ -710,6 +710,8 @@ async function onAccountChange() {
   if (_currentAccountId) localStorage.setItem('fa_carteira_account_id', _currentAccountId);
   else localStorage.removeItem('fa_carteira_account_id');
   _refreshAccountInfo();
+  // Força reload do iframe Overview com novo account_id na URL
+  loadOverviewIframe(true);
   // Recarrega aba ativa
   const activeTab = document.querySelector('.tab.active');
   if (activeTab) {
@@ -720,7 +722,6 @@ async function onAccountChange() {
     if (name === 'trades') loadTrades();
     if (name === 'crypto') loadCrypto();
     if (name === 'outros') loadOther();
-    // overview é iframe, não precisa reload (mostra todas as fontes)
     // contas sempre mostra todas (não filtra)
   }
 }
@@ -783,15 +784,19 @@ function showTab(name) {
   if (name==='outros') loadOther();
 }
 
-// Carrega /overview no iframe lazy (só na 1ª abertura da tab)
-// Cache buster (?_=timestamp) força bypass de SW antigo que possa ter
-// cacheado um 404 de tentativa prévia.
+// Carrega /overview no iframe lazy. Propaga account_id pro iframe via URL.
+// Cache buster (?_=timestamp) força bypass de SW antigo. force=true reload
+// (ex: filtro de conta mudou).
 let _overviewIframeLoaded = false;
-function loadOverviewIframe() {
-  if (_overviewIframeLoaded) return;
+function _overviewIframeUrl() {
+  const acc = _currentAccountId ? '&account_id=' + encodeURIComponent(_currentAccountId) : '';
+  return '/overview?_=' + Date.now() + acc;
+}
+function loadOverviewIframe(force) {
   const iframe = document.getElementById('overview-iframe');
-  if (iframe) {
-    iframe.src = '/overview?_=' + Date.now();
+  if (!iframe) return;
+  if (!_overviewIframeLoaded || force) {
+    iframe.src = _overviewIframeUrl();
     _overviewIframeLoaded = true;
   }
 }

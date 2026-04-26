@@ -255,9 +255,24 @@ function buildSparkline(closes, w, h) {
 }
 
 // ── DATA SOURCES ─────────────────────────────────────────────────────────
+// Filtro account_id propagado via URL ?account_id=X (ex: iframe em /carteira)
+function _accFilter() {
+  const u = new URL(window.location.href);
+  return u.searchParams.get('account_id') || '';
+}
+function _accQS() {
+  const a = _accFilter();
+  return a ? '?account_id=' + encodeURIComponent(a) : '';
+}
+function _accAndQS(extra) {
+  const a = _accFilter();
+  if (!a) return extra ? '?' + extra : '';
+  return '?account_id=' + encodeURIComponent(a) + (extra ? '&' + extra : '');
+}
+
 async function fetchPositions() {
   try {
-    const data = await authFetch('/api/v1/wallet/positions');
+    const data = await authFetch('/api/v1/wallet/positions' + _accQS());
     const arr = Array.isArray(data) ? data : (data.positions || []);
     return arr.map(p => ({
       ticker: p.ticker, source: 'position', qty: p.quantity, avg: p.average_price, value: (p.quantity || 0) * (p.average_price || 0),
@@ -266,6 +281,7 @@ async function fetchPositions() {
 }
 async function fetchWatchlist() {
   try {
+    // Watchlist é global (não vinculada a conta) — sempre carrega
     const data = await authFetch('/api/v1/watchlist');
     const items = Array.isArray(data) ? data : (data.items || data.tickers || []);
     const tickers = items.map(it => typeof it === 'string' ? it : (it.ticker || it.symbol)).filter(Boolean);
@@ -275,7 +291,7 @@ async function fetchWatchlist() {
 }
 async function fetchCrypto() {
   try {
-    const data = await authFetch('/api/v1/wallet/crypto');
+    const data = await authFetch('/api/v1/wallet/crypto' + _accQS());
     const arr = Array.isArray(data) ? data : [];
     return arr.map(c => ({
       ticker: c.symbol || c.ticker, source: 'crypto', qty: c.quantity, avg: c.average_price_brl,
@@ -284,10 +300,12 @@ async function fetchCrypto() {
   } catch (e) { console.warn('crypto fail:', e.message); return []; }
 }
 async function fetchRF() {
-  // RF holdings precisam portfolio_id; pegamos todos portfolios e iteramos.
+  // RF holdings via portfolios. Filtra portfolios pela conta (1:1 conta=portfolio).
   try {
     const portfolios = await authFetch('/api/v1/portfolios');
-    const arr = Array.isArray(portfolios) ? portfolios : [];
+    let arr = Array.isArray(portfolios) ? portfolios : [];
+    const accFilter = _accFilter();
+    if (accFilter) arr = arr.filter(p => p.investment_account_id === accFilter);
     const all = [];
     for (const p of arr) {
       try {
@@ -305,7 +323,7 @@ async function fetchRF() {
 
 async function fetchRecentTransactions() {
   try {
-    const data = await authFetch('/api/v1/wallet/transactions?limit=5');
+    const data = await authFetch('/api/v1/wallet/transactions' + _accAndQS('limit=5'));
     return Array.isArray(data) ? data : [];
   } catch (e) { console.warn('recent_tx fail:', e.message); return []; }
 }
