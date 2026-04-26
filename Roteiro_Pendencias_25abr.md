@@ -1,21 +1,34 @@
 # FinAnalytics AI — Pendências consolidadas
 
-> **Data**: 25/abr/2026 (sábado, após sessão A+B+C parcial)
-> **Base**: pós-cleanup `a86b1fc` + 16 commits no dia (último: `7cb27c6` C6 Fase 1)
-> **Restantes**: 32 itens `[ ]` + 10 BUGs abertos
+> **Data**: 25/abr/2026 (sábado, após sessão noite)
+> **Base**: pós-cleanup `a86b1fc` + 24 commits no dia (último: `936d540` /carteira P/L+SL)
+> **Restantes**: 30 itens `[ ]` + 10 BUGs abertos + 4 fases OCO design
 > **Login**: marceloabisquarisi@gmail.com / admin123 (master)
 
 ---
 
-## 🛑 Ponto de parada — sáb 25/abr 18h45
+## 🛑 Ponto de parada — sáb 25/abr 23h+
 
-**Última sessão fechou** (~7.5h trabalho):
+**Última sessão fechou** (~12h trabalho — manhã+tarde+noite):
 - ✅ Etapas A backend automated + B Playwright helpers (24 itens)
 - ✅ §A.1-§A.7 + §A.9 + §A.10 estrutural + §A.11 (49 itens)
 - ✅ 7 BUGs fixados: BUG7, BUG13, BUG16, BUG10, BUG14, BUG18, BUG21
 - ✅ Cleanup raiz (50 files, -12834 linhas) commit `a86b1fc`
 - ✅ §C.1 C6 Dividendos **Fase 1/5 done**: backend `DividendImportService` + endpoints preview/commit (commit `7cb27c6`)
 - ✅ Cleanup state DB final: 1 user ativo, 2 contas legítimas, 0 alerts teste
+
+**Sessão noite 25/abr** (~4.5h):
+- ✅ **Dashboard chart fixes**: outlier filter (|close*100 - ref| < |close - ref| per-bar), price line dashed cyan, vertical bar removal — 3 layers (frontend + backend SQL CTE last_valid + migration)
+- ✅ **OHLC scale migration**: `scripts/fix_ohlc_scale.py` corrigiu 3.4M bars × 100 em ohlc_1m (135 tickers afetados, penny stocks legítimos preservados via per-bar comparison)
+- ✅ **Mojibake fix**: `scripts/fix_mojibake.py` corrigiu 81 substituições em 21 HTML files (commit `4c13cd0`)
+- ✅ **/fixed-income** legacy `<nav>` removido (overlapping sidebar) commit `194c787`
+- ✅ **Clocks widget** no dashboard: hora atual + countdown candle (depende do interval) + countdown pregão (font 13px)
+- ✅ **Candle counter** abaixo do mínimo: intercalado (1, _, 3, _, 5, _ ...), reset diário
+- ✅ **/overview novo dashboard**: 4 fontes (positions/watchlist/crypto/RF) progressive render + tabs/filtros + sparklines SVG inline + ML signal badge — commits `c6c0f02`, `34729a3`, `3167f68`
+- ✅ **/overview ML via signal_history**: substituiu batch /signals (5min) por SELECT em signal_history (<100ms), auto-load + cache 5min — commit `3167f68`
+- ✅ **/overview P/L + 🛡 SL badge** por card — commit `9508f49`
+- ✅ **/carteira tabela Posições** ganhou colunas Atual + P/L + SL (mesma lógica) — commit `936d540`
+- ✅ **Design_OCO_Trailing_Splits.md**: spec 382 linhas, 4 fases A/B/C/D, 6 decisões pendentes — commit `4ea9dcb`
 
 **Onde retomar** (próximas sessões):
 
@@ -38,9 +51,22 @@
 - [ ] **Z5** Nelogica 1m bars (bloqueado externo, ~48h após pedido)
 
 ### D. Outras funcionalidades — backlog
-> Adicionar pelo user — features novas além de C6 Dividendos.
 
-- [ ] **TBD**: <a definir nas próximas sessões>
+**OCO + Trailing + Splits parciais** (spec em `Design_OCO_Trailing_Splits.md`):
+- [ ] **OCO Phase A** — attach OCO em ordem pendente (TP+SL aplicado após parent FILL) — bloqueado: aguarda user revisar 6 decisões da spec
+- [ ] **OCO Phase B** — Trailing stop (configurável: tick/pct/atr; ratchet up para long, down para short)
+- [ ] **OCO Phase C** — Splits parciais (TP1/TP2/TP3 com qty% cada; SL ajusta proporcional)
+- [ ] **OCO Phase D** — Persistence + restart safety (state recovery após restart do profit_agent)
+
+**ML / Multi-horizon** (depende de Z5 — Nelogica 1m):
+- [ ] Treinar pickles h3, h5 + h21 por ticker (multi-horizon real)
+- [ ] `/api/v1/ml/predict_ensemble` ganha utilidade real (hoje só agrega h21 sozinho)
+- [ ] Avaliar features extras por classe de ativo (futuros: book imbalance/tape; ações: fundamentus)
+
+**UX expansões**:
+- [ ] /overview: botão per-card "↻ live recalc" via /predict_mvp/{ticker} (~4s, helper `recalcLiveSignal` já existe)
+- [ ] /overview: badge SL também para crypto (precisa endpoint de orders crypto — não existe hoje)
+- [ ] Tabs /carteira: replicar P/L+SL nas tabs Trades, Cripto, Outros
 
 ---
 
@@ -353,14 +379,16 @@ docker start finanalytics_timescale
 
 ## Status
 
-- **Total pendente**: 32 itens distribuídos entre §A (2 — A.8+A.10 real), §B (10), §C (20+ incluindo C.1 fases 2-5)
+- **Total pendente**: 30 itens em §A (2 — A.8+A.10 real), §B (10), §C (12 — C.1 fases 2-5 + tech debt + bugs); §D (8 backlog incluindo 4 fases OCO)
 - **§A.1-A.7 + A.9 + A.10 estrutural + A.11 DONE 25/abr** (49 itens — Features B/C/F/G2 + Golden path + smoke 24 pgs + edge cases + sudo + PWA)
 - **§C.1 C6 Dividendos Fase 1/5 DONE 25/abr** (1 fase fechada — backend service + 2 endpoints validados)
-- **Hoje sáb 25/abr**: 73 itens validados + 7 BUGs fixados + Fase 1 C6 (~7.5h). Sessão 16 commits
+- **Sessão noite (4.5h add)**: chart fixes + OHLC migration 3.4M bars + mojibake 21 files + clocks/candle counter + /overview novo dashboard + /overview ML via signal_history + /overview P/L+SL + /carteira P/L+SL + OCO design spec
+- **Hoje sáb 25/abr total**: 73 itens validados + 7 BUGs fixados + Fase 1 C6 + 8 features novas (~12h). Sessão 24 commits
 - **Bloqueado por externo**: Z5 (Nelogica 1m, ~48h)
+- **Bloqueado por user review**: OCO Phase A (6 decisões da spec)
 - **BUGs**: 10 abertos (3 médios: BUG8 SMTP + BUG11 RF account_id + BUG17 alerts user-demo; 7 baixos); 7 resolvidos hoje
 
-### Cleanup state (final do dia 25/abr 18h45):
+### Cleanup state (final do dia 25/abr 23h+):
 - **Users**: 1 ativo (master `marceloabisquarisi@gmail.com`); user_comum_test desativado via PATCH /admin/users/{id}/active
 - **Contas**: 2 ativas — Simulador Nelogica (DLL ativa, cash 0) + XP Teste 2 (cash 1000, dado real preservado). 9 contas teste já soft-deletadas
 - **Portfolios**: 2 ativos (1 por conta, ambos "Portfolio")
@@ -373,4 +401,5 @@ docker start finanalytics_timescale
 ---
 
 **Documento gerado em**: 25/abr/2026 (sáb, após cleanup `a86b1fc`)
-**Próximo gatilho**: começar §A.1 hoje à tarde / §A.5 amanhã manhã / §B.1 segunda 10h BRT
+**Última atualização**: 25/abr/2026 23h+ (após sessão noite — 8 features novas + OCO design)
+**Próximo gatilho**: revisar Design_OCO_Trailing_Splits.md (6 decisões) → §B.1 segunda 10h BRT (pregão) → §C.1 fases 2-5
