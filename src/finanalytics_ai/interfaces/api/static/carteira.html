@@ -271,10 +271,10 @@ tr:hover td{background:rgba(0,212,255,.02)}
 <div class="fa-page-content">
 <div class="main">
   <div class="page-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-    <span>Carteira</span>
-    <button class="btn btn-ghost btn-sm" onclick="FAPrint.print('Carteira')" aria-label="Imprimir carteira" title="Imprimir (Ctrl+P)">🖨 Imprimir</button>
+    <span data-i18n="carteira.title">Carteira</span>
+    <button class="btn btn-ghost btn-sm" onclick="FAPrint.print('Carteira')" aria-label="Imprimir carteira" title="Imprimir (Ctrl+P)" data-i18n="carteira.print">🖨 Imprimir</button>
   </div>
-  <div class="page-sub">Gerencie seus ativos, contas de investimento e acompanhe o preço médio.
+  <div class="page-sub" data-i18n="carteira.subtitle">Gerencie seus ativos, contas de investimento e acompanhe o preço médio.
 </div>
 
   <!-- Seletor de Portfolio (Sprint UX C — 21/abr) -->
@@ -314,24 +314,18 @@ tr:hover td{background:rgba(0,212,255,.02)}
 
   <!-- Tabs -->
   <div class="tabs">
-    <div class="tab active" onclick="showTab('contas')">🏦 Contas
-</div>
-    <div class="tab" onclick="showTab('posicoes')">📈 Posições
-</div>
-    <div class="tab" onclick="showTab('trades')">🔄 Trades
-</div>
-    <div class="tab" onclick="showTab('crypto')">₿ Cripto
-</div>
-    <div class="tab" onclick="showTab('rf')">💰 Renda Fixa
-</div>
-    <div class="tab" onclick="showTab('outros')">📦 Outros
-</div>
+    <div class="tab active" onclick="showTab('contas')"><span data-i18n="carteira.tab.contas">🏦 Contas</span></div>
+    <div class="tab" onclick="showTab('posicoes')"><span data-i18n="carteira.tab.posicoes">📈 Posições</span></div>
+    <div class="tab" onclick="showTab('trades')"><span data-i18n="carteira.tab.trades">🔄 Trades</span></div>
+    <div class="tab" onclick="showTab('crypto')"><span data-i18n="carteira.tab.crypto">₿ Cripto</span></div>
+    <div class="tab" onclick="showTab('rf')"><span data-i18n="carteira.tab.rf">💰 Renda Fixa</span></div>
+    <div class="tab" onclick="showTab('outros')"><span data-i18n="carteira.tab.outros">📦 Outros</span></div>
 </div>
 
   <!-- CONTAS (read-only — CRUD migrado para /profile#invest em 24/abr) -->
   <div class="tab-panel active" id="panel-contas">
     <div class="sec-header">
-      <span class="sec-title">Contas de Investimento</span>
+      <span class="sec-title" data-i18n="carteira.sec.contas">Contas de Investimento</span>
       <a href="/profile#invest" class="btn btn-primary btn-sm" style="text-decoration:none">⚙ Gerenciar em /profile</a>
 </div>
     <div style="padding:10px 14px;background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.2);border-radius:6px;font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5">
@@ -348,7 +342,7 @@ tr:hover td{background:rgba(0,212,255,.02)}
   <!-- POSIÇÕES -->
   <div class="tab-panel" id="panel-posicoes">
     <div class="sec-header">
-      <span class="sec-title">Posições Consolidadas (Preço Médio)</span>
+      <span class="sec-title" data-i18n="carteira.sec.posicoes">Posições Consolidadas (Preço Médio)</span>
       <div style="display:flex;gap:6px">
         <select id="filter-class" onchange="loadPositions()" style="background:var(--s2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:15px;padding:5px 8px;outline:none">
           <option value="">Todos</option>
@@ -357,7 +351,7 @@ tr:hover td{background:rgba(0,212,255,.02)}
           <option value="fii">FIIs</option>
           <option value="bdr">BDRs</option>
         </select>
-        <button class="btn btn-primary btn-sm" onclick="openModal('modal-trade')">+ Novo Trade</button>
+        <button class="btn btn-primary btn-sm" onclick="openModal('modal-trade')" data-i18n="carteira.btn.new_trade">+ Novo Trade</button>
 </div>
 </div>
     <div class="tbl-wrap">
@@ -371,7 +365,7 @@ tr:hover td{background:rgba(0,212,255,.02)}
   <!-- TRADES -->
   <div class="tab-panel" id="panel-trades">
     <div class="sec-header">
-      <span class="sec-title">Histórico de Trades</span>
+      <span class="sec-title" data-i18n="carteira.sec.trades">Histórico de Trades</span>
       <button class="btn btn-primary btn-sm" onclick="openModal('modal-trade')">+ Novo Trade</button>
 </div>
     <div class="tbl-wrap">
@@ -385,8 +379,8 @@ tr:hover td{background:rgba(0,212,255,.02)}
   <!-- CRIPTO -->
   <div class="tab-panel" id="panel-crypto">
     <div class="sec-header">
-      <span class="sec-title">Criptomoedas</span>
-      <button class="btn btn-primary btn-sm" onclick="openModal('modal-crypto')">+ Cripto</button>
+      <span class="sec-title" data-i18n="carteira.sec.crypto">Criptomoedas</span>
+      <button class="btn btn-primary btn-sm" onclick="openModal('modal-crypto')" data-i18n="carteira.btn.new_crypto">+ Cripto</button>
 </div>
     <div class="tbl-wrap">
       <table data-fa-table>
@@ -399,7 +393,7 @@ tr:hover td{background:rgba(0,212,255,.02)}
   <!-- RENDA FIXA -->
   <div class="tab-panel" id="panel-rf">
     <div class="sec-header">
-      <span class="sec-title">Renda Fixa</span>
+      <span class="sec-title" data-i18n="carteira.sec.rf">Renda Fixa</span>
 </div>
     <div class="tbl-wrap">
       <table data-fa-table>
@@ -412,8 +406,8 @@ tr:hover td{background:rgba(0,212,255,.02)}
   <!-- OUTROS -->
   <div class="tab-panel" id="panel-outros">
     <div class="sec-header">
-      <span class="sec-title">Outros Ativos</span>
-      <button class="btn btn-primary btn-sm" onclick="openModal('modal-other')">+ Ativo</button>
+      <span class="sec-title" data-i18n="carteira.sec.outros">Outros Ativos</span>
+      <button class="btn btn-primary btn-sm" onclick="openModal('modal-other')" data-i18n="carteira.btn.new_other">+ Ativo</button>
 </div>
     <div class="tbl-wrap">
       <table data-fa-table>

@@ -92,5 +92,27 @@
 
   "empty.no_data": "Sem dados",
   "empty.no_results": "Nenhum resultado encontrado",
-  "empty.create_first": "Crie o primeiro para começar"
+  "empty.create_first": "Crie o primeiro para começar",
+
+  "nav.overview": "Overview",
+  "nav.movimentacoes": "Movimentações",
+
+  "carteira.title": "Carteira",
+  "carteira.subtitle": "Gerencie seus ativos, contas de investimento e acompanhe o preço médio.",
+  "carteira.print": "🖨 Imprimir",
+  "carteira.tab.contas": "🏦 Contas",
+  "carteira.tab.posicoes": "📈 Posições",
+  "carteira.tab.trades": "🔄 Trades",
+  "carteira.tab.crypto": "₿ Cripto",
+  "carteira.tab.rf": "💰 Renda Fixa",
+  "carteira.tab.outros": "📦 Outros",
+  "carteira.sec.contas": "Contas de Investimento",
+  "carteira.sec.posicoes": "Posições Consolidadas (Preço Médio)",
+  "carteira.sec.trades": "Histórico de Trades",
+  "carteira.sec.crypto": "Criptomoedas",
+  "carteira.sec.rf": "Renda Fixa",
+  "carteira.sec.outros": "Outros Ativos",
+  "carteira.btn.new_trade": "+ Novo Trade",
+  "carteira.btn.new_crypto": "+ Cripto",
+  "carteira.btn.new_other": "+ Ativo"
 }

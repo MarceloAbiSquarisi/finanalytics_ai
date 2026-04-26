@@ -92,5 +92,27 @@
 
   "empty.no_data": "No data",
   "empty.no_results": "No results found",
-  "empty.create_first": "Create the first one to get started"
+  "empty.create_first": "Create the first one to get started",
+
+  "nav.overview": "Overview",
+  "nav.movimentacoes": "Transactions",
+
+  "carteira.title": "Portfolio",
+  "carteira.subtitle": "Manage your assets, investment accounts and track average price.",
+  "carteira.print": "🖨 Print",
+  "carteira.tab.contas": "🏦 Accounts",
+  "carteira.tab.posicoes": "📈 Positions",
+  "carteira.tab.trades": "🔄 Trades",
+  "carteira.tab.crypto": "₿ Crypto",
+  "carteira.tab.rf": "💰 Fixed Income",
+  "carteira.tab.outros": "📦 Other",
+  "carteira.sec.contas": "Investment Accounts",
+  "carteira.sec.posicoes": "Consolidated Positions (Average Price)",
+  "carteira.sec.trades": "Trade History",
+  "carteira.sec.crypto": "Cryptocurrencies",
+  "carteira.sec.rf": "Fixed Income",
+  "carteira.sec.outros": "Other Assets",
+  "carteira.btn.new_trade": "+ New Trade",
+  "carteira.btn.new_crypto": "+ Crypto",
+  "carteira.btn.new_other": "+ Asset"
 }
