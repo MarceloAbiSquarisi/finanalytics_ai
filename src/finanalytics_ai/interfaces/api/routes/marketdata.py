@@ -141,6 +141,66 @@ async def _pg_conn() -> asyncpg.Connection:  # type: ignore[type-arg]
     return await asyncpg.connect(_PG_DSN)
 
 
+# ── Crypto price fallback via CoinGecko ──────────────────────────────────────
+# Cripto não está em ohlc_1m nem ohlc_prices (Yahoo). Quando ticker é crypto e
+# fontes locais vazias, busca CoinGecko on-demand com cache 5min em memória.
+# CoinGecko API gratuita, sem auth, rate limit ~30/min anonymous.
+
+_CRYPTO_SYMBOL_TO_CG = {
+    "BTC": "bitcoin", "ETH": "ethereum", "BNB": "binancecoin", "SOL": "solana",
+    "XRP": "ripple", "ADA": "cardano", "DOGE": "dogecoin", "AVAX": "avalanche-2",
+    "LINK": "chainlink", "MATIC": "matic-network", "DOT": "polkadot",
+    "USDT": "tether", "USDC": "usd-coin",
+    "BTCBRL": "bitcoin", "ETHBRL": "ethereum",
+}
+
+_crypto_candles_cache: dict[str, tuple[float, list[dict]]] = {}  # ticker → (ts, candles)
+_CRYPTO_CACHE_TTL = 300  # 5 min
+
+
+async def _fetch_crypto_candles(ticker: str, days: int = 30) -> list[dict]:
+    """Busca candles diárias na CoinGecko. Retorna [{ts, open, high, low, close, volume, trades}]."""
+    import time as _t
+    cg_id = _CRYPTO_SYMBOL_TO_CG.get(ticker.upper().replace("-BRL", "").replace("BRL", ""))
+    if not cg_id:
+        return []
+    cache_key = f"{cg_id}:{days}"
+    now = _t.time()
+    cached = _crypto_candles_cache.get(cache_key)
+    if cached and now - cached[0] < _CRYPTO_CACHE_TTL:
+        return cached[1]
+    try:
+        import httpx
+        url = f"https://api.coingecko.com/api/v3/coins/{cg_id}/market_chart"
+        params = {"vs_currency": "brl", "days": str(days), "interval": "daily"}
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.get(url, params=params)
+            if r.status_code != 200:
+                return []
+            data = r.json()
+        prices = data.get("prices", [])  # [[ts_ms, price_brl], ...]
+        volumes = {int(v[0] / 1000 / 86400): v[1] for v in data.get("total_volumes", [])}
+        candles = []
+        for ts_ms, price in prices:
+            day = int(ts_ms / 1000 / 86400)
+            from datetime import datetime as _dtmod, UTC
+            dt_iso = _dtmod.fromtimestamp(ts_ms / 1000, tz=UTC).replace(tzinfo=None)
+            # CoinGecko 'daily' retorna 1 ponto/dia (close); usa mesmo valor pra OHLC
+            candles.append({
+                "ts": dt_iso,
+                "open": price, "high": price, "low": price, "close": price,
+                "volume": volumes.get(day, 0), "trades": None,
+            })
+        _crypto_candles_cache[cache_key] = (now, candles)
+        return candles
+    except Exception as exc:
+        import structlog as _sl
+        _sl.get_logger(__name__).warning(
+            "marketdata.crypto.coingecko_fail", ticker=ticker, error=str(exc)
+        )
+        return []
+
+
 # ── prev_close cache (refresh diario) ────────────────────────────────────────
 # Sprint Fix UI 22/abr: change_pct na watchlist exige previous_close por ticker.
 # JOIN ohlc_1m a cada request custa ~1s; cacheamos 24h pois muda 1x/dia.
@@ -325,6 +385,13 @@ async def get_candles(
                 _sl.get_logger(__name__).warning(
                     "marketdata.candles.yahoo_fallback_fail", ticker=t, error=str(exc_pg)
                 )
+        # Crypto fallback (CoinGecko) — quando ticker é crypto e Yahoo daily não cobriu
+        if not rows and t.upper() in _CRYPTO_SYMBOL_TO_CG:
+            _days = max(int(window_min / 1440), limit)
+            crypto_candles = await _fetch_crypto_candles(t, days=_days)
+            if crypto_candles:
+                # Já vem ASC da CoinGecko (ts crescente). Aplica limit.
+                return {"ticker": t, "resolution": resolution, "candles": crypto_candles[-limit:]}
         return {"ticker": t, "resolution": resolution, "candles": [dict(r) for r in rows]}
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=503)
