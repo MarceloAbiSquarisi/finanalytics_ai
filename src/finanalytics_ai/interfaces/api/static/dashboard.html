@@ -3365,6 +3365,18 @@ function addOcoLevel(presetQty) {
       <input class="lv-sl-trig" type="number" step="0.01" placeholder="SL trigger">
       <input class="lv-sl-lim" type="number" step="0.01" placeholder="SL limit (= trigger)">
     </div>
+    <div class="lv-prot" style="margin-top:8px">
+      <input type="checkbox" id="lv${id}-tren" onchange="toggleTrail(${id})">
+      <label for="lv${id}-tren">🔄 TRAILING (Phase C)</label>
+    </div>
+    <div id="lv${id}-trail-box" style="display:none;background:rgba(58,191,248,.05);border:1px dashed rgba(58,191,248,.3);border-radius:5px;padding:8px;margin-top:6px">
+      <div style="display:flex;gap:10px;align-items:center;font-size:11px;margin-bottom:6px">
+        <label style="display:flex;align-items:center;gap:4px"><input type="radio" name="lv${id}-tmode" value="dist" checked onchange="updateTrailMode(${id})"> R$ (distância fixa)</label>
+        <label style="display:flex;align-items:center;gap:4px"><input type="radio" name="lv${id}-tmode" value="pct" onchange="updateTrailMode(${id})"> % (porcentagem)</label>
+      </div>
+      <input class="lv-trail-val" type="number" step="0.01" min="0" placeholder="Distância em R$ (ex: 0.50)">
+      <small style="color:var(--muted);font-size:10px;display:block;margin-top:4px">SL move conforme preço favorece (ratchet up para long, down para short). Decisão 6: se já passou do trigger ao criar, dispara market.</small>
+    </div>
   `;
   container.appendChild(row);
   updateOcoTotals();
@@ -3387,6 +3399,22 @@ function renumberOcoLevels() {
   document.querySelectorAll('#oco-levels-container .oco-level-row').forEach((row, idx) => {
     row.querySelector('.lv-title').textContent = `Nível ${idx + 1}`;
   });
+}
+
+// Phase C trailing helpers
+function toggleTrail(lvId) {
+  const cb = document.getElementById(`lv${lvId}-tren`);
+  const box = document.getElementById(`lv${lvId}-trail-box`);
+  if (box) box.style.display = cb.checked ? 'block' : 'none';
+}
+
+function updateTrailMode(lvId) {
+  const row = document.querySelector(`.oco-level-row[data-lv-id="${lvId}"]`);
+  if (!row) return;
+  const sel = row.querySelector(`input[name="lv${lvId}-tmode"]:checked`);
+  const inp = row.querySelector('.lv-trail-val');
+  if (!sel || !inp) return;
+  inp.placeholder = sel.value === 'pct' ? 'Distância em % (ex: 1.5)' : 'Distância em R$ (ex: 0.50)';
 }
 
 function sumOcoLevelsQty() {
@@ -3432,6 +3460,17 @@ async function submitAttachOco() {
       if (!slTrig || slTrig <= 0) { msg.textContent = `Nível ${idx + 1}: SL trigger inválido.`; return; }
       level.sl_trigger = slTrig;
       if (!isNaN(slLim) && slLim > 0) level.sl_limit = slLim;
+    }
+    // Phase C: trailing
+    const trEn = row.querySelector('.lv-prot input[type="checkbox"][id$="-tren"]')?.checked;
+    if (trEn) {
+      if (!slEn) { msg.textContent = `Nível ${idx + 1}: trailing requer SL marcado.`; return; }
+      const trMode = row.querySelector('input[type="radio"]:checked')?.value || 'dist';
+      const trVal = parseFloat(row.querySelector('.lv-trail-val')?.value);
+      if (!trVal || trVal <= 0) { msg.textContent = `Nível ${idx + 1}: trailing distance inválido.`; return; }
+      level.is_trailing = true;
+      if (trMode === 'pct') level.trail_pct = trVal;
+      else level.trail_distance = trVal;
     }
     levels.push(level);
   }

@@ -1254,6 +1254,8 @@ class ProfitAgent:
         self._probes_lock = threading.Lock()
 
         self._book: dict = {}
+        # OCO Phase C (26/abr): cache last price por ticker — alimentado por new_trade_cb
+        self._last_prices: dict[str, float] = {}
 
         self._sse_clients: list = []
 
@@ -1637,6 +1639,11 @@ class ProfitAgent:
         _oco_grp_thread.start()
         log.info("profit_agent.oco_groups_monitor_started")
 
+        # OCO Phase C (Trailing) — thread separada @ 1s pra ratchet de SL
+        _oco_trail_thread = threading.Thread(target=self._trail_monitor_loop, daemon=True)
+        _oco_trail_thread.start()
+        log.info("profit_agent.oco_trail_monitor_started")
+
         # 7. Verifica contagem de contas (catalogo chega via SetAssetListInfoCallbackV2)
 
         # GetAccount() sem args nao existe na DLL — removido (BUG 7)
@@ -1984,6 +1991,8 @@ class ProfitAgent:
 
             now = datetime.now(tz=UTC)
             agent._last_tick_at[f"{ticker}:{asset_id.bolsa or 'B'}"] = now
+            # OCO Phase C (26/abr): cache last price em memória pra _trail_monitor_loop
+            agent._last_prices[ticker] = float(price)
 
             try:
                 agent._db_queue.put_nowait(
@@ -4253,6 +4262,163 @@ class ProfitAgent:
                 (group_id,),
             )
             grp["status"] = "partial"
+
+    # ──────────────────────────────────────────────────────────────────
+    # OCO Phase C (26/abr) — Trailing stop
+    # Decisão 1: aceita trail_distance (R$) XOR trail_pct (%)
+    # Decisão 6: se mercado já além do trigger ao criar → dispara market imediato
+    # ──────────────────────────────────────────────────────────────────
+
+    def _trail_compute_new_sl(
+        self, side: int, last_price: float, lv: dict
+    ) -> float | None:
+        """Calcula novo SL baseado em high_water + distance/pct.
+
+        Retorna None se SL não deve mover (high_water não favorável).
+        side=2 (sell, proteger long): SL = high_water - distance (max ratchet up)
+        side=1 (buy, proteger short): SL = low_water + distance (min ratchet down)
+        """
+        hw = lv.get("trail_high_water")
+        if side == 2:  # proteger long — high_water é o MAX
+            if hw is None or last_price > hw:
+                hw = last_price
+                lv["trail_high_water"] = hw
+            if lv.get("trail_distance"):
+                return hw - float(lv["trail_distance"])
+            if lv.get("trail_pct"):
+                return hw * (1 - float(lv["trail_pct"]) / 100.0)
+        else:  # buy — low_water é o MIN
+            if hw is None or last_price < hw:
+                hw = last_price
+                lv["trail_high_water"] = hw
+            if lv.get("trail_distance"):
+                return hw + float(lv["trail_distance"])
+            if lv.get("trail_pct"):
+                return hw * (1 + float(lv["trail_pct"]) / 100.0)
+        return None
+
+    def _trail_check_immediate_trigger(
+        self, group_id: str, grp: dict, lv: dict, last_price: float
+    ) -> bool:
+        """Decisão 6: se SL trigger inicial já foi atravessado quando trailing
+        é ativado, dispara ordem market imediata.
+
+        Retorna True se disparou, False caso contrário."""
+        side = grp["side"]
+        trig = lv.get("sl_trigger")
+        if trig is None or last_price is None:
+            return False
+        # sell long: trigger é piso, last < trigger = já passou (executar)
+        # buy short: trigger é teto, last > trigger = já passou (executar)
+        triggered = (side == 2 and last_price <= float(trig)) or \
+                    (side == 1 and last_price >= float(trig))
+        if not triggered:
+            return False
+        log.info(
+            "trailing.immediate_trigger group=%s lv=%d last=%.4f trigger=%.4f side=%d",
+            group_id, lv["idx"], last_price, float(trig), side,
+        )
+        # Cancela SL pending (se existe) e envia market do lado oposto pra fechar
+        if lv.get("sl_order_id") and lv.get("sl_status") == "sent":
+            self.cancel_order({"local_order_id": lv["sl_order_id"], "env": grp["env"]})
+            lv["sl_status"] = "cancelled"
+        side_str = "buy" if side == 1 else "sell"
+        market_res = self._send_order_legacy({
+            "env": grp["env"], "ticker": grp["ticker"], "exchange": grp["exchange"],
+            "is_daytrade": grp["is_daytrade"],
+            "user_account_id": grp["user_account_id"],
+            "portfolio_id": grp["portfolio_id"],
+            "order_type": "market", "order_side": side_str,
+            "price": -1, "stop_price": -1, "quantity": int(lv["qty"]),
+            "strategy_id": f"oco_grp_{group_id[:8]}_lv{lv['idx']}_trail_imm",
+        })
+        if market_res.get("ok"):
+            lv["sl_order_id"] = market_res["local_order_id"]
+            lv["sl_status"] = "sent"  # market deve fillar rápido
+            self._db.execute(
+                "UPDATE profit_oco_levels SET sl_order_id=%s, sl_status='sent', "
+                "trail_high_water=%s, updated_at=NOW() WHERE level_id=%s",
+                (market_res["local_order_id"], last_price, lv["level_id"]),
+            )
+            self._order_to_group[market_res["local_order_id"]] = (group_id, lv["idx"], "sl")
+        return True
+
+    def _trail_monitor_loop(self) -> None:
+        """Background thread: pra cada level com is_trailing=true e SL aberto,
+        atualiza SL via change_order quando high_water move favoravelmente.
+
+        Roda a cada 1s — balance entre responsividade e overhead.
+        """
+        log.info("trail_monitor.started")
+        while not self._stop_event.is_set():
+            try:
+                if not hasattr(self, "_oco_groups") or not self._oco_groups:
+                    time.sleep(1.0)
+                    continue
+                groups_snap = list(self._oco_groups.items())
+                for group_id, grp in groups_snap:
+                    if grp["status"] not in ("active", "partial", "awaiting"):
+                        continue
+                    last = self._last_prices.get(grp["ticker"])
+                    if last is None or last <= 0:
+                        continue
+                    for lv in grp["levels"]:
+                        if not lv.get("is_trailing"):
+                            continue
+                        # Awaiting → checa imediato (parent ainda nao fillou —
+                        # ou seja, apenas armazena high_water em runtime)
+                        if grp["status"] == "awaiting":
+                            self._trail_compute_new_sl(grp["side"], last, lv)
+                            continue
+                        # Active/partial — só ajusta SE SL ativa nesse level
+                        if not lv.get("sl_order_id") or lv.get("sl_status") != "sent":
+                            continue
+
+                        # Decisão 6: se SL trigger atual já foi cruzado → market imediato
+                        if self._trail_check_immediate_trigger(group_id, grp, lv, last):
+                            continue
+
+                        # Calcula novo SL trigger
+                        new_sl = self._trail_compute_new_sl(grp["side"], last, lv)
+                        if new_sl is None:
+                            continue
+                        cur_trig = lv.get("sl_trigger")
+                        if cur_trig is None:
+                            continue
+                        # Ratchet: só move SE favorecer (sell long: subir SL; buy short: descer SL)
+                        moved = (grp["side"] == 2 and new_sl > float(cur_trig) + 0.01) or \
+                                (grp["side"] == 1 and new_sl < float(cur_trig) - 0.01)
+                        if not moved:
+                            continue
+                        # Trail R$: arredonda 2 decimais. Limit = trigger (stop-market emulado).
+                        new_sl = round(new_sl, 2)
+                        new_lim = round(new_sl, 2)
+                        ret = self.change_order({
+                            "env": grp["env"],
+                            "local_order_id": lv["sl_order_id"],
+                            "price": new_lim, "stop_price": new_sl,
+                            "quantity": int(lv["qty"]),
+                        })
+                        if ret.get("ok"):
+                            lv["sl_trigger"] = new_sl
+                            lv["sl_limit"] = new_lim
+                            self._db.execute(
+                                "UPDATE profit_oco_levels SET sl_trigger=%s, sl_limit=%s, "
+                                "trail_high_water=%s, updated_at=NOW() WHERE level_id=%s",
+                                (new_sl, new_lim, lv["trail_high_water"], lv["level_id"]),
+                            )
+                            log.info(
+                                "trailing.adjusted group=%s lv=%d hw=%.4f new_sl=%.4f",
+                                group_id, lv["idx"], lv["trail_high_water"], new_sl,
+                            )
+                        else:
+                            log.warning(
+                                "trailing.change_failed group=%s lv=%d new_sl=%.4f ret=%s",
+                                group_id, lv["idx"], new_sl, ret.get("ret"),
+                            )
+            except Exception as e:
+                log.warning("trail_monitor error: %s", e)
+            time.sleep(1.0)
 
     def get_oco_group(self, group_id: str) -> dict:
         """Retorna estado do group + levels (lookup em memória)."""
