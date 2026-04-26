@@ -128,6 +128,19 @@ async def _conn() -> asyncpg.Connection:  # type: ignore[type-arg]
     return await asyncpg.connect(_TS_DSN)
 
 
+# Conexão alternativa para Postgres principal (finanalytics DB) — onde mora
+# ohlc_prices (Yahoo daily) usado como fallback de candles para tickers que
+# não estão no feed Profit/BRAPI (ETFs, BDRs, FIIs comuns).
+_PG_DSN_RAW = os.getenv("DATABASE_URL") or "postgresql://finanalytics:secret@postgres:5432/finanalytics"
+_PG_DSN = _PG_DSN_RAW.replace("postgresql+asyncpg://", "postgres://").replace(
+    "postgresql://", "postgres://"
+)
+
+
+async def _pg_conn() -> asyncpg.Connection:  # type: ignore[type-arg]
+    return await asyncpg.connect(_PG_DSN)
+
+
 # ── prev_close cache (refresh diario) ────────────────────────────────────────
 # Sprint Fix UI 22/abr: change_pct na watchlist exige previous_close por ticker.
 # JOIN ohlc_1m a cada request custa ~1s; cacheamos 24h pois muda 1x/dia.
@@ -265,6 +278,18 @@ async def get_candles(
         ) sub
         ORDER BY ts ASC
     """
+    # Fallback final: ohlc_prices (Yahoo daily) — schema com `date` em vez de `time`,
+    # sem volume buckets. Usado para tickers fora do feed Profit/BRAPI mas com
+    # cobertura Yahoo (ETFs, BDRs, FIIs comuns).
+    sql_yahoo_daily = """
+        SELECT date::timestamp AS ts, open, high, low, close, volume,
+               NULL::int AS trades
+        FROM ohlc_prices
+        WHERE ticker = $1
+          AND date >= (NOW() - (INTERVAL '1 day' * $3))::date
+        ORDER BY date DESC
+        LIMIT $2
+    """
     try:
         conn = await _conn()
         try:
@@ -283,6 +308,23 @@ async def get_candles(
                 )
         finally:
             await conn.close()
+        # Fallback Yahoo daily — em conexão Postgres separada (DB diferente)
+        if not rows:
+            _days = max(int(window_min / 1440), limit)
+            try:
+                pg = await _pg_conn()
+                try:
+                    rows = await pg.fetch(sql_yahoo_daily, t, limit, _days)
+                finally:
+                    await pg.close()
+                if rows:
+                    rows = list(reversed(rows))  # ASC
+            except Exception as exc_pg:
+                # Falha silenciosa do fallback — retorna lista vazia
+                import structlog as _sl
+                _sl.get_logger(__name__).warning(
+                    "marketdata.candles.yahoo_fallback_fail", ticker=t, error=str(exc_pg)
+                )
         return {"ticker": t, "resolution": resolution, "candles": [dict(r) for r in rows]}
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=503)
