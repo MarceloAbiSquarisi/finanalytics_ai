@@ -362,8 +362,8 @@ tr:hover td{background:rgba(0,212,255,.02)}
 </div>
     <div class="tbl-wrap">
       <table id="tbl-positions" data-fa-table>
-        <thead><tr><th>Ticker</th><th>Classe</th><th>Quantidade</th><th>Preço Médio</th><th>Total Investido</th><th>Trades</th></tr></thead>
-        <tbody id="tbody-positions"><tr><td colspan="6" class="empty">Carregando...</td></tr></tbody>
+        <thead><tr><th>Ticker</th><th>Classe</th><th>Quantidade</th><th>Preço Médio</th><th>Atual</th><th>P/L</th><th>SL</th><th>Total Investido</th><th>Trades</th></tr></thead>
+        <tbody id="tbody-positions"><tr><td colspan="9" class="empty">Carregando...</td></tr></tbody>
       </table>
 </div>
 </div>
@@ -954,12 +954,12 @@ function updateTradeTotal() {
 // ── Positions ─────────────────────────────────────────────────────────────
 async function loadPositions() {
   const tbody = document.getElementById('tbody-positions');
-  FALoading.tableRows(tbody, { rows: 4, cols: 6 });
+  FALoading.tableRows(tbody, { rows: 4, cols: 9 });
   try {
     const cls = document.getElementById('filter-class')?.value||'';
     const positions = await api('/positions' + (cls?`?asset_class=${cls}`:''));
     if (!positions.length) {
-      FAEmpty.tableRow(tbody, { colspan: 6, title: 'Nenhuma posição',
+      FAEmpty.tableRow(tbody, { colspan: 9, title: 'Nenhuma posição',
         text: 'Posições são derivadas dos trades. Registre seu primeiro trade.',
         cta: { label: '+ Novo Trade', variant: 'primary', onClick: "openModal('modal-trade')" } });
       return;
@@ -967,17 +967,98 @@ async function loadPositions() {
     let total = 0;
     tbody.innerHTML = positions.map(p => {
       total += parseFloat(p.total_invested)||0;
-      return `<tr>
+      return `<tr data-ticker="${p.ticker}" data-qty="${p.quantity}" data-avg="${p.average_price}">
         <td><strong>${p.ticker}</strong></td>
         <td>${badge(p.asset_class)}</td>
         <td class="td-right">${fmtQty(p.quantity)}</td>
         <td class="td-right">${fmt(p.average_price)}</td>
+        <td class="td-right cell-last">—</td>
+        <td class="td-right cell-pnl">—</td>
+        <td class="td-right cell-sl">—</td>
         <td class="td-right">${fmt(p.total_invested)}</td>
         <td class="td-right">${p.trade_count}</td></tr>`;
     }).join('');
     document.getElementById('s-tickers').textContent = positions.length;
     document.getElementById('s-invested').textContent = fmt(total).replace('R$ ','R$\u00A0');
+    enrichPositionsTable();
   } catch(e) { console.error(e); }
+}
+
+async function enrichPositionsTable() {
+  const rows = Array.from(document.querySelectorAll('#tbody-positions tr[data-ticker]'));
+  if (!rows.length) return;
+  const tickers = [...new Set(rows.map(r => r.dataset.ticker))];
+
+  const slMap = await fetchStopLossMap();
+  applyEnrichment(rows, {}, slMap);
+
+  const lastMap = {};
+  const BATCH = 6;
+  for (let i = 0; i < tickers.length; i += BATCH) {
+    const batch = tickers.slice(i, i + BATCH);
+    const closes = await Promise.all(batch.map(fetchLastClose));
+    closes.forEach((px, j) => { lastMap[batch[j]] = px; });
+    applyEnrichment(rows, lastMap, slMap);
+  }
+}
+
+async function fetchStopLossMap() {
+  try {
+    const tok = localStorage.getItem('access_token');
+    const r = await fetch('/api/v1/agent/orders', { headers: { Authorization: 'Bearer ' + tok } });
+    if (!r.ok) return {};
+    const data = await r.json();
+    const orders = data.orders || [];
+    const map = {};
+    orders.forEach(o => {
+      if (o.order_type !== 4) return;
+      if (![0, 1, 10].includes(o.order_status)) return;
+      const t = o.ticker;
+      if (!map[t]) map[t] = { stop_price: o.stop_price, qty: o.quantity, count: 0 };
+      map[t].count++;
+      if (o.stop_price != null && (map[t].stop_price == null || o.stop_price > map[t].stop_price)) {
+        map[t].stop_price = o.stop_price;
+      }
+    });
+    return map;
+  } catch (e) { console.warn('[carteira] orders fail:', e.message); return {}; }
+}
+
+async function fetchLastClose(ticker) {
+  try {
+    const r = await fetch(`/api/v1/marketdata/candles/${encodeURIComponent(ticker)}?resolution=1d&limit=1`);
+    if (!r.ok) return null;
+    const d = await r.json();
+    const c = (d.candles || []).slice(-1)[0];
+    return c ? +c.close : null;
+  } catch (e) { return null; }
+}
+
+function applyEnrichment(rows, lastMap, slMap) {
+  rows.forEach(row => {
+    const t = row.dataset.ticker;
+    const qty = parseFloat(row.dataset.qty);
+    const avg = parseFloat(row.dataset.avg);
+    const last = lastMap[t];
+    const cellLast = row.querySelector('.cell-last');
+    const cellPnl = row.querySelector('.cell-pnl');
+    const cellSl = row.querySelector('.cell-sl');
+
+    if (last != null && cellLast.textContent.trim() === '—') {
+      cellLast.textContent = fmt(last);
+      const pnl = (last - avg) * qty;
+      const pnlPct = avg !== 0 ? ((last - avg) / avg) * 100 : 0;
+      const sign = pnl >= 0 ? '+' : '';
+      const color = pnl > 0 ? 'var(--green)' : (pnl < 0 ? 'var(--red)' : 'var(--muted)');
+      cellPnl.innerHTML = `<span style="color:${color};font-weight:600">${sign}${fmt(pnl)}<br><small style="opacity:.75">${sign}${pnlPct.toFixed(2)}%</small></span>`;
+    }
+
+    const sl = slMap[t];
+    if (sl && cellSl.textContent.trim() === '—') {
+      const cnt = sl.count > 1 ? ` ×${sl.count}` : '';
+      cellSl.innerHTML = `<span style="color:var(--red);font-weight:600;font-size:11px;border:1px solid rgba(255,61,90,.4);background:rgba(255,61,90,.08);padding:2px 5px;border-radius:4px" title="Stop-loss ativo · qty ${sl.qty}">🛡 ${fmt(sl.stop_price)}${cnt}</span>`;
+    }
+  });
 }
 
 // ── Crypto ────────────────────────────────────────────────────────────────
