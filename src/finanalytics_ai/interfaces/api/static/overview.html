@@ -337,20 +337,23 @@ async function fetchOther() {
   try {
     const data = await authFetch('/api/v1/wallet/other' + _accQS());
     const arr = Array.isArray(data) ? data : [];
-    return arr.map(o => {
-      const cur = parseFloat(o.current_value) || 0;
-      const inv = parseFloat(o.invested_value) || cur;
-      return {
-        ticker: o.name || '?',
-        // Fundos CVM (asset_type='fundo') vão pra fonte dedicada 'fundo'; demais ficam 'other'
-        source: o.asset_type === 'fundo' ? 'fundo' : 'other',
-        qty: 1,
-        avg: inv,
-        value: cur,
-        _other_current: cur,
-        asset_type: o.asset_type,
-      };
-    });
+    // Imóveis ficam fora dos cards (visualização separada futura, não líquido)
+    return arr
+      .filter(o => o.asset_type !== 'imovel')
+      .map(o => {
+        const cur = parseFloat(o.current_value) || 0;
+        const inv = parseFloat(o.invested_value) || cur;
+        return {
+          ticker: o.name || '?',
+          // Fundos CVM (asset_type='fundo') vão pra fonte dedicada 'fundo'; demais ficam 'other'
+          source: o.asset_type === 'fundo' ? 'fundo' : 'other',
+          qty: 1,
+          avg: inv,
+          value: cur,
+          _other_current: cur,
+          asset_type: o.asset_type,
+        };
+      });
   } catch (e) { console.warn('other fail:', e.message); return []; }
 }
 
