@@ -494,6 +494,45 @@ class WalletRepository:
             await s.refresh(m)
             return _model_to_dict(m)
 
+    async def reconcile_transaction(
+        self, tx_id: str, user_id: str, ticker: str
+    ) -> dict | None:
+        """C6 Fase 4 (26/abr): vincula tx unmatched a uma posição via ticker.
+
+        Procura position do user_id que tenha o ticker; se encontra, seta
+        related_id=position_id e related_type='position'. Atualiza note com
+        marker '[reconciled]'. Retorna dict do tx atualizado, None se não
+        achou tx OU None se não há posição para o ticker.
+        """
+        from finanalytics_ai.infrastructure.database.repositories.portfolio_repo import (
+            PortfolioModel,
+            PositionModel,
+        )
+
+        async with get_session() as s:
+            tx = await s.get(AccountTransactionModel, tx_id)
+            if not tx or tx.user_id != user_id:
+                return None
+            # Procura position com ticker em qualquer portfolio do user
+            row = await s.execute(
+                select(PositionModel.id)
+                .join(PortfolioModel, PortfolioModel.id == PositionModel.portfolio_id)
+                .where(PortfolioModel.user_id == user_id)
+                .where(PositionModel.ticker == ticker.upper())
+                .limit(1)
+            )
+            pos_id_row = row.first()
+            if not pos_id_row:
+                return {"error": f"Sem posição para ticker '{ticker}' no portfolio do usuário"}
+            tx.related_type = "position"
+            tx.related_id = str(pos_id_row[0])
+            base_note = (tx.note or "").rstrip()
+            if "[reconciled" not in base_note:
+                tx.note = (base_note + f" [reconciled→{ticker.upper()}]").lstrip()
+            await s.commit()
+            await s.refresh(tx)
+            return _model_to_dict(tx)
+
     async def cancel_transaction(self, tx_id: str, user_id: str) -> dict | None:
         """Cancela tx. Se ja estava settled, reverte o cash_balance."""
         from sqlalchemy import update as sql_update

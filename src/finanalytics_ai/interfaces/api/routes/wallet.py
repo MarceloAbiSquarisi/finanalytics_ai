@@ -433,6 +433,29 @@ async def cancel_transaction(tx_id: str, user: User = Depends(get_current_user))
     return tx
 
 
+class ReconcileBody(BaseModel):
+    ticker: str = Field(..., min_length=1, max_length=10, description="Ticker da posição a vincular")
+
+
+@router.post("/transactions/{tx_id}/reconcile")
+async def reconcile_transaction(
+    tx_id: str,
+    body: ReconcileBody,
+    user: User = Depends(get_current_user),
+) -> dict:
+    """C6 Fase 4 (26/abr): vincula tx unmatched/ambiguous a uma posição
+    do usuário via ticker. Útil pra dividendos sem match automático no
+    import. Se ticker não tiver posição cadastrada, retorna 404 com
+    sugestão de criar a posição primeiro.
+    """
+    result = await _repo().reconcile_transaction(tx_id, str(user.user_id), body.ticker)
+    if result is None:
+        raise HTTPException(404, "Transação não encontrada")
+    if isinstance(result, dict) and result.get("error"):
+        raise HTTPException(404, result["error"])
+    return result
+
+
 class CreatePortfolioForAccount(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
 

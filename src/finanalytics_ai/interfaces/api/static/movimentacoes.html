@@ -72,13 +72,35 @@
     <table class="mv-table">
       <thead><tr>
         <th>Data</th><th>Conta</th><th>Tipo</th><th>Ticker</th>
-        <th style="text-align:right">Valor</th><th>Status</th><th>Descrição</th>
+        <th style="text-align:right">Valor</th><th>Status</th><th>Descrição</th><th></th>
       </tr></thead>
-      <tbody id="mv-tbody"><tr><td colspan="7" class="mv-empty">Carregando...</td></tr></tbody>
+      <tbody id="mv-tbody"><tr><td colspan="8" class="mv-empty">Carregando...</td></tr></tbody>
     </table>
     <div class="mv-totals" id="mv-totals">—</div>
   </div>
 </main>
+
+<!-- Modal Reconciliar (C6 Fase 4) -->
+<div id="modal-reconcile" style="display:none;position:fixed;inset:0;background:rgba(10,22,40,.92);z-index:500;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--navy-mid,#142540);border:1px solid var(--border);border-radius:10px;padding:22px;width:440px;max-width:95vw">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h3 style="margin:0;font-size:16px">🔗 Reconciliar transação</h3>
+      <button onclick="closeReconcileModal()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:20px">×</button>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">
+      <div>Tx <strong id="rec-tx-id"></strong></div>
+      <div style="margin-top:4px">Descrição original: <em id="rec-original-note" style="color:var(--white)"></em></div>
+    </div>
+    <label style="font-size:10px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase">Ticker da posição</label>
+    <input id="rec-ticker" type="text" placeholder="Ex: PETR4" style="width:100%;padding:8px;background:rgba(10,22,40,.6);border:1px solid var(--border);color:var(--white);border-radius:6px;margin-top:4px;text-transform:uppercase">
+    <div style="font-size:10px;color:var(--muted);margin-top:4px">Backend procura uma posição do ticker em qualquer carteira sua. Se não houver, retorna erro.</div>
+    <div id="rec-msg" style="font-size:11px;color:var(--red);min-height:14px;margin-top:8px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+      <button onclick="closeReconcileModal()" style="padding:7px 12px;background:rgba(255,255,255,.08);color:var(--muted);border:none;border-radius:5px;cursor:pointer">Cancelar</button>
+      <button onclick="submitReconcile()" style="padding:7px 12px;background:var(--blue,#3abff8);color:white;border:none;border-radius:5px;cursor:pointer;font-weight:600">Vincular</button>
+    </div>
+  </div>
+</div>
 
 <script src="/static/auth_guard.js"></script>
 <script src="/static/sidebar.js"></script>
@@ -167,14 +189,21 @@ function rerender() {
     const stCls = `mv-tag mv-tag-${t.status || 'pending'}`;
     const stLbl = t.status === 'settled' ? 'Liquidado' : (t.status === 'pending' ? 'Pendente' : (t.status === 'cancelled' ? 'Cancelado' : (t.status || '—')));
     const dateTxt = (t.reference_date || t.created_at || '').slice(0, 10);
+    // Reconciliação manual: dividendos sem related_id são candidatos
+    const isDiv = (t.tx_type || '').toLowerCase().includes('dividend') || t.tx_type === 'jcp' || t.tx_type === 'rendimento';
+    const needsRecon = isDiv && !t.related_id;
+    const reconBtn = needsRecon
+      ? `<button onclick="openReconcileModal('${t.id}', '${(t.note||'').replace(/'/g,"\\'")}')" title="Reconciliar (vincular a posição)" style="background:rgba(240,180,41,.15);border:none;color:var(--gold,#F0B429);cursor:pointer;padding:3px 7px;border-radius:3px;font-size:11px;font-weight:600">🔗 Reconciliar</button>`
+      : '';
     return `<tr>
       <td class="mv-mono">${dateTxt}</td>
       <td>${accLbl}</td>
       <td><span class="mv-tx-type">${t.tx_type || '—'}</span></td>
       <td><strong>${t.ticker || '—'}</strong></td>
-      <td class="mv-mono" style="text-align:right" class="${amtCls}"><span class="${amtCls}">${sign}R$ ${f2(amt)}</span></td>
+      <td class="mv-mono" style="text-align:right"><span class="${amtCls}">${sign}R$ ${f2(amt)}</span></td>
       <td><span class="${stCls}">${stLbl}</span></td>
       <td style="font-size:11px;color:var(--muted)">${t.note || '—'}</td>
+      <td>${reconBtn}</td>
     </tr>`;
   }).join('');
 
@@ -189,6 +218,49 @@ function rerender() {
     `<span>Pendentes: <strong>${totalPending >= 0 ? '+' : ''}R$ ${f2(totalPending)}</strong></span>` +
     `<span style="margin-left:auto">Net liquidado: <strong style="color:${net >= 0 ? 'var(--green)' : 'var(--red)'}">${net >= 0 ? '+' : ''}R$ ${f2(net)}</strong></span>`;
   $('mv-meta').textContent = `${arr.length} / ${_allTx.length} movimentações`;
+}
+
+// ── Reconciliação manual (C6 Fase 4) ──────────────────────────────────────
+let _reconcileTxId = null;
+
+function openReconcileModal(txId, originalNote) {
+  _reconcileTxId = txId;
+  $('rec-tx-id').textContent = txId.slice(0, 8) + '…';
+  $('rec-original-note').textContent = originalNote || '(sem descrição)';
+  $('rec-ticker').value = '';
+  $('rec-msg').textContent = '';
+  $('modal-reconcile').style.display = 'flex';
+  setTimeout(() => $('rec-ticker').focus(), 80);
+}
+
+function closeReconcileModal() {
+  $('modal-reconcile').style.display = 'none';
+  _reconcileTxId = null;
+}
+
+async function submitReconcile() {
+  if (!_reconcileTxId) return;
+  const ticker = $('rec-ticker').value.trim().toUpperCase();
+  const msg = $('rec-msg');
+  msg.textContent = '';
+  if (!ticker) { msg.textContent = 'Informe um ticker.'; return; }
+  try {
+    const r = await fetch(`/api/v1/wallet/transactions/${_reconcileTxId}/reconcile`, {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticker }),
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      msg.textContent = d.detail || ('HTTP ' + r.status);
+      return;
+    }
+    closeReconcileModal();
+    if (window.FAToast) FAToast.ok(`Tx vinculada à posição ${ticker}`);
+    loadTransactions();
+  } catch (e) {
+    msg.textContent = 'Erro de rede: ' + e.message;
+  }
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
