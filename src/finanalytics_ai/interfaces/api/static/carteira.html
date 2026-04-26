@@ -725,9 +725,21 @@ async function onAccountChange() {
   }
 }
 
-function _populateAccountFilter() {
+async function _populateAccountFilter() {
   const sel = document.getElementById('acc-filter');
-  if (!sel || !accounts || !accounts.length) return;
+  if (!sel) { console.warn('[carteira] acc-filter select não encontrado'); return; }
+  // Fallback: se accounts ainda vazio (race ou loadAccounts falhou), busca direto
+  if (!accounts || !accounts.length) {
+    try {
+      console.info('[carteira] accounts vazio — fetching /accounts diretamente para popular filtro');
+      const r = await fetch('/api/v1/wallet/accounts', { headers: authHeader() });
+      if (r.ok) accounts = await r.json();
+    } catch (e) { console.warn('[carteira] populate accounts fallback fail:', e.message); }
+  }
+  if (!accounts || !accounts.length) {
+    console.warn('[carteira] sem accounts — filtro fica só com "Todas"');
+    return;
+  }
   // Reset (mantém option "Todas as contas")
   const allOpt = sel.options[0];
   sel.innerHTML = '';
@@ -739,6 +751,7 @@ function _populateAccountFilter() {
     opt.textContent = a.institution_name && a.apelido ? `${lbl} (${a.institution_name})` : lbl;
     sel.appendChild(opt);
   });
+  console.info('[carteira] acc-filter populado com', accounts.length, 'contas');
   // Restaura seleção do localStorage se ainda válida
   if (_currentAccountId && accounts.some(a => a.id === _currentAccountId)) {
     sel.value = _currentAccountId;
@@ -1250,6 +1263,8 @@ async function loadSummary() {
 // ── Init ──────────────────────────────────────────────────────────────────
 document.getElementById('tr-date').valueAsDate = new Date();
 loadAll();
+// Backup: garante que filtro acc seja populado mesmo se loadAll race/falha
+setTimeout(() => { _populateAccountFilter(); }, 1500);
 loadSummary();
 </script>
 <script src="/static/a11y.js"></script>
