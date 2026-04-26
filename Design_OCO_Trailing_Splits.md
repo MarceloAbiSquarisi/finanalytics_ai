@@ -155,8 +155,8 @@ Anexa OCO a uma ordem **pending** (não executada). Quando parent fill, dispara 
 **Validações server-side**:
 - `parent_order_id` existe em `profit_orders` E `order_status` ∈ {0=New, 10=PendingNew}
 - `sum(levels[i].qty) == parent.quantity` (total bate)
-- Para CADA level: `tp_price IS NOT NULL AND sl_trigger IS NOT NULL` (Feature 1: ambos obrigatórios)
-- Side: `tp_price > sl_trigger` se sell (proteger long); inverso se buy
+- Para CADA level: `tp_price IS NOT NULL OR sl_trigger IS NOT NULL` (ao menos uma proteção; Decisão 3 — 26/abr)
+- Side: se ambos preenchidos, `tp_price > sl_trigger` em sell (proteger long); inverso em buy. Se só um, sem comparação cross.
 - Não pode anexar 2× ao mesmo parent (verifica `awaiting` group já existe → 409)
 
 **Response 201**:
@@ -215,13 +215,15 @@ Edita preços de um nível ainda não disparado (ex: ajustar TP de R$52 para R$5
 ```
 [user envia ordem normal /order/send qty=100 @ R$45 limit] → parent.status=PendingNew
 [user vai em "Ordens" e clica "🛡 OCO" no parent] → modal abre
-[user preenche TP=52 + SL=47 (ambos obrigatórios)] → confirma
+[user preenche TP=52 e/ou SL=47 (ao menos uma proteção, Decisão 3)] → confirma
 [POST /attach_oco] → cria group status=awaiting
    ↓
-[DLL eventualmente: parent fill (status=Filled)] → SetOrderCallback dispara
-[handler vê group.parent==filled_id] → muda group→active
-[para cada level: envia TP (limit qty=L.qty @ tp_price) + SL (stop qty=L.qty @ sl_trigger/limit)]
-[grava tp_order_id + sl_order_id em profit_oco_levels]
+[DLL eventualmente: parent fill (status=Filled, talvez parcial)] → SetOrderCallback dispara
+[handler vê group.parent==filled_id]
+   - Se fill parcial (Decisão 2): re-rateia level.qty *= filled/total, sobra no último level
+   - muda group→active
+[para cada level: envia TP se tp_price (limit qty=L.qty @ tp_price) + SL se sl_trigger (stop qty=L.qty @ sl_trigger/limit)]
+[grava tp_order_id e/ou sl_order_id em profit_oco_levels]
    ↓
 [DLL: TP1 fill] → handler:
    - level1.tp_status=filled, qty_remaining_group -= level1.qty
@@ -280,20 +282,20 @@ Multi-level intrínseco no data model. Quando TP1 executa, SL1 cancela mas TP2+S
 │ OU criar OCO solo:                             │
 │   Ticker [PETR4] Qty [100] Side [Sell ▼]      │
 │                                                 │
-│ Níveis: (mín 1)                    [+ nível]  │
+│ Níveis: (mín 1, sem limite máximo)  [+ nível] │
 │ ┌──────────────────────────────────────────┐  │
 │ │ Nível 1   Qty [60]                  [✕] │  │
-│ │ TP [52.00] *obrig.                      │  │
-│ │ SL trigger [47.00] *obrig. limit [46.50]│  │
-│ │ ☐ Trailing  dist R$ [____] OU pct [__]% │  │
+│ │ ☑ TP [52.00]                             │  │
+│ │ ☑ SL trigger [47.00]   limit [46.50]    │  │
+│ │ ☐ Trailing  ⦿ R$ [____]  ⦾ % [__]      │  │
 │ └──────────────────────────────────────────┘  │
 │ ┌──────────────────────────────────────────┐  │
 │ │ Nível 2   Qty [40]                  [✕] │  │
-│ │ TP [54.00]                              │  │
-│ │ SL trigger [47.00]   limit [46.50]      │  │
+│ │ ☑ TP [54.00]                             │  │
+│ │ ☐ SL  (level só com TP — permitido)     │  │
 │ └──────────────────────────────────────────┘  │
 │                                                 │
-│ Total: 100/100 ✓                                │
+│ Total: 100/100 ✓  (cada level: ≥1 proteção)    │
 │                                                 │
 │         [Cancelar]   [Confirmar OCO]            │
 └────────────────────────────────────────────────┘
@@ -334,7 +336,9 @@ Click "🛡 OCO" abre modal pré-preenchido com `parent_order_id` + qty.
 | User edita TP enquanto SL parcial executou | Recalcula qty restante; revalida sum |
 | Trailing: DLL recusa change_order | Log warning, mantém stop anterior, retry no próximo tick |
 | Mercado fora pregão (fora 10-17 BRT) | Trailing pausado (não tenta change_order); endpoints retornam 200 mas warning "fora pregão" |
-| Parent fill PARCIAL (ex: 60 de 100 filled) | Group.total_qty ajusta para 60; níveis re-rateiam proporcionalmente OU mantém qty original e cap em remaining (decisão a tomar) |
+| Parent fill PARCIAL (ex: 60 de 100 filled) | **Re-rateio proporcional** (Decisão 2): cada `level.qty *= filled_qty/total_qty`, arredonda pra baixo, sobra (resto da divisão) vai para o último level. Group.total_qty := filled_qty. |
+| Trailing criado com mercado já além do trigger | **Disparo imediato** (Decisão 6): envia ordem market do lado oposto (sell se long), loga `trailing.immediate_trigger`. Não rejeita. |
+| Level só com TP (sem SL) ou vice-versa | **Permitido** (Decisão 3): backend valida apenas que ao menos uma proteção esteja preenchida. Quando o lado existente fill, o group já fecha (não há cancel cross). |
 
 ---
 
@@ -351,14 +355,16 @@ Click "🛡 OCO" abre modal pré-preenchido com `parent_order_id` + qty.
 
 ---
 
-## 8. Decisões pendentes (precisa input antes de codar)
+## 8. Decisões resolvidas (26/abr/2026)
 
-1. **Trailing: distância em R$ XOR %**? Ou suportar ambos com toggle?
-2. **Parent fill PARCIAL**: levels re-rateiam proporcional ou cancelam tudo?
-3. **Permitir level só com TP (sem SL)**? Roteiro diz "nenhuma das duas opcional" → forçar ambos sempre. Confirmar.
-4. **OCO solo (sem parent) deve forçar ambos TP+SL** ou só Feature 1 obriga?
-5. **Limite máximo de níveis** (3? 5? sem limite)?
-6. **Trailing: se mercado já passou do trigger inicial?** (ex: SL inicial 47, last 46.50 → dispara imediato OU rejeita)?
+| # | Tema | Decisão |
+|---|---|---|
+| 1 | Trailing: distância em R$ ou % | **Ambos suportados** — toggle no payload (`trail_distance` em R$ XOR `trail_pct` em %). Schema já contempla as 2 colunas; validação aceita uma OU outra. ATR fica fora da Phase B inicial. |
+| 2 | Parent fill PARCIAL | **Re-rateio proporcional** — se parent enche 60 de 100, cada `level.qty` é multiplicado por `60/100` e arredondado pra baixo (sobra fica no último level pra evitar perda de qty). |
+| 3 | Level só com TP (sem SL) ou só SL (sem TP) | **Permitido** — ao menos uma das duas proteções por level. Constraint já existe: `CHECK (tp_price IS NOT NULL OR sl_trigger IS NOT NULL)`. |
+| 4 | OCO solo (sem parent) — `/order/oco` legado | **Mesma regra do item 3** — TP e SL passam a ser opcionais individualmente; basta um dos dois. Refator do endpoint legado para refletir. |
+| 5 | Limite máximo de níveis | **Sem limite hard-coded** — UI sugere até 3-5 por usabilidade, mas backend aceita N. Validar só `sum(levels[].qty) == total_qty`. |
+| 6 | Trailing: mercado já além do trigger no momento da criação | **Disparo imediato** — envia ordem de execução agora (market sell se long, market buy se short). Loga `trailing.immediate_trigger` com `last_price` e `trigger_price`. Sem rejeição. |
 
 ---
 
@@ -376,7 +382,9 @@ Click "🛡 OCO" abre modal pré-preenchido com `parent_order_id` + qty.
 
 ## Próximos passos
 
-1. **Você revisa este doc**
-2. Responde as 6 decisões da §8
-3. Escolhe pace: implementar tudo Fase A→D ou parar entre fases
-4. Implemento na ordem A → B → C → D, deployable de fase em fase
+1. ✅ Doc revisado
+2. ✅ 6 decisões respondidas em 26/abr/2026 (ver §8 acima)
+3. ⏳ Definir pace: tudo Fase A→D em sequência ou parar entre fases
+4. ⏳ Implementar na ordem A → B → C → D, deployable de fase em fase
+
+**Bloqueio remanescente**: nenhum. Pronto para começar Fase A (attach OCO em parent pending).
