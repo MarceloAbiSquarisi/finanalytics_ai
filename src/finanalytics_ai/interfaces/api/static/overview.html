@@ -200,6 +200,7 @@ let _quotes = {};             // ticker → {last, prev, closes}
 let _signals = {};            // ticker → {signal, predicted_return_pct, snapshot_date, ...}
 let _signalsSnapshot = null;  // ISO date do snapshot mais recente
 let _stopLoss = {};           // ticker → {stop_price, qty, count} (active stop-limit orders no profit_agent)
+let _accountsMap = {};        // id → {apelido, institution_name} (pra rotular tx em "Últimas movs")
 let _activeTab = 'all';
 let _activeSort = 'ticker';
 let _activeMlFilter = 'all';
@@ -285,6 +286,16 @@ async function fetchRecentTransactions() {
   } catch (e) { console.warn('recent_tx fail:', e.message); return []; }
 }
 
+async function fetchAccountsCache() {
+  try {
+    const data = await authFetch('/api/v1/wallet/accounts');
+    if (Array.isArray(data)) {
+      _accountsMap = {};
+      data.forEach(a => { _accountsMap[a.id] = { apelido: a.apelido, institution_name: a.institution_name, titular: a.titular }; });
+    }
+  } catch (e) { console.warn('accounts cache fail:', e.message); }
+}
+
 function renderRecentTransactions(tx) {
   const el = $('ov-recent-list');
   if (!tx.length) { el.innerHTML = '<em style="color:var(--muted)">Nenhuma movimentação recente.</em>'; return; }
@@ -294,9 +305,12 @@ function renderRecentTransactions(tx) {
     const sign = amt >= 0 ? '+' : '';
     const color = amt > 0 ? 'var(--green,#5fd99a)' : (amt < 0 ? 'var(--red,#e05555)' : 'var(--muted)');
     const stColor = t.status === 'pending' ? 'var(--gold,#F0B429)' : 'var(--white,#fff)';
+    const acc = _accountsMap[t.account_id];
+    const accLbl = acc ? (acc.apelido || acc.titular || acc.institution_name || t.account_id.slice(0, 8)) : (t.account_id ? t.account_id.slice(0, 8) : '—');
     return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
       <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--white,#fff)">${dt}</span>
       <span style="flex:1;margin:0 12px;color:var(--white,#fff)"><strong>${t.ticker || '—'}</strong> · ${t.tx_type || '—'}</span>
+      <span style="font-size:11px;color:var(--white,#fff);margin-right:10px;min-width:120px;text-align:right">${accLbl}</span>
       <span style="font-family:'DM Mono',monospace;color:${color};font-weight:600">${sign}R$ ${f2(amt)}</span>
       <span style="margin-left:10px;font-size:10px;color:${stColor};text-transform:uppercase">${t.status || '—'}</span>
     </div>`;
@@ -569,7 +583,8 @@ async function loadOverview() {
   loadStopLoss();
 
   // Últimas movimentações (atalho na home)
-  fetchRecentTransactions().then(renderRecentTransactions);
+  // Carrega accounts ANTES das tx pra rotular coluna Conta corretamente
+  fetchAccountsCache().then(() => fetchRecentTransactions().then(renderRecentTransactions));
 
   // ML signals — snapshot diário (signal_history). Query rápida (<100ms),
   // cache curto pra evitar refetch em tab-switches dentro da mesma sessão.
