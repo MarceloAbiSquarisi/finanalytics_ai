@@ -187,5 +187,19 @@
   "import.sec.xp": "XP Investimentos",
   "import.sec.b3": "B3 Trade Notes",
   "import.sec.auto": "Automatic Import",
-  "import.sec.dividends": "Dividends / Earnings"
+  "import.sec.dividends": "Dividends / Earnings",
+
+  "macro.title": "Macroeconomic Dashboard",
+  "forecast.title": "Price Forecast",
+  "forecast.subtitle": "Prophet + LSTM + TFT ensemble with narrative analysis via local LLM (Ollama)",
+  "performance.title": "Portfolio Performance",
+  "performance.subtitle": "Drawdown · Sharpe · Beta · Alpha · Benchmark vs IBOV",
+  "fundamental.title": "Fundamental Analysis",
+  "fundamental.subtitle": "Generate complete PDF reports with historical indicators, charts and comparisons. Data: Fintz.",
+  "diario.title": "📓 TRADE JOURNAL",
+  "diario.trades": "Trades",
+  "diario.winrate": "Win Rate",
+  "diario.pnl": "Total P&L",
+  "diario.rating": "Average Rating",
+  "diario.new_trade": "+ New Trade"
 }
