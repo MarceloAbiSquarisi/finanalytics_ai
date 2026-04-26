@@ -1,8 +1,8 @@
 # FinAnalytics AI — Pendências consolidadas
 
-> **Data**: 25/abr/2026 (sábado, após sessão noite)
-> **Base**: pós-cleanup `a86b1fc` + 24 commits no dia (último: `936d540` /carteira P/L+SL)
-> **Restantes**: 30 itens `[ ]` + 10 BUGs abertos + 4 fases OCO design
+> **Data**: 26/abr/2026 (dom madrugada, após super sessão de 9h)
+> **Base**: pós-cleanup `a86b1fc` + **48 commits** acumulados no fds (último: `4e3cdee` i18n final)
+> **Restantes**: ~22 itens `[ ]` + **5 BUGs abertos** (12 resolvidos) + OCO Phase C agendada terça
 > **Login**: marceloabisquarisi@gmail.com / admin123 (master)
 
 ---
@@ -57,6 +57,33 @@
 - [X] **OCO Phase B** — UI splits parciais N níveis (commit `443acb6` 26/abr) — modal dinâmico add/remove level; teste em §B.4 letra B
 - [ ] **OCO Phase C** — Trailing stop (codar + testar segunda 27/abr — agendado em §B.5)
 - [X] **OCO Phase D** — Persistence + restart safety (commit `f2c60a7` 26/abr) — `_load_oco_state_from_db` + endpoint `/oco/state/reload`; validado live `groups_loaded:0`
+
+**G6 i18n spread** (DONE 26/abr — 42 páginas, 159 chaves):
+- [X] Páginas core (5): /carteira, /movimentacoes, /alerts, /dashboard, /overview
+- [X] Pesquisa (3): /watchlist, /screener, /import
+- [X] Análise & ML (5): /macro, /forecast, /performance, /fundamental, /diario
+- [X] Análise técnica (5): /backtest, /correlation, /anomaly, /etf, /laminas
+- [X] Sistema (5): /admin, /hub, /patrimony, /vol-surface, /var
+- [X] Trading (5): /sentiment, /optimizer, /tape, /opcoes, /opcoes-estrategias
+- [X] Dados (5): /daytrade-setups, /daytrade-risco, /marketdata, /fintz, /subscriptions
+- [X] Investimentos (5): /dividendos, /fundos, /whatsapp, /pnl, /ml
+- [X] Auth/Profile (4): /profile, /tickers, /portfolios, /login
+- [X] Skip dynamic JS render (intencional — out of scope)
+
+**G4 auth refactor** (DONE 26/abr — 13/14 páginas):
+- [X] Piloto: /watchlist (`168f977`)
+- [X] Batch via `scripts/refactor_inline_auth.py` (12 páginas, `bba4fbc`): anomaly, backtest, correlation, diario, etf, fixed_income (3 IIFEs), forecast, laminas, macro, patrimony, performance, screener
+- [ ] **dashboard.html restante** — manual (lógica auth própria, exige cuidado)
+
+**ML / Multi-horizon** (depende de Z5 — Nelogica 1m):
+- [ ] Treinar pickles h3, h5 + h21 por ticker (multi-horizon real)
+- [ ] `/api/v1/ml/predict_ensemble` ganha utilidade real (hoje só agrega h21 sozinho)
+- [ ] Avaliar features extras por classe de ativo (futuros: book imbalance/tape; ações: fundamentus)
+
+**UX expansões**:
+- [X] /overview: botão per-card "↻ live recalc" via /predict_mvp/{ticker} (`9f55967` 26/abr)
+- [ ] /overview: badge SL também para crypto (precisa endpoint de orders crypto — não existe hoje)
+- [ ] Tabs /carteira: replicar P/L+SL nas tabs Trades, Outros (Crypto já feito)
 
 **ML / Multi-horizon** (depende de Z5 — Nelogica 1m):
 - [ ] Treinar pickles h3, h5 + h21 por ticker (multi-horizon real)
@@ -443,15 +470,19 @@ docker start finanalytics_timescale
 
 ## Status
 
-- **Total pendente**: ~28 itens em §A (2 — A.8+A.10 real), §B (16 incluindo §B.4 OCO + §B.5 Phase C trail), §C (5 — C.1 fases 2-5 + bugs); §D (5 backlog ML/UX)
+- **Total pendente**: ~22 itens em §A (2 — A.8+A.10 real), §B (16 incluindo §B.4 OCO + §B.5 Phase C trail), §C (4 — C6 Fase 5 com samples + bugs G4 dashboard + Z5)
 - **§A.1-A.7 + A.9 + A.10 estrutural + A.11 DONE 25/abr** (49 itens)
-- **§C.1 C6 Dividendos Fase 1/5 DONE 25/abr**
+- **§C.1 C6 Dividendos 4/5 fases DONE** (Fase 1 backend + Fase 2 UI /import + Fase 3 /movimentacoes + Fase 4 reconciliação manual; só Fase 5 testes com samples reais BTG/XP pendente)
 - **Sessão noite 25/abr (4.5h add)**: chart fixes + OHLC migration 3.4M bars + mojibake 21 files + clocks/candle counter + /overview novo dashboard + /overview ML via signal_history + /overview P/L+SL + /carteira P/L+SL + OCO design spec
-- **Sessão 26/abr (~3h)**: OCO 6 decisões resolvidas (Design doc atualizado) + Phase A backend+UI (commit `90adb01`) + Phase B UI splits (commit `443acb6`) + Phase D persistence (commit `f2c60a7`) + profit_agent restartado live com novo PID (rotas `/api/v1/agent/oco/*` validadas)
-- **Total acumulado 25-26/abr**: ~15h, 28 commits, 7 BUGs fixados, 11 features novas (4 dashboard, 3 overview, 1 carteira, 3 OCO)
+- **Sessão 26/abr (super sessão ~9h em 4 batches)**:
+  - **Batch 1 OCO (3h)**: Phase A backend+UI (`90adb01`) + Phase B UI splits (`443acb6`) + Phase D persistence (`f2c60a7`) + profit_agent restartado live
+  - **Batch 2 BUGs+features (3.5h, 9 commits)**: BUG15 separador, /overview live recalc per-card, /carteira P/L Crypto, BUG17 JWT, C6 Fase 2+3 UI, BUG12+BUG19 (`9f55967`→`ce1ce5a`); BUG11 RF account_id (`4f0a70d`)
+  - **Batch 3 i18n+G4 (2h, 3 commits)**: G6 i18n /carteira+/movimentacoes+/alerts+/dashboard (`06abdc3`+`60cb600`); +/watchlist/screener/import + G4 piloto (`168f977`); G4 batch 12 páginas via script (`bba4fbc`)
+  - **Batch 4 i18n spread massivo (1.5h, 6 commits)**: 25 páginas adicionais com data-i18n: macro/forecast/performance/fundamental/diario (`a4570a5`), backtest/correlation/anomaly/etf/laminas (`e0259b4`), admin/hub/patrimony/vol_surface/var (`0e77e0b`), sentiment/optimizer/tape/opcoes/opcoes_estrategias (`33c13a6`), dt_setups/dt_risco/marketdata/fintz/subscriptions (`6f7727b`), dividendos/fundos/whatsapp/pnl/ml (`953657a`), profile/tickers/portfolios/login (`a1dc965`+`4e3cdee`)
+- **Total acumulado 25-26/abr**: ~28h, **48 commits**, **12 BUGs resolvidos**, **20+ features novas**, **~159 chaves i18n em 42 páginas** (cobertura ampla), **G4 13/14 páginas migradas** (só dashboard.html restante, complexo)
 - **Bloqueado por externo**: Z5 (Nelogica 1m, ~48h)
 - **Próximo gatilho**: segunda 27/abr 10h BRT — §B.1 (DLL viva) + §B.4 (OCO end-to-end) + §B.5 (Phase C Trailing — codar + testar)
-- **BUGs**: 10 abertos (3 médios: BUG8 SMTP + BUG11 RF account_id + BUG17 alerts user-demo; 7 baixos); 7 resolvidos
+- **BUGs**: 5 abertos (BUG8 SMTP backup; BUG2/3/4/5/6 baixos/intencionais); **12 resolvidos** (BUG7, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21)
 
 ### Cleanup state (final do dia 25/abr 23h+):
 - **Users**: 1 ativo (master `marceloabisquarisi@gmail.com`); user_comum_test desativado via PATCH /admin/users/{id}/active
@@ -466,5 +497,5 @@ docker start finanalytics_timescale
 ---
 
 **Documento gerado em**: 25/abr/2026 (sáb, após cleanup `a86b1fc`)
-**Última atualização**: 26/abr/2026 (dom — após OCO Phase A+B+D codadas e profit_agent restartado live)
-**Próximo gatilho**: segunda 27/abr 10h BRT pregão — §B.1 DLL viva + §B.4 OCO end-to-end (A+B+D) + §B.5 Phase C Trailing (codar+testar)
+**Última atualização**: 26/abr/2026 madrugada (dom — após super sessão de 9h: OCO + 9 commits BUGs/features + 25 páginas i18n + G4 batch 13 páginas)
+**Próximo gatilho**: segunda 27/abr 10h BRT pregão — §B.1 DLL viva + §B.4 OCO end-to-end (A+B+D) + §B.5 Phase C Trailing (codar+testar). Único pendente G4: dashboard.html (manual)
