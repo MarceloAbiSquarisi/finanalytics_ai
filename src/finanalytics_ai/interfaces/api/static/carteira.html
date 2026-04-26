@@ -390,8 +390,8 @@ tr:hover td{background:rgba(0,212,255,.02)}
 </div>
     <div class="tbl-wrap">
       <table data-fa-table>
-        <thead><tr><th>Symbol</th><th>Quantidade</th><th>Preço Médio (BRL)</th><th>Preço Médio (USD)</th><th>Exchange</th><th>Conta</th><th></th></tr></thead>
-        <tbody id="tbody-crypto"><tr><td colspan="7" class="empty">Carregando...</td></tr></tbody>
+        <thead><tr><th>Symbol</th><th>Quantidade</th><th>Preço Médio (BRL)</th><th>Atual</th><th>P/L</th><th>Preço Médio (USD)</th><th>Exchange</th><th>Conta</th><th></th></tr></thead>
+        <tbody id="tbody-crypto"><tr><td colspan="9" class="empty">Carregando...</td></tr></tbody>
       </table>
 </div>
 </div>
@@ -1077,10 +1077,12 @@ async function loadCrypto() {
     }
     tbody.innerHTML = crypto.map(c => {
       const acc = accounts.find(a=>a.id===c.investment_account_id);
-      return `<tr>
+      return `<tr data-symbol="${c.symbol}" data-qty="${c.quantity}" data-avg="${c.average_price_brl}">
         <td><strong style="color:var(--gold)">${c.symbol}</strong></td>
         <td class="td-right">${fmtQty(c.quantity)}</td>
         <td class="td-right">${fmt(c.average_price_brl)}</td>
+        <td class="td-right cell-last">—</td>
+        <td class="td-right cell-pnl">—</td>
         <td class="td-right">${c.average_price_usd?fmt(c.average_price_usd,'$ '):'—'}</td>
         <td>${c.exchange||'—'}</td>
         <td>${acc ? (acc.apelido ? `<div><strong>${acc.apelido}</strong></div><div style="font-size:11px;color:var(--muted);margin-top:2px">${acc.institution_name||''}</div>` : (acc.institution_name||'—')) : '—'}</td>
@@ -1088,7 +1090,53 @@ async function loadCrypto() {
           <button class="btn btn-sm" style="background:transparent;border:1px solid var(--green);color:var(--green);margin-right:4px" onclick="redeemCrypto('${c.id}', '${c.symbol}', ${Number(c.quantity)}, ${Number(c.average_price_brl)})" title="Resgate parcial (credita cash)">💰</button>
           <button class="btn btn-danger btn-sm" onclick="deleteCrypto('${c.id}')">✕</button></td></tr>`;
     }).join('');
+    enrichCryptoTable();
   } catch(e) { console.error(e); }
+}
+
+async function enrichCryptoTable() {
+  const rows = Array.from(document.querySelectorAll('#tbody-crypto tr[data-symbol]'));
+  if (!rows.length) return;
+  const symbols = [...new Set(rows.map(r => r.dataset.symbol))];
+  const lastMap = {};
+  const BATCH = 4;
+  for (let i = 0; i < symbols.length; i += BATCH) {
+    const batch = symbols.slice(i, i + BATCH);
+    const prices = await Promise.all(batch.map(s => fetchCryptoLastBrl(s)));
+    prices.forEach((p, j) => { lastMap[batch[j]] = p; });
+    applyCryptoEnrichment(rows, lastMap);
+  }
+}
+
+async function fetchCryptoLastBrl(symbol) {
+  // Tenta /candles do próprio symbol (alguns funcionam: BTC, ETH em 1d).
+  // Se falhar, retorna null e P/L mostra '—'.
+  try {
+    const r = await fetch(`/api/v1/marketdata/candles/${encodeURIComponent(symbol)}?resolution=1d&limit=1`);
+    if (!r.ok) return null;
+    const d = await r.json();
+    const c = (d.candles || []).slice(-1)[0];
+    return c ? +c.close : null;
+  } catch (e) { return null; }
+}
+
+function applyCryptoEnrichment(rows, lastMap) {
+  rows.forEach(row => {
+    const s = row.dataset.symbol;
+    const qty = parseFloat(row.dataset.qty);
+    const avg = parseFloat(row.dataset.avg);
+    const last = lastMap[s];
+    const cellLast = row.querySelector('.cell-last');
+    const cellPnl = row.querySelector('.cell-pnl');
+    if (last != null && cellLast.textContent.trim() === '—') {
+      cellLast.textContent = fmt(last);
+      const pnl = (last - avg) * qty;
+      const pnlPct = avg !== 0 ? ((last - avg) / avg) * 100 : 0;
+      const sign = pnl >= 0 ? '+' : '';
+      const color = pnl > 0 ? 'var(--green)' : (pnl < 0 ? 'var(--red)' : 'var(--muted)');
+      cellPnl.innerHTML = `<span style="color:${color};font-weight:600">${sign}${fmt(pnl)}<br><small style="opacity:.75">${sign}${pnlPct.toFixed(2)}%</small></span>`;
+    }
+  });
 }
 
 async function redeemCrypto(cryptoId, symbol, totalQty, avgPrice) {
