@@ -256,9 +256,9 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 
 <div class="fa-page-content">
 <div class="main">
-  <div class="page-title">Perfil
+  <div class="page-title" data-i18n="profile.title">Perfil
 </div>
-  <div class="page-sub">Gerencie suas informações e segurança da conta.
+  <div class="page-sub" data-i18n="profile.subtitle">Gerencie suas informações e segurança da conta.
 </div>
 
   <!-- Barra de abas -->
@@ -273,11 +273,11 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
   <div class="fa-prof-tabs" role="tablist">
     <button class="fa-prof-tab active" data-target="perfil" onclick="showProfileTab('perfil')" role="tab">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      Perfil
+      <span data-i18n="profile.tab.perfil">Perfil</span>
     </button>
     <button class="fa-prof-tab" data-target="invest" onclick="showProfileTab('invest')" role="tab">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-      Contas
+      <span data-i18n="profile.tab.contas">Contas</span>
     </button>
   </div>
 
@@ -285,22 +285,22 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
   <div class="card" data-tab="perfil">
     <div class="card-title">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      Informações da Conta
+      <span data-i18n="profile.account_info">Informações da Conta</span>
 </div>
     <div class="info-row">
-      <div class="info-label">E-mail</div>
+      <div class="info-label" data-i18n="profile.email">E-mail</div>
       <div class="info-value" id="info-email">—</div>
     </div>
     <div class="info-row">
-      <div class="info-label">Nome completo</div>
+      <div class="info-label" data-i18n="profile.fullname">Nome completo</div>
       <div class="info-value" id="info-fullname" style="font-family:inherit">—</div>
     </div>
     <div class="info-row">
-      <div class="info-label">Perfil</div>
+      <div class="info-label" data-i18n="profile.role">Perfil</div>
       <div class="info-value" id="info-role" style="font-family:inherit">—</div>
     </div>
     <div class="info-row">
-      <div class="info-label">Status</div>
+      <div class="info-label" data-i18n="profile.status">Status</div>
       <div class="info-value" id="info-status" style="font-family:inherit">—</div>
     </div>
     <!-- Sprint Fix UI 22/abr (item 4.1): ID do Usuario ocultado da UI por privacidade.

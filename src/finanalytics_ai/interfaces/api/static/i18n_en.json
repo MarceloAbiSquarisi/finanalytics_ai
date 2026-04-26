@@ -251,5 +251,15 @@
   "whatsapp.subtitle": "Automatic alerts via Evolution API — Setups, Prices and Sentiment",
   "pnl.title": "📈 Intraday P&L",
   "pnl.subtitle": "Daily result per operation with B3 operating cost",
-  "ml.title": "PROBABILISTIC ML"
+  "ml.title": "PROBABILISTIC ML",
+
+  "profile.title": "Profile",
+  "profile.subtitle": "Manage your information and account security.",
+  "profile.tab.perfil": "Profile",
+  "profile.tab.contas": "Accounts",
+  "profile.account_info": "Account Information",
+  "profile.email": "E-mail",
+  "profile.fullname": "Full name",
+  "profile.role": "Role",
+  "profile.status": "Status"
 }
