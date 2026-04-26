@@ -169,5 +169,23 @@
   "dashboard.tab.pos": "Pos.",
   "dashboard.tab.list": "Orders",
   "dashboard.tab.signals": "Signals",
-  "dashboard.tab.account": "Account"
+  "dashboard.tab.account": "Account",
+
+  "watchlist.title": "Watchlist",
+  "watchlist.subtitle": "Monitor assets with smart alerts based on technical indicators",
+  "watchlist.my_list": "My List",
+  "watchlist.eval_alerts": "Evaluate Alerts",
+  "watchlist.add_ph": "Search ticker to add...",
+  "watchlist.add": "+ Add",
+
+  "screener.title": "Screener",
+  "screener.run": "Run Screener",
+  "screener.clear": "Clear Filters",
+
+  "import.title": "Import Files",
+  "import.sec.btg": "BTG Pactual",
+  "import.sec.xp": "XP Investimentos",
+  "import.sec.b3": "B3 Trade Notes",
+  "import.sec.auto": "Automatic Import",
+  "import.sec.dividends": "Dividends / Earnings"
 }

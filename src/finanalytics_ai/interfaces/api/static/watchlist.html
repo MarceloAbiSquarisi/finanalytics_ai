@@ -397,8 +397,8 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 </nav>
 
 <div class="page">
-  <h1>Watchlist</h1>
-  <p class="subtitle">Monitore ativos com alertas inteligentes baseados em indicadores tecnicos</p>
+  <h1 data-i18n="watchlist.title">Watchlist</h1>
+  <p class="subtitle" data-i18n="watchlist.subtitle">Monitore ativos com alertas inteligentes baseados em indicadores tecnicos</p>
 
   <div id="triggered-section">
 </div>
@@ -408,16 +408,16 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     <div>
       <div class="panel">
         <div class="panel-header">
-          <span class="panel-title">Minha Lista</span>
+          <span class="panel-title" data-i18n="watchlist.my_list">Minha Lista</span>
           <div style="display:flex;gap:6px;align-items:center">
             <span id="wl-count" style="font-size:14px;color:var(--muted)"></span>
-            <button class="btn btn-sm" onclick="evaluateAll()">Avaliar Alertas</button>
+            <button class="btn btn-sm" onclick="evaluateAll()" data-i18n="watchlist.eval_alerts">Avaliar Alertas</button>
 </div>
 </div>
         <div class="panel-body">
           <div class="add-row">
             <div id="add-search-wrap" style="position:relative;flex:1">
-              <input id="add-ticker" autocomplete="off" placeholder="Buscar ticker para adicionar..."
+              <input id="add-ticker" autocomplete="off" placeholder="Buscar ticker para adicionar..." data-i18n-attr="placeholder:watchlist.add_ph"
                      style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:17px;padding:7px 10px;outline:none;transition:border .15s"
                      oninput="this.value=this.value.toUpperCase();wlSearchInput(this.value)"
                      onkeydown="wlSearchKey(event)"
@@ -425,7 +425,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
               <div id="wl-dropdown" style="display:none;position:absolute;top:36px;left:0;min-width:100%;background:#1a2035;border:1px solid var(--border);border-radius:8px;z-index:9999;max-height:240px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.6)">
 </div>
 </div>
-            <button class="btn" onclick="addItemFromInput()">+ Adicionar</button>
+            <button class="btn" onclick="addItemFromInput()" data-i18n="watchlist.add">+ Adicionar</button>
 </div>
           <div id="wl-list" class="wl-list">
             <div class="loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span>
@@ -455,8 +455,10 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 <div class="toast-container" id="toasts">
 </div>
 
+<script src="/static/auth_guard.js"></script>
 <script>
-(function authGuard(){var t=localStorage.getItem("access_token"),e=parseInt(localStorage.getItem("token_expires_at")||"0");if(!t||e<Date.now()+60000)window.location.replace("/login");})();
+// G4 refactor 26/abr — usa FAAuth.requireAuth (silent refresh + lembre-me 7d).
+(function(){function go(){if(window.FAAuth)FAAuth.requireAuth({});else setTimeout(go,30);}if(document.readyState!=="loading")go();else document.addEventListener("DOMContentLoaded",go);})();
 const USER_ID = 'user_default';
 let watchlistData = [];
 let selectedItemId = null;
