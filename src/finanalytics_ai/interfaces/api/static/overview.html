@@ -313,7 +313,8 @@ async function fetchCrypto() {
   } catch (e) { console.warn('crypto fail:', e.message); return []; }
 }
 async function fetchRF() {
-  // RF holdings via portfolios. Filtra portfolios pela conta (1:1 conta=portfolio).
+  // RF holdings via portfolios. Backend retorna current_net_value já calculado
+  // com taxas CDI/SELIC/IPCA default. Usamos como 'last' e P/L é current - invested.
   try {
     const portfolios = await authFetch('/api/v1/portfolios');
     let arr = Array.isArray(portfolios) ? portfolios : [];
@@ -324,10 +325,21 @@ async function fetchRF() {
       try {
         const det = await authFetch(`/api/v1/fixed-income/portfolio/${p.portfolio_id}`);
         const holdings = det.holdings || [];
-        holdings.forEach(h => all.push({
-          ticker: h.bond_id || h.bond_name || '?', source: 'rf', qty: 1, avg: h.invested,
-          value: h.invested || 0, bond_name: h.bond_name, indexer: h.indexer,
-        }));
+        holdings.forEach(h => {
+          const invested = h.invested || 0;
+          const current = h.current_net_value != null ? h.current_net_value : invested;
+          all.push({
+            ticker: h.bond_id || h.bond_name || '?',
+            source: 'rf',
+            qty: 1,
+            avg: invested,
+            value: current,
+            // last= current_net_value pra renderCard calcular P/L = (last-avg)*qty
+            _rf_current: current,
+            bond_name: h.bond_name,
+            indexer: h.indexer,
+          });
+        });
       } catch (e2) { /* skip */ }
     }
     return all;
@@ -492,8 +504,17 @@ function renderCard(item) {
     chgPct = (chg / prev) * 100;
     dir = chg > 0 ? 'up' : (chg < 0 ? 'down' : 'flat');
   }
+  // RF: usa current_net_value calculado pelo backend (vai pra `last`); chg = atual - investido
+  let rfChg = null, rfChgPct = null;
+  if (item.source === 'rf' && item._rf_current != null && item.avg) {
+    rfChg = item._rf_current - item.avg;
+    rfChgPct = item.avg !== 0 ? (rfChg / item.avg) * 100 : 0;
+    dir = rfChg > 0 ? 'up' : (rfChg < 0 ? 'down' : 'flat');
+  }
   const priceTxt = last != null ? 'R$ ' + f2(last) : (item.source === 'rf' ? 'R$ ' + f2(item.value) : '—');
-  const chgTxt = (chg == null) ? (item.source === 'rf' ? '(RF)' : '—') : `${chg >= 0 ? '+' : ''}${f2(chg)} (${chg >= 0 ? '+' : ''}${chgPct.toFixed(2)}%)`;
+  const chgTxt = (item.source === 'rf' && rfChg != null)
+    ? `${rfChg >= 0 ? '+' : ''}${f2(rfChg)} (${rfChg >= 0 ? '+' : ''}${rfChgPct.toFixed(2)}%)`
+    : ((chg == null) ? (item.source === 'rf' ? '(RF)' : '—') : `${chg >= 0 ? '+' : ''}${f2(chg)} (${chg >= 0 ? '+' : ''}${chgPct.toFixed(2)}%)`);
   const spark = item.source === 'rf' ? '' : buildSparkline(q.closes, 220, 36);
   const tagText = { position: 'POS', watchlist: 'WL', crypto: 'CRP', rf: 'RF' }[item.source] || '?';
   const tagCls = { position: 'tag-pos', watchlist: 'tag-watch', crypto: 'tag-crypto', rf: 'tag-rf' }[item.source] || '';
@@ -511,11 +532,17 @@ function renderCard(item) {
              `<button class="ov-ml-recalc" onclick="event.preventDefault();event.stopPropagation();recalcCardSignal('${ticker}');" title="Calcular ML em tempo real (~4s)">↻</button>`;
   }
 
-  // P/L (positions e crypto): (last - avg) * qty
+  // P/L (positions, crypto, RF): (last - avg) * qty
   let pnlHtml = '';
+  let pnl = null, pnlPct = null;
   if ((item.source === 'position' || item.source === 'crypto') && item.avg != null && item.qty != null && last != null) {
-    const pnl = (last - item.avg) * item.qty;
-    const pnlPct = item.avg !== 0 ? ((last - item.avg) / item.avg) * 100 : 0;
+    pnl = (last - item.avg) * item.qty;
+    pnlPct = item.avg !== 0 ? ((last - item.avg) / item.avg) * 100 : 0;
+  } else if (item.source === 'rf' && item._rf_current != null && item.avg != null) {
+    pnl = item._rf_current - item.avg;
+    pnlPct = item.avg !== 0 ? (pnl / item.avg) * 100 : 0;
+  }
+  if (pnl != null) {
     const pnlDir = pnl > 0 ? 'up' : (pnl < 0 ? 'down' : 'flat');
     const sign = pnl >= 0 ? '+' : '';
     pnlHtml = `<div class="ov-pnl ${pnlDir}"><span class="ov-pnl-label">P/L</span>${sign}R$ ${f2(pnl)} (${sign}${pnlPct.toFixed(2)}%)</div>`;
