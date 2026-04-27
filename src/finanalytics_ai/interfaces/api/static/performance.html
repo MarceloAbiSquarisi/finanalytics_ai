@@ -394,7 +394,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 </div>
     <div class="controls">
       <select id="portfolio-sel" onchange="onPortfolioChange()">
-        <option value="">Carregando portfolios...</option>
+        <option value="">Carregando carteiras...</option>
       </select>
       <div class="period-tabs" id="period-tabs">
         <button class="ptab" onclick="setPeriod('3mo')">3M</button>
@@ -413,9 +413,9 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     <div class="empty-state">
       <div class="empty-icon">📈
 </div>
-      <div style="font-size:18px;color:var(--text);margin-bottom:8px">Selecione um portfólio
+      <div style="font-size:18px;color:var(--text);margin-bottom:8px">Selecione uma carteira
 </div>
-      <div>Escolha o portfólio e o período para ver análise completa de performance.
+      <div>Escolha a carteira e o período para ver análise completa de performance.
 </div>
 </div>
 </div>
@@ -425,10 +425,25 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 <script>
 // G4 refactor 26/abr — usa FAAuth.requireAuth (silent refresh + lembre-me 7d).
 (function(){function go(){if(window.FAAuth)FAAuth.requireAuth({});else setTimeout(go,30);}if(document.readyState!=="loading")go();else document.addEventListener("DOMContentLoaded",go);})();
-const USER_ID = 'user_default';
 let selectedPeriod = '1y';
 let charts = {};
 let perfData = null;
+
+// Helper: fetch com Authorization Bearer (backend usa Depends(get_current_user))
+async function _authFetch(path, opts = {}) {
+  const tok = (typeof localStorage !== 'undefined' && localStorage.getItem('access_token')) || '';
+  const headers = {
+    ...(tok ? { 'Authorization': 'Bearer ' + tok } : {}),
+    ...(opts.headers || {}),
+  };
+  const res = await fetch(path, { ...opts, headers });
+  if (res.status === 401) {
+    try { localStorage.removeItem('access_token'); } catch (_) {}
+    if (location.pathname !== '/login') location.href = '/login?next=' + encodeURIComponent(location.pathname);
+    throw new Error('Sessão expirada');
+  }
+  return res;
+}
 
 // ── Period tabs ───────────────────────────────────────────────────────────────
 function setPeriod(p) {
@@ -440,30 +455,41 @@ function setPeriod(p) {
   });
 }
 
-// ── Portfolios ────────────────────────────────────────────────────────────────
+// ── Carteiras (= contas) ────────────────────────────────────────────────────
 async function loadPortfolios() {
+  console.info('[performance] loadPortfolios v85+ start');
+  const sel = document.getElementById('portfolio-sel');
   try {
-    const res = await fetch(`/api/v1/portfolios?user_id=${USER_ID}`);
-    const list = await res.json();
-    const sel = document.getElementById('portfolio-sel');
-    if (!list.length) {
-      sel.innerHTML = '<option value="">Nenhum portfolio encontrado</option>';
-      // CTA visivel acima do select
+    const res = await _authFetch('/api/v1/wallet/accounts');
+    console.info('[performance] /accounts status', res.status);
+    const accounts = res.ok ? await res.json() : [];
+    console.info('[performance] accounts received:', accounts);
+    const items = (accounts || [])
+      .filter(a => a.is_active !== false)
+      .map(a => ({
+        account_id: a.id,
+        label: a.apelido || a.institution_name || ('Conta ' + a.id.slice(0, 6)),
+        institution: a.institution_name || '',
+      }));
+    console.info('[performance] items after filter:', items);
+    if (!items.length) {
+      sel.innerHTML = '<option value="">Nenhuma carteira encontrada</option>';
       const main = document.getElementById('main-content');
       if (main && window.FAEmpty) {
         FAEmpty.render(main, {
-          title: 'Voce ainda nao tem portfolios',
-          text: 'Performance precisa de um portfolio com posicoes registradas. Crie o primeiro para comecar.',
-          cta: { label: 'Ir para Portfolios', variant: 'primary', onClick: "window.location.href='/portfolios'" }
+          title: 'Você ainda não tem carteiras',
+          text: 'Performance precisa de uma carteira com posições registradas. Crie a primeira em Carteira.',
+          cta: { label: 'Ir para Carteira', variant: 'primary', onClick: "window.location.href='/carteira'" }
         });
       }
       return;
     }
-    sel.innerHTML = list.map(p =>
-      `<option value="${p.portfolio_id}">${p.name}</option>`
+    sel.innerHTML = items.map(it =>
+      `<option value="${it.account_id}">${it.label}${it.institution ? ' (' + it.institution + ')' : ''}</option>`
     ).join('');
   } catch(e) {
-    document.getElementById('portfolio-sel').innerHTML = '<option value="">Erro ao carregar</option>';
+    sel.innerHTML = '<option value="">Erro ao carregar</option>';
+    console.warn('[performance] loadPortfolios fail:', e.message);
   }
 }
 
@@ -473,8 +499,8 @@ function onPortfolioChange() {
 
 // ── Load performance ──────────────────────────────────────────────────────────
 async function loadPerformance() {
-  const portfolioId = document.getElementById('portfolio-sel').value;
-  if (!portfolioId) { FAToast.err('Selecione um portfólio'); return; }
+  const accountId = document.getElementById('portfolio-sel').value;
+  if (!accountId) { FAToast.err('Selecione uma carteira'); return; }
 
   document.getElementById('main-content').innerHTML = `
     <div class="loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
@@ -486,7 +512,7 @@ async function loadPerformance() {
   charts = {};
 
   try {
-    const res = await fetch(`/api/v1/portfolios/${portfolioId}/performance?period=${selectedPeriod}`);
+    const res = await _authFetch(`/api/v1/wallet/accounts/${accountId}/performance?period=${selectedPeriod}`);
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.detail || res.statusText);

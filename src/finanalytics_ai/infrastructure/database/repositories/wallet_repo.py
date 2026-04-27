@@ -972,6 +972,9 @@ class WalletRepository:
         asset_class: str | None = None,
         account_id: str | None = None,
         portfolio_id: str | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        operation: str | None = None,
     ) -> list[dict]:
         async with get_session() as s:
             q = select(TradeModel).where(TradeModel.user_id == user_id)
@@ -983,6 +986,12 @@ class WalletRepository:
                 q = q.where(TradeModel.investment_account_id == account_id)
             if portfolio_id:
                 q = q.where(TradeModel.portfolio_id == portfolio_id)
+            if date_from:
+                q = q.where(TradeModel.trade_date >= date_from)
+            if date_to:
+                q = q.where(TradeModel.trade_date <= date_to)
+            if operation:
+                q = q.where(TradeModel.operation == operation.lower())
             q = q.order_by(TradeModel.trade_date.desc())
             rows = (await s.execute(q)).scalars().all()
             return [_model_to_dict(r) for r in rows]
@@ -1049,6 +1058,7 @@ class WalletRepository:
                     {
                         "ticker": ticker,
                         "asset_class": tlist[0]["asset_class"],
+                        "currency": tlist[0].get("currency", "BRL"),
                         "quantity": float(total_qty),
                         "average_price": round(avg_price, 6),
                         "total_invested": float(total_cost),
@@ -1133,6 +1143,29 @@ class WalletRepository:
             q = q.order_by(CryptoHoldingModel.symbol)
             rows = (await s.execute(q)).scalars().all()
             return [_model_to_dict(r) for r in rows]
+
+    async def list_rf(self, user_id: str, account_id: str | None = None) -> list[dict]:
+        """Lista títulos de RF do usuário (todos ou filtrados por conta).
+        rf_holdings → portfolios (FK portfolio_id) → investment_account_id."""
+        async with get_session() as s:
+            sql = """
+                SELECT rh.holding_id, rh.portfolio_id, rh.bond_id, rh.bond_name,
+                       rh.bond_type, rh.indexer, rh.issuer, rh.invested,
+                       rh.rate_annual, rh.rate_pct_indexer,
+                       rh.purchase_date, rh.maturity_date, rh.ir_exempt,
+                       rh.liquidity_days, rh.note,
+                       p.investment_account_id
+                  FROM rf_holdings rh
+                  JOIN portfolios p ON p.id = rh.portfolio_id
+                 WHERE p.user_id = :user_id
+            """
+            params: dict[str, object] = {"user_id": user_id}
+            if account_id:
+                sql += " AND p.investment_account_id = :account_id"
+                params["account_id"] = account_id
+            sql += " ORDER BY rh.maturity_date NULLS LAST, rh.bond_name"
+            rows = (await s.execute(text(sql), params)).mappings().all()
+            return [dict(r) for r in rows]
 
     async def delete_crypto(self, crypto_id: str, user_id: str) -> bool:
         # Captura holding ANTES do delete para computar tx (sell = fechar posicao)

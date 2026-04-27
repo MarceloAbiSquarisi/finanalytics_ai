@@ -113,7 +113,8 @@ class TradeCreate(BaseModel):
     trade_date: date
     fees: Decimal = Field(Decimal("0"), ge=0)
     currency: str = Field("BRL", max_length=3)
-    investment_account_id: str | None = None
+    # Invariante (27/abr): todo ativo DEVE estar vinculado a uma carteira (account).
+    investment_account_id: str = Field(..., min_length=1, description="Carteira obrigatória")
     portfolio_id: str | None = None
     note: str | None = None
 
@@ -123,7 +124,7 @@ class CryptoUpsert(BaseModel):
     quantity: Decimal = Field(..., gt=0)
     average_price_brl: Decimal = Field(..., ge=0)
     average_price_usd: Decimal | None = None
-    investment_account_id: str | None = None
+    investment_account_id: str = Field(..., min_length=1, description="Carteira obrigatória")
     portfolio_id: str | None = None
     exchange: str | None = None
     wallet_address: str | None = None
@@ -139,7 +140,7 @@ class OtherAssetCreate(BaseModel):
     acquisition_date: date | None = None
     maturity_date: date | None = None
     ir_exempt: bool = False
-    investment_account_id: str | None = None
+    investment_account_id: str = Field(..., min_length=1, description="Carteira obrigatória")
     portfolio_id: str | None = None
     note: str | None = None
 
@@ -511,10 +512,23 @@ async def list_trades(
     asset_class: str | None = None,
     account_id: str | None = None,
     portfolio_id: str | None = None,
+    date_from: str | None = Query(None, description="YYYY-MM-DD"),
+    date_to: str | None = Query(None, description="YYYY-MM-DD"),
+    operation: str | None = Query(None, pattern="^(buy|sell)$"),
     user: User = Depends(get_current_user),
 ) -> list[dict]:
+    from datetime import date as _date
+    df = _date.fromisoformat(date_from) if date_from else None
+    dt = _date.fromisoformat(date_to) if date_to else None
     return await _repo().list_trades(
-        str(user.user_id), ticker, asset_class, account_id, portfolio_id=portfolio_id
+        str(user.user_id),
+        ticker,
+        asset_class,
+        account_id,
+        portfolio_id=portfolio_id,
+        date_from=df,
+        date_to=dt,
+        operation=operation,
     )
 
 
@@ -603,6 +617,19 @@ async def delete_crypto(crypto_id: str, user: User = Depends(get_current_user)) 
     ok = await _repo().delete_crypto(crypto_id, str(user.user_id))
     if not ok:
         raise HTTPException(404, "Cripto não encontrada")
+
+
+# ── Renda Fixa (read-only — CRUD em /api/v1/fixed-income/portfolio) ──────
+
+
+@router.get("/rf")
+async def list_rf(
+    account_id: str | None = Query(None, description="Filtra por conta (default: todas)"),
+    user: User = Depends(get_current_user),
+) -> list[dict]:
+    """Lista títulos de RF do usuário, opcionalmente filtrados por conta.
+    Usado pela aba Renda Fixa em /carteira (read-only)."""
+    return await _repo().list_rf(user_id=str(user.user_id), account_id=account_id)
 
 
 # ── Other Assets ──────────────────────────────────────────────────────────

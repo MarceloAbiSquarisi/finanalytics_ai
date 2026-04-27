@@ -8,6 +8,31 @@
   if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script>
 <link rel="stylesheet" href="/static/theme.css">
 <style>
+:root { --sb-w: 220px; --sb-w-collapsed: 52px; }
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg,#080b10);color:var(--text,#cdd6e0);font-family:system-ui,sans-serif;min-height:100vh}
+.fa-topbar{height:52px;background:var(--s1,#0d1117);border-bottom:1px solid var(--border,#1c2535);display:flex;align-items:center;gap:12px;padding:0 16px;position:sticky;top:0;z-index:300}
+.fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none}
+.fa-logo-text{font-family:monospace;font-size:17px;font-weight:600;color:var(--text,#cdd6e0)}
+.fa-logo-text em{color:var(--gold,#F0B429);font-style:normal}
+.fa-ai-badge{background:var(--gold,#F0B429);color:#0a1628;font-size:12px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.08em;vertical-align:middle;margin-left:2px}
+.fa-user-chip{display:flex;align-items:center;gap:6px;margin-left:auto}
+.fa-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#1B3A6B,#0b2040);border:1px solid #1e3a5f;display:flex;align-items:center;justify-content:center;font-size:14px;color:#8899aa}
+.fa-logout-btn{background:transparent;border:1px solid var(--border,#1c2535);border-radius:5px;color:var(--muted,#4a5e72);font-size:13px;padding:4px 10px;cursor:pointer;display:flex;align-items:center;gap:5px;transition:.15s}
+.fa-logout-btn:hover{color:var(--red,#ff3d5a);border-color:var(--red,#ff3d5a)}
+.fa-sidebar{position:fixed;left:0;top:52px;bottom:0;width:var(--sb-w-collapsed);background:#0a0f18;border-right:1px solid var(--border,#1c2535);display:flex;flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1);z-index:200}
+.fa-sidebar.open{width:var(--sb-w)}
+.fa-sidebar-toggle{width:100%;padding:10px 14px;background:transparent;border:none;border-bottom:1px solid var(--border,#1c2535);color:#7a95b0;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:15px;white-space:nowrap;overflow:hidden}
+.fa-sidebar-toggle:hover{color:var(--gold,#F0B429);background:rgba(240,180,41,.06)}
+.fa-sidebar-toggle svg{flex-shrink:0}
+.fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;text-decoration:none;font-size:14px;white-space:nowrap;overflow:hidden;transition:all .15s}
+.fa-sb-link:hover{color:var(--text,#cdd6e0);background:rgba(0,212,255,.05)}
+.fa-sb-link.active{color:var(--accent,#00d4ff);background:rgba(0,212,255,.08);border-right:2px solid var(--accent,#00d4ff)}
+.fa-sb-link svg{flex-shrink:0}
+.fa-sb-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-link span{opacity:1}
+.fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1)}
+body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 .mv-wrap { padding: 20px 24px; max-width: 1280px; margin: 0 auto; }
 .mv-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; flex-wrap: wrap }
 .mv-head h1 { font-size: 22px; margin: 0; font-weight: 700 }
@@ -42,7 +67,24 @@
 </style>
 </head>
 <body>
-<div id="fa-sidebar"></div>
+
+<div class="fa-topbar">
+  <a href="/" class="fa-logo">
+    <span class="fa-logo-text">Fin<em>Analytics</em><span class="fa-ai-badge">AI</span></span>
+  </a>
+  <div class="fa-user-chip">
+    <div class="fa-avatar" id="avatarInitial">?</div>
+    <span id="topbarEmail" style="font-size:13px;color:var(--muted)"></span>
+    <button class="fa-logout-btn" onclick="if(window.faLogout)faLogout();else{localStorage.removeItem('access_token');location.href='/login'}">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      Sair
+    </button>
+  </div>
+</div>
+
+<aside class="fa-sidebar" id="sidebar"></aside>
+
+<div class="fa-page-content">
 <main class="mv-wrap">
   <div class="mv-head">
     <h1><span data-i18n="mv.title">📋 Movimentações</span></h1>
@@ -99,6 +141,7 @@
     </div>
   </div>
 </main>
+</div><!-- /fa-page-content -->
 
 <!-- Modal Reconciliar (C6 Fase 4) -->
 <div id="modal-reconcile" style="display:none;position:fixed;inset:0;background:rgba(10,22,40,.92);z-index:500;align-items:center;justify-content:center;padding:20px">

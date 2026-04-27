@@ -539,6 +539,8 @@ body.sb-open .fa-page-content { margin-left: var(--sb-w); }
     MERCADO AO VIVO
   </a>
 
+  <button onclick="openHistoryModal()" style="display:flex;align-items:center;gap:6px;background:rgba(58,191,248,.1);border:1px solid rgba(58,191,248,.35);border-radius:5px;color:var(--blue,#3abff8);font-size:13px;font-weight:600;padding:4px 10px;cursor:pointer;letter-spacing:.3px;white-space:nowrap" onmouseover="this.style.background='rgba(58,191,248,.2)'" onmouseout="this.style.background='rgba(58,191,248,.1)'" title="Histórico de operações com filtros">📊 Histórico</button>
+
   <select id="fa-account-sel" class="sel" style="font-size:12px;padding:3px 8px;max-width:180px;background:var(--card);border:1px solid var(--border);color:var(--white);border-radius:5px" onchange="onAccountSelChange(this.value)">
     <option value="">Nenhuma conta</option>
   </select>
@@ -1329,6 +1331,78 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
       <button class="btn-ok" onclick="createPf()">Criar Carteira</button>
 </div>
 </div>
+</div>
+
+<!-- Modal Histórico de Operações (filtros: ticker/datas/classe/op) -->
+<div class="modal" id="modal-history">
+  <div class="mbox" style="width:90vw;max-width:1100px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="mtitle" style="margin:0">📊 Histórico de Operações</div>
+      <button class="btn-x" onclick="closeHistoryModal()" style="font-size:18px;padding:2px 10px">✕</button>
+    </div>
+
+    <!-- Filtros -->
+    <div style="display:grid;grid-template-columns:repeat(5, 1fr) auto;gap:8px;align-items:end;padding:10px;background:var(--card,#0e1a2e);border:1px solid var(--border);border-radius:6px;margin-bottom:12px">
+      <div>
+        <label style="display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Ticker</label>
+        <input id="hist-f-ticker" type="text" placeholder="PETR4" style="width:100%;padding:5px 8px;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text);text-transform:uppercase">
+      </div>
+      <div>
+        <label style="display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Data início</label>
+        <input id="hist-f-from" type="date" style="width:100%;padding:5px 8px;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+      </div>
+      <div>
+        <label style="display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Data fim</label>
+        <input id="hist-f-to" type="date" style="width:100%;padding:5px 8px;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+      </div>
+      <div>
+        <label style="display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Classe</label>
+        <select id="hist-f-class" style="width:100%;padding:5px 8px;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+          <option value="">Todas</option>
+          <option value="acao">Ação</option>
+          <option value="fii">FII</option>
+          <option value="etf">ETF</option>
+          <option value="bdr">BDR</option>
+          <option value="opcao">Opção</option>
+          <option value="futuro">Futuro</option>
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">OP</label>
+        <select id="hist-f-op" style="width:100%;padding:5px 8px;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+          <option value="">Todas</option>
+          <option value="buy">Compra</option>
+          <option value="sell">Venda</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="loadHistoryTrades()" style="background:var(--blue,#3abff8);border:none;color:#000;font-weight:700;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px">Filtrar</button>
+        <button onclick="resetHistoryFilters()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px" title="Limpar filtros">↻</button>
+      </div>
+    </div>
+
+    <!-- Resumo -->
+    <div id="hist-summary" style="font-size:12px;color:var(--muted);margin-bottom:8px">—</div>
+
+    <!-- Tabela -->
+    <div style="max-height:55vh;overflow-y:auto;border:1px solid var(--border);border-radius:6px">
+      <table data-fa-table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead style="position:sticky;top:0;background:var(--card,#0e1a2e);z-index:1">
+          <tr>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid var(--border)">Data</th>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid var(--border)">Ticker</th>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid var(--border)">Classe</th>
+            <th style="text-align:center;padding:8px;border-bottom:1px solid var(--border)">OP</th>
+            <th style="text-align:right;padding:8px;border-bottom:1px solid var(--border)">Qtd</th>
+            <th style="text-align:right;padding:8px;border-bottom:1px solid var(--border)">Preço Unit.</th>
+            <th style="text-align:right;padding:8px;border-bottom:1px solid var(--border)">Total</th>
+            <th style="text-align:right;padding:8px;border-bottom:1px solid var(--border)">Taxas</th>
+          </tr>
+        </thead>
+        <tbody id="hist-tbody"><tr><td colspan="8" style="padding:20px;text-align:center;color:var(--muted)">Defina os filtros e clique em "Filtrar"</td></tr></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <!-- Modal Attach OCO (Phase A + B splits) -->
@@ -3345,8 +3419,12 @@ function addOcoLevel(presetQty) {
       <span class="lv-title">Nível ${countOcoLevels() + 1}</span>
       <button class="lv-remove" onclick="removeOcoLevel(${id})" title="Remover nível">✕</button>
     </div>
-    <input class="lv-qty" type="number" step="1" min="1" value="${presetQty}"
-           placeholder="Qty do nível" oninput="updateOcoTotals()">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <label style="font-size:10px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;white-space:nowrap">Qtd ações</label>
+      <input class="lv-qty" type="number" step="1" min="1" value="${presetQty}"
+             placeholder="ex: 60" oninput="updateOcoTotals()" style="flex:1">
+      <span class="lv-qty-hint" style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;white-space:nowrap">de ${_attachOcoCtx.qty}</span>
+    </div>
     <div class="lv-prot">
       <input type="checkbox" id="lv${id}-tpen" checked>
       <label for="lv${id}-tpen">TAKE PROFIT</label>
@@ -3427,8 +3505,19 @@ function updateOcoTotals() {
   const ok = used === total;
   const color = ok ? 'var(--green)' : (used > total ? 'var(--red)' : 'var(--gold,#F0B429)');
   const symbol = ok ? '✓' : (used > total ? '⚠ excede' : '⚠ falta');
+  const remaining = total - used;
+  const remHtml = ok ? '' : ` · <span style="color:${remaining > 0 ? 'var(--gold,#F0B429)' : 'var(--red)'}">${remaining > 0 ? remaining + ' restantes' : Math.abs(remaining) + ' a mais'}</span>`;
   document.getElementById('oco-totals').innerHTML =
-    `<span style="color:${color}">${symbol}</span> Total: <strong style="color:${color}">${used}</strong> / ${total}`;
+    `<span style="color:${color}">${symbol}</span> Total: <strong style="color:${color}">${used}</strong> / ${total}${remHtml}`;
+  // Atualiza hint per-level com %
+  document.querySelectorAll('#oco-levels-container .oco-level-row').forEach(row => {
+    const q = parseInt(row.querySelector('.lv-qty')?.value) || 0;
+    const hint = row.querySelector('.lv-qty-hint');
+    if (hint) {
+      const pct = total > 0 ? (q / total * 100).toFixed(0) : 0;
+      hint.textContent = `de ${total} (${pct}%)`;
+    }
+  });
 }
 
 async function submitAttachOco() {
@@ -4216,6 +4305,79 @@ function faDTToggle(btn){
 //            dll_routing_password_set, is_active}
 // Filtramos para contas com DLL conectada (dll_account_type != null) pois só essas
 // servem ao seletor do DayTrade (precisa de credenciais pra enviar ordem).
+// ── Histórico de Operações (modal com filtros: ticker/datas/classe/op) ─────
+function openHistoryModal() {
+  document.getElementById('modal-history').classList.add('show');
+  // Default: data fim = hoje, data início = 30 dias atrás
+  const to = new Date();
+  const from = new Date(); from.setDate(from.getDate() - 30);
+  const _iso = d => d.toISOString().slice(0,10);
+  if (!document.getElementById('hist-f-from').value) document.getElementById('hist-f-from').value = _iso(from);
+  if (!document.getElementById('hist-f-to').value)   document.getElementById('hist-f-to').value = _iso(to);
+  loadHistoryTrades();
+}
+
+function closeHistoryModal() {
+  document.getElementById('modal-history').classList.remove('show');
+}
+
+function resetHistoryFilters() {
+  document.getElementById('hist-f-ticker').value = '';
+  document.getElementById('hist-f-from').value = '';
+  document.getElementById('hist-f-to').value = '';
+  document.getElementById('hist-f-class').value = '';
+  document.getElementById('hist-f-op').value = '';
+  loadHistoryTrades();
+}
+
+async function loadHistoryTrades() {
+  const tbody = document.getElementById('hist-tbody');
+  const summary = document.getElementById('hist-summary');
+  tbody.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--muted)">Carregando...</td></tr>';
+  const params = new URLSearchParams();
+  const tk = document.getElementById('hist-f-ticker').value.trim().toUpperCase();
+  const df = document.getElementById('hist-f-from').value;
+  const dt = document.getElementById('hist-f-to').value;
+  const cl = document.getElementById('hist-f-class').value;
+  const op = document.getElementById('hist-f-op').value;
+  if (tk) params.set('ticker', tk);
+  if (df) params.set('date_from', df);
+  if (dt) params.set('date_to', dt);
+  if (cl) params.set('asset_class', cl);
+  if (op) params.set('operation', op);
+  try {
+    const trades = await api('/api/v1/wallet/trades' + (params.toString() ? '?' + params : ''));
+    if (!trades || !trades.length) {
+      tbody.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--muted)">Nenhuma operação encontrada com esses filtros</td></tr>';
+      summary.textContent = '0 operações';
+      return;
+    }
+    const totalBuy = trades.filter(t=>t.operation==='buy').reduce((s,t)=>s+parseFloat(t.total_cost||0), 0);
+    const totalSell = trades.filter(t=>t.operation==='sell').reduce((s,t)=>s+parseFloat(t.total_cost||0), 0);
+    const fmtBR = v => parseFloat(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+    summary.innerHTML = `<strong>${trades.length}</strong> operações · Compras: <span style="color:var(--green)">R$ ${fmtBR(totalBuy)}</span> · Vendas: <span style="color:var(--red)">R$ ${fmtBR(totalSell)}</span>`;
+    tbody.innerHTML = trades.map(t => {
+      const dateStr = (t.trade_date || '').slice(0,10);
+      const opLbl = t.operation === 'buy'
+        ? '<span style="color:var(--green);font-weight:700">▲ COMPRA</span>'
+        : '<span style="color:var(--red);font-weight:700">▼ VENDA</span>';
+      return `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:6px 8px;font-family:'DM Mono',monospace">${dateStr}</td>
+        <td style="padding:6px 8px;font-family:'DM Mono',monospace"><strong>${t.ticker}</strong></td>
+        <td style="padding:6px 8px"><span style="font-size:10px;background:rgba(255,255,255,.06);padding:1px 6px;border-radius:3px;text-transform:uppercase">${t.asset_class||'—'}</span></td>
+        <td style="padding:6px 8px;text-align:center">${opLbl}</td>
+        <td style="padding:6px 8px;text-align:right;font-family:'DM Mono',monospace">${parseFloat(t.quantity).toLocaleString('pt-BR')}</td>
+        <td style="padding:6px 8px;text-align:right;font-family:'DM Mono',monospace">R$ ${fmtBR(t.unit_price)}</td>
+        <td style="padding:6px 8px;text-align:right;font-family:'DM Mono',monospace;font-weight:600">R$ ${fmtBR(t.total_cost)}</td>
+        <td style="padding:6px 8px;text-align:right;font-family:'DM Mono',monospace;color:var(--muted)">R$ ${fmtBR(t.fees||0)}</td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--red)">Erro: ${e.message}</td></tr>`;
+    summary.textContent = '—';
+  }
+}
+
 async function loadAccounts() {
   try {
     // api() delega para FAErr.fetchJson e injeta Authorization automaticamente.
@@ -4234,13 +4396,17 @@ function populateAccountSelector(accounts) {
   const cur = sel.value;
   sel.innerHTML = '<option value="">Nenhuma conta</option>';
   accounts.forEach(a => {
-    // Só mostra contas com DLL conectada (senão não tem como enviar ordem)
-    if (!a.dll_account_type) return;
     const opt = document.createElement('option');
     opt.value = a.id;
     const label = a.apelido || a.institution_name || ('Conta ' + a.id.slice(0,6));
-    opt.textContent = label + (a.dll_account_type === 'simulator' ? ' [SIM]' : ' [REAL]');
-    if (a.is_dll_active) opt.selected = true;
+    if (!a.dll_account_type) {
+      // Sem DLL — mostra mas desabilita (não envia ordem). Aba Conta permite conectar.
+      opt.textContent = label + ' [SEM DLL]';
+      opt.disabled = true;
+    } else {
+      opt.textContent = label + (a.dll_account_type === 'simulator' ? ' [SIM]' : ' [REAL]');
+      if (a.is_dll_active) opt.selected = true;
+    }
     sel.appendChild(opt);
   });
   // Restore previous selection if still valid

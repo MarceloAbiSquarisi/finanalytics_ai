@@ -341,10 +341,17 @@ tr:hover td{background:rgba(0,212,255,.02)}
         <button class="btn btn-primary btn-sm" onclick="openModal('modal-trade')" data-i18n="carteira.btn.new_trade">+ Novo Trade</button>
 </div>
 </div>
+    <div style="display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Moeda:</label>
+      <select id="ps-f-currency" onchange="renderPositionsFiltered()" style="padding:5px 10px;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text);min-width:100px">
+        <option value="">Todas</option>
+      </select>
+      <span id="ps-summary" style="font-size:11px;color:var(--muted);margin-left:auto"></span>
+    </div>
     <div class="tbl-wrap">
       <table id="tbl-positions" data-fa-table>
-        <thead><tr><th>Ticker</th><th>Classe</th><th>Quantidade</th><th>Preço Médio</th><th>Atual</th><th>P/L</th><th>SL</th><th>Total Investido</th><th>Trades</th></tr></thead>
-        <tbody id="tbody-positions"><tr><td colspan="9" class="empty">Carregando...</td></tr></tbody>
+        <thead><tr><th>Ticker</th><th>Classe</th><th>Moeda</th><th>Quantidade</th><th>Preço Médio</th><th>Atual</th><th>P/L</th><th>SL</th><th>Total Investido</th><th>Trades</th></tr></thead>
+        <tbody id="tbody-positions"><tr><td colspan="10" class="empty">Carregando...</td></tr></tbody>
       </table>
 </div>
 </div>
@@ -355,6 +362,46 @@ tr:hover td{background:rgba(0,212,255,.02)}
       <span class="sec-title" data-i18n="carteira.sec.trades">Histórico de Trades</span>
       <button class="btn btn-primary btn-sm" onclick="openModal('modal-trade')">+ Novo Trade</button>
 </div>
+    <!-- Filtros -->
+    <div style="display:grid;grid-template-columns:repeat(5, 1fr) auto;gap:8px;align-items:end;padding:10px;background:var(--card,#0e1a2e);border:1px solid var(--border);border-radius:6px;margin:8px 0">
+      <div>
+        <label style="display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Ticker</label>
+        <input id="tr-f-ticker" type="text" placeholder="PETR4" style="width:100%;padding:5px 8px;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text);text-transform:uppercase">
+      </div>
+      <div>
+        <label style="display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Data início</label>
+        <input id="tr-f-from" type="date" style="width:100%;padding:5px 8px;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+      </div>
+      <div>
+        <label style="display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Data fim</label>
+        <input id="tr-f-to" type="date" style="width:100%;padding:5px 8px;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+      </div>
+      <div>
+        <label style="display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Classe</label>
+        <select id="tr-f-class" style="width:100%;padding:5px 8px;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+          <option value="">Todas</option>
+          <option value="acao">Ação</option>
+          <option value="fii">FII</option>
+          <option value="etf">ETF</option>
+          <option value="bdr">BDR</option>
+          <option value="opcao">Opção</option>
+          <option value="futuro">Futuro</option>
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">OP</label>
+        <select id="tr-f-op" style="width:100%;padding:5px 8px;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+          <option value="">Todas</option>
+          <option value="buy">Compra</option>
+          <option value="sell">Venda</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="loadTrades()" class="btn btn-primary btn-sm">Filtrar</button>
+        <button onclick="resetTradeFilters()" class="btn btn-sm" style="background:transparent;border:1px solid var(--border);color:var(--muted)" title="Limpar filtros">↻</button>
+      </div>
+    </div>
+    <div id="tr-summary" style="font-size:12px;color:var(--muted);margin-bottom:6px"></div>
     <div class="tbl-wrap">
       <table data-fa-table>
         <thead><tr><th>Data</th><th>Ticker</th><th>Classe</th><th>Op.</th><th>Qtd</th><th>Preço Unit.</th><th>Total</th><th>Corretagem</th><th>Conta</th><th></th></tr></thead>
@@ -369,6 +416,13 @@ tr:hover td{background:rgba(0,212,255,.02)}
       <span class="sec-title" data-i18n="carteira.sec.crypto">Criptomoedas</span>
       <button class="btn btn-primary btn-sm" onclick="openModal('modal-crypto')" data-i18n="carteira.btn.new_crypto">+ Cripto</button>
 </div>
+    <div style="display:flex;gap:8px;align-items:center;margin:8px 0">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Symbol:</label>
+      <select id="cr-f-symbol" onchange="renderCryptoFiltered()" style="padding:5px 10px;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text);min-width:160px">
+        <option value="">Todos</option>
+      </select>
+      <span id="cr-summary" style="font-size:11px;color:var(--muted);margin-left:auto"></span>
+    </div>
     <div class="tbl-wrap">
       <table data-fa-table>
         <thead><tr><th>Symbol</th><th>Quantidade</th><th>Preço Médio (BRL)</th><th>Atual</th><th>P/L</th><th>Preço Médio (USD)</th><th>Exchange</th><th>Conta</th><th></th></tr></thead>
@@ -382,6 +436,23 @@ tr:hover td{background:rgba(0,212,255,.02)}
     <div class="sec-header">
       <span class="sec-title" data-i18n="carteira.sec.rf">Renda Fixa</span>
 </div>
+    <div style="display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Tipo:</label>
+      <select id="rf-f-type" onchange="renderRfFiltered()" style="padding:5px 10px;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text);min-width:130px">
+        <option value="">Todos</option>
+      </select>
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-left:6px">Emissor:</label>
+      <select id="rf-f-issuer" onchange="renderRfFiltered()" style="padding:5px 10px;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text);min-width:160px">
+        <option value="">Todos</option>
+      </select>
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-left:6px">IR:</label>
+      <select id="rf-f-ir" onchange="renderRfFiltered()" style="padding:5px 10px;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text);min-width:120px">
+        <option value="">Todos</option>
+        <option value="exempt">Isento</option>
+        <option value="taxed">Tributável</option>
+      </select>
+      <span id="rf-summary" style="font-size:11px;color:var(--muted);margin-left:auto"></span>
+    </div>
     <div class="tbl-wrap">
       <table data-fa-table>
         <thead><tr><th>Nome</th><th>Tipo</th><th>Emissor</th><th>Taxa</th><th>Vencimento</th><th>Investido</th><th>IR</th><th>Conta</th></tr></thead>
@@ -396,6 +467,17 @@ tr:hover td{background:rgba(0,212,255,.02)}
       <span class="sec-title" data-i18n="carteira.sec.outros">Outros Ativos</span>
       <button class="btn btn-primary btn-sm" onclick="openModal('modal-other')" data-i18n="carteira.btn.new_other">+ Ativo</button>
 </div>
+    <div style="display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Tipo:</label>
+      <select id="ot-f-type" onchange="renderOtherFiltered()" style="padding:5px 10px;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text);min-width:140px">
+        <option value="">Todos</option>
+      </select>
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-left:6px">Moeda:</label>
+      <select id="ot-f-currency" onchange="renderOtherFiltered()" style="padding:5px 10px;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text);min-width:100px">
+        <option value="">Todas</option>
+      </select>
+      <span id="ot-summary" style="font-size:11px;color:var(--muted);margin-left:auto"></span>
+    </div>
     <div class="tbl-wrap">
       <table data-fa-table>
         <thead><tr><th>Nome</th><th>Tipo</th><th>Valor Atual</th><th>Investido</th><th>Ganho</th><th>Moeda</th><th>IR Isento</th><th>Conta</th><th></th></tr></thead>
@@ -557,6 +639,27 @@ tr:hover td{background:rgba(0,212,255,.02)}
 </div>
 </div>
 
+<!-- Modal: Resgate Parcial de Cripto -->
+<div class="modal-overlay" id="modal-redeem-crypto">
+  <div class="modal">
+    <div class="modal-title">💰 Resgate Parcial <button class="modal-close" onclick="closeModal('modal-redeem-crypto')">×</button></div>
+    <div id="rd-info" style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5"></div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Quantidade a resgatar *</label>
+        <input id="rd-qty" type="number" step="any" min="0" placeholder="0.001"
+               onkeydown="if(event.key==='Enter') confirmRedeemCrypto()">
+      </div>
+      <div id="rd-preview" style="font-size:12px;color:var(--blue);margin-top:-4px"></div>
+    </div>
+    <div class="msg error" id="msg-redeem"></div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-redeem-crypto')">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmRedeemCrypto()">Confirmar Resgate</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Outro Ativo -->
 <div class="modal-overlay" id="modal-other">
   <div class="modal">
@@ -702,6 +805,7 @@ async function onAccountChange() {
     if (name === 'posicoes') loadPositions();
     if (name === 'trades') loadTrades();
     if (name === 'crypto') loadCrypto();
+    if (name === 'rf') loadRf();
     if (name === 'outros') loadOther();
     // contas sempre mostra todas (não filtra)
   }
@@ -762,6 +866,7 @@ function showTab(name) {
   if (name==='posicoes') loadPositions();
   if (name==='trades') loadTrades();
   if (name==='crypto') loadCrypto();
+  if (name==='rf') loadRf();
   if (name==='outros') loadOther();
 }
 
@@ -883,16 +988,42 @@ function populateAccountSelects() {
 }
 
 // ── Trades ────────────────────────────────────────────────────────────────
+function _trReadFilters() {
+  const _v = id => (document.getElementById(id) || {}).value || '';
+  const params = new URLSearchParams();
+  const tk = _v('tr-f-ticker').trim().toUpperCase(); if (tk) params.set('ticker', tk);
+  const df = _v('tr-f-from'); if (df) params.set('date_from', df);
+  const dt = _v('tr-f-to');   if (dt) params.set('date_to', dt);
+  const cl = _v('tr-f-class');if (cl) params.set('asset_class', cl);
+  const op = _v('tr-f-op');   if (op) params.set('operation', op);
+  return params.toString();
+}
+
+function resetTradeFilters() {
+  ['tr-f-ticker','tr-f-from','tr-f-to','tr-f-class','tr-f-op'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  loadTrades();
+}
+
 async function loadTrades() {
   const tbody = document.getElementById('tbody-trades');
+  const summary = document.getElementById('tr-summary');
   FALoading.tableRows(tbody, { rows: 5, cols: 10 });
   try {
-    const trades = await api('/trades');
+    const qs = _trReadFilters();
+    const trades = await api('/trades' + (qs ? '?' + qs : ''));
     if (!trades.length) {
-      FAEmpty.tableRow(tbody, { colspan: 10, title: 'Nenhum trade registrado',
-        text: 'Registre compras e vendas para gerar posições e histórico.',
+      if (summary) summary.textContent = '0 trades';
+      FAEmpty.tableRow(tbody, { colspan: 10, title: 'Nenhum trade encontrado',
+        text: qs ? 'Ajuste os filtros ou limpe (↻).' : 'Registre compras e vendas para gerar posições e histórico.',
         cta: { label: '+ Novo Trade', variant: 'primary', onClick: "openModal('modal-trade')" } });
       return;
+    }
+    if (summary) {
+      const totBuy  = trades.filter(t=>t.operation==='buy').reduce((s,t)=>s+parseFloat(t.total_cost||0),0);
+      const totSell = trades.filter(t=>t.operation==='sell').reduce((s,t)=>s+parseFloat(t.total_cost||0),0);
+      summary.innerHTML = `<strong>${trades.length}</strong> trades · Compras: <span style="color:var(--green)">${fmt(totBuy)}</span> · Vendas: <span style="color:var(--red)">${fmt(totSell)}</span>`;
     }
     tbody.innerHTML = trades.map(t => {
       const acc = accounts.find(a=>a.id===t.investment_account_id);
@@ -946,36 +1077,67 @@ function updateTradeTotal() {
 ['tr-qty','tr-price','tr-fees'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('input',updateTradeTotal);});
 
 // ── Positions ─────────────────────────────────────────────────────────────
+let _positionsCache = [];
+
 async function loadPositions() {
   const tbody = document.getElementById('tbody-positions');
-  FALoading.tableRows(tbody, { rows: 4, cols: 9 });
+  FALoading.tableRows(tbody, { rows: 4, cols: 10 });
   try {
     const cls = document.getElementById('filter-class')?.value||'';
-    const positions = await api('/positions' + (cls?`?asset_class=${cls}`:''));
-    if (!positions.length) {
-      FAEmpty.tableRow(tbody, { colspan: 9, title: 'Nenhuma posição',
-        text: 'Posições são derivadas dos trades. Registre seu primeiro trade.',
-        cta: { label: '+ Novo Trade', variant: 'primary', onClick: "openModal('modal-trade')" } });
-      return;
-    }
-    let total = 0;
-    tbody.innerHTML = positions.map(p => {
-      total += parseFloat(p.total_invested)||0;
-      return `<tr data-ticker="${p.ticker}" data-qty="${p.quantity}" data-avg="${p.average_price}">
-        <td><strong>${p.ticker}</strong></td>
-        <td>${badge(p.asset_class)}</td>
-        <td class="td-right">${fmtQty(p.quantity)}</td>
-        <td class="td-right">${fmt(p.average_price)}</td>
-        <td class="td-right cell-last">—</td>
-        <td class="td-right cell-pnl">—</td>
-        <td class="td-right cell-sl">—</td>
-        <td class="td-right">${fmt(p.total_invested)}</td>
-        <td class="td-right">${p.trade_count}</td></tr>`;
-    }).join('');
-    document.getElementById('s-tickers').textContent = positions.length;
-    document.getElementById('s-invested').textContent = fmt(total).replace('R$ ','R$\u00A0');
-    enrichPositionsTable();
+    _positionsCache = await api('/positions' + (cls?`?asset_class=${cls}`:'')) || [];
+    _populatePositionsCurrencyFilter();
+    renderPositionsFiltered();
   } catch(e) { console.error(e); }
+}
+
+function _populatePositionsCurrencyFilter() {
+  const sel = document.getElementById('ps-f-currency');
+  if (!sel) return;
+  const cur = sel.value;
+  const currencies = [...new Set(_positionsCache.map(p => p.currency || 'BRL'))].sort();
+  sel.innerHTML = '<option value="">Todas</option>' + currencies.map(c => `<option value="${c}">${c}</option>`).join('');
+  if (cur && currencies.includes(cur)) sel.value = cur;
+}
+
+function renderPositionsFiltered() {
+  const tbody = document.getElementById('tbody-positions');
+  const summary = document.getElementById('ps-summary');
+  const total = _positionsCache.length;
+  if (!total) {
+    if (summary) summary.textContent = '';
+    FAEmpty.tableRow(tbody, { colspan: 10, title: 'Nenhuma posição',
+      text: 'Posições são derivadas dos trades. Registre seu primeiro trade.',
+      cta: { label: '+ Novo Trade', variant: 'primary', onClick: "openModal('modal-trade')" } });
+    return;
+  }
+  const fC = (document.getElementById('ps-f-currency') || {}).value || '';
+  const filtered = fC ? _positionsCache.filter(p => (p.currency || 'BRL') === fC) : _positionsCache;
+  if (!filtered.length) {
+    if (summary) summary.textContent = `0 de ${total}`;
+    FAEmpty.tableRow(tbody, { colspan: 10, title: `Nenhuma posição em ${fC}`, text: 'Limpe o filtro (Todas) para ver tudo.' });
+    return;
+  }
+  let total_inv = 0;
+  tbody.innerHTML = filtered.map(p => {
+    total_inv += parseFloat(p.total_invested)||0;
+    const moeda = p.currency || 'BRL';
+    return `<tr data-ticker="${p.ticker}" data-qty="${p.quantity}" data-avg="${p.average_price}">
+      <td><strong>${p.ticker}</strong></td>
+      <td>${badge(p.asset_class)}</td>
+      <td>${moeda}</td>
+      <td class="td-right">${fmtQty(p.quantity)}</td>
+      <td class="td-right">${fmt(p.average_price)}</td>
+      <td class="td-right cell-last">—</td>
+      <td class="td-right cell-pnl">—</td>
+      <td class="td-right cell-sl">—</td>
+      <td class="td-right">${fmt(p.total_invested)}</td>
+      <td class="td-right">${p.trade_count}</td></tr>`;
+  }).join('');
+  if (summary) summary.innerHTML = fC ? `<strong>${filtered.length}</strong> de ${total} · Investido: <strong>${fmt(total_inv)}</strong>` : `<strong>${total}</strong> posições · Investido: <strong>${fmt(total_inv)}</strong>`;
+  document.getElementById('s-tickers').textContent = filtered.length;
+  const _elInv = document.getElementById('s-invested');
+  if (_elInv) _elInv.textContent = fmt(total_inv).replace('R$ ','R$ ');
+  enrichPositionsTable();
 }
 
 async function enrichPositionsTable() {
@@ -1056,36 +1218,62 @@ function applyEnrichment(rows, lastMap, slMap) {
 }
 
 // ── Crypto ────────────────────────────────────────────────────────────────
+let _cryptoCache = [];
+
 async function loadCrypto() {
   const _tb = document.getElementById('tbody-crypto');
   FALoading.tableRows(_tb, { rows: 3, cols: 7 });
   try {
-    const crypto = await api('/crypto');
-    const tbody = document.getElementById('tbody-crypto');
-    document.getElementById('s-crypto').textContent = crypto.length;
-    if (!crypto.length) {
-      FAEmpty.tableRow(tbody, { colspan: 7, title: 'Nenhuma cripto cadastrada',
-        text: 'Adicione holdings de BTC, ETH ou outras moedas com preço médio em BRL/USD.',
-        cta: { label: '+ Cripto', variant: 'primary', onClick: "openModal('modal-crypto')" } });
-      return;
-    }
-    tbody.innerHTML = crypto.map(c => {
-      const acc = accounts.find(a=>a.id===c.investment_account_id);
-      return `<tr data-symbol="${c.symbol}" data-qty="${c.quantity}" data-avg="${c.average_price_brl}">
-        <td><strong style="color:var(--gold)">${c.symbol}</strong></td>
-        <td class="td-right">${fmtQty(c.quantity)}</td>
-        <td class="td-right">${fmt(c.average_price_brl)}</td>
-        <td class="td-right cell-last">—</td>
-        <td class="td-right cell-pnl">—</td>
-        <td class="td-right">${c.average_price_usd?fmt(c.average_price_usd,'$ '):'—'}</td>
-        <td>${c.exchange||'—'}</td>
-        <td>${acc ? (acc.apelido ? `<div><strong>${acc.apelido}</strong></div><div style="font-size:11px;color:var(--muted);margin-top:2px">${acc.institution_name||''}</div>` : (acc.institution_name||'—')) : '—'}</td>
-        <td style="white-space:nowrap">
-          <button class="btn btn-sm" style="background:transparent;border:1px solid var(--green);color:var(--green);margin-right:4px" onclick="redeemCrypto('${c.id}', '${c.symbol}', ${Number(c.quantity)}, ${Number(c.average_price_brl)})" title="Resgate parcial (credita cash)">💰</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteCrypto('${c.id}')">✕</button></td></tr>`;
-    }).join('');
-    enrichCryptoTable();
+    _cryptoCache = await api('/crypto') || [];
+    document.getElementById('s-crypto').textContent = _cryptoCache.length;
+    _populateCryptoSymbolSelect();
+    renderCryptoFiltered();
   } catch(e) { console.error(e); }
+}
+
+function _populateCryptoSymbolSelect() {
+  const sel = document.getElementById('cr-f-symbol');
+  if (!sel) return;
+  const cur = sel.value;
+  const symbols = [...new Set(_cryptoCache.map(c => c.symbol).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Todos</option>' + symbols.map(s => `<option value="${s}">${s}</option>`).join('');
+  if (cur && symbols.includes(cur)) sel.value = cur;
+}
+
+function renderCryptoFiltered() {
+  const tbody = document.getElementById('tbody-crypto');
+  const summary = document.getElementById('cr-summary');
+  const total = _cryptoCache.length;
+  if (!total) {
+    if (summary) summary.textContent = '';
+    FAEmpty.tableRow(tbody, { colspan: 7, title: 'Nenhuma cripto cadastrada',
+      text: 'Adicione holdings de BTC, ETH ou outras moedas com preço médio em BRL/USD.',
+      cta: { label: '+ Cripto', variant: 'primary', onClick: "openModal('modal-crypto')" } });
+    return;
+  }
+  const q = ((document.getElementById('cr-f-symbol') || {}).value || '').trim().toUpperCase();
+  const filtered = q ? _cryptoCache.filter(c => (c.symbol || '').toUpperCase() === q) : _cryptoCache;
+  if (summary) summary.textContent = q ? `${filtered.length} de ${total}` : `${total} ${total === 1 ? 'cripto' : 'criptos'}`;
+  if (!filtered.length) {
+    FAEmpty.tableRow(tbody, { colspan: 9, title: `Nenhuma cripto com "${q}"`, text: 'Limpe o filtro (↻) para ver todas.' });
+    return;
+  }
+  tbody.innerHTML = filtered.map(c => {
+    const acc = accounts.find(a=>a.id===c.investment_account_id);
+    return `<tr data-symbol="${c.symbol}" data-qty="${c.quantity}" data-avg="${c.average_price_brl}">
+      <td><strong style="color:var(--gold)">${c.symbol}</strong></td>
+      <td class="td-right">${fmtQty(c.quantity)}</td>
+      <td class="td-right">${fmt(c.average_price_brl)}</td>
+      <td class="td-right cell-last">—</td>
+      <td class="td-right cell-pnl">—</td>
+      <td class="td-right">${c.average_price_usd?fmt(c.average_price_usd,'$ '):'—'}</td>
+      <td>${c.exchange||'—'}</td>
+      <td>${acc ? (acc.apelido ? `<div><strong>${acc.apelido}</strong></div><div style="font-size:11px;color:var(--muted);margin-top:2px">${acc.institution_name||''}</div>` : (acc.institution_name||'—')) : '—'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm" style="background:transparent;border:1px solid var(--green);color:var(--green);margin-right:4px" onclick="redeemCrypto('${c.id}', '${c.symbol}', ${Number(c.quantity)}, ${Number(c.average_price_brl)})" title="Resgate parcial (credita cash)">💰</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteCrypto('${c.id}')">✕</button></td></tr>`;
+  }).join('');
+  enrichCryptoTable();
 }
 
 async function enrichCryptoTable() {
@@ -1133,15 +1321,43 @@ function applyCryptoEnrichment(rows, lastMap) {
   });
 }
 
-async function redeemCrypto(cryptoId, symbol, totalQty, avgPrice) {
-  // FAModal custom via prompt (simples — TODO: usar FAModal.custom se existir)
-  const qtyStr = window.prompt(
-    `Resgate parcial de ${symbol} (total: ${totalQty}, preço médio: R$ ${avgPrice.toFixed(2)})\n\n` +
-    `Informe a quantidade a resgatar:`, '');
-  if (!qtyStr) return;
-  const qty = parseFloat(qtyStr.replace(',', '.'));
+let _redeemCtx = null;  // {cryptoId, symbol, totalQty, avgPrice}
+
+function redeemCrypto(cryptoId, symbol, totalQty, avgPrice) {
+  _redeemCtx = { cryptoId, symbol, totalQty, avgPrice };
+  document.getElementById('rd-info').innerHTML =
+    `<strong style="color:var(--gold)">${symbol}</strong> · saldo: <strong>${totalQty}</strong> · preço médio: <strong>R$ ${avgPrice.toFixed(2)}</strong>`;
+  const inp = document.getElementById('rd-qty');
+  inp.value = '';
+  inp.max = totalQty;
+  inp.oninput = _updateRedeemPreview;
+  document.getElementById('rd-preview').textContent = '';
+  document.getElementById('msg-redeem').textContent = '';
+  openModal('modal-redeem-crypto');
+  setTimeout(() => inp.focus(), 80);
+}
+
+function _updateRedeemPreview() {
+  if (!_redeemCtx) return;
+  const qty = parseFloat((document.getElementById('rd-qty').value || '').replace(',', '.'));
+  const prev = document.getElementById('rd-preview');
+  if (!qty || qty <= 0) { prev.textContent = ''; return; }
+  if (qty > _redeemCtx.totalQty) {
+    prev.style.color = 'var(--red)';
+    prev.textContent = `Excede saldo (max ${_redeemCtx.totalQty})`;
+    return;
+  }
+  prev.style.color = 'var(--blue)';
+  const credit = qty * _redeemCtx.avgPrice;
+  prev.textContent = `Crédito estimado: R$ ${credit.toFixed(2)} (${(qty / _redeemCtx.totalQty * 100).toFixed(1)}% da posição)`;
+}
+
+async function confirmRedeemCrypto() {
+  if (!_redeemCtx) return;
+  const { cryptoId, symbol, totalQty, avgPrice } = _redeemCtx;
+  const qty = parseFloat((document.getElementById('rd-qty').value || '').replace(',', '.'));
   if (!qty || qty <= 0 || qty > totalQty) {
-    FAToast.err(`Quantidade inválida (0 < qty ≤ ${totalQty}).`);
+    showMsg('msg-redeem', `Quantidade inválida (0 < qty ≤ ${totalQty}).`);
     return;
   }
   try {
@@ -1150,11 +1366,13 @@ async function redeemCrypto(cryptoId, symbol, totalQty, avgPrice) {
       body: JSON.stringify({ quantity: qty }),
     });
     const creditBrl = qty * avgPrice;
+    closeModal('modal-redeem-crypto');
+    _redeemCtx = null;
     FAToast.ok(`${symbol} resgate ${qty} → +R$ ${creditBrl.toFixed(2)} na conta (${r.status || 'ok'})`);
     loadCrypto();
     loadSummary();
   } catch(e) {
-    FAToast.err('Falha: ' + (e.message || e));
+    showMsg('msg-redeem', 'Falha: ' + (e.message || e));
   }
 }
 
@@ -1182,33 +1400,138 @@ async function deleteCrypto(id) {
 }
 
 // ── Other Assets ──────────────────────────────────────────────────────────
+let _rfCache = [];
+
+async function loadRf() {
+  const _tb = document.getElementById('tbody-rf');
+  FALoading.tableRows(_tb, { rows: 3, cols: 8 });
+  try {
+    _rfCache = await api('/rf') || [];
+    _populateRfFilters();
+    renderRfFiltered();
+  } catch(e) { console.error(e); }
+}
+
+function _populateRfFilters() {
+  const selT = document.getElementById('rf-f-type');
+  const selI = document.getElementById('rf-f-issuer');
+  if (!selT || !selI) return;
+  const curT = selT.value, curI = selI.value;
+  const types   = [...new Set(_rfCache.map(r => r.bond_type).filter(Boolean))].sort();
+  const issuers = [...new Set(_rfCache.map(r => r.issuer).filter(Boolean))].sort();
+  selT.innerHTML = '<option value="">Todos</option>' + types.map(t => `<option value="${t}">${t}</option>`).join('');
+  selI.innerHTML = '<option value="">Todos</option>' + issuers.map(i => `<option value="${i}">${i}</option>`).join('');
+  if (curT && types.includes(curT)) selT.value = curT;
+  if (curI && issuers.includes(curI)) selI.value = curI;
+}
+
+function renderRfFiltered() {
+  const tbody = document.getElementById('tbody-rf');
+  const summary = document.getElementById('rf-summary');
+  const total = _rfCache.length;
+  if (!total) {
+    if (summary) summary.textContent = '';
+    FAEmpty.tableRow(tbody, { colspan: 8, title: 'Nenhum título cadastrado',
+      text: 'Use a aba Renda Fixa no menu lateral para criar carteiras e adicionar títulos.',
+      cta: { label: 'Renda Fixa', variant: 'primary', onClick: "location.href='/fixed-income'" } });
+    return;
+  }
+  const fT = (document.getElementById('rf-f-type') || {}).value || '';
+  const fI = (document.getElementById('rf-f-issuer') || {}).value || '';
+  const fR = (document.getElementById('rf-f-ir') || {}).value || '';
+  const filtered = _rfCache.filter(r => {
+    if (fT && r.bond_type !== fT) return false;
+    if (fI && r.issuer !== fI) return false;
+    if (fR === 'exempt' && !r.ir_exempt) return false;
+    if (fR === 'taxed' && r.ir_exempt) return false;
+    return true;
+  });
+  const totalInvested = filtered.reduce((s, r) => s + parseFloat(r.invested || 0), 0);
+  if (summary) summary.innerHTML = `<strong>${filtered.length}</strong> de ${total} · Investido: <strong>${fmt(totalInvested)}</strong>`;
+  if (!filtered.length) {
+    FAEmpty.tableRow(tbody, { colspan: 8, title: 'Nenhum título com esses filtros', text: 'Limpe os filtros (Todos) para ver tudo.' });
+    return;
+  }
+  tbody.innerHTML = filtered.map(r => {
+    const acc = accounts.find(a => a.id === r.investment_account_id);
+    const accCell = acc ? (acc.apelido ? `<div><strong>${acc.apelido}</strong></div><div style="font-size:11px;color:var(--muted);margin-top:2px">${acc.institution_name||''}</div>` : (acc.institution_name||'—')) : '—';
+    const rateLabel = r.rate_pct_indexer ? `${r.rate_annual}% ${r.indexer}` : `${r.rate_annual}% a.a.`;
+    const matur = r.maturity_date ? new Date(r.maturity_date).toLocaleDateString('pt-BR') : '—';
+    return `<tr>
+      <td><strong>${r.bond_name || r.bond_id}</strong></td>
+      <td>${badge(r.bond_type)}</td>
+      <td>${r.issuer || '—'}</td>
+      <td class="td-right">${rateLabel}</td>
+      <td>${matur}</td>
+      <td class="td-right">${fmt(r.invested)}</td>
+      <td style="color:${r.ir_exempt?'var(--green)':'var(--muted)'}">${r.ir_exempt?'Isento':'Tribut.'}</td>
+      <td>${accCell}</td></tr>`;
+  }).join('');
+}
+
+let _otherCache = [];
+
 async function loadOther() {
   const _tb = document.getElementById('tbody-outros');
   FALoading.tableRows(_tb, { rows: 3, cols: 9 });
   try {
-    const other = await api('/other');
-    const tbody = document.getElementById('tbody-outros');
-    document.getElementById('s-other').textContent = other.length;
-    if (!other.length) {
-      FAEmpty.tableRow(tbody, { colspan: 9, title: 'Nenhum outro ativo cadastrado',
-        text: 'Imóveis, COE, fundos imobiliários, ou qualquer ativo sem categoria padrão.',
-        cta: { label: '+ Ativo', variant: 'primary', onClick: "openModal('modal-other')" } });
-      return;
-    }
-    tbody.innerHTML = other.map(o => {
-      const acc = accounts.find(a=>a.id===o.investment_account_id);
-      return `<tr>
-        <td><strong>${o.name}</strong></td>
-        <td>${badge(o.asset_type)}</td>
-        <td class="td-right">${fmt(o.current_value)}</td>
-        <td class="td-right">${o.invested_value?fmt(o.invested_value):'—'}</td>
-        <td>${gain(o.current_value,o.invested_value)}</td>
-        <td>${o.currency}</td>
-        <td style="color:${o.ir_exempt?'var(--green)':'var(--muted)'}">${o.ir_exempt?'Sim':'Não'}</td>
-        <td>${acc ? (acc.apelido ? `<div><strong>${acc.apelido}</strong></div><div style="font-size:11px;color:var(--muted);margin-top:2px">${acc.institution_name||''}</div>` : (acc.institution_name||'—')) : '—'}</td>
-        <td><button class="btn btn-danger btn-sm" onclick="deleteOther('${o.id}')">✕</button></td></tr>`;
-    }).join('');
+    _otherCache = await api('/other') || [];
+    document.getElementById('s-other').textContent = _otherCache.length;
+    _populateOtherFilters();
+    renderOtherFiltered();
   } catch(e) { console.error(e); }
+}
+
+function _populateOtherFilters() {
+  const selT = document.getElementById('ot-f-type');
+  const selC = document.getElementById('ot-f-currency');
+  if (!selT || !selC) return;
+  const curT = selT.value, curC = selC.value;
+  const types      = [...new Set(_otherCache.map(o => o.asset_type).filter(Boolean))].sort();
+  const currencies = [...new Set(_otherCache.map(o => o.currency).filter(Boolean))].sort();
+  selT.innerHTML = '<option value="">Todos</option>' + types.map(t => `<option value="${t}">${t}</option>`).join('');
+  selC.innerHTML = '<option value="">Todas</option>' + currencies.map(c => `<option value="${c}">${c}</option>`).join('');
+  if (curT && types.includes(curT)) selT.value = curT;
+  if (curC && currencies.includes(curC)) selC.value = curC;
+}
+
+function renderOtherFiltered() {
+  const tbody = document.getElementById('tbody-outros');
+  const summary = document.getElementById('ot-summary');
+  const total = _otherCache.length;
+  if (!total) {
+    if (summary) summary.textContent = '';
+    FAEmpty.tableRow(tbody, { colspan: 9, title: 'Nenhum outro ativo cadastrado',
+      text: 'Imóveis, COE, fundos imobiliários, ou qualquer ativo sem categoria padrão.',
+      cta: { label: '+ Ativo', variant: 'primary', onClick: "openModal('modal-other')" } });
+    return;
+  }
+  const fT = (document.getElementById('ot-f-type') || {}).value || '';
+  const fC = (document.getElementById('ot-f-currency') || {}).value || '';
+  const filtered = _otherCache.filter(o => {
+    if (fT && o.asset_type !== fT) return false;
+    if (fC && o.currency !== fC) return false;
+    return true;
+  });
+  const totalValue = filtered.reduce((s, o) => s + parseFloat(o.current_value || 0), 0);
+  if (summary) summary.innerHTML = `<strong>${filtered.length}</strong> de ${total} · Valor: <strong>${fmt(totalValue)}</strong>`;
+  if (!filtered.length) {
+    FAEmpty.tableRow(tbody, { colspan: 9, title: 'Nenhum ativo com esses filtros', text: 'Limpe os filtros (Todos) para ver tudo.' });
+    return;
+  }
+  tbody.innerHTML = filtered.map(o => {
+    const acc = accounts.find(a=>a.id===o.investment_account_id);
+    return `<tr>
+      <td><strong>${o.name}</strong></td>
+      <td>${badge(o.asset_type)}</td>
+      <td class="td-right">${fmt(o.current_value)}</td>
+      <td class="td-right">${o.invested_value?fmt(o.invested_value):'—'}</td>
+      <td>${gain(o.current_value,o.invested_value)}</td>
+      <td>${o.currency}</td>
+      <td style="color:${o.ir_exempt?'var(--green)':'var(--muted)'}">${o.ir_exempt?'Sim':'Não'}</td>
+      <td>${acc ? (acc.apelido ? `<div><strong>${acc.apelido}</strong></div><div style="font-size:11px;color:var(--muted);margin-top:2px">${acc.institution_name||''}</div>` : (acc.institution_name||'—')) : '—'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteOther('${o.id}')">✕</button></td></tr>`;
+  }).join('');
 }
 
 async function saveOther() {

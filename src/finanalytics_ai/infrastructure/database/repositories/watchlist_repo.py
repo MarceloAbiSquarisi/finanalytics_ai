@@ -20,7 +20,7 @@ Design decisions:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 from typing import TYPE_CHECKING
 
@@ -41,6 +41,16 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
+
+
+def _naive(dt: datetime | None) -> datetime | None:
+    """Strip tzinfo. As colunas TIMESTAMP WITHOUT TIME ZONE no Postgres não
+    aceitam datetime aware via asyncpg; converte para UTC e tira tz."""
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 
 # ── ORM Models ────────────────────────────────────────────────────────────────
@@ -100,7 +110,7 @@ class WatchlistRepository:
                     ticker=item.ticker.upper(),
                     note=item.note,
                     tags=json.dumps(item.tags),
-                    added_at=item.added_at,
+                    added_at=_naive(item.added_at),
                 )
             )
         await self._session.flush()
@@ -154,7 +164,7 @@ class WatchlistRepository:
         existing = await self._session.get(WatchlistAlertModel, alert.alert_id)
         if existing:
             existing.status = alert.status.value
-            existing.last_triggered_at = alert.last_triggered_at
+            existing.last_triggered_at = _naive(alert.last_triggered_at)
             existing.config_json = json.dumps(
                 {
                     "rsi_period": alert.config.rsi_period,
@@ -187,8 +197,8 @@ class WatchlistRepository:
                         }
                     ),
                     note=alert.note,
-                    last_triggered_at=alert.last_triggered_at,
-                    created_at=alert.created_at,
+                    last_triggered_at=_naive(alert.last_triggered_at),
+                    created_at=_naive(alert.created_at),
                 )
             )
 

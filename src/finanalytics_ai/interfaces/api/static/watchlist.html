@@ -478,8 +478,20 @@ const ALERT_TYPES = [
 // ── API ─────────────────────────────────────────────────────────────────────
 
 async function apiFetch(path, opts = {}) {
-  const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const tok = (typeof localStorage !== 'undefined' && localStorage.getItem('access_token')) || '';
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(tok ? { 'Authorization': 'Bearer ' + tok } : {}),
+    ...(opts.headers || {}),
+  };
+  const res = await fetch(path, { ...opts, headers });
   if (!res.ok) {
+    if (res.status === 401) {
+      try { localStorage.removeItem('access_token'); } catch (_) {}
+      // Redireciona pra login se sessão morreu (auth_guard normalmente cobre, mas garante)
+      if (location.pathname !== '/login') location.href = '/login?next=' + encodeURIComponent(location.pathname);
+      throw new Error('Sessão expirada — redirecionando para login.');
+    }
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || res.statusText);
   }

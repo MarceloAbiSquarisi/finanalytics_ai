@@ -2,8 +2,9 @@
 
 > **Reorganizado**: 26/abr/2026 — classificação por dependência (pregão aberto/fechado/outras)
 > **Login dev**: `marceloabisquarisi@gmail.com` / `admin123` (master)
-> **DB seedado**: 2 contas teste (XP + BTG) populadas — commits `7555662` + `7fe44ff`
-> **Cache**: SW v66 — `Ctrl+Shift+R` na 1ª abertura de cada página
+> **DB seedado**: 1 conta consolidada **"Teste"** (id `eeee5555`) — migration `migrate_test_to_single_carteira.sql` (27/abr); contas XP+BTG soft-deleted
+> **Invariante 27/abr**: todo ativo DEVE ter `investment_account_id` (NOT NULL em DB + `Field(...)` Pydantic em trades/crypto/other)
+> **Cache**: SW v86 — `Ctrl+Shift+R` na 1ª abertura de cada página
 
 ---
 
@@ -40,47 +41,47 @@
 ### A.2 — /carteira tabs render (~15min)
 
 **Overview (1ª, default)**:
-- [ ] **A.2.1** Iframe carrega `/overview` — 8 cards (PETR4/VALE3/ITUB4/WEGE3/BBSE3/KNRI11/BBAS3/BOVA11)
-- [ ] **A.2.2** Sparklines SVG inline aparecem (carregam via /candles)
-- [ ] **A.2.3** Filtro "Apenas BUY" reduz cards (depende ML signals — pode estar `—`)
-- [ ] **A.2.4** Seção "Últimas movimentações" no rodapé do iframe — 5 tx (das 20 do seed)
+- [X] **A.2.1** Iframe carrega `/overview` — 8 cards (PETR4/VALE3/ITUB4/WEGE3/BBSE3/KNRI11/BBAS3/BOVA11)
+- [X] **A.2.2** Sparklines SVG inline aparecem (carregam via /candles)
+- [X] **A.2.3** Filtro "Apenas BUY" reduz cards (depende ML signals — pode estar `—`)
+- [X] **A.2.4** Seção "Últimas movimentações" no rodapé do iframe — 5 tx (das 20 do seed)
 
 **Contas**:
-- [ ] **A.2.5** Lista 2 contas com institution_name + apelido em **2 linhas** (BUG15 fix: bold/small)
+- [X] **A.2.5** Lista 2 contas com institution_name + apelido em **2 linhas** (BUG15 fix: bold/small)
 
 **Posições** (filtro = "Todas"):
-- [ ] **A.2.6** 8 linhas (PETR4 70 net, VALE3, ITUB4, WEGE3, BBSE3, KNRI11, BBAS3, BOVA11)
-- [ ] **A.2.7** Colunas: Ticker · Classe · Qtd · Preço Médio · **Atual** · **P/L** · **SL** · Total · Trades
-- [ ] **A.2.8** "Atual" preenche progressivamente (placeholder `—`)
-- [ ] **A.2.9** P/L verde/vermelho com pct embaixo
-- [ ] **A.2.10** Trocar pra "XP" → 6 linhas; "BTG" → 2 linhas
+- [X] **A.2.6** 8 linhas (PETR4 70 net, VALE3, ITUB4, WEGE3, BBSE3, KNRI11, BBAS3, BOVA11)
+- [X] **A.2.7** Colunas: Ticker · Classe · Qtd · Preço Médio · **Atual** · **P/L** · **SL** · Total · Trades
+- [X] **A.2.8** "Atual" preenche progressivamente (placeholder `—`)
+- [X] **A.2.9** P/L verde/vermelho com pct embaixo
+- [X] **A.2.10** Trocar pra "XP" → 6 linhas; "BTG" → 2 linhas
 
 **Trades**:
-- [ ] **A.2.11** Filtro "Todas" = 9 / "BTG" = 2 (BBAS3/BOVA11) / "XP" = 7
-- [ ] **A.2.12** Coluna "Conta" mostra apelido bold + institution small (BUG15)
+- [X] **A.2.11** Filtro "Todas" = 9 / "BTG" = 2 (BBAS3/BOVA11) / "XP" = 7
+- [X] **A.2.12** Coluna "Conta" mostra apelido bold + institution small (BUG15)
 
 **Cripto**:
-- [ ] **A.2.13** Filtro "XP" → 1 linha BTC qty 0.025 avg R$ 280.000
-- [ ] **A.2.14** Botão 💰 (resgate parcial) abre prompt
+- [X] **A.2.13** Filtro "XP" → 1 linha BTC qty 0.025 avg R$ 280.000
+- [X] **A.2.14** Botão 💰 (resgate parcial) abre prompt
 
 **Renda Fixa**:
-- [ ] **A.2.15** Filtro "BTG" → 3 títulos (CDB BTG 110%, LCI BTG 95%, Tesouro IPCA+ 2030)
+- [X] **A.2.15** Filtro "BTG" → 3 títulos (CDB BTG 110%, LCI BTG 95%, Tesouro IPCA+ 2030)
 
 **Outros**:
-- [ ] **A.2.16** Filtro "XP" → 1 linha "Apartamento SP" R$ 450.000
+- [X] **A.2.16** Filtro "XP" → 1 linha "Apartamento SP" R$ 450.000
 
 ### A.3 — /movimentacoes UI (~15min)
 
-- [ ] **A.3.1** Abrir http://localhost:8000/movimentacoes
-- [ ] **A.3.2** Tabela mostra 20 tx
-- [ ] **A.3.3** Filtros: Conta=XP → 13 tx; Conta=BTG → 7 tx; Direção=saídas → 12 tx; Tipo=dividend → 5 tx
-- [ ] **A.3.4** Sort por coluna: clicar "Data" inverte ↑/↓; "Valor" ordena por amount
-- [ ] **A.3.5** Paginação 50/100/200/500 funciona (relevante com mais volume)
-- [ ] **A.3.6** **Export CSV**: botão 📥 baixa `movimentacoes_2026-04-26.csv` com BOM UTF-8
-- [ ] **A.3.7** Totais no rodapé refletem TODO o filtrado (não só a página)
-- [ ] **A.3.8** **5 dividendos** têm botão 🔗 amarelo (related_id=null)
-- [ ] **A.3.9** Click 🔗 em "DIVIDENDOS PETR4" → modal pede ticker → digita PETR4 → toast OK + tx vinculada
-- [ ] **A.3.10** Botão 🖨 Imprimir abre window.print
+- [X] **A.3.1** Abrir http://localhost:8000/movimentacoes
+- [X] **A.3.2** Tabela mostra 20 tx
+- [X] **A.3.3** Filtros: Conta=XP → 13 tx; Conta=BTG → 7 tx; Direção=saídas → 12 tx; Tipo=dividend → 5 tx
+- [X] **A.3.4** Sort por coluna: clicar "Data" inverte ↑/↓; "Valor" ordena por amount
+- [X] **A.3.5** Paginação 50/100/200/500 funciona (relevante com mais volume)
+- [X] **A.3.6** **Export CSV**: botão 📥 baixa `movimentacoes_2026-04-26.csv` com BOM UTF-8
+- [X] **A.3.7** Totais no rodapé refletem TODO o filtrado (não só a página)
+- [X] **A.3.8** **5 dividendos** têm botão 🔗 amarelo (related_id=null)
+- [X] **A.3.9** Click 🔗 em "DIVIDENDOS PETR4" → modal pede ticker → digita PETR4 → toast OK + tx vinculada
+- [X] **A.3.10** Botão 🖨 Imprimir abre window.print
 
 ### A.4 — /import C6 Dividendos (~15min)
 
@@ -111,9 +112,9 @@
 
 ### A.6 — i18n PT/EN toggle (~10min)
 
-- [ ] **A.6.1** Botão `PT/EN` na topbar (esquerda do 🌙/☀️)
-- [ ] **A.6.2** Click → cycle pra EN; localStorage `fa_locale=en`
-- [ ] **A.6.3** Páginas que devem trocar:
+- [X] **A.6.1** Botão `PT/EN` na topbar (esquerda do 🌙/☀️)
+- [X] **A.6.2** Click → cycle pra EN; localStorage `fa_locale=en`
+- [X] **A.6.3** Páginas que devem trocar:
   - `/dashboard` (tabs DT)
   - `/carteira` (title, subtitle, tabs Overview/Posições/Trades/Cripto/RF/Outros, sec titles, botões)
   - `/movimentacoes` (filtros, colunas, totais, status badges)
@@ -122,17 +123,17 @@
   - `/screener`, `/watchlist`, `/profile`, `/admin`, `/hub`
   - `/macro`, `/forecast`, `/performance`, `/fundamental`, `/diario`
   - `/backtest`, `/correlation`, `/anomaly`, `/etf`
-- [ ] **A.6.4** Sidebar mostra "Visão Geral" → "Overview" em EN; "Movimentações" → "Transactions"
-- [ ] **A.6.5** F5 mantém locale
-- [ ] **A.6.6** Texto sem `data-i18n` continua em PT (intencional — fall-through)
-- [ ] **A.6.7** Voltar pra PT — todas mensagens revertem
+- [X] **A.6.4** Sidebar mostra "Visão Geral" → "Overview" em EN; "Movimentações" → "Transactions"
+- [X] **A.6.5** F5 mantém locale
+- [X] **A.6.6** Texto sem `data-i18n` continua em PT (intencional — fall-through)
+- [X] **A.6.7** Voltar pra PT — todas mensagens revertem
 
 ### A.7 — G4 auth flow visual (~5min)
 
-- [ ] **A.7.1** Logout em /dashboard (FAModal "Deseja sair?") → redirect /login
-- [ ] **A.7.2** Login com "Lembrar-me 7 dias" marcado
-- [ ] **A.7.3** Após login, /dashboard carrega chip user com email
-- [ ] **A.7.4** Acessar /carteira → mantém sessão; F5 mantém
+- [X] **A.7.1** Logout em /dashboard (FAModal "Deseja sair?") → redirect /login
+- [X] **A.7.2** Login com "Lembrar-me 7 dias" marcado
+- [X] **A.7.3** Após login, /dashboard carrega chip user com email
+- [X] **A.7.4** Acessar /carteira → mantém sessão; F5 mantém
 
 ### A.8 — /dashboard OCO modal (sem submeter) (~15min)
 
@@ -140,61 +141,99 @@
 
 > Pré-requisito: ter pelo menos 1 ordem em status PendingNew. Se não tem, segunda no pregão você cria uma e testa lá. Se tiver alguma de teste anterior persistida, dá pra exercitar agora.
 
-- [ ] **A.8.1** Abrir /dashboard aba "Ordens"
-- [ ] **A.8.2** Em ordem com botão 🛡 (azul) → click abre modal "Anexar OCO"
-- [ ] **A.8.3** **Phase A**: 1 nível com TP=52 SL=47 → counter "X/X ✓ verde"
-- [ ] **A.8.4** **Phase B**: click "+ nível" → 2º com qty=0; editar qty 60/40 → confirmar OK no counter
-- [ ] **A.8.5** Validação sum: tentar 50/40 (=90) → bloqueia com "Soma das qty (90) deve bater parent.qty (X)"
-- [ ] **A.8.6** Validação proteção: nível com TP+SL ambos desmarcados → erro "Nível N: marque ao menos TP ou SL"
-- [ ] **A.8.7** **Phase C Trailing**: checkbox "🔄 TRAILING (Phase C)" → trail-box revela
-- [ ] **A.8.8** Radio R$ ↔ % muda placeholder do input
-- [ ] **A.8.9** Trailing sem SL marcado → erro "trailing requer SL marcado"
-- [ ] **A.8.10** **NÃO submeter** — clicar "Cancelar"
+- [X] **A.8.1** Abrir /dashboard aba "Ordens"
+- [X] **A.8.2** Em ordem com botão 🛡 (azul) → click abre modal "Anexar OCO"
+- [X] **A.8.3** **Phase A**: 1 nível com TP=52 SL=47 → counter "X/X ✓ verde"
+- [X] **A.8.4** **Phase B**: click "+ nível" → 2º com qty=0; editar qty 60/40 → confirmar OK no counter
+- [X] **A.8.5** Validação sum: tentar 50/40 (=90) → bloqueia com "Soma das qty (90) deve bater parent.qty (X)"
+- [X] **A.8.6** Validação proteção: nível com TP+SL ambos desmarcados → erro "Nível N: marque ao menos TP ou SL"
+- [X] **A.8.7** **Phase C Trailing**: checkbox "🔄 TRAILING (Phase C)" → trail-box revela
+- [X] **A.8.8** Radio R$ ↔ % muda placeholder do input
+- [X] **A.8.9** Trailing sem SL marcado → erro "trailing requer SL marcado"
+- [X] **A.8.10** **NÃO submeter** — clicar "Cancelar"
 
 ### A.9 — /dashboard outras tabs (~10min)
 
-- [ ] **A.9.1** Tab **Order** renderiza form (sem enviar)
-- [ ] **A.9.2** Tab **OCO** legacy renderiza
-- [ ] **A.9.3** Tab **Pos.** renderiza search ticker + lista assets
-- [ ] **A.9.4** Tab **List** = Ordens (já testado A.8)
-- [ ] **A.9.5** Tab **Signals** mostra ML signals (sub-tabs Live/Hist/Mudanças)
-- [ ] **A.9.6** Tab **Conta** mostra contas + ativa DLL
+- [X] **A.9.1** Tab **Order** renderiza form (sem enviar)
+- [X] **A.9.2** Tab **OCO** legacy renderiza
+- [X] **A.9.3** Tab **Pos.** renderiza search ticker + lista assets
+- [X] **A.9.4** Tab **List** = Ordens (já testado A.8)
+- [X] **A.9.5** Tab **Signals** mostra ML signals (sub-tabs Live/Hist/Mudanças)
+- [X] **A.9.6** Tab **Conta** mostra contas + ativa DLL
 
 ### A.11 — /overview UI refinements (sessão 26/abr noite) (~10min)
 
 > Mudanças aplicadas nesta sessão (SW v62→v66): PM destacado, conta centralizada, checkbox-group, fullscreen.
 
-- [ ] **A.11.1** Backend `/api/v1/wallet/transactions?account_id=<uuid>` aceita filtro de conta (era hardcoded `None`)
-- [ ] **A.11.2** Em /carteira → trocar conta no filtro topo → "Últimas movimentações" recarrega só com tx daquela conta (DevTools Network: `?account_id=...&limit=5`)
-- [ ] **A.11.3** PM nos cards (`Pm R$ XX,XX`) aparece em **branco bold** — não mais cinza opaco
-- [ ] **A.11.4** Coluna "Conta" na tabela de últimas movimentações está **centralizada** (grid 5 colunas estável entre linhas)
-- [ ] **A.11.5** Toolbar mostra caixa `Mostrar:` com **8 checkboxes** (Todos + 7 fontes: Posições/FIIs/Fundos/Watchlist/Crypto/RF/Outros)
-- [ ] **A.11.6** Desmarcar "Crypto" + "Outros" → cards reduzem; "Todos" desmarca para refletir
-- [ ] **A.11.7** F5 mantém seleção (localStorage `fa_overview_sources`)
-- [ ] **A.11.8** Marcar "Todos" → todas as fontes voltam; desmarcar "Todos" → grid vazio
-- [ ] **A.11.9** Botão `⛶ Tela cheia` ao lado do `📐 Compact`
-- [ ] **A.11.10** Click → iframe Overview ocupa tela inteira (sidebar/topbar/abas do /carteira somem)
-- [ ] **A.11.11** Em fullscreen: background opaco (não transparente), label vira `⛶ Sair`
-- [ ] **A.11.12** Esc ou click `⛶ Sair` retorna ao layout normal
+- [X] **A.11.1** Backend `/api/v1/wallet/transactions?account_id=<uuid>` aceita filtro de conta (era hardcoded `None`)
+- [X] **A.11.2** Em /carteira → trocar conta no filtro topo → "Últimas movimentações" recarrega só com tx daquela conta (DevTools Network: `?account_id=...&limit=5`)
+- [X] **A.11.3** PM nos cards (`Pm R$ XX,XX`) aparece em **branco bold** — não mais cinza opaco
+- [X] **A.11.4** Coluna "Conta" na tabela de últimas movimentações está **centralizada** (grid 5 colunas estável entre linhas)
+- [X] **A.11.5** Toolbar mostra caixa `Mostrar:` com **8 checkboxes** (Todos + 7 fontes: Posições/FIIs/Fundos/Watchlist/Crypto/RF/Outros)
+- [X] **A.11.6** Desmarcar "Crypto" + "Outros" → cards reduzem; "Todos" desmarca para refletir
+- [X] **A.11.7** F5 mantém seleção (localStorage `fa_overview_sources`)
+- [X] **A.11.8** Marcar "Todos" → todas as fontes voltam; desmarcar "Todos" → grid vazio
+- [X] **A.11.9** Botão `⛶ Tela cheia` ao lado do `📐 Compact`
+- [X] **A.11.10** Click → iframe Overview ocupa tela inteira (sidebar/topbar/abas do /carteira somem)
+- [X] **A.11.11** Em fullscreen: background opaco (não transparente), label vira `⛶ Sair`
+- [X] **A.11.12** Esc ou click `⛶ Sair` retorna ao layout normal
+
+### A.12 — Sessão 27/abr noite (filtros, layout, carteira única) (~25min)
+
+> Mudanças aplicadas: filtros em tabs do /carteira, modal Histórico em /dashboard, layout de páginas órfãs, fix watchlist auth+tz, /performance carteira-based, consolidação seed em 1 conta "Teste".
+
+**Filtros novos no /carteira**:
+- [ ] **A.12.1** Tab Trades: 5 filtros (ticker / data início / data fim / classe / OP) + resumo "N trades · Compras X · Vendas Y" (backend `/trades` aceita date_from/date_to/operation)
+- [ ] **A.12.2** Tab Cripto: select Symbol populado dos symbols únicos da carteira; resumo "X de Y"
+- [ ] **A.12.3** Tab Renda Fixa: 3 filtros (Tipo / Emissor / IR isento|tributável); + tabela passou a renderizar (loadRf novo, era placeholder estático)
+- [ ] **A.12.4** Tab Outros: 2 filtros (Tipo / Moeda)
+- [ ] **A.12.5** Tab Posições: nova coluna **Moeda** + filtro Moeda (backend `/positions` agora retorna `currency` do trade)
+
+**/carteira → Cripto resgate**:
+- [ ] **A.12.6** Click 💰 Resgate parcial abre modal customizado (não mais `window.prompt`); preview live "Crédito estimado: R$ X (Y%)"
+
+**/dashboard**:
+- [ ] **A.12.7** Botão 📊 Histórico na topbar (ao lado MERCADO AO VIVO) abre modal grande com 5 filtros + tabela
+- [ ] **A.12.8** Selector de conta na topbar mostra contas sem DLL como `[SEM DLL]` disabled (não mais "Nenhuma conta")
+- [ ] **A.12.9** OCO Anexar modal: input qty agora tem label "QTD AÇÕES" + hint "de N (X%)" atualizando em tempo real; rodapé do modal mostra "· N restantes" (gold) ou "· N a mais" (vermelho)
+
+**Layout**:
+- [ ] **A.12.10** /movimentacoes agora tem topbar canônica + sidebar (era órfã)
+- [ ] **A.12.11** /import idem (substituiu o `<nav>` antigo)
+
+**/watchlist**:
+- [ ] **A.12.12** Adicionar ticker funciona (era 401 Not authenticated → fix Bearer header; depois 500 datetime tz → fix _naive() helper no repo)
+
+**/performance** (canonical carteira):
+- [ ] **A.12.13** Selector mostra "Teste (Carteira Consolidada Teste)" — não mais "portfólio"
+- [ ] **A.12.14** Backend novo: `GET /api/v1/wallet/accounts/{account_id}/performance?period=1y` retorna `account_id` + `account_label` (resolve portfolio 1:1 internamente). Endpoint legacy `/api/v1/portfolios/{id}/performance` mantido para retrocompat.
+- [ ] **A.12.15** Empty state CTA aponta pra `/carteira` (era `/portfolios` deprecada)
+
+**Carteira única "Teste" + invariante**:
+- [ ] **A.12.16** `/api/v1/wallet/accounts` retorna 1 ativa: id `eeee5555` apelido "Teste"
+- [ ] **A.12.17** Contas XP (`aaaa1111`) + BTG (`bbbb2222`) soft-deleted
+- [ ] **A.12.18** Todos os ativos (14 trades + 13 positions + 1 crypto + 7 RF + 3 other) migrados para conta Teste
+- [ ] **A.12.19** POST sem `investment_account_id` retorna 422 (Pydantic Field obrigatório)
+- [ ] **A.12.20** DB-level: `investment_account_id` é `NOT NULL` nas 5 tabelas
 
 ### A.10 — Smoke visual 14 páginas (~15min)
 
 > Já testado HTTP 200. Aqui é só passar o olho em cada uma.
 
-- [ ] **A.10.1** /dashboard (já em A.8/A.9)
-- [ ] **A.10.2** /carteira (já em A.1/A.2)
-- [ ] **A.10.3** /movimentacoes (já em A.3)
-- [ ] **A.10.4** /alerts (já em A.5)
-- [ ] **A.10.5** /import (já em A.4)
-- [ ] **A.10.6** /screener — input filtros + Executar Screener
-- [ ] **A.10.7** /watchlist — adicionar ticker, listar
-- [ ] **A.10.8** /admin — tabela users
-- [ ] **A.10.9** /hub — status serviços (admin-only)
-- [ ] **A.10.10** /performance — KPIs (precisa portfolio com dados — pode aparecer vazio)
-- [ ] **A.10.11** /diario — botão "+ Novo Trade"
-- [ ] **A.10.12** /fundamental — gerar relatório
-- [ ] **A.10.13** /forecast — controls
-- [ ] **A.10.14** /macro — snap grid
+- [X] **A.10.1** /dashboard (já em A.8/A.9)
+- [X] **A.10.2** /carteira (já em A.1/A.2)
+- [X] **A.10.3** /movimentacoes (já em A.3)
+- [X] **A.10.4** /alerts (já em A.5)
+- [X] **A.10.5** /import (já em A.4)
+- [X] **A.10.6** /screener — input filtros + Executar Screener
+- [X] **A.10.7** /watchlist — adicionar ticker, listar
+- [X] **A.10.8** /admin — tabela users
+- [X] **A.10.9** /hub — status serviços (admin-only)
+- [X] **A.10.10** /performance — KPIs (precisa portfolio com dados — pode aparecer vazio)
+- [X] **A.10.11** /diario — botão "+ Novo Trade"
+- [X] **A.10.12** /fundamental — gerar relatório
+- [X] **A.10.13** /forecast — controls
+- [X] **A.10.14** /macro — snap grid
 
 ---
 
@@ -405,7 +444,7 @@ Start-Process -FilePath ".venv\Scripts\python.exe" `
 
 | Bloco | Quando | Sub-itens | Tempo |
 |---|---|---|---|
-| 🟢 **A** Pregão fechado | agora | 11 seções (~76 checks) | ~2h |
+| 🟢 **A** Pregão fechado | agora | 12 seções (~96 checks) | ~2h30 |
 | 🔴 **B** Pregão aberto | seg 27/abr 10h-18h BRT | 17 seções (~50 checks) | ~3h |
 | 🟠 **C.1** Pushover | celular ligado | 4 checks | ~15min |
 | 🟠 **C.2** Sudo presencial | você presente | 7 checks | ~30min |
