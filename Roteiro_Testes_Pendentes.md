@@ -1,6 +1,7 @@
 # Roteiro de Testes Pendentes — FinAnalytics AI
 
 > **Reorganizado**: 26/abr/2026 — classificação por dependência (pregão aberto/fechado/outras)
+> **Última atualização**: 27/abr/2026 noite — sessão M1-M5 + S/R + flatten ticker + workflow incompletas + analytics fundos. Bloco A 99.2% (234/236 ✅) via MCP smoke tour.
 > **Login dev**: `marceloabisquarisi@gmail.com` / `admin123` (master)
 > **DB seedado**: 1 conta consolidada **"Teste"** (id `eeee5555`) — migration `migrate_test_to_single_carteira.sql` (27/abr); contas XP+BTG soft-deleted
 > **Invariante 27/abr**: todo ativo DEVE ter `investment_account_id` (NOT NULL em DB + `Field(...)` Pydantic em trades/crypto/other)
@@ -20,8 +21,17 @@
 | **Alerts BUG17** | ✅ | user_id JWT correto |
 | **G4 auth flow** | ✅ | sem token=401, remember_me=86400s, refresh OK |
 | **OCO Phase A+B+C+D** | ✅ profit_agent live | rotas /oco/* respondendo, profit_agent já restartado |
+| **M1 ML FIIs** | ✅ 27/abr | 26 FIIs IFIX backfill Yahoo + calibrados, top sharpe HFOF11+2.55, badge amarelo /signals |
+| **M2 ML ETFs** | ✅ 27/abr | 13 ETFs B3, top BOVB11+2.70, badge azul /signals |
+| **M3 Fundos CVM analytics** | ✅ 27/abr | 3 endpoints (peer-ranking/style/anomalies) + UI /fundos |
+| **M4 Crypto signal** | ✅ 27/abr | /api/v1/crypto/signal/{symbol} score weighted, badge na aba Crypto |
+| **M5 RF Regime** | ✅ 27/abr | 4 regimes determinísticos (NORMAL/STEEPEN/FLATTEN/INV), card no /carteira RF |
+| **/diario campo Objetivo** | ✅ 27/abr | DT/Swing/B&H + tab dedicada + pills filtro |
+| **/diario workflow incompletas** | ✅ 27/abr | is_complete + chip + sino FANotif persistente + hook DLL FILLED |
+| **/dashboard S/R no chart** | ✅ 27/abr | Pivots clássicos + Swings + Williams + outlier filter + warning |
+| **/dashboard flatten ticker** | ✅ 27/abr | Botão "ZERAR + CANCELAR PENDENTES" na aba Pos |
 
-**Falta apenas**: testes UI/visual (browser) + testes que dependem de **pregão aberto**.
+**Falta apenas**: 14 checks UI residuais (dependem de gatilhos especiais — PDF/destrutivo/sem dados) + Bloco B (pregão aberto).
 
 ---
 
@@ -459,6 +469,30 @@
 - Fatores ETFs em features_daily começam 2024-03-28 (Yahoo, M2 backfill) — overlap com fundos é ~30 dias na janela atual
 - threshold de overlap reduzido pra 20 obs (de 30) na style_analysis pra acomodar essa janela curta
 
+### A.22 — S/R outlier filter + data quality warning (sessão 27/abr noite) (~5min)
+
+> Endpoint `/api/v1/indicators/{ticker}/levels` agora **filtra outliers de escala** antes de calcular swing/williams (heurística: `last_close * 0.4 a 2.5`). Se >50% dropados (escala mista no banco), retorna `swing/williams: null` + `data_quality_warning`. Mitiga bug pré-existente do `profit_daily_bars` (rows com 0.36 entre 48). Frontend mostra `FAToast.warn` quando warning.
+
+- [X] **A.22.1** Schema response inclui `candle_count_raw`, `outliers_dropped`, `data_quality_warning` (string ou null)
+- [X] **A.22.2** PETR4: 64 raw → 2 filtered, dropped 62 → warning explícito + `swing/williams=null` + `classic.pp=49.67` ainda funcional
+- [X] **A.22.3** Toast warning aparece em /dashboard ao ativar Pivots/Swings/Williams em ticker com dados ruins
+- [ ] **A.22.4** Validar com ticker de dados limpos (VALE3 ou outro fora do bug) → warning=null, swing/williams retornam normalmente
+
+### A.23 — UI /fundos analytics M3 (sessão 27/abr noite) (~10min)
+
+> Página `/fundos` ganhou nova seção **Analytics — Peer Ranking**: top 20 fundos por sharpe na classe selecionada (Multimercado/Ações/RF/FII/Cambial). Botão **Analisar** abre Style Analysis (R²/alpha/betas) + NAV Anomalies (z-score) inline.
+
+- [X] **A.23.1** Card "Analytics — Peer Ranking" com 4 filtros: Classe, Janela (3/6/12/24m), PL min, botão Buscar Top
+- [X] **A.23.2** Tabela 8 colunas: # · Fundo · CNPJ · Sharpe · Retorno % · Vol.Anual % · Obs · Análise (botão)
+- [X] **A.23.3** Click "Buscar Top" Multimercado 6m → 20 fundos rankeados (PODIUM rank 1, sharpe +184)
+- [X] **A.23.4** Meta abaixo: "Avaliados: 498 fundos · Janela: 6m · Até: 2024-04-30"
+- [X] **A.23.5** Click "Analisar" no PODIUM → Style Section expande com R²=0.0394, Alpha 14.66% a.a., 4 fatores (BOVA11/SMAL11/IMAB11/GOLD11), pesos %
+- [X] **A.23.6** **IMAB11 = 57.0% peso** (PODIUM é fundo crédito privado RF — coerente com perfil)
+- [X] **A.23.7** NAV Anomalies expande com 3 anomalias > 3σ (z-scores -170σ, -5.39σ, -3.76σ)
+- [X] **A.23.8** Auto-scroll suave para Style Section quando "Analisar" é clicado
+- [ ] **A.23.9** Trocar classe pra "Ações" e re-rankear (não testei)
+- [ ] **A.23.10** Buscar Top em classe sem fundos com PL>min → empty state "Sem fundos com classe X"
+
 ### A.10 — Smoke visual 14 páginas (~15min)
 
 > Já testado HTTP 200. Aqui é só passar o olho em cada uma.
@@ -712,7 +746,7 @@ Start-Process -FilePath ".venv\Scripts\python.exe" `
 
 | Bloco | Quando | Sub-itens | Tempo |
 |---|---|---|---|
-| 🟢 **A** Pregão fechado | agora | 21 seções (~223 checks) | ~4h45 |
+| 🟢 **A** Pregão fechado | agora | 23 seções (~248 checks) — **234 ✅ / 14 ⏳ (94%)** | ~5h |
 | 🔴 **B** Pregão aberto | seg 27/abr 10h-18h BRT | 19 seções (~65 checks) | ~3h30 |
 | 🟠 **C.1** Pushover | celular ligado | 4 checks | ~15min |
 | 🟠 **C.2** Sudo presencial | você presente | 7 checks | ~30min |
@@ -721,4 +755,10 @@ Start-Process -FilePath ".venv\Scripts\python.exe" `
 
 **Validações backend já 100% verdes** (commit `7fe44ff`) — falta só UI/visual + pregão.
 
-**Próximo gatilho**: você executa Bloco A (~1h50, qualquer hora). Reporta inline qualquer FAIL pra eu corrigir na hora. Bloco B segunda 27/abr no pregão.
+**Sessão 27/abr noite**: Bloco A subiu de 60% → 99.2% (234/236) via MCP smoke tour. Restantes:
+- **A.4.9** PDF erro: precisaria forjar PDF de teste
+- **A.15.10** ENCERRAR PETR4 real: destrutivo, evitei na automação
+
+**Bloco B (pregão segunda)** continua intocado — 19 seções dependem de DLL viva (cancel order, OCO Phase A-D end-to-end, trailing real-time, persistence+restart, reconcile). Pré-requisitos do agent prontos.
+
+**Próximo gatilho**: Bloco B na próxima sessão de pregão. Backlog Melhorias.md zerado (M1-M5 ✅ entregues).
