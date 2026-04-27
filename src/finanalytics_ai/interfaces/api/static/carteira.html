@@ -425,8 +425,8 @@ tr:hover td{background:rgba(0,212,255,.02)}
     </div>
     <div class="tbl-wrap">
       <table data-fa-table>
-        <thead><tr><th>Symbol</th><th>Quantidade</th><th>Preço Médio (BRL)</th><th>Atual</th><th>P/L</th><th>Preço Médio (USD)</th><th>Exchange</th><th>Conta</th><th></th></tr></thead>
-        <tbody id="tbody-crypto"><tr><td colspan="9" class="empty">Carregando...</td></tr></tbody>
+        <thead><tr><th>Symbol</th><th>Quantidade</th><th>Preço Médio (BRL)</th><th>Atual</th><th>P/L</th><th>Sinal</th><th>Preço Médio (USD)</th><th>Exchange</th><th>Conta</th><th></th></tr></thead>
+        <tbody id="tbody-crypto"><tr><td colspan="10" class="empty">Carregando...</td></tr></tbody>
       </table>
 </div>
 </div>
@@ -435,6 +435,18 @@ tr:hover td{background:rgba(0,212,255,.02)}
   <div class="tab-panel" id="panel-rf">
     <div class="sec-header">
       <span class="sec-title" data-i18n="carteira.sec.rf">Renda Fixa</span>
+</div>
+    <!-- Card de regime da curva DI (M5) -->
+    <div id="rf-regime-card" style="margin:10px 0;padding:14px 16px;background:var(--s2,#0a1525);border:1px solid var(--border);border-left:4px solid #4a5568;border-radius:6px;display:none">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span id="rf-regime-badge" style="padding:4px 10px;border-radius:4px;font-size:12px;font-weight:700;letter-spacing:.05em;background:#4a5568;color:white">—</span>
+        <span id="rf-regime-headline" style="font-weight:600;font-size:14px;color:var(--text)">Carregando regime…</span>
+        <span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">
+          slope 2y-10y: <span id="rf-regime-slope">—</span> · z: <span id="rf-regime-z">—</span> · score: <span id="rf-regime-score">—</span>
+        </span>
+</div>
+      <div id="rf-regime-rationale" style="margin-top:8px;font-size:13px;color:var(--muted);line-height:1.5"></div>
+      <div id="rf-regime-alloc" style="margin-top:10px;display:flex;gap:6px;font-family:'DM Mono',monospace;font-size:12px"></div>
 </div>
     <div style="display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap">
       <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Tipo:</label>
@@ -1246,7 +1258,7 @@ function renderCryptoFiltered() {
   const total = _cryptoCache.length;
   if (!total) {
     if (summary) summary.textContent = '';
-    FAEmpty.tableRow(tbody, { colspan: 7, title: 'Nenhuma cripto cadastrada',
+    FAEmpty.tableRow(tbody, { colspan: 10, title: 'Nenhuma cripto cadastrada',
       text: 'Adicione holdings de BTC, ETH ou outras moedas com preço médio em BRL/USD.',
       cta: { label: '+ Cripto', variant: 'primary', onClick: "openModal('modal-crypto')" } });
     return;
@@ -1255,7 +1267,7 @@ function renderCryptoFiltered() {
   const filtered = q ? _cryptoCache.filter(c => (c.symbol || '').toUpperCase() === q) : _cryptoCache;
   if (summary) summary.textContent = q ? `${filtered.length} de ${total}` : `${total} ${total === 1 ? 'cripto' : 'criptos'}`;
   if (!filtered.length) {
-    FAEmpty.tableRow(tbody, { colspan: 9, title: `Nenhuma cripto com "${q}"`, text: 'Limpe o filtro (↻) para ver todas.' });
+    FAEmpty.tableRow(tbody, { colspan: 10, title: `Nenhuma cripto com "${q}"`, text: 'Limpe o filtro (↻) para ver todas.' });
     return;
   }
   tbody.innerHTML = filtered.map(c => {
@@ -1266,6 +1278,7 @@ function renderCryptoFiltered() {
       <td class="td-right">${fmt(c.average_price_brl)}</td>
       <td class="td-right cell-last">—</td>
       <td class="td-right cell-pnl">—</td>
+      <td class="cell-signal" style="text-align:center">—</td>
       <td class="td-right">${c.average_price_usd?fmt(c.average_price_usd,'$ '):'—'}</td>
       <td>${c.exchange||'—'}</td>
       <td>${acc ? (acc.apelido ? `<div><strong>${acc.apelido}</strong></div><div style="font-size:11px;color:var(--muted);margin-top:2px">${acc.institution_name||''}</div>` : (acc.institution_name||'—')) : '—'}</td>
@@ -1287,6 +1300,29 @@ async function enrichCryptoTable() {
     const prices = await Promise.all(batch.map(s => fetchCryptoLastBrl(s)));
     prices.forEach((p, j) => { lastMap[batch[j]] = p; });
     applyCryptoEnrichment(rows, lastMap);
+  }
+  // M4: signal BUY/SELL/HOLD por symbol (CoinGecko, cache 5min no service)
+  enrichCryptoSignals(rows, symbols);
+}
+
+async function enrichCryptoSignals(rows, symbols) {
+  for (const s of symbols) {
+    try {
+      const r = await fetch(`/api/v1/crypto/signal/${encodeURIComponent(s)}`);
+      if (!r.ok) continue;
+      const d = await r.json();
+      const sig = d.signal || 'HOLD';
+      const score = d.score;
+      const color = sig === 'BUY' ? '#2da44e' : sig === 'SELL' ? '#cf222e' : '#6b7280';
+      const tooltipParts = Object.entries(d.components || {}).map(([k, v]) => `${k}=${v.score>0?'+':''}${v.score}`);
+      const tip = tooltipParts.join(' · ') || 'sem dados';
+      rows.filter(row => row.dataset.symbol === s).forEach(row => {
+        const cell = row.querySelector('.cell-signal');
+        if (cell) {
+          cell.innerHTML = `<span title="score=${score} (${tip})" style="padding:2px 8px;background:${color};color:white;border-radius:3px;font-size:11px;font-weight:700;letter-spacing:.05em">${sig}</span>`;
+        }
+      });
+    } catch (e) { /* skip silently */ }
   }
 }
 
@@ -1410,6 +1446,46 @@ async function loadRf() {
     _populateRfFilters();
     renderRfFiltered();
   } catch(e) { console.error(e); }
+  // Carrega regime da curva DI (não bloqueia render dos títulos)
+  loadRfRegime();
+}
+
+const REGIME_COLORS = {
+  INVERSION:  '#ff3d5a',
+  STEEPENING: '#3abff8',
+  FLATTENING: '#f0b429',
+  NORMAL:     '#2da44e',
+};
+
+async function loadRfRegime() {
+  const card = document.getElementById('rf-regime-card');
+  if (!card) return;
+  try {
+    const r = await fetch('/api/v1/rf/regime');
+    if (!r.ok) { card.style.display = 'none'; return; }
+    const d = await r.json();
+    card.style.display = '';
+    const color = REGIME_COLORS[d.regime] || '#4a5568';
+    card.style.borderLeftColor = color;
+    const badge = document.getElementById('rf-regime-badge');
+    badge.textContent = d.regime;
+    badge.style.background = color;
+    document.getElementById('rf-regime-headline').textContent = d.recommendation.headline;
+    document.getElementById('rf-regime-rationale').textContent = d.recommendation.rationale;
+    const slopeBp = (d.slope_2y_10y * 10000).toFixed(1);
+    document.getElementById('rf-regime-slope').textContent = `${slopeBp >= 0 ? '+' : ''}${slopeBp}bp`;
+    document.getElementById('rf-regime-z').textContent = (d.slope_z_score >= 0 ? '+' : '') + d.slope_z_score.toFixed(2);
+    document.getElementById('rf-regime-score').textContent = (d.score * 100).toFixed(0) + '%';
+    const a = d.recommendation.suggested_allocation;
+    document.getElementById('rf-regime-alloc').innerHTML = [
+      `<span style="padding:3px 8px;background:rgba(45,164,78,.15);color:#2da44e;border-radius:3px">CDI: ${a.cdi}%</span>`,
+      `<span style="padding:3px 8px;background:rgba(58,191,248,.15);color:#3abff8;border-radius:3px">Pré curto: ${a.pre_curto}%</span>`,
+      `<span style="padding:3px 8px;background:rgba(240,180,41,.15);color:#f0b429;border-radius:3px">IPCA+ longo: ${a.ipca_longo}%</span>`,
+    ].join('');
+  } catch(e) {
+    console.warn('rf_regime.failed', e);
+    card.style.display = 'none';
+  }
 }
 
 function _populateRfFilters() {

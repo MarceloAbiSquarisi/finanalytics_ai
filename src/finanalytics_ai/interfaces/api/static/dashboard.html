@@ -862,6 +862,35 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
             <input class="ip-num" type="number" id="ipc-bb-p" value="20" min="5" max="100" onchange="applyIndPopup()">
 </div>
 
+          <!-- Suporte / Resistência -->
+          <div class="ip-section" style="margin-top:10px">SUPORTE / RESISTÊNCIA
+</div>
+          <div class="ip-row">
+            <label class="ip-toggle">
+              <input type="checkbox" id="ipc-sr-classic" onchange="applyIndPopup()">
+              <span class="ip-slider"></span>
+            </label>
+            <span class="ip-label">Pivots clássicos</span>
+            <span class="ip-sub" style="font-size:13px">PP·R·S</span>
+</div>
+          <div class="ip-row">
+            <label class="ip-toggle">
+              <input type="checkbox" id="ipc-sr-swing" onchange="applyIndPopup()">
+              <span class="ip-slider"></span>
+            </label>
+            <span class="ip-label">Swings (clusters)</span>
+            <span class="ip-sub">Lookb.</span>
+            <input class="ip-num" type="number" id="ipc-sr-lookback" value="5" min="2" max="20" onchange="applyIndPopup()">
+</div>
+          <div class="ip-row">
+            <label class="ip-toggle">
+              <input type="checkbox" id="ipc-sr-williams" onchange="applyIndPopup()">
+              <span class="ip-slider"></span>
+            </label>
+            <span class="ip-label">Fractais (Williams)</span>
+            <span class="ip-sub" style="font-size:13px">5-bar</span>
+</div>
+
           <!-- Médias -->
           <div class="ip-section" style="margin-top:10px">MÉDIAS ARITMÉTICAS (SMA)
 </div>
@@ -1206,6 +1235,14 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
         <div id="pos-dll-result" style="font-family:DM Mono,monospace;font-size:13px">
           <div style="color:var(--muted)">Selecione um ticker e clique em Ver</div>
         </div>
+        <!-- Flatten ticker: zerar posição + cancelar pending. Aparece quando há exposição. -->
+        <div id="pos-flatten-box" style="display:none;margin-top:8px;padding:8px;background:rgba(255,61,90,.06);border:1px solid rgba(255,61,90,.3);border-radius:6px">
+          <div id="pos-flatten-summary" style="font-size:11px;color:var(--muted);margin-bottom:6px;font-family:DM Mono,monospace"></div>
+          <button onclick="flattenTicker()" id="pos-flatten-btn"
+            style="width:100%;background:#ff3d5a;color:#fff;border:none;padding:7px 10px;border-radius:5px;cursor:pointer;font-family:DM Mono,monospace;font-size:13px;font-weight:700;letter-spacing:.05em">
+            🚨 ZERAR + CANCELAR PENDENTES
+          </button>
+        </div>
         <!-- Ativos com posição aberta -->
         <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
           <div style="font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Posições abertas</div>
@@ -1241,11 +1278,20 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
             <span style="font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">ML Signals (calibrados)</span>
             <button onclick="dtLoadSignals()" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:16px" title="Atualizar">↻</button>
           </div>
-          <div style="display:flex;gap:4px;margin-bottom:6px;font-size:11px;color:var(--muted)">
+          <div style="display:flex;gap:4px;margin-bottom:6px;font-size:11px;color:var(--muted);align-items:center;flex-wrap:wrap">
             <label style="display:flex;align-items:center;gap:4px">min Sharpe
               <input id="sig-min-sharpe" type="number" step="0.1" value="1.0"
                      style="width:60px;background:var(--card);border:1px solid var(--border);color:var(--white);font-family:DM Mono,monospace;font-size:12px;padding:2px 4px;border-radius:4px;outline:none"
                      onchange="dtLoadSignals()">
+            </label>
+            <label style="display:flex;align-items:center;gap:4px">classe
+              <select id="sig-asset-class" onchange="dtLoadSignals()"
+                style="background:var(--card);border:1px solid var(--border);color:var(--white);font-family:DM Mono,monospace;font-size:12px;padding:2px 4px;border-radius:4px;outline:none">
+                <option value="">Todas</option>
+                <option value="acao">Ações</option>
+                <option value="fii">FIIs</option>
+                <option value="etf">ETFs</option>
+              </select>
             </label>
             <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
               <input type="checkbox" id="sig-only-signal" checked onchange="dtLoadSignals()"> só BUY/SELL
@@ -1482,7 +1528,9 @@ var currentTicker = null;
 let currentRange = 'max';
 let currentPeriod = '1y';
 let tradeMode     = 'buy';
-let indVisible    = {bb: false, rsi: false, macd: false, adx: true, patterns: false};
+let indVisible    = {bb: false, rsi: false, macd: false, adx: true, patterns: false, sr_classic: false, sr_swing: false, sr_williams: false};
+let srLines       = [];   // refs de priceLines criadas no priceSeries (S/R overlays)
+let srCache       = null; // cache da última resposta /levels (evita refetch a cada toggle)
 let patternMarkers = [];  // markers ativos no gráfico
 let indConfig     = {rsiPeriod: 14, bbPeriod: 20, adxPeriod: 14};
 let adxChart = null, adxLine = null, diPlusLine = null, diMinusLine = null;
@@ -1681,6 +1729,7 @@ async function refreshWLPrices() {
 
 // -- TICKERER --------------------------------------------------------------------
 async function selectTicker(ticker) {
+  if (currentTicker !== ticker) srCache = null;  // invalida cache S/R ao trocar ticker
   currentTicker = ticker;
   // Sprint Fix UI 22/abr: persiste ticker selecionado para restore no refresh
   try { localStorage.setItem('fa_dashboard_ticker', ticker); } catch(e) {}
@@ -1801,6 +1850,8 @@ async function loadChartAndIndicators(ticker, range, interval) {
       updateSignals(indData);
     } catch(e2) { console.warn('Indicadores indisponiveis:', e2.message); }
     indCache = indData; indCache._bars = histData.bars;
+    // S/R levels overlay (só busca se algum toggle estiver ON)
+    refreshSRLevels();
   } catch(e) {
     console.error('loadChartAndIndicators error:', e.message);
     toast('Erro ao carregar dados: ' + e.message, 'err');
@@ -2321,9 +2372,13 @@ function applyIndPopup() {
   indVisible.adx      = document.getElementById('ipc-adx').checked;
   indVisible.bb       = document.getElementById('ipc-bb').checked;
   indVisible.patterns = document.getElementById('ipc-patterns').checked;
+  indVisible.sr_classic  = document.getElementById('ipc-sr-classic') ? document.getElementById('ipc-sr-classic').checked : false;
+  indVisible.sr_swing    = document.getElementById('ipc-sr-swing') ? document.getElementById('ipc-sr-swing').checked : false;
+  indVisible.sr_williams = document.getElementById('ipc-sr-williams') ? document.getElementById('ipc-sr-williams').checked : false;
   indConfig.rsiPeriod = parseInt(document.getElementById('ipc-rsi-p').value)   || 14;
   indConfig.bbPeriod  = parseInt(document.getElementById('ipc-bb-p').value)    || 20;
   indConfig.adxPeriod = parseInt(document.getElementById('ipc-adx-p').value)   || 14;
+  indConfig.srLookback = parseInt((document.getElementById('ipc-sr-lookback')||{}).value) || 5;
 
   updateIndBadge();
 
@@ -2356,10 +2411,96 @@ function applyIndPopup() {
     if (indVisible.patterns) drawPatterns(indCache._bars || []);
     else { patternMarkers=[]; applyAllMarkers(); }
   }
+  // S/R overlay (chama após renderPriceChart pq priceSeries reseta)
+  refreshSRLevels();
+}
+
+// ── Suporte / Resistência overlay ────────────────────────────────────────────
+function clearSRLines() {
+  if (!priceSeries || !srLines.length) { srLines = []; return; }
+  srLines.forEach(function(ln){ try { priceSeries.removePriceLine(ln); } catch(e){} });
+  srLines = [];
+}
+
+async function refreshSRLevels() {
+  clearSRLines();
+  if (!priceSeries || !currentTicker) return;
+  const anyOn = indVisible.sr_classic || indVisible.sr_swing || indVisible.sr_williams;
+  if (!anyOn) { srCache = null; return; }
+  // Busca níveis (cache por ticker pra evitar refetch a cada toggle)
+  if (!srCache || srCache.ticker !== currentTicker) {
+    try {
+      const lookback = indConfig.srLookback || 5;
+      const r = await fetch(`/api/v1/indicators/${currentTicker}/levels?methods=swing,classic,williams&lookback=${lookback}`);
+      if (!r.ok) return;
+      srCache = await r.json();
+    } catch(e) { return; }
+  }
+  const lines = [];
+  // Classic Pivots
+  if (indVisible.sr_classic && srCache.classic) {
+    const c = srCache.classic;
+    const map = [
+      { p: c.pp, label: 'PP',  color: 'rgba(180,180,180,.85)', width: 2, style: 0 },
+      { p: c.r1, label: 'R1',  color: 'rgba(255,107,107,.7)',  width: 1, style: 0 },
+      { p: c.r2, label: 'R2',  color: 'rgba(255,107,107,.55)', width: 1, style: 2 },
+      { p: c.r3, label: 'R3',  color: 'rgba(255,107,107,.4)',  width: 1, style: 2 },
+      { p: c.s1, label: 'S1',  color: 'rgba(46,212,122,.7)',   width: 1, style: 0 },
+      { p: c.s2, label: 'S2',  color: 'rgba(46,212,122,.55)',  width: 1, style: 2 },
+      { p: c.s3, label: 'S3',  color: 'rgba(46,212,122,.4)',   width: 1, style: 2 },
+    ];
+    map.forEach(function(L) {
+      lines.push(priceSeries.createPriceLine({
+        price: L.p, color: L.color, lineWidth: L.width, lineStyle: L.style,
+        axisLabelVisible: true, title: L.label,
+      }));
+    });
+  }
+  // Swing levels (clusterizados)
+  if (indVisible.sr_swing && srCache.swing) {
+    const sw = srCache.swing;
+    sw.resistances.forEach(function(L) {
+      lines.push(priceSeries.createPriceLine({
+        price: L.price, color: 'rgba(240,180,41,.85)',
+        lineWidth: Math.min(3, L.strength), lineStyle: 0,
+        axisLabelVisible: true, title: 'Sw·R×' + L.strength,
+      }));
+    });
+    sw.supports.forEach(function(L) {
+      lines.push(priceSeries.createPriceLine({
+        price: L.price, color: 'rgba(240,180,41,.6)',
+        lineWidth: Math.min(3, L.strength), lineStyle: 0,
+        axisLabelVisible: true, title: 'Sw·S×' + L.strength,
+      }));
+    });
+  }
+  // Williams Fractals — mostra só os 5 mais recentes pra não poluir
+  if (indVisible.sr_williams && srCache.williams) {
+    const w = srCache.williams;
+    const recentUp = (w.up_fractals || []).slice(-5);
+    const recentDown = (w.down_fractals || []).slice(-5);
+    recentUp.forEach(function(F) {
+      lines.push(priceSeries.createPriceLine({
+        price: F.price, color: 'rgba(218,112,214,.7)',
+        lineWidth: 1, lineStyle: 1,
+        axisLabelVisible: true, title: 'Fr↑',
+      }));
+    });
+    recentDown.forEach(function(F) {
+      lines.push(priceSeries.createPriceLine({
+        price: F.price, color: 'rgba(140,180,255,.7)',
+        lineWidth: 1, lineStyle: 1,
+        axisLabelVisible: true, title: 'Fr↓',
+      }));
+    });
+  }
+  srLines = lines;
 }
 
 function updateIndBadge() {
-  const active = [indVisible.rsi, indVisible.macd, indVisible.bb].filter(Boolean).length + maOverlays.length;
+  const active = [indVisible.rsi, indVisible.macd, indVisible.bb,
+                  indVisible.sr_classic, indVisible.sr_swing, indVisible.sr_williams]
+                 .filter(Boolean).length + maOverlays.length;
   const b = document.getElementById('ind-count-badge');
   if (b) b.textContent = active;
 }
@@ -2990,7 +3131,9 @@ async function dtLoadSignals() {
   const onlyBS = document.getElementById('sig-only-signal').checked;
   box.innerHTML = '<div style="font-size:12px;color:var(--muted)">carregando…</div>';
   try {
-    const url = `/api/v1/ml/signals?min_sharpe=${isFinite(minS)?minS:0}&limit=200`;
+    const ac = (document.getElementById('sig-asset-class') || {}).value || '';
+    let url = `/api/v1/ml/signals?min_sharpe=${isFinite(minS)?minS:0}&limit=200`;
+    if (ac) url += `&asset_class=${encodeURIComponent(ac)}`;
     const d = await FAErr.fetchJson(url);
     sum.textContent = `total=${d.count} · BUY=${d.buy} · SELL=${d.sell} · HOLD=${d.hold} · err=${d.errors}`;
     let items = d.items;
@@ -3005,8 +3148,14 @@ async function dtLoadSignals() {
       const sharpe = it.best_sharpe !== null && it.best_sharpe !== undefined
                     ? it.best_sharpe.toFixed(2) : '—';
       const err = it.error ? ` · ${it.error}` : '';
-      return `<div style="display:grid;grid-template-columns:50px 55px 70px 50px 1fr;gap:6px;align-items:center;padding:4px 6px;background:rgba(13,33,68,.4);border-radius:4px;font-family:DM Mono,monospace;font-size:11px;cursor:pointer" onclick="dtPickSignal('${it.ticker}')">
+      const acTag = it.asset_class === 'fii'
+        ? '<span style="padding:0 4px;background:rgba(240,180,41,.18);color:#f0b429;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:.05em">FII</span>'
+        : it.asset_class === 'etf'
+        ? '<span style="padding:0 4px;background:rgba(58,191,248,.18);color:#3abff8;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:.05em">ETF</span>'
+        : '';
+      return `<div style="display:grid;grid-template-columns:50px 30px 55px 70px 50px 1fr;gap:6px;align-items:center;padding:4px 6px;background:rgba(13,33,68,.4);border-radius:4px;font-family:DM Mono,monospace;font-size:11px;cursor:pointer" onclick="dtPickSignal('${it.ticker}')">
         <span style="font-weight:700">${it.ticker}</span>
+        <span>${acTag}</span>
         <span style="padding:1px 4px;background:${color};color:white;border-radius:3px;text-align:center;font-size:10px">${sig}</span>
         <span style="color:var(--muted);text-align:right">${pct}</span>
         <span style="color:var(--muted);text-align:right">S${sharpe}</span>
@@ -3149,6 +3298,7 @@ async function executeTrade(){
     user_account_id: document.getElementById('fa-account-sel').value || 'sem_conta',
     portfolio_id:   'carteira_principal',
     strategy_id:    'dashboard',
+    timeframe:      (typeof currentInterval !== 'undefined' && currentInterval) ? currentInterval : null,
   };
 
   msg.textContent = 'Enviando...';
@@ -3220,6 +3370,7 @@ async function sendOCO() {
     env, ticker: tk, exchange: 'B', quantity: parseInt(qStr),
     order_side: side, is_daytrade: dt,
     user_account_id: accId, portfolio_id: 'carteira_principal',
+    timeframe: (typeof currentInterval !== 'undefined' && currentInterval) ? currentInterval : null,
   };
 
   st.textContent = 'Enviando...';
@@ -3616,9 +3767,11 @@ async function cancelOrder(localId) {
 
 // ── Posição DLL ───────────────────────────────────────────────────────────────
 async function loadDLLPosition() {
-  const tk  = document.getElementById('pos-tk').value.trim() || 'PETR4';
+  const tk  = document.getElementById('pos-tk').value.trim().toUpperCase() || 'PETR4';
   const tp  = document.getElementById('pos-type').value;
   const el  = document.getElementById('pos-dll-result');
+  const flatBox = document.getElementById('pos-flatten-box');
+  if (flatBox) flatBox.style.display = 'none';
   el.innerHTML = '<span style="color:var(--muted)">Buscando...</span>';
   try {
     const r = await fetch(`/api/v1/agent/position/${tk}?type=${tp}`).then(r=>r.json());
@@ -3636,7 +3789,76 @@ async function loadDLLPosition() {
         <div class="pos-row"><span class="pos-lbl">Disponível</span><span class="pos-val">${r.qty_available}</span></div>
       </div>
     </div>`;
+    // Verifica se há pending orders desse ticker pra mostrar botão "Zerar tudo"
+    await refreshFlattenBox(tk, r.open_qty || 0);
   } catch(e) { el.innerHTML=`<span style="color:var(--red)">${e.message}</span>`; }
+}
+
+async function refreshFlattenBox(ticker, openQty) {
+  const box = document.getElementById('pos-flatten-box');
+  const summary = document.getElementById('pos-flatten-summary');
+  const btn = document.getElementById('pos-flatten-btn');
+  if (!box || !summary || !btn) return;
+  let pendingCount = 0;
+  try {
+    const o = await fetch(`/api/v1/agent/orders?ticker=${encodeURIComponent(ticker)}&limit=200`).then(r=>r.json());
+    const list = o.orders || [];
+    pendingCount = list.filter(x => [0,1,10].indexOf(parseInt(x.order_status)) >= 0).length;
+  } catch(e) {}
+  const hasPos = openQty > 0;
+  if (!hasPos && pendingCount === 0) {
+    box.style.display = 'none';
+    return;
+  }
+  box.style.display = '';
+  btn.dataset.ticker = ticker;
+  const parts = [];
+  if (hasPos) parts.push(`posição aberta: ${openQty}`);
+  if (pendingCount > 0) parts.push(`${pendingCount} ordem(ns) pendente(s)`);
+  summary.textContent = `${ticker} — ${parts.join(' · ')}`;
+}
+
+async function flattenTicker() {
+  const btn = document.getElementById('pos-flatten-btn');
+  const ticker = (btn && btn.dataset.ticker) || document.getElementById('pos-tk').value.trim().toUpperCase();
+  if (!ticker) { toast('Ticker obrigatório','err'); return; }
+  const sim = document.getElementById('t-sim') ? document.getElementById('t-sim').checked : true;
+  const env = sim ? 'simulation' : 'production';
+  const ok = window.FAModal
+    ? await FAModal.confirm({
+        title: '🚨 Encerrar exposição em ' + ticker + '?',
+        text: 'Esta operação cancela TODAS as ordens pendentes desse ticker e zera a posição a mercado (DayTrade). Não pode ser desfeito.',
+        okLabel: 'ENCERRAR ' + ticker,
+        cancelLabel: 'Cancelar',
+        variant: 'danger',
+      })
+    : confirm('Encerrar exposição em ' + ticker + '? Cancela ordens pendentes + zera posição a mercado.');
+  if (!ok) return;
+
+  btn.disabled = true;
+  const originalLabel = btn.textContent;
+  btn.textContent = 'Encerrando...';
+  try {
+    const r = await fetch('/api/v1/agent/order/flatten_ticker', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ ticker, exchange:'B', env, daytrade: true }),
+    }).then(r => r.json());
+    if (r.ok) {
+      toast(`${ticker} encerrado · ${r.cancelled_count} canceladas · zero=${r.zero_local_order_id}`, 'ok');
+    } else {
+      const errors = (r.cancel_errors || []).map(e => `#${e.local_order_id}: ${e.error}`).join(' | ');
+      const zeroErr = r.zero_error ? ` zero_err=${r.zero_error}` : '';
+      toast(`${ticker} parcial · ${r.cancelled_count} canceladas${zeroErr}${errors ? ' · ' + errors : ''}`, 'warn');
+    }
+    await loadDLLPosition();
+    if (typeof refreshOrders === 'function') refreshOrders();
+  } catch(e) {
+    toast('Erro ao encerrar: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
 }
 
 async function loadPositionAssets() {

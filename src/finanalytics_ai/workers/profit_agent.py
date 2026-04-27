@@ -119,6 +119,8 @@ import signal
 import sys
 import threading
 import time
+import urllib.request
+import urllib.error
 
 # ---------------------------------------------------------------------------
 
@@ -1218,6 +1220,15 @@ class ProfitAgent:
         self._db: DBWriter | None = None
 
         self._db_queue: queue.Queue = queue.Queue(maxsize=50_000)
+
+        # Diário hook: timeframe enviado pelo dashboard por local_order_id +
+        # set de IDs já notificados (idempotência local; backend tem UNIQUE)
+        self._tf_by_local_id: dict[int, str | None] = {}
+        self._diary_notified: set[int] = set()
+        self._diary_url = os.getenv(
+            "PROFIT_DIARY_HOOK_URL", "http://localhost:8000/api/v1/diario/from_fill"
+        )
+        self._diary_user_id = os.getenv("PROFIT_DIARY_USER_ID", "user-demo")
 
         # Estado de conexao
 
@@ -2698,6 +2709,9 @@ class ProfitAgent:
                         ),
                     )
 
+                    # Hook diário: status FILLED (2) com avg_price → cria entry
+                    self._maybe_dispatch_diary(item)
+
                 elif t == "trading_result":
                     code = item.get("result_code", 0)
 
@@ -2741,6 +2755,96 @@ class ProfitAgent:
                 log.warning("db_worker.error type=%s error=%s", item.get("_type"), e)
 
         log.info("db_worker.stopped")
+
+    # ------------------------------------------------------------------
+    # Diário hook: trade FILLED → cria entry pré-preenchida
+    # ------------------------------------------------------------------
+
+    def _maybe_dispatch_diary(self, item: dict) -> None:
+        """Se ordem virou FILLED com avg_price, dispara POST /diario/from_fill.
+
+        Idempotente local (set _diary_notified) + idempotente backend (UNIQUE
+        em external_order_id). Roda em thread daemon para não bloquear
+        o db_worker.
+        """
+        try:
+            status = int(item.get("order_status", 0))
+            if status != 2:  # 2 = Filled
+                return
+            local_id = int(item.get("local_order_id") or -1)
+            if local_id < 0 or local_id in self._diary_notified:
+                return
+            avg = item.get("avg_price")
+            qty = item.get("traded_qty")
+            if not avg or not qty:
+                return
+
+            # Busca ticker e side em profit_orders (acabou de ser atualizado)
+            row = None
+            if self._db:
+                try:
+                    cur = self._db._conn.cursor()  # noqa: SLF001
+                    cur.execute(
+                        "SELECT ticker, order_side FROM profit_orders WHERE local_order_id = %s",
+                        (local_id,),
+                    )
+                    row = cur.fetchone()
+                    cur.close()
+                except Exception as exc:
+                    log.warning("diary.lookup_failed local_id=%d err=%s", local_id, exc)
+                    return
+            if not row:
+                return
+            ticker, side = row[0], (row[1] or "buy")
+            direction = "BUY" if side.lower().startswith("b") else "SELL"
+
+            self._diary_notified.add(local_id)
+            payload = {
+                "external_order_id": str(local_id),
+                "ticker": ticker,
+                "direction": direction,
+                "entry_date": datetime.now(UTC).isoformat(),
+                "entry_price": float(avg),
+                "quantity": float(qty),
+                "timeframe": self._tf_by_local_id.get(local_id),
+                "user_id": self._diary_user_id,
+            }
+            threading.Thread(
+                target=self._post_diary, args=(payload,), daemon=True
+            ).start()
+        except Exception as exc:
+            log.warning("diary.dispatch_error err=%s", exc)
+
+    def _post_diary(self, payload: dict) -> None:
+        try:
+            data = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(
+                self._diary_url,
+                data=data,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                body = resp.read().decode("utf-8", errors="replace")
+                log.info(
+                    "diary.posted ext_id=%s status=%d body=%s",
+                    payload["external_order_id"],
+                    resp.status,
+                    body[:120],
+                )
+        except urllib.error.HTTPError as exc:
+            log.warning(
+                "diary.post_http_error ext_id=%s code=%d body=%s",
+                payload["external_order_id"],
+                exc.code,
+                exc.read()[:120],
+            )
+        except Exception as exc:
+            log.warning(
+                "diary.post_error ext_id=%s err=%s",
+                payload["external_order_id"],
+                exc,
+            )
 
     # ------------------------------------------------------------------
 
@@ -2911,6 +3015,12 @@ class ProfitAgent:
             return {"ok": False, "error": f"SendOrder falhou: {local_id}"}
 
         self._total_orders += 1
+
+        # Diário hook: guarda timeframe do gráfico ativo (enviado pelo dashboard)
+        # para enriquecer entry no diário quando ordem for FILLED.
+        tf_in = params.get("timeframe")
+        if tf_in:
+            self._tf_by_local_id[local_id] = str(tf_in)
 
         if not params.get("user_account_id"):
             params["user_account_id"] = f"{env}:{broker_id}:{account_id}"

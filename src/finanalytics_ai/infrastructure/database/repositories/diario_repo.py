@@ -45,6 +45,7 @@ class DiarioModel(Base):
     # Setup
     setup: Mapped[str | None] = mapped_column(String(50), nullable=True)
     timeframe: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    trade_objective: Mapped[str | None] = mapped_column(String(20), nullable=True)  # daytrade|swing|buy_hold
 
     # Qualitativo
     reason_entry: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -60,6 +61,12 @@ class DiarioModel(Base):
     pnl: Mapped[float | None] = mapped_column(Float, nullable=True)
     pnl_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
     is_winner: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
+    # Workflow de preenchimento qualitativo
+    is_complete: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    external_order_id: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, unique=True, index=True
+    )
 
     # Metadata
     created_at: Mapped[datetime] = mapped_column(
@@ -84,6 +91,7 @@ class DiarioModel(Base):
             "quantity": self.quantity,
             "setup": self.setup,
             "timeframe": self.timeframe,
+            "trade_objective": self.trade_objective,
             "reason_entry": self.reason_entry,
             "expectation": self.expectation,
             "what_happened": self.what_happened,
@@ -95,6 +103,8 @@ class DiarioModel(Base):
             "pnl": round(self.pnl, 2) if self.pnl is not None else None,
             "pnl_pct": round(self.pnl_pct, 4) if self.pnl_pct is not None else None,
             "is_winner": self.is_winner,
+            "is_complete": bool(self.is_complete),
+            "external_order_id": self.external_order_id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -149,6 +159,7 @@ class DiarioRepository:
                 quantity=float(data["quantity"]),
                 setup=data.get("setup"),
                 timeframe=data.get("timeframe"),
+                trade_objective=data.get("trade_objective"),
                 reason_entry=data.get("reason_entry"),
                 expectation=data.get("expectation"),
                 what_happened=data.get("what_happened"),
@@ -183,6 +194,8 @@ class DiarioRepository:
         ticker: str | None = None,
         setup: str | None = None,
         direction: str | None = None,
+        trade_objective: str | None = None,
+        is_complete: bool | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
@@ -194,6 +207,10 @@ class DiarioRepository:
                 q = q.where(DiarioModel.setup == setup)
             if direction:
                 q = q.where(DiarioModel.direction == direction.upper())
+            if trade_objective:
+                q = q.where(DiarioModel.trade_objective == trade_objective)
+            if is_complete is not None:
+                q = q.where(DiarioModel.is_complete == is_complete)
             q = q.order_by(desc(DiarioModel.entry_date)).limit(limit).offset(offset)
             result = await session.execute(q)
             return [r.to_dict() for r in result.scalars().all()]
@@ -222,6 +239,7 @@ class DiarioRepository:
                 "quantity",
                 "setup",
                 "timeframe",
+                "trade_objective",
                 "reason_entry",
                 "expectation",
                 "what_happened",
@@ -258,6 +276,85 @@ class DiarioRepository:
             await session.refresh(entry)
             return entry.to_dict()
 
+    async def set_complete(
+        self, entry_id: str, value: bool, user_id: str = "user-demo"
+    ) -> dict[str, Any] | None:
+        async with self._session() as session:
+            result = await session.execute(
+                select(DiarioModel).where(
+                    DiarioModel.id == entry_id,
+                    DiarioModel.user_id == user_id,
+                )
+            )
+            entry = result.scalar_one_or_none()
+            if not entry:
+                return None
+            entry.is_complete = bool(value)
+            entry.updated_at = datetime.now(UTC)
+            await session.commit()
+            await session.refresh(entry)
+            return entry.to_dict()
+
+    async def count_incomplete(self, user_id: str = "user-demo") -> int:
+        async with self._session() as session:
+            n = await session.scalar(
+                select(func.count()).where(
+                    DiarioModel.user_id == user_id,
+                    DiarioModel.is_complete == False,  # noqa: E712
+                )
+            )
+            return int(n or 0)
+
+    async def create_from_fill(self, data: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+        """Cria entry a partir de fill da DLL.
+
+        Idempotente por external_order_id: se ja existir entry com mesmo
+        external_order_id, retorna (entry_existente, False). Caso contrario,
+        cria com is_complete=False e retorna (nova_entry, True).
+        """
+        ext = data.get("external_order_id")
+        if not ext:
+            raise ValueError("create_from_fill requer external_order_id")
+        async with self._session() as session:
+            result = await session.execute(
+                select(DiarioModel).where(DiarioModel.external_order_id == ext)
+            )
+            existing = result.scalar_one_or_none()
+            if existing:
+                return (existing.to_dict(), False)
+
+            entry = DiarioModel(
+                id=str(uuid4()),
+                user_id=data.get("user_id", "user-demo"),
+                ticker=str(data["ticker"]).upper(),
+                direction=str(data.get("direction", "BUY")).upper(),
+                entry_date=data["entry_date"],
+                exit_date=None,
+                entry_price=float(data["entry_price"]),
+                exit_price=None,
+                quantity=float(data["quantity"]),
+                setup=None,
+                timeframe=data.get("timeframe"),
+                trade_objective=data.get("trade_objective"),
+                reason_entry=None,
+                expectation=None,
+                what_happened=None,
+                emotional_state=None,
+                mistakes=None,
+                lessons=None,
+                rating=None,
+                tags=None,
+                pnl=None,
+                pnl_pct=None,
+                is_winner=None,
+                is_complete=False,
+                external_order_id=ext,
+            )
+            session.add(entry)
+            await session.commit()
+            await session.refresh(entry)
+            return (entry.to_dict(), True)
+
     async def delete(self, entry_id: str, user_id: str = "user-demo") -> bool:
         async with self._session() as session:
             result = await session.execute(
@@ -273,33 +370,53 @@ class DiarioRepository:
             await session.commit()
             return True
 
-    async def stats(self, user_id: str = "user-demo") -> dict[str, Any]:
-        """Métricas agregadas para o dashboard do diário."""
+    async def stats(
+        self,
+        user_id: str = "user-demo",
+        trade_objective: str | None = None,
+    ) -> dict[str, Any]:
+        """Métricas agregadas para o dashboard do diário.
+
+        Quando trade_objective é informado, totais/by_setup/by_emotion/equity_curve
+        são filtrados por aquele objetivo. by_objective sempre retorna todos
+        (é o eixo de comparação).
+        """
+        # Filtro de objetivo aplicado em todas as queries exceto by_objective
+        obj_filter = (
+            (DiarioModel.trade_objective == trade_objective,) if trade_objective else ()
+        )
+
         async with self._session() as session:
             # Totais
-            total = await session.scalar(select(func.count()).where(DiarioModel.user_id == user_id))
+            total = await session.scalar(
+                select(func.count()).where(DiarioModel.user_id == user_id, *obj_filter)
+            )
             closed = await session.scalar(
                 select(func.count()).where(
                     DiarioModel.user_id == user_id,
                     DiarioModel.exit_price.is_not(None),
+                    *obj_filter,
                 )
             )
             winners = await session.scalar(
                 select(func.count()).where(
                     DiarioModel.user_id == user_id,
                     DiarioModel.is_winner == True,  # noqa: E712
+                    *obj_filter,
                 )
             )
             total_pnl = await session.scalar(
                 select(func.sum(DiarioModel.pnl)).where(
                     DiarioModel.user_id == user_id,
                     DiarioModel.pnl.is_not(None),
+                    *obj_filter,
                 )
             )
             avg_rating = await session.scalar(
                 select(func.avg(DiarioModel.rating)).where(
                     DiarioModel.user_id == user_id,
                     DiarioModel.rating.is_not(None),
+                    *obj_filter,
                 )
             )
 
@@ -318,6 +435,7 @@ class DiarioRepository:
                     DiarioModel.user_id == user_id,
                     DiarioModel.setup.is_not(None),
                     DiarioModel.pnl.is_not(None),
+                    *obj_filter,
                 )
                 .group_by(DiarioModel.setup)
                 .order_by(desc(func.sum(DiarioModel.pnl)))
@@ -333,6 +451,36 @@ class DiarioRepository:
                 for r in setup_q.all()
             ]
 
+            # Performance por objetivo (Day Trade / Swing / Buy & Hold)
+            obj_q = await session.execute(
+                select(
+                    DiarioModel.trade_objective,
+                    func.count().label("trades"),
+                    func.sum(DiarioModel.pnl).label("total_pnl"),
+                    func.avg(DiarioModel.pnl_pct).label("avg_pnl_pct"),
+                    func.sum(
+                        func.cast(DiarioModel.is_winner == True, Integer)  # noqa: E712
+                    ).label("wins"),
+                )
+                .where(
+                    DiarioModel.user_id == user_id,
+                    DiarioModel.trade_objective.is_not(None),
+                    DiarioModel.pnl.is_not(None),
+                )
+                .group_by(DiarioModel.trade_objective)
+                .order_by(desc(func.sum(DiarioModel.pnl)))
+            )
+            by_objective = [
+                {
+                    "objective": r.trade_objective,
+                    "trades": r.trades,
+                    "total_pnl": round(float(r.total_pnl or 0), 2),
+                    "avg_pnl_pct": round(float(r.avg_pnl_pct or 0), 2),
+                    "win_rate": round(float(r.wins or 0) / r.trades * 100, 1) if r.trades else 0,
+                }
+                for r in obj_q.all()
+            ]
+
             # Distribuição emocional
             emotion_q = await session.execute(
                 select(
@@ -343,6 +491,7 @@ class DiarioRepository:
                 .where(
                     DiarioModel.user_id == user_id,
                     DiarioModel.emotional_state.is_not(None),
+                    *obj_filter,
                 )
                 .group_by(DiarioModel.emotional_state)
                 .order_by(desc(func.count()))
@@ -366,6 +515,7 @@ class DiarioRepository:
                     DiarioModel.user_id == user_id,
                     DiarioModel.pnl.is_not(None),
                     DiarioModel.exit_date.is_not(None),
+                    *obj_filter,
                 )
                 .order_by(DiarioModel.exit_date)
             )
@@ -392,6 +542,7 @@ class DiarioRepository:
                 "total_pnl": round(float(total_pnl or 0), 2),
                 "avg_rating": round(float(avg_rating or 0), 1),
                 "by_setup": by_setup,
+                "by_objective": by_objective,
                 "by_emotion": by_emotion,
                 "equity_curve": equity_curve,
             }

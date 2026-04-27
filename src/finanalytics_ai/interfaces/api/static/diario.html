@@ -84,6 +84,10 @@ body.sb-open .fa-sb-push{margin-left:var(--sb-w)}
 .ec-dir{font-size:13px;padding:2px 6px;border-radius:3px;font-weight:700;letter-spacing:.5px}
 .ec-dir.BUY{background:rgba(0,230,118,.15);color:var(--green)}
 .ec-dir.SELL{background:rgba(255,61,90,.15);color:var(--red)}
+.ec-pending{font-size:11px;font-weight:700;color:#0c1019;background:#ffd740;
+  padding:2px 7px;border-radius:4px;letter-spacing:.05em}
+.entry-card.pending{border-left:3px solid #ffd740}
+.entry-card.pending:hover{border-left-color:#ffeb70}
 .ec-setup{font-size:13px;color:var(--muted);background:rgba(255,255,255,.04);
   padding:2px 6px;border-radius:3px;border:1px solid var(--border)}
 .ec-pnl{margin-left:auto;font-size:16px;font-weight:700}
@@ -105,6 +109,13 @@ body.sb-open .fa-sb-push{margin-left:var(--sb-w)}
 .dj-tab{padding:8px 16px;font-size:14px;font-weight:600;letter-spacing:.5px;
   color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:.15s}
 .dj-tab.active{color:var(--gold);border-color:var(--gold)}
+.obj-pills{display:flex;gap:6px;align-items:center;padding:8px 12px;
+  background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.obj-pills-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-right:4px}
+.obj-pill{padding:4px 10px;font-size:12px;font-weight:600;border-radius:14px;cursor:pointer;
+  border:1px solid var(--border);background:transparent;color:var(--muted);transition:.15s;font-family:inherit}
+.obj-pill:hover{background:rgba(255,255,255,.04);color:#e2eaf4}
+.obj-pill.active{color:#0c1019;border-color:transparent}
 .dj-tab-content{flex:1;overflow-y:auto;padding:16px}
 .dj-tab-panel{display:none}
 .dj-tab-panel.active{display:block}
@@ -327,6 +338,10 @@ body.sb-open .fa-sb-push{margin-left:var(--sb-w)}
       <span class="sv gold" id="st-rating">—</span>
       <span class="sl" data-i18n="diario.rating">Rating Médio</span>
 </div>
+    <div class="stat-chip" id="st-pending-chip" style="display:none;border-color:#ffd740" onclick="document.getElementById('f-status').value='incomplete';filterEntries()" title="Clique para ver só as incompletas">
+      <span class="sv" id="st-pending" style="color:#ffd740">—</span>
+      <span class="sl">⏳ Pendentes</span>
+</div>
     <button class="btn-add" onclick="openModal()" data-i18n="diario.new_trade">+ Novo Trade</button>
 </div>
 
@@ -364,6 +379,17 @@ body.sb-open .fa-sb-push{margin-left:var(--sb-w)}
           <option value="BUY">BUY</option>
           <option value="SELL">SELL</option>
         </select>
+        <select id="f-objective" onchange="filterEntries()">
+          <option value="">Todos os objetivos</option>
+          <option value="daytrade">⚡ Day Trade</option>
+          <option value="swing">📈 Swing Trade</option>
+          <option value="buy_hold">🏛 Buy &amp; Hold</option>
+        </select>
+        <select id="f-status" onchange="filterEntries()" title="Status de preenchimento">
+          <option value="">Todas</option>
+          <option value="incomplete">⏳ Incompletas</option>
+          <option value="complete">✅ Completas</option>
+        </select>
 </div>
       <div class="entry-list" id="entry-list">
         <div class="empty-state">
@@ -378,10 +404,20 @@ body.sb-open .fa-sb-push{margin-left:var(--sb-w)}
 
     <!-- RIGHT: dashboard -->
     <div class="dj-right">
+      <div class="obj-pills" id="obj-pills">
+        <span class="obj-pills-lbl">Filtro:</span>
+        <button class="obj-pill active" data-obj="" onclick="setObjFilter('')" style="background:#3a4a5e;color:#e2eaf4">Todos</button>
+        <button class="obj-pill" data-obj="daytrade" onclick="setObjFilter('daytrade')">⚡ Day Trade</button>
+        <button class="obj-pill" data-obj="swing" onclick="setObjFilter('swing')">📈 Swing</button>
+        <button class="obj-pill" data-obj="buy_hold" onclick="setObjFilter('buy_hold')">🏛 Buy &amp; Hold</button>
+        <span id="obj-pill-hint" style="font-size:11px;color:var(--muted);margin-left:auto"></span>
+</div>
       <div class="dj-tabs">
         <div class="dj-tab active" onclick="showTab('equity')">Equity Curve
 </div>
         <div class="dj-tab" onclick="showTab('setup')">Por Setup
+</div>
+        <div class="dj-tab" onclick="showTab('objective')">Objetivo
 </div>
         <div class="dj-tab" onclick="showTab('emotion')">Psicologia
 </div>
@@ -439,6 +475,32 @@ body.sb-open .fa-sb-push{margin-left:var(--sb-w)}
                   </tr>
                 </thead>
                 <tbody id="setup-tbody"></tbody>
+              </table>
+</div>
+</div>
+</div>
+
+        <!-- Tab: Por Objetivo (DT/Swing/Buy & Hold) -->
+        <div class="dj-tab-panel" id="tab-objective">
+          <div class="insights-grid" id="obj-insights">
+</div>
+          <div class="chart-card">
+            <div class="chart-title">P&amp;L total por objetivo
+</div>
+            <div class="chart-wrap"><canvas id="chart-objective-bar"></canvas>
+</div>
+</div>
+          <div class="chart-card">
+            <div class="chart-title">Performance por objetivo
+</div>
+            <div style="overflow-x:auto">
+              <table class="perf-table" id="objective-table" data-fa-table>
+                <thead>
+                  <tr>
+                    <th>Objetivo</th><th>Trades</th><th>Win%</th><th>P&amp;L Total</th><th>P&amp;L médio%</th>
+                  </tr>
+                </thead>
+                <tbody id="objective-tbody"></tbody>
               </table>
 </div>
 </div>
@@ -518,6 +580,17 @@ body.sb-open .fa-sb-push{margin-left:var(--sb-w)}
           <option value="1m">1m</option><option value="5m">5m</option>
           <option value="15m">15m</option><option value="30m">30m</option>
           <option value="1h">1h</option><option value="1d">Diário</option>
+        </select>
+</div>
+</div>
+    <div class="form-grid">
+      <div class="fld">
+        <label>Objetivo da operação</label>
+        <select id="m-objective">
+          <option value="">—</option>
+          <option value="daytrade">⚡ Day Trade (entra e sai no mesmo pregão)</option>
+          <option value="swing">📈 Swing Trade (dias a semanas)</option>
+          <option value="buy_hold">🏛 Buy &amp; Hold (longo prazo)</option>
         </select>
 </div>
 </div>
@@ -704,10 +777,27 @@ var currentRating = 0;
 var currentTags = [];
 var statsData = {};
 var charts = {};
+var currentObjFilter = '';
 
 // ── Init ────────────────────────────────────────────────────────────────────
 async function init() {
-  await Promise.all([loadEntries(), loadStats()]);
+  try {
+    var saved = localStorage.getItem('fa_diario_obj_filter') || '';
+    if (['daytrade','swing','buy_hold',''].indexOf(saved) >= 0) {
+      currentObjFilter = saved;
+      // aplica visual sem disparar fetch (loadStats roda em seguida com filter já setado)
+      var btn = document.querySelector('.obj-pill[data-obj="'+saved+'"]');
+      if (btn && saved) {
+        document.querySelectorAll('.obj-pill').forEach(function(b){ b.classList.remove('active'); b.style.background=''; b.style.color=''; });
+        btn.classList.add('active');
+        var color = OBJECTIVE_COLORS[saved] || '#3a4a5e';
+        btn.style.background = color; btn.style.color = '#0c1019';
+        var hint = document.getElementById('obj-pill-hint');
+        if (hint) hint.textContent = 'Equity / Setup / Psicologia filtrados por ' + (OBJECTIVE_LABELS[saved] || saved);
+      }
+    }
+  } catch(e){}
+  await Promise.all([loadEntries(), loadStats(), refreshIncompleteCount()]);
 }
 
 // ── Load entries ─────────────────────────────────────────────────────────────
@@ -720,13 +810,63 @@ async function loadEntries() {
   } catch(e) { console.error(e); }
 }
 
+async function refreshIncompleteCount() {
+  try {
+    var r = await fetch(API + '/incomplete_count?user_id=' + USER);
+    if (!r.ok) return;
+    var d = await r.json();
+    var n = d.count || 0;
+    var chip = document.getElementById('st-pending-chip');
+    var val = document.getElementById('st-pending');
+    if (chip && val) {
+      chip.style.display = n > 0 ? '' : 'none';
+      val.textContent = n;
+    }
+    if (window.FANotif && window.FANotif.setSystemBadge) {
+      window.FANotif.setSystemBadge({
+        key: 'diary_pending',
+        count: n,
+        label: n + ' entrada(s) do diário pendente(s)',
+        href: '/diario',
+      });
+    }
+  } catch(e) { console.error(e); }
+}
+
 async function loadStats() {
   try {
-    var r = await fetch(API + '/stats?user_id=' + USER);
+    var url = API + '/stats?user_id=' + USER;
+    if (currentObjFilter) url += '&trade_objective=' + encodeURIComponent(currentObjFilter);
+    var r = await fetch(url);
     statsData = await r.json();
     updateHeaderStats(statsData);
     renderCharts(statsData);
   } catch(e) { console.error(e); }
+}
+
+function setObjFilter(obj) {
+  currentObjFilter = obj || '';
+  // Visual: pill ativa colorida; outras neutras
+  document.querySelectorAll('.obj-pill').forEach(function(b){
+    var isActive = (b.dataset.obj || '') === currentObjFilter;
+    b.classList.toggle('active', isActive);
+    if (isActive) {
+      var color = currentObjFilter ? (OBJECTIVE_COLORS[currentObjFilter] || '#3a4a5e') : '#3a4a5e';
+      b.style.background = color;
+      b.style.color = currentObjFilter ? '#0c1019' : '#e2eaf4';
+    } else {
+      b.style.background = '';
+      b.style.color = '';
+    }
+  });
+  var hint = document.getElementById('obj-pill-hint');
+  if (hint) {
+    hint.textContent = currentObjFilter
+      ? 'Equity / Setup / Psicologia filtrados por ' + (OBJECTIVE_LABELS[currentObjFilter] || currentObjFilter)
+      : '';
+  }
+  try { localStorage.setItem('fa_diario_obj_filter', currentObjFilter); } catch(e){}
+  loadStats();
 }
 
 // ── Header stats ─────────────────────────────────────────────────────────────
@@ -773,11 +913,16 @@ function renderList(entries) {
     var emotionColor = EMOTION_COLORS[e.emotional_state] || '#4a5568';
     var tags = (e.tags||[]).slice(0,3).map(function(t){return '<span class="ec-tag">#'+t+'</span>';}).join('');
     var entryDate = e.entry_date ? new Date(e.entry_date).toLocaleDateString('pt-BR') : '—';
-    return '<div class="entry-card" id="ec-'+e.id+'" onclick="selectEntry(\''+e.id+'\')">' +
+    var pendingBadge = !e.is_complete
+      ? '<span class="ec-pending" title="Entrada incompleta — preencha os campos qualitativos">⏳ PENDENTE</span>'
+      : '';
+    return '<div class="entry-card '+(e.is_complete?'':'pending')+'" id="ec-'+e.id+'" onclick="selectEntry(\''+e.id+'\')">' +
       '<button class="ec-del" onclick="event.stopPropagation();deleteEntry(\''+e.id+'\')">×</button>' +
       '<div class="ec-top">' +
         '<span class="ec-ticker">'+e.ticker+'</span>' +
         '<span class="ec-dir '+e.direction+'">'+e.direction+'</span>' +
+        pendingBadge +
+        (e.trade_objective ? '<span class="ec-obj" style="background:'+(OBJECTIVE_COLORS[e.trade_objective]||'#4a5568')+'22;color:'+(OBJECTIVE_COLORS[e.trade_objective]||'#4a5568')+';padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600">'+(OBJECTIVE_LABELS[e.trade_objective]||e.trade_objective)+'</span>' : '') +
         (e.setup ? '<span class="ec-setup">'+SETUP_LABELS[e.setup]||e.setup+'</span>' : '') +
         pnlHtml +
       '</div>' +
@@ -796,10 +941,15 @@ function filterEntries() {
   var ticker = document.getElementById('f-ticker').value.toUpperCase();
   var setup  = document.getElementById('f-setup').value;
   var dir    = document.getElementById('f-dir').value;
+  var obj    = document.getElementById('f-objective').value;
+  var status = document.getElementById('f-status').value;
   var filtered = allEntries.filter(function(e) {
     if (ticker && !e.ticker.includes(ticker)) return false;
     if (setup  && e.setup !== setup) return false;
     if (dir    && e.direction !== dir) return false;
+    if (obj    && e.trade_objective !== obj) return false;
+    if (status === 'incomplete' && e.is_complete) return false;
+    if (status === 'complete'   && !e.is_complete) return false;
     return true;
   });
   renderList(filtered);
@@ -828,6 +978,7 @@ function renderDetail(e) {
     '<div style="display:flex;align-items:center;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">' +
       '<span style="font-size:24px;font-weight:700;color:var(--blue)">'+e.ticker+'</span>' +
       '<span class="ec-dir '+e.direction+'">'+e.direction+'</span>' +
+      (e.trade_objective ? '<span style="background:'+(OBJECTIVE_COLORS[e.trade_objective]||'#4a5568')+'22;color:'+(OBJECTIVE_COLORS[e.trade_objective]||'#4a5568')+';padding:3px 10px;border-radius:4px;font-size:14px;font-weight:600">'+(OBJECTIVE_LABELS[e.trade_objective]||e.trade_objective)+'</span>' : '') +
       (e.setup ? '<span class="ec-setup">'+SETUP_LABELS[e.setup]||e.setup+'</span>' : '') +
       (pnl ? '<span style="margin-left:auto;font-size:22px;font-weight:700;color:var(--'+(pnlPos?'green':'red')+')">'+
         (pnlPos?'+':'')+'R$ '+f2(e.pnl)+'<span style="font-size:15px;margin-left:6px">('+
@@ -850,9 +1001,27 @@ function renderDetail(e) {
       (e.emotional_state ? '<span style="background:'+(EMOTION_COLORS[e.emotional_state]||'#4a5568')+'22;color:'+(EMOTION_COLORS[e.emotional_state]||'#4a5568')+';padding:3px 10px;border-radius:4px;font-size:14px">'+EMOTION_LABELS[e.emotional_state]||e.emotional_state+'</span>' : '') +
       '<span>'+stars+'</span>' +
       ((e.tags||[]).length ? '<div style="display:flex;gap:4px">'+(e.tags||[]).map(function(t){return '<span class="ec-tag">#'+t+'</span>';}).join('')+'</div>' : '') +
-      '<button onclick="openEditModal(\''+e.id+'\')" style="margin-left:auto;background:none;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:4px;cursor:pointer;font-family:var(--mono);font-size:14px">Editar</button>' +
+      (e.is_complete
+        ? '<button onclick="toggleComplete(\''+e.id+'\', false)" style="margin-left:auto;background:none;border:1px solid #00e676;color:#00e676;padding:4px 12px;border-radius:4px;cursor:pointer;font-family:var(--mono);font-size:14px" title="Marcar como incompleta">✅ Completa</button>'
+        : '<button onclick="toggleComplete(\''+e.id+'\', true)" style="margin-left:auto;background:#ffd740;color:#0c1019;border:none;padding:5px 14px;border-radius:4px;cursor:pointer;font-family:var(--mono);font-size:14px;font-weight:700" title="Marcar como completa após preencher campos qualitativos">⏳ Concluir entrada</button>') +
+      '<button onclick="openEditModal(\''+e.id+'\')" style="background:none;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:4px;cursor:pointer;font-family:var(--mono);font-size:14px">Editar</button>' +
     '</div>' +
   '</div>';
+}
+
+async function toggleComplete(id, value) {
+  try {
+    var path = value ? '/complete' : '/uncomplete';
+    var r = await fetch(API + '/entries/' + id + path + '?user_id=' + USER, { method: 'POST' });
+    if (!r.ok) throw new Error(await r.text());
+    if (window.FAToast) FAToast.ok(value ? 'Entrada marcada como completa' : 'Entrada marcada como incompleta');
+    await Promise.all([loadEntries(), loadStats(), refreshIncompleteCount()]);
+    var entry = allEntries.find(function(e){return e.id===id;});
+    if (entry) renderDetail(entry);
+  } catch(e) {
+    if (window.FAToast) FAToast.err('Erro: ' + e.message);
+    else console.error(e);
+  }
 }
 
 function mkDet(label, val) {
@@ -875,6 +1044,9 @@ function renderCharts(s) {
   renderPnlBar();
   renderSetupBar(s.by_setup || []);
   renderSetupTable(s.by_setup || []);
+  renderObjectiveInsights(s.by_objective || []);
+  renderObjectiveBar(s.by_objective || []);
+  renderObjectiveTable(s.by_objective || []);
   renderEmotionPie(s.by_emotion || []);
   renderEmotionPnl(s.by_emotion || []);
   renderPsychInsights(s);
@@ -954,6 +1126,60 @@ function renderSetupTable(bySetup) {
   }).join('');
 }
 
+function renderObjectiveInsights(byObj) {
+  var el = document.getElementById('obj-insights');
+  if (!el) return;
+  if (!byObj.length) {
+    el.innerHTML = '<div class="insight-card" style="grid-column:1/-1"><div class="insight-lbl" style="text-align:center">Nenhum trade com objetivo registrado ainda. Marque DT/Swing/B&amp;H ao criar.</div></div>';
+    return;
+  }
+  el.innerHTML = byObj.map(function(o){
+    var pos = o.total_pnl >= 0;
+    var color = OBJECTIVE_COLORS[o.objective] || '#4a5568';
+    return '<div class="insight-card" style="border-color:'+color+'33">' +
+      '<div class="insight-val" style="color:'+color+'">'+(OBJECTIVE_LABELS[o.objective]||o.objective)+'</div>' +
+      '<div class="insight-lbl">'+o.trades+' trades · Win '+o.win_rate.toFixed(1)+'% · '+
+        '<span style="color:'+(pos?'var(--green)':'var(--red)')+';font-weight:600">'+(pos?'+':'')+'R$ '+f2(o.total_pnl)+'</span></div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderObjectiveBar(byObj) {
+  if (!byObj.length) return;
+  mkChart('chart-objective-bar', 'bar', {
+    labels: byObj.map(function(o){ return OBJECTIVE_LABELS[o.objective]||o.objective; }),
+    datasets: [{
+      label: 'P&L Total (R$)',
+      data: byObj.map(function(o){ return o.total_pnl; }),
+      backgroundColor: byObj.map(function(o){ return o.total_pnl>=0?'rgba(0,230,118,.5)':'rgba(255,61,90,.5)'; }),
+      borderColor: byObj.map(function(o){ return o.total_pnl>=0?'#00e676':'#ff3d5a'; }),
+      borderWidth: 1,
+    }]
+  }, { indexAxis:'y', plugins:{legend:{display:false}},
+       scales: { x: { ticks: { color:'#4a5568', font:{size:9}, callback:function(v){return 'R$'+f2(v);} }, grid:{color:'rgba(255,255,255,.04)'} },
+                 y: { ticks: { color:'#e2eaf4', font:{size:11} }, grid:{display:false} } } });
+}
+
+function renderObjectiveTable(byObj) {
+  var tbody = document.getElementById('objective-tbody');
+  if (!tbody) return;
+  if (!byObj.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:14px">—</td></tr>';
+    return;
+  }
+  tbody.innerHTML = byObj.map(function(o){
+    var pos = o.total_pnl >= 0;
+    var color = OBJECTIVE_COLORS[o.objective] || '#4a5568';
+    return '<tr>' +
+      '<td style="color:'+color+';font-weight:600">'+(OBJECTIVE_LABELS[o.objective]||o.objective)+'</td>' +
+      '<td style="color:var(--muted)">'+o.trades+'</td>' +
+      '<td style="color:'+(o.win_rate>=50?'var(--green)':'var(--red)')+'">'+o.win_rate.toFixed(1)+'%</td>' +
+      '<td style="color:'+(pos?'var(--green)':'var(--red)')+'">'+(pos?'+':'')+'R$ '+f2(o.total_pnl)+'</td>' +
+      '<td style="color:'+(o.avg_pnl_pct>=0?'var(--green)':'var(--red)')+'">'+(o.avg_pnl_pct>=0?'+':'')+o.avg_pnl_pct.toFixed(2)+'%</td>' +
+    '</tr>';
+  }).join('');
+}
+
 function renderEmotionPie(byEmotion) {
   if (!byEmotion.length) return;
   mkChart('chart-emotion-pie', 'doughnut', {
@@ -1023,7 +1249,7 @@ function renderPsychInsights(s) {
 // ── Tab navigation ────────────────────────────────────────────────────────────
 function showTab(name) {
   document.querySelectorAll('.dj-tab').forEach(function(t,i){
-    var names=['equity','setup','emotion','detail'];
+    var names=['equity','setup','objective','emotion','detail'];
     t.classList.toggle('active', names[i]===name);
   });
   document.querySelectorAll('.dj-tab-panel').forEach(function(p){
@@ -1056,6 +1282,7 @@ function openEditModal(id) {
   document.getElementById('m-direction').value = entry.direction || 'BUY';
   document.getElementById('m-timeframe').value = entry.timeframe || '';
   document.getElementById('m-setup').value = entry.setup || '';
+  document.getElementById('m-objective').value = entry.trade_objective || '';
   document.getElementById('m-entry-price').value = entry.entry_price || '';
   document.getElementById('m-exit-price').value = entry.exit_price || '';
   document.getElementById('m-quantity').value = entry.quantity || '';
@@ -1085,6 +1312,7 @@ function clearForm() {
   document.getElementById('m-direction').value = 'BUY';
   document.getElementById('m-timeframe').value = '';
   document.getElementById('m-setup').value = '';
+  document.getElementById('m-objective').value = '';
   document.getElementById('m-emotion').value = '';
   currentRating = 0;
   currentTags = [];
@@ -1117,6 +1345,7 @@ async function saveEntry() {
     quantity: quantity,
     setup: document.getElementById('m-setup').value || null,
     timeframe: document.getElementById('m-timeframe').value || null,
+    trade_objective: document.getElementById('m-objective').value || null,
     reason_entry: document.getElementById('m-reason').value.trim() || null,
     expectation: document.getElementById('m-expectation').value.trim() || null,
     what_happened: document.getElementById('m-happened').value.trim() || null,
@@ -1137,7 +1366,7 @@ async function saveEntry() {
     });
     if (!r.ok) throw new Error(await r.text());
     closeModal();
-    await Promise.all([loadEntries(), loadStats()]);
+    await Promise.all([loadEntries(), loadStats(), refreshIncompleteCount()]);
   } catch(e) {
     FAToast.err('Erro ao salvar: ' + e.message);
   }
@@ -1146,7 +1375,7 @@ async function saveEntry() {
 async function deleteEntry(id) {
   if (!await FAModal.confirm('Excluir este trade do diário?')) return;
   await fetch(API + '/entries/' + id + '?user_id=' + USER, { method: 'DELETE' });
-  await Promise.all([loadEntries(), loadStats()]);
+  await Promise.all([loadEntries(), loadStats(), refreshIncompleteCount()]);
   document.getElementById('detail-empty').style.display = 'flex';
   document.getElementById('detail-content').style.display = 'none';
 }
@@ -1219,6 +1448,12 @@ var EMOTION_LABELS = {
 var EMOTION_COLORS = {
   calm:'#00e676',focused:'#3abff8',anxious:'#ffd740',fearful:'#ff6b6b',
   fomo:'#ff9f43',greedy:'#ee5a24',revenge:'#ff3d5a',tired:'#6c757d',overconfident:'#a29bfe'
+};
+var OBJECTIVE_LABELS = {
+  daytrade:'⚡ Day Trade', swing:'📈 Swing', buy_hold:'🏛 Buy & Hold'
+};
+var OBJECTIVE_COLORS = {
+  daytrade:'#ff3d5a', swing:'#3abff8', buy_hold:'#00e676'
 };
 
 init();

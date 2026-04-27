@@ -102,6 +102,85 @@ async def get_technical(
         raise HTTPException(500, str(exc)) from exc
 
 
+@router.get("/signal/{symbol}", summary="Sinal BUY/SELL/HOLD agregado")
+async def get_signal(
+    symbol: str,
+    request: Request,
+    days: int = Query(180, ge=180, le=365, description="180+ pra CoinGecko gerar candles diários suficientes pros indicadores"),
+    vs_currency: str = Query("usd"),
+) -> dict[str, Any]:
+    """Score weighted dos 4 indicadores técnicos → BUY/SELL/HOLD.
+
+    Pesos:
+      - RSI:        <30 +2  | 30-50 +1  | 50-70 -1  | >70 -2
+      - MACD:       hist > 0 +1  | hist <= 0 -1
+      - EMA cross:  ema9 > ema21 +1 | else -1
+      - Bollinger:  price < lower +1 | price > upper -1 | else 0
+
+    Total ≥ +3 → BUY · ≤ -3 → SELL · else HOLD
+    """
+    svc = _svc(request)
+    try:
+        data = await svc.get_historical(symbol.upper(), days, vs_currency)
+        if not data or "technical" not in data:
+            raise HTTPException(404, f"Sem dados técnicos para {symbol.upper()}")
+        t = data["technical"]
+        components: dict[str, Any] = {}
+        score = 0
+
+        rsi = t.get("rsi")
+        if rsi is not None:
+            if rsi < 30: r = 2
+            elif rsi < 50: r = 1
+            elif rsi < 70: r = -1
+            else: r = -2
+            components["rsi"] = {"value": rsi, "score": r}
+            score += r
+
+        macd_h = t.get("macd_hist")
+        if macd_h is not None:
+            m = 1 if macd_h > 0 else -1
+            components["macd"] = {"hist": macd_h, "score": m}
+            score += m
+
+        ema9, ema21 = t.get("ema9"), t.get("ema21")
+        if ema9 is not None and ema21 is not None:
+            e = 1 if ema9 > ema21 else -1
+            components["ema_cross"] = {"ema9": ema9, "ema21": ema21, "score": e}
+            score += e
+
+        bb_u, bb_l = t.get("bb_upper"), t.get("bb_lower")
+        price = data.get("last_price") or data.get("current_price")
+        if bb_u is not None and bb_l is not None and price is not None:
+            if price < bb_l: b = 1
+            elif price > bb_u: b = -1
+            else: b = 0
+            components["bollinger"] = {"price": price, "upper": bb_u, "lower": bb_l, "score": b}
+            score += b
+
+        if score >= 3:
+            signal, label = "BUY", "Compra"
+        elif score <= -3:
+            signal, label = "SELL", "Venda"
+        else:
+            signal, label = "HOLD", "Aguardar"
+
+        return {
+            "symbol": symbol.upper(),
+            "vs_currency": vs_currency,
+            "current_price": price,
+            "signal": signal,
+            "label": label,
+            "score": score,
+            "components": components,
+            "indicators": t,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, str(exc)) from exc
+
+
 @router.post("/portfolio", summary="Calcula P&L da carteira de cripto")
 async def calc_portfolio(body: PortfolioRequest, request: Request) -> dict[str, Any]:
     svc = _svc(request)

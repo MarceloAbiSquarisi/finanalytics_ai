@@ -753,6 +753,13 @@ def create_app() -> FastAPI:
     app.include_router(accounts_routes.router, prefix="/api/v1/accounts", tags=["Contas"])
     app.include_router(producer.router, prefix="/api/v1/producer", tags=["Producer"])
     app.include_router(fundos_routes.router)
+    try:
+        from finanalytics_ai.interfaces.api.routes import fundos_analytics
+
+        app.include_router(fundos_analytics.router)
+        logger.info("fundos_analytics.router.ok")
+    except Exception as _fae:
+        logger.warning("fundos_analytics.router.FAILED", error=str(_fae))
     app.include_router(backtest.router, tags=["Backtest"])
 
     try:
@@ -772,6 +779,13 @@ def create_app() -> FastAPI:
         _sl5.get_logger(__name__).warning("diario.router.FAILED", error=str(_de))
     app.include_router(correlation.router, tags=["Correlation"])
     app.include_router(screener.router, tags=["Screener"])
+    try:
+        from finanalytics_ai.interfaces.api.routes import rf_regime as rf_regime_routes
+
+        app.include_router(rf_regime_routes.router)
+        logger.info("rf_regime.router.ok")
+    except Exception as _rfe:
+        logger.warning("rf_regime.router.FAILED", error=str(_rfe))
     try:
         from finanalytics_ai.interfaces.api.routes import import_route
 

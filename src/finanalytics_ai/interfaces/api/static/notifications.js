@@ -93,14 +93,17 @@
     }
     body.innerHTML = _list.map(function (n, i) {
       var cls = (n.read === false) ? ' unread' : '';
+      if (n.persistent) cls += ' persistent';
       var time = n.ts ? new Date(n.ts).toLocaleString('pt-BR', {hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}) : '';
       var ticker = n.ticker ? '<b>' + escapeHtml(n.ticker) + '</b>' : '';
       var msg = n.message || n.alert_type || '(alerta)';
-      return '<div class="fa-notif-item' + cls + '">' +
-        '<div class="fa-notif-item-title"><span>' + ticker + ' ' + escapeHtml(msg) + '</span>' +
+      var inner = '<div class="fa-notif-item-title"><span>' + ticker + ' ' + escapeHtml(msg) + '</span>' +
         '<span class="fa-notif-item-time">' + time + '</span></div>' +
-        (n.threshold != null ? '<div class="fa-notif-item-body">Threshold: ' + escapeHtml(String(n.threshold)) + '</div>' : '') +
-        '</div>';
+        (n.threshold != null ? '<div class="fa-notif-item-body">Threshold: ' + escapeHtml(String(n.threshold)) + '</div>' : '');
+      if (n.href) {
+        return '<a class="fa-notif-item' + cls + '" href="' + escapeHtml(n.href) + '" style="text-decoration:none;color:inherit;display:block">' + inner + '</a>';
+      }
+      return '<div class="fa-notif-item' + cls + '">' + inner + '</div>';
     }).join('');
   }
 
@@ -119,8 +122,9 @@
   }
 
   function clearAll() {
-    _list = [];
-    _unread = 0;
+    // Preserva itens persistentes (lembretes do sistema, ex: diário pendente)
+    _list = _list.filter(function (n) { return n.persistent; });
+    _unread = _list.filter(function (n) { return n.read === false; }).length;
     persist();
     refreshBadge();
     renderPanel();
@@ -215,7 +219,46 @@
     if (localStorage.getItem('access_token')) connect();
   }
 
-  global.FANotif = { init: init, connect: connect, clear: clearAll, count: function () { return _unread; } };
+  /**
+   * Lembrete persistente (sistema).
+   * Cria/atualiza um item especial com chave fixa que NÃO é limpo pelo "Limpar"
+   * nem zerado ao abrir o painel — persiste até count=0. Ex: pendências do diário.
+   * Click no item leva ao href.
+   */
+  function setSystemBadge(opts) {
+    opts = opts || {};
+    var key = opts.key || 'system';
+    var count = Number(opts.count || 0);
+    var label = opts.label || 'Lembrete';
+    var href = opts.href || '#';
+    // Remove qualquer item anterior com mesma key
+    _list = _list.filter(function (n) { return n.key !== key; });
+    if (count > 0) {
+      _list.unshift({
+        key: key,
+        ts: new Date().toISOString(),
+        ticker: '⏳',
+        message: label.replace('{n}', count),
+        href: href,
+        persistent: true,
+        read: false,
+      });
+      _list = _list.slice(0, MAX_HISTORY);
+    }
+    // Recalcula unread (persistent itens contam quando count>0 e não-lidos)
+    _unread = _list.filter(function (n) { return n.read === false; }).length;
+    persist();
+    refreshBadge();
+    renderPanel();
+  }
+
+  global.FANotif = {
+    init: init,
+    connect: connect,
+    clear: clearAll,
+    count: function () { return _unread; },
+    setSystemBadge: setSystemBadge,
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

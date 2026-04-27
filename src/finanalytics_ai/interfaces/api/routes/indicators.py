@@ -185,6 +185,81 @@ async def get_indicator_summary(ticker: str):
     )
 
 
+@router.get("/{ticker}/levels")
+async def get_support_resistance(
+    ticker: str,
+    methods: str = Query(
+        "swing,classic,williams",
+        description="CSV: swing,classic,williams (subset livre)",
+    ),
+    lookback: int = Query(5, ge=2, le=30, description="Barras de cada lado p/ swing"),
+    cluster_pct: float = Query(
+        0.005, ge=0.0001, le=0.05, description="Tolerância de cluster (0.005 = 0.5%)"
+    ),
+    desde: date | None = Query(None, description="Data inicial (default: 1 ano)"),
+):
+    """Retorna níveis de suporte/resistência por 3 métodos.
+
+    - **swing**: pivots de N barras (lookback) clusterizados por proximidade
+    - **classic**: PP, R1-R3, S1-S3 a partir do high/low/close anterior
+    - **williams**: fractais 5-barra (Bill Williams)
+
+    Cada método retorna `Level{price, kind, strength, bar_index}`.
+    `kind` ∈ {support, resistance, pivot}; `strength` indica força (toques).
+    """
+    from finanalytics_ai.domain.indicators.support_resistance import (
+        compute_classic_pivots,
+        compute_swing_levels,
+        compute_williams_fractals,
+    )
+
+    requested = {m.strip().lower() for m in methods.split(",") if m.strip()}
+    valid = {"swing", "classic", "williams"}
+    if not requested or not (requested <= valid):
+        raise HTTPException(
+            400, f"methods inválido — use combinação de {sorted(valid)}"
+        )
+
+    since = desde or (date.today() - timedelta(days=365))
+    candles, source = await fetch_candles(ticker, since)
+    if not candles:
+        raise HTTPException(status_code=404, detail=f"No data for {ticker.upper()}")
+
+    highs = [float(c.high) for c in candles]
+    lows = [float(c.low) for c in candles]
+    closes = [float(c.close) for c in candles]
+    timestamps = [c.date.isoformat() if hasattr(c.date, "isoformat") else str(c.date) for c in candles]
+
+    result: dict = {
+        "ticker": ticker.upper(),
+        "source": source,
+        "candle_count": len(candles),
+        "last_close": round(closes[-1], 4) if closes else None,
+        "methods": sorted(requested),
+        "timestamps": timestamps,
+    }
+
+    if "swing" in requested:
+        result["swing"] = compute_swing_levels(
+            highs, lows, lookback=lookback, cluster_pct=cluster_pct
+        )
+
+    if "classic" in requested:
+        if len(candles) < 2:
+            result["classic"] = None
+        else:
+            # Usa penúltima barra como "período anterior" — projeta níveis pra última
+            prev = candles[-2]
+            result["classic"] = compute_classic_pivots(
+                float(prev.high), float(prev.low), float(prev.close)
+            )
+
+    if "williams" in requested:
+        result["williams"] = compute_williams_fractals(highs, lows)
+
+    return result
+
+
 @router.get("/{ticker}/vwap/intraday", response_model=VWAPResponse)
 async def get_vwap_intraday(
     ticker: str,

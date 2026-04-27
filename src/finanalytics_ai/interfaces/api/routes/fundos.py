@@ -195,3 +195,4 @@ async def calcular_rent(cnpj: str, session: AsyncSession = Depends(get_db_sessio
 
     result = await calcular_rentabilidade(session, cnpj)
     return {"ok": True, **result}
+

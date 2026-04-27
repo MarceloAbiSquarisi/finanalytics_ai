@@ -150,9 +150,18 @@ async def agent_quotes():
 async def agent_orders(
     env: str = Query("simulation", description="simulation | production"),
     limit: int = Query(100, ge=1, le=500),
+    ticker: str | None = Query(None),
+    status: str | None = Query(None),
 ):
     """Lista ordens com filtros opcionais."""
-    return await _get("/orders", {"limit": limit})
+    qs: dict = {"limit": limit}
+    if ticker:
+        qs["ticker"] = ticker.upper()
+    if status:
+        qs["status"] = status
+    if env:
+        qs["env"] = env
+    return await _get("/orders", qs)
 
 
 @router.post("/order/send", tags=["Agent"])
@@ -219,6 +228,115 @@ async def agent_zero_position(body: dict):
     """Zera posição de um ativo (SendZeroPositionV2)."""
     body = await _inject_account(body)
     return await _post("/order/zero_position", body)
+
+
+# Status DLL pendentes (orders que ainda podem ser canceladas):
+# 0=New, 1=PartialFilled, 10=PendingNew  → cancelables
+_PENDING_ORDER_STATUSES: tuple[int, ...] = (0, 1, 10)
+
+
+@router.post("/order/flatten_ticker", tags=["Agent"])
+async def agent_flatten_ticker(body: dict):
+    """Encerra exposição em um ticker em uma operação só.
+
+    Sequência:
+      1. Busca ordens pendentes do ticker (status ∈ {0, 1, 10}) via /orders.
+      2. Cancela cada uma (paralelo via /order/cancel).
+      3. Chama /order/zero_position (market sell/buy contra a posição aberta).
+
+    Body:
+        {
+          "ticker": "PETR4",
+          "exchange": "B",          # default "B"
+          "env": "simulation",      # default resolvido por _inject_account
+          "daytrade": true,         # default true
+        }
+
+    Resposta:
+        {
+          "ok": bool,
+          "ticker": str,
+          "cancelled_count": int,
+          "cancel_errors": [{local_order_id, error}],
+          "zero_ok": bool,
+          "zero_local_order_id": int | null,
+          "zero_error": str | null,
+        }
+    """
+    body = await _inject_account(body)
+    ticker = (body.get("ticker") or "").strip().upper()
+    if not ticker:
+        raise HTTPException(400, "ticker obrigatorio")
+    exchange = body.get("exchange", "B")
+    env = body.get("env", "simulation")
+    daytrade = bool(body.get("daytrade", True))
+
+    # 1. Lista pending orders desse ticker
+    qs = {"ticker": ticker, "env": env, "limit": 200}
+    listing = await _get("/orders", qs)
+    all_orders = listing.get("orders", []) if isinstance(listing, dict) else []
+    pending = [
+        o
+        for o in all_orders
+        if int(o.get("order_status", -1)) in _PENDING_ORDER_STATUSES
+    ]
+
+    # 2. Cancela cada pending. Sequencial pra DLL não enfileirar mal.
+    cancel_errors: list[dict] = []
+    cancelled_count = 0
+    cancel_inject_keys = {
+        k: v for k, v in body.items() if k.startswith("_account") or k == "_routing_password" or k == "_sub_account_id"
+    }
+    for o in pending:
+        loc_id = o.get("local_order_id")
+        if loc_id is None:
+            continue
+        cancel_body = {"local_order_id": loc_id, "env": env, **cancel_inject_keys}
+        try:
+            res = await _post("/order/cancel", cancel_body)
+            if res.get("ok"):
+                cancelled_count += 1
+            else:
+                cancel_errors.append(
+                    {"local_order_id": loc_id, "error": res.get("error") or f"ret={res.get('ret')}"}
+                )
+        except HTTPException as exc:
+            cancel_errors.append({"local_order_id": loc_id, "error": exc.detail})
+
+    # 3. Zera posição a mercado
+    zero_body = {
+        "ticker": ticker,
+        "exchange": exchange,
+        "env": env,
+        "daytrade": daytrade,
+        "price": -1,
+        **cancel_inject_keys,
+    }
+    zero_res = await _post("/order/zero_position", zero_body)
+    zero_ok = bool(zero_res.get("ok"))
+    zero_id = zero_res.get("local_order_id")
+    zero_err = None if zero_ok else zero_res.get("error") or f"ret={zero_res.get('ret')}"
+
+    logger.info(
+        "agent.flatten_ticker",
+        ticker=ticker,
+        env=env,
+        cancelled=cancelled_count,
+        cancel_errors=len(cancel_errors),
+        zero_ok=zero_ok,
+        zero_local_order_id=zero_id,
+    )
+
+    return {
+        "ok": zero_ok and not cancel_errors,
+        "ticker": ticker,
+        "cancelled_count": cancelled_count,
+        "cancel_errors": cancel_errors,
+        "pending_found": len(pending),
+        "zero_ok": zero_ok,
+        "zero_local_order_id": zero_id,
+        "zero_error": zero_err,
+    }
 
 
 # ── OCO ───────────────────────────────────────────────────────────────────────

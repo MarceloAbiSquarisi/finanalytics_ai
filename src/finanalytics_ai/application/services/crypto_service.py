@@ -321,10 +321,14 @@ class CryptoService:
             return cached
 
         coin_id = symbol_to_id(symbol)
+        # CoinGecko /ohlc só aceita valores específicos: 1, 7, 14, 30, 90, 180, 365, max.
+        # Snapeia para o mais próximo >= days.
+        _ALLOWED_DAYS = (1, 7, 14, 30, 90, 180, 365)
+        days_param = next((d for d in _ALLOWED_DAYS if d >= days), 365)
         try:
             r = await self._client.get(
                 f"{COINGECKO_BASE}/coins/{coin_id}/ohlc",
-                params={"vs_currency": vs_currency, "days": days},
+                params={"vs_currency": vs_currency, "days": days_param},
             )
             r.raise_for_status()
             ohlc = r.json()  # [[timestamp, open, high, low, close], ...]

@@ -85,10 +85,10 @@
 
 ### A.4 — /import C6 Dividendos (~15min)
 
-- [ ] **A.4.1** Abrir http://localhost:8000/import
-- [ ] **A.4.2** Card verde "💰 Importar Dividendos" presente na seção "Dividendos / Rendimentos"
-- [ ] **A.4.3** Click → modal abre, select Conta carrega 2 opções (XP + BTG)
-- [ ] **A.4.4** Sample CSV sintético:
+- [X] **A.4.1** Abrir http://localhost:8000/import
+- [X] **A.4.2** Card verde "💰 Importar Dividendos" presente na seção "Dividendos / Rendimentos"
+- [X] **A.4.3** Click → modal abre, select Conta carrega 2 opções (XP + BTG)
+- [X] **A.4.4** Sample CSV sintético:
   ```bash
   cat > /tmp/div.csv << 'EOF'
   data,desc,valor
@@ -97,18 +97,18 @@
   22/04/2026,RENDIMENTO KNRI11,95.30
   EOF
   ```
-- [ ] **A.4.5** Selecionar XP + upload `/tmp/div.csv` → "Analisar"
-- [ ] **A.4.6** Tabela preview mostra **3 linhas matched** (verde) — PETR4/ITUB4/KNRI11
-- [ ] **A.4.7** Tags: matched=3, ambiguous=0, unmatched=0
-- [ ] **A.4.8** "Confirmar Importação" → toast OK → /movimentacoes mostra 3 dividendos novos
+- [X] **A.4.5** Selecionar XP + upload `/tmp/div.csv` → "Analisar"
+- [X] **A.4.6** Tabela preview mostra **3 linhas matched** (verde) — PETR4/ITUB4/KNRI11
+- [X] **A.4.7** Tags: matched=3, ambiguous=0, unmatched=0
+- [X] **A.4.8** "Confirmar Importação" → toast OK → /movimentacoes mostra 3 dividendos novos
 - [ ] **A.4.9** PDF sintético: erro 400 amigável se pdfplumber faltar
 
 ### A.5 — /alerts criar/listar/cancelar (~5min)
 
-- [ ] **A.5.1** Abrir http://localhost:8000/alerts
-- [ ] **A.5.2** Criar: ticker=PETR4, indicador=ROE, operador=`>`, threshold=15 → "Criar"
-- [ ] **A.5.3** Toast OK, alerta aparece na lista
-- [ ] **A.5.4** Click ✕ no alerta → cancela; lista atualiza
+- [X] **A.5.1** Abrir http://localhost:8000/alerts
+- [X] **A.5.2** Criar: ticker=PETR4, indicador=ROE, operador=`>`, threshold=15 → "Criar"
+- [X] **A.5.3** Toast OK, alerta aparece na lista
+- [X] **A.5.4** Click ✕ no alerta → cancela; lista atualiza
 
 ### A.6 — i18n PT/EN toggle (~10min)
 
@@ -183,38 +183,281 @@
 > Mudanças aplicadas: filtros em tabs do /carteira, modal Histórico em /dashboard, layout de páginas órfãs, fix watchlist auth+tz, /performance carteira-based, consolidação seed em 1 conta "Teste".
 
 **Filtros novos no /carteira**:
-- [ ] **A.12.1** Tab Trades: 5 filtros (ticker / data início / data fim / classe / OP) + resumo "N trades · Compras X · Vendas Y" (backend `/trades` aceita date_from/date_to/operation)
-- [ ] **A.12.2** Tab Cripto: select Symbol populado dos symbols únicos da carteira; resumo "X de Y"
-- [ ] **A.12.3** Tab Renda Fixa: 3 filtros (Tipo / Emissor / IR isento|tributável); + tabela passou a renderizar (loadRf novo, era placeholder estático)
-- [ ] **A.12.4** Tab Outros: 2 filtros (Tipo / Moeda)
-- [ ] **A.12.5** Tab Posições: nova coluna **Moeda** + filtro Moeda (backend `/positions` agora retorna `currency` do trade)
+- [X] **A.12.1** Tab Trades: 5 filtros (ticker / data início / data fim / classe / OP) + resumo "N trades · Compras X · Vendas Y" (backend `/trades` aceita date_from/date_to/operation)
+- [X] **A.12.2** Tab Cripto: select Symbol populado dos symbols únicos da carteira; resumo "X de Y"
+- [X] **A.12.3** Tab Renda Fixa: 3 filtros (Tipo / Emissor / IR isento|tributável); + tabela passou a renderizar (loadRf novo, era placeholder estático)
+- [X] **A.12.4** Tab Outros: 2 filtros (Tipo / Moeda)
+- [X] **A.12.5** Tab Posições: nova coluna **Moeda** + filtro Moeda (backend `/positions` agora retorna `currency` do trade)
 
 **/carteira → Cripto resgate**:
-- [ ] **A.12.6** Click 💰 Resgate parcial abre modal customizado (não mais `window.prompt`); preview live "Crédito estimado: R$ X (Y%)"
+- [X] **A.12.6** Click 💰 Resgate parcial abre modal customizado (não mais `window.prompt`); preview live "Crédito estimado: R$ X (Y%)"
 
 **/dashboard**:
-- [ ] **A.12.7** Botão 📊 Histórico na topbar (ao lado MERCADO AO VIVO) abre modal grande com 5 filtros + tabela
-- [ ] **A.12.8** Selector de conta na topbar mostra contas sem DLL como `[SEM DLL]` disabled (não mais "Nenhuma conta")
-- [ ] **A.12.9** OCO Anexar modal: input qty agora tem label "QTD AÇÕES" + hint "de N (X%)" atualizando em tempo real; rodapé do modal mostra "· N restantes" (gold) ou "· N a mais" (vermelho)
+- [X] **A.12.7** Botão 📊 Histórico na topbar (ao lado MERCADO AO VIVO) abre modal grande com 5 filtros + tabela
+- [X] **A.12.8** Selector de conta na topbar mostra contas sem DLL como `[SEM DLL]` disabled (não mais "Nenhuma conta")
+- [X] **A.12.9** OCO Anexar modal: input qty agora tem label "QTD AÇÕES" + hint "de N (X%)" atualizando em tempo real; rodapé do modal mostra "· N restantes" (gold) ou "· N a mais" (vermelho)
 
 **Layout**:
-- [ ] **A.12.10** /movimentacoes agora tem topbar canônica + sidebar (era órfã)
-- [ ] **A.12.11** /import idem (substituiu o `<nav>` antigo)
+- [X] **A.12.10** /movimentacoes agora tem topbar canônica + sidebar (era órfã)
+- [X] **A.12.11** /import idem (substituiu o `<nav>` antigo)
 
 **/watchlist**:
-- [ ] **A.12.12** Adicionar ticker funciona (era 401 Not authenticated → fix Bearer header; depois 500 datetime tz → fix _naive() helper no repo)
+- [X] **A.12.12** Adicionar ticker funciona (era 401 Not authenticated → fix Bearer header; depois 500 datetime tz → fix _naive() helper no repo)
 
 **/performance** (canonical carteira):
-- [ ] **A.12.13** Selector mostra "Teste (Carteira Consolidada Teste)" — não mais "portfólio"
-- [ ] **A.12.14** Backend novo: `GET /api/v1/wallet/accounts/{account_id}/performance?period=1y` retorna `account_id` + `account_label` (resolve portfolio 1:1 internamente). Endpoint legacy `/api/v1/portfolios/{id}/performance` mantido para retrocompat.
+- [X] **A.12.13** Selector mostra "Teste (Carteira Consolidada Teste)" — não mais "portfólio"
+- [X] **A.12.14** Backend novo: `GET /api/v1/wallet/accounts/{account_id}/performance?period=1y` retorna `account_id` + `account_label` (resolve portfolio 1:1 internamente). Endpoint legacy `/api/v1/portfolios/{id}/performance` mantido para retrocompat.
 - [ ] **A.12.15** Empty state CTA aponta pra `/carteira` (era `/portfolios` deprecada)
 
 **Carteira única "Teste" + invariante**:
-- [ ] **A.12.16** `/api/v1/wallet/accounts` retorna 1 ativa: id `eeee5555` apelido "Teste"
-- [ ] **A.12.17** Contas XP (`aaaa1111`) + BTG (`bbbb2222`) soft-deleted
-- [ ] **A.12.18** Todos os ativos (14 trades + 13 positions + 1 crypto + 7 RF + 3 other) migrados para conta Teste
-- [ ] **A.12.19** POST sem `investment_account_id` retorna 422 (Pydantic Field obrigatório)
-- [ ] **A.12.20** DB-level: `investment_account_id` é `NOT NULL` nas 5 tabelas
+- [X] **A.12.16** `/api/v1/wallet/accounts` retorna 1 ativa: id `eeee5555` apelido "Teste"
+- [X] **A.12.17** Contas XP (`aaaa1111`) + BTG (`bbbb2222`) soft-deleted
+- [X] **A.12.18** Todos os ativos (14 trades + 13 positions + 1 crypto + 7 RF + 3 other) migrados para conta Teste
+- [X] **A.12.19** POST sem `investment_account_id` retorna 422 (Pydantic Field obrigatório)
+- [X] **A.12.20** DB-level: `investment_account_id` é `NOT NULL` nas 5 tabelas
+
+### A.13 — /diario campo Objetivo + estatísticas + filtro (sessão 27/abr) (~20min)
+
+> Mudanças aplicadas: novo campo `trade_objective` no diário (Day Trade / Swing / Buy & Hold), tab "Objetivo" no dashboard com breakdown e pills de filtro global. Migration alembic 0019.
+
+**Schema + migration**:
+- [X] **A.13.1** `docker exec finanalytics_postgres psql -U finanalytics -d finanalytics -c "\d trade_journal"` mostra coluna `trade_objective varchar(20)`
+- [X] **A.13.2** `SELECT version_num FROM alembic_version;` retorna `0019_diario_trade_objective`
+
+**Form de criação/edição**:
+- [X] **A.13.3** Abrir http://localhost:8000/diario → "+ Novo Trade" → modal mostra select "Objetivo da operação" com 3 opções (DT/Swing/B&H + travessão "—")
+- [X] **A.13.4** Criar trade BUY PETR4 100@30 com objetivo=DT → salvou; reabrir em editar → select pré-populado com DT
+- [X] **A.13.5** API rejeita valor inválido: `curl -X POST .../entries -d '{... "trade_objective":"INVALID"}'` → 422 pattern_mismatch
+
+**Filtro lista esquerda**:
+- [X] **A.13.6** Selector "Todos os objetivos" no topo da lista junto com ticker/setup/dir
+- [X] **A.13.7** Selecionar "⚡ Day Trade" → lista filtra só trades DT; "Todos os objetivos" volta tudo
+
+**Badges nos cards e detail**:
+- [X] **A.13.8** Card de cada trade com objetivo registrado mostra badge colorida ao lado de BUY/SELL (vermelho=DT, azul=Swing, verde=B&H)
+- [X] **A.13.9** Click no card → tab Detalhe mostra mesma badge no header (entre direção e setup)
+
+**Tab "Objetivo" (nova)**:
+- [X] **A.13.10** Tab "Objetivo" entre "Por Setup" e "Psicologia"
+- [X] **A.13.11** Topo: 1 card de insight por objetivo com `N trades · Win X% · ±R$ Y` (cor da borda = cor do objetivo)
+- [X] **A.13.12** Bar chart horizontal "P&L total por objetivo" com cores verde (positivo) / vermelho (negativo)
+- [X] **A.13.13** Tabela "Performance por objetivo" — Objetivo · Trades · Win% · P&L Total · P&L médio% (data-fa-table sortable)
+- [X] **A.13.14** Sem trades com objetivo → tab mostra "Nenhum trade com objetivo registrado ainda"
+
+**Pills de filtro global (acima das tabs)**:
+- [X] **A.13.15** Pills "Filtro: Todos | ⚡ Day Trade | 📈 Swing | 🏛 Buy & Hold" acima das 5 tabs
+- [X] **A.13.16** Pill "Todos" inicia ativa (cinza-azulada)
+- [X] **A.13.17** Click "⚡ Day Trade" → pill fica vermelha; equity curve / Por Setup / Psicologia / KPIs do header (Win Rate, P&L, Rating) recalculam só com trades DT
+- [X] **A.13.18** Hint à direita aparece: "Equity / Setup / Psicologia filtrados por ⚡ Day Trade"
+- [X] **A.13.19** Tab "Objetivo" **não** muda quando filtro está ativo (continua mostrando os 3 pra comparar)
+- [X] **A.13.20** F5 mantém filtro selecionado (localStorage `fa_diario_obj_filter`)
+- [X] **A.13.21** Click "Todos" → volta agregação completa, hint some, pill volta cinza
+
+**Backend curl**:
+- [X] **A.13.22** `curl ".../diario/stats?user_id=user-demo"` → retorna `by_objective` com até 3 entries
+- [X] **A.13.23** `curl ".../diario/stats?user_id=user-demo&trade_objective=daytrade"` → totais reduzidos; `by_objective` ainda lista os 3
+- [X] **A.13.24** `curl ".../diario/entries?trade_objective=swing"` → lista filtrada pelo repo
+
+### A.14 — /diario auto-fill from DLL fill + workflow incompletas (sessão 27/abr) (~25min)
+
+> Mudanças: campo `is_complete` + `external_order_id` no diário (migration 0020). Hook no profit_agent que chama `POST /api/v1/diario/from_fill` quando ordem fica FILLED, criando entry pré-preenchida (ticker/direction/entry_price/quantity/timeframe). Filtro "Incompletas" + chip header + sino topbar.
+
+**Schema + migration**:
+- [X] **A.14.1** `\d trade_journal` mostra colunas `is_complete BOOLEAN NOT NULL` e `external_order_id VARCHAR(64)` + index UNIQUE parcial
+- [X] **A.14.2** `SELECT version_num FROM alembic_version;` retorna `0020_diario_is_complete`
+
+**Endpoint /from_fill (idempotência) — pode rodar SEM pregão**:
+- [X] **A.14.3** `curl -X POST .../from_fill -d '{"external_order_id":"42",...}'` → 201, `created=true`, `is_complete=false`
+- [X] **A.14.4** Mesma chamada repetida → 201 com `created=false` (idempotente por external_order_id)
+- [X] **A.14.5** Sem `external_order_id` → 422 Pydantic
+- [X] **A.14.6** `GET /incomplete_count` retorna count correto
+- [X] **A.14.7** `GET /entries?is_complete=false` filtra só incompletas
+
+**Endpoint toggle complete/uncomplete**:
+- [X] **A.14.8** `POST /entries/{id}/complete` → `is_complete=true`
+- [X] **A.14.9** `POST /entries/{id}/uncomplete` → volta `is_complete=false`
+- [X] **A.14.10** ID inexistente → 404
+
+**UI /diario filtro + badge + chip**:
+- [X] **A.14.11** Selector "Status" no topo da lista esquerda (Todas / ⏳ Incompletas / ✅ Completas)
+- [X] **A.14.12** Card de entry incompleta tem badge amarelo "⏳ PENDENTE" + borda esquerda amarela
+- [X] **A.14.13** Header da página mostra chip "⏳ N Pendentes" amarelo (clicável → aplica filtro Incompletas) só quando N>0
+- [X] **A.14.14** Click no card → tab Detalhe mostra botão amarelo "⏳ Concluir entrada"; após click vira verde "✅ Completa" (toggleable)
+
+**Sino topbar (FANotif)**:
+- [X] **A.14.15** Ao abrir /diario com pendências, sino topbar exibe badge vermelho com contagem
+- [X] **A.14.16** Click no sino → item persistente "⏳ N entrada(s) do diário pendente(s)" com link para /diario
+- [X] **A.14.17** Click no item leva para /diario
+- [X] **A.14.18** Botão "Limpar" não remove o item persistente (continua até `count=0`)
+- [X] **A.14.19** Após preencher tudo (count=0), badge some
+
+**Hook DLL FILLED → cria entry (precisa pregão — Bloco B)**:
+> Movido para B.18 (depende de fill real)
+
+### A.15 — /dashboard aba Pos.: botão "Zerar + cancelar pendentes" (sessão 27/abr) (~10min)
+
+> Mudanças: novo `POST /api/v1/agent/order/flatten_ticker` que orquestra cancel pending + zero_position pelo ticker selecionado. Botão vermelho aparece na aba Pos. quando há posição aberta OU pending orders.
+
+**Endpoint composto (sem pregão — testar contrato/idempotência)**:
+- [X] **A.15.1** `curl -X POST .../order/flatten_ticker -d '{}'` → 400 "ticker obrigatorio"
+- [X] **A.15.2** Proxy `/api/v1/agent/orders?ticker=PETR4&limit=10` aceita filtro novo (lista só PETR4)
+- [X] **A.15.3** `curl -X POST .../order/flatten_ticker -d '{"ticker":"PETR4","env":"simulation","daytrade":true}'` retorna estrutura: `{ok, ticker, cancelled_count, cancel_errors[], pending_found, zero_ok, zero_local_order_id, zero_error}`
+- [X] **A.15.4** Fora de pregão, `cancel_errors` contém `ret=-2147483636` (DLL recusa) — esperado; estrutura OK
+
+**UI dashboard**:
+- [X] **A.15.5** /dashboard → aba "Pos." → digitar PETR4 → "Ver"
+- [X] **A.15.6** Caixa vermelha "🚨 ZERAR + CANCELAR PENDENTES" aparece se `open_qty > 0` OU houver ordens pending; some se `open_qty=0` E sem pending
+- [X] **A.15.7** Resumo acima do botão: `PETR4 — posição aberta: N · X ordem(ns) pendente(s)` (só os termos que se aplicam)
+- [X] **A.15.8** Click → modal FAModal danger "🚨 Encerrar exposição em PETR4?" com label "ENCERRAR PETR4"
+- [X] **A.15.9** Click "Cancelar" no modal → nada acontece, caixa vermelha permanece
+- [ ] **A.15.10** Click "ENCERRAR PETR4" → botão fica "Encerrando..." disabled durante chamada; toast no fim
+
+### A.16 — Suporte / Resistência: 3 métodos no chart (~15min)
+
+> Mudanças: novo módulo `domain/indicators/support_resistance.py` com **swing high/low (clusters)**, **pivots clássicos** e **fractais Williams 5-bar**. Endpoint `GET /api/v1/indicators/{ticker}/levels?methods=swing,classic,williams&lookback=N`. Toggles no popup ⚙ Indicadores do /dashboard renderizam linhas horizontais via `priceSeries.createPriceLine`.
+
+**Backend (sem pregão)**:
+- [X] **A.16.1** `curl ".../indicators/VALE3/levels?methods=classic"` retorna `pp, r1-r3, s1-s3, levels[]` com 7 itens
+- [X] **A.16.2** `?methods=swing&lookback=10` aceita lookback custom; resposta tem `swing.lookback=10`
+- [X] **A.16.3** `?methods=invalid` → 400 com mensagem; ticker inexistente → 404
+- [X] **A.16.4** Subset livre: `?methods=classic` retorna só esse campo (swing/williams ausentes)
+
+**UI dashboard**:
+- [X] **A.16.5** /dashboard → ⚙ Indicadores → seção "SUPORTE / RESISTÊNCIA" com 3 toggles
+- [X] **A.16.6** Marcar **Pivots clássicos** → 7 linhas horizontais aparecem no chart: PP cinza grossa, R1-R3 vermelhas (sólida→tracejada), S1-S3 verdes (sólida→tracejada). Labels visíveis no eixo direito (PP, R1, R2, R3, S1, S2, S3)
+- [ ] **A.16.7** Marcar **Swings (clusters)** → linhas amarelas com label "Sw·R×N" (resistência) ou "Sw·S×N" (suporte); espessura proporcional a N (toques)
+- [ ] **A.16.8** Lookback `5` vs `10` muda quantidade de swings (10 mais robusto, menos linhas)
+- [ ] **A.16.9** Marcar **Fractais (Williams)** → linhas magenta/azul fina pontilhada com label "Fr↑" (alta) ou "Fr↓" (baixa); só os 5 mais recentes de cada tipo (não polui chart)
+- [X] **A.16.10** Trocar ticker (clicar outro na watchlist) → cache invalida, refetch novo, novas linhas
+- [X] **A.16.11** Desligar todos toggles → `srLines` removidas; chart limpo
+- [X] **A.16.12** Badge ⚙ Indicadores conta toggles ativos (S/R conta cada um)
+- [X] **A.16.13** Caixa cinza/lookback parecem com escala diferente em PETR4: dado pré-existente do banco tem rows com escala fracionária mistas; **classic é confiável** (só usa penúltima barra). Bug de qualidade do dado, não do algoritmo.
+
+### A.17 — M1 ML para FIIs (sessão 27/abr) (~15min)
+
+> Pipeline ML estendido para FIIs: novo script `backfill_yahoo_fii.py` ingere 26 FIIs IFIX via Yahoo (`*.SA`), reusa `compute_features_for_ticker` do builder e popula `features_daily` com source='yahoo_fii'. Coluna `asset_class` em `ticker_ml_config` (default 'acao'). Endpoint `/api/v1/ml/signals?asset_class=fii` filtra. UI no /dashboard tab Signals com selector PT/Ações/FIIs e badge `FII` amarelo.
+
+**Schema + dados**:
+- [X] **A.17.1** `\d ticker_ml_config` mostra coluna `asset_class VARCHAR(8) NOT NULL DEFAULT 'acao'` + index
+- [X] **A.17.2** `SELECT asset_class, count(*) FROM ticker_ml_config GROUP BY asset_class` → `acao=118, fii=26`
+- [X] **A.17.3** `SELECT count(DISTINCT ticker) FROM features_daily WHERE source='yahoo_fii'` → 26
+- [X] **A.17.4** Pickles em `models/mvp_v2_h21_<TICKER>_<TS>.pkl` para 24 FIIs (HFOF11, KNCR11, etc) — exceto MALL11 e BCFF11 (delistados Yahoo)
+
+**Calibração resultados** (`SELECT ticker, best_sharpe, best_return_pct, best_trades, best_win_rate FROM ticker_ml_config WHERE asset_class='fii' ORDER BY best_sharpe DESC LIMIT 10;`):
+- [X] **A.17.5** Top sharpe FII: HFOF11=+2.55, KNCR11=+1.76, RECT11=+1.46, BRCR11=+1.36, KNRI11=+1.33
+- [X] **A.17.6** Negativos: RBRF11=-0.74, HCTR11=-0.68 (excluídos da geração de pickle)
+
+**Endpoint**:
+- [X] **A.17.7** `curl ".../ml/signals?asset_class=fii&min_sharpe=0"` retorna 24+ items com `asset_class:'fii'`
+- [X] **A.17.8** `?asset_class=acao&min_sharpe=1.5` filtra só ações (sem FIIs)
+- [X] **A.17.9** Sem filtro retorna ambos misturados; cada item traz `asset_class`
+
+**UI dashboard**:
+- [X] **A.17.10** /dashboard → tab "Signals" → selector "classe" com 3 opções: Todas / Ações / FIIs
+- [X] **A.17.11** Selecionar "FIIs" → lista mostra só *11 com badge amarelo `FII`; resumo `total=N · BUY=X · SELL=Y · HOLD=Z`
+- [X] **A.17.12** Click numa linha FII → ticker preenche em t-tk e tab muda pra Order
+- [X] **A.17.13** Selecionar "Ações" → FIIs somem; "Todas" → mistos com badge nos FIIs
+
+**Limitações conhecidas**:
+- A.17.13 dados Yahoo só vão até hoje, não tem split/dividendos ajustados; calibração é com 2 anos (519 bars)
+- Features RF (DI1) não incluídas no MVP — pode-se ativar com `--no-rf` removido em retreino futuro
+- DY/P/VP fundamentals não estão (Fintz não cobre FII; scraping Status Invest fica pra Sprint 2)
+- Cobertura 26/30: MALL11 e BCFF11 delistados; outros 2 reservados pra futura expansão
+
+### A.18 — M2 ML para ETFs (sessão 27/abr) (~10min)
+
+> Pipeline ML estendido para ETFs B3: novo script `backfill_yahoo_etf.py` ingere 14 ETFs (BOVA/BOVV/BOVB/IVVB/NASD/SMAL/DIVO/FIND/MATB/GOVE/GOLD/ECOO/B5P2/IMAB), reusa pipeline FII com source='yahoo_etf'. 13 ETFs calibrados + 13 pickles treinados.
+
+**Schema + dados**:
+- [X] **A.18.1** `SELECT asset_class, count(*) FROM ticker_ml_config GROUP BY asset_class` → `acao=118, fii=26, etf=13`
+- [X] **A.18.2** `SELECT count(DISTINCT ticker) FROM features_daily WHERE source='yahoo_etf'` → 13
+- [X] **A.18.3** Pickles `models/mvp_v2_h21_<ETF>_*.pkl` para 13 ETFs
+
+**Calibração resultados**:
+- [X] **A.18.4** Top sharpe: BOVB11=+2.70, GOVE11=+2.54, BOVV11=+2.51, FIND11=+2.24, DIVO11=+2.14, BOVA11=+2.12, IMAB11=+2.04
+- [X] **A.18.5** USPD11 delistado (Yahoo); B5P211 sem trades válidos (skip silencioso); 13/15 entregues
+
+**Endpoint**:
+- [X] **A.18.6** `curl ".../ml/signals?asset_class=etf"` retorna 13 items, 5 BUY (BOVV11, FIND11, BOVA11, IMAB11, SMAL11), 0 SELL, 8 HOLD
+- [X] **A.18.7** Cada item traz `asset_class:'etf'`
+
+**UI dashboard**:
+- [X] **A.18.8** /dashboard → tab Signals → selector "classe" agora tem 4 opções (Todas / Ações / FIIs / ETFs)
+- [X] **A.18.9** Selecionar "ETFs" → 13 linhas com badge azul `ETF` (cor #3abff8)
+- [X] **A.18.10** Selecionar "Todas" → mistura — Ações sem badge, FIIs amarelo, ETFs azul
+
+**Observações estratégicas** (Melhorias.md M2):
+- BOVA11/BOVV11/BOVB11 trackeiam IBOV — sinal "BUY BOVA11" é redundante com IBOV uptrend; usar TSMOM Grafana para corte
+- FIND11 (financeiro) e GOVE11 (governança) são os ETFs setoriais com melhor alpha histórico
+- IMAB11 (RF IPCA+) tem sharpe alto mas drawdown baixo — útil para rotação defensiva
+
+### A.19 — M5 RF Regime Classifier (sessão 27/abr) (~10min)
+
+> Detecta regime da curva DI (NORMAL / STEEPENING / FLATTENING / INVERSION) baseado em `slope_2y_10y` da view `rates_features_daily` (DI1 worker mantém populada). Algoritmo determinístico (sem ML — HMM fica pra Sprint 2). Card visual no /carteira aba Renda Fixa com recomendação textual + alocação sugerida CDI/Pré/IPCA+.
+
+**Backend**:
+- [X] **A.19.1** Módulo novo `domain/rf_regime/classifier.py` com `analyze_regime()` (Python puro, statistics stdlib)
+- [X] **A.19.2** Route `/api/v1/rf/regime` (registrada em app.py após screener)
+- [X] **A.19.3** Schema retornado: `{regime, score, slope_2y_10y, slope_z_score, last_date, sample_size, history[N], recommendation:{headline, rationale, suggested_allocation:{cdi, pre_curto, ipca_longo}}}`
+- [X] **A.19.4** Estado atual (last_date 2026-04-17): regime=**NORMAL**, score=0.85, slope=+0.003 (33bp), z=-0.15
+- [X] **A.19.5** Recomendação NORMAL: 30/30/40 (CDI/Pré/IPCA+); rationale explica decisão
+- [X] **A.19.6** `?history_days=30` reduz tamanho do histórico retornado
+- [X] **A.19.7** `?lookback_days=750` aumenta janela de z-score (sem mudar regime atual)
+
+**UI /carteira → aba Renda Fixa**:
+- [X] **A.19.8** Card no topo (acima dos filtros), borda esquerda colorida pelo regime (NORMAL=verde, STEEPENING=azul, FLATTENING=âmbar, INVERSION=vermelho)
+- [X] **A.19.9** Badge texto regime + headline com emoji (⚖️ ⚡ 📉 🔻)
+- [X] **A.19.10** Linha técnica à direita: `slope 2y-10y: +33bp · z: -0.15 · score: 85%`
+- [X] **A.19.11** Rationale em texto explicativo abaixo
+- [X] **A.19.12** Alocação sugerida em 3 chips coloridos (verde/azul/âmbar): `CDI: X% · Pré curto: Y% · IPCA+ longo: Z%`
+- [X] **A.19.13** Endpoint indisponível (DI1 worker down) → card oculto silenciosamente (não quebra a tab)
+
+**Mapeamento regime → ação**:
+| Regime | Trigger | Alocação |
+|---|---|---|
+| INVERSION | slope < -0.5bp | 70% CDI / 20% Pré / 10% IPCA |
+| FLATTENING | slope ≥ 0 ∧ z < -1σ | 20% CDI / 20% Pré / 60% IPCA |
+| STEEPENING | slope > 0 ∧ z > +1σ | 30% CDI / 50% Pré / 20% IPCA |
+| NORMAL | nenhum dos acima | 30% CDI / 30% Pré / 40% IPCA |
+
+### A.20 — M4 ML Crypto signal (sessão 27/abr) (~5min)
+
+> Endpoint `/api/v1/crypto/signal/{symbol}` agrega RSI/MACD/EMA cross/Bollinger em score weighted → BUY/SELL/HOLD. Reusa /crypto/technical existente (CoinGecko OHLC daily). UI: badge na aba Crypto do /carteira.
+
+**Backend**:
+- [X] **A.20.1** `curl ".../crypto/signal/BTC"` retorna `{symbol, signal, score, label, components, indicators}`
+- [X] **A.20.2** `days` aceita 180-365 (CoinGecko OHLC só serve candles diários nessa janela)
+- [X] **A.20.3** components: rsi (-2 a +2) + macd (±1) + ema_cross (±1) + bollinger (±1); score total ≥+3=BUY · ≤-3=SELL · else HOLD
+- [X] **A.20.4** Sem dados → 404; 14 dias → 422 (CoinGecko snapping)
+
+**UI /carteira aba Crypto**:
+- [X] **A.20.5** Nova coluna "Sinal" entre P/L e Preço Médio USD
+- [X] **A.20.6** Cada linha mostra badge BUY (verde) / SELL (vermelho) / HOLD (cinza)
+- [X] **A.20.7** Hover no badge → tooltip com breakdown dos componentes (`score=N (rsi=±X · macd=±Y · ...)`)
+- [X] **A.20.8** Quando endpoint falha (rate limit CoinGecko, etc) → célula fica `—` silenciosamente
+
+### A.21 — M3 Fundos CVM analytics (sessão 27/abr) (~10min)
+
+> Novo módulo `domain/fundos/analytics.py` (Python+numpy puro): style_analysis (OLS vs fatores), peer_ranking (sharpe rolling), nav_anomalies (z-score >3σ). 3 endpoints sob `/api/v1/fundos-analytics/` (prefix separado para evitar conflito com `/{cnpj:path}` greedy do router fundos).
+
+**Schema + dados**:
+- [X] **A.21.1** 62k fundos em fundos_cadastro, 2.1M informes diários (cobertura jan-abr/2024)
+- [X] **A.21.2** Classes disponíveis: Multimercado (18.6k), Ações (4.1k), Renda Fixa (3.2k), FII (481), FIDC, FIP
+
+**Endpoints**:
+- [X] **A.21.3** `GET /api/v1/fundos-analytics/peer-ranking?tipo=Multimercado&months=3&top=5` → 498 fundos avaliados, top sharpe inflados pelos FIs crédito privado low-vol (esperado dada janela de 4m)
+- [X] **A.21.4** `GET /api/v1/fundos-analytics/anomalies/{cnpj}?months=4&threshold_sigma=2.5` → detecta outliers no NAV
+- [X] **A.21.5** `GET /api/v1/fundos-analytics/style/{cnpj}?months=4&factors=BOVA11,SMAL11,IMAB11,GOLD11` → R², alpha, betas + pct (PODIUM teve 57% IMAB11, perfil RF crédito ✅)
+- [X] **A.21.6** Validação CNPJ inexistente → 404 ou erro friendly
+- [X] **A.21.7** `peer-ranking` aceita `end_date=YYYY-MM-DD` (default = max(data_ref) disponível)
+
+**UI**:
+- [ ] **A.21.8** *(pendente — ficou só backend nesta sprint)* Adicionar tab/card no /fundos com peer-ranking + style breakdown
+
+**Limitações conhecidas**:
+- Informes CVM cobrem jan-abr/2024 só; precisaria sync mensal automático (já há `POST /sync/informe?competencia=AAAAMM` mas sem agendamento)
+- Fatores ETFs em features_daily começam 2024-03-28 (Yahoo, M2 backfill) — overlap com fundos é ~30 dias na janela atual
+- threshold de overlap reduzido pra 20 obs (de 30) na style_analysis pra acomodar essa janela curta
 
 ### A.10 — Smoke visual 14 páginas (~15min)
 
@@ -351,6 +594,31 @@
 - [ ] **B.16.2** Order enviada via dashboard → após 5min, status no DB confere com DLL
 - [ ] **B.16.3** Se DLL retorna order com status diff, log `reconcile.discrepancy.fixed`
 
+### B.18 — DLL fill cria entry no diário automaticamente (~15min)
+
+> Hook `_maybe_dispatch_diary` no profit_agent: status==FILLED chama `POST /api/v1/diario/from_fill`. Idempotente local (set `_diary_notified`) + idempotente backend (UNIQUE em external_order_id).
+
+- [ ] **B.18.1** Dashboard /dashboard com `currentInterval='5m'` (chart aberto em 5m); enviar BUY PETR4 100 @ Market simulação
+- [ ] **B.18.2** Profit_agent log mostra `diary.posted ext_id=<local_id> status=201 body=...` segundos após FILLED
+- [ ] **B.18.3** Abrir /diario → nova entry "PETR4 BUY 100 @ <avg> · 5m · ⏳ PENDENTE"
+- [ ] **B.18.4** DB: `SELECT external_order_id, is_complete, timeframe FROM trade_journal WHERE external_order_id IS NOT NULL ORDER BY created_at DESC LIMIT 1;` → external_order_id = local_id, is_complete=false, timeframe='5m'
+- [ ] **B.18.5** Repetir trade — outra entry separada (external_order_id diferente)
+- [ ] **B.18.6** Forçar 2 callbacks DLL para mesmo local_id (raro mas possível): só 1 entry no diário (idempotência)
+- [ ] **B.18.7** Trocar interval pra '15m' e enviar OCO (TP+SL) → ambas pernas FILLED criam 2 entries (uma por leg) com timeframe='15m'
+
+### B.19 — flatten_ticker end-to-end com pregão (~15min)
+
+> Valida que o endpoint composto cancela pending + zera posição com DLL viva.
+
+- [ ] **B.19.1** Pré-condição: ter 1 posição aberta em PETR4 (BUY 100 @ market FILLED) + 2 limit orders pending (BUY @ R$28 e SELL @ R$50, longe do mercado)
+- [ ] **B.19.2** `/dashboard` aba Pos. → "PETR4" → "Ver" mostra `open_qty=100 ▲ Comprada`
+- [ ] **B.19.3** Caixa vermelha aparece com resumo `PETR4 — posição aberta: 100 · 2 ordem(ns) pendente(s)`
+- [ ] **B.19.4** Click "🚨 ZERAR + CANCELAR PENDENTES" → confirma modal
+- [ ] **B.19.5** Toast OK: `PETR4 encerrado · 2 canceladas · zero=<local_id>`
+- [ ] **B.19.6** Aba Ordens: 2 limit ordens em CANCELED + 1 nova market sell em FILLED (zero_position)
+- [ ] **B.19.7** "Ver" novamente: `open_qty=0 — Zerada`; caixa vermelha some
+- [ ] **B.19.8** DB: `SELECT order_status FROM profit_orders WHERE ticker='PETR4' ORDER BY created_at DESC LIMIT 5` → mostra a sequência
+
 ### B.17 — Trade /carteira → DLL (~10min)
 
 - [ ] **B.17.1** Aba Trades em /carteira: criar BUY/SELL
@@ -444,8 +712,8 @@ Start-Process -FilePath ".venv\Scripts\python.exe" `
 
 | Bloco | Quando | Sub-itens | Tempo |
 |---|---|---|---|
-| 🟢 **A** Pregão fechado | agora | 12 seções (~96 checks) | ~2h30 |
-| 🔴 **B** Pregão aberto | seg 27/abr 10h-18h BRT | 17 seções (~50 checks) | ~3h |
+| 🟢 **A** Pregão fechado | agora | 21 seções (~223 checks) | ~4h45 |
+| 🔴 **B** Pregão aberto | seg 27/abr 10h-18h BRT | 19 seções (~65 checks) | ~3h30 |
 | 🟠 **C.1** Pushover | celular ligado | 4 checks | ~15min |
 | 🟠 **C.2** Sudo presencial | você presente | 7 checks | ~30min |
 | 🔵 **C.3** Samples reais | você fornecer | 6 checks | ~30min |

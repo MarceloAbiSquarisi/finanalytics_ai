@@ -39,6 +39,7 @@ class EntryCreate(BaseModel):
     quantity: float = Field(..., gt=0)
     setup: str | None = None
     timeframe: str | None = None
+    trade_objective: str | None = Field(None, pattern="^(daytrade|swing|buy_hold)$")
     reason_entry: str | None = None
     expectation: str | None = None
     what_happened: str | None = None
@@ -60,6 +61,7 @@ class EntryUpdate(BaseModel):
     quantity: float | None = Field(None, gt=0)
     setup: str | None = None
     timeframe: str | None = None
+    trade_objective: str | None = Field(None, pattern="^(daytrade|swing|buy_hold)$")
     reason_entry: str | None = None
     expectation: str | None = None
     what_happened: str | None = None
@@ -90,6 +92,8 @@ async def list_entries(
     ticker: str | None = Query(None),
     setup: str | None = Query(None),
     direction: str | None = Query(None),
+    trade_objective: str | None = Query(None),
+    is_complete: bool | None = Query(None),
     limit: int = Query(100, le=500),
     offset: int = Query(0),
 ) -> dict[str, Any]:
@@ -99,6 +103,8 @@ async def list_entries(
         ticker=ticker,
         setup=setup,
         direction=direction,
+        trade_objective=trade_objective,
+        is_complete=is_complete,
         limit=limit,
         offset=offset,
     )
@@ -147,10 +153,75 @@ async def delete_entry(entry_id: str, request: Request, user_id: str = Query("us
         raise HTTPException(404, "Entrada não encontrada")
 
 
-@router.get("/stats")
-async def get_stats(request: Request, user_id: str = Query("user-demo")) -> dict[str, Any]:
+@router.post("/entries/{entry_id}/complete")
+async def mark_complete(
+    entry_id: str, request: Request, user_id: str = Query("user-demo")
+) -> dict[str, Any]:
     repo = _repo(request)
-    return await repo.stats(user_id=user_id)
+    entry = await repo.set_complete(entry_id, True, user_id=user_id)
+    if not entry:
+        raise HTTPException(404, "Entrada não encontrada")
+    return entry
+
+
+@router.post("/entries/{entry_id}/uncomplete")
+async def mark_incomplete(
+    entry_id: str, request: Request, user_id: str = Query("user-demo")
+) -> dict[str, Any]:
+    repo = _repo(request)
+    entry = await repo.set_complete(entry_id, False, user_id=user_id)
+    if not entry:
+        raise HTTPException(404, "Entrada não encontrada")
+    return entry
+
+
+@router.get("/incomplete_count")
+async def incomplete_count(
+    request: Request, user_id: str = Query("user-demo")
+) -> dict[str, Any]:
+    repo = _repo(request)
+    n = await repo.count_incomplete(user_id=user_id)
+    return {"count": n, "user_id": user_id}
+
+
+class FromFillBody(BaseModel):
+    external_order_id: str = Field(..., min_length=1, max_length=64)
+    ticker: str
+    direction: str = Field("BUY", pattern="^(BUY|SELL)$")
+    entry_date: datetime
+    entry_price: float = Field(..., gt=0)
+    quantity: float = Field(..., gt=0)
+    timeframe: str | None = None
+    trade_objective: str | None = Field(None, pattern="^(daytrade|swing|buy_hold)$")
+    user_id: str = "user-demo"
+
+
+@router.post("/from_fill", status_code=201)
+async def create_from_fill(body: FromFillBody, request: Request) -> dict[str, Any]:
+    """Hook idempotente para criar entry no diário a partir de um fill da DLL.
+
+    Chamado pelo profit_agent quando uma ordem entra em status FILLED.
+    Idempotente por external_order_id (callback DLL pode disparar múltiplas vezes).
+    """
+    repo = _repo(request)
+    entry, created = await repo.create_from_fill(body.model_dump())
+    logger.info(
+        "diario.from_fill",
+        external_order_id=body.external_order_id,
+        ticker=body.ticker,
+        created=created,
+    )
+    return {"entry": entry, "created": created}
+
+
+@router.get("/stats")
+async def get_stats(
+    request: Request,
+    user_id: str = Query("user-demo"),
+    trade_objective: str | None = Query(None),
+) -> dict[str, Any]:
+    repo = _repo(request)
+    return await repo.stats(user_id=user_id, trade_objective=trade_objective)
 
 
 # ── Página HTML ───────────────────────────────────────────────────────────────

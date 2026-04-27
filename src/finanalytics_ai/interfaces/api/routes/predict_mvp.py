@@ -338,6 +338,7 @@ async def predict_mvp(ticker: str) -> PredictResponse:
 
 class SignalItem(BaseModel):
     ticker: str
+    asset_class: str | None = None
     signal: str | None = None
     predicted_log_return: float | None = None
     predicted_return_pct: float | None = None
@@ -358,15 +359,25 @@ class SignalsResponse(BaseModel):
     items: list[SignalItem]
 
 
-def _load_all_calibrations(dsn: str, min_sharpe: float | None) -> list[dict[str, Any]]:
-    sql = "SELECT ticker, th_buy, th_sell, horizon_days, best_sharpe FROM ticker_ml_config"
-    params: tuple = ()
+def _load_all_calibrations(
+    dsn: str,
+    min_sharpe: float | None,
+    asset_class: str | None = None,
+) -> list[dict[str, Any]]:
+    sql = "SELECT ticker, th_buy, th_sell, horizon_days, best_sharpe, asset_class FROM ticker_ml_config"
+    where: list[str] = []
+    params: list[Any] = []
     if min_sharpe is not None:
-        sql += " WHERE best_sharpe >= %s"
-        params = (min_sharpe,)
+        where.append("best_sharpe >= %s")
+        params.append(min_sharpe)
+    if asset_class:
+        where.append("asset_class = %s")
+        params.append(asset_class)
+    if where:
+        sql += " WHERE " + " AND ".join(where)
     sql += " ORDER BY best_sharpe DESC NULLS LAST"
     with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
-        cur.execute(sql, params)
+        cur.execute(sql, tuple(params))
         rows = cur.fetchall()
     return [
         {
@@ -375,6 +386,7 @@ def _load_all_calibrations(dsn: str, min_sharpe: float | None) -> list[dict[str,
             "th_sell": float(r[2]),
             "horizon_days": int(r[3]),
             "best_sharpe": float(r[4]) if r[4] is not None else None,
+            "asset_class": r[5] if len(r) > 5 else "acao",
         }
         for r in rows
     ]
@@ -383,6 +395,9 @@ def _load_all_calibrations(dsn: str, min_sharpe: float | None) -> list[dict[str,
 @router.get("/signals", response_model=SignalsResponse)
 async def signals_batch(
     min_sharpe: float | None = Query(None, description="Filtra por best_sharpe >= N"),
+    asset_class: str | None = Query(
+        None, description="Filtra por classe (acao | fii). Default: todas"
+    ),
     limit: int = Query(200, ge=1, le=500),
 ) -> SignalsResponse:
     """Retorna signals em batch para todos os tickers calibrados com
@@ -396,7 +411,7 @@ async def signals_batch(
     )
     dsn = dsn.replace("postgresql+asyncpg://", "postgresql://")
 
-    configs = _load_all_calibrations(dsn, min_sharpe)[:limit]
+    configs = _load_all_calibrations(dsn, min_sharpe, asset_class=asset_class)[:limit]
     model_cache: dict[str, tuple[Any, dict, Path]] = {}
     items: list[SignalItem] = []
     counts = {"BUY": 0, "SELL": 0, "HOLD": 0}
@@ -406,6 +421,7 @@ async def signals_batch(
         t = cfg["ticker"]
         base = SignalItem(
             ticker=t,
+            asset_class=cfg.get("asset_class", "acao"),
             th_buy=cfg["th_buy"],
             th_sell=cfg["th_sell"],
             horizon_days=cfg["horizon_days"],
