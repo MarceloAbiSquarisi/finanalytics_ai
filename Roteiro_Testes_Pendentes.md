@@ -207,7 +207,7 @@
 **/performance** (canonical carteira):
 - [X] **A.12.13** Selector mostra "Teste (Carteira Consolidada Teste)" — não mais "portfólio"
 - [X] **A.12.14** Backend novo: `GET /api/v1/wallet/accounts/{account_id}/performance?period=1y` retorna `account_id` + `account_label` (resolve portfolio 1:1 internamente). Endpoint legacy `/api/v1/portfolios/{id}/performance` mantido para retrocompat.
-- [ ] **A.12.15** Empty state CTA aponta pra `/carteira` (era `/portfolios` deprecada)
+- [X] **A.12.15** Empty state CTA aponta pra `/carteira` (era `/portfolios` deprecada)
 
 **Carteira única "Teste" + invariante**:
 - [X] **A.12.16** `/api/v1/wallet/accounts` retorna 1 ativa: id `eeee5555` apelido "Teste"
@@ -325,9 +325,9 @@
 **UI dashboard**:
 - [X] **A.16.5** /dashboard → ⚙ Indicadores → seção "SUPORTE / RESISTÊNCIA" com 3 toggles
 - [X] **A.16.6** Marcar **Pivots clássicos** → 7 linhas horizontais aparecem no chart: PP cinza grossa, R1-R3 vermelhas (sólida→tracejada), S1-S3 verdes (sólida→tracejada). Labels visíveis no eixo direito (PP, R1, R2, R3, S1, S2, S3)
-- [ ] **A.16.7** Marcar **Swings (clusters)** → linhas amarelas com label "Sw·R×N" (resistência) ou "Sw·S×N" (suporte); espessura proporcional a N (toques)
-- [ ] **A.16.8** Lookback `5` vs `10` muda quantidade de swings (10 mais robusto, menos linhas)
-- [ ] **A.16.9** Marcar **Fractais (Williams)** → linhas magenta/azul fina pontilhada com label "Fr↑" (alta) ou "Fr↓" (baixa); só os 5 mais recentes de cada tipo (não polui chart)
+- [X] **A.16.7** Marcar **Swings (clusters)** → linhas amarelas com label "Sw·R×N" (resistência) ou "Sw·S×N" (suporte); espessura proporcional a N (toques)
+- [X] **A.16.8** Lookback `5` vs `10` muda quantidade de swings (10 mais robusto, menos linhas)
+- [X] **A.16.9** Marcar **Fractais (Williams)** → linhas magenta/azul fina pontilhada com label "Fr↑" (alta) ou "Fr↓" (baixa); só os 5 mais recentes de cada tipo (não polui chart)
 - [X] **A.16.10** Trocar ticker (clicar outro na watchlist) → cache invalida, refetch novo, novas linhas
 - [X] **A.16.11** Desligar todos toggles → `srLines` removidas; chart limpo
 - [X] **A.16.12** Badge ⚙ Indicadores conta toggles ativos (S/R conta cada um)
@@ -452,7 +452,7 @@
 - [X] **A.21.7** `peer-ranking` aceita `end_date=YYYY-MM-DD` (default = max(data_ref) disponível)
 
 **UI**:
-- [ ] **A.21.8** *(pendente — ficou só backend nesta sprint)* Adicionar tab/card no /fundos com peer-ranking + style breakdown
+- [X] **A.21.8** *(pendente — ficou só backend nesta sprint)* Adicionar tab/card no /fundos com peer-ranking + style breakdown
 
 **Limitações conhecidas**:
 - Informes CVM cobrem jan-abr/2024 só; precisaria sync mensal automático (já há `POST /sync/informe?competencia=AAAAMM` mas sem agendamento)

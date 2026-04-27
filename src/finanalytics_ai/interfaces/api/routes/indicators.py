@@ -225,37 +225,83 @@ async def get_support_resistance(
     if not candles:
         raise HTTPException(status_code=404, detail=f"No data for {ticker.upper()}")
 
-    highs = [float(c.high) for c in candles]
-    lows = [float(c.low) for c in candles]
-    closes = [float(c.close) for c in candles]
-    timestamps = [c.date.isoformat() if hasattr(c.date, "isoformat") else str(c.date) for c in candles]
+    raw_highs = [float(c.high) for c in candles]
+    raw_lows = [float(c.low) for c in candles]
+    raw_closes = [float(c.close) for c in candles]
+
+    # Filtro outliers: profit_daily_bars (e legacy ohlc_1m) tem rows com escala
+    # fracionária mistas (0.36 entre dias com 48). Sem filtro, swing/williams
+    # detectam pivots fora da escala atual e são inúteis pra UI.
+    # Heurística: usa último close como referência e filtra bars cujo OHLC
+    # esteja fora de [last*0.4, last*2.5]. Mesma lógica do chart frontend.
+    last_close = raw_closes[-1] if raw_closes else 0.0
+    if last_close > 0:
+        lo_b = last_close * 0.4
+        hi_b = last_close * 2.5
+        keep = [
+            i for i in range(len(candles))
+            if lo_b <= raw_closes[i] <= hi_b
+            and lo_b <= raw_highs[i] <= hi_b
+            and lo_b <= raw_lows[i] <= hi_b
+        ]
+    else:
+        keep = list(range(len(candles)))
+    dropped = len(candles) - len(keep)
+
+    # Detecta data-quality: se >50% dropados ou kept < 30 não dá pra calcular
+    # swing/williams confiavelmente. Retorna data_quality_warning.
+    data_quality_warning = None
+    if dropped / max(len(candles), 1) > 0.5:
+        data_quality_warning = (
+            f"Dados de baixa qualidade: {dropped}/{len(candles)} bars filtrados como outliers "
+            f"(escala mista — provavel bug do profit_daily_bars). "
+            f"swing/williams desabilitados; classic continua confiável."
+        )
+
+    highs = [raw_highs[i] for i in keep]
+    lows = [raw_lows[i] for i in keep]
+    closes = [raw_closes[i] for i in keep]
+    timestamps = [
+        candles[i].date.isoformat() if hasattr(candles[i].date, "isoformat") else str(candles[i].date)
+        for i in keep
+    ]
+    filtered_candles = [candles[i] for i in keep]
 
     result: dict = {
         "ticker": ticker.upper(),
         "source": source,
-        "candle_count": len(candles),
+        "candle_count": len(filtered_candles),
+        "candle_count_raw": len(candles),
+        "outliers_dropped": dropped,
         "last_close": round(closes[-1], 4) if closes else None,
         "methods": sorted(requested),
         "timestamps": timestamps,
+        "data_quality_warning": data_quality_warning,
     }
 
     if "swing" in requested:
-        result["swing"] = compute_swing_levels(
-            highs, lows, lookback=lookback, cluster_pct=cluster_pct
-        )
+        if data_quality_warning:
+            result["swing"] = None
+        else:
+            result["swing"] = compute_swing_levels(
+                highs, lows, lookback=lookback, cluster_pct=cluster_pct
+            )
 
     if "classic" in requested:
-        if len(candles) < 2:
+        if len(filtered_candles) < 2:
             result["classic"] = None
         else:
             # Usa penúltima barra como "período anterior" — projeta níveis pra última
-            prev = candles[-2]
+            prev = filtered_candles[-2]
             result["classic"] = compute_classic_pivots(
                 float(prev.high), float(prev.low), float(prev.close)
             )
 
     if "williams" in requested:
-        result["williams"] = compute_williams_fractals(highs, lows)
+        if data_quality_warning:
+            result["williams"] = None
+        else:
+            result["williams"] = compute_williams_fractals(highs, lows)
 
     return result
 

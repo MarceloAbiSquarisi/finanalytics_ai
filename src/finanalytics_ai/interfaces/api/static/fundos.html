@@ -115,6 +115,66 @@ tr:hover td{background:rgba(0,212,255,.015)}
     <div class="sync-result" id="sync-result"></div>
   </div>
 
+  <!-- Analytics M3 — peer ranking + style + anomalies -->
+  <div class="section">
+    <div class="sec-title">📊 Analytics — Peer Ranking</div>
+    <div class="search-row">
+      <label style="font-size:13px;color:var(--muted)">Classe:</label>
+      <select id="pr-tipo" class="input" style="width:200px">
+        <option value="Multimercado">Multimercado</option>
+        <option value="Ações">Ações</option>
+        <option value="Renda Fixa">Renda Fixa</option>
+        <option value="FII">FII</option>
+        <option value="Cambial">Cambial</option>
+      </select>
+      <label style="font-size:13px;color:var(--muted)">Janela:</label>
+      <select id="pr-months" class="input" style="width:130px">
+        <option value="3">3 meses</option>
+        <option value="6" selected>6 meses</option>
+        <option value="12">12 meses</option>
+        <option value="24">24 meses</option>
+      </select>
+      <label style="font-size:13px;color:var(--muted)">PL min:</label>
+      <input id="pr-min-pl" type="number" class="input" style="width:140px" value="0" placeholder="0">
+      <button class="btn" onclick="loadPeerRanking()">Buscar Top</button>
+    </div>
+    <div class="tbl-wrap">
+      <table data-fa-table>
+        <thead>
+          <tr><th>#</th><th>Fundo</th><th>CNPJ</th><th>Sharpe</th><th>Retorno %</th><th>Vol.Anual %</th><th>Obs.</th><th>Análise</th></tr>
+        </thead>
+        <tbody id="pr-results">
+          <tr><td colspan="8" class="empty">Clique em "Buscar Top" para ranking.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="pr-meta" style="font-size:12px;color:var(--muted);margin-top:6px"></div>
+  </div>
+
+  <!-- Style Analysis card -->
+  <div class="section" id="style-section" style="display:none">
+    <div class="sec-title">🎯 Style Analysis — <span id="style-cnpj-label" style="color:var(--text);font-weight:400"></span></div>
+    <div id="style-meta" style="font-size:12px;color:var(--muted);margin-bottom:8px"></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Fator</th><th>Beta</th><th>Peso %</th></tr></thead>
+        <tbody id="style-results"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- NAV Anomalies card -->
+  <div class="section" id="anomalies-section" style="display:none">
+    <div class="sec-title">⚠ NAV Anomalies — <span id="anom-cnpj-label" style="color:var(--text);font-weight:400"></span></div>
+    <div id="anom-meta" style="font-size:12px;color:var(--muted);margin-bottom:8px"></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Data</th><th>Cota</th><th>Retorno % dia</th><th>Z-score</th><th>Rolling μ %</th><th>Rolling σ %</th></tr></thead>
+        <tbody id="anom-results"></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- Buscar fundo -->
   <div class="section">
     <div class="sec-title">Buscar Fundos</div>
@@ -192,6 +252,112 @@ async function init() {
   // Enhance tabela de resultados com sort nas colunas
   const t = document.querySelector('.tbl-wrap table');
   if (t) FATable.enhance(t, { sort: true, filter: false });
+}
+
+// ── M3 Analytics ──────────────────────────────────────────────────────────────
+async function loadPeerRanking() {
+  const tipo = document.getElementById('pr-tipo').value;
+  const months = document.getElementById('pr-months').value;
+  const minPl = document.getElementById('pr-min-pl').value || 0;
+  const tbody = document.getElementById('pr-results');
+  const meta = document.getElementById('pr-meta');
+  tbody.innerHTML = '<tr><td colspan="8" class="empty">Carregando...</td></tr>';
+  try {
+    const url = `/api/v1/fundos-analytics/peer-ranking?tipo=${encodeURIComponent(tipo)}&months=${months}&top=20&min_pl=${minPl}`;
+    const r = await fetch(url, { headers: H() });
+    const d = await r.json();
+    if (!d.ok) {
+      tbody.innerHTML = `<tr><td colspan="8" class="empty">${d.error || 'Sem dados'}</td></tr>`;
+      meta.textContent = '';
+      return;
+    }
+    meta.textContent = `Avaliados: ${d.total_evaluated} fundos · Janela: ${d.window_months}m · Até: ${d.end_date}`;
+    const top = d.top || [];
+    if (!top.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">Nenhum fundo elegível.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = top.map(e => {
+      const safeCnpj = (e.cnpj || '').replace(/['"\\]/g, '');
+      const denom = (e.denominacao || '').replace(/[<>]/g, '');
+      return `<tr>
+        <td><strong>${e.rank}</strong></td>
+        <td title="${denom}">${denom.slice(0, 60)}${denom.length>60?'…':''}</td>
+        <td class="cnpj">${e.cnpj}</td>
+        <td style="color:${e.sharpe>=0?'var(--green)':'var(--red)'};font-weight:600">${e.sharpe.toFixed(2)}</td>
+        <td style="color:${e.return_pct>=0?'var(--green)':'var(--red)'}">${e.return_pct.toFixed(1)}%</td>
+        <td>${e.volatility_pct.toFixed(2)}%</td>
+        <td style="color:var(--muted);font-size:12px">${e.sample_size}d</td>
+        <td>
+          <button class="btn" style="padding:3px 8px;font-size:12px" onclick="loadStyleAndAnomalies('${safeCnpj}', \`${denom.replace(/`/g, "'")}\`)">📊 Analisar</button>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="8" class="empty">Erro: ${e.message}</td></tr>`;
+  }
+}
+
+async function loadStyleAndAnomalies(cnpj, denom) {
+  // Style
+  const styleSec = document.getElementById('style-section');
+  const styleTbody = document.getElementById('style-results');
+  const styleMeta = document.getElementById('style-meta');
+  styleSec.style.display = 'block';
+  document.getElementById('style-cnpj-label').textContent = denom + ' · ' + cnpj;
+  styleTbody.innerHTML = '<tr><td colspan="3" class="empty">Carregando...</td></tr>';
+  styleMeta.textContent = '';
+  try {
+    const r = await fetch(`/api/v1/fundos-analytics/style/${encodeURIComponent(cnpj)}?months=12`, { headers: H() });
+    const d = await r.json();
+    if (!d.ok) {
+      styleTbody.innerHTML = `<tr><td colspan="3" class="empty">${d.error || 'Sem dados'}</td></tr>`;
+    } else {
+      const alphaColor = d.alpha_annualized_pct >= 0 ? 'var(--green)' : 'var(--red)';
+      styleMeta.innerHTML = `R²: <strong>${d.r_squared}</strong> · Alpha (a.a.): <strong style="color:${alphaColor}">${d.alpha_annualized_pct.toFixed(2)}%</strong> · Sample: ${d.sample_size}d · Período: ${d.period?.start || '?'} → ${d.period?.end || '?'}`;
+      styleTbody.innerHTML = (d.coefficients || []).map(c => `<tr>
+        <td><strong>${c.factor}</strong></td>
+        <td style="color:${c.beta>=0?'var(--green)':'var(--red)'};font-family:monospace">${c.beta.toFixed(4)}</td>
+        <td style="font-family:monospace">${c.pct.toFixed(1)}%</td>
+      </tr>`).join('');
+    }
+  } catch(e) {
+    styleTbody.innerHTML = `<tr><td colspan="3" class="empty">Erro: ${e.message}</td></tr>`;
+  }
+  // Anomalies
+  const anomSec = document.getElementById('anomalies-section');
+  const anomTbody = document.getElementById('anom-results');
+  const anomMeta = document.getElementById('anom-meta');
+  anomSec.style.display = 'block';
+  document.getElementById('anom-cnpj-label').textContent = denom + ' · ' + cnpj;
+  anomTbody.innerHTML = '<tr><td colspan="6" class="empty">Carregando...</td></tr>';
+  anomMeta.textContent = '';
+  try {
+    const r = await fetch(`/api/v1/fundos-analytics/anomalies/${encodeURIComponent(cnpj)}?months=12&threshold_sigma=3`, { headers: H() });
+    const d = await r.json();
+    if (!d.ok) {
+      anomTbody.innerHTML = `<tr><td colspan="6" class="empty">${d.error || 'Sem dados'}</td></tr>`;
+    } else {
+      anomMeta.innerHTML = `Sample: ${d.sample_size}d · Threshold: ${d.threshold_sigma}σ · Janela rolling: ${d.rolling_window}d · Anomalias: <strong>${(d.anomalies||[]).length}</strong>`;
+      const list = d.anomalies || [];
+      if (!list.length) {
+        anomTbody.innerHTML = '<tr><td colspan="6" class="empty">Nenhuma anomalia detectada.</td></tr>';
+      } else {
+        anomTbody.innerHTML = list.slice(0,30).map(a => `<tr>
+          <td>${a.data}</td>
+          <td style="font-family:monospace">${a.quota_value.toFixed(6)}</td>
+          <td style="color:${a.daily_return_pct>=0?'var(--green)':'var(--red)'};font-family:monospace">${a.daily_return_pct.toFixed(3)}%</td>
+          <td style="color:${Math.abs(a.z_score)>=4?'var(--red)':'var(--gold)'};font-weight:600">${a.z_score.toFixed(2)}σ</td>
+          <td style="color:var(--muted);font-family:monospace">${a.rolling_mean_pct.toFixed(3)}%</td>
+          <td style="color:var(--muted);font-family:monospace">${a.rolling_std_pct.toFixed(3)}%</td>
+        </tr>`).join('');
+      }
+    }
+  } catch(e) {
+    anomTbody.innerHTML = `<tr><td colspan="6" class="empty">Erro: ${e.message}</td></tr>`;
+  }
+  // scroll para style
+  styleSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 async function loadTipos() {

@@ -2434,6 +2434,11 @@ async function refreshSRLevels() {
       const r = await fetch(`/api/v1/indicators/${currentTicker}/levels?methods=swing,classic,williams&lookback=${lookback}`);
       if (!r.ok) return;
       srCache = await r.json();
+      // Toast/console quando dados de baixa qualidade
+      if (srCache.data_quality_warning) {
+        if (window.FAToast) FAToast.warn('S/R: ' + srCache.data_quality_warning, 6000);
+        else console.warn('[SR]', srCache.data_quality_warning);
+      }
     } catch(e) { return; }
   }
   const lines = [];
