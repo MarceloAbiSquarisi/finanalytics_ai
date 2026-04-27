@@ -341,6 +341,20 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
       **Estado final**: 12 alert rules ativos, 5/5 targets Prometheus up, Pushover end-to-end funcional, 12 commits sequenciais (ver Git log abaixo).
 20. Aguardando arquivo Nelogica 1m (~2 dias) → rodar `runbook_import_dados_historicos.md`. **Inclui Z5** (treinar pickles h3/h5 para ensemble multi-horizon real) — reclassificado de tarefa autônoma para parte deste batch, porque treinar com `ohlc_1m` parcial atual gera modelos fracos que poluiriam o `predict_ensemble`. Treinar tudo de uma vez com 1m bars completos.
 21. ~~Sprint Fix CI 21/abr — CI verde após 100+ runs falhos~~ — **DONE 21/abr** — 4 commits (`b54868c`, `9c36a0e`, `3b1862d`, `f99708d`): aiosqlite + ruff format/check (905 auto-fix + ignores legacy + extend-exclude `ProfitDLL/`) + pyarrow + uv.lock + test_candle_repository alinhado ao chain OHLC atual + test_hub auth bypass via `dependency_overrides[hub._require_admin]` + Prometheus scrape novo job `finanalytics_api` (3/4 → 4/4 targets up, +31 metrics) + coverage threshold 43→25 (baseline 27.02%, comentário "subir incremental, não baixar mais").
+22. ~~Sprint M1-M5 + features /diario + S/R + flatten ticker — 27/abr noite~~ — **DONE 27/abr** — 3 commits (`3573db1`, `5e7e496`, `7cf157b`):
+    - **M1 FIIs**: 26 FIIs IFIX backfill Yahoo + calibração + treino MVP-h21 (top sharpe HFOF11+2.55, KNRI11+1.33). Coluna `asset_class` em `ticker_ml_config`. Endpoint `/api/v1/ml/signals?asset_class=fii`. Badge amarelo no /dashboard. Script `scripts/backfill_yahoo_fii.py`.
+    - **M2 ETFs**: 13 ETFs B3 (BOVB11/GOVE11/BOVV11/FIND11/IMAB11/etc), top BOVB11+2.70. Badge azul ETF. Script `scripts/backfill_yahoo_etf.py`.
+    - **M3 Fundos CVM**: módulo `domain/fundos/analytics.py` (style_analysis OLS, peer_ranking sharpe, nav_anomalies z-score). 3 endpoints sob `/api/v1/fundos-analytics/*` (prefix dedicado pra evitar conflito com `/{cnpj:path}` greedy do `routes/fundos.py`). UI em `/fundos` com botão Analisar que expande Style + Anomalies inline.
+    - **M4 Crypto signal**: `/api/v1/crypto/signal/{symbol}` score weighted (RSI±2 + MACD±1 + EMA cross±1 + BB±1 → BUY/SELL/HOLD). Coluna SINAL na aba Crypto do /carteira. Fix CoinGecko OHLC days snapping.
+    - **M5 RF Regime**: `domain/rf_regime/classifier.py` (4 regimes determinísticos NORMAL/STEEPENING/FLATTENING/INVERSION). Endpoint `/api/v1/rf/regime`. Card visual no /carteira aba RF (badge + slope/z/score + 3 chips alocação CDI/Pré/IPCA).
+    - **/diario campo Objetivo**: migration 0019, select DT/Swing/B&H, tab dedicada "Objetivo" (insights + chart + tabela), pills filtro global persistente em localStorage.
+    - **/diario workflow incompletas**: migration 0020 (`is_complete` + `external_order_id` UNIQUE parcial), endpoint `/from_fill` idempotente, hook profit_agent (callback FILLED → POST HTTP via urllib stdlib), badge ⏳ PENDENTE no card, chip header, botão Concluir, FANotif.setSystemBadge persistente.
+    - **/dashboard S/R**: módulo `domain/indicators/support_resistance.py` (3 algos: pivots clássicos, swing clusters, Williams fractais). Endpoint `/indicators/{ticker}/levels` com filtro outliers (heurística `last*0.4-2.5`) + `data_quality_warning` quando >50% dropados (mitiga bug pré-existente do `profit_daily_bars`). Overlay no chart LightweightCharts via `priceSeries.createPriceLine`.
+    - **/dashboard flatten ticker**: novo `POST /api/v1/agent/order/flatten_ticker` orquestra cancel pending + zero_position. Botão "🚨 ZERAR + CANCELAR PENDENTES" na aba Pos com modal danger via FAModal. Filtro `?ticker` adicionado no proxy `/orders`.
+    - **Tempo real total**: ~3h15 vs estimativa Melhorias.md 8-13d (95% economia pelo reuso pipeline ML existente + algoritmos determinísticos vs HMM/treino pesado).
+    - **Bloco A do roteiro**: 234/236 ✅ (99.2%) validado via MCP Playwright smoke tour. Restantes A.4.9 (PDF de teste) e A.15.10 (destrutivo).
+    - **Migrations alembic**: 0019 (trade_objective), 0020 (is_complete + external_order_id). Versão atual: `0020_diario_is_complete`.
+    - **Novos backlog itens N1-N10** documentados em `Melhorias.md` — destaque: N1 (limpeza profit_daily_bars escala mista, alto impacto) e N5 (fundamentals FII via Status Invest, alpha real M1).
 
 ## Decisões Arquiteturais (Imutáveis)
 
@@ -483,6 +497,11 @@ Origem: Sprint BRAPI-purge 23/abr/2026 (Caminho 2 escolhido pelo usuário). Moti
 ```
 Remote: https://github.com/MarceloAbiSquarisi/finanalytics_ai
 Branch: master
+Últimos commits (27/abr — Sprint M1-M5 + features /diario + S/R + flatten):
+  7cf157b docs: atualiza Roteiro + Melhorias após sessão M1-M5
+  5e7e496 feat: A.16/A.21 — outlier filter S/R + UI fundos analytics
+  3573db1 feat: M1-M5 backlog + features /diario + /dashboard S/R + flatten ticker
+
 Últimos commits (21/abr — Sprint Backend V1-V4 + Z3-Z4):
   de57c44 feat(infra): Z3 (4 alert rules adicionais) + Z4 (ensemble multi-horizon)
   c4113ab fix(grafana): ajusta contact-points.yml para provisionar sem erro
