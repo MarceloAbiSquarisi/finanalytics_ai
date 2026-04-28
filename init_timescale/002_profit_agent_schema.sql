@@ -105,9 +105,17 @@ CREATE TABLE IF NOT EXISTS profit_orders (
     created_at        TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
     updated_at        TIMESTAMPTZ      NOT NULL DEFAULT NOW()
 );
+-- Validade da ordem (Time In Force) — 28/abr/2026
+-- DLL ProfitDLL nao expoe ValidityType no SendOrder (apenas no Order de retorno).
+-- Enforcement local: GTC (default — ate cancelar) ou GTD (good till date).
+-- Worker cleanup_stale_pending_orders_job verifica validity_date < NOW e cancela.
+ALTER TABLE profit_orders ADD COLUMN IF NOT EXISTS validity_type VARCHAR(8) NOT NULL DEFAULT 'GTC';
+ALTER TABLE profit_orders ADD COLUMN IF NOT EXISTS validity_date TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS ix_profit_orders_ticker   ON profit_orders (ticker);
 CREATE INDEX IF NOT EXISTS ix_profit_orders_status   ON profit_orders (order_status);
 CREATE INDEX IF NOT EXISTS ix_profit_orders_local_id ON profit_orders (local_order_id);
+CREATE INDEX IF NOT EXISTS ix_profit_orders_validity ON profit_orders(validity_date)
+  WHERE validity_date IS NOT NULL AND order_status IN (0,10);
 
 CREATE TABLE IF NOT EXISTS profit_adjustments (
     id                 SERIAL  PRIMARY KEY,

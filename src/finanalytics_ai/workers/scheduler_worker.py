@@ -618,12 +618,21 @@ async def cleanup_stale_pending_orders_job() -> dict:
         ts_dsn = timescale_dsn.replace("postgresql+asyncpg://", "postgresql://")
         conn = await asyncpg.connect(ts_dsn)
         try:
+            # Junta dois universos:
+            # 1) Stale (>24h sem update) — sweep de seguranca
+            # 2) GTD expirado (validity_date < NOW e ainda pending) — enforcement
+            #    do Time In Force escolhido pelo user no envio.
             stale_rows = await conn.fetch(
                 """
-                SELECT local_order_id, ticker, env, order_status, created_at
+                SELECT local_order_id, ticker, env, order_status, created_at,
+                       validity_type, validity_date
                   FROM profit_orders
                  WHERE order_status IN (0, 10)
-                   AND created_at < NOW() - ($1::int * INTERVAL '1 hour')
+                   AND (
+                         created_at < NOW() - ($1::int * INTERVAL '1 hour')
+                      OR (validity_type = 'GTD' AND validity_date IS NOT NULL
+                          AND validity_date < NOW())
+                       )
                  ORDER BY created_at ASC
                  LIMIT 500
                 """,
@@ -1200,6 +1209,7 @@ async def schedule_loop() -> None:
     async def stale_pending_loop() -> None:
         # C (28/abr): cleanup ordens pending stale 1x/dia (default 23h BRT,
         # após pregão). Mitiga acúmulo "49 orders" entupindo /positions/dll.
+        # Tambem captura GTD expiradas (sweep de seguranca, alem do gtd_loop 60s).
         logger.info("scheduler.stale_pending.start_loop", hour=STALE_PENDING_HOUR)
         while True:
             next_run = _next_run_utc(STALE_PENDING_HOUR)
@@ -1214,6 +1224,69 @@ async def schedule_loop() -> None:
 
     if STALE_PENDING_ENABLED:
         tasks.append(asyncio.create_task(stale_pending_loop()))
+
+    async def gtd_enforcer_loop() -> None:
+        # GTD enforcer (28/abr): ordens com validity_type='GTD' e validity_date < NOW
+        # sao canceladas. Roda a cada 60s para baixa latencia de cancel.
+        # Nao usa cleanup_stale_pending (que faz mais coisas) — query SQL focada.
+        timescale_dsn = os.environ.get(
+            "PROFIT_TIMESCALE_DSN", os.environ.get("TIMESCALE_DSN", ""),
+        )
+        agent_url = os.environ.get(
+            "PROFIT_AGENT_URL", "http://host.docker.internal:8002",
+        )
+        if not timescale_dsn:
+            logger.warning("scheduler.gtd.skip", reason="no_timescale_dsn")
+            return
+        ts_dsn = timescale_dsn.replace("postgresql+asyncpg://", "postgresql://")
+        logger.info("scheduler.gtd.start_loop")
+        import asyncpg, httpx
+        while True:
+            await asyncio.sleep(60)
+            try:
+                conn = await asyncpg.connect(ts_dsn)
+                try:
+                    rows = await conn.fetch(
+                        """
+                        SELECT local_order_id, env FROM profit_orders
+                         WHERE order_status IN (0, 10)
+                           AND validity_type = 'GTD'
+                           AND validity_date IS NOT NULL
+                           AND validity_date < NOW()
+                         LIMIT 100
+                        """,
+                    )
+                finally:
+                    await conn.close()
+                if not rows:
+                    continue
+                logger.info("scheduler.gtd.expired_found", count=len(rows))
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    for row in rows:
+                        try:
+                            r = await client.post(
+                                f"{agent_url}/order/cancel",
+                                json={
+                                    "local_order_id": int(row["local_order_id"]),
+                                    "env": row["env"] or "simulation",
+                                },
+                            )
+                            if r.status_code == 200 and r.json().get("ok"):
+                                logger.info(
+                                    "scheduler.gtd.cancelled",
+                                    local_order_id=int(row["local_order_id"]),
+                                )
+                        except Exception as exc:
+                            logger.warning(
+                                "scheduler.gtd.cancel_failed",
+                                local_order_id=int(row["local_order_id"]),
+                                error=str(exc),
+                            )
+            except Exception as exc:
+                logger.warning("scheduler.gtd.loop_error", error=str(exc))
+
+    if os.environ.get("SCHEDULER_GTD_ENFORCE_ENABLED", "true").lower() == "true":
+        tasks.append(asyncio.create_task(gtd_enforcer_loop()))
 
     # Feature C5: liquidacao diaria (on by default, simples e idempotente)
     import os as _os_sc

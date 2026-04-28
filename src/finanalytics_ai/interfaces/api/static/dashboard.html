@@ -1150,6 +1150,16 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
             <input type="checkbox" id="t-sim" checked style="accent-color:var(--gold)"> Simulador
           </label>
         </div>
+        <!-- Validade da ordem (Time In Force) — DLL nao expoe; enforcement via worker GTD -->
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:6px;align-items:center;margin:6px 0">
+          <label style="font-size:12px;color:var(--muted)">Validade</label>
+          <select id="t-tif" class="sel" style="font-size:13px;width:100%" onchange="dtToggleTifDate()">
+            <option value="GTC" selected>Até cancelar</option>
+            <option value="GTD">Data + hora</option>
+          </select>
+          <label id="t-tif-date-lbl" style="font-size:12px;color:var(--muted);display:none">Expira em</label>
+          <input id="t-tif-date" type="datetime-local" class="sel" style="font-size:13px;display:none">
+        </div>
         <div class="total"><span class="tl">Total</span><span class="tv" id="t-tot">R$ 0,00</span></div>
         <div style="display:flex;gap:6px;margin-top:6px">
           <button class="btn-tr buy" id="tr-btn" onclick="executeTrade()" style="flex:1">COMPRAR</button>
@@ -3353,6 +3363,22 @@ function dtToggleStop() {
   const isStop = document.getElementById('t-type').value === 'stop';
   document.getElementById('t-stop-wrap').style.display = isStop ? '' : 'none';
 }
+function dtToggleTifDate() {
+  const isGtd = (document.getElementById('t-tif')?.value || 'GTC') === 'GTD';
+  const lbl = document.getElementById('t-tif-date-lbl');
+  const inp = document.getElementById('t-tif-date');
+  if (lbl) lbl.style.display = isGtd ? '' : 'none';
+  if (inp) {
+    inp.style.display = isGtd ? '' : 'none';
+    if (isGtd && !inp.value) {
+      // Default sugerido: fim do pregão hoje (17:00 BRT)
+      const d = new Date(); d.setHours(17, 0, 0, 0);
+      if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
+      const pad = n => String(n).padStart(2, '0');
+      inp.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+  }
+}
 function dtSyncTicker() {
   const tk = document.getElementById('t-tk').value;
   const oco = document.getElementById('oco-tk');
@@ -3376,6 +3402,19 @@ async function executeTrade(){
   if (tp !== 'market' && !p) { toast('Informe o preço','err'); return; }
   if (tp === 'stop' && !sp) { toast('Informe o preço stop','err'); return; }
 
+  // Validade (Time In Force): GTC default, GTD precisa data+hora futura
+  const tif = (document.getElementById('t-tif')?.value || 'GTC').toUpperCase();
+  let validityDate = null;
+  if (tif === 'GTD') {
+    const raw = document.getElementById('t-tif-date')?.value;
+    if (!raw) { toast('Informe data e hora de validade', 'err'); return; }
+    const d = new Date(raw);
+    if (isNaN(d.getTime()) || d.getTime() <= Date.now()) {
+      toast('Data de validade deve ser no futuro', 'err'); return;
+    }
+    validityDate = d.toISOString();
+  }
+
   const body = {
     env:            sim ? 'simulation' : 'production',
     order_type:     tp,
@@ -3390,6 +3429,8 @@ async function executeTrade(){
     portfolio_id:   'carteira_principal',
     strategy_id:    'dashboard',
     timeframe:      (typeof currentInterval !== 'undefined' && currentInterval) ? currentInterval : null,
+    validity_type:  tif,
+    validity_date:  validityDate,
   };
 
   msg.textContent = 'Enviando...';

@@ -769,17 +769,12 @@ class DBWriter:
     def insert_order(self, data: dict) -> None:
 
         sql = """
-
         INSERT INTO profit_orders
-
             (local_order_id, message_id, broker_id, account_id, sub_account_id,
-
              env, ticker, exchange, order_type, order_side, price, stop_price,
-
-             quantity, order_status, user_account_id, portfolio_id, is_daytrade, strategy_id, notes)
-
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,10,%s,%s,%s,%s,%s)
-
+             quantity, order_status, user_account_id, portfolio_id, is_daytrade,
+             strategy_id, notes, validity_type, validity_date)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,10,%s,%s,%s,%s,%s,%s,%s)
         """
 
         self.execute(
@@ -803,6 +798,8 @@ class DBWriter:
                 data.get("is_daytrade", False),
                 data.get("strategy_id"),
                 data.get("notes"),
+                data.get("validity_type", "GTC"),  # GTC | GTD
+                data.get("validity_date"),  # ISO datetime ou None
             ),
         )
 
@@ -3147,6 +3144,9 @@ class ProfitAgent:
                     "is_daytrade": params.get("is_daytrade", False),
                     "strategy_id": params.get("strategy_id"),
                     "notes": params.get("notes"),
+                    # Time In Force: GTC (default) ou GTD com validity_date ISO datetime
+                    "validity_type": (params.get("validity_type") or "GTC").upper(),
+                    "validity_date": params.get("validity_date") or None,
                 }
             )
 
