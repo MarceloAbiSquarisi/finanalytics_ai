@@ -822,7 +822,13 @@ Start-Process -FilePath ".venv\Scripts\python.exe" `
 - **A.24.5** log `cvm_informe.done` competencia=AAAAMM: depende dia 5 do mês
 - **A.24.16** sparkline crypto trend visual real: depende 7+ dias acumulados
 
-**Bloco B (pregão) — sessão 28/abr 12h-13h BRT (parcial)**:
+**Bloco B (pregão) — sessão 28/abr 14h BRT (continuação pós-fix P1)**:
+- ✅ B.6 Phase A end-to-end **completo**: mãe → attach OCO → change price → fill @47.78 → group active → `oco_group.dispatched filled=100/100 levels=1`
+- ✅ **P1 implementado e validado em produção**: trigger via `trading_msg_cb` com fallback `msg_id→local_id`. Logs `retry_scheduled → retry_attempt → retry_dispatched → retry_aborted (max_attempts=3)` observados live.
+- ❌ B.18 hook diary — bloqueado por bug NOVO P4 (TConnectorOrder struct mismatch — order_callback recebe dados corrompidos com ticker=`㪣` etc)
+- ⚠️ Sessão Nelogica continua degradada: 3/3 retries P1 falharam com 204. Em sessão saudável (Delphi pattern) 1-2 retries succeed.
+
+**Bloco B (pregão) — sessão 28/abr 12h-13h BRT (parcial inicial)**:
 - ✅ B.1 cancel order (DLL canceled OK; DB lag bug catalogado P2)
 - ✅ B.2 market BUY → FILLED 100 PETR4 @ R$47,93
 - ✅ B.3 OCO legacy → 2 legs no broker (cross-cancel deferido pra B.11)
@@ -835,9 +841,10 @@ Start-Process -FilePath ".venv\Scripts\python.exe" `
 - ❌ B.6 Phase A ACTIVE (post-fill) — **bloqueio P1**: broker subconnection com blips intermitentes "Cliente não logado" rejeitando 30% das operações de send/change/cancel
 - ❌ B.7 Splits, B.8-B.10 Trailing, B.11-B.12 Cross+Persist, B.18 fill→diary, B.19 flatten — todos dependem de active OCO group ou broker estável
 
-**3 bugs novos descobertos** (catalogados em Melhorias.md):
-- **P1** ⭐⭐⭐ broker auth blips intermitentes — bloqueia 80% do Bloco B até fix (auto-retry + health probe sugeridos)
+**4 bugs descobertos** (catalogados em Melhorias.md):
+- **P1** ⭐⭐⭐ broker auth blips intermitentes — **opção 1 (auto-retry) implementada e validada 28/abr 14h**. Trigger via trading_msg_cb com fallback msg_id→local_id, max 3 attempts, idempotência por `retry_started`.
 - **P2** ⭐⭐ reconcile UPDATE WHERE cl_ord_id mas envio inicial grava NULL — DB stale permanente
 - **P3** ⭐ di1_realtime_worker cursor stuck após reset trade_number B3
+- **P4** ⭐⭐⭐ TConnectorOrder struct mismatch — order_callback recebe dados corrompidos (ticker=`㪣`, status aleatório). Bloqueia hook diary B.18.
 
-**Próximo gatilho**: implementar fix P1 (auto-retry em "Cliente não logado") antes de retomar B.6.6+. Bloco B.1-B.5 + B.13 + B.15-B.16 já validados.
+**Próximo gatilho**: implementar P4 fix (corrigir struct ctypes da TConnectorOrder) antes de retomar B.18. Para B.7-B.12 (trailing/cross-cancel), depende também de sessão Nelogica saudável (broker recusou todas as 3 retries P1 hoje).

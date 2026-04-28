@@ -213,7 +213,24 @@ Backend + UI completos:
 
 ## 🔄 NOVO BACKLOG (descoberto na sessão de 28/abr — pós C.2 Sudo)
 
-#### P1 — Broker subconnection com blips intermitentes "Cliente não logado" ⭐⭐⭐ crítico
+#### P1 — Broker subconnection com blips "Cliente não logado" ⭐⭐⭐ crítico — opção 1 IMPLEMENTADA 28/abr 14h
+**Status**: opção 1 (auto-retry) implementada. Validada em produção: `retry_scheduled` → `retry_attempt` → `retry_dispatched` → `retry_aborted (max_attempts=3)` observados no log live (commits a fazer). Mas as 3 tentativas falharam todas com 204 hoje — sessão Nelogica está degradada além do que retry resolve. Em sessão saudável (cliente Delphi mostrou pattern: 1 rejeição → reconnect → retry succeed), 1-2 retries devem bastar.
+
+**Implementação** (`profit_agent.py`):
+- `__init__`: novos campos `_retry_params: dict[int, dict]`, `_msg_id_to_local: dict[int, int]`, `_retry_lock`
+- `_send_order_legacy`: salva params em `_retry_params[local_id]` + mapping `_msg_id_to_local[message_id] = local_id`
+- `trading_msg_cb`: detecta `code==3 + msg contém "Cliente n"/"logado"` → schedule retry em 5s (Timer thread). Usa `r.OrderID.LocalOrderID` se >0, fallback `_msg_id_to_local[r.MessageID]` (struct mismatch identificado: ver P4)
+- `_retry_rejected_order(old_local_id)`: aguarda `_routing_ok=true` até 30s, re-envia via `_send_order_legacy` herdando attempts. Max 3 attempts.
+- Idempotência: flag `retry_started` por entry impede double-fire se trading_msg dispara 2x.
+
+**Próximos passos** (não bloqueante):
+- Adicionar opção 2 (health probe `GetAccountCount` a cada 30s para flagear `_routing_ok=false` proativamente)
+- Telemetria: contar rejections/retries via Prometheus gauge `profit_agent_broker_auth_blips_total`
+- DB: marcar tentativas no campo `notes` da ordem original e cl_ord_id → new local_id na nova
+
+**Custo restante**: ~2-3h (opção 2 + telemetria).
+
+#### P1-old — Broker subconnection com blips (referência) ⭐⭐⭐ crítico
 **Custo**: ~1d investigação + ~1d fix. **Payoff**: crítico (desbloqueia 80% do Bloco B do Roteiro de Testes).
 
 Sintoma observado na sessão pregão 28/abr (~13:00-13:11 BRT): aproximadamente 30% dos `SendOrder`/`SendChangeOrder` recebem rejeição do broker com `trading_msg code=3 status=8 msg=Cliente não está logado` (mesmo `msg_id` da operação que tinha aparecido antes como `code=2 Enviando ao HadesProxy`). DLL retorna ret=0 (sucesso local), mas a operação NUNCA chega ao broker — fica órfã: DB tem com status PendingNew, DLL EnumerateAllOrders não conhece, `cancel_order` retorna `-2147483645` (NL_INVALID_ARGS).
@@ -263,6 +280,38 @@ self._db.execute(
 ```
 
 Bonus: também atualiza o cl_ord_id no DB quando ele aparece (resolve drift permanente).
+
+#### P4 — TConnectorOrder struct layout mismatch no order_callback ⭐⭐⭐ crítico (NOVO 28/abr 14h)
+**Custo**: ~3-5h investigação + ~2-4h fix. **Payoff**: crítico (desbloqueia hook diary B.18 + qualquer lógica baseada em FILLED/CANCELED via callback).
+
+Sintoma: `SetOrderCallback` dispara mas com **dados corrompidos** consistentemente (testado em 4 boots distintos):
+```
+order_callback local_id=1571128020576 cl_ord=㪣 status=60 ticker=㪣 traded=1211 leaves=0 avg=0.0000
+order_callback local_id=4272236 cl_ord=䱐Ǆ status=0 ticker=䱐Ǆ traded=19148288 leaves=1212 avg=0.0000
+```
+
+`local_id` aleatório (44-bit-like values), `cl_ord` e `ticker` mostram caracteres asiáticos (Unicode UTF-16 raw bytes interpretados como wchar), `status` valores fora do enum. **Nenhum** order_callback fired com dados limpos das ordens PETR4 que enviamos.
+
+**Comparação Delphi**: `OrderCallback: PETR4 | 0 | 1 | -1,00 | 216541264267275 |  | 204 | Cliente não está logado.` — Delphi recebe struct correto com PETR4 / status válido.
+
+**Diagnóstico esperado**: a definição da struct `TConnectorOrder` em `profit_agent.py` está desalinhada com a versão da ProfitDLL (provável upgrade/mudança de versão). Possíveis causas:
+- Field order trocado (alignment 4/8 byte boundaries diferentes)
+- Versão da struct (Version=0/1/2) — Delphi pode estar usando V2 enquanto Python lê como V1
+- Tipo errado em algum field (c_int vs c_int64, c_wchar vs c_char_p)
+- Padding diferente em x64 vs x86
+
+**Plano de fix**:
+1. Capturar 1 callback completo via memcpy raw bytes (não interpretar struct) → dump hex
+2. Comparar com layout da Delphi/Pascal source (TConnectorOrder em ProfitDLL.pas se disponível, ou pedir docs Nelogica)
+3. Reescrever `TConnectorOrder` Python ctypes class field-by-field
+4. Versionar com `Version=2` se necessário (matching Delphi V2 pattern visto no log)
+
+**Impacto**:
+- B.18 hook diary (`_maybe_dispatch_diary` triggered on status==2 FILLED) — bloqueado, hook nunca dispara
+- Qualquer lógica de cross-cancel OCO baseada em order_callback — bloqueado
+- Workaround atual: usa `EnumerateAllOrders` polling (mais lento mas funciona). Status correto via `/positions/dll`
+
+**Prioridade**: alta. Sem fix, qualquer feature que reaja a status callback fica quebrada. Reconcile loop a cada 5min mascara o problema mas com latência alta.
 
 #### P3 — di1_realtime_worker cursor stuck em trade_number antigo após reset de sessão B3 ⭐ médio
 **Custo**: ~1h. **Payoff**: médio (Kafka stream `market.rates.di1` zerado durante o dia; não impacta DB direto, mas pipelines downstream que dependem do tópico ficam stale).

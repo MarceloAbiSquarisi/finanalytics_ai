@@ -1246,6 +1246,16 @@ class ProfitAgent:
 
         self._activate_ok = False
 
+        # P1 (28/abr): auto-retry para "Cliente não logado" (status=204).
+        # Padrão observado em log Delphi: rejeição broker → reconnect → retry → success.
+        # Mapeia local_id → {params, attempts}; max 3 tentativas (1 original + 2 retries).
+        self._retry_params: dict[int, dict] = {}
+        # Fallback: r.OrderID.LocalOrderID em trading_msg_cb pode vir 0 por struct
+        # mismatch dependendo do code. Mapeamos message_id -> local_id ao enviar
+        # (message_id é confiavelmente populado).
+        self._msg_id_to_local: dict[int, int] = {}
+        self._retry_lock = threading.Lock()
+
         # Contadores
 
         self._total_ticks = 0
@@ -2509,6 +2519,16 @@ class ProfitAgent:
                     }
                 )
 
+                # P1: status=204 ("Cliente não está logado") → broker rejeitou
+                # por blip de subconnection. Schedule retry após 5s
+                # (deixa routing reconectar primeiro, padrão Delphi).
+                if status == 204 and traded_qty == 0 and local_id > 0:
+                    t = threading.Timer(
+                        5.0, agent._retry_rejected_order, args=(local_id,)
+                    )
+                    t.daemon = True
+                    t.start()
+
             except queue.Full:
                 pass
 
@@ -2553,6 +2573,33 @@ class ProfitAgent:
 
             except queue.Full:
                 pass
+
+            # P1 (28/abr): trigger retry quando broker rejeita por blip de auth.
+            # OrderCallback recebe dados corrompidos (struct layout); TradingMessage
+            # é mais confiavel mas r.OrderID.LocalOrderID as vezes vem 0 — usamos
+            # fallback via _msg_id_to_local mapeado em _send_order_legacy.
+            # Match: code=3 (rejeicao) AND msg contem "Cliente n"/"logado".
+            if code == 3 and (
+                "Cliente n" in msg_text or "logado" in msg_text.lower()
+            ):
+                rejected_id = r.OrderID.LocalOrderID
+                if rejected_id <= 0:
+                    rejected_id = agent._msg_id_to_local.get(r.MessageID, 0)
+                if rejected_id > 0:
+                    t = threading.Timer(
+                        5.0, agent._retry_rejected_order, args=(rejected_id,)
+                    )
+                    t.daemon = True
+                    t.start()
+                    log.info(
+                        "retry_scheduled local_id=%d msg_id=%d delay=5s reason=broker_auth_blip",
+                        rejected_id, r.MessageID,
+                    )
+                else:
+                    log.warning(
+                        "retry_skipped no_local_id msg_id=%d (struct: %d, fallback miss)",
+                        r.MessageID, r.OrderID.LocalOrderID,
+                    )
 
         # 13. Broker account list changed
 
@@ -3058,7 +3105,73 @@ class ProfitAgent:
             env,
         )
 
+        # P1: salva params para potencial retry em caso de status=204
+        # (broker rejeita com "Cliente não logado"). _retry_rejected_order
+        # pode atualizar attempts depois se este send for um retry herdado.
+        # Também mapeia message_id -> local_id para fallback no trading_msg_cb.
+        with self._retry_lock:
+            self._retry_params[local_id] = {
+                "params": {k: v for k, v in params.items() if not k.startswith("_")},
+                "attempts": 1,
+                "ticker": ticker,
+            }
+            if order.MessageID > 0:
+                self._msg_id_to_local[order.MessageID] = local_id
+
         return {"ok": True, "local_order_id": local_id, "message_id": order.MessageID}
+
+    def _retry_rejected_order(self, old_local_id: int) -> None:
+        """P1 (28/abr): re-envia ordem rejeitada pelo broker com 'Cliente não logado'
+        (OrderStatus=204). Padrão validado no log Delphi: broker derruba subconnection,
+        reconecta, ordem é reenviada com novo local_id e fillou normalmente.
+
+        Aguarda routing reconectar (até 30s) antes de re-enviar. Max 3 attempts total.
+        """
+        with self._retry_lock:
+            entry = self._retry_params.get(old_local_id)
+            if entry and not entry.get("retry_started"):
+                entry["retry_started"] = True
+            else:
+                # Sem entry OU já em retry — skip (idempotente: trading_msg pode disparar 2x)
+                return
+        attempts = entry.get("attempts", 1)
+        if attempts >= 3:
+            log.warning("retry_aborted local_id=%d max_attempts=%d", old_local_id, attempts)
+            return
+        # Aguarda routing reconectar (até 30s — pattern Delphi: ~5-10s tipico)
+        deadline = time.time() + 30.0
+        while time.time() < deadline and not self._routing_ok:
+            time.sleep(1.0)
+        if not self._routing_ok:
+            log.warning("retry_aborted local_id=%d routing_offline_30s", old_local_id)
+            return
+        # Re-enviar — _send_order_legacy criará novo entry em _retry_params com attempts=1
+        # então sobrescrevemos para acumular o counter herdado.
+        params = entry["params"].copy()
+        log.info("retry_attempt old_local_id=%d attempt=%d", old_local_id, attempts + 1)
+        res = self._send_order_legacy(params)
+        if res.get("ok"):
+            new_id = res["local_order_id"]
+            with self._retry_lock:
+                new_entry = self._retry_params.get(new_id, {})
+                new_entry["attempts"] = attempts + 1
+                new_entry["retry_of"] = old_local_id
+                self._retry_params[new_id] = new_entry
+            log.info(
+                "retry_dispatched old=%d new=%d attempts=%d",
+                old_local_id, new_id, attempts + 1,
+            )
+            if self._db:
+                try:
+                    self._db.execute(
+                        "UPDATE profit_orders SET notes=COALESCE(notes,'') || %s,"
+                        " updated_at=NOW() WHERE local_order_id=%s",
+                        (f" rejected_204 (retried as {new_id})", old_local_id),
+                    )
+                except Exception as e:
+                    log.warning("retry_db_update_failed: %s", e)
+        else:
+            log.warning("retry_send_failed old=%d err=%s", old_local_id, res.get("error"))
 
     def cancel_order(self, params: dict) -> dict:
 
