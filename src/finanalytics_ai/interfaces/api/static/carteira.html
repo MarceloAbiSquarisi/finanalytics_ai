@@ -95,6 +95,15 @@ tr:hover td{background:rgba(0,212,255,.02)}
 .badge-sell{background:rgba(255,61,90,.12);color:var(--red)}
 .val-pos{color:var(--green)}
 .val-neg{color:var(--red)}
+/* Position distribution chart (barras horizontais) */
+.ps-distribution{background:var(--s1,#0d1828);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+.ps-distribution-title{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:8px}
+.ps-dist-row{display:grid;grid-template-columns:90px 1fr 110px;gap:10px;align-items:center;margin-bottom:5px;font-size:13px;font-family:'DM Mono',monospace}
+.ps-dist-label{color:var(--text);font-weight:600;text-transform:uppercase;letter-spacing:.4px;font-size:12px}
+.ps-dist-bar-wrap{position:relative;height:14px;background:rgba(106,158,191,.08);border-radius:3px;overflow:hidden}
+.ps-dist-bar{height:100%;border-radius:3px;transition:width .4s ease}
+.ps-dist-val{text-align:right;color:var(--muted)}
+.ps-dist-val strong{color:var(--text)}
 /* Form modal */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:none;align-items:center;justify-content:center}
 .modal-overlay.open{display:flex}
@@ -348,6 +357,7 @@ tr:hover td{background:rgba(0,212,255,.02)}
       </select>
       <span id="ps-summary" style="font-size:11px;color:var(--muted);margin-left:auto"></span>
     </div>
+    <div id="ps-distribution" class="ps-distribution" style="margin:0 0 14px;"></div>
     <div class="tbl-wrap">
       <table id="tbl-positions" data-fa-table>
         <thead><tr><th>Ticker</th><th>Classe</th><th>Moeda</th><th>Quantidade</th><th>Preço Médio</th><th>Atual</th><th>P/L</th><th>SL</th><th>Total Investido</th><th>Trades</th></tr></thead>
@@ -1113,12 +1123,56 @@ function _populatePositionsCurrencyFilter() {
   if (cur && currencies.includes(cur)) sel.value = cur;
 }
 
+// Distribuição por classe (barras horizontais). Soma total_invested agrupando
+// por asset_class, normaliza e renderiza como divs com width%.
+const _CLASS_LABELS = { stock: 'Ações', etf: 'ETFs', fii: 'FIIs', crypto: 'Cripto', bdr: 'BDRs', rf: 'Renda Fixa', other: 'Outros' };
+const _CLASS_COLORS = {
+  stock:  'var(--accent, #00d4ff)',
+  etf:    'var(--purple, #a855f7)',
+  fii:    'var(--green, #00e676)',
+  crypto: 'var(--gold, #f0b429)',
+  bdr:    'var(--blue, #3abff8)',
+  rf:     'var(--cyan, #06b6d4)',
+  other:  'var(--orange, #fb923c)',
+};
+function renderPositionDistribution(positions) {
+  const host = document.getElementById('ps-distribution');
+  if (!host) return;
+  if (!positions.length) { host.innerHTML = ''; return; }
+  const totals = {};
+  let grand = 0;
+  for (const p of positions) {
+    const cls = (p.asset_class || 'other').toLowerCase();
+    const inv = parseFloat(p.total_invested) || 0;
+    if (inv <= 0) continue;
+    totals[cls] = (totals[cls] || 0) + inv;
+    grand += inv;
+  }
+  if (grand <= 0) { host.innerHTML = ''; return; }
+  const rows = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+  const fmtBRL = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+  const html = `
+    <div class="ps-distribution-title">Distribuição por classe · total <strong style="color:var(--text)">${fmtBRL(grand)}</strong></div>
+    ${rows.map(([cls, val]) => {
+      const pct = (val / grand) * 100;
+      const color = _CLASS_COLORS[cls] || _CLASS_COLORS.other;
+      const lbl = _CLASS_LABELS[cls] || cls.toUpperCase();
+      return `<div class="ps-dist-row">
+        <div class="ps-dist-label" style="color:${color}">${lbl}</div>
+        <div class="ps-dist-bar-wrap"><div class="ps-dist-bar" style="width:${pct.toFixed(1)}%;background:${color}"></div></div>
+        <div class="ps-dist-val"><strong>${pct.toFixed(1)}%</strong> · ${fmtBRL(val)}</div>
+      </div>`;
+    }).join('')}`;
+  host.innerHTML = html;
+}
+
 function renderPositionsFiltered() {
   const tbody = document.getElementById('tbody-positions');
   const summary = document.getElementById('ps-summary');
   const total = _positionsCache.length;
   if (!total) {
     if (summary) summary.textContent = '';
+    renderPositionDistribution([]);
     FAEmpty.tableRow(tbody, { colspan: 10, title: 'Nenhuma posição',
       text: 'Posições são derivadas dos trades. Registre seu primeiro trade.',
       cta: { label: '+ Novo Trade', variant: 'primary', onClick: "openModal('modal-trade')" } });
@@ -1126,6 +1180,7 @@ function renderPositionsFiltered() {
   }
   const fC = (document.getElementById('ps-f-currency') || {}).value || '';
   const filtered = fC ? _positionsCache.filter(p => (p.currency || 'BRL') === fC) : _positionsCache;
+  renderPositionDistribution(filtered);
   if (!filtered.length) {
     if (summary) summary.textContent = `0 de ${total}`;
     FAEmpty.tableRow(tbody, { colspan: 10, title: `Nenhuma posição em ${fC}`, text: 'Limpe o filtro (Todas) para ver tudo.' });
