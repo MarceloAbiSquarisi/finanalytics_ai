@@ -1103,23 +1103,25 @@ function updateTradeTotal() {
 // ── Positions ─────────────────────────────────────────────────────────────
 let _positionsCache = [];
 
-// Cache RF + Crypto para alimentar grafico de distribuicao
-// (endpoints separados de /positions; nao filtram por classe).
-let _extraDistCache = { crypto: [], rf: [] };
+// Cache RF + Crypto + Other para alimentar grafico de distribuicao.
+// /positions cobre apenas trades-derived (stocks/etfs/fiis/bdrs).
+// Imoveis (asset_type='imovel') sao FILTRADOS — fora do escopo "ativos liquidos".
+let _extraDistCache = { crypto: [], rf: [], other: [] };
 
 async function loadPositions() {
   const tbody = document.getElementById('tbody-positions');
   FALoading.tableRows(tbody, { rows: 4, cols: 10 });
   try {
     const cls = document.getElementById('filter-class')?.value||'';
-    // Paralelo: positions (trades-derived) + crypto + rf para o chart de distribuicao
-    const [positions, crypto, rf] = await Promise.all([
+    // Paralelo: positions + crypto + rf + other para o chart de distribuicao
+    const [positions, crypto, rf, other] = await Promise.all([
       api('/positions' + (cls?`?asset_class=${cls}`:'')),
       api('/crypto').catch(() => []),
       api('/rf').catch(() => []),
+      api('/other').catch(() => []),
     ]);
     _positionsCache = positions || [];
-    _extraDistCache = { crypto: crypto || [], rf: rf || [] };
+    _extraDistCache = { crypto: crypto || [], rf: rf || [], other: other || [] };
     _populatePositionsCurrencyFilter();
     renderPositionsFiltered();
   } catch(e) { console.error(e); }
@@ -1136,15 +1138,25 @@ function _populatePositionsCurrencyFilter() {
 
 // Distribuição por classe (barras horizontais). Soma total_invested agrupando
 // por asset_class, normaliza e renderiza como divs com width%.
-const _CLASS_LABELS = { stock: 'Ações', etf: 'ETFs', fii: 'FIIs', crypto: 'Cripto', bdr: 'BDRs', rf: 'Renda Fixa', other: 'Outros' };
+const _CLASS_LABELS = {
+  stock: 'Ações', etf: 'ETFs', fii: 'FIIs', bdr: 'BDRs',
+  crypto: 'Cripto', rf: 'Renda Fixa',
+  previdencia: 'Previdência', coe: 'COE', debenture: 'Debêntures',
+  fundo: 'Fundos', outro: 'Outros', other: 'Outros',
+};
 const _CLASS_COLORS = {
-  stock:  'var(--accent, #00d4ff)',
-  etf:    'var(--purple, #a855f7)',
-  fii:    'var(--green, #00e676)',
-  crypto: 'var(--gold, #f0b429)',
-  bdr:    'var(--blue, #3abff8)',
-  rf:     'var(--cyan, #06b6d4)',
-  other:  'var(--orange, #fb923c)',
+  stock:  '#00d4ff',  // accent cyan
+  etf:    '#a855f7',  // purple
+  fii:    '#00e676',  // green
+  bdr:    '#3abff8',  // blue
+  crypto: '#f0b429',  // gold
+  rf:     '#06b6d4',  // cyan teal
+  previdencia: '#ec4899',  // pink (longo prazo)
+  coe:    '#6366f1',  // indigo
+  debenture: '#14b8a6',  // teal
+  fundo:  '#8b5cf6',  // violet
+  outro:  '#fb923c',  // orange
+  other:  '#fb923c',
 };
 function renderPositionDistribution(positions) {
   const host = document.getElementById('ps-distribution');
@@ -1173,6 +1185,16 @@ function renderPositionDistribution(positions) {
     const inv = qty * px;
     if (inv <= 0) continue;
     totals.crypto = (totals.crypto || 0) + inv;
+    grand += inv;
+  }
+  // 4) Other assets — agrupa por asset_type (previdencia/coe/debenture/outro).
+  //    EXCLUI imoveis: pedido explicito do usuario, fora do escopo "ativos liquidos".
+  for (const o of (_extraDistCache?.other || [])) {
+    const at = (o.asset_type || 'outro').toLowerCase();
+    if (at === 'imovel') continue;  // FILTRADO
+    const inv = parseFloat(o.current_value) || parseFloat(o.invested_value) || 0;
+    if (inv <= 0) continue;
+    totals[at] = (totals[at] || 0) + inv;
     grand += inv;
   }
   if (grand <= 0) { host.innerHTML = ''; return; }
