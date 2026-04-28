@@ -2555,6 +2555,7 @@ class ProfitAgent:
 
                 # Throttle log: só 1 a cada 100 callbacks (alguns brokers spammam)
                 agent._order_cb_count = getattr(agent, "_order_cb_count", 0) + 1
+                agent._last_order_cb_at = time.time()
                 if agent._order_cb_count % 100 == 1:
                     log.info(
                         "order_callback local_id=%d cl_ord=%s (count=%d)",
@@ -4942,6 +4943,14 @@ class ProfitAgent:
             "# TYPE profit_agent_oco_trail_fallbacks_total counter",
             f"profit_agent_oco_trail_fallbacks_total {getattr(self, '_trail_fallback_count', 0)}",
         ]
+        # Idade do último order_callback (gauge — alerta P5 visual no Grafana)
+        last_cb = getattr(self, "_last_order_cb_at", None)
+        age = (time.time() - last_cb) if last_cb else -1.0
+        lines.extend([
+            "# HELP profit_agent_last_order_callback_age_seconds Segundos desde ultimo callback (-1 se nunca recebeu)",
+            "# TYPE profit_agent_last_order_callback_age_seconds gauge",
+            f"profit_agent_last_order_callback_age_seconds {age:.2f}",
+        ])
         return "\n".join(lines) + "\n"
 
     def _instrument_probe(self, body: dict, result: dict, duration_s: float) -> None:

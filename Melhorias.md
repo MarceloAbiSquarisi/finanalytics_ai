@@ -213,6 +213,26 @@ Backend + UI completos:
 
 ## 🔄 NOVO BACKLOG (descoberto na sessão de 28/abr — pós C.2 Sudo)
 
+> **Resumo dos commits da sessão 28/abr 14h-21h** (atacando os bugs descobertos):
+>
+> | Commit | O que entrega |
+> |--------|---------------|
+> | `27e04d3` | P4 (struct callback) + P6/O1 (zombie pair) + P7 (trailing fallback) + P2 (reconcile match local_id) |
+> | `efc4235` | A: P3 (di1 cursor por time) + D: 14 testes unit + E: métricas Prom `order_callbacks_total` + alert `order_callback_stale` |
+> | `568e9a3` | B: B.18 hook diary detect FILLED via `get_positions_dll` + C: `cleanup_stale_pending_orders_job` 23h BRT |
+>
+> **Status atualizado dos bugs P-***:
+> - P1 ✅ auto-retry implementado (commit `202bdc3` 28/abr 14h)
+> - P2 ✅ DONE (`27e04d3`)
+> - P3 ✅ DONE (`efc4235`)
+> - P4 ✅ DONE (`27e04d3`)
+> - P5 ✅ DONE (`27e04d3` — `_hard_exit` + `_kill_zombies` resolvem o sintoma raiz)
+> - P6 ✅ DONE (`27e04d3` — mesma raiz P5)
+> - P7 ✅ DONE (`27e04d3` — fallback cancel+create)
+> - O1 ✅ DONE (`27e04d3` — TerminateProcess elimina zombie pair)
+>
+> Validação **live em pregão** (B.7+B.14 OK; trailing/B.12 ainda dependem de pregão estável + broker cooperativo) ficou para 29/abr 10h BRT.
+
 #### P1 — Broker subconnection com blips "Cliente não logado" ⭐⭐⭐ crítico — opção 1 IMPLEMENTADA 28/abr 14h
 **Status**: opção 1 (auto-retry) implementada. Validada em produção: `retry_scheduled` → `retry_attempt` → `retry_dispatched` → `retry_aborted (max_attempts=3)` observados no log live (commits a fazer). Mas as 3 tentativas falharam todas com 204 hoje — sessão Nelogica está degradada além do que retry resolve. Em sessão saudável (cliente Delphi mostrou pattern: 1 rejeição → reconnect → retry succeed), 1-2 retries devem bastar.
 
@@ -253,7 +273,7 @@ Sintoma observado na sessão pregão 28/abr (~13:00-13:11 BRT): aproximadamente 
 
 **Impacto no Roteiro**: Bloco B itens B.6.6-B.6.8 (fill mãe + dispatch), B.7-B.12 (active OCO + trailing + cross-cancel + persist), B.18 (fill + diary), B.19 (flatten) ficam frágeis até fix.
 
-#### P2 — Reconcile UPDATE só funciona com cl_ord_id, mas envio inicial grava NULL ⭐⭐ alto
+#### P2 — Reconcile UPDATE só funciona com cl_ord_id, mas envio inicial grava NULL ⭐⭐ alto ✅ DONE 28/abr (`27e04d3`)
 **Custo**: ~1h. **Payoff**: alto (DB stale → user vê status PendingNew enquanto broker já cancelou/preencheu).
 
 Em `profit_agent.py:3566`, o handler `/positions/dll` faz:
@@ -281,7 +301,7 @@ self._db.execute(
 
 Bonus: também atualiza o cl_ord_id no DB quando ele aparece (resolve drift permanente).
 
-#### P4 — TConnectorOrder struct layout mismatch no order_callback ⭐⭐⭐ crítico (NOVO 28/abr 14h)
+#### P4 — TConnectorOrder struct layout mismatch no order_callback ⭐⭐⭐ crítico ✅ DONE 28/abr (`27e04d3`)
 **Custo**: ~3-5h investigação + ~2-4h fix. **Payoff**: crítico (desbloqueia hook diary B.18 + qualquer lógica baseada em FILLED/CANCELED via callback).
 
 Sintoma: `SetOrderCallback` dispara mas com **dados corrompidos** consistentemente (testado em 4 boots distintos):
@@ -313,7 +333,7 @@ order_callback local_id=4272236 cl_ord=䱐Ǆ status=0 ticker=䱐Ǆ traded=191482
 
 **Prioridade**: alta. Sem fix, qualquer feature que reaja a status callback fica quebrada. Reconcile loop a cada 5min mascara o problema mas com latência alta.
 
-#### P3 — di1_realtime_worker cursor stuck em trade_number antigo após reset de sessão B3 ⭐ médio
+#### P3 — di1_realtime_worker cursor stuck em trade_number antigo após reset de sessão B3 ⭐ médio ✅ DONE 28/abr (`efc4235`)
 **Custo**: ~1h. **Payoff**: médio (Kafka stream `market.rates.di1` zerado durante o dia; não impacta DB direto, mas pipelines downstream que dependem do tópico ficam stale).
 
 Em `workers/di1_realtime_worker.py` (ou similar), no boot o worker faz:
@@ -335,7 +355,7 @@ worker_start = datetime.now(tz=UTC)
 poll: SELECT * FROM profit_ticks WHERE ticker = ? AND time > $worker_start ORDER BY time, trade_number
 ```
 
-#### P5 — Tick callback morre após restart NSSM (se não passar por /agent/restart) ⭐⭐⭐ crítico (NOVO 28/abr 16h)
+#### P5 — Tick callback morre após restart NSSM (se não passar por /agent/restart) ⭐⭐⭐ crítico ✅ DONE 28/abr (`27e04d3`)
 **Custo**: ~30min investigação. **Payoff**: crítico (sem tick callback, todo o sistema OCO trailing/indicadores live/_last_prices fica congelado).
 
 Sintoma: após restart via `Restart-Service FinAnalyticsAgent` (PowerShell admin), `/status` mostra `total_ticks` congelado em valor antigo, `_last_prices` vazio, `market_history_trades` sem inserts recentes apesar de `market_connected=true` e `subscribed_tickers=371`. Nenhum tick callback dispara.
@@ -348,7 +368,7 @@ Hipótese: NSSM Restart-Service mata processo subitamente (`taskkill /F`), DLL C
 
 **Fix preferido**: substituir `os._exit(0)` por `kernel32.TerminateProcess` via ctypes (já listado em O1) — mata DLL ConnectorThread limpo, evita zombie pairs e talvez resolva re-subscribe issue.
 
-#### P6 — `_load_oco_state_from_db()` no boot loga `groups_loaded n=2` mas `_oco_groups` em memória sai vazio ⭐⭐ alto (NOVO 28/abr 16h)
+#### P6 — `_load_oco_state_from_db()` no boot loga `groups_loaded n=2` mas `_oco_groups` em memória sai vazio ⭐⭐ alto ✅ DONE 28/abr (`27e04d3`)
 **Custo**: ~1h investigação + ~30min fix. **Payoff**: B.12 (Phase D persistence) quebrada — restart do agent perde todo o estado OCO em memória apesar do DB estar consistente.
 
 Sintoma observado em 28/abr 15:33 pós-`/agent/restart`:
@@ -362,7 +382,7 @@ Race condition ou sobrescrita após o load inicial. Possível causa: thread `_oc
 
 **Workaround atual**: chamar `GET /oco/state/reload` manual após cada restart se houver groups ativos.
 
-#### P7 — change_order em SL stop-limit retorna ret=-2147483645 do broker simulator ⭐⭐⭐ crítico para trailing (NOVO 28/abr 16h)
+#### P7 — change_order em SL stop-limit retorna ret=-2147483645 do broker simulator ⭐⭐⭐ crítico para trailing ✅ DONE 28/abr (`27e04d3` fallback cancel+create)
 **Custo**: ~30min investigação + sem fix óbvio (limitação broker). **Payoff**: bloqueia toda funcionalidade de OCO Phase C (trailing R$/% e immediate trigger).
 
 Sintoma: `POST /order/change` em ordem stop-limit (type=4) sempre retorna `{"ok": false, "ret": -2147483645}` (= `0x80000003`). Independe de qty/preço/stop_price. trail_monitor cicla mas nunca consegue mover SL → `trail_high_water` nunca é persistido no DB → log `trailing.adjusted` nunca emite.
@@ -426,7 +446,7 @@ User recebe daily briefings de corretoras (BTG morning, XP top picks, Itaú rese
 
 **Pré-requisito**: user define quais 1-2 fontes começar (criar issue ou listar aqui antes de implementar).
 
-#### O1 — Zombie processes do profit_agent em restart NSSM ⭐ médio
+#### O1 — Zombie processes do profit_agent em restart NSSM ⭐ médio ✅ DONE 28/abr (`27e04d3` — `_hard_exit` via `kernel32.TerminateProcess` + `_kill_zombie_agents` no boot)
 **Custo**: ~2-3h. **Payoff**: médio (evita memory leak ao longo de semanas).
 
 NSSM watchdog instalado e funcional (commit do install_nssm_service.ps1 + Service FinAnalyticsAgent rodando como LocalSystem). Auto-recovery confirmado: cada `/agent/restart` muda PID e `/health` volta em segundos.

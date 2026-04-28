@@ -1,0 +1,170 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Market Connected",
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus_main"},
+      "targets": [{"expr": "profit_agent_market_connected{job=\"profit_agent\"}", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}, "1": {"text": "UP", "color": "green"}}}
+          ],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "red"}, {"color": "green", "value": 1}]}
+        }
+      },
+      "options": {"colorMode": "background", "textMode": "value_and_name"}
+    },
+    {
+      "type": "stat",
+      "title": "Routing Connected",
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus_main"},
+      "targets": [{"expr": "profit_agent_db_connected{job=\"profit_agent\"}", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}, "1": {"text": "UP", "color": "green"}}}
+          ]
+        }
+      },
+      "options": {"colorMode": "background"}
+    },
+    {
+      "type": "stat",
+      "title": "Subscribed Tickers",
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus_main"},
+      "targets": [{"expr": "profit_agent_subscribed_tickers{job=\"profit_agent\"}", "refId": "A"}]
+    },
+    {
+      "type": "stat",
+      "title": "DB Queue Size",
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus_main"},
+      "targets": [{"expr": "profit_agent_db_queue_size{job=\"profit_agent\"}", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green"},
+              {"color": "yellow", "value": 100},
+              {"color": "red", "value": 1000}
+            ]
+          }
+        }
+      },
+      "options": {"colorMode": "background"}
+    },
+    {
+      "type": "stat",
+      "title": "OCO Groups Active",
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus_main"},
+      "targets": [{"expr": "profit_agent_oco_groups_active{job=\"profit_agent\"}", "refId": "A"}]
+    },
+    {
+      "type": "stat",
+      "title": "Order Callback Age (s)",
+      "description": "Segundos desde último callback. >120s em pregão → P5 (DLL silent).",
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus_main"},
+      "targets": [{"expr": "profit_agent_last_order_callback_age_seconds{job=\"profit_agent\"}", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green"},
+              {"color": "yellow", "value": 60},
+              {"color": "red", "value": 120}
+            ]
+          }
+        }
+      },
+      "options": {"colorMode": "background"}
+    },
+    {
+      "type": "timeseries",
+      "title": "Tick rate (last 5min)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus_main"},
+      "targets": [
+        {"expr": "rate(profit_agent_total_ticks{job=\"profit_agent\"}[5m])", "refId": "A", "legendFormat": "ticks/s"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}}
+    },
+    {
+      "type": "timeseries",
+      "title": "Order callback rate (last 5min)",
+      "description": "Rate=0 em pregão dispara alert order_callback_stale.",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus_main"},
+      "targets": [
+        {"expr": "rate(profit_agent_order_callbacks_total{job=\"profit_agent\"}[5m])", "refId": "A", "legendFormat": "callbacks/s"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}}
+    },
+    {
+      "type": "timeseries",
+      "title": "OCO Trailing — adjusts vs fallbacks",
+      "description": "fallbacks > 0 = broker rejeita change_order (P7). cancel+create executou.",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "prometheus_main"},
+      "targets": [
+        {"expr": "increase(profit_agent_oco_trail_adjusts_total{job=\"profit_agent\"}[5m])", "refId": "A", "legendFormat": "adjusts/5m"},
+        {"expr": "increase(profit_agent_oco_trail_fallbacks_total{job=\"profit_agent\"}[5m])", "refId": "B", "legendFormat": "fallbacks/5m (P7)"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Probe duration p95",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "prometheus_main"},
+      "targets": [
+        {
+          "expr": "rate(profit_agent_probe_duration_seconds_sum{job=\"profit_agent\"}[5m]) / rate(profit_agent_probe_duration_seconds_count{job=\"profit_agent\"}[5m])",
+          "refId": "A",
+          "legendFormat": "avg duration (s)"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "s"}}
+    },
+    {
+      "type": "table",
+      "title": "Counters (raw)",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20},
+      "datasource": {"type": "prometheus", "uid": "prometheus_main"},
+      "targets": [
+        {"expr": "profit_agent_total_ticks{job=\"profit_agent\"}", "refId": "A", "legendFormat": "total_ticks", "instant": true},
+        {"expr": "profit_agent_total_orders{job=\"profit_agent\"}", "refId": "B", "legendFormat": "total_orders", "instant": true},
+        {"expr": "profit_agent_order_callbacks_total{job=\"profit_agent\"}", "refId": "C", "legendFormat": "order_callbacks", "instant": true},
+        {"expr": "profit_agent_oco_trail_adjusts_total{job=\"profit_agent\"}", "refId": "D", "legendFormat": "trail_adjusts", "instant": true},
+        {"expr": "profit_agent_oco_trail_fallbacks_total{job=\"profit_agent\"}", "refId": "E", "legendFormat": "trail_fallbacks", "instant": true},
+        {"expr": "profit_agent_total_contaminations{job=\"profit_agent\"}", "refId": "F", "legendFormat": "contaminations", "instant": true}
+      ],
+      "transformations": [{"id": "merge"}]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["profit_agent", "trading", "dll"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "America/Sao_Paulo",
+  "title": "Profit Agent Health",
+  "uid": "profit-agent-health",
+  "version": 1,
+  "weekStart": ""
+}
