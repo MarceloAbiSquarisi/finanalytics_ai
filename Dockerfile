@@ -94,6 +94,11 @@ COPY alembic.ini           ./alembic.ini
 COPY docker-entrypoint.sh  ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
 
+# Limpeza N6/N5 (28/abr): scripts utilitarios usados via subprocess
+# (snapshot_crypto_signals.py, etc). Worker stage ja tem; api precisa
+# para o caso de jobs subprocess executados a partir da API.
+COPY scripts/ ./scripts/
+
 # Usuário não-root: UID 1001 para evitar colisão com usuários do host
 RUN adduser --disabled-password --gecos "" --uid 1001 appuser \
     && chown -R appuser:appuser /app

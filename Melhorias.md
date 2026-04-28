@@ -56,6 +56,30 @@
 - Validado live: NORMAL atual com 94.64% prob de continuar NORMAL amanhã, 3.57% STEEPENING, 1.79% FLATTENING. NORMAL dura ~17 dias em média; STEEPENING ~1.7 dias.
 - **Decisão pragmática**: HMM real (hmmlearn) descartado — Markov chain empírica entrega o essencial (probabilidades + duração) sem dep pesada e sem treino.
 
+### N6b — UI Crypto sparkline do score histórico ✅ DONE 28/abr
+- `enrichCryptoSignals` em `carteira.html` agora também busca `/crypto/signal_history/{sym}?days=14` em paralelo.
+- Sparkline SVG inline (64×16, sem libs) à direita do badge BUY/SELL/HOLD.
+- Cor da linha derivada do score atual (verde >+1, vermelho <-1, cinza neutro).
+- Tooltip mostra horizons agregados (h7d/h14d).
+- Linha pontilhada do zero como referência visual.
+
+### N4b — UI RF Regime Markov transitions ✅ DONE 28/abr
+- Novo bloco `#rf-regime-transitions` no card RF (separado por borda dashed do bloco de alocação).
+- Mostra probabilidades P(amanhã | regime_atual) ordenadas DESC, mais provável em destaque (cor sólida + bold).
+- "regime atual dura ~N dias em média" baseado no `avg_duration_days`.
+- Esconde silenciosamente quando `transitions=null` (history < 31 obs).
+
+### N10b — anomalies/style validados para FIDC/FIP ✅ DONE 28/abr
+- Smoke OK em ambos endpoints com FIDC e FIP top do peer-ranking.
+- FIDC anomalies: 5 detectadas (z-scores -10/-4.86/-3.91 — saltos típicos de fundo de crédito).
+- FIDC style: r²=0.26, alpha 15% a.a., baixíssimos betas (consistente com não-correlação com mercado).
+- FIP anomalies: 3 detectadas (cota com baixa frequência); FIP style: r²=0.32, alpha 27% a.a.
+- Backend genérico não precisou modificação. UI já exibe na seção Style/Anomalies expansível do peer-ranking.
+
+### Limpeza Dockerfile — scripts/ no api stage ✅ DONE 28/abr
+- `COPY scripts/ ./scripts/` adicionado no api stage (worker já tinha desde N5).
+- Permite jobs subprocess executados pela API quando necessário (ex.: futuras chamadas N6/N5).
+
 ### N10 — ML analytics para FIDC/FIP ✅ DONE 28/abr
 - Backend já era genérico (peer_ranking aceita qualquer `tipo`). Validação live: FIDC top sharpe=144 (inflado por low-vol), FIP top sharpe=4.7.
 - UI `/fundos`: dropdown ganhou FIDC/FIDC-NP/FIP/FIP Multi/Referenciado.
