@@ -1073,22 +1073,6 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     <div class="notif-toast-wrap" id="toast-wrap">
 </div>
 
-    <!-- Profit DLL Status (Sprint Fix UI 22/abr) -->
-    <div class="prod-box">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div class="lbl">🔌 Profit DLL</div>
-        <div class="prod-status">
-          <div class="prod-dot" id="prod-dot"></div>
-          <span id="prod-label">verificando...</span>
-        </div>
-      </div>
-      <div class="prod-grid" id="prod-grid">
-        <div style="font-size:13px;color:var(--muted);font-family:DM Mono,monospace;padding:3px 0;grid-column:1/-1">
-          Carregando...
-        </div>
-      </div>
-    </div>
-
     <div class="signal-box" id="signal-box">
       <div class="lbl" style="margin-bottom:8px">Sinais Técnicos
 </div>
@@ -4029,49 +4013,6 @@ function toast(msg,type='ok'){
   t.textContent=msg;t.className=`toast ${type} show`;
   setTimeout(()=>t.className='toast',3200);
 }
-// -- PRODUCER STATUS ----------------------------------------------------------
-async function refreshProducerStatus() {
-  // Sprint Fix UI 22/abr: substitui Producer BRAPI por Profit DLL.
-  // Usa proxy /api/v1/agent/status que repassa para profit_agent :8002.
-  try {
-    const r = await fetch(`${API}/api/v1/agent/status`);
-    const d = await r.json();
-    const dot   = document.getElementById('prod-dot');
-    const label = document.getElementById('prod-label');
-    const grid  = document.getElementById('prod-grid');
-
-    const connected = d.market_connected && d.login_ok;
-    if (!connected) {
-      dot.className = 'prod-dot';
-      label.textContent = d.error ? 'desconectado' : 'login pendente';
-      grid.innerHTML = `<div style="font-size:13px;color:var(--muted);font-family:DM Mono,monospace;grid-column:1/-1">${d.error || 'profit_agent offline'}</div>`;
-      return;
-    }
-
-    dot.className = 'prod-dot on';
-    const subs = (d.subscribed_tickers || []).length;
-    label.textContent = `${subs} tickers · ${(d.total_ticks||0).toLocaleString('pt-BR')} ticks`;
-
-    const queue = d.db_queue_size || 0;
-    const queueColor = queue > 10000 ? 'var(--red)' : queue > 1000 ? 'var(--gold)' : 'var(--green)';
-    grid.innerHTML = `
-      <div class="prod-tick ok"><div class="pt">Mercado</div><div class="pp">${d.market_connected?'✓':'✗'}</div></div>
-      <div class="prod-tick ok"><div class="pt">Roteamento</div><div class="pp">${d.routing_connected?'✓':'✗'}</div></div>
-      <div class="prod-tick ok"><div class="pt">DB</div><div class="pp">${d.db_connected?'✓':'✗'}</div></div>
-      <div class="prod-tick ok"><div class="pt">Fila DB</div><div class="pp" style="color:${queueColor}">${queue.toLocaleString('pt-BR')}</div></div>
-    `;
-  } catch (e) {
-    const dot = document.getElementById('prod-dot');
-    const label = document.getElementById('prod-label');
-    if (dot) dot.className = 'prod-dot';
-    if (label) label.textContent = 'inacessivel';
-  }
-}
-
-// Atualiza status do producer a cada 10s
-refreshProducerStatus();
-setInterval(refreshProducerStatus, 10000);
-
 // -- CLOCKS: hora atual + countdown candle + countdown pregão -----------------
 // B3: 10:00-17:00 BRT pregão regular; 17:00-17:25 leilão de fechamento; 17:25 close.
 // Aqui usamos 17:00 como close. Edge cases: sex/sáb/dom/feriados.
