@@ -1280,6 +1280,11 @@ class ProfitAgent:
         # set de IDs já notificados (idempotência local; backend tem UNIQUE)
         self._tf_by_local_id: dict[int, str | None] = {}
         self._diary_notified: set[int] = set()
+        # B.18 (P4-aware): cache de último status visto por local_order_id, alimentado
+        # pelo `get_positions_dll` (loop 500ms). Permite detectar transição
+        # (qualquer)→FILLED e disparar `_maybe_dispatch_diary` sem depender do
+        # callback antigo (que agora só recebe OrderIdentifier — P4 fix).
+        self._last_seen_status: dict[int, int] = {}
         self._diary_url = os.getenv(
             "PROFIT_DIARY_HOOK_URL", "http://localhost:8000/api/v1/diario/from_fill"
         )
@@ -3747,6 +3752,20 @@ class ProfitAgent:
                         cl_ord or "",
                     ),
                 )
+
+                # B.18 hook (P4-aware, 28/abr): callback novo só envia OrderIdentifier,
+                # então detecção de FILLED migrou para cá. Comparamos com último status
+                # conhecido — só dispara hook na transição (qualquer)→2 (Filled).
+                if local_id and o["order_status"] == 2 and o["traded_qty"]:
+                    last = self._last_seen_status.get(local_id)
+                    self._last_seen_status[local_id] = 2
+                    if last != 2:
+                        self._maybe_dispatch_diary({
+                            "local_order_id": local_id,
+                            "order_status": 2,
+                            "avg_price": o["avg_price"],
+                            "traded_qty": o["traded_qty"],
+                        })
         return {"orders": orders_found, "positions": [], "env": env, "source": "dll"}
 
     def enumerate_position_assets(self, env: str = "simulation") -> dict:

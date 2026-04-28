@@ -94,6 +94,11 @@ FII_FUND_HOUR = int(os.environ.get("SCHEDULER_FII_FUND_HOUR", "7"))  # 07:00 BRT
 # profit_daily_bars. Mantem fetch_candles cobertura para tickers fora DLL.
 # Roda em YAHOO_BARS_HOUR (default 7:30h BRT). Idempotente via ON CONFLICT.
 YAHOO_BARS_ENABLED = os.environ.get("SCHEDULER_YAHOO_BARS_ENABLED", "true").lower() == "true"
+# Cleanup ordens pending stale (28/abr): roda 23h BRT, cancela orders pending >24h
+STALE_PENDING_ENABLED = os.environ.get(
+    "SCHEDULER_STALE_PENDING_ENABLED", "true"
+).lower() == "true"
+STALE_PENDING_HOUR = int(os.environ.get("SCHEDULER_STALE_PENDING_HOUR", "23"))
 YAHOO_BARS_HOUR = int(os.environ.get("SCHEDULER_YAHOO_BARS_HOUR", "8"))  # 08:00 BRT (depois do FII_FUND)
 
 # N6 (28/abr/2026): snapshot diario de crypto signals (BTC/ETH/SOL/etc) para
@@ -579,6 +584,135 @@ async def cleanup_event_records_job() -> dict:
         return {"status": "error", "error": str(exc)}
 
 
+async def cleanup_stale_pending_orders_job() -> dict:
+    """Cancela ordens em status pending (0=New, 10=PendingNew) há mais de N horas
+    em `profit_orders`. Roda 1x/dia (default 23h BRT, após pregão).
+
+    Estratégia conservadora:
+      1. Lê ordens DB com status pending + created_at < NOW() - STALE_HOURS
+      2. Cruza com DLL via /positions/dll — separar:
+         a) Ordens ainda ativas no DLL → tenta /order/cancel
+         b) Ordens NÃO no DLL (broker já dropou) → UPDATE status='8' (Rejected stale)
+      3. Idempotente: ordens já marcadas não voltam.
+
+    Mitiga acúmulo de "49 PETR4 pending" residuais que entulham /positions/dll
+    e caixa flatten do dashboard.
+    """
+    timescale_dsn = os.environ.get(
+        "PROFIT_TIMESCALE_DSN",
+        os.environ.get("TIMESCALE_DSN", ""),
+    )
+    if not timescale_dsn:
+        logger.error("scheduler.stale_pending.skip", reason="no_timescale_dsn")
+        return {"status": "skip", "reason": "no_timescale_dsn"}
+
+    stale_hours = int(os.environ.get("PROFIT_STALE_PENDING_HOURS", "24"))
+    agent_url = os.environ.get("PROFIT_AGENT_URL", "http://host.docker.internal:8002")
+
+    logger.info("scheduler.stale_pending.start", stale_hours=stale_hours)
+    try:
+        import asyncpg
+        import httpx
+
+        # 1) DB: ordens stale
+        ts_dsn = timescale_dsn.replace("postgresql+asyncpg://", "postgresql://")
+        conn = await asyncpg.connect(ts_dsn)
+        try:
+            stale_rows = await conn.fetch(
+                """
+                SELECT local_order_id, ticker, env, order_status, created_at
+                  FROM profit_orders
+                 WHERE order_status IN (0, 10)
+                   AND created_at < NOW() - ($1::int * INTERVAL '1 hour')
+                 ORDER BY created_at ASC
+                 LIMIT 500
+                """,
+                stale_hours,
+            )
+        finally:
+            await conn.close()
+
+        if not stale_rows:
+            logger.info("scheduler.stale_pending.no_orders")
+            return {"status": "ok", "stale_found": 0, "cancelled_dll": 0, "marked_db": 0}
+
+        # 2) DLL: lista ativas
+        active_dll_ids = set()
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(f"{agent_url}/positions/dll?env=simulation")
+                if resp.status_code == 200:
+                    for o in (resp.json() or {}).get("orders", []):
+                        if o.get("order_status") in (0, 10):
+                            active_dll_ids.add(int(o.get("local_id", 0)))
+        except Exception as exc:
+            logger.warning("scheduler.stale_pending.dll_query_failed", error=str(exc))
+
+        cancelled_dll = 0
+        marked_db = 0
+
+        # 3) Process each
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            conn = await asyncpg.connect(ts_dsn)
+            try:
+                for row in stale_rows:
+                    lid = int(row["local_order_id"])
+                    env = row["env"] or "simulation"
+                    if lid in active_dll_ids:
+                        # Ainda no DLL — tenta cancel via agent
+                        try:
+                            r = await client.post(
+                                f"{agent_url}/order/cancel",
+                                json={"local_order_id": lid, "env": env},
+                            )
+                            if r.status_code == 200 and r.json().get("ok"):
+                                cancelled_dll += 1
+                            else:
+                                # Cancel falhou (broker rejeitou) — marca como stale
+                                await conn.execute(
+                                    "UPDATE profit_orders SET order_status=8, "
+                                    "error_message='cleanup_stale: cancel rejected', "
+                                    "updated_at=NOW() WHERE local_order_id=$1",
+                                    lid,
+                                )
+                                marked_db += 1
+                        except Exception:
+                            await conn.execute(
+                                "UPDATE profit_orders SET order_status=8, "
+                                "error_message='cleanup_stale: cancel exception', "
+                                "updated_at=NOW() WHERE local_order_id=$1",
+                                lid,
+                            )
+                            marked_db += 1
+                    else:
+                        # Não está no DLL — broker já dropou. Marca DB.
+                        await conn.execute(
+                            "UPDATE profit_orders SET order_status=8, "
+                            "error_message='cleanup_stale: not in DLL', "
+                            "updated_at=NOW() WHERE local_order_id=$1",
+                            lid,
+                        )
+                        marked_db += 1
+            finally:
+                await conn.close()
+
+        logger.info(
+            "scheduler.stale_pending.done",
+            stale_found=len(stale_rows),
+            cancelled_dll=cancelled_dll,
+            marked_db=marked_db,
+        )
+        return {
+            "status": "ok",
+            "stale_found": len(stale_rows),
+            "cancelled_dll": cancelled_dll,
+            "marked_db": marked_db,
+        }
+    except Exception as exc:
+        logger.error("scheduler.stale_pending.failed", error=str(exc), exc_info=True)
+        return {"status": "error", "error": str(exc)}
+
+
 async def settle_cash_transactions_job() -> dict[str, Any]:
     """Feature C (24/abr): liquida transacoes pending com settlement_date <= hoje.
 
@@ -850,6 +984,8 @@ async def run_once() -> None:
         await yahoo_daily_bars_refresh_job()
     if CRYPTO_SIGNALS_ENABLED:
         await crypto_signals_snapshot_job()
+    if STALE_PENDING_ENABLED:
+        await cleanup_stale_pending_orders_job()
     logger.info("scheduler.run_once.done")
 
 
@@ -1060,6 +1196,25 @@ async def schedule_loop() -> None:
 
     if CRYPTO_SIGNALS_ENABLED:
         tasks.append(asyncio.create_task(crypto_signals_loop()))
+
+    async def stale_pending_loop() -> None:
+        # C (28/abr): cleanup ordens pending stale 1x/dia (default 23h BRT,
+        # após pregão). Mitiga acúmulo "49 orders" entupindo /positions/dll.
+        logger.info("scheduler.stale_pending.start_loop", hour=STALE_PENDING_HOUR)
+        while True:
+            next_run = _next_run_utc(STALE_PENDING_HOUR)
+            wait = _seconds_until(next_run)
+            logger.info(
+                "scheduler.stale_pending.next",
+                next_utc=next_run.isoformat(),
+                wait_min=round(wait / 60),
+            )
+            await asyncio.sleep(wait)
+            await cleanup_stale_pending_orders_job()
+
+    if STALE_PENDING_ENABLED:
+        tasks.append(asyncio.create_task(stale_pending_loop()))
+
     # Feature C5: liquidacao diaria (on by default, simples e idempotente)
     import os as _os_sc
     if _os_sc.getenv("SCHEDULER_SETTLE_CASH_ENABLED", "true").lower() == "true":
