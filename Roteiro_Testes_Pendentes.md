@@ -1,7 +1,7 @@
 # Roteiro de Testes Pendentes — FinAnalytics AI
 
 > **Reorganizado**: 26/abr/2026 — classificação por dependência (pregão aberto/fechado/outras)
-> **Última atualização**: 28/abr/2026 manhã — A.4.9 + A.22.4 + A.23.9 + A.23.10 fechados via MCP + C.1 Pushover 4/4 + C.2 Sudo 7/7 (restart real via API com sudo_token; PID antigo precisou Stop-Process -Force devido DLL ConnectorThread). Bloco A 98.8%, C.1+C.2 100%.
+> **Última atualização**: 28/abr/2026 manhã — A.4.9 + A.22.4 + A.23.9 + A.23.10 fechados via MCP + C.1 Pushover 4/4 + C.2 Sudo 7/7 + **NSSM watchdog instalado** (resolveu issue de DLL ConnectorThread em restart). Bloco A 98.8%, C.1+C.2 100%.
 > **Login dev**: `marceloabisquarisi@gmail.com` / `admin123` (master)
 > **DB seedado**: 1 conta consolidada **"Teste"** (id `eeee5555`) — migration `migrate_test_to_single_carteira.sql` (27/abr); contas XP+BTG soft-deleted
 > **Invariante 27/abr**: todo ativo DEVE ter `investment_account_id` (NOT NULL em DB + `Field(...)` Pydantic em trades/crypto/other)
@@ -738,7 +738,9 @@
 - [X] **C.2.6** Auto-reconnect TimescaleDB: down 20min → reconnect lazy (validado em código `profit_agent.py:511-538`: `_ensure_connected` em cada execute(), 3 tentativas backoff 2s/4s/6s, throttle log 60s. Sem custo de downtime de 20min)
 - [X] **C.2.7** Log throttled: TICK_V1 callback error (count=21001, 22001 — Sprint Backend V1) (validado em código `profit_agent.py:1439-1441`: `if self._tick_v1_errors % 1000 == 1`. Sem ocorrências no log atual = runtime sem erros, throttle só dispara em error path)
 
-**Achado**: durante o restart, o `os._exit(0)` no profit_agent não terminou o processo antigo limpamente (DLL ConnectorThread bloqueou). Precisei `Stop-Process -Force` no PID antigo + relançar via `Start-Process`. Sem NSSM, restart 100% via API depende do sucesso do `_exit(0)`. Considerar instalar NSSM como watchdog (item de housekeeping futuro) ou implementar handler que mata threads DLL primeiro.
+**Achado original**: durante o restart, o `os._exit(0)` no profit_agent não terminou o processo antigo limpamente (DLL ConnectorThread bloqueou). Precisei `Stop-Process -Force` no PID antigo + relançar via `Start-Process`. Sem NSSM, restart 100% via API depende do sucesso do `_exit(0)`.
+
+**Resolução (28/abr)**: NSSM watchdog instalado e configurado via `scripts/install_nssm_service.ps1`. Service `FinAnalyticsAgent` roda como LocalSystem com auto-restart 2s + log rotation 10MB. Auto-recovery confirmado: PID muda em cada `/agent/restart` (44384 → 58536 etc), `/health` volta em segundos sem intervenção manual. **Limitação conhecida (follow-up)**: cada restart deixa pares Python zombie (parent+child) que não morrem com `os._exit(0)` devido DLL ConnectorThread; em produção vão vazar memória ao longo do tempo. Mitigação: kill explícito via Task Manager admin, ou implementar `TerminateProcess` via ctypes no handler de restart.
 
 ### C.3 — Samples reais BTG/XP (você fornecer) (~30min)
 

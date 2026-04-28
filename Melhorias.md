@@ -211,6 +211,26 @@ Backend + UI completos:
 
 ---
 
+## 🔄 NOVO BACKLOG (descoberto na sessão de 28/abr — pós C.2 Sudo)
+
+#### O1 — Zombie processes do profit_agent em restart NSSM ⭐ médio
+**Custo**: ~2-3h. **Payoff**: médio (evita memory leak ao longo de semanas).
+
+NSSM watchdog instalado e funcional (commit do install_nssm_service.ps1 + Service FinAnalyticsAgent rodando como LocalSystem). Auto-recovery confirmado: cada `/agent/restart` muda PID e `/health` volta em segundos.
+
+Mas: cada restart deixa **pares Python zombie** (parent+child) que não morrem com `os._exit(0)`. Causa raiz: DLL ConnectorThread (C++ nativa, gerida pela ProfitDLL) bloqueia o exit do interpretador Python. Os zombies não estão listening em nenhuma porta nem fazendo I/O, mas consomem RAM (~100-200MB cada par, dependendo do que estava em cache).
+
+Cenário: 1 restart/dia × 30 dias × ~150MB = 4.5GB de zombies em 1 mês.
+
+**Opções de fix**:
+1. **TerminateProcess via ctypes**: substituir `os._exit(0)` por `kernel32.TerminateProcess(GetCurrentProcess(), 0)` — mata sem chance de cleanup, força DLL a morrer
+2. **DLL Finalize antes do exit**: adicionar `dll.Finalize()` ou `dll.DLLFinalize()` no handler antes do `_exit`. Precisa descobrir API correta da Profit
+3. **NSSM AppKillProcessTree=1**: configurar NSSM pra matar arvore de processos no shutdown — mata pais e filhos juntos
+
+Probably **opção 1 é mais robusta** (não depende de API Profit não documentada). Validar em ambiente de teste antes de aplicar.
+
+---
+
 ## 🔄 NOVO BACKLOG (descoberto na sessão de 27/abr)
 
 Itens identificados durante implementação/validação. Ordenados por ROI dentro de cada bloco.
