@@ -230,6 +230,7 @@ agent.change_order(params)         # SendChangeOrderV2
 - `manifest.json` + `sw.js` (cache-versionado, precache de 17 helpers) + `pwa_register.js`
 - `print_helper.js` — `FAPrint.print(title)` + `body[data-print-date]` para rodapé CSS
 - `charts.js` — `FACharts.{apply,opts,palette,load}` patch defaults + lazy-load Chart.js 4.4.1
+- `sparkline.js` — `FASparkline.render(values, opts)` SVG inline 64×16 reusável (28/abr, N6b extraído)
 - `favicon.svg`
 
 **Patterns**:
@@ -380,7 +381,19 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
     - **N12 Drop backup**: `profit_daily_bars_backup_27abr` removido após validação.
     - **Housekeeping**: `init_timescale/004_fii_fundamentals.sql` + `005_crypto_signals_history.sql` versionados. `populate_daily_bars.py` com default invertido (1m primeiro). Dockerfile worker+api stages copiam `scripts/`. 2 alert rules novas (`scheduler_data_jobs_errors`, `fii_fundamentals_stale`) — 14 rules totais.
 
-    **Estado final 28/abr**: 6 commits sequenciais, 17 itens N entregues, 14 alert rules, 4 jobs novos no scheduler (`yahoo_bars`/`fii_fund`/`crypto_signals`/`cvm_informe`), 2 tabelas novas versionadas. Backlog factível esgotado — restantes (N3, N5c, Bloco B, A.4.9, A.15.10) bloqueados externamente.
+    **Estado final 28/abr (manhã)**: 6 commits sequenciais, 17 itens N entregues, 14 alert rules, 4 jobs novos no scheduler (`yahoo_bars`/`fii_fund`/`crypto_signals`/`cvm_informe`), 2 tabelas novas versionadas.
+
+24. ~~Housekeeping A→H — 28/abr madrugada (continuação)~~ — **DONE 28/abr** — commit `04048f0`:
+    - **A** SW cache `v86 → v87` (invalida cache stale do N6b/N4b).
+    - **B** `docs/runbook_profit_daily_bars_scale.md` — runbook do bug N1 com sintomas/diagnóstico/fix/Decisão 21 + comandos prontos para reocorrência.
+    - **C** `Roteiro_Testes_Pendentes.md` ganhou seção **A.24** com 30 checks cobrindo todos os itens N1-N12 + housekeeping.
+    - **D** Pre-flight live de `yahoo_daily_bars_refresh_job` no scheduler container — subprocess validado: 39 tickers, 20.178 rows em ~90s.
+    - **E** Helper `static/sparkline.js` com `FASparkline.render(values, opts)` — extraído da `carteira.html` e generalizado. Reusável em screener/performance/watchlist.
+    - **F** Métricas Prometheus novas: `finanalytics_fii_fundamentals_age_days` e `finanalytics_crypto_signals_history_age_days` (gauges populadas a cada 5min em `ml_metrics_refresh._refresh_once`). Alert rule `fii_fundamentals_stale` migrada para gauge direta + `crypto_signals_history_stale` adicionada — **15 alert rules** ativas.
+    - **G** `tests/unit/domain/test_rf_regime_transitions.py` — 13 testes do Markov empírico (matriz, duração, argmax, alternância).
+    - **H** `tests/unit/scripts/test_scrape_status_invest_fii.py` — 16 testes (`_to_float` pt-BR + regex DY/PVP/div_12m/valor_mercado em snapshot HTML real). 29 testes verdes em <1s.
+
+    **Estado final 28/abr (madrugada completa)**: 9 commits, ~25 itens entregues, **15 alert rules**, 4 jobs novos, 2 tabelas versionadas, helper sparkline reusável, runbook + 29 unit tests novos. Backlog factível offline esgotado.
 
 ## Decisões Arquiteturais (Imutáveis)
 
@@ -493,7 +506,7 @@ Origem: investigação N1 (28/abr/2026). PETR4 em `market_history_trades` mostro
 **Grafana** :3000 (admin/admin) — provisionado via `docker/grafana/provisioning/`:
 - **Datasources**: Prometheus :9090
 - **Dashboards**: 17 painéis em `data_quality.json` (DI1, dead_letter, market_data, yield curve, TSMOM, HMM)
-- **Alert rules**: **14** (`provisioning/alerting/rules.yml`) — recarregam sem restart Grafana via `docker restart finanalytics_grafana`
+- **Alert rules**: **15** (`provisioning/alerting/rules.yml`) — recarregam sem restart Grafana via `docker restart finanalytics_grafana`
 
 **Tabela de alerts ativos:**
 
@@ -512,7 +525,8 @@ Origem: investigação N1 (28/abr/2026). PETR4 em `market_history_trades` mostro
 | 11 | `ml_snapshot_stale` | critical | `finanalytics_ml_snapshot_age_days > 2` por 1h | ml |
 | 12 | `scheduler_reconcile_errors_high` | warning | `>3 reconcile errors em 30min` (pregão) | trading |
 | 13 | `scheduler_data_jobs_errors` (28/abr) | warning | `>=3 falhas em 6h` em yahoo_bars/fii_fund/crypto_signals/cvm_informe | data |
-| 14 | `fii_fundamentals_stale` (28/abr) | warning | `0 execuções OK em 48h` no fii_fund | data |
+| 14 | `fii_fundamentals_stale` (28/abr, refinado em F) | warning | `finanalytics_fii_fundamentals_age_days > 2` por 1h | data |
+| 15 | `crypto_signals_history_stale` (28/abr, F) | warning | `finanalytics_crypto_signals_history_age_days > 2` por 1h | data |
 
 **Roteamento** (`policies.yml`):
 - `severity=critical` → `slack-ops` (URL placeholder; setar `GRAFANA_SLACK_WEBHOOK` no env do container Grafana para ativar)
@@ -548,7 +562,9 @@ Origem: investigação N1 (28/abr/2026). PETR4 em `market_history_trades` mostro
 ```
 Remote: https://github.com/MarceloAbiSquarisi/finanalytics_ai
 Branch: master
-Últimos commits (28/abr madrugada — Sprint N1-N12 + N5b/N4b/N6b/N10b + housekeeping):
+Últimos commits (28/abr madrugada — Sprint N1-N12 + housekeeping A-H):
+  04048f0 chore: housekeeping A-H (sw bump + runbook + tests + helper sparkline + metrics)
+  5ddd528 docs(claude): atualiza CLAUDE.md com sessao 28/abr (Sprint N1-N12 + housekeeping)
   472f513 feat: migrations alembic + populate default 1m + 2 grafana alerts
   1ae5669 feat: N6b+N4b+N10b + Dockerfile scripts/ no api stage
   760edc8 feat: N11b+N6+N4+N10 — scheduler+crypto persist+RF Markov+FIDC/FIP
