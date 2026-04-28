@@ -390,27 +390,22 @@ groups:
           severity: warning
           team: data
 
-      # ── 14. fii_fundamentals stale (28/abr) ──
-      # Se o scraping para de rodar, dy_ttm/p_vp em /signals viram null. Alert
-      # em pregao se ultimo snapshot tem >2 dias (job devia rodar daily 7h BRT).
-      # Usa metrica gerada por uma probe — fica como follow-up implementar
-      # finanalytics_fii_fundamentals_age_days. Por ora, gauge derivada via
-      # scrape do TimescaleDB seria caminho. Documenta intencao no annotation.
+      # ── 14. fii_fundamentals stale (28/abr, F-refinado) ──
+      # Usa gauge direta finanalytics_fii_fundamentals_age_days populada
+      # a cada 5min em ml_metrics_refresh._refresh_once. >2 dias indica
+      # que Status Invest scraper parou.
       - uid: alert-fii-fund-stale
         title: fii_fundamentals_stale
         condition: A
         data:
           - refId: A
             relativeTimeRange:
-              from: 86400
+              from: 600
               to: 0
             datasourceUid: prometheus_main
             model:
               editorMode: code
-              # Aproximacao: se nao houve nenhuma execucao OK em 48h, considera stale.
-              # Quando a metrica fii_fundamentals_age_days for exposta, trocar para ela.
-              expr: |
-                (sum(increase(scheduler_job_runs_total{job="fii_fund", status="ok"}[48h])) == 0)
+              expr: 'finanalytics_fii_fundamentals_age_days > 2'
               instant: true
               intervalMs: 1000
               maxDataPoints: 43200
@@ -419,8 +414,36 @@ groups:
         execErrState: Error
         for: 1h
         annotations:
-          summary: 'fii_fund job sem execucao bem-sucedida em 48h'
-          description: 'Status Invest scraper parou. /signals nao tera dy_ttm/p_vp atualizados. Verificar host.'
+          summary: 'fii_fundamentals stale > 2 dias'
+          description: 'Status Invest scraper parou ou fii_fund job nao roda. /signals nao tera dy_ttm/p_vp atualizados.'
+        labels:
+          severity: warning
+          team: data
+
+      # ── 15. crypto_signals_history stale (28/abr, F) ──
+      # Crypto roda 24/7 — gap > 2 dias indica job crypto_signals quebrado.
+      - uid: alert-crypto-signals-stale
+        title: crypto_signals_history_stale
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus_main
+            model:
+              editorMode: code
+              expr: 'finanalytics_crypto_signals_history_age_days > 2'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+        noDataState: NoData
+        execErrState: Error
+        for: 1h
+        annotations:
+          summary: 'crypto_signals_history stale > 2 dias'
+          description: 'crypto_signals job parou. Endpoint /signal_history retornara historico desatualizado. Verificar scheduler.'
         labels:
           severity: warning
           team: data

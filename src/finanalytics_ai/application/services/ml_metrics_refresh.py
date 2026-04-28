@@ -24,6 +24,8 @@ import psycopg2
 import structlog
 
 from finanalytics_ai.metrics import (
+    crypto_signals_history_age_days,
+    fii_fundamentals_age_days,
     ml_config_count,
     ml_drift_count,
     ml_latest_pickle_age_days,
@@ -95,6 +97,24 @@ def _refresh_once() -> None:
             )
             for sig, cnt in cur.fetchall():
                 signals_by_status[sig] = int(cnt)
+
+            # F (28/abr): age days de tabelas de snapshots periodicos.
+            # Tabelas podem nao existir em ambientes legacy — try/except defensivo.
+            for tbl, gauge in [
+                ("fii_fundamentals", fii_fundamentals_age_days),
+                ("crypto_signals_history", crypto_signals_history_age_days),
+            ]:
+                try:
+                    cur.execute(f"SELECT MAX(snapshot_date) FROM {tbl}")
+                    last = cur.fetchone()
+                    last_date = last[0] if last else None
+                    if last_date is not None:
+                        gauge.set((datetime.now(UTC).date() - last_date).days)
+                    else:
+                        gauge.set(-1)
+                except Exception:
+                    gauge.set(-1)
+                    conn.rollback()  # libera transaction da exception
     except Exception as exc:
         logger.warning("ml_metrics_refresh.db_error", error=str(exc))
         # Mantem valores anteriores das gauges; nao zera para evitar

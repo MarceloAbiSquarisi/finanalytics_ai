@@ -418,6 +418,18 @@ ml_signals_by_status = Gauge(
     labelnames=["signal"],
 )
 
+# ── F (28/abr/2026): freshness das tabelas de snapshots periodicos ──────────
+
+fii_fundamentals_age_days = Gauge(
+    name="finanalytics_fii_fundamentals_age_days",
+    documentation="Dias desde o ultimo snapshot em fii_fundamentals (-1 se vazio)",
+)
+
+crypto_signals_history_age_days = Gauge(
+    name="finanalytics_crypto_signals_history_age_days",
+    documentation="Dias desde o ultimo snapshot em crypto_signals_history (-1 se vazio)",
+)
+
 # ── B3 market calendar (Sprint Pregão Mute, 22/abr/2026) ────────────────────
 # 1 quando mercado B3 esta aberto, 0 caso contrario. Atualizada a cada 60s
 # por application/services/market_open_refresh.py. Usada em alert rules

@@ -1343,29 +1343,22 @@ async function enrichCryptoSignals(rows, symbols) {
   }
 }
 
-// N6b (28/abr): mini sparkline SVG do histórico de score.
+// N6b (28/abr): mini sparkline do histórico de score.
+// Refatorado em 28/abr para usar helper FASparkline (static/sparkline.js).
 // Score range tipico [-4, +4]. Verde quando >0, vermelho <0, cinza ~0.
 function renderCryptoSparkline(items, horizons) {
-  const w = 64, h = 16, pad = 2;
+  if (!window.FASparkline) return '';
   const scores = items.map(i => i.score);
-  const minS = Math.min(-4, ...scores);
-  const maxS = Math.max(4, ...scores);
-  const range = maxS - minS || 1;
-  const stepX = (w - 2 * pad) / Math.max(items.length - 1, 1);
-  const pts = items.map((it, i) => {
-    const x = pad + i * stepX;
-    const y = h - pad - ((it.score - minS) / range) * (h - 2 * pad);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(' ');
-  // Linha do zero (referência)
-  const zeroY = h - pad - ((0 - minS) / range) * (h - 2 * pad);
-  const lastScore = scores[scores.length - 1];
-  const lineColor = lastScore > 1 ? '#2da44e' : lastScore < -1 ? '#cf222e' : '#9ca3af';
   const tip = `histórico ${items.length}d · h7d=${horizons.h7d?.signal || '—'} (${horizons.h7d?.score_avg ?? '—'}) · h14d=${horizons.h14d?.signal || '—'}`;
-  return ` <svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="vertical-align:middle;margin-left:6px" title="${tip}">
-    <line x1="${pad}" y1="${zeroY.toFixed(1)}" x2="${w-pad}" y2="${zeroY.toFixed(1)}" stroke="rgba(255,255,255,0.15)" stroke-width="0.5" stroke-dasharray="2,2"/>
-    <polyline fill="none" stroke="${lineColor}" stroke-width="1.2" points="${pts}"/>
-  </svg>`;
+  const svg = window.FASparkline.render(scores, {
+    width: 64,
+    height: 16,
+    minBound: Math.min(-4, ...scores),
+    maxBound: Math.max(4, ...scores),
+    tip: tip,
+  });
+  // Adiciona margin-left externo (helper usa apenas vertical-align)
+  return ' <span style="margin-left:6px">' + svg + '</span>';
 }
 
 async function fetchCryptoLastBrl(symbol) {
@@ -1741,6 +1734,7 @@ if (document.readyState === 'loading') {
 <script src="/static/command_palette.js"></script>
 <script src="/static/shortcuts.js"></script>
 <script src="/static/notifications.js"></script>
+<script src="/static/sparkline.js"></script>
 <script src="/static/toast.js"></script>
   <script src="/static/error_handler.js"></script>
   <script src="/static/loading.js"></script>

@@ -493,6 +493,62 @@
 - [ ] **A.23.9** Trocar classe pra "Ações" e re-rankear (não testei)
 - [ ] **A.23.10** Buscar Top em classe sem fundos com PL>min → empty state "Sem fundos com classe X"
 
+### A.24 — Sprint N1-N12 + housekeeping (sessão 28/abr madrugada) (~15min)
+
+> Sprint #23. 6 commits, 17 itens N entregues + migrations + 2 alert rules. Detalhes em CLAUDE.md.
+
+**N1 profit_daily_bars limpo (Decisão 21)**:
+- [X] **A.24.1** `SELECT MIN(close), MAX(close) FROM profit_daily_bars WHERE ticker='PETR4'` retorna `min=14.66 max=49.61` (era `0.30/49.55` pré-fix)
+- [X] **A.24.2** `/levels?methods=swing,williams` em PETR4 retorna `data_quality_warning=null` e Williams 8-11 fractais
+- [X] **A.24.3** `populate_daily_bars.py --ticker XYZ --dry-run` (sem `--source`) loga `source=1m`
+
+**N2 CVM informe scheduler**:
+- [X] **A.24.4** `docker logs finanalytics_scheduler` mostra `scheduler.cvm_informe.start_loop hour=9 target_day=5`
+- [ ] **A.24.5** Em dia 5 do mês, log `scheduler.cvm_informe.done` com competencia=AAAAMM
+
+**N5/N5b fundamentals FII**:
+- [X] **A.24.6** `SELECT COUNT(*) FROM fii_fundamentals` retorna 27 (de 28; MALL11 delistado)
+- [X] **A.24.7** `/api/v1/ml/signals?asset_class=fii` retorna items com `dy_ttm` e `p_vp` populados
+- [X] **A.24.8** /dashboard tab Signals: ao filtrar `classe=FIIs`, badges mostram `DY X.X% · PVP Y.YY` ao lado do ticker
+- [X] **A.24.9** Checkbox "FII P/VP<1" filtra: 12 FIIs → 8 (descontados)
+
+**N4/N4b RF Markov**:
+- [X] **A.24.10** `/api/v1/rf/regime?history_days=200` retorna campo `transitions` com `next_regime_probs` e `most_likely_next`
+- [X] **A.24.11** /carteira aba RF: card de regime mostra bloco "MARKOV · PRÓXIMO DIA" com probabilidades e duração média
+- [X] **A.24.12** `transitions` é `null` quando history < 31 obs (ramos `else txDiv.style.display='none'`)
+
+**N6/N6b crypto persistence**:
+- [X] **A.24.13** `SELECT COUNT(*) FROM crypto_signals_history WHERE symbol='BTC'` ≥ 1 (snapshot existe)
+- [X] **A.24.14** `/api/v1/crypto/signal_history/BTC?days=30` retorna `items[]` + `horizons.h7d/h14d/h30d`
+- [X] **A.24.15** /carteira aba Cripto: célula `Sinal` tem badge BUY/SELL/HOLD + sparkline SVG inline (64×16) com cor derivada do score
+- [ ] **A.24.16** Após 7+ dias de snapshots acumulados, sparkline mostra trend visual real (hoje só 1 ponto)
+
+**N7 sino /diario**:
+- [X] **A.24.17** /diario header mostra sino topbar com badge contagem (era ausente antes)
+- [X] **A.24.18** `dj-header` tem `data-fa-notif-host` + "+ Novo Trade" tem `data-fa-notif-anchor`
+
+**N8 renderADX null**:
+- [X] **A.24.19** Toggle S/R no /dashboard não joga mais erro `Cannot read properties of null (reading 'year')` no console
+
+**N9 S/R com dados limpos**:
+- [X] **A.24.20** 6 tickers DLL pós-N1 retornam swing/williams (não-null)
+
+**N10/N10b FIDC/FIP**:
+- [X] **A.24.21** /fundos dropdown "Classe" tem FIDC/FIDC-NP/FIP/FIP Multi/Referenciado
+- [X] **A.24.22** Buscar peer-ranking FIDC retorna 81 fundos avaliados + warning amarelo no meta
+- [X] **A.24.23** `/anomalies/{cnpj}` em CNPJ FIDC retorna anomalies (5 detectadas em sample)
+- [X] **A.24.24** `/style/{cnpj}?factors=...` em CNPJ FIDC retorna r²/alpha/betas
+
+**N11/N11b yahoo daily bars**:
+- [X] **A.24.25** `SELECT COUNT(*) FROM profit_daily_bars WHERE ticker='KNRI11'` ≥ 500 (Yahoo backfill)
+- [X] **A.24.26** `/api/v1/indicators/KNRI11/levels?methods=williams` não é mais 404; retorna fractais
+- [X] **A.24.27** `docker logs finanalytics_scheduler` mostra `scheduler.yahoo_bars.start_loop hour=8`
+
+**Migrations + alert rules**:
+- [X] **A.24.28** `init_timescale/004_fii_fundamentals.sql` e `005_crypto_signals_history.sql` versionados
+- [X] **A.24.29** `curl -u admin:admin http://localhost:3000/api/v1/provisioning/alert-rules` retorna 14 rules (era 12)
+- [X] **A.24.30** Rules `scheduler_data_jobs_errors` e `fii_fundamentals_stale` aparecem na lista
+
 ### A.10 — Smoke visual 14 páginas (~15min)
 
 > Já testado HTTP 200. Aqui é só passar o olho em cada uma.

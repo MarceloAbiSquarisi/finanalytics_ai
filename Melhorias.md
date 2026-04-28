@@ -56,6 +56,16 @@
 - Validado live: NORMAL atual com 94.64% prob de continuar NORMAL amanhã, 3.57% STEEPENING, 1.79% FLATTENING. NORMAL dura ~17 dias em média; STEEPENING ~1.7 dias.
 - **Decisão pragmática**: HMM real (hmmlearn) descartado — Markov chain empírica entrega o essencial (probabilidades + duração) sem dep pesada e sem treino.
 
+### Sessão housekeeping (28/abr madrugada A→H) ✅ DONE 28/abr
+- **A** SW cache bumped v86 → v87 (invalida cache stale do N6b/N4b).
+- **B** `docs/runbook_profit_daily_bars_scale.md` documenta sintomas, diagnóstico e fix do bug N1 + Decisão 21.
+- **C** `Roteiro_Testes_Pendentes.md` ganhou seção A.24 (30 checks novos cobrindo todos os itens N1-N12 + housekeeping).
+- **D** Pre-flight live de `yahoo_daily_bars_refresh_job` no scheduler container: 39 tickers, 20.178 rows em 90s — subprocess validado.
+- **E** Sparkline extraído para `static/sparkline.js` (helper reusável `FASparkline.render(values, opts)`). Carteira refatorada para usar helper. Disponível para screener/performance/watchlist no futuro.
+- **F** Métricas Prometheus novas: `finanalytics_fii_fundamentals_age_days` e `finanalytics_crypto_signals_history_age_days` (atualizadas a cada 5min em `ml_metrics_refresh._refresh_once`). Alert rule `fii_fundamentals_stale` migrada para gauge direta + nova `crypto_signals_history_stale`. **15 alert rules** ativas no Grafana.
+- **G** `tests/unit/domain/test_rf_regime_transitions.py` — 13 testes do Markov empírico (matriz, duração, argmax, alternância).
+- **H** `tests/unit/scripts/test_scrape_status_invest_fii.py` — 16 testes do scraper (`_to_float` pt-BR, regex DY/PVP/div12m/valor_mercado em snapshot HTML real). 29 tests verdes em <1s.
+
 ### Migrations alembic + populate default ✅ DONE 28/abr
 - `init_timescale/004_fii_fundamentals.sql` e `005_crypto_signals_history.sql` versionam tabelas que existiam só em runtime.
 - Idempotentes (`CREATE TABLE IF NOT EXISTS`); aplicar via `psql -f` em DB existente é no-op.
