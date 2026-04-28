@@ -95,6 +95,9 @@ tr:hover td{background:rgba(0,212,255,.02)}
 .badge-sell{background:rgba(255,61,90,.12);color:var(--red)}
 .val-pos{color:var(--green)}
 .val-neg{color:var(--red)}
+/* Position charts row (Distribuição + Rentabilidade lado a lado) */
+.ps-charts-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 14px}
+@media (max-width:980px){ .ps-charts-row{grid-template-columns:1fr} }
 /* Position distribution chart (barras horizontais) */
 .ps-distribution{background:var(--s1,#0d1828);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
 .ps-distribution-title{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:8px}
@@ -369,19 +372,21 @@ tr:hover td{background:rgba(0,212,255,.02)}
       </select>
       <span id="ps-summary" style="font-size:11px;color:var(--muted);margin-left:auto"></span>
     </div>
-    <div id="ps-distribution" class="ps-distribution" style="margin:0 0 14px;"></div>
-    <div class="ps-distribution" style="margin:0 0 14px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-        <div class="ps-distribution-title" style="margin:0">Rentabilidade por classe</div>
-        <div style="display:flex;gap:6px;align-items:center;font-family:'DM Mono',monospace;font-size:12px">
-          <label style="color:var(--muted)">De</label>
-          <input type="date" id="ret-start" onchange="loadReturns()" style="padding:4px 7px;font-family:inherit;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text)">
-          <label style="color:var(--muted)">Até</label>
-          <input type="date" id="ret-end" onchange="loadReturns()" style="padding:4px 7px;font-family:inherit;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text)">
-          <button class="btn btn-sm" onclick="loadReturns()" style="font-size:11px;padding:3px 8px">↻</button>
+    <div class="ps-charts-row">
+      <div id="ps-distribution" class="ps-distribution"></div>
+      <div class="ps-distribution">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+          <div class="ps-distribution-title" style="margin:0">Rentabilidade por classe</div>
+          <div style="display:flex;gap:6px;align-items:center;font-family:'DM Mono',monospace;font-size:12px">
+            <label style="color:var(--muted)">De</label>
+            <input type="date" id="ret-start" onchange="loadReturns()" style="padding:4px 7px;font-family:inherit;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+            <label style="color:var(--muted)">Até</label>
+            <input type="date" id="ret-end" onchange="loadReturns()" style="padding:4px 7px;font-family:inherit;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+            <button class="btn btn-sm" onclick="loadReturns()" style="font-size:11px;padding:3px 8px">↻</button>
+          </div>
         </div>
+        <div id="ps-returns"></div>
       </div>
-      <div id="ps-returns"></div>
     </div>
     <div class="tbl-wrap">
       <table id="tbl-positions" data-fa-table>
