@@ -213,6 +213,50 @@ Backend + UI completos:
 
 ## 🔄 NOVO BACKLOG (descoberto na sessão de 28/abr — pós C.2 Sudo)
 
+#### N13 — Gmail briefings → enrichment de signals/dashboard ⭐⭐ alto payoff
+**Custo**: ~1d MVP / ~3-5d completo. **Payoff**: alto (research institucional vira sinal acionável).
+
+User recebe daily briefings de corretoras (BTG morning, XP top picks, Itaú research, newsletters) que hoje ficam só no inbox. Pipeline pra extrair sinais e enriquecer dashboard.
+
+**Stack proposto**:
+1. **Worker scheduler** novo (`gmail_briefings_job`, ~10min interval) lê Gmail via:
+   - **IMAP** (mais simples, app password): `imaplib` stdlib
+   - **Gmail API** (mais robusto, OAuth2): `google-api-python-client`
+   - Decisão: começar IMAP por simplicidade, migrar pra API se precisar de filtros server-side
+2. **Parser híbrido** em `application/services/gmail_briefings_service.py`:
+   - **Regex** pra senders mapeados (~20 corretoras com formato estável)
+   - **LLM fallback** pra senders novos / conteúdo livre — usar **LLM local na RTX 4090** (Decisão 15: compute na GPU 0). Modelo sugerido: Llama 3.1 8B ou similar via vLLM/llama.cpp
+   - **Por que LLM local**: emails têm saldos/posições/CPF — privacidade exige não trafegar pra cloud
+3. **Schema**: tabela `market_briefings (id, received_at, source, sender, subject, tickers[], sentiment, action ENUM(buy/sell/hold/neutral), summary TEXT, raw_text TEXT, processed_at)` no TimescaleDB. Hypertable particionada por `received_at`.
+4. **Integração**:
+   - Badge no `/signals` ("📧 BTG segue overweight PETR4 hoje (3 corretoras)")
+   - Card em `/dashboard` consolidando últimas 24h
+   - AlertService → Pushover priority=1 quando ≥3 fontes convergem em mesma ação pra mesmo ticker
+   - Coluna nova em `signal_history` referenciando `briefing_ids[]`
+
+**Tradeoffs**:
+- **Acurácia vs cobertura**: regex puro 95%/baixa cobertura; LLM em tudo 80%/alta. Híbrido melhor balance mas mais complexo
+- **Compliance**: user reage ao research, não republica → OK. Mas **não** revender/redistribuir conteúdo extraído
+- **Custo**: zero com LLM local; Claude API custaria R$10-30/mês
+
+**MVP (~1d)**:
+- 1 fonte conhecida (escolher: BTG morning brief? XP top picks? newsletter X?)
+- Regex parser específico
+- Tabela + endpoint `/api/v1/briefings/recent`
+- Badge no /dashboard signals
+
+**V2 (~2-3d adicional)**:
+- LLM local fallback
+- 5-10 fontes mapeadas
+- Sentiment scoring
+- AlertService convergence detection
+
+**V3 (~2d adicional)**:
+- Backtesting: briefing recommends X → X retorno em 5/10/30d? Quais fontes alpha real?
+- Filtro de fontes ruins (>30% errada vira opt-out automático)
+
+**Pré-requisito**: user define quais 1-2 fontes começar (criar issue ou listar aqui antes de implementar).
+
 #### O1 — Zombie processes do profit_agent em restart NSSM ⭐ médio
 **Custo**: ~2-3h. **Payoff**: médio (evita memory leak ao longo de semanas).
 
