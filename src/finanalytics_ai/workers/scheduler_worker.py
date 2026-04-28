@@ -598,9 +598,10 @@ async def cleanup_stale_pending_orders_job() -> dict:
     Mitiga acúmulo de "49 PETR4 pending" residuais que entulham /positions/dll
     e caixa flatten do dashboard.
     """
-    timescale_dsn = os.environ.get(
-        "PROFIT_TIMESCALE_DSN",
-        os.environ.get("TIMESCALE_DSN", ""),
+    timescale_dsn = (
+        os.environ.get("TIMESCALE_URL")
+        or os.environ.get("PROFIT_TIMESCALE_DSN")
+        or os.environ.get("TIMESCALE_DSN", "")
     )
     if not timescale_dsn:
         logger.error("scheduler.stale_pending.skip", reason="no_timescale_dsn")
@@ -1229,8 +1230,11 @@ async def schedule_loop() -> None:
         # GTD enforcer (28/abr): ordens com validity_type='GTD' e validity_date < NOW
         # sao canceladas. Roda a cada 60s para baixa latencia de cancel.
         # Nao usa cleanup_stale_pending (que faz mais coisas) — query SQL focada.
-        timescale_dsn = os.environ.get(
-            "PROFIT_TIMESCALE_DSN", os.environ.get("TIMESCALE_DSN", ""),
+        # Prioridade DSN: TIMESCALE_URL (compose network) > PROFIT_TIMESCALE_DSN > TIMESCALE_DSN.
+        timescale_dsn = (
+            os.environ.get("TIMESCALE_URL")
+            or os.environ.get("PROFIT_TIMESCALE_DSN")
+            or os.environ.get("TIMESCALE_DSN", "")
         )
         agent_url = os.environ.get(
             "PROFIT_AGENT_URL", "http://host.docker.internal:8002",
@@ -1263,24 +1267,47 @@ async def schedule_loop() -> None:
                 logger.info("scheduler.gtd.expired_found", count=len(rows))
                 async with httpx.AsyncClient(timeout=5.0) as client:
                     for row in rows:
+                        lid = int(row["local_order_id"])
                         try:
                             r = await client.post(
                                 f"{agent_url}/order/cancel",
                                 json={
-                                    "local_order_id": int(row["local_order_id"]),
+                                    "local_order_id": lid,
                                     "env": row["env"] or "simulation",
                                 },
                             )
-                            if r.status_code == 200 and r.json().get("ok"):
-                                logger.info(
-                                    "scheduler.gtd.cancelled",
-                                    local_order_id=int(row["local_order_id"]),
-                                )
+                            body = r.json() if r.status_code == 200 else {}
+                            if body.get("ok"):
+                                logger.info("scheduler.gtd.cancelled", local_order_id=lid)
+                            else:
+                                # Marca como expired no DB mesmo se broker rejeitou
+                                # (ordem pode nao existir mais no DLL — ex: status 4
+                                # cancelled por outra rota, ret=-2147483636).
+                                try:
+                                    cn = await asyncpg.connect(ts_dsn)
+                                    try:
+                                        await cn.execute(
+                                            "UPDATE profit_orders SET order_status=8, "
+                                            "error_message='gtd_expired_cancel_failed', "
+                                            "updated_at=NOW() WHERE local_order_id=$1",
+                                            lid,
+                                        )
+                                    finally:
+                                        await cn.close()
+                                    logger.info(
+                                        "scheduler.gtd.marked_expired",
+                                        local_order_id=lid,
+                                        agent_ret=body.get("ret"),
+                                    )
+                                except Exception as exc2:
+                                    logger.warning(
+                                        "scheduler.gtd.mark_failed",
+                                        local_order_id=lid, error=str(exc2),
+                                    )
                         except Exception as exc:
                             logger.warning(
-                                "scheduler.gtd.cancel_failed",
-                                local_order_id=int(row["local_order_id"]),
-                                error=str(exc),
+                                "scheduler.gtd.cancel_exception",
+                                local_order_id=lid, error=str(exc),
                             )
             except Exception as exc:
                 logger.warning("scheduler.gtd.loop_error", error=str(exc))
