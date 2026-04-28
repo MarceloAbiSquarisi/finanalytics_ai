@@ -1296,6 +1296,9 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
             <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
               <input type="checkbox" id="sig-only-signal" checked onchange="dtLoadSignals()"> só BUY/SELL
             </label>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer" title="N5b: filtra FIIs com P/VP &lt; 1.0 (descontados). Não afeta ações/ETFs">
+              <input type="checkbox" id="sig-fii-discount" onchange="dtLoadSignals()"> FII P/VP&lt;1
+            </label>
           </div>
           <div id="sig-summary" style="font-size:11px;color:var(--muted);margin-bottom:6px">—</div>
           <div id="signals-list" style="display:flex;flex-direction:column;gap:3px;max-height:320px;overflow-y:auto">
@@ -3153,6 +3156,11 @@ async function dtLoadSignals() {
     sum.textContent = `total=${d.count} · BUY=${d.buy} · SELL=${d.sell} · HOLD=${d.hold} · err=${d.errors}`;
     let items = d.items;
     if (onlyBS) items = items.filter(x => x.signal === 'BUY' || x.signal === 'SELL');
+    // N5b (28/abr): filtro FII P/VP < 1.0 (descontados). Não-FIIs passam livres.
+    const onlyDiscount = (document.getElementById('sig-fii-discount') || {}).checked;
+    if (onlyDiscount) {
+      items = items.filter(x => x.asset_class !== 'fii' || (x.p_vp != null && x.p_vp < 1.0));
+    }
     if (!items.length) { box.innerHTML = '<div style="font-size:12px;color:var(--muted)">— sem signals —</div>'; return; }
     box.innerHTML = items.map(it => {
       const sig = it.signal || 'ERR';
@@ -3168,13 +3176,21 @@ async function dtLoadSignals() {
         : it.asset_class === 'etf'
         ? '<span style="padding:0 4px;background:rgba(58,191,248,.18);color:#3abff8;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:.05em">ETF</span>'
         : '';
+      // N5b (28/abr): para FIIs, mostra DY% e P/VP (badge verde quando P/VP<1).
+      let metaExtra = '';
+      if (it.asset_class === 'fii' && (it.dy_ttm != null || it.p_vp != null)) {
+        const dy  = it.dy_ttm != null ? `DY ${it.dy_ttm.toFixed(1)}%` : '';
+        const pvp = it.p_vp  != null ? `PVP ${it.p_vp.toFixed(2)}`   : '';
+        const pvpColor = (it.p_vp != null && it.p_vp < 1.0) ? '#2da44e' : 'var(--muted)';
+        metaExtra = ` · <span style="color:${pvpColor}">${[dy,pvp].filter(Boolean).join(' · ')}</span>`;
+      }
       return `<div style="display:grid;grid-template-columns:50px 30px 55px 70px 50px 1fr;gap:6px;align-items:center;padding:4px 6px;background:rgba(13,33,68,.4);border-radius:4px;font-family:DM Mono,monospace;font-size:11px;cursor:pointer" onclick="dtPickSignal('${it.ticker}')">
         <span style="font-weight:700">${it.ticker}</span>
         <span>${acTag}</span>
         <span style="padding:1px 4px;background:${color};color:white;border-radius:3px;text-align:center;font-size:10px">${sig}</span>
         <span style="color:var(--muted);text-align:right">${pct}</span>
         <span style="color:var(--muted);text-align:right">S${sharpe}</span>
-        <span style="color:var(--muted);font-size:10px">h${it.horizon_days ?? '?'}${err}</span>
+        <span style="color:var(--muted);font-size:10px">h${it.horizon_days ?? '?'}${metaExtra}${err}</span>
       </div>`;
     }).join('');
   } catch (exc) {

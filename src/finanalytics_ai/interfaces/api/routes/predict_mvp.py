@@ -347,6 +347,11 @@ class SignalItem(BaseModel):
     th_sell: float | None = None
     horizon_days: int | None = None
     best_sharpe: float | None = None
+    # N5b (28/abr): fundamentals FII (dy_ttm em %, p_vp adimensional). Vem
+    # do snapshot mais recente em fii_fundamentals para asset_class='fii'.
+    # null para acoes/ETFs (nao aplica).
+    dy_ttm: float | None = None
+    p_vp: float | None = None
     error: str | None = None
 
 
@@ -412,6 +417,34 @@ async def signals_batch(
     dsn = dsn.replace("postgresql+asyncpg://", "postgresql://")
 
     configs = _load_all_calibrations(dsn, min_sharpe, asset_class=asset_class)[:limit]
+
+    # N5b (28/abr): bulk fetch de fundamentals para os FIIs do batch.
+    # 1 query no inicio, lookup O(1) depois. DISTINCT ON pega o snapshot
+    # mais recente por ticker.
+    fii_tickers = [c["ticker"] for c in configs if c.get("asset_class") == "fii"]
+    fundamentals_map: dict[str, dict[str, float | None]] = {}
+    if fii_tickers:
+        try:
+            with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT DISTINCT ON (ticker)
+                        ticker, dy_ttm, p_vp
+                    FROM fii_fundamentals
+                    WHERE ticker = ANY(%s)
+                    ORDER BY ticker, snapshot_date DESC
+                    """,
+                    (fii_tickers,),
+                )
+                for row in cur.fetchall():
+                    fundamentals_map[row[0]] = {
+                        "dy_ttm": float(row[1]) if row[1] is not None else None,
+                        "p_vp": float(row[2]) if row[2] is not None else None,
+                    }
+        except Exception:
+            # tabela ausente / DB transient: segue sem fundamentals
+            fundamentals_map = {}
+
     model_cache: dict[str, tuple[Any, dict, Path]] = {}
     items: list[SignalItem] = []
     counts = {"BUY": 0, "SELL": 0, "HOLD": 0}
@@ -419,6 +452,7 @@ async def signals_batch(
 
     for cfg in configs:
         t = cfg["ticker"]
+        fund = fundamentals_map.get(t, {})
         base = SignalItem(
             ticker=t,
             asset_class=cfg.get("asset_class", "acao"),
@@ -426,6 +460,8 @@ async def signals_batch(
             th_sell=cfg["th_sell"],
             horizon_days=cfg["horizon_days"],
             best_sharpe=cfg["best_sharpe"],
+            dy_ttm=fund.get("dy_ttm"),
+            p_vp=fund.get("p_vp"),
         )
         pkl_info = _find_latest_pickle(t, prefer_horizon=cfg["horizon_days"])
         if pkl_info is None:

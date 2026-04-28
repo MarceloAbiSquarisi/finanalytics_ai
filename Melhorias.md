@@ -23,12 +23,19 @@
 - Competência calculada = mês anterior (`hoje.replace(day=1) - timedelta(days=1)`). Validado: 27/04/2026 → `202603`.
 - Idempotente (sync_informe_diario já checa fundos_sync_log).
 
-### N5 — Fundamentals FII via Status Invest ✅ DONE (parcial)
+### N5 — Fundamentals FII via Status Invest ✅ DONE
 - Tabela `fii_fundamentals (ticker, snapshot_date, dy_ttm, p_vp, div_12m, valor_mercado, source, scraped_at)` PK `(ticker, snapshot_date)`.
 - Scraper `scripts/scrape_status_invest_fii.py` (httpx + regex robustos): 27/28 FIIs OK em ~30s (MALL11 delistado).
 - Job `fii_fundamentals_refresh_job` no scheduler (7h BRT, skip weekend, subprocess isolado para não bloquear event loop).
 - Dockerfile worker stage agora copia `scripts/`.
-- **Follow-up N5b**: integrar `dy_ttm`/`p_vp` no `features_daily_builder` + retreinar pickles MVP-h21 dos FIIs. Fica para próxima sprint.
+
+### N5b — Integração visual dos fundamentals em /dashboard ✅ DONE 28/abr
+- Endpoint `/api/v1/ml/signals` enriquecido com `dy_ttm` e `p_vp` (LEFT JOIN snapshot mais recente em `fii_fundamentals` via `DISTINCT ON`, 1 query bulk para todos os FIIs do batch).
+- `SignalItem` Pydantic ganha 2 campos novos (null para ações/ETFs).
+- UI dashboard tab Signals: badges `DY X.X% · PVP Y.YY` na meta column de FIIs (verde quando P/VP<1, cinza caso contrário).
+- Filtro novo "FII P/VP<1" como checkbox próximo ao "só BUY/SELL". Validado: 12 FIIs → 8 com filtro ligado.
+- Caso ideal observado: RECT11 BUY com P/VP=0.43 + DY=12.63%.
+- **Decisão pragmática**: retreino ML real (`features_daily_builder` ingerindo dy_ttm/p_vp como features) fica adiado — `fii_fundamentals` só tem 1 snapshot, LightGBM precisa de variação histórica. Job diário acumula dados; em ~30-90d virá **N5c** (retreino com snapshots empilhados).
 
 ### N7 — Sino topbar em /diario ✅ DONE
 - `notifications.js` agora aceita fallback `[data-fa-notif-host]` quando `.fa-topbar` não existe + `[data-fa-notif-anchor]` para posicionamento.
