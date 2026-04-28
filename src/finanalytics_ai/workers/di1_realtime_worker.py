@@ -147,6 +147,10 @@ class DI1RealtimeWorker:
     def __init__(self) -> None:
         self._stop = asyncio.Event()
         self._last_trade_number: dict[str, int] = {}
+        # P3 fix (28/abr): cursor por timestamp (não trade_number) para evitar
+        # stuck após reset de sessão B3, onde trade_number nova fica < antigo.
+        self._worker_start_ts: datetime | None = None
+        self._last_tick_ts: dict[str, datetime] = {}
         self._pool: asyncpg.Pool | None = None
         self._producer: AIOKafkaProducer | None = None
         self._session: aiohttp.ClientSession | None = None
@@ -167,21 +171,21 @@ class DI1RealtimeWorker:
         self._session = aiohttp.ClientSession()
 
     async def _init_last_trade_numbers(self) -> None:
-        assert self._pool is not None
-        async with self._pool.acquire() as conn:
-            for c in CONTRACTS:
-                row = await conn.fetchrow(
-                    "SELECT max(trade_number) AS tn FROM profit_ticks WHERE ticker=$1",
-                    c,
-                )
-                self._last_trade_number[c] = int(row["tn"]) if row and row["tn"] else 0
-                log.info("init %s last_trade_number=%d", c, self._last_trade_number[c])
+        # P3 fix (28/abr): inicializa cursor por TIMESTAMP do boot, não MAX(trade_number).
+        # B3 reseta trade_number por sessão; pegando MAX da sessão anterior, query
+        # `trade_number > MAX_antigo` nunca encontra ticks novos (que vêm com numeros
+        # menores). Cursor por time é monotônico e seguro across sessões.
+        self._worker_start_ts = datetime.now(UTC)
+        for c in CONTRACTS:
+            self._last_tick_ts[c] = self._worker_start_ts
+        log.info("init worker_start_ts=%s (cursor por time, P3 fix)",
+                 self._worker_start_ts.isoformat())
 
     async def _poll_once(self) -> None:
         assert self._pool is not None and self._producer is not None
         METRICS.last_poll_ts = time.time()
         for contract in CONTRACTS:
-            last_tn = self._last_trade_number.get(contract, 0)
+            last_ts = self._last_tick_ts.get(contract, self._worker_start_ts)
             try:
                 async with self._pool.acquire() as conn:
                     rows = await conn.fetch(
@@ -189,12 +193,12 @@ class DI1RealtimeWorker:
                         SELECT time, ticker, price, quantity, volume,
                                buy_agent, sell_agent, trade_number, trade_type
                           FROM profit_ticks
-                         WHERE ticker = $1 AND trade_number > $2
-                         ORDER BY trade_number ASC
+                         WHERE ticker = $1 AND time > $2
+                         ORDER BY time ASC, trade_number ASC
                          LIMIT 500
                         """,
                         contract,
-                        last_tn,
+                        last_ts,
                     )
             except Exception as exc:
                 METRICS.poll_errors_total += 1
@@ -235,6 +239,7 @@ class DI1RealtimeWorker:
                     METRICS.ticks_per_contract.get(contract, 0) + 1
                 )
                 METRICS.last_tick_ts = time.time()
+                self._last_tick_ts[contract] = r["time"]
                 self._last_trade_number[contract] = int(r["trade_number"])
 
     async def start(self) -> None:

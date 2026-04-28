@@ -62,6 +62,8 @@ async def test_poll_publishes_new_ticks_to_kafka(monkeypatch):
     worker._pool = pool
     worker._producer = producer
     worker._last_trade_number = {"DI1F27": 1000}
+    worker._worker_start_ts = datetime(2026, 4, 20, 13, 0, tzinfo=UTC)
+    worker._last_tick_ts = {"DI1F27": worker._worker_start_ts}
 
     await worker._poll_once()
 
@@ -91,11 +93,52 @@ async def test_poll_skips_when_no_new_rows(monkeypatch):
     worker._pool = pool
     worker._producer = producer
     worker._last_trade_number = {"DI1F27": 500}
+    worker._worker_start_ts = datetime(2026, 4, 20, 13, 0, tzinfo=UTC)
+    worker._last_tick_ts = {"DI1F27": worker._worker_start_ts}
 
     await worker._poll_once()
 
     producer.send_and_wait.assert_not_awaited()
     assert m.METRICS.ticks_total == 0
+
+
+@pytest.mark.asyncio
+async def test_p3_cursor_uses_time_not_trade_number(monkeypatch):
+    """P3 fix (28/abr): cursor por time evita stuck após reset de sessão B3.
+
+    Cenário: agent boota com trade_number=50 (sessão nova), mas histórico tem
+    max(trade_number)=314920 (sessão anterior). Bug original (cursor MAX): query
+    `trade_number > 314920` nunca retorna ticks (tn novo é menor). Fix: cursor
+    por timestamp, monotônico across sessões.
+    """
+    m.METRICS = m.Metrics()
+    boot_ts = datetime(2026, 4, 28, 13, 0, tzinfo=UTC)
+    new_ts = datetime(2026, 4, 28, 13, 5, tzinfo=UTC)
+    row = {
+        "time": new_ts, "ticker": "DI1F27", "price": 12.85, "quantity": 5,
+        "volume": 64.25, "buy_agent": 308, "sell_agent": 3,
+        "trade_number": 50,  # MUITO menor que historico — bug original ignorava
+        "trade_type": 3,
+    }
+    conn = AsyncMock()
+    conn.fetch.return_value = [row]
+    pool = FakePool(conn)
+    producer = AsyncMock()
+    producer.send_and_wait = AsyncMock()
+    monkeypatch.setattr(m, "CONTRACTS", ["DI1F27"])
+    worker = m.DI1RealtimeWorker()
+    worker._pool = pool
+    worker._producer = producer
+    worker._worker_start_ts = boot_ts
+    worker._last_tick_ts = {"DI1F27": boot_ts}
+    worker._last_trade_number = {}
+    await worker._poll_once()
+    # Pegou o tick mesmo com trade_number=50 (bem menor que historico)
+    producer.send_and_wait.assert_awaited_once()
+    assert worker._last_tick_ts["DI1F27"] == new_ts
+    # Confirma que parametro $2 da query foi timestamp, não int
+    call_args = conn.fetch.await_args.args
+    assert call_args[2] == boot_ts
 
 
 @pytest.mark.asyncio
@@ -127,6 +170,8 @@ async def test_poll_counts_kafka_error_and_continues(monkeypatch):
     worker._pool = pool
     worker._producer = producer
     worker._last_trade_number = {"DI1F27": 1000}
+    worker._worker_start_ts = datetime(2026, 4, 20, 13, 0, tzinfo=UTC)
+    worker._last_tick_ts = {"DI1F27": worker._worker_start_ts}
 
     await worker._poll_once()
 

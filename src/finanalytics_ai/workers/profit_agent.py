@@ -4686,6 +4686,9 @@ class ProfitAgent:
                         # cancel+create novo SL. Mantém trailing funcional mesmo com
                         # broker degradado.
                         if not moved_ok:
+                            self._trail_fallback_count = (
+                                getattr(self, "_trail_fallback_count", 0) + 1
+                            )
                             log.warning(
                                 "trailing.change_failed_fallback_to_cancel_create "
                                 "group=%s lv=%d new_sl=%.4f ret=%s",
@@ -4746,6 +4749,9 @@ class ProfitAgent:
                                 "UPDATE profit_oco_levels SET sl_trigger=%s, sl_limit=%s, "
                                 "trail_high_water=%s, updated_at=NOW() WHERE level_id=%s",
                                 (new_sl, new_lim, lv["trail_high_water"], lv["level_id"]),
+                            )
+                            self._trail_adjust_count = (
+                                getattr(self, "_trail_adjust_count", 0) + 1
                             )
                             log.info(
                                 "trailing.adjusted group=%s lv=%d hw=%.4f new_sl=%.4f",
@@ -4904,6 +4910,18 @@ class ProfitAgent:
             "# HELP profit_agent_probe_duration_seconds_count Contagem de probes mensurados",
             "# TYPE profit_agent_probe_duration_seconds_count counter",
             f"profit_agent_probe_duration_seconds_count {self._probe_duration_count}",
+            "# HELP profit_agent_order_callbacks_total Callbacks recebidos do SetOrderCallback (DLL viva)",
+            "# TYPE profit_agent_order_callbacks_total counter",
+            f"profit_agent_order_callbacks_total {getattr(self, '_order_cb_count', 0)}",
+            "# HELP profit_agent_oco_groups_active OCO groups carregados em memória (status active/awaiting/partial)",
+            "# TYPE profit_agent_oco_groups_active gauge",
+            f"profit_agent_oco_groups_active {len(getattr(self, '_oco_groups', {}))}",
+            "# HELP profit_agent_oco_trail_adjusts_total Ratchets de trailing executados (sucesso, change_order ou cancel+create)",
+            "# TYPE profit_agent_oco_trail_adjusts_total counter",
+            f"profit_agent_oco_trail_adjusts_total {getattr(self, '_trail_adjust_count', 0)}",
+            "# HELP profit_agent_oco_trail_fallbacks_total Vezes que change_order falhou e fallback cancel+create foi acionado",
+            "# TYPE profit_agent_oco_trail_fallbacks_total counter",
+            f"profit_agent_oco_trail_fallbacks_total {getattr(self, '_trail_fallback_count', 0)}",
         ]
         return "\n".join(lines) + "\n"
 

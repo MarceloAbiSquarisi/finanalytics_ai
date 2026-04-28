@@ -420,6 +420,36 @@ groups:
           severity: warning
           team: data
 
+      # ── 16. Order callback morto (28/abr, sessão fixes P4) ──
+      # profit_agent_order_callbacks_total não incrementa em janela de pregão
+      # → SetOrderCallback DLL parou (zombie thread, struct issue, etc).
+      # Sem callback, P2 mitigation cl_ord_id update + diary hook quebram.
+      - uid: alert-order-callback-stale
+        title: order_callback_stale
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus_main
+            model:
+              editorMode: code
+              expr: 'rate(profit_agent_order_callbacks_total[10m]) == 0 and ON() hour() >= 13 and ON() hour() < 20'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+        noDataState: NoData
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: 'profit_agent: 0 order_callbacks em 10min durante pregão'
+          description: 'SetOrderCallback DLL silencioso. Pode indicar zombie thread (P5/O1). Considerar /agent/restart.'
+        labels:
+          severity: warning
+          team: trading
+
       # ── 15. crypto_signals_history stale (28/abr, F) ──
       # Crypto roda 24/7 — gap > 2 dias indica job crypto_signals quebrado.
       - uid: alert-crypto-signals-stale
