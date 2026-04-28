@@ -56,6 +56,16 @@
 - Validado live: NORMAL atual com 94.64% prob de continuar NORMAL amanhã, 3.57% STEEPENING, 1.79% FLATTENING. NORMAL dura ~17 dias em média; STEEPENING ~1.7 dias.
 - **Decisão pragmática**: HMM real (hmmlearn) descartado — Markov chain empírica entrega o essencial (probabilidades + duração) sem dep pesada e sem treino.
 
+### Migrations alembic + populate default ✅ DONE 28/abr
+- `init_timescale/004_fii_fundamentals.sql` e `005_crypto_signals_history.sql` versionam tabelas que existiam só em runtime.
+- Idempotentes (`CREATE TABLE IF NOT EXISTS`); aplicar via `psql -f` em DB existente é no-op.
+- `populate_daily_bars.py` invertido: `auto` agora tenta `1m` primeiro, `ticks` como fallback. Evita regressão N1 quando alguém rodar sem `--source` explícito. PETR4 validado: `source=1m`.
+
+### Alert rules Grafana para novos jobs ✅ DONE 28/abr
+- `scheduler_data_jobs_errors`: alerta quando yahoo_bars/fii_fund/crypto_signals/cvm_informe têm ≥3 falhas em 6h (severity=warning, team=data).
+- `fii_fundamentals_stale`: alerta quando `fii_fund` job não tem nenhuma execução OK em 48h (Status Invest scraper parou).
+- 14 rules ativas no Grafana (12 antigas + 2 novas), validado via API `/api/v1/provisioning/alert-rules`.
+
 ### N6b — UI Crypto sparkline do score histórico ✅ DONE 28/abr
 - `enrichCryptoSignals` em `carteira.html` agora também busca `/crypto/signal_history/{sym}?days=14` em paralelo.
 - Sparkline SVG inline (64×16, sem libs) à direita do badge BUY/SELL/HOLD.

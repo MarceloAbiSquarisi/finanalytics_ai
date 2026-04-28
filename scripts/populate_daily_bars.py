@@ -96,23 +96,29 @@ def get_active_tickers(conn) -> list[dict]:
 def populate_ticker(conn, ticker: str, exchange: str, dry_run: bool,
                     source_pref: str = "auto", min_price: float = 0.0) -> int:
     """Agrega para profit_daily_bars. source_pref:
-        'auto'  -> tenta ticks primeiro, depois 1m
-        'ticks' -> apenas market_history_trades
+        'auto'  -> tenta 1m primeiro (limpo), fallback para ticks
+        'ticks' -> apenas market_history_trades (CUIDADO: bug escala /100, ver N1)
         '1m'    -> apenas ohlc_1m
+
+    Nota N1 (27/abr/2026): 'auto' inverteu prioridade — antes tentava ticks
+    primeiro mas market_history_trades chega com escala /100 intermitente
+    para os tickers DLL Profit. ohlc_1m (source tick_agg_v1) e limpo.
     """
     cur = conn.cursor()
     rows: list = []
     source_used = None
-    if source_pref in ("auto", "ticks"):
-        cur.execute(_SQL_AGGREGATE_TICKS, (ticker,))
-        rows = cur.fetchall()
-        if rows:
-            source_used = "ticks"
-    if not rows and source_pref in ("auto", "1m"):
+    # N1 (27/abr): tenta 1m PRIMEIRO. Se vazio, fallback para ticks (futuros
+    # como WDOFUT/WINFUT que so tem ticks).
+    if source_pref in ("auto", "1m"):
         cur.execute(_SQL_AGGREGATE_1M, (ticker,))
         rows = cur.fetchall()
         if rows:
             source_used = "1m"
+    if not rows and source_pref in ("auto", "ticks"):
+        cur.execute(_SQL_AGGREGATE_TICKS, (ticker,))
+        rows = cur.fetchall()
+        if rows:
+            source_used = "ticks"
     cur.close()
 
     if not rows:
