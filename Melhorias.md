@@ -541,6 +541,117 @@ Erro pré-existente: `TypeError: Cannot read properties of null (reading 'year')
 
 A.22.4 do roteiro: testar `/levels` em ticker que NÃO tem o bug do profit_daily_bars (ex: VALE3 ou outro fora da DLL Profit). Esperado: `warning=null`, swing/williams retornam normalmente.
 
+### Robô de Trade (auto_trader_worker)
+
+#### R1 — auto_trader_worker (execução autônoma de sinais ML) ⭐⭐⭐ alto payoff (NOVO 28/abr/2026)
+**Custo**: ~5-10 dias para MVP (1 strategy + risk + UI básica). **Payoff**: alto (transforma sinais ML calibrados em retorno realizado sem intervenção manual).
+
+**Justificativa**: 90% da infra já existe — sinais ML, OCO multi-level, trailing, GTD validade, flatten_ticker, prometheus, alert rules. Falta só o "executor" que liga sinal → ordem.
+
+**Arquitetura proposta**:
+
+```
+auto_trader_worker (container novo, asyncio)
+├─ Strategy Loop (cron 1m/5m/15m, configurável)
+│   1. Fetch /api/v1/ml/signals
+│   2. Para cada Strategy.evaluate() ativa:
+│      a. Risk check (size, DD, max posições, correlation cap)
+│      b. ATR-based entry/SL/TP
+│      c. POST /agent/order/send + attach OCO
+│      d. Log em robot_signals_log
+│   3. Sleep
+├─ Strategy Registry (plugin)
+│   class Strategy(Protocol):
+│     evaluate(signal, bars, indicators, regime) -> Action|None
+├─ Risk Engine
+│   - Vol target (sigma 20d) → position size
+│   - Kelly fracionário 0.25x
+│   - Daily P&L tracker (DB + cache)
+│   - Circuit breaker DD>2% intra-day
+│   - Max N posições por classe
+└─ Kill switch
+    - Flag DB robot_risk_state.paused
+    - Auto-pause em latência>5s, 5 errors/min
+    - Manual via PUT /api/v1/robot/pause
+```
+
+**Tabelas novas** (init_timescale/006_robot_trade.sql):
+- `robot_strategies (id, name, enabled, config_json, account_id, created_at)`
+- `robot_signals_log (signal_id, ticker, action, computed_at, sent_to_dll, local_order_id, reason_skipped)`
+- `robot_orders_intent (separado de profit_orders — distingue manual×automático)`
+- `robot_risk_state (date, total_pnl, max_dd, positions_count, paused, paused_at)`
+
+**Integração com infra existente**:
+| Recurso | Uso |
+|---|---|
+| `/api/v1/ml/signals` (118 tickers) | Sinais primários |
+| `_send_order_legacy` + `attach_oco` | Execução atômica |
+| Validade GTD (commit `e6b6118`) | Cancela se não fillar até fechamento |
+| `flatten_ticker` | Kill switch por ticker |
+| `cleanup_stale_pending` (commit `568e9a3`) | Limpa órfãs |
+| Trail R$/% + fallback cancel+create (P7) | Trailing automático |
+| Prometheus + Grafana | Observabilidade |
+
+**MVP fim-de-semana**: schema + 1 strategy (R2 abaixo) + risk vol-target + UI read-only `/robot` + kill switch.
+
+**Iteração 2**: backtest harness, mais strategies, painel UI completo.
+
+#### R2 — Strategy: TSMOM ∩ ML overlay ⭐⭐⭐ baixo custo, alto edge (NOVO 28/abr)
+**Custo**: ~3-5 dias dentro do R1. **Payoff**: alto (filtro de regime grátis sobre ML existente).
+
+Combina sinal ML calibrado h21d com filtro de momentum 12m (Time Series Momentum, Moskowitz/Ooi/Pedersen 2012). Posição = `sinal_ML × sign(ret_252d) × vol_target`. Quando ML e momentum concordam → full size; divergem → skip. Reduz whipsaws do ML em mean-reverting regimes.
+
+Implementação:
+- Adiciona coluna `momentum_252d_sign` em `signal_history` (job diário)
+- Strategy.evaluate retorna Action só se `signal.action == 'BUY' and momentum > 0` (ou inverso para SELL)
+- Vol target 15% anual: `qty = (target_vol * capital) / (realized_vol_20d * preço)`
+
+**Edge documentado**: TSMOM tem Sharpe 0.7-1.2 cross-asset desde anos 80, replicado em B3 (Hosp Brasil). ML solo +overfitting risk; sobreposição reduz drawdown.
+
+#### R3 — Strategy: pares cointegrados B3 ⭐⭐ market-neutral (NOVO 28/abr)
+**Custo**: ~5-7 dias. **Payoff**: médio-alto (Sharpe 1-1.5 histórico, beta-neutral reduz risco macro).
+
+Bancos (ITUB4/BBDC4/SANB11/BBAS3) e Petro (PETR3/PETR4) cointegrados há 10+ anos. Engle-Granger test rolling 252d, Z-score do spread → entrada `|Z|>2`, saída `Z<0.5`, stop `|Z|>4`. Capacidade limitada (R$1-5M por par) mas suficiente para conta pessoal/proprietária pequena.
+
+Implementação:
+- Job diário `cointegration_screen.py`: testa todos pares em watchlist, persiste em `cointegrated_pairs` (rho, half_life, last_test)
+- Strategy.evaluate roda no tick monitor (não no signals): quando |Z| cruza threshold, dispara 2 ordens OCO (long uma perna, short outra) via `_send_order_legacy` paralelo
+- Risk: stop |Z|>4 force-close; cointegração quebra (p-value > 0.05) → marca par como "inativo"
+
+**Pitfalls**: cointegração quebra em regime change (2008/2020 quebrou vários). Re-test rolling obrigatório.
+
+#### R4 — Strategy: Opening Range Breakout WINFUT ⭐⭐ futuros (NOVO 28/abr)
+**Custo**: ~7-10 dias. **Payoff**: alto se filtros funcionam (Sharpe ~1.5 documentado em ES, replicável em WIN).
+
+Range dos primeiros 5-15min após 09:00 BRT. Rompimento + volume confirmação → entrada com OCO. Stop = outro lado do range, alvo 1R/2R + trailing chandelier (3*ATR). Funciona porque institucional gringo replica overnight gap em pregão BR.
+
+Filtro adicional usando DI1 realtime (já implementado): só opera quando slope DI1 estável (sem repricing macro abrupto). Setup completo em <30s de pregão (7 candles 1m + filtro 1 cruzamento DI1).
+
+**Edge**: Zarattini & Aziz 2023 (SSRN) documentou edge persistente em S&P futures. Replicação em WINFUT viável dado liquidez similar.
+
+#### R5 — Backtest harness (vectorbt-pro / próprio) ⭐⭐ multiplica produtividade (NOVO 28/abr)
+**Custo**: ~3-5 dias. **Payoff**: alto (sem backtest robusto, qualquer strategy é lottery ticket).
+
+Antes de R2/R3/R4 irem live com capital real, precisa harness que:
+- Walk-forward (López de Prado): janelas rolling, in-sample/out-of-sample/holdout
+- Slippage realista: 0.05% round-trip ações líquidas, 2 ticks WDOFUT/WINFUT
+- Deflated Sharpe (corrige multiple testing bias)
+- Survivorship bias check
+- Equity curve + drawdown report
+
+Usa `ohlc_resampled` + `fintz_cotacoes_ts` (já cobrem 10+ anos B3). Outputs em `backtest_results` table com config_hash.
+
+### Pitfalls comuns que matam robôs amadores (referência)
+
+Documentação para qualquer strategy nova passar por checklist:
+
+1. **Look-ahead bias**: usar fechamento do dia D pra decidir trade no D. Sempre `t-1` em features ou abertura D+1.
+2. **Slippage subestimado**: WDOFUT/WINFUT em horário ruim custa 1-2 ticks ida+volta. Sem slippage realista, backtest é fantasia.
+3. **Overfitting**: grid search infinito de parâmetros. Walk-forward + deflated Sharpe obrigatório.
+4. **Survivorship bias**: ações deslistadas somem do dataset.
+5. **Regime change**: estratégia 2010-2020 morre 2022. Revalide em janelas rolling.
+6. **Leverage sem hedge**: futuro alavanca 10x natural; gap noturno zera conta sem stop.
+
 ### ML para outras classes (do backlog antigo, não atacados)
 
 #### N10 — ML para outros tipos CVM (FIDC, FIP) ⭐ futuro
