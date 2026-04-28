@@ -53,7 +53,12 @@ D:\Projetos\finanalytics_ai_fresh\
 │   ├── retrain_top20_h21.py          # Retreina MVPs no horizon=21d
 │   ├── snapshot_signals.py           # Snapshot diário /signals → signal_history
 │   ├── copom_fetch.py / _label_selic / _finetune / _infer  # Pipeline BERTimbau COPOM
-│   └── migrate_to_timescale.py       # Migra Fintz PG → TimescaleDB
+│   ├── migrate_to_timescale.py       # Migra Fintz PG → TimescaleDB
+│   ├── backfill_yahoo_fii.py         # 26 FIIs IFIX → features_daily (yahoo_fii)
+│   ├── backfill_yahoo_etf.py         # 13 ETFs B3 → features_daily (yahoo_etf)
+│   ├── backfill_yahoo_daily_bars.py  # N11 (28/abr): FIIs+ETFs → profit_daily_bars (OHLCV completo)
+│   ├── scrape_status_invest_fii.py   # N5 (28/abr): DY/PVP → fii_fundamentals
+│   └── snapshot_crypto_signals.py    # N6 (28/abr): /signal/{sym} → crypto_signals_history
 ├── .env                              # Variáveis de ambiente
 ├── docker-compose.yml                # API + TimescaleDB + Redis
 └── pyproject.toml                    # Dependências (uv/poetry)
@@ -290,19 +295,25 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 
 ### Estado atual dos dados (Abr/2026)
 
-**DLL Profit (ticks + daily bars)**:
+**DLL Profit (ticks + daily bars)** — pós-N1 (28/abr regenerado via `--source 1m`):
 | Ticker | Dias | Completo |
 |--------|------|----------|
-| ABEV3  | 69   | ✅ |
-| BBDC4  | 69   | ✅ |
-| ITUB4  | 69   | ✅ |
-| PETR4  | 64   | ✅ |
-| VALE3  | 64   | ✅ |
+| ABEV3  | 71   | ✅ (limpo) |
+| BBDC4  | 71   | ✅ (limpo) |
+| ITUB4  | 71   | ✅ (limpo) |
+| PETR4  | 73   | ✅ (limpo) |
+| VALE3  | 88   | ✅ (limpo) |
 | WDOFUT | 69   | ✅ |
-| WEGE3  | 69   | ✅ |
+| WEGE3  | 71   | ✅ (limpo) |
 | WINFUT | 16   | ⚠️ backfill parcial |
 
+**Yahoo daily bars (FIIs+ETFs)** — N11 (28/abr): 39 tickers, 20.178 rows em `profit_daily_bars`. Refresh diário via scheduler `yahoo_bars` (8h BRT).
+
 **Fintz (fintz_cotacoes_ts)**: 1.319.764 rows, 200+ tickers, 2010-01-04 → 2025-12-30
+
+**Snapshots periódicos** (N5/N6 — 28/abr):
+- `fii_fundamentals` — 27 FIIs com DY TTM/P/VP/div_12m/valor_mercado. Refresh diário 7h BRT (Status Invest scraper).
+- `crypto_signals_history` — BTC/ETH/SOL/etc snapshots diários do `/api/v1/crypto/signal/{sym}`. Refresh 9h BRT.
 
 ## Pendências Técnicas
 
@@ -355,6 +366,21 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
     - **Bloco A do roteiro**: 234/236 ✅ (99.2%) validado via MCP Playwright smoke tour. Restantes A.4.9 (PDF de teste) e A.15.10 (destrutivo).
     - **Migrations alembic**: 0019 (trade_objective), 0020 (is_complete + external_order_id). Versão atual: `0020_diario_is_complete`.
     - **Novos backlog itens N1-N10** documentados em `Melhorias.md` — destaque: N1 (limpeza profit_daily_bars escala mista, alto impacto) e N5 (fundamentals FII via Status Invest, alpha real M1).
+23. ~~Sprint N1-N12 + N5b/N4b/N6b/N10b + housekeeping — 28/abr madrugada~~ — **DONE 28/abr** — 6 commits (`f678a49`→`472f513`):
+    - **N1 profit_daily_bars escala mista**: ticks chegam com escala /100 intermitente (PETR4 09-16/abr 100% buggy). `ohlc_1m source=tick_agg_v1` está limpo. Backup → DELETE 6 tickers DLL → regenerar via `populate_daily_bars.py --source 1m`. PETR4 antes min=0.30 depois min=14.66. **Decisão 21 nasce daqui** (default `1m` em `auto`).
+    - **N2 CVM informe sync mensal**: `cvm_informe_sync_job` no scheduler (9h BRT, dia 5 do mês). Competência = mês anterior. Idempotente.
+    - **N5/N5b Fundamentals FII**: tabela `fii_fundamentals` (27 FIIs, DY/PVP/div_12m/valor_mercado), scraper Status Invest, job 7h BRT. Endpoint `/api/v1/ml/signals` enriquecido com `dy_ttm`/`p_vp` (DISTINCT ON snapshot mais recente). UI dashboard tab Signals: badges DY/PVP + filtro "FII P/VP<1" (12→8 descontados).
+    - **N4/N4b Markov empírico RF Regime**: `compute_transitions(history, current_regime)` em `domain/rf_regime/classifier.py`. Matriz 4×4 P(t+1|t) + duração média + most_likely_next. Sem `hmmlearn` — chain empírica. Live: NORMAL→NORMAL 94.64%, dura ~17 dias. UI card RF mostra probs ordenadas + duração.
+    - **N6/N6b Crypto persistence + sparkline**: tabela `crypto_signals_history`, script `snapshot_crypto_signals.py`, job 9h BRT (sem skip weekend, crypto 24/7). Endpoint `/crypto/signal_history/{sym}` retorna histórico + horizons agregados (h7d/h14d/h30d). UI /carteira aba Cripto: sparkline SVG inline 64×16 ao lado do badge BUY/SELL/HOLD.
+    - **N7 Sino topbar /diario**: `notifications.js` aceita fallback `[data-fa-notif-host]` + `[data-fa-notif-anchor]`. `dj-header` marcado.
+    - **N8 Fix renderADX null**: `ref25` filtra timestamps null do warm-up (~14 bars) com `.filter(Boolean)` + conversão string→unix. Eliminou erro `Cannot read properties of null (reading 'year')`.
+    - **N9 Validar S/R**: 6 tickers DLL pós-N1 retornam Williams 8-11 fractais, warning=null.
+    - **N10/N10b ML analytics FIDC/FIP**: backend genérico já aceitava. UI ganhou FIDC/FIDC-NP/FIP/FIP Multi/Referenciado no dropdown. Warning textual quando tipo é FIDC/FIP/FMIEE explicando peculiaridades de cota.
+    - **N11/N11b /levels para FIIs/ETFs**: novo `backfill_yahoo_daily_bars.py` popula `profit_daily_bars` com 39 FIIs+ETFs (20.178 rows). KNRI11/BOVA11/HFOF11/RECT11 deixam de retornar 404. Refresh diário no scheduler (`yahoo_bars`, 8h BRT).
+    - **N12 Drop backup**: `profit_daily_bars_backup_27abr` removido após validação.
+    - **Housekeeping**: `init_timescale/004_fii_fundamentals.sql` + `005_crypto_signals_history.sql` versionados. `populate_daily_bars.py` com default invertido (1m primeiro). Dockerfile worker+api stages copiam `scripts/`. 2 alert rules novas (`scheduler_data_jobs_errors`, `fii_fundamentals_stale`) — 14 rules totais.
+
+    **Estado final 28/abr**: 6 commits sequenciais, 17 itens N entregues, 14 alert rules, 4 jobs novos no scheduler (`yahoo_bars`/`fii_fund`/`crypto_signals`/`cvm_informe`), 2 tabelas novas versionadas. Backlog factível esgotado — restantes (N3, N5c, Bloco B, A.4.9, A.15.10) bloqueados externamente.
 
 ## Decisões Arquiteturais (Imutáveis)
 
@@ -421,6 +447,8 @@ Origem: Sprint UI T (`afd7ecb`) — auditoria das 60+ páginas.
 
 **Não migrar** automaticamente para os vars globais — quebraria visual identity. Páginas redesenhadas devem fazer cleanup deliberado, não bulk migration. Light mode funciona via fall-through nos vars que NÃO foram redefinidos localmente (que são a maioria, após Sprint UI P migrar 343 cores hardcoded).
 
+> A próxima decisão (**21**) está documentada após a tabela de arquivos da Decisão 20, no fim desta seção (em "Decisão 21 — populate_daily_bars default 1m").
+
 ### Decisão 20 — BRAPI é último fallback; DLL Profit + DB são primários
 
 Origem: Sprint BRAPI-purge 23/abr/2026 (Caminho 2 escolhido pelo usuário). Motivação: BRAPI tem token que expira, rate limits, e 404 em futuros (WDOFUT/WINFUT). DLL Profit + Fintz já cobrem o essencial dos ativos usados em produção.
@@ -446,12 +474,26 @@ Origem: Sprint BRAPI-purge 23/abr/2026 (Caminho 2 escolhido pelo usuário). Moti
 - `infrastructure/adapters/market_data_client.py` — reescrito com nova ordem, profit_agent HTTP client embutido.
 - `interfaces/api/routes/quotes.py` — `Depends(get_brapi_client)` removido; usa `_market(request)` → `app.state.market_client`.
 
-## Observabilidade (Sprint V3+Z3, 21/abr/2026)
+### Decisão 21 — `populate_daily_bars` default `1m` (ticks tem bug de escala)
+
+Origem: investigação N1 (28/abr/2026). PETR4 em `market_history_trades` mostrou padrão de **escala /100 intermitente** entre 09/04 e 16/04 (alguns dias 100% buggy, outros mistos com valores corretos e fracionados). `ohlc_1m` source `tick_agg_v1` **não tem o bug** — o agregador filtra/corrige.
+
+**Regras vinculantes:**
+1. `populate_daily_bars.py` default `auto` tenta **`ohlc_1m` primeiro**, fallback para ticks. Inversão da ordem original (que tentava ticks primeiro).
+2. **Não usar `--source ticks` em produção** para tickers com `ohlc_1m` disponível. O bug é da DLL coletora ou do pipeline de ingestão; corrigi-lo está fora de escopo (worth: ohlc_1m já cobre).
+3. **Exceção autorizada**: futuros (`WDOFUT`, `WINFUT`) que não têm `ohlc_1m` continuam usando ticks (única fonte). Esses tickers têm escalas absolutas grandes (50-5017 / 1627-198885) — risco de escala fracionária menor.
+4. Se `profit_daily_bars` voltar a mostrar escala mista em algum ticker, **regenerar via `populate_daily_bars.py --ticker $T --source 1m`** após `DELETE FROM profit_daily_bars WHERE ticker=$T`. Não tentar "patch in place" — é menos confiável.
+
+**Arquivos tocados**:
+- `scripts/populate_daily_bars.py` — default `auto` invertido (1m primeiro).
+- `init_timescale/004_fii_fundamentals.sql`, `005_crypto_signals_history.sql` — DDL versionado das tabelas N5/N6.
+
+## Observabilidade (Sprint V3+Z3+N28, 21-28/abr/2026)
 
 **Grafana** :3000 (admin/admin) — provisionado via `docker/grafana/provisioning/`:
 - **Datasources**: Prometheus :9090
 - **Dashboards**: 17 painéis em `data_quality.json` (DI1, dead_letter, market_data, yield curve, TSMOM, HMM)
-- **Alert rules**: 9 (`provisioning/alerting/rules.yml`) — recarregam sem restart Grafana via `docker restart finanalytics_grafana`
+- **Alert rules**: **14** (`provisioning/alerting/rules.yml`) — recarregam sem restart Grafana via `docker restart finanalytics_grafana`
 
 **Tabela de alerts ativos:**
 
@@ -466,6 +508,11 @@ Origem: Sprint BRAPI-purge 23/abr/2026 (Caminho 2 escolhido pelo usuário). Moti
 | 7 | `api_5xx_rate_high` | critical | rate 5xx > 5% em 5min | api |
 | 8 | `brapi_errors_high` | warning | `>10 BRAPI errors` em 15min | data |
 | 9 | `portfolio_ops_burst` | warning | rate `portfolio_operations > 10/s` em 5min | security |
+| 10 | `ml_drift_high` | warning | `finanalytics_ml_drift_count > 5` por 30min | ml |
+| 11 | `ml_snapshot_stale` | critical | `finanalytics_ml_snapshot_age_days > 2` por 1h | ml |
+| 12 | `scheduler_reconcile_errors_high` | warning | `>3 reconcile errors em 30min` (pregão) | trading |
+| 13 | `scheduler_data_jobs_errors` (28/abr) | warning | `>=3 falhas em 6h` em yahoo_bars/fii_fund/crypto_signals/cvm_informe | data |
+| 14 | `fii_fundamentals_stale` (28/abr) | warning | `0 execuções OK em 48h` no fii_fund | data |
 
 **Roteamento** (`policies.yml`):
 - `severity=critical` → `slack-ops` (URL placeholder; setar `GRAFANA_SLACK_WEBHOOK` no env do container Grafana para ativar)
@@ -480,7 +527,11 @@ Origem: Sprint BRAPI-purge 23/abr/2026 (Caminho 2 escolhido pelo usuário). Moti
 
 **Scheduler jobs** (`scheduler_worker.py`):
 - 06:00 BRT — `macro_job` (SELIC, IPCA, FX, IBOV, VIX)
+- 07:00 BRT — `fii_fund` (N5, 28/abr): scraper Status Invest → `fii_fundamentals` (skip weekend)
 - 07:00 BRT — `ohlcv_job` + `brapi_sync_job` (delta diário, idempotente)
+- 08:00 BRT — `yahoo_bars` (N11b, 28/abr): refresh `profit_daily_bars` para 39 FIIs+ETFs (skip weekend)
+- 09:00 BRT — `crypto_signals` (N6, 28/abr): snapshot `/api/v1/crypto/signal/{sym}` → `crypto_signals_history` (sem skip — crypto 24/7)
+- 09:00 BRT no dia 5 do mês — `cvm_informe` (N2, 28/abr): sync `inf_diario_fi_AAAAMM.zip` da CVM
 - 23:00 BRT — `cleanup_event_records_job` (retention 7d/30d)
 - A cada 5min em 10h-18h BRT — `reconcile_loop` (DLL ↔ DB, skip silencioso fora pregão/weekend)
 
@@ -497,6 +548,14 @@ Origem: Sprint BRAPI-purge 23/abr/2026 (Caminho 2 escolhido pelo usuário). Moti
 ```
 Remote: https://github.com/MarceloAbiSquarisi/finanalytics_ai
 Branch: master
+Últimos commits (28/abr madrugada — Sprint N1-N12 + N5b/N4b/N6b/N10b + housekeeping):
+  472f513 feat: migrations alembic + populate default 1m + 2 grafana alerts
+  1ae5669 feat: N6b+N4b+N10b + Dockerfile scripts/ no api stage
+  760edc8 feat: N11b+N6+N4+N10 — scheduler+crypto persist+RF Markov+FIDC/FIP
+  b6160ed feat: N11+N12 — /levels para FIIs/ETFs + drop backup pos-N1
+  a66f1fe feat: N5b — fundamentals FII no /dashboard signals (DY/PVP badges + filtro)
+  f678a49 feat: N1+N2+N5+N7+N8+N9 — data quality + scheduler + scraper FII + UI fixes
+
 Últimos commits (27/abr — Sprint M1-M5 + features /diario + S/R + flatten):
   7cf157b docs: atualiza Roteiro + Melhorias após sessão M1-M5
   5e7e496 feat: A.16/A.21 — outlier filter S/R + UI fundos analytics
