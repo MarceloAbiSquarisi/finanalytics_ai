@@ -402,7 +402,7 @@ Esse padrão é compatível com a "degradação do simulador Nelogica" também o
 
 **Workaround**: skip de testes de trailing live até broker estável OU testar contra production em janela de baixo risco.
 
-#### N13 — Gmail briefings → enrichment de signals/dashboard ⭐⭐ alto payoff
+#### N13 — Gmail briefings → enrichment de signals/dashboard ⭐⭐ alto payoff (REFINADO em E1/E2/E3 — ver secao "Leitura de Gmail" abaixo)
 **Custo**: ~1d MVP / ~3-5d completo. **Payoff**: alto (research institucional vira sinal acionável).
 
 User recebe daily briefings de corretoras (BTG morning, XP top picks, Itaú research, newsletters) que hoje ficam só no inbox. Pipeline pra extrair sinais e enriquecer dashboard.
@@ -651,6 +651,69 @@ Documentação para qualquer strategy nova passar por checklist:
 4. **Survivorship bias**: ações deslistadas somem do dataset.
 5. **Regime change**: estratégia 2010-2020 morre 2022. Revalide em janelas rolling.
 6. **Leverage sem hedge**: futuro alavanca 10x natural; gap noturno zera conta sem stop.
+
+### Leitura de Gmail (research + reconciliation)
+
+> Stack disponível hoje: MCP `claude_ai_Gmail` (OAuth pronto), pdfplumber já no projeto (A.4.9), Anthropic SDK (Claude Haiku 4.5 pra tagging barato), Pushover pra alertas. **N13 do backlog antigo** (Gmail briefings) é o E1 abaixo.
+
+#### E1 — Research bulletins → tags por ticker → enrich signals ⭐⭐⭐ alpha real (NOVO 28/abr)
+**Custo**: ~5 dias MVP. **Payoff**: alto (research institucional dirige preço em ações líquidas; event study 1-3 dias pós-publicação).
+
+Polling 5min com query Gmail `(from:research@btg OR from:reports@xp OR from:morningnotes@genial)`. Parse HTML/PDF → texto limpo. LLM (Haiku 4.5) classifica:
+```json
+{ticker_mentions: [...], sentiment: BULLISH|NEUTRAL|BEARISH,
+ action_if_any: BUY|HOLD|SELL, target_price: 52.0,
+ time_horizon: "1-3 meses"}
+```
+
+**Storage**: tabela `email_research (msg_id, ticker, sentiment, target, source, received_at, raw_text_excerpt)`.
+
+**Enrich**:
+- `/api/v1/ml/signals` ganha campo `research_overlay` (sentiment majority período 5d)
+- `/dashboard` card mostra badge "📰 BTG: BUY @52" abaixo do badge ML
+- Painel novo "Research Recente" lista últimos 50 com filtro por ticker
+
+**Edge documentado**: research institucional B3 (BTG/XP/Itaú/Genial) tem post-publication drift mensurável em ações grandes (event study clássico). Combinar com ML é overlay barato.
+
+**Custo LLM**: Haiku 4.5 $0.80/M input. ~50 emails/dia × 2k tokens × 30d = ~$2.40/mês por user. Cache de PDFs + summary se escalar.
+
+#### E2 — Notas de corretagem → reconciliation automática ⭐⭐ compliance (NOVO 28/abr)
+**Custo**: ~3 dias MVP por corretora. **Payoff**: médio (IR + confiança em fills + auditoria).
+
+Polling 30min: query `from:noreply@btgpactual.com after:N` (ou XP/Genial/Clear). Parse PDF anexo (pdfplumber, A.4.9 já validou ingest):
+- Extrai `(ticker, side, qty, preco_medio, taxa_corretagem, taxa_emolumentos, irrf, data_pregao)`
+- Match com `profit_orders` por `(ticker, side, qty, ±5min, ±0.5%)`
+- Se não conciliado: alert "❌ ordem em PDF da corretora sem match no DB" → revisão manual
+
+**Storage**: `brokerage_notes (note_id, broker, pdf_url, parsed_at, total_taxes, total_irrf, reconciled)` + `brokerage_note_items (note_id, ticker, side, qty, price, fees)`.
+
+**UI**: aba "Notas" em `/movimentacoes` lista + filtro por status (conciliada / pendente).
+
+**Valor secundário**: cálculo automático de IR (operações tributáveis + custos dedutíveis), prep DARF mensal.
+
+#### E3 — Pipeline genérico email (fundação multi-uso) ⭐ infra (NOVO 28/abr)
+**Custo**: ~7 dias. **Payoff**: alto SE tiver 3+ casos de uso futuros. Cedo agora — começar por E1 e generalizar depois.
+
+Schema base (`email_messages` + `email_attachments`), worker `gmail_sync_worker` configurável, parsers plugáveis (PDF/HTML/LLM), API `/api/v1/email/messages` paginada + busca full-text, UI `/email`. Habilita E1+E2+casos futuros (alertas operacionais, margem, eventos corporativos, depósitos).
+
+**Quando atacar**: depois que E1 estiver maduro e aparecer 3º caso de uso (ex: alertas de margin call ou tag de eventos corporativos).
+
+### Riscos a documentar antes de começar (E1/E2/E3)
+
+1. **Privacidade/LGPD**: emails têm dados sensíveis (saldos, CPF, posições). Storage criptografado em rest. Acesso restrito ao próprio `user_id`. Retenção config (deletar > 6 meses).
+2. **Quota Gmail API**: 1B units/dia free tier. Polling 5min em 1 user = ~300 calls/dia, OK. Multi-tenant precisa rate limit no worker.
+3. **OAuth refresh**: token expira em 1h; refresh_token vale 6 meses se app não recebe atividade. Fluxo de re-auth com push notification pro user (Pushover).
+4. **LLM cost runaway**: cache aggressive (msg_id hash → resultado), só re-classify quando body muda. Skip emails já parseados.
+5. **False positives no parser**: validar com sample manual antes de gravar `email_research` automatic. Threshold de confiança (LLM retorna `confidence: 0-1`).
+
+### Recomendação de ordem
+
+| # | Item | Custo | Quando |
+|---|---|---|---|
+| 1 | E1 MVP (BTG only) | 3-5d | Primeiro — alpha visível |
+| 2 | E1 expansão (XP, Genial) | +2d cada | Depois de E1 BTG validado |
+| 3 | E2 (BTG notes) | 3d | Quando IR/compliance virar prioridade |
+| 4 | E3 fundação | 5-7d | Só se aparecer 3º caso de uso |
 
 ### ML para outras classes (do backlog antigo, não atacados)
 
