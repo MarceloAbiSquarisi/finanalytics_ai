@@ -181,6 +181,92 @@ async def get_signal(
         raise HTTPException(500, str(exc)) from exc
 
 
+@router.get("/signal_history/{symbol}", summary="Historico de signals diarios")
+async def get_signal_history(
+    symbol: str,
+    days: int = Query(30, ge=1, le=365),
+    vs_currency: str = Query("usd"),
+) -> dict[str, Any]:
+    """N6 (28/abr): retorna ultimos N dias de snapshots de
+    crypto_signals_history para o symbol. Util para analisar evolucao
+    do score (multi-horizon natural via janela de dias).
+
+    Pre-requisito: scheduler rodando snapshot_crypto_signals.py diario.
+    """
+    import os as _os
+    import psycopg2
+
+    dsn = (
+        _os.environ.get("TIMESCALE_URL")
+        or _os.environ.get("PROFIT_TIMESCALE_DSN")
+        or "postgresql://finanalytics:timescale_secret@localhost:5433/market_data"
+    )
+    dsn = dsn.replace("postgresql+asyncpg://", "postgresql://")
+
+    sym = symbol.upper()
+    try:
+        with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT snapshot_date, signal, score, current_price,
+                       rsi, macd_hist, ema9, ema21, bb_upper, bb_lower
+                FROM crypto_signals_history
+                WHERE symbol = %s AND vs_currency = %s
+                  AND snapshot_date >= CURRENT_DATE - (%s::int * INTERVAL '1 day')
+                ORDER BY snapshot_date ASC
+                """,
+                (sym, vs_currency, days),
+            )
+            rows = cur.fetchall()
+    except Exception as exc:
+        raise HTTPException(500, str(exc)) from exc
+
+    items = [
+        {
+            "snapshot_date": r[0].isoformat(),
+            "signal": r[1],
+            "score": r[2],
+            "current_price": float(r[3]) if r[3] is not None else None,
+            "rsi": float(r[4]) if r[4] is not None else None,
+            "macd_hist": float(r[5]) if r[5] is not None else None,
+            "ema9": float(r[6]) if r[6] is not None else None,
+            "ema21": float(r[7]) if r[7] is not None else None,
+            "bb_upper": float(r[8]) if r[8] is not None else None,
+            "bb_lower": float(r[9]) if r[9] is not None else None,
+        }
+        for r in rows
+    ]
+
+    # Multi-horizon agregado: signal "predominante" em cada janela
+    def _predominant(window_items: list[dict]) -> dict:
+        if not window_items:
+            return {"signal": None, "score_avg": None, "n": 0}
+        scores = [i["score"] for i in window_items if i.get("score") is not None]
+        avg = sum(scores) / len(scores) if scores else None
+        from collections import Counter
+        sigs = Counter(i["signal"] for i in window_items if i.get("signal"))
+        return {
+            "signal": sigs.most_common(1)[0][0] if sigs else None,
+            "score_avg": round(avg, 2) if avg is not None else None,
+            "n": len(window_items),
+        }
+
+    summary = {
+        "h7d":  _predominant(items[-7:]) if len(items) >= 1 else {"signal": None, "score_avg": None, "n": 0},
+        "h14d": _predominant(items[-14:]) if len(items) >= 1 else {"signal": None, "score_avg": None, "n": 0},
+        "h30d": _predominant(items[-30:]) if len(items) >= 1 else {"signal": None, "score_avg": None, "n": 0},
+    }
+
+    return {
+        "symbol": sym,
+        "vs_currency": vs_currency,
+        "days_requested": days,
+        "count": len(items),
+        "items": items,
+        "horizons": summary,
+    }
+
+
 @router.post("/portfolio", summary="Calcula P&L da carteira de cripto")
 async def calc_portfolio(body: PortfolioRequest, request: Request) -> dict[str, Any]:
     svc = _svc(request)

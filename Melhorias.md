@@ -36,6 +36,32 @@
 - Validação: KNRI11/BOVA11/HFOF11/RECT11 retornam Williams 17-30 fractais cada (antes 404).
 - Follow-up: agendar refresh diário (similar a fii_fundamentals) — fica como **N11b** trivial.
 
+### N11b — Refresh diário Yahoo daily bars no scheduler ✅ DONE 28/abr
+- `yahoo_daily_bars_refresh_job` em `scheduler_worker.py`. Roda 8h BRT diário, skip weekend.
+- Subprocess isolado chama `scripts/backfill_yahoo_daily_bars.py --years 2`.
+- Mantém profit_daily_bars de FIIs+ETFs em dia sem intervenção manual.
+
+### N6 — Crypto persistence + multi-horizon signals ✅ DONE 28/abr
+- Tabela `crypto_signals_history` (symbol, snapshot_date, vs_currency PK).
+- Script `scripts/snapshot_crypto_signals.py` chama API `/crypto/signal/{sym}` e persiste 9 colunas (signal/score/price/RSI/MACD/EMAs/BB).
+- Job `crypto_signals_snapshot_job` no scheduler (9h BRT diário, sem skip weekend — crypto 24/7).
+- Endpoint novo `/api/v1/crypto/signal_history/{symbol}?days=30` retorna histórico + agregação multi-horizon (`h7d`/`h14d`/`h30d`: signal predominante + score_avg + n).
+- Validado: BTC HOLD score=-2 price=77.445, ETH HOLD score=1, SOL HOLD score=1.
+- **Limitação**: CoinGecko sem candles intraday verdadeiros (h1/h6 reais ficariam para worker tick separado).
+
+### N4 — Markov empírico para RF Regime ✅ DONE 28/abr
+- Função `compute_transitions(history, current_regime)` em `domain/rf_regime/classifier.py`.
+- Calcula matriz 4×4 P(regime_t+1 | regime_t) por contagem empírica + duração média de cada regime + most_likely_next.
+- `analyze_regime` retorna campo novo `transitions: RegimeTransitions | None`.
+- Validado live: NORMAL atual com 94.64% prob de continuar NORMAL amanhã, 3.57% STEEPENING, 1.79% FLATTENING. NORMAL dura ~17 dias em média; STEEPENING ~1.7 dias.
+- **Decisão pragmática**: HMM real (hmmlearn) descartado — Markov chain empírica entrega o essencial (probabilidades + duração) sem dep pesada e sem treino.
+
+### N10 — ML analytics para FIDC/FIP ✅ DONE 28/abr
+- Backend já era genérico (peer_ranking aceita qualquer `tipo`). Validação live: FIDC top sharpe=144 (inflado por low-vol), FIP top sharpe=4.7.
+- UI `/fundos`: dropdown ganhou FIDC/FIDC-NP/FIP/FIP Multi/Referenciado.
+- Backend route `/peer-ranking` retorna campo `warning` quando tipo ∈ {FIDC*, FIP*, FMIEE} explicando peculiaridades de cota (low-vol → sharpe inflado / baixa frequência → métricas instáveis).
+- Frontend exibe warning amarelo abaixo de "Avaliados: N fundos".
+
 ### N12 — Validar fix N1 + drop backup ✅ DONE 28/abr
 - Validado: 6 tickers DLL com escala coerente (ABEV3 13-17, ITUB4 39-50, PETR4 15-50, VALE3 51-90 etc).
 - `/indicators/PETR4/summary` retorna EMAs/RSI/BB normais (close=48.54, EMA20=46.82, RSI14=61.98, BB_upper=50.36).

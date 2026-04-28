@@ -228,6 +228,24 @@ async def peer_ranking_endpoint(
         funds_data.append((cnpj, denom, returns))
 
     ranking = peer_ranking(funds_data, window_months=months, top_n=top)
+
+    # N10 (28/abr): warning para classes com peculiaridades de cota.
+    # FIDC/FIDC-NP: cota low-vol → sharpe inflado (denominador pequeno).
+    # FIP/FIP Multi: cota atualizada com baixa frequência → vol/return instáveis.
+    warning = None
+    if tipo in ("FIDC", "FIDC-NP", "FIC FIDC"):
+        warning = (
+            "FIDC têm cota de baixa volatilidade (carteira de recebíveis). "
+            "Sharpe absoluto pode estar inflado pelo denominador pequeno; "
+            "compare entre FIDCs, não entre FIDCs e ações."
+        )
+    elif tipo in ("FIP", "FIP Multi", "FIC FIP", "FMIEE"):
+        warning = (
+            "FIP têm cota atualizada com baixa frequência (PE/VC); "
+            "métricas diárias podem ser instáveis. Considere janela ≥24m "
+            "e prefira analisar evolução qualitativa em vez de sharpe."
+        )
+
     return {
         "ok": True,
         "tipo": tipo,
@@ -235,6 +253,7 @@ async def peer_ranking_endpoint(
         "min_pl": min_pl,
         "end_date": end_date_str,
         "total_evaluated": len(funds_data),
+        "warning": warning,
         "top": ranking,
     }
 

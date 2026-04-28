@@ -120,12 +120,17 @@ tr:hover td{background:rgba(0,212,255,.015)}
     <div class="sec-title">📊 Analytics — Peer Ranking</div>
     <div class="search-row">
       <label style="font-size:13px;color:var(--muted)">Classe:</label>
-      <select id="pr-tipo" class="input" style="width:200px">
+      <select id="pr-tipo" class="input" style="width:220px">
         <option value="Multimercado">Multimercado</option>
         <option value="Ações">Ações</option>
         <option value="Renda Fixa">Renda Fixa</option>
         <option value="FII">FII</option>
+        <option value="FIDC">FIDC (Direitos Creditórios)</option>
+        <option value="FIP">FIP (Participações)</option>
+        <option value="FIDC-NP">FIDC-NP</option>
+        <option value="FIP Multi">FIP Multi</option>
         <option value="Cambial">Cambial</option>
+        <option value="Referenciado">Referenciado</option>
       </select>
       <label style="font-size:13px;color:var(--muted)">Janela:</label>
       <select id="pr-months" class="input" style="width:130px">
@@ -271,7 +276,11 @@ async function loadPeerRanking() {
       meta.textContent = '';
       return;
     }
-    meta.textContent = `Avaliados: ${d.total_evaluated} fundos · Janela: ${d.window_months}m · Até: ${d.end_date}`;
+    // N10 (28/abr): warning quando tipo é FIDC/FIP (peculiaridades de cota)
+    const warningHtml = d.warning
+      ? ` <span style="color:#ffd740;font-size:11px;display:block;margin-top:2px">⚠ ${d.warning}</span>`
+      : '';
+    meta.innerHTML = `Avaliados: ${d.total_evaluated} fundos · Janela: ${d.window_months}m · Até: ${d.end_date}${warningHtml}`;
     const top = d.top || [];
     if (!top.length) {
       tbody.innerHTML = '<tr><td colspan="8" class="empty">Nenhum fundo elegível.</td></tr>';

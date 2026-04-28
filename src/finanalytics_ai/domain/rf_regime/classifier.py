@@ -58,6 +58,17 @@ class RegimeRecommendation(TypedDict):
     suggested_allocation: RegimeAllocation
 
 
+class RegimeTransitions(TypedDict):
+    # N4 (28/abr): matriz de transicao empirica P(regime_t+1 | regime_t)
+    # calculada a partir da history. Estilo "HMM-Markov simples" sem
+    # lib pesada — usa frequencias relativas observadas.
+    matrix: dict[str, dict[str, float]]   # regime_from -> {regime_to: prob}
+    next_regime_probs: dict[str, float]   # P(amanha = X | hoje = regime_atual)
+    most_likely_next: Regime              # argmax do next_regime_probs
+    avg_duration_days: dict[str, float]   # quanto cada regime costuma durar
+    sample_pairs: int                     # n pares (t, t+1) usados
+
+
 class RegimeResult(TypedDict):
     regime: Regime
     score: float                         # intensidade [0,1]: quanto mais alto, mais "puro" o regime
@@ -67,6 +78,7 @@ class RegimeResult(TypedDict):
     last_date: str
     sample_size: int
     history: list[RegimePoint]            # série diária do regime nos últimos N dias
+    transitions: RegimeTransitions | None  # N4: probabilidades empiricas
     recommendation: RegimeRecommendation
 
 
@@ -156,6 +168,71 @@ RATIONALES: dict[Regime, str] = {
 }
 
 
+def compute_transitions(
+    history: list[RegimePoint],
+    current_regime: Regime,
+) -> RegimeTransitions | None:
+    """N4 (28/abr): matriz de transicao empirica P(t+1 | t).
+
+    Implementa a parte essencial do que um HMM ofereceria: probabilidades
+    de mudanca de regime baseadas na frequencia historica. Sem lib pesada
+    (hmmlearn) e sem necessidade de treinar — derivacao analitica direta.
+
+    Usa pelo menos 30 transicoes para calcular probs (sem isso retorna None).
+    """
+    if len(history) < 31:  # precisa >=30 pares (t, t+1)
+        return None
+
+    regimes_seq = [h["regime"] for h in history]
+    states: list[str] = ["NORMAL", "STEEPENING", "FLATTENING", "INVERSION"]
+
+    # Conta transicoes (t -> t+1)
+    counts: dict[str, dict[str, int]] = {s: {t: 0 for t in states} for s in states}
+    for i in range(len(regimes_seq) - 1):
+        f, t = regimes_seq[i], regimes_seq[i + 1]
+        counts[f][t] += 1
+
+    # Normaliza para probabilidades
+    matrix: dict[str, dict[str, float]] = {}
+    for s in states:
+        total = sum(counts[s].values())
+        if total == 0:
+            # regime nao observado — assume uniforme (1/4)
+            matrix[s] = {t: 0.25 for t in states}
+        else:
+            matrix[s] = {t: round(counts[s][t] / total, 4) for t in states}
+
+    # P(amanha | hoje=current_regime)
+    next_probs = matrix[current_regime]
+    most_likely = max(next_probs.items(), key=lambda kv: kv[1])[0]
+
+    # Duracao media: para cada regime, quantos dias consecutivos em media
+    durations: dict[str, list[int]] = {s: [] for s in states}
+    if regimes_seq:
+        run_state = regimes_seq[0]
+        run_len = 1
+        for r in regimes_seq[1:]:
+            if r == run_state:
+                run_len += 1
+            else:
+                durations[run_state].append(run_len)
+                run_state = r
+                run_len = 1
+        durations[run_state].append(run_len)
+    avg_dur = {
+        s: round(sum(d) / len(d), 2) if d else 0.0
+        for s, d in durations.items()
+    }
+
+    return {
+        "matrix": matrix,
+        "next_regime_probs": next_probs,
+        "most_likely_next": most_likely,  # type: ignore[typeddict-item]
+        "avg_duration_days": avg_dur,
+        "sample_pairs": len(regimes_seq) - 1,
+    }
+
+
 def build_recommendation(regime: Regime) -> RegimeRecommendation:
     return {
         "regime": regime,
@@ -226,6 +303,8 @@ def analyze_regime(
             "regime": r_i,
         })
 
+    transitions = compute_transitions(history, regime)
+
     return {
         "regime": regime,
         "score": score,
@@ -235,5 +314,6 @@ def analyze_regime(
         "last_date": valid[-1][0].isoformat(),
         "sample_size": len(valid),
         "history": history,
+        "transitions": transitions,
         "recommendation": build_recommendation(regime),
     }

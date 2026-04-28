@@ -90,6 +90,18 @@ CVM_INFORME_HOUR = int(os.environ.get("SCHEDULER_CVM_INFORME_HOUR", "9"))  # 09:
 FII_FUND_ENABLED = os.environ.get("SCHEDULER_FII_FUND_ENABLED", "true").lower() == "true"
 FII_FUND_HOUR = int(os.environ.get("SCHEDULER_FII_FUND_HOUR", "7"))  # 07:00 BRT
 
+# N11b (28/abr/2026): refresh diario das daily bars Yahoo para FIIs+ETFs em
+# profit_daily_bars. Mantem fetch_candles cobertura para tickers fora DLL.
+# Roda em YAHOO_BARS_HOUR (default 7:30h BRT). Idempotente via ON CONFLICT.
+YAHOO_BARS_ENABLED = os.environ.get("SCHEDULER_YAHOO_BARS_ENABLED", "true").lower() == "true"
+YAHOO_BARS_HOUR = int(os.environ.get("SCHEDULER_YAHOO_BARS_HOUR", "8"))  # 08:00 BRT (depois do FII_FUND)
+
+# N6 (28/abr/2026): snapshot diario de crypto signals (BTC/ETH/SOL/etc) para
+# crypto_signals_history. Roda 1x/dia em CRYPTO_SIGNALS_HOUR (default 9h BRT).
+# Crypto roda 24/7, nao tem skip de weekend. Idempotente via PK.
+CRYPTO_SIGNALS_ENABLED = os.environ.get("SCHEDULER_CRYPTO_SIGNALS_ENABLED", "true").lower() == "true"
+CRYPTO_SIGNALS_HOUR = int(os.environ.get("SCHEDULER_CRYPTO_SIGNALS_HOUR", "9"))  # 09:00 BRT
+
 # ── Logger ────────────────────────────────────────────────────────────────────
 structlog.configure(
     processors=[
@@ -592,6 +604,87 @@ async def settle_cash_transactions_job() -> dict[str, Any]:
         return {"status": "error", "error": str(exc)}
 
 
+async def crypto_signals_snapshot_job() -> dict[str, Any]:
+    """N6 (28/abr): snapshot diario de signals de crypto via API local.
+
+    Chama scripts/snapshot_crypto_signals.py que atinge /api/v1/crypto/signal/{sym}
+    e persiste em crypto_signals_history. Idempotente.
+    """
+    logger.info("scheduler.crypto_signals.start")
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "python",
+            "/app/scripts/snapshot_crypto_signals.py",
+            "--rate-limit", "2.0",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            env={
+                **os.environ,
+                "FINANALYTICS_API_BASE": os.environ.get("FINANALYTICS_API_BASE", "http://api:8000"),
+            },
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=180)
+        rc = proc.returncode
+        last_lines = stdout.decode("utf-8", errors="replace").splitlines()[-5:]
+        if rc == 0:
+            logger.info("scheduler.crypto_signals.done", tail=last_lines)
+            _record("crypto_signals", "ok")
+            return {"status": "ok", "tail": last_lines}
+        logger.warning("scheduler.crypto_signals.bad_rc", rc=rc, tail=last_lines)
+        _record("crypto_signals", "error")
+        return {"status": "error", "rc": rc, "tail": last_lines}
+
+    except asyncio.TimeoutError:
+        logger.error("scheduler.crypto_signals.timeout")
+        _record("crypto_signals", "error")
+        return {"status": "error", "reason": "timeout_3min"}
+    except Exception as exc:
+        logger.error("scheduler.crypto_signals.failed", error=str(exc), exc_info=True)
+        _record("crypto_signals", "error")
+        return {"status": "error", "error": str(exc)}
+
+
+async def yahoo_daily_bars_refresh_job() -> dict[str, Any]:
+    """N11b (28/abr): refresh diario de profit_daily_bars com Yahoo OHLCV
+    para FIIs+ETFs (asset_class IN ('fii','etf') no ticker_ml_config).
+
+    Idempotente via ON CONFLICT. Skip em weekend (Yahoo nao atualiza B3 no
+    fim de semana). Subprocess isolado para nao bloquear event loop.
+    """
+    if not _is_weekday():
+        _record("yahoo_bars", "skip")
+        return {"status": "skip", "reason": "weekend"}
+
+    logger.info("scheduler.yahoo_bars.start")
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "python",
+            "/app/scripts/backfill_yahoo_daily_bars.py",
+            "--years", "2",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=600)
+        rc = proc.returncode
+        last_lines = stdout.decode("utf-8", errors="replace").splitlines()[-3:]
+        if rc == 0:
+            logger.info("scheduler.yahoo_bars.done", tail=last_lines)
+            _record("yahoo_bars", "ok")
+            return {"status": "ok", "tail": last_lines}
+        logger.warning("scheduler.yahoo_bars.bad_rc", rc=rc, tail=last_lines)
+        _record("yahoo_bars", "error")
+        return {"status": "error", "rc": rc, "tail": last_lines}
+
+    except asyncio.TimeoutError:
+        logger.error("scheduler.yahoo_bars.timeout")
+        _record("yahoo_bars", "error")
+        return {"status": "error", "reason": "timeout_10min"}
+    except Exception as exc:
+        logger.error("scheduler.yahoo_bars.failed", error=str(exc), exc_info=True)
+        _record("yahoo_bars", "error")
+        return {"status": "error", "error": str(exc)}
+
+
 async def fii_fundamentals_refresh_job() -> dict[str, Any]:
     """N5 (27/abr): refresh diario de DY/P/VP/div_12m via Status Invest.
 
@@ -753,6 +846,10 @@ async def run_once() -> None:
         await cvm_informe_sync_job()
     if FII_FUND_ENABLED:
         await fii_fundamentals_refresh_job()
+    if YAHOO_BARS_ENABLED:
+        await yahoo_daily_bars_refresh_job()
+    if CRYPTO_SIGNALS_ENABLED:
+        await crypto_signals_snapshot_job()
     logger.info("scheduler.run_once.done")
 
 
@@ -927,6 +1024,42 @@ async def schedule_loop() -> None:
 
     if FII_FUND_ENABLED:
         tasks.append(asyncio.create_task(fii_fund_loop()))
+
+    async def yahoo_bars_loop() -> None:
+        # N11b (28/abr): roda 1x/dia em YAHOO_BARS_HOUR. Skip em weekend.
+        # Idempotente (ON CONFLICT em profit_daily_bars).
+        logger.info("scheduler.yahoo_bars.start_loop", hour=YAHOO_BARS_HOUR)
+        while True:
+            next_run = _next_run_utc(YAHOO_BARS_HOUR)
+            wait = _seconds_until(next_run)
+            logger.info(
+                "scheduler.yahoo_bars.next",
+                next_utc=next_run.isoformat(),
+                wait_min=round(wait / 60),
+            )
+            await asyncio.sleep(wait)
+            await yahoo_daily_bars_refresh_job()
+
+    if YAHOO_BARS_ENABLED:
+        tasks.append(asyncio.create_task(yahoo_bars_loop()))
+
+    async def crypto_signals_loop() -> None:
+        # N6 (28/abr): snapshot diario crypto signals. Sem skip de weekend
+        # (crypto 24/7).
+        logger.info("scheduler.crypto_signals.start_loop", hour=CRYPTO_SIGNALS_HOUR)
+        while True:
+            next_run = _next_run_utc(CRYPTO_SIGNALS_HOUR)
+            wait = _seconds_until(next_run)
+            logger.info(
+                "scheduler.crypto_signals.next",
+                next_utc=next_run.isoformat(),
+                wait_min=round(wait / 60),
+            )
+            await asyncio.sleep(wait)
+            await crypto_signals_snapshot_job()
+
+    if CRYPTO_SIGNALS_ENABLED:
+        tasks.append(asyncio.create_task(crypto_signals_loop()))
     # Feature C5: liquidacao diaria (on by default, simples e idempotente)
     import os as _os_sc
     if _os_sc.getenv("SCHEDULER_SETTLE_CASH_ENABLED", "true").lower() == "true":
