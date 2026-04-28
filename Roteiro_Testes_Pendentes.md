@@ -617,49 +617,40 @@
 - [ ] **B.6.7** Status vira `active` ou `partial`; TP+SL aparecem em "Ordens"
 - [ ] **B.6.8** Log profit_agent: `oco_group.dispatched group=... filled=N/M levels=K`
 
-### B.7 — OCO Phase B Splits (~15min)
+### B.7 — OCO Phase B Splits (~15min) ✅ DONE 28/abr 14:27
 
-- [ ] **B.7.1** Limit BUY VALE3 100 @ valor longe → pending
-- [ ] **B.7.2** 🛡 OCO → "+ nível", qty 60/40, TP1=72 SL1=58, TP2=75 SL2=58 → confirma
-- [ ] **B.7.3** DB: 2 rows em `profit_oco_levels` com level_idx 1 e 2
-- [ ] **B.7.4** Validação sum: tentar 50/40 → mensagem `Soma das qty (90) deve bater parent.qty (100)`
+- [X] **B.7.1** Limit BUY VALE3 100 @ R$65 (longe de R$84,46) → pending no book (cl_ord_id `NLGC.150112...244407`, status=0 DLL; DB ainda 10 por bug P2)
+- [X] **B.7.2** 🛡 OCO → "+ nível", qty 60/40, TP1=72 SL1=58, TP2=75 SL2=58 → confirma (group `b1d38586-df52-46c1-a160-091933778d6a` `awaiting`)
+- [X] **B.7.3** DB: 2 rows em `profit_oco_levels` com level_idx 1 (qty=60 tp=72 sl=58/57.5) e level_idx 2 (qty=40 tp=75 sl=58/57.5)
+- [X] **B.7.4** Validação sum: tentar 50/40 → mensagem **EXATA** `Soma das qty (90) deve bater parent.qty (100).`
 
-### B.8 — OCO Phase C Trailing R$ (~15min)
+### B.8 — OCO Phase C Trailing R$ (~15min) ⚠️ BLOQUEADO P7 28/abr 16h
 
-- [ ] **B.8.1** BUY PETR4 100 @ market → fill imediato
-- [ ] **B.8.2** OCO 1 nível: TP=35 SL=28 + ☑ Trailing R$ 0,50 → confirmar
-- [ ] **B.8.3** Mover preço pra +R$ 1 (PETR4 sobe pra ~31)
-- [ ] **B.8.4** Log: `trailing.adjusted group=... lv=1 hw=31.0000 new_sl=30.5000`
-- [ ] **B.8.5** SL trigger no DB ajusta pra 30.50
+- [X] **B.8.1** BUY PETR4 100 @ market → fill imediato (local=26042814073723, avg=47.54)
+- [X] **B.8.2** OCO 1 nível: TP=50 SL=47.30/47.20 + ☑ Trailing R$ 0,20 → confirmar (group `c5cbf5a1-5941-4d73-8128-caa5b7f374df` `active`, tp_status=sent, sl_status=sent)
+- [ ] **B.8.3** Mover preço pra +R$ 1 (PETR4 sobe pra ~31) — **N/A**: preço de mercado não controlável, depende de pregão
+- [ ] **B.8.4** Log: `trailing.adjusted group=... lv=1 hw=31.0000 new_sl=30.5000` — **NUNCA EMITIDO**: `change_order` em SL stop-limit retorna `ret=-2147483645` do broker simulator (P7). trail_monitor cicla mas não consegue ratchet.
+- [ ] **B.8.5** SL trigger no DB ajusta pra 30.50 — **N/A** mesmo motivo
 
-### B.9 — OCO Phase C Trailing % (~10min)
+### B.9 — OCO Phase C Trailing % (~10min) ⚠️ BLOQUEADO P7
 
-- [ ] **B.9.1** OCO em VALE3 com Trailing 1.5% (radio %)
-- [ ] **B.9.2** Mover preço +2% → SL trigger atualiza proporcionalmente
+- [ ] mesmo bloqueio que B.8 — `change_order` em stop-limit não funciona
 
-### B.10 — OCO Phase C Immediate trigger (~10min)
+### B.10 — OCO Phase C Immediate trigger (~10min) ⚠️ BLOQUEADO P7
 
-- [ ] **B.10.1** OCO com SL trigger 50 (ACIMA do last 48 — long, sell), trailing R$ 0,50
-- [ ] **B.10.2** Já no submit: log `trailing.immediate_trigger group=... lv=N last=48 trigger=50 side=2`
-- [ ] **B.10.3** Ordem market sell disparada imediato pra fechar
-- [ ] **B.10.4** DB: `sl_status='sent'` com novo `sl_order_id` (market)
+- [ ] mesmo bloqueio: imediate_trigger envia `change_order` para virar SL → market, ainda exige change funcional
 
-### B.11 — OCO Phase D Cross-cancel live (~15min)
+### B.11 — OCO Phase D Cross-cancel live (~15min) ⚠️ BLOQUEADO P4
 
-- [ ] **B.11.1** Group active com 2+ níveis
-- [ ] **B.11.2** Mover preço pra cima do TP1 → fillar
-- [ ] **B.11.3** Log: `oco.tp_filled→sl_cancel group=... lv=1`
-- [ ] **B.11.4** Level 1 SL = `cancelled` no DB
-- [ ] **B.11.5** Group continua `partial` enquanto outros níveis ativos
-- [ ] **B.11.6** Repetir até último nível → `completed`, `completed_at` setado
+- [ ] cross-cancel via `order_callback` sofre struct corruption (P4 já catalogado em 28/abr 14h)
 
-### B.12 — OCO Phase D Persistence + restart (~15min)
+### B.12 — OCO Phase D Persistence + restart (~15min) ⚠️ PARCIAL — P5+P6 28/abr 16h
 
-- [ ] **B.12.1** Com 1+ group active no DB, parar profit_agent (admin)
-- [ ] **B.12.2** Subir novo: `Start-Process .venv\Scripts\python.exe ...`
-- [ ] **B.12.3** Log inicial: `oco.state_loaded groups=N levels=M order_index=K`
-- [ ] **B.12.4** `/api/v1/agent/oco/groups` retorna mesmos groups, status preservado
-- [ ] **B.12.5** Cross-cancel continua funcionando após restart
+- [X] **B.12.1** Com 2 groups active+awaiting no DB (b1d38586 VALE3 / 21bc19bb PETR4), restart agent via `/agent/restart` (sudo)
+- [X] **B.12.2** Boot OK em ~15s; tick callback volta funcional (total_ticks 382 → 833228)
+- [X] **B.12.3** Log inicial: `oco.state_loaded groups=2 levels=3 order_index=3` ✅
+- [ ] **B.12.4** `/api/v1/agent/oco/groups` retorna mesmos groups — **FALHOU**: in-memory `_oco_groups` vazio apesar do log dizer `n=2`. **P6 catalogado**. Workaround: `GET /oco/state/reload` manual restaura.
+- [ ] **B.12.5** Cross-cancel após restart — **N/A** (depende de P4 fix + P6 fix)
 
 ### B.13 — Cancel manual de group (~5min)
 
@@ -668,10 +659,10 @@
 - [ ] **B.13.3** DB: `status='cancelled'`, `completed_at` setado
 - [ ] **B.13.4** Aba Ordens: TP e SL daquele group ficam CANCELED
 
-### B.14 — Indicadores tick-dependent (~10min)
+### B.14 — Indicadores tick-dependent (~10min) ✅ DONE 28/abr 16:18
 
-- [ ] **B.14.1** /marketdata?ticker=PETR4 — RSI/MACD/Bollinger reflete tick recente
-- [ ] **B.14.2** /dashboard painel ML signals Live: tickers atualizados pós-pregão
+- [X] **B.14.1** /marketdata?ticker=PETR4 — RSI/MACD/Bollinger reflete tick recente (candle 5m last bar 19:15Z close=47.60 vol=39600 — tick stream live)
+- [X] **B.14.2** /dashboard ADX 14.7 +DI 21.8 -DI 23.3 computado em runtime; ML signals Live com snap=2026-04-21 (snapshots diários)
 
 ### B.15 — DI1 realtime (~5min)
 
@@ -683,6 +674,22 @@
 - [ ] **B.16.1** Scheduler `reconcile_loop` (a cada 5min em 10h-18h BRT) executa
 - [ ] **B.16.2** Order enviada via dashboard → após 5min, status no DB confere com DLL
 - [ ] **B.16.3** Se DLL retorna order com status diff, log `reconcile.discrepancy.fixed`
+
+### B.17 — Trade /carteira → DLL (~10min) ❌ N/A 28/abr 16:13
+
+> Premissa do roteiro inválida. Aba Trades em `/carteira` é cadastro contábil de operações (data/ticker/qty/preço/corretagem/conta) — registra operação histórica para PM/lucro. **Não envia ordem ao DLL**. Fluxo DLL real é via `/dashboard` painel DayTrade. B.17 ficaria efetivamente igual a B.2 já validado.
+
+### B.19 — flatten_ticker end-to-end ⚠️ PARCIAL 28/abr 16:16 (broker rejeitou ações)
+
+- [X] **B.19.1** Pre-cond: BUY 100 PETR4 market filled (open_qty=100 long PM=47.56) + SELL @ 50 limit pending (1 ordem; BUYs limit @ 28/45/47 todas REJEITADAS pelo broker — degradação do simulador)
+- [X] **B.19.2** Aba Pos. → Ver: `▲ Comprada qty=100 PM=47.56` ✅
+- [X] **B.19.3** Caixa vermelha: `PETR4 — posição aberta: 100 · 49 ordem(ns) pendente(s)` ✅ (49 inclui restos OCO de sessões anteriores)
+- [X] **B.19.4** Click `🚨 ZERAR + CANCELAR PENDENTES` → modal danger `🚨 Encerrar exposição em PETR4?` → botão `ENCERRAR PETR4` → confirmou
+- [ ] **B.19.5** Toast esperado `PETR4 encerrado · X canceladas · zero=local_id` — **PARCIAL**: endpoint funcional retornou JSON `{cancelled:0, cancel_errors:49, zero_ok:false, zero_local_order_id:-2147483645}`. Toast deve mostrar mas nada se concretizou no broker.
+- [ ] **B.19.6** 2 limit em CANCELED + 1 market sell FILLED — **N/A**: broker rejeitou tudo (P7 padrão)
+- [ ] **B.19.7** open_qty=0 — **N/A**: broker rejeitou zero_position
+
+**Conclusão**: endpoint `/order/flatten_ticker` orquestra cancel_loop + zero_position end-to-end com proxy → DLL → DB e retorna resumo idempotente. Falha de execução é do broker simulator degradado, não do código.
 
 ### B.18 — DLL fill cria entry no diário automaticamente (~15min)
 

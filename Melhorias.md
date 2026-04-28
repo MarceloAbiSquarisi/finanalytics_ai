@@ -335,6 +335,53 @@ worker_start = datetime.now(tz=UTC)
 poll: SELECT * FROM profit_ticks WHERE ticker = ? AND time > $worker_start ORDER BY time, trade_number
 ```
 
+#### P5 — Tick callback morre após restart NSSM (se não passar por /agent/restart) ⭐⭐⭐ crítico (NOVO 28/abr 16h)
+**Custo**: ~30min investigação. **Payoff**: crítico (sem tick callback, todo o sistema OCO trailing/indicadores live/_last_prices fica congelado).
+
+Sintoma: após restart via `Restart-Service FinAnalyticsAgent` (PowerShell admin), `/status` mostra `total_ticks` congelado em valor antigo, `_last_prices` vazio, `market_history_trades` sem inserts recentes apesar de `market_connected=true` e `subscribed_tickers=371`. Nenhum tick callback dispara.
+
+Quando o restart é feito via `POST /api/v1/agent/restart` (sudo path), tick callback volta a funcionar normal — `total_ticks` reseta e sobe rapidamente (382 → 833228 em ~15s observado em 28/abr 15:33).
+
+Hipótese: NSSM Restart-Service mata processo subitamente (`taskkill /F`), DLL ConnectorThread perde estado interno; subprocess Python relançado tenta re-subscribe mas algo no `SetNewTradeCallback` (V1) não engata. `/agent/restart` próprio do agent faz cleanup ordenado antes de `os._exit(0)`.
+
+**Workaround**: sempre usar `/api/v1/agent/restart` (com sudo_token) em vez de `Restart-Service`. Documentar no runbook NSSM.
+
+**Fix preferido**: substituir `os._exit(0)` por `kernel32.TerminateProcess` via ctypes (já listado em O1) — mata DLL ConnectorThread limpo, evita zombie pairs e talvez resolva re-subscribe issue.
+
+#### P6 — `_load_oco_state_from_db()` no boot loga `groups_loaded n=2` mas `_oco_groups` em memória sai vazio ⭐⭐ alto (NOVO 28/abr 16h)
+**Custo**: ~1h investigação + ~30min fix. **Payoff**: B.12 (Phase D persistence) quebrada — restart do agent perde todo o estado OCO em memória apesar do DB estar consistente.
+
+Sintoma observado em 28/abr 15:33 pós-`/agent/restart`:
+- Log: `oco.state_loaded groups=2 levels=3 order_index=3` (load executou e populou `self._oco_groups`)
+- `GET /oco/groups` → `{"groups": [], "count": 0}` (in-memory vazio)
+- `GET /oco/state/reload` (manual) → `{"ok": true, "groups_loaded": 2}` + subsequente `/oco/groups` retorna 2 grupos corretos.
+
+Race condition ou sobrescrita após o load inicial. Possível causa: thread `_oco_groups_monitor_loop` ou `_trail_monitor_loop` inicia ANTES do load completar (ordem em `__init__` está correta no código mas pode haver assyncronicidade). Ou alguma rota HTTP dispara cleanup.
+
+**Fix candidato**: adicionar lock + verificação pós-load. Ou eliminar dependência circular movendo o load para FORA do `__init__` (chamar via primeira rota HTTP).
+
+**Workaround atual**: chamar `GET /oco/state/reload` manual após cada restart se houver groups ativos.
+
+#### P7 — change_order em SL stop-limit retorna ret=-2147483645 do broker simulator ⭐⭐⭐ crítico para trailing (NOVO 28/abr 16h)
+**Custo**: ~30min investigação + sem fix óbvio (limitação broker). **Payoff**: bloqueia toda funcionalidade de OCO Phase C (trailing R$/% e immediate trigger).
+
+Sintoma: `POST /order/change` em ordem stop-limit (type=4) sempre retorna `{"ok": false, "ret": -2147483645}` (= `0x80000003`). Independe de qty/preço/stop_price. trail_monitor cicla mas nunca consegue mover SL → `trail_high_water` nunca é persistido no DB → log `trailing.adjusted` nunca emite.
+
+Além disso, na sessão 28/abr 16h, broker rejeitou:
+- BUYs limit (28, 45, 47) — voltam com order_status=204 e cl_ord_id="" (não vão pro book)
+- cancel_order em ordens ainda pendentes — ret=-2147483636
+- zero_position — ret=-2147483645
+- 49 cancels do flatten_ticker → cancelled=0/cancel_errors=49
+
+Esse padrão é compatível com a "degradação do simulador Nelogica" também observada em 28/abr 12-14h.
+
+**Fix candidato**: nenhum óbvio do nosso lado. Possíveis ações:
+1. Validar com Nelogica se há limite de change_order em stop-limit no simulator
+2. Implementar fallback no trail_monitor: se change_order falha 3x em sequência, cancela SL atual e envia novo SL com novo trigger (cancel+create em vez de change)
+3. Aguardar conta production (não simulação) para validar
+
+**Workaround**: skip de testes de trailing live até broker estável OU testar contra production em janela de baixo risco.
+
 #### N13 — Gmail briefings → enrichment de signals/dashboard ⭐⭐ alto payoff
 **Custo**: ~1d MVP / ~3-5d completo. **Payoff**: alto (research institucional vira sinal acionável).
 
