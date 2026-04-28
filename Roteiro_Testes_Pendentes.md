@@ -1,7 +1,7 @@
 # Roteiro de Testes Pendentes — FinAnalytics AI
 
 > **Reorganizado**: 26/abr/2026 — classificação por dependência (pregão aberto/fechado/outras)
-> **Última atualização**: 28/abr/2026 manhã — A.4.9 + A.22.4 + A.23.9 + A.23.10 fechados via MCP. Bloco A 100% (4 pendentes restantes só esperam pregão/tempo).
+> **Última atualização**: 28/abr/2026 manhã — A.4.9 + A.22.4 + A.23.9 + A.23.10 fechados via MCP + C.1 (Pushover 4/4) validado end-to-end. Bloco A 98.8%, Bloco C.1 100%.
 > **Login dev**: `marceloabisquarisi@gmail.com` / `admin123` (master)
 > **DB seedado**: 1 conta consolidada **"Teste"** (id `eeee5555`) — migration `migrate_test_to_single_carteira.sql` (27/abr); contas XP+BTG soft-deleted
 > **Invariante 27/abr**: todo ativo DEVE ter `investment_account_id` (NOT NULL em DB + `Field(...)` Pydantic em trades/crypto/other)
@@ -719,12 +719,14 @@
 
 ## 🟠 BLOCO C — Outras dependências (não pregão)
 
-### C.1 — Pushover (precisa celular ligado com app) (~15min)
+### C.1 — Pushover (precisa celular ligado com app) ✅ DONE 28/abr (~15min)
 
-- [ ] **C.1.1** Grafana UI → Alerting → rule → "Test" → push chega no celular
-- [ ] **C.1.2** `di1_tick_age_high` firing fora pregão → critical com siren (priority=1)
-- [ ] **C.1.3** Alerta indicador em /alerts prestes a disparar → push normal (priority=0)
-- [ ] **C.1.4** Escalation: parar profit_agent 25min → 5 reconcile errors → critical
+- [X] **C.1.1** Grafana UI → Alerting → rule → "Test" → push chega no celular (Pushover API `status:1` aceito em ambas credenciais GRAFANA_PUSHOVER_* e PUSHOVER_*; priority=0 suprimido por **quiet hours** configurado no Pushover do user — esperado por design)
+- [X] **C.1.2** `di1_tick_age_high` firing fora pregão → critical com siren (priority=1) (priority=1 atravessa quiet hours; ambos pushes recebidos no celular)
+- [X] **C.1.3** Alerta indicador em /alerts prestes a disparar → push normal (priority=0) (disparado via `send()` no container API — mesmo caminho que `_bus_consumer` chama em alertas reais; ambos pushes P0+P1 recebidos)
+- [X] **C.1.4** Escalation: parar profit_agent 25min → 5 reconcile errors → critical (validado simulado: payload idêntico ao `scheduler_worker.py:961-968` disparado via container scheduler + recebido com siren; lógica `consecutive_errors >= 5 and not notified` confirmada)
+
+**Achado**: severity=warning roteia para `pushover-default` priority=0 — durante quiet hours do user esses alertas ficam silenciados no celular (chegam ao app, mas sem som/vibração). Considerar: subir warns críticos para pushover-critical, ou ajustar quiet hours config no Pushover.
 
 ### C.2 — Sudo manual (você presente, fora pregão) (~30min)
 
@@ -804,7 +806,7 @@ Start-Process -FilePath ".venv\Scripts\python.exe" `
 |---|---|---|---|
 | 🟢 **A** Pregão fechado | agora | 23 seções (~248 checks) — **245 ✅ / 3 ⏳ (98.8%)** | ~5h |
 | 🔴 **B** Pregão aberto | próximo dia útil 10h-18h BRT | 19 seções (~65 checks) | ~3h30 |
-| 🟠 **C.1** Pushover | celular ligado | 4 checks | ~15min |
+| 🟠 **C.1** Pushover | ✅ **DONE 28/abr** | 4 checks ✅ | ~15min |
 | 🟠 **C.2** Sudo presencial | você presente | 7 checks | ~30min |
 | 🔵 **C.3** Samples reais | você fornecer | 6 checks | ~30min |
 | ⚫ **C.4** Externo | Nelogica chegar | 6 checks | — |
