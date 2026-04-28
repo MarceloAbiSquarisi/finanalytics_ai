@@ -213,6 +213,79 @@ Backend + UI completos:
 
 ## 🔄 NOVO BACKLOG (descoberto na sessão de 28/abr — pós C.2 Sudo)
 
+#### P1 — Broker subconnection com blips intermitentes "Cliente não logado" ⭐⭐⭐ crítico
+**Custo**: ~1d investigação + ~1d fix. **Payoff**: crítico (desbloqueia 80% do Bloco B do Roteiro de Testes).
+
+Sintoma observado na sessão pregão 28/abr (~13:00-13:11 BRT): aproximadamente 30% dos `SendOrder`/`SendChangeOrder` recebem rejeição do broker com `trading_msg code=3 status=8 msg=Cliente não está logado` (mesmo `msg_id` da operação que tinha aparecido antes como `code=2 Enviando ao HadesProxy`). DLL retorna ret=0 (sucesso local), mas a operação NUNCA chega ao broker — fica órfã: DB tem com status PendingNew, DLL EnumerateAllOrders não conhece, `cancel_order` retorna `-2147483645` (NL_INVALID_ARGS).
+
+**Padrão**:
+- Send/change/cancel da mãe-fresh: ~30% rejection
+- Pares de SetOrder + EnumerateAllOrders por reconcile: ~5% rejection (auto-recupera)
+- `EnumerateAllOrders` degrada para `ok=False orders=N` após blips acumulados
+- `routing_connected=true` permanece true durante blips → status callback não detecta a queda
+
+**Diagnóstico esperado**: a `cstRoteamento` callback dispara `crBrokerConnected` no boot e o agent assume que o estado se mantém. Em produção, o broker subconnection (entre DLL e HadesProxy/Nelogica server) tem micro-disconnects que NÃO disparam `crDisconnected`, mas que rejeitam ordens enviadas durante a janela. O Delphi reference client mostrou padrão similar (`caInvalid` espontâneo às 12:18:29 em sessão saudável).
+
+**Opções de fix**:
+1. **Auto-retry em "Cliente não logado"**: detectar `trading_msg code=3 status=8 msg=Cliente não está logado` no callback, marcar a ordem como `auth_blip` no DB, agendar re-send em 2s. Limit 3 tentativas → fail final.
+2. **Health probe de broker subconnection**: a cada 30s, mandar `GetAccountCount` (ou outro lightweight DLL call). Se retorna NL_ERR, marcar `routing_connected=false` e disparar reconnect.
+3. **Reconnect explícito**: ao detectar blip, chamar `DLLFinalize` + `DLLInitializeLogin` em background, resetar handlers. Disrutivo mas robusto.
+4. **Fallback Delphi-like**: se broker-subscription drops, reabrir a conta com `OpenAccount(broker_id, account_id)` (ou equivalente).
+
+**Recomendado**: opção 1 (low-risk, recovery automático) + opção 2 (detecta/loga problema). Opções 3-4 só se 1+2 não bastarem.
+
+**Impacto no Roteiro**: Bloco B itens B.6.6-B.6.8 (fill mãe + dispatch), B.7-B.12 (active OCO + trailing + cross-cancel + persist), B.18 (fill + diary), B.19 (flatten) ficam frágeis até fix.
+
+#### P2 — Reconcile UPDATE só funciona com cl_ord_id, mas envio inicial grava NULL ⭐⭐ alto
+**Custo**: ~1h. **Payoff**: alto (DB stale → user vê status PendingNew enquanto broker já cancelou/preencheu).
+
+Em `profit_agent.py:3566`, o handler `/positions/dll` faz:
+```python
+if not o["cl_ord_id"]:
+    continue
+self._db.execute("UPDATE profit_orders SET ... WHERE cl_ord_id=%s", (..., o["cl_ord_id"]))
+```
+
+Mas no `/order/send` (handler que grava no DB ao enviar), o `cl_ord_id` é gravado como NULL inicialmente — só vem do broker depois via order_callback. Resultado: o reconcile **nunca atualiza** orders enviados pelo agent, porque DB tem `cl_ord_id=NULL` e DLL tem `cl_ord_id='NLGC.150...'` → `WHERE NULL = 'NLGC...'` → 0 rows.
+
+**Sintoma**: ordem cancelada no DLL (`status=4 CANCELED`), mas DB fica em `status=10 PendingNew` permanentemente. UI fica mostrando "pendente" enquanto na realidade o broker já cancelou.
+
+**Fix**:
+```python
+# Match by local_order_id (sempre presente) em vez de cl_ord_id
+self._db.execute(
+    "UPDATE profit_orders SET order_status=%s, traded_qty=COALESCE(%s,traded_qty),"
+    " leaves_qty=COALESCE(%s,leaves_qty), avg_price=COALESCE(%s,avg_price),"
+    " cl_ord_id=COALESCE(%s,cl_ord_id), updated_at=NOW()"
+    " WHERE local_order_id=%s",
+    (o["order_status"], o["traded_qty"] or None, o["leaves_qty"] or None, o["avg_price"], o["cl_ord_id"] or None, o["local_id"])
+)
+```
+
+Bonus: também atualiza o cl_ord_id no DB quando ele aparece (resolve drift permanente).
+
+#### P3 — di1_realtime_worker cursor stuck em trade_number antigo após reset de sessão B3 ⭐ médio
+**Custo**: ~1h. **Payoff**: médio (Kafka stream `market.rates.di1` zerado durante o dia; não impacta DB direto, mas pipelines downstream que dependem do tópico ficam stale).
+
+Em `workers/di1_realtime_worker.py` (ou similar), no boot o worker faz:
+```python
+last_trade_number = SELECT MAX(trade_number) FROM profit_ticks WHERE ticker = 'DI1FXX'
+poll loop: SELECT * FROM profit_ticks WHERE trade_number > $last_trade_number
+```
+
+Problema: B3 resetau `trade_number` por sessão. Se worker boota durante uma sessão nova com poucos ticks, ele pega como `last` o MAX da sessão **anterior** (que ficou no DB). Os ticks novos vêm com `trade_number < last` → query nunca retorna, `ticks_total=0` indefinidamente.
+
+Confirmado live (28/abr 12:44 BRT):
+- DI1F27: worker init `last_trade_number=314920` (antigo), MAX atual = `139600` (sessão atual)
+- worker uptime 45min, ticks_total=0, kafka_published=0
+
+**Fix**: usar `(time, trade_number)` composto como cursor. OU filtrar por `time > worker_start_time` (mais simples).
+
+```python
+worker_start = datetime.now(tz=UTC)
+poll: SELECT * FROM profit_ticks WHERE ticker = ? AND time > $worker_start ORDER BY time, trade_number
+```
+
 #### N13 — Gmail briefings → enrichment de signals/dashboard ⭐⭐ alto payoff
 **Custo**: ~1d MVP / ~3-5d completo. **Payoff**: alto (research institucional vira sinal acionável).
 

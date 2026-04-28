@@ -822,6 +822,22 @@ Start-Process -FilePath ".venv\Scripts\python.exe" `
 - **A.24.5** log `cvm_informe.done` competencia=AAAAMM: depende dia 5 do mês
 - **A.24.16** sparkline crypto trend visual real: depende 7+ dias acumulados
 
-**Bloco B (pregão)** continua intocado — 19 seções dependem de DLL viva (cancel order, OCO Phase A-D end-to-end, trailing real-time, persistence+restart, reconcile). Pré-requisitos do agent prontos.
+**Bloco B (pregão) — sessão 28/abr 12h-13h BRT (parcial)**:
+- ✅ B.1 cancel order (DLL canceled OK; DB lag bug catalogado P2)
+- ✅ B.2 market BUY → FILLED 100 PETR4 @ R$47,93
+- ✅ B.3 OCO legacy → 2 legs no broker (cross-cancel deferido pra B.11)
+- ✅ B.4 GetPositionV2 (baseline + position real)
+- ✅ B.5 quote PETR4 (via /api/v1/marketdata/quotes; CLAUDE.md endpoint /quotes desatualizado)
+- ✅ B.13 cancel orphan group `5adab084` + `8b635d6a`
+- ✅ B.15 DI1 alert resolved (worker cursor bug catalogado P3)
+- ✅ B.16 reconcile loop 5min cadence (10 runs verdes)
+- ✅ B.6 Phase A AWAITING (group criado; awaiting state correto)
+- ❌ B.6 Phase A ACTIVE (post-fill) — **bloqueio P1**: broker subconnection com blips intermitentes "Cliente não logado" rejeitando 30% das operações de send/change/cancel
+- ❌ B.7 Splits, B.8-B.10 Trailing, B.11-B.12 Cross+Persist, B.18 fill→diary, B.19 flatten — todos dependem de active OCO group ou broker estável
 
-**Próximo gatilho**: Bloco B na próxima sessão de pregão. Backlog Melhorias.md zerado (M1-M5 + N1-N12 ✅ entregues).
+**3 bugs novos descobertos** (catalogados em Melhorias.md):
+- **P1** ⭐⭐⭐ broker auth blips intermitentes — bloqueia 80% do Bloco B até fix (auto-retry + health probe sugeridos)
+- **P2** ⭐⭐ reconcile UPDATE WHERE cl_ord_id mas envio inicial grava NULL — DB stale permanente
+- **P3** ⭐ di1_realtime_worker cursor stuck após reset trade_number B3
+
+**Próximo gatilho**: implementar fix P1 (auto-retry em "Cliente não logado") antes de retomar B.6.6+. Bloco B.1-B.5 + B.13 + B.15-B.16 já validados.
