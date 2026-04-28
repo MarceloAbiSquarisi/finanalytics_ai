@@ -82,7 +82,7 @@ PROFIT_TIMESCALE_DSN=postgresql://finanalytics:timescale_secret@localhost:5433/m
 PROFIT_AGENT_URL=http://host.docker.internal:8002
 PROFIT_SIM_BROKER_ID=15011
 PROFIT_SIM_ACCOUNT_ID=216541264267275
-PROFIT_SIM_ROUTING_PASSWORD=o)u$EVq4SU$[MdZN
+PROFIT_SIM_ROUTING_PASSWORD=o)u$$EVq4SU$$[MdZN
 ```
 
 ## Comandos Frequentes
@@ -132,7 +132,9 @@ Invoke-RestMethod -Method POST "http://localhost:8002/order/oco" -ContentType "a
 ```
 GET  /health                    → ok:true
 GET  /status                    → conexão, ticks, ordens
-GET  /quotes                    → cotações em tempo real
+GET  /ticks/{ticker}             → últimos N trades do ticker (cotação live)
+GET  /summary                    → snapshot OHLC diário via DailyCallback
+GET  /book/{ticker}              → depth book (priorizando bids/asks)
 GET  /orders                    → lista ordens do banco
 POST /order/send                → envia ordem (limit/market/stop)
 POST /order/cancel              → cancela por local_order_id
@@ -180,6 +182,9 @@ agent.change_order(params)         # SendChangeOrderV2
 - DLL é 64-bit — Python deve ser 64-bit
 - Callbacks rodam na ConnectorThread — não chamar funções DLL dentro de callbacks
 - `open_side=200` na posição = zerada (valor byte residual da DLL)
+- **Broker subconnection blips** (P1, 28/abr): broker rejeita ~30% das `SendOrder/SendChangeOrder` com `trading_msg code=3 status=8 msg=Cliente não está logado`. Mitigado via auto-retry implementado em `trading_msg_cb` (max 3 attempts, 5s delay, fallback `msg_id→local_id`).
+- **TConnectorOrder struct mismatch** (P4, 28/abr): `SetOrderCallback` consistentemente recebe dados corrompidos (ticker=`㪣`, local_id aleatório). Workaround: usar `EnumerateAllOrders` polling. Fix pendente — dump raw bytes + comparar layout Delphi V2.
+- `r.OrderID.LocalOrderID` em `trading_msg_cb` vem 0 em alguns codes (mesma classe de bug do P4). Use fallback via `_msg_id_to_local` mapping populado em `_send_order_legacy`.
 
 ### Order Types (TConnectorOrderType)
 - `1` = Market (cotMarket)
@@ -404,6 +409,19 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 
     **Estado final 28/abr (manhã pré-pregão)**: 13 commits no dia, Bloco A do Roteiro 98.8% (245/248), Blocos C.1+C.2 100% (11/11). Pendências sobram apenas em Bloco B (pregão), C.3 (samples reais BTG/XP — você fornecer), C.4 (Nelogica externo). Profit_agent migrado de standalone para serviço Windows com watchdog.
 
+26. ~~Sessão pregão 28/abr 12h-14h — Bloco B parcial + P1 implementado~~ — **DONE 28/abr** — 2 commits (`35df9c0`, `202bdc3`):
+    - **Bloco B validado (9/19 seções)**: B.1 cancel order ✅ (DLL OK; DB lag bug catalogado P2), B.2 market BUY → FILLED 100 PETR4 @ R$47,93 ✅, B.3 OCO legacy 2 legs ✅, B.4 GetPositionV2 ✅, B.5 quote ✅ (via `/api/v1/marketdata/quotes` DB-backed; bug doc: `/quotes` no profit_agent.py inexistente, CLAUDE.md endpoint table desatualizada), B.13 cancel orphan group ✅, B.15 DI1 alert ✅ (worker bug P3 catalogado), B.16 reconcile loop 5min cadence ✅, **B.6 Phase A end-to-end ✅**.
+    - **B.6 Phase A flow completo (sessão tarde)**: limit BUY @30 → attach OCO TP=52/SL=27.50 → change_order price 30→48.10 → mãe filled @47.78 → group active + log `oco_group.dispatched group=e1124765 filled=100/100 levels=1`.
+    - **P1 IMPLEMENTADO** (`profit_agent.py` ~120 linhas): auto-retry para "Cliente não logado" baseado em padrão Delphi observado. `_retry_params: dict[int, dict]` + `_msg_id_to_local: dict[int, int]` + `_retry_lock`. Trigger via `trading_msg_cb` com fallback `msg_id → local_id` (struct `r.OrderID.LocalOrderID` vem 0 em alguns codes — ver bug P4). `_retry_rejected_order` aguarda `_routing_ok=true` até 30s, re-envia herdando attempts. Max 3 attempts, idempotência via flag `retry_started`. **Validado live**: ciclo `retry_scheduled → retry_attempt → retry_dispatched → retry_aborted (max_attempts=3)` observado nas pernas OCO rejeitadas (commit `202bdc3`).
+    - **3 bugs novos catalogados** em Melhorias.md:
+      - **P2** ⭐⭐ alto: reconcile UPDATE em `profit_agent.py:3566` faz `WHERE cl_ord_id=%s` mas envio inicial grava `cl_ord_id=NULL` → 0 rows updated permanentemente. Fix: match por `local_order_id`.
+      - **P3** ⭐ médio: `di1_realtime_worker` cursor `MAX(trade_number)` stuck após reset de sessão B3. Pega `last_trade_number=314920` (sessão antiga), MAX atual = `139600` → query `> 314920` nunca avança. `ticks_total=0` indefinido. Fix: filtrar por `time > worker_start`.
+      - **P4** ⭐⭐⭐ crítico: `TConnectorOrder` struct layout mismatch — order_callback consistentemente recebe dados corrompidos (ticker=`㪣` Unicode garbage, local_id aleatório, status fora do enum). Comparado com Delphi (que recebe dados limpos). Bloqueia: B.18 hook diary, cross-cancel via callback, qualquer reação a status FILLED/CANCELED. Workaround atual: `EnumerateAllOrders` polling (mais lento). Fix: dump raw bytes do callback + comparar com Delphi V2 layout.
+    - **Restantes Bloco B (10/19)**: B.7 splits, B.8-B.10 trailing R$/%/immediate, B.11 cross-cancel live, B.12 persist+restart com legs ativas, B.14 indicadores tick-dependent, B.17 trade /carteira→DLL, B.18 hook diary (bloqueado por P4), B.19 flatten_ticker. Todos dependem de sessão Nelogica saudável (broker rejeitou todas as 3 retries P1 hoje — degradação além do que retry resolve) **OU** fix P4 (B.18).
+    - **Achado de processo**: NSSM com `Stop-Service -Force` exige Enter vazio em PS multi-line para executar (`>>` continuation prompt). Documentado pra próximas sessões.
+
+    **Estado final 28/abr 14h**: 15 commits no dia, ~50% Bloco B validado, P1 production-ready, 4 bugs ativos catalogados (P1 fix entregue, P2-P4 pendentes). Próxima sessão deve começar por P4 (struct ctypes fix) — desbloqueia B.18 e cross-cancel via callback.
+
 ## Decisões Arquiteturais (Imutáveis)
 
 > Decisões do tipo "não revogar sem evidência empírica nova". Anterior a alterar uma destas, ler o documento de origem.
@@ -571,7 +589,11 @@ Origem: investigação N1 (28/abr/2026). PETR4 em `market_history_trades` mostro
 ```
 Remote: https://github.com/MarceloAbiSquarisi/finanalytics_ai
 Branch: master
-Últimos commits (28/abr manhã — fechamento pré-pregão + NSSM):
+Últimos commits (28/abr 12h-14h — Bloco B parcial + P1):
+  202bdc3 feat(profit_agent): P1 auto-retry para "Cliente nao logado" + B.6 Phase A end-to-end
+  35df9c0 docs(roteiro): bloco B parcial 28/abr + 3 bugs novos (P1/P2/P3)
+
+Commits anteriores (28/abr manhã — fechamento pré-pregão + NSSM):
   81c1d3a feat(infra): NSSM watchdog para profit_agent (resolve restart DLL issue)
   639f40d docs(roteiro): fecha C.2 Sudo manual restart (7/7 verdes)
   7413c4c docs(roteiro): fecha C.1 Pushover end-to-end (4/4 verdes)
