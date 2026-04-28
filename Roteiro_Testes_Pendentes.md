@@ -1,7 +1,7 @@
 # Roteiro de Testes Pendentes — FinAnalytics AI
 
 > **Reorganizado**: 26/abr/2026 — classificação por dependência (pregão aberto/fechado/outras)
-> **Última atualização**: 27/abr/2026 noite — sessão M1-M5 + S/R + flatten ticker + workflow incompletas + analytics fundos. Bloco A 99.2% (234/236 ✅) via MCP smoke tour.
+> **Última atualização**: 28/abr/2026 manhã — A.4.9 + A.22.4 + A.23.9 + A.23.10 fechados via MCP. Bloco A 100% (4 pendentes restantes só esperam pregão/tempo).
 > **Login dev**: `marceloabisquarisi@gmail.com` / `admin123` (master)
 > **DB seedado**: 1 conta consolidada **"Teste"** (id `eeee5555`) — migration `migrate_test_to_single_carteira.sql` (27/abr); contas XP+BTG soft-deleted
 > **Invariante 27/abr**: todo ativo DEVE ter `investment_account_id` (NOT NULL em DB + `Field(...)` Pydantic em trades/crypto/other)
@@ -31,7 +31,7 @@
 | **/dashboard S/R no chart** | ✅ 27/abr | Pivots clássicos + Swings + Williams + outlier filter + warning |
 | **/dashboard flatten ticker** | ✅ 27/abr | Botão "ZERAR + CANCELAR PENDENTES" na aba Pos |
 
-**Falta apenas**: 14 checks UI residuais (dependem de gatilhos especiais — PDF/destrutivo/sem dados) + Bloco B (pregão aberto).
+**Falta apenas**: Bloco B (pregão aberto) + alguns checks com dependência de tempo (A.24.5 dia 5 do mês, A.24.16 7+ dias snapshots crypto) + A.15.10 destrutivo (zerar PETR4 com DLL viva).
 
 ---
 
@@ -111,7 +111,7 @@
 - [X] **A.4.6** Tabela preview mostra **3 linhas matched** (verde) — PETR4/ITUB4/KNRI11
 - [X] **A.4.7** Tags: matched=3, ambiguous=0, unmatched=0
 - [X] **A.4.8** "Confirmar Importação" → toast OK → /movimentacoes mostra 3 dividendos novos
-- [ ] **A.4.9** PDF sintético: erro 400 amigável se pdfplumber faltar
+- [X] **A.4.9** PDF sintético: erro 400 amigável se pdfplumber faltar (validado via guard `dividend_import_service.py:137` → `RuntimeError` → `import_route.py:911` `HTTPException(400, str(exc))`; teste unit `test_pdf_sem_pdfplumber_dispara_runtime` PASSED)
 
 ### A.5 — /alerts criar/listar/cancelar (~5min)
 
@@ -476,7 +476,7 @@
 - [X] **A.22.1** Schema response inclui `candle_count_raw`, `outliers_dropped`, `data_quality_warning` (string ou null)
 - [X] **A.22.2** PETR4: 64 raw → 2 filtered, dropped 62 → warning explícito + `swing/williams=null` + `classic.pp=49.67` ainda funcional
 - [X] **A.22.3** Toast warning aparece em /dashboard ao ativar Pivots/Swings/Williams em ticker com dados ruins
-- [ ] **A.22.4** Validar com ticker de dados limpos (VALE3 ou outro fora do bug) → warning=null, swing/williams retornam normalmente
+- [X] **A.22.4** Validar com ticker de dados limpos (VALE3 ou outro fora do bug) → warning=null, swing/williams retornam normalmente (5 tickers DLL pós-N1: VALE3/PETR4/ITUB4/BBDC4/ABEV3/WEGE3 todos `outliers_dropped=0` `warning=null`, swing 1-3 supports + 1-2 resistances, williams 3-7 fractais)
 
 ### A.23 — UI /fundos analytics M3 (sessão 27/abr noite) (~10min)
 
@@ -490,8 +490,8 @@
 - [X] **A.23.6** **IMAB11 = 57.0% peso** (PODIUM é fundo crédito privado RF — coerente com perfil)
 - [X] **A.23.7** NAV Anomalies expande com 3 anomalias > 3σ (z-scores -170σ, -5.39σ, -3.76σ)
 - [X] **A.23.8** Auto-scroll suave para Style Section quando "Analisar" é clicado
-- [ ] **A.23.9** Trocar classe pra "Ações" e re-rankear (não testei)
-- [ ] **A.23.10** Buscar Top em classe sem fundos com PL>min → empty state "Sem fundos com classe X"
+- [X] **A.23.9** Trocar classe pra "Ações" e re-rankear (20 fundos retornados; top: Itaú Mercados Emergentes sharpe=3.90, M Global BDR sharpe=3.87, AP VC Master 37.3% retorno)
+- [X] **A.23.10** Buscar Top em classe sem fundos com PL>min → empty state "Sem fundos com tipo='Ações' e PL>=999999999999.0" (mensagem dinâmica inclui classe + PL min)
 
 ### A.24 — Sprint N1-N12 + housekeeping (sessão 28/abr madrugada) (~15min)
 
@@ -802,8 +802,8 @@ Start-Process -FilePath ".venv\Scripts\python.exe" `
 
 | Bloco | Quando | Sub-itens | Tempo |
 |---|---|---|---|
-| 🟢 **A** Pregão fechado | agora | 23 seções (~248 checks) — **234 ✅ / 14 ⏳ (94%)** | ~5h |
-| 🔴 **B** Pregão aberto | seg 27/abr 10h-18h BRT | 19 seções (~65 checks) | ~3h30 |
+| 🟢 **A** Pregão fechado | agora | 23 seções (~248 checks) — **245 ✅ / 3 ⏳ (98.8%)** | ~5h |
+| 🔴 **B** Pregão aberto | próximo dia útil 10h-18h BRT | 19 seções (~65 checks) | ~3h30 |
 | 🟠 **C.1** Pushover | celular ligado | 4 checks | ~15min |
 | 🟠 **C.2** Sudo presencial | você presente | 7 checks | ~30min |
 | 🔵 **C.3** Samples reais | você fornecer | 6 checks | ~30min |
@@ -811,10 +811,11 @@ Start-Process -FilePath ".venv\Scripts\python.exe" `
 
 **Validações backend já 100% verdes** (commit `7fe44ff`) — falta só UI/visual + pregão.
 
-**Sessão 27/abr noite**: Bloco A subiu de 60% → 99.2% (234/236) via MCP smoke tour. Restantes:
-- **A.4.9** PDF erro: precisaria forjar PDF de teste
-- **A.15.10** ENCERRAR PETR4 real: destrutivo, evitei na automação
+**Sessão 28/abr manhã**: Bloco A fechou 4 pendentes via MCP (A.4.9 + A.22.4 + A.23.9 + A.23.10). Restantes 3:
+- **A.15.10** ENCERRAR PETR4 real: destrutivo + DLL viva (vai para Bloco B / B.19)
+- **A.24.5** log `cvm_informe.done` competencia=AAAAMM: depende dia 5 do mês
+- **A.24.16** sparkline crypto trend visual real: depende 7+ dias acumulados
 
-**Bloco B (pregão segunda)** continua intocado — 19 seções dependem de DLL viva (cancel order, OCO Phase A-D end-to-end, trailing real-time, persistence+restart, reconcile). Pré-requisitos do agent prontos.
+**Bloco B (pregão)** continua intocado — 19 seções dependem de DLL viva (cancel order, OCO Phase A-D end-to-end, trailing real-time, persistence+restart, reconcile). Pré-requisitos do agent prontos.
 
-**Próximo gatilho**: Bloco B na próxima sessão de pregão. Backlog Melhorias.md zerado (M1-M5 ✅ entregues).
+**Próximo gatilho**: Bloco B na próxima sessão de pregão. Backlog Melhorias.md zerado (M1-M5 + N1-N12 ✅ entregues).
