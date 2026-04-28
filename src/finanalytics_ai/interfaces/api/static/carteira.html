@@ -1103,12 +1103,23 @@ function updateTradeTotal() {
 // ── Positions ─────────────────────────────────────────────────────────────
 let _positionsCache = [];
 
+// Cache RF + Crypto para alimentar grafico de distribuicao
+// (endpoints separados de /positions; nao filtram por classe).
+let _extraDistCache = { crypto: [], rf: [] };
+
 async function loadPositions() {
   const tbody = document.getElementById('tbody-positions');
   FALoading.tableRows(tbody, { rows: 4, cols: 10 });
   try {
     const cls = document.getElementById('filter-class')?.value||'';
-    _positionsCache = await api('/positions' + (cls?`?asset_class=${cls}`:'')) || [];
+    // Paralelo: positions (trades-derived) + crypto + rf para o chart de distribuicao
+    const [positions, crypto, rf] = await Promise.all([
+      api('/positions' + (cls?`?asset_class=${cls}`:'')),
+      api('/crypto').catch(() => []),
+      api('/rf').catch(() => []),
+    ]);
+    _positionsCache = positions || [];
+    _extraDistCache = { crypto: crypto || [], rf: rf || [] };
     _populatePositionsCurrencyFilter();
     renderPositionsFiltered();
   } catch(e) { console.error(e); }
@@ -1138,14 +1149,30 @@ const _CLASS_COLORS = {
 function renderPositionDistribution(positions) {
   const host = document.getElementById('ps-distribution');
   if (!host) return;
-  if (!positions.length) { host.innerHTML = ''; return; }
   const totals = {};
   let grand = 0;
+  // 1) Trades-derived (stocks/etfs/fiis/bdrs)
   for (const p of positions) {
     const cls = (p.asset_class || 'other').toLowerCase();
     const inv = parseFloat(p.total_invested) || 0;
     if (inv <= 0) continue;
     totals[cls] = (totals[cls] || 0) + inv;
+    grand += inv;
+  }
+  // 2) Renda Fixa: campo `invested` direto
+  for (const r of (_extraDistCache?.rf || [])) {
+    const inv = parseFloat(r.invested) || 0;
+    if (inv <= 0) continue;
+    totals.rf = (totals.rf || 0) + inv;
+    grand += inv;
+  }
+  // 3) Crypto: quantity * average_price_brl (fallback usd*5.5)
+  for (const c of (_extraDistCache?.crypto || [])) {
+    const qty = parseFloat(c.quantity) || 0;
+    const px = parseFloat(c.average_price_brl) || (parseFloat(c.average_price_usd) || 0) * 5.5;
+    const inv = qty * px;
+    if (inv <= 0) continue;
+    totals.crypto = (totals.crypto || 0) + inv;
     grand += inv;
   }
   if (grand <= 0) { host.innerHTML = ''; return; }
