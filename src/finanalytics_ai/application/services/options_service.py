@@ -625,3 +625,94 @@ class OptionsService:
         s.delta = 1.0 + short_call.greeks.delta  # inclui a acao
         s.total_premium = -premium_received  # credito
         return s
+
+    @staticmethod
+    def evaluate_covered_writing(
+        *,
+        spot: float,
+        strike: float,
+        premium: float,
+        dias_uteis: int,
+        cdi_anual: float,
+        retorno_min_x: float = 1.0,
+        side: str = "call",
+    ) -> dict[str, Any]:
+        """Avalia se um lancamento coberto (CALL) ou venda de PUT
+        compensa frente ao CDI ajustado pelo prazo.
+
+        Replica fielmente a logica da planilha "Lancamento Coberto Taxa"
+        (Stormer): a taxa do trade e comparada com X x retorno minimo
+        do CDI (mesmo prazo em dias uteis). Se a taxa do trade superar,
+        veredito "ADEQUADA"; caso contrario "MUITO_BAIXA".
+
+        Inputs:
+            spot: preco atual do ativo (R$)
+            strike: strike da opcao (R$)
+            premium: premio da opcao (R$/contrato)
+            dias_uteis: dias uteis ate o vencimento
+            cdi_anual: taxa CDI anualizada (ex: 0.1475 = 14,75%)
+            retorno_min_x: multiplicador X do retorno CDI minimo desejado
+                           (ex: 3 = "quero pelo menos 3x o CDI do periodo")
+            side: "call" (lancamento coberto) ou "put" (venda cash-secured)
+
+        Returns: dict com taxa_trade, break_even, taxa_periodo (CDI ajustado),
+                 retorno_min_esperado, veredito ("ADEQUADA"/"MUITO_BAIXA"),
+                 e os inputs ecoados.
+
+        Raises: ValueError se inputs invalidos (premium >= spot, dias <= 0, etc.).
+        """
+        if dias_uteis <= 0:
+            raise ValueError("dias_uteis deve ser > 0")
+        if cdi_anual < 0:
+            raise ValueError("cdi_anual nao pode ser negativo")
+        if retorno_min_x <= 0:
+            raise ValueError("retorno_min_x deve ser > 0")
+        if spot <= 0 or strike <= 0 or premium <= 0:
+            raise ValueError("spot, strike e premium devem ser > 0")
+        if premium >= spot:
+            raise ValueError("premium >= spot — capital travado seria negativo")
+
+        side_norm = side.lower().strip()
+        if side_norm not in {"call", "put"}:
+            raise ValueError(f"side deve ser 'call' ou 'put', recebido: {side!r}")
+
+        # Capital efetivamente travado (planilha Stormer trata igual em ambos):
+        # CALL coberta: ativo comprado custa spot, mas ganha premio na venda da CALL
+        # PUT cash-secured: caixa segurado = strike, mas recebe premio
+        # A planilha usa (spot - premium) como denominador em ambos.
+        capital_travado = spot - premium
+
+        # Taxa de retorno do trade no periodo (formula da planilha):
+        # CALL: strike / (spot - premio) - 1  (lucro se exercida no strike)
+        # PUT:  strike / (spot - premio) - 1  (mesma formula — Stormer)
+        taxa_trade = strike / capital_travado - 1.0
+
+        # Benchmark CDI: retorno minimo no mesmo prazo (dias uteis / 252)
+        fracao_ano_util = dias_uteis / 252.0
+        taxa_periodo = (1.0 + cdi_anual) ** fracao_ano_util - 1.0
+        retorno_min_esperado = taxa_periodo * retorno_min_x
+
+        # Break-even: preco do ativo abaixo do qual o trade comeca a perder
+        # (ja descontado o premio recebido)
+        break_even = spot - premium
+
+        # Veredito: planilha usa "if G8 < D10" (retorno_min < taxa_trade)
+        adequada = retorno_min_esperado < taxa_trade
+        veredito = "ADEQUADA" if adequada else "MUITO_BAIXA"
+
+        return {
+            "side": side_norm,
+            "spot": spot,
+            "strike": strike,
+            "premium": premium,
+            "dias_uteis": dias_uteis,
+            "cdi_anual": cdi_anual,
+            "retorno_min_x": retorno_min_x,
+            "capital_travado": capital_travado,
+            "taxa_trade": taxa_trade,
+            "taxa_periodo_cdi": taxa_periodo,
+            "retorno_min_esperado": retorno_min_esperado,
+            "break_even": break_even,
+            "veredito": veredito,
+            "adequada": adequada,
+        }

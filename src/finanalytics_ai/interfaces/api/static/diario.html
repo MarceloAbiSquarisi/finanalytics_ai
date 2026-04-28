@@ -421,6 +421,8 @@ body.sb-open .fa-sb-push{margin-left:var(--sb-w)}
 </div>
         <div class="dj-tab" onclick="showTab('emotion')">Psicologia
 </div>
+        <div class="dj-tab" onclick="showTab('monthly')">Mensal
+</div>
         <div class="dj-tab" onclick="showTab('detail')">Detalhe
 </div>
 </div>
@@ -529,6 +531,33 @@ body.sb-open .fa-sb-push{margin-left:var(--sb-w)}
 </div>
 </div>
 </div>
+
+        <!-- Tab: Mensal (Year × Month heatmap, estilo planilha Stormer) -->
+        <div class="dj-tab-panel" id="tab-monthly">
+          <div class="chart-card">
+            <div class="chart-title" style="display:flex;align-items:center;justify-content:space-between">
+              <span>P&amp;L mensal por ano (heatmap)</span>
+              <span id="hm-meta" style="font-size:12px;color:var(--muted);font-weight:400"></span>
+            </div>
+            <div id="hm-empty" class="empty-state" style="display:none">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+              <p>Sem trades fechados para gerar heatmap.</p>
+            </div>
+            <div id="hm-wrap" style="overflow-x:auto">
+              <table class="perf-table" id="hm-table" style="min-width:760px">
+                <thead><tr id="hm-head"></tr></thead>
+                <tbody id="hm-body"></tbody>
+                <tfoot><tr id="hm-foot" style="border-top:2px solid var(--border);font-weight:700"></tr></tfoot>
+              </table>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;align-items:center">
+              <span>Legenda:</span>
+              <span style="display:inline-flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:14px;background:rgba(0,230,118,.45);border-radius:3px"></span>P&amp;L positivo</span>
+              <span style="display:inline-flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:14px;background:rgba(255,61,90,.45);border-radius:3px"></span>P&amp;L negativo</span>
+              <span style="display:inline-flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:14px;background:#0a1220;border-radius:3px;border:1px solid var(--border)"></span>Sem trades</span>
+            </div>
+          </div>
+        </div>
 
         <!-- Tab: Detalhe -->
         <div class="dj-tab-panel" id="tab-detail">
@@ -841,7 +870,113 @@ async function loadStats() {
     statsData = await r.json();
     updateHeaderStats(statsData);
     renderCharts(statsData);
+    // Heatmap mensal carrega em paralelo (mesmo filtro de objetivo)
+    loadMonthlyHeatmap();
   } catch(e) { console.error(e); }
+}
+
+async function loadMonthlyHeatmap() {
+  try {
+    var url = API + '/stats/monthly_heatmap?user_id=' + USER;
+    if (currentObjFilter) url += '&trade_objective=' + encodeURIComponent(currentObjFilter);
+    var r = await fetch(url);
+    if (!r.ok) return;
+    var d = await r.json();
+    renderMonthlyHeatmap(d);
+  } catch(e) { console.error('heatmap', e); }
+}
+
+function renderMonthlyHeatmap(d) {
+  var meta = document.getElementById('hm-meta');
+  var empty = document.getElementById('hm-empty');
+  var wrap = document.getElementById('hm-wrap');
+  var head = document.getElementById('hm-head');
+  var body = document.getElementById('hm-body');
+  var foot = document.getElementById('hm-foot');
+  if (!head || !body) return;
+
+  var years = (d.years || []).slice().sort(function(a,b){return b-a;});  // ano mais recente em cima
+  var grand = d.grand_total || {pnl:0, trades:0, win_rate:0};
+  var monthLabels = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  if (!years.length) {
+    wrap.style.display = 'none';
+    empty.style.display = 'flex';
+    meta.textContent = '';
+    return;
+  }
+  empty.style.display = 'none';
+  wrap.style.display = '';
+
+  var filterLabel = d.trade_objective ? ' · filtro: ' + (d.trade_objective || '').replace('_',' ') : '';
+  meta.textContent = grand.trades + ' trade(s) fechado(s) · P&L total ' + fmtBRL(grand.pnl) + ' · WR ' + grand.win_rate.toFixed(1) + '%' + filterLabel;
+
+  // Header: Ano | Jan ... Dez | Total
+  var headHtml = '<th style="text-align:left">Ano</th>';
+  for (var m=0; m<12; m++) headHtml += '<th>' + monthLabels[m] + '</th>';
+  headHtml += '<th style="border-left:2px solid var(--border)">Total</th>';
+  head.innerHTML = headHtml;
+
+  // Body: linha por ano com células coloridas
+  // Calcula P&L max absoluto para escalar intensidade da cor
+  var maxAbs = 0;
+  years.forEach(function(yr){
+    var by_m = d.by_year[yr] || {};
+    Object.keys(by_m).forEach(function(mk){
+      var v = Math.abs(by_m[mk].pnl || 0);
+      if (v > maxAbs) maxAbs = v;
+    });
+  });
+  if (maxAbs === 0) maxAbs = 1;
+
+  var bodyHtml = '';
+  years.forEach(function(yr){
+    var by_m = d.by_year[yr] || {};
+    var yt = (d.year_totals || {})[yr] || {pnl:0, trades:0, win_rate:0};
+    var yrTotalCls = yt.pnl >= 0 ? 'green' : 'red';
+    bodyHtml += '<tr><td style="font-weight:700;font-family:DM Mono,monospace">' + yr + '</td>';
+    for (var m=1; m<=12; m++) {
+      var cell = by_m[m];
+      if (!cell || cell.trades === 0) {
+        bodyHtml += '<td style="text-align:center;color:var(--muted)">—</td>';
+      } else {
+        var pnl = cell.pnl || 0;
+        var intensity = Math.min(1, Math.abs(pnl) / maxAbs);
+        var rgb = pnl >= 0 ? '0,230,118' : '255,61,90';
+        var alpha = 0.10 + intensity * 0.55;
+        var label = pnl.toFixed(0);
+        var tooltip = monthLabels[m-1] + '/' + yr + '\n' +
+                      'P&L: ' + fmtBRL(pnl) + '\n' +
+                      'Trades: ' + cell.trades + ' (' + cell.wins + ' wins, WR ' + cell.win_rate.toFixed(1) + '%)';
+        bodyHtml += '<td title="' + tooltip + '" style="text-align:center;background:rgba(' + rgb + ',' + alpha.toFixed(2) + ');font-family:DM Mono,monospace;font-size:11px;font-weight:600">' + label + '</td>';
+      }
+    }
+    bodyHtml += '<td class="' + yrTotalCls + '" style="border-left:2px solid var(--border);text-align:right;font-family:DM Mono,monospace;font-weight:700">' + fmtBRL(yt.pnl) + '</td>';
+    bodyHtml += '</tr>';
+  });
+  body.innerHTML = bodyHtml;
+
+  // Footer: Total marginal por mês + grand total
+  var mt = d.month_totals || {};
+  var footHtml = '<td style="font-weight:700">Total/mês</td>';
+  for (var m=1; m<=12; m++) {
+    var sum = (mt[m] || mt[String(m)] || {pnl:0, trades:0});
+    if (sum.trades === 0) {
+      footHtml += '<td style="text-align:center;color:var(--muted)">—</td>';
+    } else {
+      var cls = sum.pnl >= 0 ? 'green' : 'red';
+      footHtml += '<td class="' + cls + '" style="text-align:center;font-family:DM Mono,monospace;font-size:11px">' + sum.pnl.toFixed(0) + '</td>';
+    }
+  }
+  var grandCls = grand.pnl >= 0 ? 'green' : 'red';
+  footHtml += '<td class="' + grandCls + '" style="border-left:2px solid var(--border);text-align:right;font-family:DM Mono,monospace;font-weight:800">' + fmtBRL(grand.pnl) + '</td>';
+  foot.innerHTML = footHtml;
+}
+
+function fmtBRL(v) {
+  if (v == null || isNaN(v)) return '—';
+  var s = (v >= 0 ? '+' : '') + Math.round(v).toLocaleString('pt-BR');
+  return 'R$ ' + s;
 }
 
 function setObjFilter(obj) {

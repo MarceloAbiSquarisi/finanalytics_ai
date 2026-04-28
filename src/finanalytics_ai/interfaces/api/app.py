@@ -1226,6 +1226,10 @@ def create_app() -> FastAPI:
     async def serve_opcoes_estrategias() -> HTMLResponse:
         return _html("opcoes_estrategias.html")
 
+    @app.get("/opcoes/lancamento", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_opcoes_lancamento() -> HTMLResponse:
+        return _html("opcoes_lancamento.html")
+
     @app.get("/vol-surface", response_class=HTMLResponse, include_in_schema=False)
     async def serve_vol_surface() -> HTMLResponse:
         return _html("vol_surface.html")

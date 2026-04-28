@@ -3,10 +3,12 @@ finanalytics_ai.interfaces.api.routes.opcoes
 --------------------------------------------
 Rotas da calculadora de opcoes.
 
-GET  /api/v1/opcoes/greeks          -- calcula greeks Black-Scholes
-GET  /api/v1/opcoes/iv              -- volatilidade implicita
-POST /api/v1/opcoes/estrategia      -- precifica estrategia composta
-GET  /api/v1/opcoes/estrategias     -- lista estrategias disponiveis
+GET  /api/v1/opcoes/greeks               -- calcula greeks Black-Scholes
+GET  /api/v1/opcoes/iv                   -- volatilidade implicita
+POST /api/v1/opcoes/estrategia           -- precifica estrategia composta
+GET  /api/v1/opcoes/estrategias          -- lista estrategias disponiveis
+POST /api/v1/opcoes/lancamento/avaliar   -- veredito ADEQUADA/MUITO_BAIXA
+                                            (replica planilha Stormer)
 """
 
 from typing import Any
@@ -286,3 +288,55 @@ async def list_strategies() -> dict[str, Any]:
             },
         ]
     }
+
+
+# ─── Lancamento Coberto / Cash-Secured PUT (planilha Stormer) ────────────────
+
+
+class LancamentoRequest(BaseModel):
+    """Avaliacao de lancamento coberto (CALL) ou venda de PUT cash-secured.
+
+    Replica a planilha "Lancamento Coberto Taxa" do curso Stormer.
+    """
+
+    spot: float = Field(..., gt=0, description="Preco atual do ativo (R$)")
+    strike: float = Field(..., gt=0, description="Strike da opcao (R$)")
+    premium: float = Field(..., gt=0, description="Premio recebido (R$)")
+    dias_uteis: int = Field(..., gt=0, description="Dias uteis ate o vencimento")
+    cdi_anual: float = Field(..., ge=0, description="Taxa CDI anual (ex: 0.1475)")
+    retorno_min_x: float = Field(
+        1.0, gt=0, description="Multiplicador X do CDI desejado (ex: 3)"
+    )
+    side: str = Field("call", description="'call' ou 'put'")
+
+
+@router.post("/lancamento/avaliar", summary="Avalia se lancamento coberto/PUT compensa CDI")
+async def avaliar_lancamento(
+    request: Request,
+    body: LancamentoRequest,
+) -> dict[str, Any]:
+    """Replica fielmente a planilha "Lancamento Coberto Taxa" do Stormer.
+
+    Compara a taxa do trade (premio frente ao capital travado) com X x CDI
+    do periodo (dias uteis / 252). Retorna veredito ADEQUADA / MUITO_BAIXA.
+    """
+    svc = _get_service(request)
+    try:
+        result = svc.evaluate_covered_writing(
+            spot=body.spot,
+            strike=body.strike,
+            premium=body.premium,
+            dias_uteis=body.dias_uteis,
+            cdi_anual=body.cdi_anual,
+            retorno_min_x=body.retorno_min_x,
+            side=body.side,
+        )
+        logger.info(
+            "opcoes.lancamento.evaluated",
+            side=body.side,
+            veredito=result["veredito"],
+            taxa_trade=result["taxa_trade"],
+        )
+        return result
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc

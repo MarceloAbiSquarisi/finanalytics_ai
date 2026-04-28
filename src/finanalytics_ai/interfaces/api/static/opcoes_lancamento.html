@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Opcoes - Lancamento Coberto | FinAnalytics AI</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<meta name="description" content="Calculadora de lancamento coberto e venda de PUT — replica planilha Stormer">
+<meta name="robots" content="noindex, nofollow">
+<script>(function(){try{var t=localStorage.getItem('fa_theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script>
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#00d4ff">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0A1628;--card:#0e1a2e;--border:#1c2535;--white:#e2eaf4;--muted:#4a6a8a;--blue:#3ABFF8;--gold:#F0B429;--green:#00e676;--red:#ff3d5a;--purple:#a78bfa;--sb-w:220px;--sb-w-collapsed:52px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--navy);color:var(--white);font-family:'Syne',sans-serif;overflow-x:hidden}
+.fa-topbar{position:fixed;top:0;left:0;right:0;height:52px;background:rgba(10,22,40,.97);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:300}
+.fa-logo{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--gold);font-weight:800;font-size:15px}
+.fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1);padding:72px 24px 32px}
+body.sb-open .fa-page-content{margin-left:var(--sb-w)}
+.page-title{font-size:26px;font-weight:800;color:var(--purple);margin-bottom:4px}
+.page-sub{font-size:15px;color:var(--muted);margin-bottom:24px}
+.side-tabs{display:flex;gap:6px;margin-bottom:20px}
+.side-btn{padding:9px 22px;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;transition:all .2s;background:transparent;color:var(--muted)}
+.side-btn:hover{border-color:var(--purple);color:var(--purple)}
+.side-btn.active{background:rgba(167,139,250,.15);border-color:var(--purple);color:var(--purple)}
+.grid-2{display:grid;grid-template-columns:1fr 1.2fr;gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px}
+.card-title{font-size:17px;font-weight:700;color:var(--blue);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.card-desc{font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5}
+.field-row{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.field-label{font-size:13px;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+.field-hint{font-size:11px;color:var(--muted);opacity:.7;font-family:'DM Mono',monospace}
+.field-input{background:#0a1220;border:1px solid var(--border);border-radius:6px;color:var(--white);font-family:'DM Mono',monospace;font-size:14px;padding:8px 12px;width:100%;outline:none}
+.field-input:focus{border-color:var(--purple)}
+.calc-btn{background:linear-gradient(135deg,#3a0080,var(--purple));border:none;border-radius:7px;color:var(--white);font-family:'Syne',sans-serif;font-weight:800;font-size:14px;padding:10px 20px;cursor:pointer;width:100%;margin-top:4px;transition:all .2s}
+.calc-btn:hover{transform:translateY(-1px);box-shadow:0 0 18px rgba(167,139,250,.3)}
+.veredito-box{padding:24px 16px;border-radius:10px;text-align:center;margin-bottom:16px;border:2px solid;font-family:'Syne',sans-serif}
+.veredito-adequada{background:linear-gradient(135deg,rgba(0,230,118,.1),rgba(0,230,118,.04));border-color:rgba(0,230,118,.5);color:var(--green)}
+.veredito-baixa{background:linear-gradient(135deg,rgba(255,61,90,.1),rgba(255,61,90,.04));border-color:rgba(255,61,90,.5);color:var(--red)}
+.veredito-label{font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.7;margin-bottom:6px}
+.veredito-text{font-size:28px;font-weight:800;letter-spacing:.04em}
+.veredito-emoji{font-size:42px;display:block;margin-bottom:8px;line-height:1}
+.kpi-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.kpi{background:#0a1220;border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center}
+.kpi-label{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase}
+.kpi-value{font-size:18px;font-weight:700;font-family:'DM Mono',monospace;margin-top:4px}
+.kpi-sub{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:2px}
+.kpi-value.green{color:var(--green)}
+.kpi-value.red{color:var(--red)}
+.kpi-value.gold{color:var(--gold)}
+.kpi-value.blue{color:var(--blue)}
+.kpi-value.purple{color:var(--purple)}
+.kpi-value.muted{color:var(--muted)}
+.empty-msg{color:var(--muted);font-size:14px;text-align:center;padding:32px}
+.note{font-size:12px;color:var(--muted);margin-top:14px;padding:10px 12px;background:#0a1220;border-radius:6px;border-left:2px solid var(--blue);line-height:1.5}
+.formula{font-family:'DM Mono',monospace;font-size:11px;color:var(--blue);background:#0a1220;padding:6px 8px;border-radius:4px;margin-top:6px}
+@media(max-width:900px){.grid-2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="fa-topbar">
+  <a href="/" class="fa-logo">
+    <svg width="28" height="28" viewBox="0 0 170 170" fill="none"><defs><linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3ABFF8"/><stop offset="100%" stop-color="#F0B429"/></linearGradient></defs><rect width="170" height="170" rx="28" fill="#0A1628"/><polyline points="24,130 60,75 90,100 130,40" stroke="url(#lg1)" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="130" cy="40" r="10" fill="#F0B429"/></svg>
+    FinAnalytics AI
+  </a>
+</div>
+
+<aside class="fa-sidebar" id="fa-sidebar"></aside>
+
+<div class="fa-page-content">
+  <div class="page-title">&#9711; Lancamento Coberto / Cash-Secured PUT</div>
+  <div class="page-sub">Avalia se o premio recebido na venda da opcao supera X x CDI do periodo. Replica fielmente a planilha do Stormer.</div>
+
+  <div class="side-tabs" role="tablist">
+    <button class="side-btn active" id="btn-call" onclick="setSide('call')" role="tab">Lancamento Coberto (CALL)</button>
+    <button class="side-btn" id="btn-put" onclick="setSide('put')" role="tab">Venda de PUT (Cash-Secured)</button>
+  </div>
+
+  <div class="grid-2">
+    <!-- Parametros -->
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        Parametros
+      </div>
+      <div class="card-desc" id="strat-desc">
+        Voce ja tem as acoes. Vende uma CALL recebendo premio. Se o preco fechar abaixo do strike no vencimento, mantem as acoes + premio.
+      </div>
+
+      <div class="field-row">
+        <div class="field-label">
+          <span>Preco do ativo (R$)</span>
+          <span class="field-hint">spot</span>
+        </div>
+        <input class="field-input" id="p-spot" type="number" value="45.83" step="0.01" min="0">
+      </div>
+
+      <div class="field-row">
+        <div class="field-label">
+          <span>Strike da opcao (R$)</span>
+          <span class="field-hint">strike</span>
+        </div>
+        <input class="field-input" id="p-strike" type="number" value="24.13" step="0.01" min="0">
+      </div>
+
+      <div class="field-row">
+        <div class="field-label">
+          <span>Premio recebido (R$)</span>
+          <span class="field-hint">premium</span>
+        </div>
+        <input class="field-input" id="p-premium" type="number" value="22.6" step="0.01" min="0">
+      </div>
+
+      <div class="field-row">
+        <div class="field-label">
+          <span>Dias uteis ate vencimento</span>
+          <span class="field-hint">252 d/ano</span>
+        </div>
+        <input class="field-input" id="p-dias" type="number" value="3" min="1">
+      </div>
+
+      <div class="field-row">
+        <div class="field-label">
+          <span>CDI anual (%)</span>
+          <span class="field-hint">benchmark</span>
+        </div>
+        <input class="field-input" id="p-cdi" type="number" value="14.75" step="0.01" min="0">
+      </div>
+
+      <div class="field-row">
+        <div class="field-label">
+          <span>Retorno minimo desejado (X x CDI)</span>
+          <span class="field-hint">multiplicador</span>
+        </div>
+        <input class="field-input" id="p-x" type="number" value="3" step="0.5" min="0.5">
+      </div>
+
+      <button class="calc-btn" onclick="evaluate()">Avaliar Trade</button>
+
+      <div class="note">
+        <strong>Logica</strong>: a taxa do trade (premio sobre capital travado) deve superar X x CDI ajustado ao prazo.<br>
+        <span class="formula">taxa = strike / (spot - premium) - 1</span><br>
+        <span class="formula">cdi_periodo = (1 + cdi) ^ (dias/252) - 1</span><br>
+        <span class="formula">veredito = ADEQUADA se cdi_periodo * X &lt; taxa</span>
+      </div>
+    </div>
+
+    <!-- Resultado -->
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Resultado
+      </div>
+      <div id="result-area">
+        <div class="empty-msg">Preencha os parametros e clique em "Avaliar Trade" para ver o veredito.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var currentSide = 'call';
+var SIDE_DEFAULTS = {
+  call: { spot:45.83, strike:24.13, premium:22.6, dias:3, cdi:14.75, x:3,
+          desc:'Voce ja tem as acoes. Vende uma CALL recebendo premio. Se o preco fechar abaixo do strike no vencimento, mantem as acoes + premio.' },
+  put:  { spot:43, strike:48.69, premium:6.61, dias:3, cdi:15, x:3,
+          desc:'Voce trava o caixa equivalente ao strike. Vende uma PUT recebendo premio. Se o preco fechar acima do strike, mantem o caixa + premio. Caso contrario, compra a acao no strike.' }
+};
+
+function setSide(side){
+  currentSide = side;
+  document.getElementById('btn-call').classList.toggle('active', side==='call');
+  document.getElementById('btn-put').classList.toggle('active', side==='put');
+  var d = SIDE_DEFAULTS[side];
+  document.getElementById('strat-desc').textContent = d.desc;
+  document.getElementById('p-spot').value = d.spot;
+  document.getElementById('p-strike').value = d.strike;
+  document.getElementById('p-premium').value = d.premium;
+  document.getElementById('p-dias').value = d.dias;
+  document.getElementById('p-cdi').value = d.cdi;
+  document.getElementById('p-x').value = d.x;
+  document.getElementById('result-area').innerHTML = '<div class="empty-msg">Preencha os parametros e clique em "Avaliar Trade" para ver o veredito.</div>';
+}
+
+function fmtPct(v, dec){ if (v == null || isNaN(v)) return '—'; return (v*100).toFixed(dec||4) + '%'; }
+function fmtBRL(v){ if (v == null || isNaN(v)) return '—'; return 'R$ ' + v.toFixed(2).replace('.', ','); }
+
+async function evaluate(){
+  var area = document.getElementById('result-area');
+  area.innerHTML = '<div class="empty-msg">Calculando...</div>';
+  var body = {
+    spot: parseFloat(document.getElementById('p-spot').value),
+    strike: parseFloat(document.getElementById('p-strike').value),
+    premium: parseFloat(document.getElementById('p-premium').value),
+    dias_uteis: parseInt(document.getElementById('p-dias').value, 10),
+    cdi_anual: parseFloat(document.getElementById('p-cdi').value) / 100,
+    retorno_min_x: parseFloat(document.getElementById('p-x').value),
+    side: currentSide
+  };
+  try {
+    var resp = await fetch('/api/v1/opcoes/lancamento/avaliar', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    var data = await resp.json();
+    if (!resp.ok) {
+      area.innerHTML = '<div class="empty-msg" style="color:var(--red)">Erro: ' + (data.detail || resp.status) + '</div>';
+      return;
+    }
+    renderResult(data);
+  } catch(e) {
+    area.innerHTML = '<div class="empty-msg" style="color:var(--red)">Erro: ' + e.message + '</div>';
+  }
+}
+
+function renderResult(d){
+  var adequada = d.adequada;
+  var emoji = adequada ? '&#9989;' : '&#9888;';  // ✅ ou ⚠
+  var label = adequada ? 'TAXA ADEQUADA' : 'TAXA MUITO BAIXA';
+  var cls = adequada ? 'veredito-adequada' : 'veredito-baixa';
+  var taxaCls = adequada ? 'green' : 'red';
+
+  // Comparacao para destaque
+  var diff_pct = d.taxa_trade - d.retorno_min_esperado;
+
+  var html = '<div class="veredito-box ' + cls + '">' +
+    '<span class="veredito-emoji">' + emoji + '</span>' +
+    '<div class="veredito-label">VEREDITO</div>' +
+    '<div class="veredito-text">' + label + '</div>' +
+    '</div>' +
+
+    '<div class="kpi-row">' +
+      '<div class="kpi"><div class="kpi-label">Taxa do Trade</div>' +
+        '<div class="kpi-value ' + taxaCls + '">' + fmtPct(d.taxa_trade, 4) + '</div>' +
+        '<div class="kpi-sub">no periodo</div></div>' +
+      '<div class="kpi"><div class="kpi-label">Retorno Min (X x CDI)</div>' +
+        '<div class="kpi-value gold">' + fmtPct(d.retorno_min_esperado, 4) + '</div>' +
+        '<div class="kpi-sub">' + d.retorno_min_x + 'x &middot; ' + d.dias_uteis + ' du</div></div>' +
+      '<div class="kpi"><div class="kpi-label">Break-Even</div>' +
+        '<div class="kpi-value blue">' + fmtBRL(d.break_even) + '</div>' +
+        '<div class="kpi-sub">spot - premium</div></div>' +
+      '<div class="kpi"><div class="kpi-label">Capital Travado</div>' +
+        '<div class="kpi-value purple">' + fmtBRL(d.capital_travado) + '</div>' +
+        '<div class="kpi-sub">por contrato</div></div>' +
+      '<div class="kpi"><div class="kpi-label">CDI Periodo</div>' +
+        '<div class="kpi-value muted">' + fmtPct(d.taxa_periodo_cdi, 6) + '</div>' +
+        '<div class="kpi-sub">' + (d.cdi_anual*100).toFixed(2) + '% a.a.</div></div>' +
+      '<div class="kpi"><div class="kpi-label">Vantagem (taxa - min)</div>' +
+        '<div class="kpi-value ' + (diff_pct >= 0 ? 'green' : 'red') + '">' +
+          (diff_pct >= 0 ? '+' : '') + fmtPct(diff_pct, 4) + '</div>' +
+        '<div class="kpi-sub">' + (diff_pct >= 0 ? 'acima' : 'abaixo') + ' do minimo</div></div>' +
+    '</div>';
+
+  document.getElementById('result-area').innerHTML = html;
+}
+
+// inicializa CALL
+setSide('call');
+</script>
+<script src="/static/a11y.js"></script>
+<script src="/static/auth_guard.js"></script>
+<script src="/static/i18n.js"></script>
+<script src="/static/theme_toggle.js"></script>
+<script src="/static/locale_toggle.js"></script>
+<script src="/static/pwa_register.js"></script>
+<script src="/static/sidebar.js"></script>
+<script src="/static/breadcrumbs.js"></script>
+<script src="/static/command_palette.js"></script>
+<script src="/static/shortcuts.js"></script>
+<script src="/static/toast.js"></script>
+<script src="/static/error_handler.js"></script>
+<script src="/static/loading.js"></script>
+<script src="/static/print_helper.js"></script>
+<script src="/static/empty_state.js"></script>
+<script src="/static/onboarding.js"></script>
+<script src="/static/notifications.js"></script>
+<script>(function(){function go(){if(window.FAAuth)FAAuth.requireAuth({});else setTimeout(go,30);}if(document.readyState!=="loading")go();else document.addEventListener("DOMContentLoaded",go);})();</script>
+</body>
+</html>

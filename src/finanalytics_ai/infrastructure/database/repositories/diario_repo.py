@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, desc, func, select
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, desc, extract, func, select
 from sqlalchemy.orm import Mapped, mapped_column
 import structlog
 
@@ -545,4 +545,95 @@ class DiarioRepository:
                 "by_objective": by_objective,
                 "by_emotion": by_emotion,
                 "equity_curve": equity_curve,
+            }
+
+    async def monthly_heatmap(
+        self,
+        user_id: str = "user-demo",
+        trade_objective: str | None = None,
+    ) -> dict[str, Any]:
+        """Matriz year × month de P&L (estilo planilha Stormer "Resumo dos trades").
+
+        Inclui contagem de trades por celula para tooltip e somatorios
+        marginais (por ano e por mes agregado em todos os anos).
+        """
+        obj_filter = (
+            (DiarioModel.trade_objective == trade_objective,) if trade_objective else ()
+        )
+        async with self._session() as session:
+            q = await session.execute(
+                select(
+                    extract("year", DiarioModel.exit_date).label("yr"),
+                    extract("month", DiarioModel.exit_date).label("mo"),
+                    func.sum(DiarioModel.pnl).label("pnl"),
+                    func.count().label("trades"),
+                    func.sum(
+                        func.cast(DiarioModel.is_winner == True, Integer)  # noqa: E712
+                    ).label("wins"),
+                )
+                .where(
+                    DiarioModel.user_id == user_id,
+                    DiarioModel.exit_date.is_not(None),
+                    DiarioModel.pnl.is_not(None),
+                    *obj_filter,
+                )
+                .group_by("yr", "mo")
+                .order_by("yr", "mo")
+            )
+
+            # Estrutura: { year: { month: {pnl, trades, win_rate} } }
+            by_year: dict[int, dict[int, dict[str, Any]]] = {}
+            year_totals: dict[int, dict[str, Any]] = {}
+            month_totals: dict[int, dict[str, Any]] = {m: {"pnl": 0.0, "trades": 0, "wins": 0} for m in range(1, 13)}
+            grand_total = {"pnl": 0.0, "trades": 0, "wins": 0}
+
+            for r in q.all():
+                yr = int(r.yr)
+                mo = int(r.mo)
+                pnl = round(float(r.pnl or 0), 2)
+                trades = int(r.trades or 0)
+                wins = int(r.wins or 0)
+                win_rate = round(wins / trades * 100, 1) if trades else 0.0
+
+                by_year.setdefault(yr, {})[mo] = {
+                    "pnl": pnl,
+                    "trades": trades,
+                    "wins": wins,
+                    "win_rate": win_rate,
+                }
+
+                yt = year_totals.setdefault(yr, {"pnl": 0.0, "trades": 0, "wins": 0})
+                yt["pnl"] = round(yt["pnl"] + pnl, 2)
+                yt["trades"] += trades
+                yt["wins"] += wins
+
+                mt = month_totals[mo]
+                mt["pnl"] = round(mt["pnl"] + pnl, 2)
+                mt["trades"] += trades
+                mt["wins"] += wins
+
+                grand_total["pnl"] = round(grand_total["pnl"] + pnl, 2)
+                grand_total["trades"] += trades
+                grand_total["wins"] += wins
+
+            # Calcula win_rate marginal apos somar
+            for yt in year_totals.values():
+                yt["win_rate"] = round(yt["wins"] / yt["trades"] * 100, 1) if yt["trades"] else 0.0
+            for mt in month_totals.values():
+                mt["win_rate"] = round(mt["wins"] / mt["trades"] * 100, 1) if mt["trades"] else 0.0
+            grand_total["win_rate"] = (
+                round(grand_total["wins"] / grand_total["trades"] * 100, 1)
+                if grand_total["trades"]
+                else 0.0
+            )
+
+            years = sorted(by_year.keys())
+            return {
+                "years": years,
+                "months": list(range(1, 13)),
+                "by_year": by_year,
+                "year_totals": year_totals,
+                "month_totals": month_totals,
+                "grand_total": grand_total,
+                "trade_objective": trade_objective,
             }

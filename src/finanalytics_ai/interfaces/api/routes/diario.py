@@ -224,6 +224,17 @@ async def get_stats(
     return await repo.stats(user_id=user_id, trade_objective=trade_objective)
 
 
+@router.get("/stats/monthly_heatmap")
+async def get_monthly_heatmap(
+    request: Request,
+    user_id: str = Query("user-demo"),
+    trade_objective: str | None = Query(None, pattern="^(daytrade|swing|buy_hold)$"),
+) -> dict[str, Any]:
+    """Matriz year x month de P&L para heatmap (estilo planilha Stormer)."""
+    repo = _repo(request)
+    return await repo.monthly_heatmap(user_id=user_id, trade_objective=trade_objective)
+
+
 # ── Página HTML ───────────────────────────────────────────────────────────────
 
 
