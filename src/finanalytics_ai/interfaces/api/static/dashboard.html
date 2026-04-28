@@ -296,7 +296,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .sig-label{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
 .sig-badge{font-size:14px;font-family:DM Mono,monospace;font-weight:700;
   padding:2px 8px;border-radius:4px}
-.sig-badge.buy    {background:rgba(46,212,122,.15);color:var(--green)}
+/* Cor verde mais vivida (verde-bandeira) para acao COMPRA — distintivo do
+   verde-teal global (--green=#2ED47A usado em up%/dot/etc). */
+.sig-badge.buy    {background:rgba(34,197,94,.18);color:#22C55E}
 .sig-badge.sell   {background:rgba(224,85,85,.15);color:var(--red)}
 .sig-badge.neutral{background:rgba(106,158,191,.1);color:var(--muted)}
 
@@ -2392,7 +2394,7 @@ function updateSignals(data) {
     const lastDim = dimVals[dimVals.length-1];
     if (lastAdx != null) {
       if (lastAdx >= 25 && lastDip > lastDim) {
-        adxEl.innerHTML='<span style=color:#2ED47A>ALTA ' + lastAdx.toFixed(1) + '</span>';
+        adxEl.innerHTML='<span style=color:#22C55E>ALTA ' + lastAdx.toFixed(1) + '</span>';
         adxEl.className='sig-badge buy';
         adxEl.title = '🟢 COMPRA — Tendência de alta forte (ADX≥25 + +DI > −DI). Compradores no controle. Bom para operações direcionais long.';
         adxEl.style.cursor = 'help';
