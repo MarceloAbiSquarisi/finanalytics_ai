@@ -2308,15 +2308,32 @@ function renderADX(adx, timestamps) {
 }
 
 // -- SIGNALS -------------------------------------------------------------------
+// Tooltips com dica de acao por estado de cada indicador. Usa atributo nativo
+// `title` (acessivel + sem dependencia). cursor:help via CSS para feedback visual.
+function _setSig(el, text, klass, tip) {
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'sig-badge ' + klass;
+  el.title = tip || '';
+  el.style.cursor = 'help';
+}
+
 function updateSignals(data) {
   // RSI Signal
   const rsiVals = data.rsi.values.filter(v => v != null);
   const lastRsi = rsiVals[rsiVals.length-1];
   const rsiEl   = document.getElementById('sig-rsi');
   if (lastRsi != null) {
-    if (lastRsi > 70)      { rsiEl.textContent = `SOBRECOMPRADO ${lastRsi.toFixed(1)}`; rsiEl.className='sig-badge sell'; }
-    else if (lastRsi < 30) { rsiEl.textContent = `SOBREVENDIDO ${lastRsi.toFixed(1)}`;  rsiEl.className='sig-badge buy'; }
-    else                   { rsiEl.textContent = `NEUTRO ${lastRsi.toFixed(1)}`;        rsiEl.className='sig-badge neutral'; }
+    if (lastRsi > 70) {
+      _setSig(rsiEl, `SOBRECOMPRADO ${lastRsi.toFixed(1)}`, 'sell',
+        '🔴 VENDA — RSI > 70: ativo sobreaquecido, possível reversão para baixo. Considere realizar lucros ou aguardar correção.');
+    } else if (lastRsi < 30) {
+      _setSig(rsiEl, `SOBREVENDIDO ${lastRsi.toFixed(1)}`, 'buy',
+        '🟢 COMPRA — RSI < 30: ativo descontado, possível reversão para cima. Bom ponto de entrada se confirmado por outro indicador.');
+    } else {
+      _setSig(rsiEl, `NEUTRO ${lastRsi.toFixed(1)}`, 'neutral',
+        '⚪ MANTER — RSI entre 30 e 70: zona neutra, sem extremos. Use outros indicadores (MACD, Bollinger, ADX) para decidir.');
+    }
   }
 
   // MACD Signal (crossover)
@@ -2326,10 +2343,19 @@ function updateSignals(data) {
   if (mVals.length >= 2 && sVals.length >= 2) {
     const mPrev=mVals[mVals.length-2], mCurr=mVals[mVals.length-1];
     const sPrev=sVals[sVals.length-2], sCurr=sVals[sVals.length-1];
-    if (mPrev < sPrev && mCurr > sCurr) { macdEl.textContent='CRUZAMENTO ^'; macdEl.className='sig-badge buy'; }
-    else if (mPrev > sPrev && mCurr < sCurr) { macdEl.textContent='CRUZAMENTO v'; macdEl.className='sig-badge sell'; }
-    else if (mCurr > sCurr) { macdEl.textContent='ACIMA SINAL'; macdEl.className='sig-badge buy'; }
-    else { macdEl.textContent='ABAIXO SINAL'; macdEl.className='sig-badge sell'; }
+    if (mPrev < sPrev && mCurr > sCurr) {
+      _setSig(macdEl, 'CRUZAMENTO ^', 'buy',
+        '🟢 COMPRA FORTE — Golden Cross: MACD cruzou a linha de sinal de baixo para cima. Sinal clássico de início de tendência de alta.');
+    } else if (mPrev > sPrev && mCurr < sCurr) {
+      _setSig(macdEl, 'CRUZAMENTO v', 'sell',
+        '🔴 VENDA FORTE — Death Cross: MACD cruzou a linha de sinal de cima para baixo. Sinal clássico de início de tendência de baixa.');
+    } else if (mCurr > sCurr) {
+      _setSig(macdEl, 'ACIMA SINAL', 'buy',
+        '🟢 TENDÊNCIA ALTA — MACD acima da linha de sinal: momentum positivo. Manter posição comprada ou aumentar.');
+    } else {
+      _setSig(macdEl, 'ABAIXO SINAL', 'sell',
+        '🔴 TENDÊNCIA BAIXA — MACD abaixo da linha de sinal: momentum negativo. Cautela com posições compradas; considerar reduzir.');
+    }
   }
 
   // Bollinger %B signal
@@ -2337,13 +2363,23 @@ function updateSignals(data) {
   const lastPb = pbVals[pbVals.length-1];
   const bbEl   = document.getElementById('sig-bb');
   if (lastPb != null) {
-    if (lastPb > 1)        { bbEl.textContent=`ACIMA BANDA ${lastPb.toFixed(2)}`; bbEl.className='sig-badge sell'; }
-    else if (lastPb < 0)   { bbEl.textContent=`ABAIXO BANDA ${lastPb.toFixed(2)}`; bbEl.className='sig-badge buy'; }
-    else if (lastPb > 0.8) { bbEl.textContent=`PERTO SUPERIOR ${lastPb.toFixed(2)}`; bbEl.className='sig-badge sell'; }
-    else if (lastPb < 0.2) { bbEl.textContent=`PERTO INFERIOR ${lastPb.toFixed(2)}`; bbEl.className='sig-badge buy'; }
-    else                   { bbEl.textContent=`NEUTRO ${lastPb.toFixed(2)}`; bbEl.className='sig-badge neutral'; }
+    if (lastPb > 1) {
+      _setSig(bbEl, `ACIMA BANDA ${lastPb.toFixed(2)}`, 'sell',
+        '🔴 VENDA — Preço rompeu acima da banda superior. Sobrecomprado em volatilidade; possível correção iminente.');
+    } else if (lastPb < 0) {
+      _setSig(bbEl, `ABAIXO BANDA ${lastPb.toFixed(2)}`, 'buy',
+        '🟢 COMPRA — Preço rompeu abaixo da banda inferior. Sobrevendido em volatilidade; possível repique.');
+    } else if (lastPb > 0.8) {
+      _setSig(bbEl, `PERTO SUPERIOR ${lastPb.toFixed(2)}`, 'sell',
+        '⚠️ CAUTELA EM COMPRAS — Preço próximo da banda superior. Pressão vendedora aumentando.');
+    } else if (lastPb < 0.2) {
+      _setSig(bbEl, `PERTO INFERIOR ${lastPb.toFixed(2)}`, 'buy',
+        '⚠️ ATENÇÃO COMPRA — Preço próximo da banda inferior. Pressão compradora aumentando; possível ponto de entrada.');
+    } else {
+      _setSig(bbEl, `NEUTRO ${lastPb.toFixed(2)}`, 'neutral',
+        '⚪ MANTER — Preço dentro das bandas (volatilidade normal). %B ~0.5 é zona de equilíbrio.');
+    }
   }
-
 
   // ADX Signal
   const adxEl = document.getElementById('sig-adx');
@@ -2355,10 +2391,27 @@ function updateSignals(data) {
     const lastDip = dipVals[dipVals.length-1];
     const lastDim = dimVals[dimVals.length-1];
     if (lastAdx != null) {
-      if (lastAdx >= 25 && lastDip > lastDim) { adxEl.innerHTML='<span style=color:#2ED47A>ALTA ' + lastAdx.toFixed(1) + '</span>'; adxEl.className='sig-badge buy'; }
-      else if (lastAdx >= 25 && lastDim > lastDip) { adxEl.innerHTML='<span style=color:#E05555>BAIXA ' + lastAdx.toFixed(1) + '</span>'; adxEl.className='sig-badge sell'; }
-      else if (lastAdx >= 40) { adxEl.innerHTML='<span style=color:#6c63ff>FORTE ' + lastAdx.toFixed(1) + '</span>'; adxEl.className='sig-badge neutral'; }
-      else { adxEl.innerHTML='<span style=color:#ffd740>LATERAL ' + lastAdx.toFixed(1) + '</span>'; adxEl.className='sig-badge neutral'; }
+      if (lastAdx >= 25 && lastDip > lastDim) {
+        adxEl.innerHTML='<span style=color:#2ED47A>ALTA ' + lastAdx.toFixed(1) + '</span>';
+        adxEl.className='sig-badge buy';
+        adxEl.title = '🟢 COMPRA — Tendência de alta forte (ADX≥25 + +DI > −DI). Compradores no controle. Bom para operações direcionais long.';
+        adxEl.style.cursor = 'help';
+      } else if (lastAdx >= 25 && lastDim > lastDip) {
+        adxEl.innerHTML='<span style=color:#E05555>BAIXA ' + lastAdx.toFixed(1) + '</span>';
+        adxEl.className='sig-badge sell';
+        adxEl.title = '🔴 VENDA — Tendência de baixa forte (ADX≥25 + −DI > +DI). Vendedores no controle. Bom para short ou sair de longs.';
+        adxEl.style.cursor = 'help';
+      } else if (lastAdx >= 40) {
+        adxEl.innerHTML='<span style=color:#6c63ff>FORTE ' + lastAdx.toFixed(1) + '</span>';
+        adxEl.className='sig-badge neutral';
+        adxEl.title = '📈 TENDÊNCIA MUITO FORTE — ADX≥40 indica força máxima de tendência. Verifique +DI vs −DI para direção.';
+        adxEl.style.cursor = 'help';
+      } else {
+        adxEl.innerHTML='<span style=color:#ffd740>LATERAL ' + lastAdx.toFixed(1) + '</span>';
+        adxEl.className='sig-badge neutral';
+        adxEl.title = '⚪ MANTER / AGUARDAR — ADX<25: mercado lateralizado, sem tendência clara. Estratégias direcionais arriscadas; preferir range trading.';
+        adxEl.style.cursor = 'help';
+      }
     }
   }
 }
