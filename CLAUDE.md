@@ -395,6 +395,15 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 
     **Estado final 28/abr (madrugada completa)**: 9 commits, ~25 itens entregues, **15 alert rules**, 4 jobs novos, 2 tabelas versionadas, helper sparkline reusável, runbook + 29 unit tests novos. Backlog factível offline esgotado.
 
+25. ~~Sessão pré-pregão 28/abr manhã — fechamento Bloco A + C.1 + C.2 + NSSM watchdog~~ — **DONE 28/abr** — 4 commits (`ec0a21f`, `7413c4c`, `639f40d`, `81c1d3a`):
+    - **Bloco A finalizado** (4 pendentes via MCP): A.4.9 (PDF/pdfplumber 400 amigável validado em código), A.22.4 (5 tickers DLL pós-N1 com warning=null), A.23.9 (peer-ranking Ações 20 fundos), A.23.10 (empty state dinâmico com classe + PL).
+    - **C.1 Pushover 4/4** end-to-end: credenciais `GRAFANA_PUSHOVER_*` e `PUSHOVER_*` validadas, priority=0 suprimido por **quiet hours** do user (esperado), priority=1+siren atravessa, `_bus_consumer` real testado via `notify_system()` no container API, escalation `consecutive_errors >= 5` simulada via container scheduler com payload exato. **Achado**: severity=warning vai pra `pushover-default` priority=0; durante quiet hours fica silencioso no celular — considerar revisar `policies.yml` ou ajustar quiet hours.
+    - **C.2 Sudo manual restart 7/7**: 401+`x-sudo-required:true`, fluxo `/auth/sudo` → `sudo_token` → `/agent/restart` 200, health volta ~11s (DLL boot domina), `oco.state_loaded groups=1 levels=1 order_index=1`, lazy reconnect TimescaleDB validado em código (`profit_agent.py:511-538`), TICK_V1 throttle `% 1000 == 1` em código.
+    - **Achado crítico** durante C.2: `os._exit(0)` no profit_agent não terminou processo limpo — DLL ConnectorThread (C++ nativa) bloqueia. Precisou `Stop-Process -Force` + relançar manual. Sem watchdog, restart 100% via API era frágil.
+    - **Resolução: NSSM watchdog instalado** via `scripts/install_nssm_service.ps1` (idempotente, requer admin). Service `FinAnalyticsAgent` rodando como LocalSystem com auto-restart 2s + log rotation 10MB + AppExit Restart. Validado: `/agent/restart` muda PID (44384→58536), `/health` volta em segundos sem intervenção. **Limitação documentada (item O1 em Melhorias.md)**: cada restart deixa pares Python zombie (parent+child) — DLL ConnectorThread bloqueia exit. Fix preferido futuro: substituir `os._exit(0)` por `kernel32.TerminateProcess` via ctypes.
+
+    **Estado final 28/abr (manhã pré-pregão)**: 13 commits no dia, Bloco A do Roteiro 98.8% (245/248), Blocos C.1+C.2 100% (11/11). Pendências sobram apenas em Bloco B (pregão), C.3 (samples reais BTG/XP — você fornecer), C.4 (Nelogica externo). Profit_agent migrado de standalone para serviço Windows com watchdog.
+
 ## Decisões Arquiteturais (Imutáveis)
 
 > Decisões do tipo "não revogar sem evidência empírica nova". Anterior a alterar uma destas, ler o documento de origem.
@@ -562,7 +571,13 @@ Origem: investigação N1 (28/abr/2026). PETR4 em `market_history_trades` mostro
 ```
 Remote: https://github.com/MarceloAbiSquarisi/finanalytics_ai
 Branch: master
-Últimos commits (28/abr madrugada — Sprint N1-N12 + housekeeping A-H):
+Últimos commits (28/abr manhã — fechamento pré-pregão + NSSM):
+  81c1d3a feat(infra): NSSM watchdog para profit_agent (resolve restart DLL issue)
+  639f40d docs(roteiro): fecha C.2 Sudo manual restart (7/7 verdes)
+  7413c4c docs(roteiro): fecha C.1 Pushover end-to-end (4/4 verdes)
+  ec0a21f docs(roteiro): fecha 4 pendentes do Bloco A via MCP (A.4.9 + A.22.4 + A.23.9 + A.23.10)
+
+Commits anteriores (28/abr madrugada — Sprint N1-N12 + housekeeping A-H):
   04048f0 chore: housekeeping A-H (sw bump + runbook + tests + helper sparkline + metrics)
   5ddd528 docs(claude): atualiza CLAUDE.md com sessao 28/abr (Sprint N1-N12 + housekeeping)
   472f513 feat: migrations alembic + populate default 1m + 2 grafana alerts
