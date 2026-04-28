@@ -422,6 +422,44 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 
     **Estado final 28/abr 14h**: 15 commits no dia, ~50% Bloco B validado, P1 production-ready, 4 bugs ativos catalogados (P1 fix entregue, P2-P4 pendentes). Próxima sessão deve começar por P4 (struct ctypes fix) — desbloqueia B.18 e cross-cancel via callback.
 
+27. ~~Sessão pós-pregão 28/abr 17h-22h — fix batch P2/P4/P5/P6/P7/O1 + UX polish + planejamento R1-R5/E1-E3~~ — **DONE 28/abr** — 14 commits:
+    - **`27e04d3`** P4+P6/O1+P7+P2 fix batch (179 inserts, 59 deletes em `profit_agent.py`):
+      - **P4** struct corruption: callback declarado `POINTER(TConnectorOrder)` 152B mas Delphi passa `TConnectorOrderIdentifier` 24B. Trocou WINFUNCTYPE para 24B match Delphi. Status/ticker/qty completos virão via reconcile (já cobre).
+      - **P6/O1** zombie pair: `_hard_exit()` via `kernel32.TerminateProcess` substitui `os._exit(0)` (mata DLL ConnectorThread C++ nativa). `_kill_zombie_agents(self_pid, port)` no boot do `_start_http` scaneia netstat + taskkill outros PIDs LISTENING. Resolve duplo-listener `:8002`.
+      - **P2** reconcile UPDATE: filtrava `WHERE cl_ord_id=%s` mas envio inicial grava NULL. Match agora `WHERE local_order_id=%s OR cl_ord_id=%s` + COALESCE preenche cl_ord_id quando ainda NULL.
+      - **P7** trail change_order rejected: trail_monitor agora faz cancel SL antigo + send novo SL como fallback quando broker rejeita SendChangeOrderV2 (ret=-2147483645). Log `trailing.cancel_create` distinto do `trailing.adjusted` direto.
+    - **`efc4235`** A+D+E (P3 + 14 testes unit + métricas Prometheus):
+      - **A/P3** di1_realtime_worker cursor: trocou `MAX(trade_number)` por `time > worker_start_ts` (timestamp monotônico cross-session B3, sem stuck após reset).
+      - **D** 14 testes unit: 9 em `test_profit_agent_fixes.py` (struct sizes, kill_zombies mock, get_metrics defaults) + 1 P3 cursor + 4 ajustes em `test_di1_realtime_worker.py`. 22 verde em 14s.
+      - **E** Métricas Prometheus novas no `/metrics`: `profit_agent_order_callbacks_total` (counter — DLL viva sem inspecionar log), `profit_agent_oco_groups_active` (gauge), `profit_agent_oco_trail_adjusts_total` + `profit_agent_oco_trail_fallbacks_total` (counter — fallbacks > 0 = P7 cancel+create acionado). Alert rule `order_callback_stale` (rate=0 em 10min durante pregão).
+    - **`568e9a3`** B+C (B.18 hook diary + cleanup ordens órfãs):
+      - **B/B.18** diary hook P4-aware: cache `_last_seen_status: dict[local_id, status]` em `get_positions_dll` (loop 500ms). Detecta transição (qualquer)→FILLED via DLL polling (não mais via callback corrompido). Pega tudo: market BUY manual, fills TP/SL, etc.
+      - **C** `cleanup_stale_pending_orders_job` 23h BRT: SELECT pending (status 0/10) + created_at < NOW()-24h → cruza com `/positions/dll` → cancela via agent OU marca status=8 se já dropado pelo broker. Resolve "49 PETR4 órfãs" do dashboard.
+    - **`a5213aa`** F+H+M+I (docs + runbook + cb age gauge + Grafana dashboard):
+      - **F** Melhorias.md atualizada: P1-P7+O1 todos marcados DONE com refs aos commits.
+      - **H** `docs/runbook_profit_agent.md` consultable: restart preferido (sudo `admin123` via API vs `Restart-Service` admin), troubleshooting por bug (sintoma → diagnóstico → fix), comandos health check, métricas Prometheus, alert rules.
+      - **M** Gauge `profit_agent_last_order_callback_age_seconds`: complementa alert `order_callback_stale` rate=0 com gauge visual (verde<60s, amarelo<120s, vermelho>120s).
+      - **I** `docker/grafana/dashboards/profit_agent_health.json`: 6 stat (Market/Routing/Subs/Queue/OCO/CB-age) + 4 timeseries (tick rate, callback rate, trail adjusts vs fallbacks, probe duration p95) + table counters raw. Auto-importa em ~30s pelo provider `finanalytics`.
+    - **`743b48d`+`72df79c`+`2164261`+`4fd6443`+`8843b10`+`527db97`+`c9d9857`+`fe13395`+`5da8f29`+`8f888ab`+`4d7de31`+`03250b8`+`be87fc1`** UI polish + features:
+      - Tooltips (`title` + cursor:help) com dica de ação por estado em RSI/MACD/Bollinger/ADX no /dashboard. Cor COMPRA verde-bandeira `#22C55E` (vs `--green` global teal). Removido card Profit DLL (Mercado/Roteamento/DB/Fila — redundante com Grafana). Default timeframe 5m em vez de 1S. Card Portfólios removido (já gerenciado em /carteira via projeto:portfolio_per_account).
+      - Checkbox "Numero do candle" em popup Indicadores → MARCADORES; persistido em localStorage `fa_dash_candle_counter`. Recompute imediato sem reload do chart.
+      - `/carteira` Posições: chart distribuição por classe (barras horizontais % + R$, total agregado). Inclui Acoes/ETFs/FIIs/BDRs (via /positions) + Renda Fixa (/wallet/rf, campo `invested`) + Cripto (qty*avg_brl) + Other Assets (Previdência/COE/Debêntures/Fundos). **Imóveis EXCLUÍDOS** explicitamente.
+      - Chart rentabilidade por classe (barra centrada — pos verde direita / neg vermelho esquerda) com inputs de data início+fim (default últimos 30d). Fetch `/marketdata/candles?resolution=1d&limit=90` por ticker, computa retorno % weighted by total_invested.
+      - Charts em grid `1fr 1fr` (lado a lado desktop, empilha <980px).
+      - Tabela `#tbl-positions` com headers centralizados + bordas verticais tênues `rgba(106,158,191,.08)` entre colunas.
+      - SW bumps `fa-v87 → fa-v98` (12 deploys do dia).
+    - **`e6b6118`+`78340ae`** Validade da ordem (Time In Force):
+      - DDL: ALTER TABLE `profit_orders` ADD `validity_type VARCHAR(8) DEFAULT 'GTC'` + `validity_date TIMESTAMPTZ` + index parcial. Aplicado live + versionado em `init_timescale/002_profit_agent_schema.sql`.
+      - UI `/dashboard` painel DT: seletor "Validade" (GTC "Até cancelar" **default** | GTD "Data + hora"). `datetime-local` aparece com default 17:00 do próximo dia útil.
+      - Backend: `_send_order_legacy` propaga `validity_type`/`validity_date` no insert.
+      - Worker: novo `gtd_enforcer_loop` (60s) — query `validity_type='GTD' AND validity_date < NOW AND status pending` → POST `/order/cancel`. Fallback DB-only `status=8 + error='gtd_expired_cancel_failed'` quando agent retorna ok=false (ordem já fora do DLL). DSN priority: `TIMESCALE_URL` (compose) > `PROFIT_TIMESCALE_DSN` > `TIMESCALE_DSN`. Validado smoke test live: insert ordem fake GTD passada → `gtd.expired_found count=1` → `gtd.marked_expired`.
+      - DLL ProfitDLL não expõe ValidityType no SendOrder (só no Order de retorno) — enforcement é local via worker.
+    - **`9dfe526`+`f9743c8`** Backlog futuro documentado em `Melhorias.md`:
+      - **R1-R5** Robô de Trade: arquitetura `auto_trader_worker` (Strategy Loop + Plugin Registry + Risk Engine vol-target/Kelly fracionado + Kill switch) + 3 strategies candidatas (TSMOM∩ML, pares cointegrados B3, ORB WINFUT+filtro DI1) + backtest harness. Pitfalls de referência (look-ahead, slippage, overfit, survivorship, regime change, leverage).
+      - **E1-E3** Leitura de Gmail: research bulletins → tags ticker → enrich /signals (E1, ⭐⭐⭐ alpha real, ~5d MVP) | notas corretagem reconciliation (E2, ⭐⭐ compliance/IR) | pipeline genérico (E3, ⭐ infra). Stack: MCP `claude_ai_Gmail` OAuth, pdfplumber, Anthropic SDK Haiku 4.5 (~$2.40/mês/user). Riscos LGPD + quota + OAuth refresh + LLM cost runaway documentados.
+
+    **Estado final 28/abr 22h**: 14 commits na sessão pós-pregão (29 commits no dia inteiro). 8 bugs P-* atacados (P1-P7+O1, todos DONE). 14 testes unit novos (22 totais verde). 3 features UX grandes em produção (validity GTD, charts /carteira lado a lado, tooltips). Backlog futuro priorizado em R1-R5 (robô) + E1-E3 (Gmail). Próxima sessão pode começar por R2 (TSMOM ∩ ML overlay — 3-5d, baixo custo, edge documentado) ou E1 (research BTG MVP — 5d, alpha investível) dependendo da prioridade do user.
+
 ## Decisões Arquiteturais (Imutáveis)
 
 > Decisões do tipo "não revogar sem evidência empírica nova". Anterior a alterar uma destas, ler o documento de origem.
@@ -589,7 +627,30 @@ Origem: investigação N1 (28/abr/2026). PETR4 em `market_history_trades` mostro
 ```
 Remote: https://github.com/MarceloAbiSquarisi/finanalytics_ai
 Branch: master
-Últimos commits (28/abr 12h-14h — Bloco B parcial + P1):
+Últimos commits (28/abr 17h-22h — fix batch + UX polish + roadmap):
+  f9743c8 docs(melhorias): adiciona E1-E3 leitura Gmail
+  9dfe526 docs(melhorias): adiciona R1-R5 robô de trade
+  78340ae fix(scheduler): GTD enforcer DSN priority + status 8 fallback
+  e6b6118 feat(orders): validade GTC default + GTD com data/hora
+  be87fc1 style(carteira): tabela posicoes — headers center + bordas verticais
+  03250b8 style(carteira): charts Distribuicao + Rentabilidade lado a lado
+  4d7de31 feat(carteira): chart rentabilidade por classe (default 30d, datas custom)
+  8f888ab feat(carteira): distribuicao inclui Other assets (excl. imoveis)
+  5da8f29 fix(carteira): inclui Renda Fixa + Cripto na distribuicao
+  fe13395 feat(carteira): grafico distribuicao por classe (Posicoes)
+  c9d9857 chore(dashboard): remove card Portfólios da sidebar
+  527db97 feat(dashboard): checkbox numero do candle no popup Indicadores
+  8843b10 chore(sw): bump fa-v87 → fa-v88
+  4fd6443 style(dashboard): timeframe padrao 5m em vez de 1S
+  2164261 chore(dashboard): remove cards Profit DLL status (Mercado/Roteamento/DB/Fila)
+  72df79c style(dashboard): cor de COMPRA verde-bandeira (#22C55E)
+  743b48d feat(dashboard): tooltip dica de acao em Sinais Tecnicos
+  a5213aa docs+infra: F+H+M+I — backlog status + runbook + cb age gauge + Grafana panel
+  568e9a3 feat(profit_agent,scheduler): B+C — diary hook P4-aware + cleanup stale
+  efc4235 feat(profit_agent,di1): A+D+E — P3 fix + Prometheus order_cb + 14 testes unit
+  27e04d3 fix(profit_agent): P4+P6+P7+P2 — struct callback + zombie pair + trailing fallback
+
+Commits anteriores (28/abr 12h-14h — Bloco B parcial + P1):
   202bdc3 feat(profit_agent): P1 auto-retry para "Cliente nao logado" + B.6 Phase A end-to-end
   35df9c0 docs(roteiro): bloco B parcial 28/abr + 3 bugs novos (P1/P2/P3)
 
