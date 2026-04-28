@@ -919,6 +919,18 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
             <button class="ip-add-btn" onclick="addOverlay('ema')">+ Adicionar</button>
 </div>
 
+          <!-- Marcadores no chart -->
+          <div class="ip-section" style="margin-top:12px">MARCADORES
+</div>
+          <div class="ip-row">
+            <label class="ip-toggle">
+              <input type="checkbox" id="ipc-candle-counter" checked onchange="applyIndPopup()">
+              <span class="ip-slider"></span>
+            </label>
+            <span class="ip-label">Numero do candle</span>
+            <span class="ip-sub" style="font-size:13px">1, 3, 5...</span>
+</div>
+
           <!-- Padrões Candlestick -->
           <div class="ip-section" style="margin-top:12px">PADRÕES CANDLESTICK
 </div>
@@ -2427,6 +2439,19 @@ function applyIndPopup() {
   indVisible.sr_classic  = document.getElementById('ipc-sr-classic') ? document.getElementById('ipc-sr-classic').checked : false;
   indVisible.sr_swing    = document.getElementById('ipc-sr-swing') ? document.getElementById('ipc-sr-swing').checked : false;
   indVisible.sr_williams = document.getElementById('ipc-sr-williams') ? document.getElementById('ipc-sr-williams').checked : false;
+  // Marcadores: numero do candle
+  const _ccCb = document.getElementById('ipc-candle-counter');
+  if (_ccCb) {
+    const _ccChanged = indVisibleCounter !== _ccCb.checked;
+    indVisibleCounter = _ccCb.checked;
+    try { localStorage.setItem('fa_dash_candle_counter', indVisibleCounter ? '1' : '0'); } catch (e) {}
+    if (_ccChanged) {
+      // Recompute + reapply markers no chart
+      const _bars = (indCache && indCache._bars) || [];
+      candleCounterMarkers = indVisibleCounter ? computeCandleCounters(_bars) : [];
+      applyAllMarkers();
+    }
+  }
   indConfig.rsiPeriod = parseInt(document.getElementById('ipc-rsi-p').value)   || 14;
   indConfig.bbPeriod  = parseInt(document.getElementById('ipc-bb-p').value)    || 20;
   indConfig.adxPeriod = parseInt(document.getElementById('ipc-adx-p').value)   || 14;
@@ -2826,7 +2851,10 @@ function drawPatterns(bars) {
 
 // -- CANDLE COUNTERS (reset diário, abaixo do mínimo) -------------------------
 let candleCounterMarkers = [];
-let indVisibleCounter = true;  // toggle (poderia virar item em indicadores)
+let indVisibleCounter = (function(){
+  try { const v = localStorage.getItem('fa_dash_candle_counter'); return v === null ? true : v === '1'; }
+  catch (e) { return true; }
+})();
 
 function computeCandleCounters(bars) {
   if (!bars || !bars.length) return [];
@@ -4721,6 +4749,9 @@ function onAccountSelChange(uuid) {
 
 // ── Init DayTrade panels ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
+  // Hidrata checkbox numero do candle a partir do localStorage
+  const _ccCb = document.getElementById('ipc-candle-counter');
+  if (_ccCb) _ccCb.checked = indVisibleCounter;
   startOrdersPolling();
   // Carrega contas no seletor do top bar
   loadAccounts();
