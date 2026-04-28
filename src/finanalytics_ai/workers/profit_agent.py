@@ -178,6 +178,61 @@ def _setup_logging() -> None:
 log = logging.getLogger("profit_agent")
 
 
+def _hard_exit(code: int = 0) -> None:
+    """Mata processo + threads C nativas (DLL ConnectorThread).
+
+    os._exit(0) deixa ConnectorThread vivo em background, criando "zombie pair"
+    (parent+child relaunched pelo NSSM, ambos bind na mesma porta). TerminateProcess
+    via Windows API encerra processo INTEIRO incluindo threads nativas, evitando
+    duplicidade de listeners em :8002.
+    """
+    if os.name == "nt":
+        try:
+            import ctypes as _ct
+            handle = _ct.windll.kernel32.GetCurrentProcess()
+            _ct.windll.kernel32.TerminateProcess(handle, code)
+        except Exception:
+            os._exit(code)
+    else:
+        os._exit(code)
+
+
+def _kill_zombie_agents(self_pid: int, port: int) -> int:
+    """Mata processos Python zombies escutando na mesma porta (deixados de NSSM
+    restarts anteriores). Roda no boot, ANTES de bindar :8002.
+
+    Retorna número de zombies mortos.
+    """
+    if os.name != "nt":
+        return 0
+    try:
+        import subprocess as _sp
+        # netstat -ano filtra por porta
+        result = _sp.run(
+            ["netstat", "-ano", "-p", "TCP"],
+            capture_output=True, text=True, timeout=5,
+        )
+        zombie_pids = set()
+        for line in result.stdout.splitlines():
+            parts = line.split()
+            if len(parts) >= 5 and "LISTENING" in line and f":{port}" in parts[1]:
+                pid = int(parts[-1])
+                if pid != self_pid and pid > 0:
+                    zombie_pids.add(pid)
+        killed = 0
+        for pid in zombie_pids:
+            try:
+                _sp.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True, timeout=3)
+                killed += 1
+                log.warning("profit_agent.zombie_killed pid=%d", pid)
+            except Exception as exc:
+                log.warning("profit_agent.zombie_kill_failed pid=%d err=%s", pid, exc)
+        return killed
+    except Exception as exc:
+        log.warning("profit_agent.zombie_scan_failed err=%s", exc)
+        return 0
+
+
 # ---------------------------------------------------------------------------
 
 # Tipos ctypes (manual Nelogica)
@@ -2473,61 +2528,44 @@ class ProfitAgent:
             except queue.Full:
                 pass
 
-        # 11. Order callback - recebe TConnectorOrder completo com status real
+        # 11. Order callback — assinatura Delphi correta (P4 fix 28/abr):
+        #   procedure(const a_OrderID: TConnectorOrderIdentifier); stdcall;
+        # Recebe APENAS o identifier (24 bytes), não a TConnectorOrder completa.
+        # Antes a struct era POINTER(TConnectorOrder) (152 bytes) → callback lia
+        # 128 bytes de garbage além dos 24 válidos, causando ticker corrupted
+        # (䱐Ǆ etc) e UnicodeEncodeError no log.
+        #
+        # Status/ticker/qty completos virão via _reconcile_orders_dll (polling
+        # EnumerateAllOrders no scheduler a cada 5min, ou imediato via _check_levels_fill).
 
-        @WINFUNCTYPE(None, POINTER(TConnectorOrder))
-        def order_cb(order_ptr) -> None:
+        @WINFUNCTYPE(None, POINTER(TConnectorOrderIdentifier))
+        def order_cb(oid_ptr) -> None:
 
             try:
-                o = order_ptr.contents
+                if not oid_ptr:
+                    return
+                oid = oid_ptr.contents
+                local_id = oid.LocalOrderID
+                cl_ord = (oid.ClOrderID or "").strip()
 
-                local_id = o.OrderID.LocalOrderID
-
-                cl_ord = (o.OrderID.ClOrderID or "").strip()
-
-                status = o.OrderStatus
-
-                traded_qty = o.TradedQuantity
-
-                leaves_qty = o.LeavesQuantity
-
-                avg_price = round(o.AveragePrice, 4) if o.AveragePrice > 0 else None
-
-                ticker = (o.AssetID.Ticker or "").strip()
-
-                log.info(
-                    "order_callback local_id=%d cl_ord=%s status=%d ticker=%s "
-                    "traded=%d leaves=%d avg=%.4f",
-                    local_id,
-                    cl_ord,
-                    status,
-                    ticker,
-                    traded_qty,
-                    leaves_qty,
-                    avg_price or 0.0,
-                )
-
-                agent._db_queue.put_nowait(
-                    {
-                        "_type": "order_update",
-                        "local_order_id": local_id,
-                        "cl_ord_id": cl_ord,
-                        "order_status": status,
-                        "traded_qty": traded_qty,
-                        "leaves_qty": leaves_qty,
-                        "avg_price": avg_price,
-                    }
-                )
-
-                # P1: status=204 ("Cliente não está logado") → broker rejeitou
-                # por blip de subconnection. Schedule retry após 5s
-                # (deixa routing reconectar primeiro, padrão Delphi).
-                if status == 204 and traded_qty == 0 and local_id > 0:
-                    t = threading.Timer(
-                        5.0, agent._retry_rejected_order, args=(local_id,)
+                # Throttle log: só 1 a cada 100 callbacks (alguns brokers spammam)
+                agent._order_cb_count = getattr(agent, "_order_cb_count", 0) + 1
+                if agent._order_cb_count % 100 == 1:
+                    log.info(
+                        "order_callback local_id=%d cl_ord=%s (count=%d)",
+                        local_id, cl_ord, agent._order_cb_count,
                     )
-                    t.daemon = True
-                    t.start()
+
+                # Update incremental no DB: cl_ord_id (caso ainda NULL — bug P2 mitigation).
+                # Status/qty serão atualizados pelo reconcile_loop via EnumerateAllOrders.
+                if local_id > 0 and cl_ord:
+                    agent._db_queue.put_nowait(
+                        {
+                            "_type": "order_cl_ord_update",
+                            "local_order_id": local_id,
+                            "cl_ord_id": cl_ord,
+                        }
+                    )
 
             except queue.Full:
                 pass
@@ -2797,6 +2835,17 @@ class ProfitAgent:
 
                 elif t == "state":
                     log.info("state conn_type=%d result=%d", item["conn_type"], item["result"])
+
+                elif t == "order_cl_ord_update":
+                    # P4 fix (28/abr): callback agora só recebe OrderIdentifier
+                    # (24 bytes). Preenchemos cl_ord_id incremental para mitigar P2
+                    # (envio inicial gravava NULL, reconcile UPDATE WHERE cl_ord_id
+                    # ficava 0 rows).
+                    self._db.execute(
+                        "UPDATE profit_orders SET cl_ord_id = %s, updated_at = NOW() "
+                        "WHERE local_order_id = %s AND cl_ord_id IS NULL",
+                        (item["cl_ord_id"], item["local_order_id"]),
+                    )
 
             except Exception as e:
                 log.warning("db_worker.error type=%s error=%s", item.get("_type"), e)
@@ -3676,18 +3725,26 @@ class ProfitAgent:
             return {"orders": [], "positions": [], "error": str(e)}
         if orders_found and self._db:
             for o in orders_found:
-                if not o["cl_ord_id"]:
+                # P2 fix (28/abr): match por local_order_id OU cl_ord_id.
+                # Antes filtrava por cl_ord_id apenas, mas envio inicial grava NULL
+                # → 0 rows updated permanentemente. Match por local_id pega tudo.
+                local_id = o.get("local_id")
+                cl_ord = o.get("cl_ord_id")
+                if not local_id and not cl_ord:
                     continue
                 self._db.execute(
                     "UPDATE profit_orders SET order_status=%s,traded_qty=COALESCE(%s,traded_qty),"
                     "leaves_qty=COALESCE(%s,leaves_qty),avg_price=COALESCE(%s,avg_price),"
-                    "updated_at=NOW() WHERE cl_ord_id=%s",
+                    "cl_ord_id=COALESCE(cl_ord_id,%s),updated_at=NOW() "
+                    "WHERE local_order_id=%s OR cl_ord_id=%s",
                     (
                         o["order_status"],
                         o["traded_qty"] or None,
                         o["leaves_qty"] or None,
                         o["avg_price"],
-                        o["cl_ord_id"],
+                        cl_ord or None,
+                        local_id or 0,
+                        cl_ord or "",
                     ),
                 )
         return {"orders": orders_found, "positions": [], "env": env, "source": "dll"}
@@ -4622,7 +4679,67 @@ class ProfitAgent:
                             "price": new_lim, "stop_price": new_sl,
                             "quantity": int(lv["qty"]),
                         })
-                        if ret.get("ok"):
+                        moved_ok = bool(ret.get("ok"))
+
+                        # P7 fallback (28/abr): broker simulator rejeita change_order
+                        # em ordens stop-limit (ret=-2147483645). Quando change falha,
+                        # cancel+create novo SL. Mantém trailing funcional mesmo com
+                        # broker degradado.
+                        if not moved_ok:
+                            log.warning(
+                                "trailing.change_failed_fallback_to_cancel_create "
+                                "group=%s lv=%d new_sl=%.4f ret=%s",
+                                group_id, lv["idx"], new_sl, ret.get("ret"),
+                            )
+                            cancel_ret = self.cancel_order({
+                                "env": grp["env"],
+                                "local_order_id": lv["sl_order_id"],
+                            })
+                            if cancel_ret.get("ok"):
+                                # Cria novo SL stop-limit
+                                side_str = "sell" if grp["side"] == 2 else "buy"
+                                new_sl_res = self._send_order_legacy({
+                                    "env": grp["env"],
+                                    "ticker": grp["ticker"],
+                                    "exchange": grp["exchange"],
+                                    "is_daytrade": grp["is_daytrade"],
+                                    "user_account_id": grp.get("user_account_id"),
+                                    "portfolio_id": grp.get("portfolio_id"),
+                                    "order_type": "stop",
+                                    "order_side": side_str,
+                                    "price": new_lim,
+                                    "stop_price": new_sl,
+                                    "quantity": int(lv["qty"]),
+                                    "strategy_id": (
+                                        f"oco_grp_{group_id[:8]}_lv{lv['idx']}_sl_trail"
+                                    ),
+                                })
+                                if new_sl_res.get("ok"):
+                                    old_sl_id = lv["sl_order_id"]
+                                    lv["sl_order_id"] = new_sl_res["local_order_id"]
+                                    self._order_to_group[lv["sl_order_id"]] = (
+                                        group_id, lv["idx"], "sl"
+                                    )
+                                    self._order_to_group.pop(old_sl_id, None)
+                                    self._db.execute(
+                                        "UPDATE profit_oco_levels SET sl_order_id=%s, "
+                                        "updated_at=NOW() WHERE level_id=%s",
+                                        (lv["sl_order_id"], lv["level_id"]),
+                                    )
+                                    moved_ok = True
+                                    log.info(
+                                        "trailing.cancel_create group=%s lv=%d "
+                                        "old_sl=%d new_sl_id=%d new_sl=%.4f",
+                                        group_id, lv["idx"], old_sl_id,
+                                        lv["sl_order_id"], new_sl,
+                                    )
+                                else:
+                                    log.warning(
+                                        "trailing.create_failed group=%s lv=%d err=%s",
+                                        group_id, lv["idx"], new_sl_res.get("error"),
+                                    )
+
+                        if moved_ok:
                             lv["sl_trigger"] = new_sl
                             lv["sl_limit"] = new_lim
                             self._db.execute(
@@ -4633,11 +4750,6 @@ class ProfitAgent:
                             log.info(
                                 "trailing.adjusted group=%s lv=%d hw=%.4f new_sl=%.4f",
                                 group_id, lv["idx"], lv["trail_high_water"], new_sl,
-                            )
-                        else:
-                            log.warning(
-                                "trailing.change_failed group=%s lv=%d new_sl=%.4f ret=%s",
-                                group_id, lv["idx"], new_sl, ret.get("ret"),
                             )
             except Exception as e:
                 log.warning("trail_monitor error: %s", e)
@@ -5395,6 +5507,11 @@ class ProfitAgent:
 
     def _start_http(self, port: int) -> None:
 
+        # Mata zombies de boots anteriores ANTES de tentar bind (P6/O1 fix 28/abr).
+        # NSSM restart pode deixar processo velho ainda LISTENING mesmo com PID novo
+        # subindo, criando dois listeners em :8002 e quebrando state in-memory.
+        _kill_zombie_agents(os.getpid(), port)
+
         agent = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -5684,6 +5801,9 @@ class ProfitAgent:
                     # Mata o processo; watchdog (NSSM) reinicia em 2-5s.
                     # Sem NSSM, o profit_agent fica offline ate start manual.
                     # Protecao de auth feita no proxy FastAPI (require_sudo).
+                    # Decisao 28/abr: TerminateProcess em vez de os._exit(0) porque
+                    # DLL ConnectorThread (C++ nativa) bloqueia exit limpo, deixando
+                    # processo zombie + outro novo bind na mesma porta (ambos LISTENING).
                     import os as _os_r
                     import threading as _th_r
 
@@ -5694,7 +5814,7 @@ class ProfitAgent:
                         import time as _tm_r
 
                         _tm_r.sleep(0.5)  # deixa resposta HTTP chegar no cliente
-                        _os_r._exit(0)
+                        _hard_exit(0)
 
                     _th_r.Thread(target=_exit_soon, daemon=True).start()
                     return
