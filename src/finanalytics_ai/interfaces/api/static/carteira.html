@@ -104,6 +104,18 @@ tr:hover td{background:rgba(0,212,255,.02)}
 .ps-dist-bar{height:100%;border-radius:3px;transition:width .4s ease}
 .ps-dist-val{text-align:right;color:var(--muted)}
 .ps-dist-val strong{color:var(--text)}
+/* Returns chart: barra centrada (positivo direita, negativo esquerda) */
+.ret-row{display:grid;grid-template-columns:90px 1fr 110px;gap:10px;align-items:center;margin-bottom:5px;font-size:13px;font-family:'DM Mono',monospace}
+.ret-label{color:var(--text);font-weight:600;text-transform:uppercase;letter-spacing:.4px;font-size:12px}
+.ret-bar-wrap{position:relative;height:14px;background:rgba(106,158,191,.05);border-radius:3px}
+.ret-bar-wrap::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(106,158,191,.3)}
+.ret-bar{position:absolute;top:0;bottom:0;border-radius:3px;transition:width .4s ease}
+.ret-bar.pos{left:50%;background:var(--green,#00e676)}
+.ret-bar.neg{right:50%;background:var(--red,#ff3d5a)}
+.ret-val{text-align:right;font-weight:600}
+.ret-val.pos{color:var(--green,#00e676)}
+.ret-val.neg{color:var(--red,#ff3d5a)}
+.ret-val .sub{color:var(--muted);font-weight:400;font-size:11px;margin-left:4px}
 /* Form modal */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:none;align-items:center;justify-content:center}
 .modal-overlay.open{display:flex}
@@ -358,6 +370,19 @@ tr:hover td{background:rgba(0,212,255,.02)}
       <span id="ps-summary" style="font-size:11px;color:var(--muted);margin-left:auto"></span>
     </div>
     <div id="ps-distribution" class="ps-distribution" style="margin:0 0 14px;"></div>
+    <div class="ps-distribution" style="margin:0 0 14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <div class="ps-distribution-title" style="margin:0">Rentabilidade por classe</div>
+        <div style="display:flex;gap:6px;align-items:center;font-family:'DM Mono',monospace;font-size:12px">
+          <label style="color:var(--muted)">De</label>
+          <input type="date" id="ret-start" onchange="loadReturns()" style="padding:4px 7px;font-family:inherit;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+          <label style="color:var(--muted)">Até</label>
+          <input type="date" id="ret-end" onchange="loadReturns()" style="padding:4px 7px;font-family:inherit;font-size:12px;background:var(--s2,#0a1525);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+          <button class="btn btn-sm" onclick="loadReturns()" style="font-size:11px;padding:3px 8px">↻</button>
+        </div>
+      </div>
+      <div id="ps-returns"></div>
+    </div>
     <div class="tbl-wrap">
       <table id="tbl-positions" data-fa-table>
         <thead><tr><th>Ticker</th><th>Classe</th><th>Moeda</th><th>Quantidade</th><th>Preço Médio</th><th>Atual</th><th>P/L</th><th>SL</th><th>Total Investido</th><th>Trades</th></tr></thead>
@@ -1124,6 +1149,8 @@ async function loadPositions() {
     _extraDistCache = { crypto: crypto || [], rf: rf || [], other: other || [] };
     _populatePositionsCurrencyFilter();
     renderPositionsFiltered();
+    // Dispara chart de rentabilidade (assíncrono, não bloqueante)
+    loadReturns();
   } catch(e) { console.error(e); }
 }
 
@@ -1213,6 +1240,111 @@ function renderPositionDistribution(positions) {
       </div>`;
     }).join('')}`;
   host.innerHTML = html;
+}
+
+// Rentabilidade por classe entre 2 datas (default últimos 30 dias).
+// Para cada posição com ticker, busca close inicial e final via /marketdata/bars
+// (interval=1440 = diário). Retorno R$ = (close_fim - close_ini) * quantity.
+// Agrupa por asset_class, soma R$, calcula % do total invested no início.
+let _returnsAbort = null;
+
+function _hydrateReturnDates() {
+  const start = document.getElementById('ret-start');
+  const end = document.getElementById('ret-end');
+  if (!start || !end) return;
+  if (!start.value || !end.value) {
+    const today = new Date();
+    const back = new Date(today.getTime() - 30 * 86400000);
+    end.value = today.toISOString().slice(0, 10);
+    start.value = back.toISOString().slice(0, 10);
+  }
+}
+
+async function _fetchClose(ticker, sinceDate) {
+  // Usa /candles?resolution=1d (fallback chain: ohlc_1m → fintz_cotacoes_ts → ...).
+  // limit=90 cobre window default (30d) + folga; chain DB-first é mais ampla que /bars.
+  try {
+    const r = await fetch(`/api/v1/marketdata/candles/${encodeURIComponent(ticker)}?resolution=1d&limit=90`, {
+      headers: { Authorization: 'Bearer ' + localStorage.getItem('access_token') },
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    const bars = j.candles || j.bars || [];
+    return bars.map(b => ({
+      time: b.time || b.ts || b.date,
+      close: parseFloat(b.close) || 0,
+    })).filter(b => b.close > 0 && b.time);
+  } catch { return null; }
+}
+
+async function loadReturns() {
+  _hydrateReturnDates();
+  const startStr = document.getElementById('ret-start').value;
+  const endStr   = document.getElementById('ret-end').value;
+  const host = document.getElementById('ps-returns');
+  if (!host || !startStr || !endStr) return;
+  if (!_positionsCache?.length) { host.innerHTML = '<div style="color:var(--muted);font-size:12px;font-family:DM Mono,monospace">Sem posições.</div>'; return; }
+
+  host.innerHTML = '<div style="color:var(--muted);font-size:12px;font-family:DM Mono,monospace">Calculando rentabilidade...</div>';
+  const startMs = new Date(startStr + 'T00:00:00').getTime();
+  const endMs   = new Date(endStr   + 'T23:59:59').getTime();
+
+  // Fetch paralelo (limite ~10 concorrentes)
+  const tickers = [...new Set(_positionsCache.map(p => p.ticker))];
+  const closesMap = {};
+  const BATCH = 8;
+  for (let i = 0; i < tickers.length; i += BATCH) {
+    const batch = tickers.slice(i, i + BATCH);
+    const results = await Promise.all(batch.map(t => _fetchClose(t, startStr)));
+    results.forEach((bars, j) => { closesMap[batch[j]] = bars || []; });
+  }
+
+  // Compute returns por classe
+  const totals = {};   // {classe: {pl_brl, invested_start}}
+  for (const p of _positionsCache) {
+    const bars = closesMap[p.ticker] || [];
+    if (bars.length < 2) continue;
+    const inWindow = bars.filter(b => {
+      const t = new Date(b.time).getTime();
+      return t >= startMs && t <= endMs;
+    });
+    if (inWindow.length < 2) continue;
+    const pStart = inWindow[0].close;
+    const pEnd   = inWindow[inWindow.length - 1].close;
+    const qty = parseFloat(p.quantity) || 0;
+    if (!qty || !pStart || !pEnd) continue;
+    const cls = (p.asset_class || 'other').toLowerCase();
+    const pl_brl = (pEnd - pStart) * qty;
+    const inv_start = pStart * qty;
+    if (!totals[cls]) totals[cls] = { pl_brl: 0, inv_start: 0 };
+    totals[cls].pl_brl += pl_brl;
+    totals[cls].inv_start += inv_start;
+  }
+
+  if (!Object.keys(totals).length) {
+    host.innerHTML = '<div style="color:var(--muted);font-size:12px;font-family:DM Mono,monospace">Sem dados de cotação no período.</div>';
+    return;
+  }
+
+  // Computa % por classe e max abs % para escala
+  const rows = Object.entries(totals).map(([cls, t]) => {
+    const pct = t.inv_start > 0 ? (t.pl_brl / t.inv_start) * 100 : 0;
+    return { cls, pct, pl_brl: t.pl_brl };
+  }).sort((a, b) => b.pct - a.pct);
+  const maxAbs = Math.max(...rows.map(r => Math.abs(r.pct)), 1);
+  const fmtBRL = v => (v >= 0 ? '+' : '') + v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+
+  host.innerHTML = rows.map(r => {
+    const color = _CLASS_COLORS[r.cls] || _CLASS_COLORS.other;
+    const lbl = _CLASS_LABELS[r.cls] || r.cls.toUpperCase();
+    const w = Math.min((Math.abs(r.pct) / maxAbs) * 50, 50); // 50% = lado completo
+    const dir = r.pct >= 0 ? 'pos' : 'neg';
+    return `<div class="ret-row">
+      <div class="ret-label" style="color:${color}">${lbl}</div>
+      <div class="ret-bar-wrap"><div class="ret-bar ${dir}" style="width:${w.toFixed(1)}%;background:${color}"></div></div>
+      <div class="ret-val ${dir}">${(r.pct >= 0 ? '+' : '')}${r.pct.toFixed(2)}%<span class="sub">${fmtBRL(r.pl_brl)}</span></div>
+    </div>`;
+  }).join('');
 }
 
 function renderPositionsFiltered() {
