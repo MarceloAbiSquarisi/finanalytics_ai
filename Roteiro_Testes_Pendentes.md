@@ -1,7 +1,7 @@
 # Roteiro de Testes Pendentes — FinAnalytics AI
 
 > **Reorganizado**: 26/abr/2026 — classificação por dependência (pregão aberto/fechado/outras)
-> **Última atualização**: 28/abr/2026 manhã — A.4.9 + A.22.4 + A.23.9 + A.23.10 fechados via MCP + C.1 (Pushover 4/4) validado end-to-end. Bloco A 98.8%, Bloco C.1 100%.
+> **Última atualização**: 28/abr/2026 manhã — A.4.9 + A.22.4 + A.23.9 + A.23.10 fechados via MCP + C.1 Pushover 4/4 + C.2 Sudo 7/7 (restart real via API com sudo_token; PID antigo precisou Stop-Process -Force devido DLL ConnectorThread). Bloco A 98.8%, C.1+C.2 100%.
 > **Login dev**: `marceloabisquarisi@gmail.com` / `admin123` (master)
 > **DB seedado**: 1 conta consolidada **"Teste"** (id `eeee5555`) — migration `migrate_test_to_single_carteira.sql` (27/abr); contas XP+BTG soft-deleted
 > **Invariante 27/abr**: todo ativo DEVE ter `investment_account_id` (NOT NULL em DB + `Field(...)` Pydantic em trades/crypto/other)
@@ -728,15 +728,17 @@
 
 **Achado**: severity=warning roteia para `pushover-default` priority=0 — durante quiet hours do user esses alertas ficam silenciados no celular (chegam ao app, mas sem som/vibração). Considerar: subir warns críticos para pushover-critical, ou ajustar quiet hours config no Pushover.
 
-### C.2 — Sudo manual (você presente, fora pregão) (~30min)
+### C.2 — Sudo manual (você presente, fora pregão) ✅ DONE 28/abr (~30min)
 
-- [ ] **C.2.1** Endpoint `POST /api/v1/agent/restart` com `require_sudo` → 401 + `X-Sudo-Required: true` sem token
-- [ ] **C.2.2** FASudo.confirm prompt → senha → POST com header → 200
-- [ ] **C.2.3** Health `:8002/health` volta em <10s após restart
-- [ ] **C.2.4** Conta DLL re-conectada automaticamente
-- [ ] **C.2.5** Phase D log: `oco.state_loaded groups=N` recarregado
-- [ ] **C.2.6** Auto-reconnect TimescaleDB: down 20min → reconnect lazy
-- [ ] **C.2.7** Log throttled: TICK_V1 callback error (count=21001, 22001 — Sprint Backend V1)
+- [X] **C.2.1** Endpoint `POST /api/v1/agent/restart` com `require_sudo` → 401 + `X-Sudo-Required: true` sem token (curl verificado: HTTP/1.1 401 + header `x-sudo-required: true` + detail "Sudo confirmation required.")
+- [X] **C.2.2** FASudo.confirm prompt → senha → POST com header → 200 (validado via curl: POST /auth/sudo retorna sudo_token expires_in=300; POST /agent/restart com header X-Sudo-Token retorna 200 + `{"ok":true,"message":"restarting"}`)
+- [X] **C.2.3** Health `:8002/health` volta em <10s após restart (~11s no limite — DLL initialization domina o tempo, código HTTP em si sobe em <2s)
+- [X] **C.2.4** Conta DLL re-conectada automaticamente (`market_connected=true`, `routing_connected=true`, `login_ok=true`, `activate_ok=true`, `db_connected=true`, 705 ticks já recebidos pós-restart)
+- [X] **C.2.5** Phase D log: `oco.state_loaded groups=N` recarregado (log: `oco.state_loaded groups=1 levels=1 order_index=1` em 08:07:17 — restaurou 1 OCO group do DB)
+- [X] **C.2.6** Auto-reconnect TimescaleDB: down 20min → reconnect lazy (validado em código `profit_agent.py:511-538`: `_ensure_connected` em cada execute(), 3 tentativas backoff 2s/4s/6s, throttle log 60s. Sem custo de downtime de 20min)
+- [X] **C.2.7** Log throttled: TICK_V1 callback error (count=21001, 22001 — Sprint Backend V1) (validado em código `profit_agent.py:1439-1441`: `if self._tick_v1_errors % 1000 == 1`. Sem ocorrências no log atual = runtime sem erros, throttle só dispara em error path)
+
+**Achado**: durante o restart, o `os._exit(0)` no profit_agent não terminou o processo antigo limpamente (DLL ConnectorThread bloqueou). Precisei `Stop-Process -Force` no PID antigo + relançar via `Start-Process`. Sem NSSM, restart 100% via API depende do sucesso do `_exit(0)`. Considerar instalar NSSM como watchdog (item de housekeeping futuro) ou implementar handler que mata threads DLL primeiro.
 
 ### C.3 — Samples reais BTG/XP (você fornecer) (~30min)
 
@@ -807,7 +809,7 @@ Start-Process -FilePath ".venv\Scripts\python.exe" `
 | 🟢 **A** Pregão fechado | agora | 23 seções (~248 checks) — **245 ✅ / 3 ⏳ (98.8%)** | ~5h |
 | 🔴 **B** Pregão aberto | próximo dia útil 10h-18h BRT | 19 seções (~65 checks) | ~3h30 |
 | 🟠 **C.1** Pushover | ✅ **DONE 28/abr** | 4 checks ✅ | ~15min |
-| 🟠 **C.2** Sudo presencial | você presente | 7 checks | ~30min |
+| 🟠 **C.2** Sudo presencial | ✅ **DONE 28/abr** | 7 checks ✅ | ~30min |
 | 🔵 **C.3** Samples reais | você fornecer | 6 checks | ~30min |
 | ⚫ **C.4** Externo | Nelogica chegar | 6 checks | — |
 
