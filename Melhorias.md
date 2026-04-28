@@ -29,6 +29,18 @@
 - Job `fii_fundamentals_refresh_job` no scheduler (7h BRT, skip weekend, subprocess isolado para não bloquear event loop).
 - Dockerfile worker stage agora copia `scripts/`.
 
+### N11 — /levels suporta FIIs e ETFs (profit_daily_bars populado via Yahoo) ✅ DONE 28/abr
+- Diagnóstico: `fetch_candles` (5 níveis) já era usado por `/levels`, mas nenhum nível cobria FIIs/ETFs Yahoo (`features_daily` só guarda close). 404 confirmado em KNRI11 nesta sessão.
+- Solução pragmática: novo `scripts/backfill_yahoo_daily_bars.py` popula `profit_daily_bars` (schema OHLCV existente) com daily bars Yahoo dos 39 FIIs+ETFs do `ticker_ml_config`. ON CONFLICT (time, ticker, exchange) idempotente.
+- Run-once: 20.178 rows novas (~518 bars × 39 tickers, 2 anos). Total `profit_daily_bars` agora: 20.779 rows.
+- Validação: KNRI11/BOVA11/HFOF11/RECT11 retornam Williams 17-30 fractais cada (antes 404).
+- Follow-up: agendar refresh diário (similar a fii_fundamentals) — fica como **N11b** trivial.
+
+### N12 — Validar fix N1 + drop backup ✅ DONE 28/abr
+- Validado: 6 tickers DLL com escala coerente (ABEV3 13-17, ITUB4 39-50, PETR4 15-50, VALE3 51-90 etc).
+- `/indicators/PETR4/summary` retorna EMAs/RSI/BB normais (close=48.54, EMA20=46.82, RSI14=61.98, BB_upper=50.36).
+- `DROP TABLE profit_daily_bars_backup_27abr` (560 rows da pré-N1, sem mais utilidade).
+
 ### N5b — Integração visual dos fundamentals em /dashboard ✅ DONE 28/abr
 - Endpoint `/api/v1/ml/signals` enriquecido com `dy_ttm` e `p_vp` (LEFT JOIN snapshot mais recente em `fii_fundamentals` via `DISTINCT ON`, 1 query bulk para todos os FIIs do batch).
 - `SignalItem` Pydantic ganha 2 campos novos (null para ações/ETFs).
