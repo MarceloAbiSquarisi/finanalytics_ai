@@ -175,10 +175,13 @@
   }
 
   function injectButton() {
-    var topbar = document.querySelector('.fa-topbar');
+    // N7 (27/abr): paginas como /diario nao tem .fa-topbar canonica, mas
+    // marcam o header custom com [data-fa-notif-host] (e opcionalmente
+    // [data-fa-notif-anchor] indicando onde inserir o sino).
+    var topbar = document.querySelector('.fa-topbar') || document.querySelector('[data-fa-notif-host]');
     if (!topbar) return;
     if (document.getElementById('fa-notif-btn')) return;
-    var userChip = topbar.querySelector('.fa-user-chip');
+    var anchor = topbar.querySelector('.fa-user-chip') || topbar.querySelector('[data-fa-notif-anchor]');
     var btn = document.createElement('button');
     btn.id = 'fa-notif-btn';
     btn.className = 'fa-notif-btn';
@@ -194,8 +197,8 @@
     panel.className = 'fa-notif-panel';
     panel.innerHTML = '<div class="fa-notif-header"><span>Notificacoes</span><button class="fa-notif-clear" onclick="window.FANotif.clear()">Limpar</button></div><div class="fa-notif-list"></div>';
     wrap.appendChild(panel);
-    // Insere antes do user chip
-    if (userChip) topbar.insertBefore(wrap, userChip);
+    // Insere antes do anchor (user chip ou marcador custom), senao append
+    if (anchor) topbar.insertBefore(wrap, anchor);
     else topbar.appendChild(wrap);
     // Fecha ao clicar fora
     document.addEventListener('click', function (e) {

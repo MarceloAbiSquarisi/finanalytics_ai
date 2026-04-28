@@ -121,6 +121,10 @@ COPY --from=builder /app/src ./src
 COPY docker-entrypoint-worker.sh ./docker-entrypoint-worker.sh
 RUN chmod +x ./docker-entrypoint-worker.sh
 
+# N5 (27/abr): scripts utilitarios que o scheduler chama via subprocess
+# (scrape_status_invest_fii.py para refresh diario de fundamentals FII).
+COPY scripts/ ./scripts/
+
 # Worker não precisa de alembic — migrations são responsabilidade da API
 RUN adduser --disabled-password --gecos "" --uid 1001 appuser \
     && chown -R appuser:appuser /app

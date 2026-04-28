@@ -2,7 +2,48 @@
 
 > Lista priorizada de melhorias. Itens entregues sumarizados no topo; novos itens descobertos no rodapé.
 >
-> **Última revisão**: 27/abr/2026 noite — sessão M1-M5 + features /diario + /dashboard
+> **Última revisão**: 27/abr/2026 madrugada — sessão N1-N9 (data quality + scheduler + scrapers + UI fixes)
+
+---
+
+## ✅ ENTREGUES (sessão 27/abr madrugada — N1+N2+N5+N7+N9+N8)
+
+### N1 — Limpeza profit_daily_bars escala mista ✅ DONE
+**Diagnóstico**: ticks em `market_history_trades` chegam com escala /100 em alguns dias específicos (PETR4 09/04→16/04 mostrou padrão misto). `ohlc_1m` (source `tick_agg_v1`) NÃO tem o bug — agregador filtra/corrige.
+
+**Fix**:
+1. Backup: `CREATE TABLE profit_daily_bars_backup_27abr AS SELECT * FROM profit_daily_bars`
+2. DELETE dos 6 tickers afetados (404 rows: ABEV3/BBDC4/ITUB4/PETR4/VALE3/WEGE3)
+3. `populate_daily_bars.py --source 1m --ticker $T` regenera de ohlc_1m
+
+**Validação**: PETR4 antes min=0.2968 max=49.55, depois min=14.66 max=49.61 (1.92→38.55 média) ✅. Endpoint `/levels` retorna `outliers_dropped=0` e `data_quality_warning=null` para os 6 tickers.
+
+### N2 — Job CVM informe mensal no scheduler ✅ DONE
+- Adicionado `cvm_informe_sync_job()` em `scheduler_worker.py`. Roda 1x/dia em `CVM_INFORME_HOUR=9` BRT, mas só executa de fato em `CVM_INFORME_DAY=5` (skip silencioso resto dos dias).
+- Competência calculada = mês anterior (`hoje.replace(day=1) - timedelta(days=1)`). Validado: 27/04/2026 → `202603`.
+- Idempotente (sync_informe_diario já checa fundos_sync_log).
+
+### N5 — Fundamentals FII via Status Invest ✅ DONE (parcial)
+- Tabela `fii_fundamentals (ticker, snapshot_date, dy_ttm, p_vp, div_12m, valor_mercado, source, scraped_at)` PK `(ticker, snapshot_date)`.
+- Scraper `scripts/scrape_status_invest_fii.py` (httpx + regex robustos): 27/28 FIIs OK em ~30s (MALL11 delistado).
+- Job `fii_fundamentals_refresh_job` no scheduler (7h BRT, skip weekend, subprocess isolado para não bloquear event loop).
+- Dockerfile worker stage agora copia `scripts/`.
+- **Follow-up N5b**: integrar `dy_ttm`/`p_vp` no `features_daily_builder` + retreinar pickles MVP-h21 dos FIIs. Fica para próxima sprint.
+
+### N7 — Sino topbar em /diario ✅ DONE
+- `notifications.js` agora aceita fallback `[data-fa-notif-host]` quando `.fa-topbar` não existe + `[data-fa-notif-anchor]` para posicionamento.
+- `diario.html`: `dj-header` marcado com `data-fa-notif-host`; botão "+ Novo Trade" com `data-fa-notif-anchor`.
+- Validado via Playwright: sino aparece no header, antes do botão "+ Novo Trade".
+
+### N9 — Validar S/R em ticker com dados limpos ✅ DONE
+- Smoke nos 6 tickers DLL pós-N1: todos retornam `outliers_dropped=0` e `data_quality_warning=null`.
+- Williams Fractais retorna 8-11 fractais por ticker; classic.pp coerente com `last_close`.
+- swing_levels=0 nos 6 (algoritmo de clusters precisa de pivots repetidos; janela 66-71 candles é curta — comportamento normal, não bug).
+
+### N8 — Fix renderADX null em lightweight-charts ✅ DONE
+- Bug em `dashboard.html:2234`: `ref25 = timestamps.map(t => ({time:t, value:25}))` não filtrava timestamps null do warm-up do ADX (~14 bars iniciais).
+- Fix: aplicar mesmo padrão `.filter(Boolean)` das outras linhas (adxLine/diPlusLine/diMinusLine) + converter strings → unix timestamps.
+- Reprodução validada via Playwright: `setData([{time:null,...}])` → `"Cannot read properties of null (reading 'year')"`. Pós-fix: `null` rejeitado, setData OK.
 
 ---
 
@@ -87,7 +128,10 @@ Itens identificados durante implementação/validação. Ordenados por ROI dentr
 
 ### Data quality
 
-#### N1 — Limpeza `profit_daily_bars` escala mista ⭐⭐ alto impacto
+#### N1 — Limpeza `profit_daily_bars` escala mista ✅ DONE 27/abr madrugada (ver topo)
+~~Investigar/regenerar — DONE.~~ Causa raiz: ticks brutos com escala /100 intermitente. Fix: regenerar via `--source 1m`. Backup em `profit_daily_bars_backup_27abr`.
+
+#### N1-old — Limpeza `profit_daily_bars` escala mista ⭐⭐ alto impacto (referência)
 **Custo**: ~2-3h investigação + script. **Payoff**: alto (desbloqueia S/R swings/williams + qualquer agregado daily da DLL).
 
 PETR4 tem 64 rows mas **62 com escala fracionária 0.36** e só **2 com escala correta 48**. Provavelmente quirk da DLL Profit (close/close_ajustado misturados ou split factor dinâmico — nota em `features_daily_builder.py:207-213`).
@@ -96,7 +140,9 @@ Hoje o endpoint `/indicators/{ticker}/levels` filtra outliers e retorna `data_qu
 
 **Ação**: investigar origem (DLL retorna assim ou bug do `populate_daily_bars.py`?) e regenerar tabela. Pode ser que `--source 1m` produza dados limpos.
 
-#### N2 — CVM informe diário sync agendado ⭐ trivial
+#### N2 — CVM informe diário sync agendado ✅ DONE 27/abr madrugada (ver topo)
+
+#### N2-old — CVM informe diário sync agendado ⭐ trivial (referência)
 **Custo**: ~30min. **Payoff**: alto (libera analytics M3 com dados frescos).
 
 Hoje `POST /api/v1/fundos/sync/informe?competencia=AAAAMM` é manual. Última sincronização: jan-abr/2024.
@@ -115,7 +161,9 @@ Já existe `predict_ensemble` no roteiro (Z4) mas só faz fallback uniforme porq
 
 M5 atual usa regras fixas. HMM permitiria descobrir regimes empíricos + transições probabilísticas. Vale só se houver evidência de que regras determinísticas perdem regimes intermediários relevantes.
 
-#### N5 — Fundamentals FII (DY corrente, P/VP) ⭐⭐ habilita alpha real M1
+#### N5 — Fundamentals FII (DY corrente, P/VP) ✅ DONE 27/abr madrugada (parcial — falta integração ML como N5b)
+
+#### N5-old — Fundamentals FII (DY corrente, P/VP) ⭐⭐ habilita alpha real M1 (referência)
 **Custo**: ~1 dia (Status Invest scraper + tabela + integração ml_features). **Payoff**: alto.
 
 M1 hoje usa só features técnicas. Adicionar **DY TTM** (dividends últimos 12m / preço) e **P/VP** (preço / valor patrimonial cota) é o que diferencia FII bom de FII ruim. Requer scraper porque Fintz não cobre.
@@ -130,17 +178,23 @@ Hoje `/api/v1/crypto/signal/{symbol}` é on-demand sem persistência. Para ter s
 
 ### UI & Bugs menores
 
-#### N7 — Sino topbar em /diario ⭐ trivial bug fix
+#### N7 — Sino topbar em /diario ✅ DONE 27/abr madrugada (ver topo)
+
+#### N7-old — Sino topbar em /diario ⭐ trivial bug fix (referência)
 **Custo**: ~10min. **Payoff**: baixo (só afeta exibição visual do contador de pendentes em /diario).
 
 `notifications.js` injeta `fa-notif-btn` apenas em páginas com `.fa-topbar`. /diario tem topbar custom (não a canônica). Correção: garantir `.fa-topbar` no diario.html ou adaptar notifications.js.
 
-#### N8 — Fix renderADX null pré-existente ⭐ baixa prioridade
+#### N8 — Fix renderADX null pré-existente ✅ DONE 27/abr madrugada (ver topo)
+
+#### N8-old — Fix renderADX null pré-existente ⭐ baixa prioridade (referência)
 **Custo**: ~30min debug. **Payoff**: baixo (erro console, sem impacto funcional).
 
 Erro pré-existente: `TypeError: Cannot read properties of null (reading 'year')` em `lightweight-charts setData` (renderADX). Provavelmente passa ts inválido em algum candle. Reproduce confiável: ativar/desativar S/R toggle no popup.
 
-#### N9 — Validar S/R em ticker com dados limpos ⭐ trivial
+#### N9 — Validar S/R em ticker com dados limpos ✅ DONE 27/abr madrugada (ver topo)
+
+#### N9-old — Validar S/R em ticker com dados limpos ⭐ trivial (referência)
 **Custo**: ~10min. **Payoff**: confirmação.
 
 A.22.4 do roteiro: testar `/levels` em ticker que NÃO tem o bug do profit_daily_bars (ex: VALE3 ou outro fora da DLL Profit). Esperado: `warning=null`, swing/williams retornam normalmente.
@@ -164,3 +218,4 @@ M3 entregou peer ranking + style + anomalies para Multimercado/Ações/RF/FII. E
 
 _Criado: 26/abr/2026 (super-sessão noite)_
 _Atualizado: 27/abr/2026 noite (M1-M5 done + novos itens N1-N10)_
+_Atualizado: 27/abr/2026 madrugada (N1+N2+N5+N7+N8+N9 done; N5b pendente — integração ML dos fundamentals FII)_

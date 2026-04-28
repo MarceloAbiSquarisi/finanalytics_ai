@@ -2231,7 +2231,17 @@ function renderADX(adx, timestamps) {
   });
 
   // Linha de referencia 25 (ADX forte acima disso)
-  const ref25 = timestamps.map(t => ({time:t, value:25}));
+  // N8 (27/abr): timestamps[0..warmup-1] sao null (computeADXFromBars precisa
+  // de ~14 bars de warm-up). Sem filtrar, lightweight-charts lanca
+  // "Cannot read properties of null (reading 'year')". Mesmo padrao de
+  // .filter(Boolean) usado nas linhas adxLine/diPlusLine/diMinusLine abaixo.
+  const ref25 = timestamps
+    .map(t => {
+      if (t == null) return null;
+      const ts = typeof t === 'number' ? t : Math.floor(new Date(t).getTime() / 1000);
+      return {time: ts, value: 25};
+    })
+    .filter(Boolean);
   const refLine = adxChart.addLineSeries({
     color:'rgba(240,180,41,.25)', lineWidth:1, lineStyle:2,
     priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false,

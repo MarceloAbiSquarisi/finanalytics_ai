@@ -75,6 +75,21 @@ PROFIT_AGENT_URL = os.environ.get("PROFIT_AGENT_URL", "http://host.docker.intern
 # SCHEDULER_METRICS_PORT=0 desabilita o servidor HTTP.
 METRICS_PORT = int(os.environ.get("SCHEDULER_METRICS_PORT", "9102"))
 
+# N2 (27/abr/2026): sync mensal CVM informe diario. Roda 1x/dia, mas
+# so executa o sync_informe_diario quando hoje == CVM_INFORME_DAY (default 5
+# do mes — CVM publica o ZIP do mes anterior por volta do dia 3-4).
+# Competencia calculada = mes anterior em formato AAAAMM.
+CVM_INFORME_ENABLED = os.environ.get("SCHEDULER_CVM_INFORME_ENABLED", "true").lower() == "true"
+CVM_INFORME_DAY = int(os.environ.get("SCHEDULER_CVM_INFORME_DAY", "5"))
+CVM_INFORME_HOUR = int(os.environ.get("SCHEDULER_CVM_INFORME_HOUR", "9"))  # 09:00 BRT
+
+# N5 (27/abr/2026): refresh diario de fundamentals FII (DY, P/VP, etc) via
+# scraper Status Invest. Roda 1x/dia em FII_FUND_HOUR (default 7h BRT,
+# antes do pregao). Idempotente por (ticker, snapshot_date) — re-rodar
+# faz UPSERT do dia. Skip em weekend (Status Invest nao atualiza no fim de semana).
+FII_FUND_ENABLED = os.environ.get("SCHEDULER_FII_FUND_ENABLED", "true").lower() == "true"
+FII_FUND_HOUR = int(os.environ.get("SCHEDULER_FII_FUND_HOUR", "7"))  # 07:00 BRT
+
 # ── Logger ────────────────────────────────────────────────────────────────────
 structlog.configure(
     processors=[
@@ -577,6 +592,85 @@ async def settle_cash_transactions_job() -> dict[str, Any]:
         return {"status": "error", "error": str(exc)}
 
 
+async def fii_fundamentals_refresh_job() -> dict[str, Any]:
+    """N5 (27/abr): refresh diario de DY/P/VP/div_12m via Status Invest.
+
+    Reusa logica do scripts/scrape_status_invest_fii.py executando-o
+    como subprocess. Mantido como subprocess (nao import direto) para
+    isolar o scraping bloqueante (httpx sync) do event loop do scheduler.
+    """
+    if not _is_weekday():
+        _record("fii_fund", "skip")
+        return {"status": "skip", "reason": "weekend"}
+
+    logger.info("scheduler.fii_fund.start")
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "python",
+            "/app/scripts/scrape_status_invest_fii.py",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=300)
+        rc = proc.returncode
+
+        last_lines = stdout.decode("utf-8", errors="replace").splitlines()[-5:]
+        if rc == 0:
+            logger.info("scheduler.fii_fund.done", tail=last_lines)
+            _record("fii_fund", "ok")
+            return {"status": "ok", "tail": last_lines}
+        logger.warning("scheduler.fii_fund.bad_rc", rc=rc, tail=last_lines)
+        _record("fii_fund", "error")
+        return {"status": "error", "rc": rc, "tail": last_lines}
+
+    except asyncio.TimeoutError:
+        logger.error("scheduler.fii_fund.timeout")
+        _record("fii_fund", "error")
+        return {"status": "error", "reason": "timeout_5min"}
+    except Exception as exc:
+        logger.error("scheduler.fii_fund.failed", error=str(exc), exc_info=True)
+        _record("fii_fund", "error")
+        return {"status": "error", "error": str(exc)}
+
+
+async def cvm_informe_sync_job() -> dict[str, Any]:
+    """N2 (27/abr): sincroniza inf_diario_fi_AAAAMM.zip da CVM.
+
+    Competencia = mes anterior (AAAAMM). CVM publica entre dias 3-5 do
+    mes seguinte; rodar dia CVM_INFORME_DAY (default 5) garante que
+    o ZIP esta disponivel.
+
+    Idempotente: sync_informe_diario faz check em fundos_sync_log
+    (skip se ja sincronizou hoje). Pode rodar varias vezes sem problema.
+    """
+    today = datetime.now(UTC)
+    if today.day != CVM_INFORME_DAY:
+        _record("cvm_informe", "skip")
+        return {"status": "skip", "reason": "wrong_day", "today": today.day, "target": CVM_INFORME_DAY}
+
+    prev_month = today.replace(day=1) - timedelta(days=1)
+    competencia = prev_month.strftime("%Y%m")
+
+    logger.info("scheduler.cvm_informe.start", competencia=competencia)
+    try:
+        from finanalytics_ai.infrastructure.database.connection import get_session_factory
+
+        factory = get_session_factory()
+        async with factory() as session:
+            from finanalytics_ai.application.services.fundos_cvm_service import sync_informe_diario
+
+            result = await sync_informe_diario(session, competencia=competencia)
+
+        logger.info("scheduler.cvm_informe.done", competencia=competencia, **result)
+        _record("cvm_informe", "ok")
+        return {"status": "ok", "competencia": competencia, **result}
+
+    except Exception as exc:
+        logger.error("scheduler.cvm_informe.failed", error=str(exc), exc_info=True)
+        _record("cvm_informe", "error")
+        return {"status": "error", "competencia": competencia, "error": str(exc)}
+
+
 async def reconcile_job() -> dict[str, Any]:
     """V4 (21/abr): chama GET /positions/dll no profit_agent.
 
@@ -655,6 +749,10 @@ async def run_once() -> None:
         await cleanup_event_records_job()
     if RECONCILE_ENABLED:
         await reconcile_job()
+    if CVM_INFORME_ENABLED:
+        await cvm_informe_sync_job()
+    if FII_FUND_ENABLED:
+        await fii_fundamentals_refresh_job()
     logger.info("scheduler.run_once.done")
 
 
@@ -779,6 +877,27 @@ async def schedule_loop() -> None:
                 notified = False
             await asyncio.sleep(interval_s)
 
+    async def cvm_informe_loop() -> None:
+        # N2 (27/abr): roda 1x/dia em CVM_INFORME_HOUR. cvm_informe_sync_job
+        # so executa de fato quando today.day == CVM_INFORME_DAY (default 5);
+        # nos demais dias retorna skip silencioso. Loop diario simplifica
+        # logica de "proximo dia 5 do mes" sem precisar calcular meses.
+        logger.info(
+            "scheduler.cvm_informe.start_loop",
+            hour=CVM_INFORME_HOUR,
+            target_day=CVM_INFORME_DAY,
+        )
+        while True:
+            next_run = _next_run_utc(CVM_INFORME_HOUR)
+            wait = _seconds_until(next_run)
+            logger.info(
+                "scheduler.cvm_informe.next",
+                next_utc=next_run.isoformat(),
+                wait_min=round(wait / 60),
+            )
+            await asyncio.sleep(wait)
+            await cvm_informe_sync_job()
+
     tasks: list[asyncio.Task[None]] = []
     if MACRO_ENABLED:
         tasks.append(asyncio.create_task(macro_loop()))
@@ -788,6 +907,26 @@ async def schedule_loop() -> None:
         tasks.append(asyncio.create_task(cleanup_loop()))
     if RECONCILE_ENABLED:
         tasks.append(asyncio.create_task(reconcile_loop()))
+    if CVM_INFORME_ENABLED:
+        tasks.append(asyncio.create_task(cvm_informe_loop()))
+
+    async def fii_fund_loop() -> None:
+        # N5 (27/abr): roda 1x/dia em FII_FUND_HOUR. fii_fundamentals_refresh_job
+        # ja faz skip em weekend. Idempotente por (ticker, snapshot_date).
+        logger.info("scheduler.fii_fund.start_loop", hour=FII_FUND_HOUR)
+        while True:
+            next_run = _next_run_utc(FII_FUND_HOUR)
+            wait = _seconds_until(next_run)
+            logger.info(
+                "scheduler.fii_fund.next",
+                next_utc=next_run.isoformat(),
+                wait_min=round(wait / 60),
+            )
+            await asyncio.sleep(wait)
+            await fii_fundamentals_refresh_job()
+
+    if FII_FUND_ENABLED:
+        tasks.append(asyncio.create_task(fii_fund_loop()))
     # Feature C5: liquidacao diaria (on by default, simples e idempotente)
     import os as _os_sc
     if _os_sc.getenv("SCHEDULER_SETTLE_CASH_ENABLED", "true").lower() == "true":
