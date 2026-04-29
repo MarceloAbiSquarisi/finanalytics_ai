@@ -448,8 +448,8 @@ tr:hover td{background:rgba(0,212,255,.02)}
     <div id="tr-summary" style="font-size:12px;color:var(--muted);margin-bottom:6px"></div>
     <div class="tbl-wrap">
       <table data-fa-table>
-        <thead><tr><th>Data</th><th>Ticker</th><th>Classe</th><th>Op.</th><th>Qtd</th><th>Preço Unit.</th><th>Total</th><th>Corretagem</th><th>Conta</th><th></th></tr></thead>
-        <tbody id="tbody-trades"><tr><td colspan="10" class="empty">Carregando...</td></tr></tbody>
+        <thead><tr><th>Data</th><th>Horário</th><th>Ticker</th><th>Classe</th><th>Op.</th><th>Qtd</th><th>Preço Unit.</th><th>Total</th><th>Corretagem</th><th>Conta</th><th></th></tr></thead>
+        <tbody id="tbody-trades"><tr><td colspan="11" class="empty">Carregando...</td></tr></tbody>
       </table>
 </div>
 </div>
@@ -1067,13 +1067,13 @@ function resetTradeFilters() {
 async function loadTrades() {
   const tbody = document.getElementById('tbody-trades');
   const summary = document.getElementById('tr-summary');
-  FALoading.tableRows(tbody, { rows: 5, cols: 10 });
+  FALoading.tableRows(tbody, { rows: 5, cols: 11 });
   try {
     const qs = _trReadFilters();
     const trades = await api('/trades' + (qs ? '?' + qs : ''));
     if (!trades.length) {
       if (summary) summary.textContent = '0 trades';
-      FAEmpty.tableRow(tbody, { colspan: 10, title: 'Nenhum trade encontrado',
+      FAEmpty.tableRow(tbody, { colspan: 11, title: 'Nenhum trade encontrado',
         text: qs ? 'Ajuste os filtros ou limpe (↻).' : 'Registre compras e vendas para gerar posições e histórico.',
         cta: { label: '+ Novo Trade', variant: 'primary', onClick: "openModal('modal-trade')" } });
       return;
@@ -1085,8 +1085,17 @@ async function loadTrades() {
     }
     tbody.innerHTML = trades.map(t => {
       const acc = accounts.find(a=>a.id===t.investment_account_id);
+      // Horário: extrai HH:MM:SS do created_at (timestamp ISO em UTC).
+      // toLocaleTimeString respeita fuso local do navegador.
+      let hora = '—';
+      if (t.created_at) {
+        try {
+          hora = new Date(t.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        } catch(e) {}
+      }
       return `<tr>
         <td>${t.trade_date}</td>
+        <td style="font-family:DM Mono,monospace;font-size:12px;color:var(--muted)">${hora}</td>
         <td><strong>${t.ticker}</strong></td>
         <td>${badge(t.asset_class)}</td>
         <td>${badge(t.operation)}</td>
