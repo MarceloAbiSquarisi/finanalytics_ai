@@ -65,6 +65,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .sl{border-right:1px solid var(--border);display:flex;flex-direction:column;background:rgba(10,22,40,.45);overflow-y:auto;overflow-x:hidden}
 .sl-sec{padding:14px 16px;border-bottom:1px solid var(--border)}
 .lbl{font-size:12px;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;padding-left:2px}
+/* Fix global: inline styles com letter-spacing 2-2.5px + uppercase precisam
+   de padding-left para nao cortar primeiro caractere. Aplica em todos os
+   labels-style "section header" do dashboard sem precisar editar inline. */
+[style*="letter-spacing:2px"][style*="uppercase"],
+[style*="letter-spacing: 2px"][style*="uppercase"],
+[style*="letter-spacing:2.5px"][style*="uppercase"]{padding-left:2px}
 .pf-list{display:flex;flex-direction:column;gap:3px}
 .pf-item{padding:6px 8px;border-radius:6px;cursor:pointer;font-size:15px;transition:all .15s;border:1px solid transparent}
 .pf-item:hover{background:rgba(58,191,248,.06)}
@@ -167,7 +173,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   display:grid;grid-template-columns:repeat(4,1fr)}
 .ind{padding:8px 14px;border-right:1px solid var(--border);display:flex;flex-direction:column;justify-content:center}
 .ind:last-child{border-right:none}
-.ind-l{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+.ind-l{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);padding-left:2px}
 .ind-v{font-size:19px;font-weight:800;font-family:DM Mono,monospace;margin-top:2px}
 .ind-s{font-size:13px;color:var(--muted);font-family:DM Mono,monospace;margin-top:1px}
 
@@ -252,7 +258,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .dttab-main .ttab.active{background:rgba(58,191,248,.15);border-color:rgba(58,191,248,.5);color:var(--blue)}
 .dttab-main .ttab.buy.active{background:rgba(46,212,122,.18);border-color:rgba(46,212,122,.5);color:var(--green)}
 .fld{display:flex;flex-direction:column;gap:3px;margin-bottom:7px}
-.fld label{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+.fld label{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);padding-left:2px}
 .fld input{background:rgba(10,22,40,.6);border:1px solid var(--border);color:var(--white);
   font-family:DM Mono,monospace;font-size:16px;padding:6px 8px;border-radius:6px;outline:none;transition:border-color .2s}
 .fld input:focus{border-color:var(--blue)}
