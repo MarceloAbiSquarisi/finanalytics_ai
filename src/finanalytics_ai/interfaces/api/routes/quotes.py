@@ -70,6 +70,10 @@ async def get_indicators(
     macd_signal: Annotated[int, Query(ge=2, le=50)] = 9,
     bb_period: Annotated[int, Query(ge=2, le=200)] = 20,
     bb_std: Annotated[float, Query(ge=0.5, le=5)] = 2.0,
+    stoch_period: Annotated[int, Query(ge=2, le=100)] = 14,
+    stoch_smooth_k: Annotated[int, Query(ge=1, le=20)] = 3,
+    stoch_smooth_d: Annotated[int, Query(ge=1, le=20)] = 3,
+    atr_period: Annotated[int, Query(ge=2, le=100)] = 14,
 ) -> IndicatorsResult:
     market = _market(request)
     try:
@@ -99,6 +103,17 @@ async def get_indicators(
                 "period": bb_period,
                 "std_dev": bb_std,
             },
+            "stochastic": {
+                "k": [],
+                "d": [],
+                "overbought": 80,
+                "oversold": 20,
+                "period": stoch_period,
+                "smooth_k": stoch_smooth_k,
+                "smooth_d": stoch_smooth_d,
+            },
+            "atr": {"values": [], "period": atr_period},
+            "vwap": {"values": []},
             "timestamps": [],
             "count": 0,
         }
@@ -110,6 +125,10 @@ async def get_indicators(
         macd_signal=macd_signal,
         bb_period=bb_period,
         bb_std=bb_std,
+        stoch_period=stoch_period,
+        stoch_smooth_k=stoch_smooth_k,
+        stoch_smooth_d=stoch_smooth_d,
+        atr_period=atr_period,
     )
     r.update({"range": range, "ticker": ticker.upper()})
     return r

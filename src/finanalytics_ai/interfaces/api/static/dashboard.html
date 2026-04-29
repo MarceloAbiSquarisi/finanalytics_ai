@@ -158,6 +158,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .ind-pane.hidden{display:none}
 #pane-rsi {height:72px}
 #pane-macd{height:72px}
+#pane-stoch{height:72px}
+#pane-atr{height:60px}
 #pane-adx {height:72px}
 .pane-label{
   position:absolute;top:4px;left:8px;z-index:10;
@@ -826,7 +828,7 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
               <input type="checkbox" id="ipc-rsi" onchange="applyIndPopup()">
               <span class="ip-slider"></span>
             </label>
-            <span class="ip-label">RSI</span>
+            <span class="ip-label">RSI / IFR</span>
             <span class="ip-sub">Período</span>
             <input class="ip-num" type="number" id="ipc-rsi-p" value="14" min="2" max="50" onchange="applyIndPopup()">
 </div>
@@ -847,6 +849,34 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
             </label>
             <span class="ip-label">ADX / +DI / -DI</span>
             <input class="ip-num" type="number" id="ipc-adx-p" value="14" min="2" max="50" onchange="applyIndPopup()" style="margin-left:auto">
+</div>
+
+          <div class="ip-row">
+            <label class="ip-toggle">
+              <input type="checkbox" id="ipc-stoch" onchange="applyIndPopup()">
+              <span class="ip-slider"></span>
+            </label>
+            <span class="ip-label">Estocástico Lento</span>
+            <span class="ip-sub" style="font-size:13px">14·3·3</span>
+</div>
+
+          <div class="ip-row">
+            <label class="ip-toggle">
+              <input type="checkbox" id="ipc-atr" onchange="applyIndPopup()">
+              <span class="ip-slider"></span>
+            </label>
+            <span class="ip-label">ATR</span>
+            <span class="ip-sub">Per.</span>
+            <input class="ip-num" type="number" id="ipc-atr-p" value="14" min="2" max="100" onchange="applyIndPopup()">
+</div>
+
+          <div class="ip-row">
+            <label class="ip-toggle">
+              <input type="checkbox" id="ipc-vwap" onchange="applyIndPopup()">
+              <span class="ip-slider"></span>
+            </label>
+            <span class="ip-label">VWAP (intraday)</span>
+            <span class="ip-sub" style="font-size:13px">reset diário</span>
 </div>
 
           <!-- Bandas -->
@@ -1007,6 +1037,24 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
         <div class="pane-label">MACD<span id="macd-val">—</span>
 </div>
         <div class="ov hide" id="ov-macd">
+</div>
+</div>
+
+      <!-- Estocástico Pane -->
+      <div class="ind-pane hidden" id="pane-stoch">
+        <div class="pane-label">ESTOC.<span id="stoch-val">—</span>
+</div>
+        <div class="pane-ref" id="stoch-ref">
+</div>
+        <div class="ov hide" id="ov-stoch">
+</div>
+</div>
+
+      <!-- ATR Pane -->
+      <div class="ind-pane hidden" id="pane-atr">
+        <div class="pane-label">ATR<span id="atr-val">—</span>
+</div>
+        <div class="ov hide" id="ov-atr">
 </div>
 </div>
 
@@ -1538,7 +1586,7 @@ var currentTicker = null;
 let currentRange = 'max';
 let currentPeriod = '1y';
 let tradeMode     = 'buy';
-let indVisible    = {bb: false, rsi: false, macd: false, adx: true, patterns: false, sr_classic: false, sr_swing: false, sr_williams: false};
+let indVisible    = {bb: false, rsi: false, macd: false, adx: true, stoch: false, atr: false, vwap: false, patterns: false, sr_classic: false, sr_swing: false, sr_williams: false};
 let srLines       = [];   // refs de priceLines criadas no priceSeries (S/R overlays)
 let orderLines    = [];   // refs: {ln, refPrice, side, isStop, ids:[], orders:[]}
 let positionLine  = null; // ref da priceLine da posicao aberta no PM (verde long, vermelha short)
@@ -1560,6 +1608,9 @@ var priceChart = null, priceSeries = null, volSeries = null;
 var bbUpper = null, bbMiddle = null, bbLower = null;
 var rsiChart  = null, rsiSeries = null, rsiOB = null, rsiOS = null;
 var macdChart = null, macdLine  = null, sigLine = null, histSeries = null;
+var stochChart = null, stochK = null, stochD = null, stochOB = null, stochOS = null;
+var atrChart = null, atrSeries = null;
+var vwapSeries = null;  // overlay no priceChart (não tem chart próprio)
 
 // -- BOOT ----------------------------------------------------------------------
 (async () => {
@@ -1941,6 +1992,8 @@ async function loadChartAndIndicators(ticker, range, interval) {
       if (!indData.adx) indData.adx = computeADXFromBars(histData.bars, indConfig.adxPeriod);
       renderRSI(indData.rsi, indData.timestamps);
       renderMACD(indData.macd, indData.timestamps);
+      renderStoch(indData.stochastic, indData.timestamps);
+      renderATR(indData.atr, indData.timestamps);
       renderADX(indData.adx, histData.bars.map(function(b){return b.time;}));
       updateSignals(indData);
     } catch(e2) { console.warn('Indicadores indisponiveis:', e2.message); }
@@ -2146,6 +2199,29 @@ function renderPriceChart(bars, bb) {
     bbLower.setData(bbData('lower'));
   }
 
+  // VWAP overlay — alinhado por timestamps comprimidos (intraday)
+  if (indVisible.vwap && indCache && indCache.vwap && indCache.vwap.values) {
+    if (vwapSeries) { try { priceChart.removeSeries(vwapSeries); } catch(_) {} vwapSeries = null; }
+    const vwapTs = indCache.timestamps || [];
+    const vwapArr = indCache.vwap.values || [];
+    const offset = Math.max(0, _bars2.length - vwapArr.length);
+    const realToC = (t, i) => {
+      const tt = (typeof t === 'string') ? Math.floor(new Date(t).getTime()/1000) : t;
+      return _realToCompressed.get(tt) || _bars2[offset + i]?.time || null;
+    };
+    vwapSeries = priceChart.addLineSeries({
+      color:'rgba(58,191,248,.85)', lineWidth:2, lineStyle:0,
+      priceLineVisible:false, lastValueVisible:true, crosshairMarkerVisible:false,
+      title:'VWAP',
+    });
+    vwapSeries.setData(vwapArr
+      .map((v, i) => v != null ? { time: realToC(vwapTs[i], i), value: parseFloat(v.toFixed(4)) } : null)
+      .filter(p => p && p.time != null));
+  } else if (vwapSeries) {
+    try { priceChart.removeSeries(vwapSeries); } catch(_) {}
+    vwapSeries = null;
+  }
+
   // MA overlays — usa _bars2 (compressed) pra alinhar com priceSeries
   drawAllMAOverlays(_bars2);
 
@@ -2327,6 +2403,141 @@ function renderMACD(macd, timestamps) {
   }).observe(container);
 }
 
+
+// -- ATR CHART ----------------------------------------------------------------
+function renderATR(atr, timestamps) {
+  const container = document.getElementById('pane-atr');
+  if (atrChart) { atrChart.remove(); atrChart=null; atrSeries=null; }
+  if (!indVisible.atr || !atr || !atr.values || !atr.values.length) return;
+
+  atrChart = LightweightCharts.createChart(container, {
+    width: container.clientWidth, height: container.clientHeight,
+    layout: { background:{color:'transparent'}, textColor:'#6A9EBF', fontFamily:"'DM Mono',monospace", fontSize:9 },
+    grid: { vertLines:{color:'transparent'}, horzLines:{color:'transparent'} },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal,
+      vertLine:{color:'rgba(58,191,248,.3)', labelBackgroundColor:'#0D2144'},
+      horzLine:{color:'rgba(58,191,248,.3)', labelBackgroundColor:'#0D2144'} },
+    rightPriceScale: { borderColor:'rgba(58,191,248,.1)', scaleMargins:{top:.05, bottom:.05} },
+    timeScale: { visible:false }, handleScale:false, handleScroll:false,
+  });
+  if (priceChart) {
+    atrChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+      if (range) priceChart.timeScale().setVisibleLogicalRange(range);
+    });
+  }
+  const compBars = (typeof _bars2 !== 'undefined' && _bars2) ? _bars2 : (priceSeries.data() || []);
+  const offset = Math.max(0, compBars.length - atr.values.length);
+  const realToCompressed = (t, i) => {
+    const tt = (typeof t === 'string') ? Math.floor(new Date(t).getTime()/1000) : t;
+    return _realToCompressed.get(tt) || compBars[offset + i]?.time || null;
+  };
+  atrSeries = atrChart.addLineSeries({ color:'#9d4edd', lineWidth:1.5,
+    priceLineVisible:false, lastValueVisible:true, crosshairMarkerRadius:3, title:'ATR' });
+  atrSeries.setData(atr.values
+    .map((v, i) => v != null ? { time: realToCompressed(timestamps[i], i), value: parseFloat(v.toFixed(4)) } : null)
+    .filter(p => p && p.time != null));
+  atrChart.subscribeCrosshairMove(p => {
+    if (!p.time || !p.seriesData) return;
+    const v = p.seriesData.get(atrSeries);
+    const lbl = document.getElementById('atr-val');
+    if (lbl && v) lbl.textContent = ` ${v.value.toFixed(4)}`;
+  });
+  const arr = atr.values.filter(v => v != null);
+  if (arr.length) {
+    const last = arr[arr.length - 1];
+    const lbl = document.getElementById('atr-val');
+    if (lbl) lbl.textContent = ` ${last.toFixed(4)}`;
+  }
+  new ResizeObserver(() => { if (atrChart) atrChart.applyOptions({autoSize: true}); }).observe(container);
+}
+
+// -- ESTOCÁSTICO LENTO CHART ---------------------------------------------------
+function renderStoch(stoch, timestamps) {
+  const container = document.getElementById('pane-stoch');
+  if (stochChart) { stochChart.remove(); stochChart=null; stochK=null; stochD=null; stochOB=null; stochOS=null; }
+  if (!indVisible.stoch || !stoch || !stoch.k || !stoch.k.length) return;
+
+  stochChart = LightweightCharts.createChart(container, {
+    width: container.clientWidth, height: container.clientHeight,
+    layout: { background:{color:'transparent'}, textColor:'#6A9EBF', fontFamily:"'DM Mono',monospace", fontSize:9 },
+    grid: { vertLines:{color:'transparent'}, horzLines:{color:'transparent'} },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal,
+      vertLine:{color:'rgba(58,191,248,.3)', labelBackgroundColor:'#0D2144'},
+      horzLine:{color:'rgba(58,191,248,.3)', labelBackgroundColor:'#0D2144'} },
+    rightPriceScale: { borderColor:'rgba(58,191,248,.1)', scaleMargins:{top:.05, bottom:.05} },
+    timeScale: { visible:false },
+    handleScale: false, handleScroll: false,
+  });
+
+  // Map timestamps reais -> compressed. Fallback: alinha pelas ULTIMAS N
+  // posicoes de _bars2 (assume stoch cobre os bars mais recentes; comum quando
+  // timestamps de /indicators (range=max daily) nao batem com bars 5m).
+  const obData = [], osData = [];
+  const compBars = (typeof _bars2 !== 'undefined' && _bars2) ? _bars2 : (priceSeries.data() || []);
+  const offset = Math.max(0, compBars.length - stoch.k.length);
+  const realToCompressed = (t, i) => {
+    const tt = (typeof t === 'string') ? Math.floor(new Date(t).getTime()/1000) : t;
+    const direct = _realToCompressed.get(tt);
+    if (direct != null) return direct;
+    // Fallback: posição ordinal a partir do fim
+    return compBars[offset + i]?.time || null;
+  };
+  const buildRef = (val) => stoch.k.map((_, i) => {
+    const t = realToCompressed(timestamps[i], i);
+    return t != null ? { time: t, value: val } : null;
+  }).filter(Boolean);
+  obData.push(...buildRef(80));
+  osData.push(...buildRef(20));
+
+  // Sync visible range com priceChart
+  if (priceChart) {
+    stochChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+      if (range) priceChart.timeScale().setVisibleLogicalRange(range);
+    });
+  }
+
+  stochOB = stochChart.addLineSeries({ color:'rgba(224,85,85,.3)', lineWidth:1, lineStyle:2,
+    priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false });
+  stochOS = stochChart.addLineSeries({ color:'rgba(46,212,122,.3)', lineWidth:1, lineStyle:2,
+    priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false });
+  stochOB.setData(obData);
+  stochOS.setData(osData);
+
+  // %K (azul) + %D (laranja)
+  stochK = stochChart.addLineSeries({ color:'#3abff8', lineWidth:1.5,
+    priceLineVisible:false, lastValueVisible:true, crosshairMarkerRadius:3, title:'%K' });
+  stochD = stochChart.addLineSeries({ color:'#F0B429', lineWidth:1.5,
+    priceLineVisible:false, lastValueVisible:true, crosshairMarkerRadius:3, title:'%D' });
+  const buildPts = (arr) => arr
+    .map((v, i) => v != null ? { time: realToCompressed(timestamps[i], i), value: parseFloat(v.toFixed(2)) } : null)
+    .filter(p => p && p.time != null);
+  stochK.setData(buildPts(stoch.k));
+  stochD.setData(buildPts(stoch.d));
+
+  // Crosshair label
+  stochChart.subscribeCrosshairMove(p => {
+    if (!p.time || !p.seriesData) return;
+    const k = p.seriesData.get(stochK);
+    const d = p.seriesData.get(stochD);
+    const lbl = document.getElementById('stoch-val');
+    if (lbl) lbl.textContent = (k ? ` K:${k.value.toFixed(1)}` : '') + (d ? ` D:${d.value.toFixed(1)}` : '');
+  });
+
+  // Last value display
+  const kArr = stoch.k.filter(v => v != null);
+  if (kArr.length) {
+    const lastK = kArr[kArr.length-1];
+    const ref = lastK > 80 ? 'SOBRECOMPRADO' : lastK < 20 ? 'SOBREVENDIDO' : '';
+    const lbl = document.getElementById('stoch-val');
+    const refEl = document.getElementById('stoch-ref');
+    if (lbl) lbl.textContent = ` K:${lastK.toFixed(1)}`;
+    if (refEl) refEl.textContent = ref;
+  }
+
+  new ResizeObserver(() => {
+    if (stochChart) stochChart.applyOptions({autoSize: true});
+  }).observe(container);
+}
 
 // -- ADX / +DI / -DI CHART ----------------------------------------------------
 function renderADX(adx, timestamps) {
@@ -2556,6 +2767,9 @@ function applyIndPopup() {
   indVisible.macd     = document.getElementById('ipc-macd').checked;
   indVisible.adx      = document.getElementById('ipc-adx').checked;
   indVisible.bb       = document.getElementById('ipc-bb').checked;
+  indVisible.stoch    = document.getElementById('ipc-stoch') ? document.getElementById('ipc-stoch').checked : false;
+  indVisible.atr      = document.getElementById('ipc-atr') ? document.getElementById('ipc-atr').checked : false;
+  indVisible.vwap     = document.getElementById('ipc-vwap') ? document.getElementById('ipc-vwap').checked : false;
   indVisible.patterns = document.getElementById('ipc-patterns').checked;
   indVisible.sr_classic  = document.getElementById('ipc-sr-classic') ? document.getElementById('ipc-sr-classic').checked : false;
   indVisible.sr_swing    = document.getElementById('ipc-sr-swing') ? document.getElementById('ipc-sr-swing').checked : false;
@@ -2602,6 +2816,22 @@ function applyIndPopup() {
     if (!indCache.adx) indCache.adx = computeADXFromBars(indCache._bars || [], indConfig.adxPeriod);
     renderADX(indCache.adx, indCache.timestamps);
   } else if (adxChart) { adxChart.remove(); adxChart = null; }
+
+  // Estocástico pane
+  const stochPane = document.getElementById('pane-stoch');
+  if (stochPane) {
+    stochPane.classList.toggle('hidden', !indVisible.stoch);
+    if (indVisible.stoch) { if(stochChart){stochChart.remove();stochChart=null;} renderStoch(indCache.stochastic, indCache.timestamps); }
+    else if (stochChart)  { stochChart.remove(); stochChart = null; }
+  }
+
+  // ATR pane
+  const atrPane = document.getElementById('pane-atr');
+  if (atrPane) {
+    atrPane.classList.toggle('hidden', !indVisible.atr);
+    if (indVisible.atr) { if(atrChart){atrChart.remove();atrChart=null;} renderATR(indCache.atr, indCache.timestamps); }
+    else if (atrChart)  { atrChart.remove(); atrChart = null; }
+  }
 
   // BB + MAs: re-render price chart
   if (indCache._bars) renderPriceChart(indCache._bars, indCache.bollinger);
@@ -2818,7 +3048,7 @@ async function refreshPositionLine() {
 }
 
 function updateIndBadge() {
-  const active = [indVisible.rsi, indVisible.macd, indVisible.bb,
+  const active = [indVisible.rsi, indVisible.macd, indVisible.bb, indVisible.stoch, indVisible.atr, indVisible.vwap,
                   indVisible.sr_classic, indVisible.sr_swing, indVisible.sr_williams]
                  .filter(Boolean).length + maOverlays.length;
   const b = document.getElementById('ind-count-badge');
@@ -3197,6 +3427,30 @@ function toggleInd(ind) {
     } else if (macdChart) {
       macdChart.remove(); macdChart = null;
     }
+  }
+
+  if (ind === 'stoch') {
+    const pane = document.getElementById('pane-stoch');
+    pane.classList.toggle('hidden', !indVisible.stoch);
+    if (indVisible.stoch) {
+      renderStoch(indCache.stochastic, indCache.timestamps);
+    } else if (stochChart) {
+      stochChart.remove(); stochChart = null; stochK = null; stochD = null;
+    }
+  }
+
+  if (ind === 'atr') {
+    const pane = document.getElementById('pane-atr');
+    pane.classList.toggle('hidden', !indVisible.atr);
+    if (indVisible.atr) {
+      renderATR(indCache.atr, indCache.timestamps);
+    } else if (atrChart) {
+      atrChart.remove(); atrChart = null; atrSeries = null;
+    }
+  }
+
+  if (ind === 'vwap') {
+    if (indCache._bars) renderPriceChart(indCache._bars, indCache.bollinger);
   }
 
   if (ind === 'bb') {
