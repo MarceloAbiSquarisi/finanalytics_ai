@@ -646,11 +646,19 @@ curl -s 'http://localhost:9090/api/v1/query?query=profit_agent_order_callbacks_t
 - [X] **B.2.3** posição WDOK26 = 1 long @ 5004.5
 - [X] **bonus** market SELL 2 zerou posição → daily_buy=2@5000.25, daily_sell=2@5002.5, **+R$45 P&L brutos**
 
-### B.3 — OCO legacy (~10min) ⏳ PARCIAL 29/abr 12:17 (send OK; auto-cancel falha — P10)
+### B.3 — OCO legacy (~10min) ✅ DONE 29/abr 16:30 (após P10 fix reload via DB)
 
-- [X] **B.3.1** POST `/order/oco` TP=5050 + SL=4970/4965 → broker aceitou ambas pernas (alias resolved WDOK26)
-- [X] **B.3.2** `oco.sent ticker=WDOFUT qty=1 tp_id=... sl_id=...` no log
-- [ ] **B.3.3** TP fillou após change_order, **SL ficou órfão** (sem auto-cancel) → bug **P10** catalogado: `/order/oco` não popula `_oco_pairs` → monitor ignora; `/oco/status/{tp_id}` retorna "não encontrado". Workaround: usar Phase A (B.6 funciona) ou cancel manual.
+**29/abr 16:30 — VALIDADO end-to-end live PETR4** (TP=49.50, SL=48.30/48.25):
+- Pre-cond: market BUY 100 PETR4 → posição long
+- POST `/order/oco` → TP+SL no book com `oco.sent` no log + pair registrado em `_oco_pairs`
+- `/oco/status/{tp_id}` retornou `oco_status: ativo` (pré-restart)
+- **Restart agent** → `oco_legacy.loaded pairs=1` no boot, **state restored from DB**
+- `/oco/status/{tp_id}` retornou `oco_status: ativo` (pós-restart) ✅
+- change TP pra 49.05 → TP fillou
+- Log: `oco.filled local_id=...319 type=tp → canceling pair ...320`
+- `oco_monitor.removed ids=[tp,sl] remaining=0` ✅ SL auto-canceled
+
+**Fix raiz**: strategy_id encoded `oco_legacy_pair_<tp_id>_sl` permite reload via `_load_oco_legacy_pairs_from_db` no boot. Sem isso, restart NSSM perdia in-memory dict, deixando SL órfão.
 
 ### B.4 — GetPositionV2 (~5min) ✅ DONE 29/abr 14:08 (após fix P11)
 

@@ -1738,6 +1738,16 @@ class ProfitAgent:
         _oco_thread.start()
         log.info("profit_agent.oco_monitor_started")
 
+        # P10 fix: reload pares OCO legacy do DB (sem isso, restart deixava
+        # SL orfao porque _oco_pairs in-memory zerava). Roda antes do monitor
+        # processar primeiro tick.
+        try:
+            n_legacy = self._load_oco_legacy_pairs_from_db()
+            if n_legacy:
+                log.info("profit_agent.oco_legacy_pairs_loaded n=%d", n_legacy)
+        except Exception as exc:
+            log.warning("profit_agent.oco_legacy_load_failed err=%s", exc)
+
         # OCO multi-level (Phase A) — groups com N levels e parent attach
         self._oco_groups = {}
         self._order_to_group = {}
@@ -4073,7 +4083,9 @@ class ProfitAgent:
         )
         if not tp.get("ok"):
             return {"ok": False, "error": f"Take Profit falhou: {tp.get('error')}"}
+        tp_id_local = tp["local_order_id"]
         # 2. Stop Loss — ordem stop-limit
+        # P10 fix (29/abr): strategy_id codifica pair=tp_id para reload pos-restart
         sl = self._send_order_legacy(
             {
                 **params,
@@ -4082,7 +4094,7 @@ class ProfitAgent:
                 "price": stop_limit,
                 "stop_price": stop_loss,
                 "quantity": quantity,
-                "strategy_id": f"{params.get('strategy_id', 'oco')}_sl",
+                "strategy_id": f"oco_legacy_pair_{tp_id_local}_sl",
             }
         )
         if not sl.get("ok"):
@@ -4186,6 +4198,63 @@ class ProfitAgent:
             "take_profit": tp_info,
             "stop_loss": sl_info,
         }
+
+    def _load_oco_legacy_pairs_from_db(self) -> int:
+        """P10 fix: reconstrói _oco_pairs in-memory a partir de profit_orders.
+
+        Strategy_id padrão `oco_legacy_pair_<tp_id>_sl` codifica o pareamento.
+        Roda no boot — sem isso, pairs perdidos no restart deixavam SL órfão.
+
+        Retorna número de pares carregados.
+        """
+        if self._db is None:
+            return 0
+        try:
+            with self._db._lock:
+                cur = self._db._conn.cursor()
+                cur.execute(
+                    "SELECT local_order_id, ticker, exchange, env, price, stop_price, "
+                    "strategy_id FROM profit_orders "
+                    "WHERE strategy_id LIKE 'oco_legacy_pair_%%_sl' "
+                    "AND order_status IN (0, 1, 10)"
+                )
+                rows = cur.fetchall()
+                cur.close()
+        except Exception as exc:
+            log.warning("oco_legacy.load_failed err=%s", exc)
+            return 0
+        if not hasattr(self, "_oco_pairs"):
+            self._oco_pairs = {}
+        loaded = 0
+        for sl_row in rows:
+            sl_id, ticker, exchange, env, price, stop_price, strategy_id = sl_row
+            try:
+                tp_id = int(strategy_id.split("_")[3])  # oco_legacy_pair_<TP>_sl
+            except (ValueError, IndexError):
+                continue
+            # Verifica se TP ainda está pendente também
+            try:
+                tp_row = self._db.fetch_one(
+                    "SELECT order_status, price FROM profit_orders WHERE local_order_id=%s",
+                    (tp_id,),
+                )
+                if not tp_row or tp_row[0] not in (0, 1, 10):
+                    continue
+                tp_price = float(tp_row[1]) if tp_row[1] else 0.0
+            except Exception:
+                continue
+            self._oco_pairs[tp_id] = {
+                "pair_id": sl_id, "env": env, "type": "tp",
+                "ticker": ticker, "price": tp_price,
+            }
+            self._oco_pairs[sl_id] = {
+                "pair_id": tp_id, "env": env, "type": "sl",
+                "ticker": ticker, "price": float(stop_price) if stop_price else 0.0,
+            }
+            loaded += 1
+        if loaded:
+            log.info("oco_legacy.loaded pairs=%d", loaded)
+        return loaded
 
     def _oco_monitor_loop(self) -> None:
         """

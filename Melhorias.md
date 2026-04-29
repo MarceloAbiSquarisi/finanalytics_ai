@@ -229,23 +229,20 @@ DB ficou com `order_status=10 (PendingNew)` mesmo após broker retornar `code=5 
 
 ---
 
-#### P10 — OCO legacy `/order/oco` não registra par no monitor → no auto-cancel ⭐⭐ alto (29/abr)
-**Custo**: ~1h (popular `_oco_pairs` no handler do `/order/oco`). **Payoff**: alto (deixa SL órfão se TP fillar primeiro, ou vice-versa, expondo a posição contrária se preço cruzar o stop).
+#### P10 — OCO legacy `/order/oco` perdia pares pós-restart ✅ DONE 29/abr 16:30
+**Status**: hipótese inicial errada. `_oco_pairs` JÁ era populado em `send_oco_order` (linhas 4093-4108). **Causa raiz real**: dict in-memory não persistia através de restart NSSM, deixando SL órfão se TP fillasse após restart.
 
-**Sintoma observado live 29/abr 12:17 (B.3)**:
-- POST `/order/oco` enviou TP=5050 + SL=4970/4965 com sucesso (broker aceitou ambas)
-- `GET /oco/status/{tp_id}` retornou `{"error":"OCO ... nao encontrado","pairs":{}}`
-- Após change_order TP→5001 (perto do mercado), TP fillou
-- SL ficou no book com status=0 (sem auto-cancel) — risco real de abrir short se preço cruzar 4970
+**Fix aplicado (commit deste teste)**:
+1. `send_oco_order` agora gera SL com `strategy_id=f"oco_legacy_pair_{tp_id}_sl"` — codifica pareamento TP→SL no campo do DB.
+2. Novo `_load_oco_legacy_pairs_from_db` scan `profit_orders` por padrão `LIKE 'oco_legacy_pair_%_sl'` AND status pendente; reconstrói `_oco_pairs[tp_id]` + `_oco_pairs[sl_id]` no boot.
+3. Boot chama load antes do `_oco_monitor_loop` processar primeiro tick.
 
-**Hipótese**: handler `/order/oco` chama `_send_order_legacy` para TP e SL mas pula o registro em `self._oco_pairs[tp_id] = {sl_id, ticker, qty, exchange, env, account, ...}`. O `_oco_monitor_loop` (500ms thread) varre `_oco_pairs` e cancela contraparte quando uma perna fillar — sem registro, monitor não age.
-
-**Fix**: localizar handler `/order/oco` (em `do_POST` ou método relacionado), após sucesso de TP+SL, popular `self._oco_pairs[tp_local_id] = {sl_local_id, ...}` com lock. Criar tests:
-- TP fillou → SL deve estar status=4 (CANCELED) em <2s
-- SL trigger+fillou → TP deve estar CANCELED
-- Cancel manual de uma perna → outra também cancela
-
-**Workaround temporário**: usar `/order/oco_phase_a` (Phase A com mãe) ou cancel manual da perna órfã.
+**Validação live 29/abr 16:30**:
+- POST `/order/oco` PETR4 → TP+SL no book, oco_status=ativo
+- Restart agent → log: `oco_legacy.loaded pairs=1` + `profit_agent.oco_legacy_pairs_loaded n=1`
+- `/oco/status/{tp_id}` retorna `ativo` pós-restart ✅
+- Change TP → fillou → log: `oco.filled local_id=... type=tp → canceling pair ...` + `oco_monitor.removed ids=[tp,sl] remaining=0`
+- SL auto-canceled em <1s (B.3 fechado também)
 
 #### P9 — DB stuck em status=10 mesmo após cancel/fill confirmado pelo broker ✅ MITIGADO 29/abr 15:33
 **Status**: callback raiz não foi corrigido, mas mitigação operacional aplicada.
