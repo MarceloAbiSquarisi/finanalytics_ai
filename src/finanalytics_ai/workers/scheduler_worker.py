@@ -523,6 +523,55 @@ async def brapi_sync_job() -> dict:
         return {"status": "error", "error": str(exc)}
 
 
+async def tick_to_ohlc_backfill_job(date_iso: str | None = None) -> dict:
+    """Agrega profit_ticks → ohlc_1m via continuous aggregate ohlc_1m_from_ticks.
+
+    Compensa BRAPI ingestor stale: o tick_agg_v1 já gera bars 1min via
+    continuous aggregate, mas o ohlc_1m fisica pode ter rows desatualizadas
+    pra equity quando BRAPI não atualiza. INSERT com source='tick_agg_v1'
+    + ON CONFLICT DO NOTHING preserva rows do BRAPI quando existirem.
+
+    Roda 1x/dia ~21h BRT (após close pregão + after-market). Idempotente.
+    """
+    timescale_dsn = (
+        os.environ.get("TIMESCALE_URL")
+        or os.environ.get("PROFIT_TIMESCALE_DSN")
+        or os.environ.get("TIMESCALE_DSN", "")
+    )
+    if not timescale_dsn:
+        logger.warning("scheduler.tick_to_ohlc.skip", reason="no_timescale_dsn")
+        return {"status": "skip", "reason": "no_dsn"}
+    ts_dsn = timescale_dsn.replace("postgresql+asyncpg://", "postgresql://")
+
+    target_date = date_iso or datetime.now(UTC).strftime("%Y-%m-%d")
+    logger.info("scheduler.tick_to_ohlc.start", date=target_date)
+    try:
+        import asyncpg
+        conn = await asyncpg.connect(ts_dsn)
+        try:
+            result = await conn.execute(
+                f"""
+                INSERT INTO ohlc_1m (time, ticker, open, high, low, close, volume, trades, source)
+                SELECT time, ticker, open, high, low, close, volume, COALESCE(trades, 0),
+                       'tick_agg_v1'
+                FROM ohlc_1m_from_ticks
+                WHERE time >= '{target_date} 00:00:00+00'
+                  AND time < ('{target_date}'::date + INTERVAL '1 day')
+                ON CONFLICT (time, ticker) DO NOTHING
+                """
+            )
+            inserted = int(result.split()[-1]) if result.startswith("INSERT") else 0
+            logger.info("scheduler.tick_to_ohlc.done", date=target_date, inserted=inserted)
+            _record("tick_to_ohlc", "ok")
+            return {"status": "ok", "date": target_date, "inserted": inserted}
+        finally:
+            await conn.close()
+    except Exception as exc:
+        logger.warning("scheduler.tick_to_ohlc.failed", error=str(exc), date=target_date)
+        _record("tick_to_ohlc", "error")
+        return {"status": "error", "error": str(exc)}
+
+
 async def cleanup_event_records_job() -> dict:
     """
     Sprint U8: poda event_records terminais para evitar inchaco da tabela.
@@ -1241,6 +1290,24 @@ async def schedule_loop() -> None:
 
     if YAHOO_BARS_ENABLED:
         tasks.append(asyncio.create_task(yahoo_bars_loop()))
+
+    async def tick_to_ohlc_backfill_loop() -> None:
+        # Backfill diario profit_ticks -> ohlc_1m via continuous aggregate.
+        # Roda 21h BRT (00h UTC) — apos close pregao (17h) + after-market (18h).
+        hour = int(os.environ.get("TICK_TO_OHLC_BACKFILL_HOUR", "0"))  # UTC
+        logger.info("scheduler.tick_to_ohlc.start_loop", hour_utc=hour)
+        while True:
+            next_run = _next_run_utc(hour)
+            wait = _seconds_until(next_run)
+            logger.info(
+                "scheduler.tick_to_ohlc.next",
+                next_utc=next_run.isoformat(),
+                wait_min=round(wait / 60),
+            )
+            await asyncio.sleep(wait)
+            await tick_to_ohlc_backfill_job()
+
+    tasks.append(asyncio.create_task(tick_to_ohlc_backfill_loop()))
 
     async def crypto_signals_loop() -> None:
         # N6 (28/abr): snapshot diario crypto signals. Sem skip de weekend
