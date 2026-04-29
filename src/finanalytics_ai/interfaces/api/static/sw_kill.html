@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Reset — FinAnalytics AI</title>
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<style>
+  body { background:#0D1421; color:#E0E0E0; font-family:DM Mono,monospace;
+         display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
+  .box { background:#142340; padding:32px 48px; border-radius:8px; max-width:520px; }
+  h1 { color:#F0B429; margin:0 0 12px; font-size:20px; }
+  pre { background:#0a1628; padding:8px 12px; border-radius:4px; overflow-x:auto;
+        color:#3abff8; margin:6px 0 14px; font-size:12px; }
+  .step { margin:8px 0; color:#9CB3CC; font-size:13px; }
+  .ok { color:#2ED47A; font-weight:700; }
+  .err { color:#E05555; }
+  a.btn { display:inline-block; margin-top:14px; padding:10px 20px;
+          background:#3abff8; color:#0D1421; text-decoration:none;
+          border-radius:4px; font-weight:700; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>🧹 Resetando cache do navegador…</h1>
+  <div id="log"></div>
+  <a class="btn" href="/dashboard" id="goBtn" style="display:none">→ Abrir Dashboard</a>
+</div>
+<script>
+(async () => {
+  const log = document.getElementById('log');
+  function add(msg, cls) {
+    const d = document.createElement('div');
+    d.className = 'step ' + (cls || '');
+    d.innerHTML = msg;
+    log.appendChild(d);
+  }
+  try {
+    add('Desregistrando service workers…');
+    if (navigator.serviceWorker) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const r of regs) await r.unregister();
+      add(`<span class="ok">✓ ${regs.length} SW desregistrado(s)</span>`);
+    } else {
+      add('<span class="err">SW API indisponível</span>');
+    }
+  } catch (e) { add('<span class="err">Erro SW: ' + e.message + '</span>'); }
+  try {
+    add('Limpando caches…');
+    if ('caches' in window) {
+      const ks = await caches.keys();
+      for (const k of ks) await caches.delete(k);
+      add(`<span class="ok">✓ ${ks.length} cache(s) deletado(s)</span>`);
+    }
+  } catch (e) { add('<span class="err">Erro caches: ' + e.message + '</span>'); }
+  try {
+    add('Limpando localStorage cache flags…');
+    Object.keys(localStorage).filter(k => /^(sw_|fa_cache|cache_)/.test(k)).forEach(k => localStorage.removeItem(k));
+    add('<span class="ok">✓ flags limpas</span>');
+  } catch (e) { add('<span class="err">Erro localStorage: ' + e.message + '</span>'); }
+  add('<br><span class="ok">Reset concluído.</span>');
+  document.getElementById('goBtn').style.display = 'inline-block';
+  setTimeout(() => { location.href = '/dashboard?fresh=' + Date.now(); }, 1500);
+})();
+</script>
+</body>
+</html>

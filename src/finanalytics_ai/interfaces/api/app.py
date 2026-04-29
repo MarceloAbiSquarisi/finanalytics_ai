@@ -1117,7 +1117,7 @@ def create_app() -> FastAPI:
     # Partials HTML compartilhados (sidebar, futuros componentes).
     # Extensao .html eh whitelist nominal para evitar exposicao de
     # paginas completas via /static/ (que tem rotas dedicadas).
-    _ALLOWED_PARTIALS: set[str] = {"sidebar.html"}
+    _ALLOWED_PARTIALS: set[str] = {"sidebar.html", "sw_kill.html"}
 
     @app.get("/static/{filename}", include_in_schema=False)
     async def serve_static_asset(filename: str) -> _StaticResponse:
