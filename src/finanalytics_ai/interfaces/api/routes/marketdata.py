@@ -104,6 +104,52 @@ def _sanitize_ticker(ticker: str) -> str:
     return t
 
 
+# ── Resolução de aliases de futuros ──────────────────────────────────────────
+# Espelha _resolve_active_contract do profit_agent.py. Quando agent restartou
+# com fix de subscribe alias resolution (commit 30e5772), ticks novos passaram
+# a chegar com código vigente (WDOK26) em vez do alias (WDOFUT). Histórico
+# misturado: backend de candles deve unificar via `ticker = ANY([alias, vigente])`.
+_MONTH_CODE = {1: "F", 2: "G", 3: "H", 4: "J", 5: "K", 6: "M",
+               7: "N", 8: "Q", 9: "U", 10: "V", 11: "X", 12: "Z"}
+_FUTURES_ALIASES = {"WDOFUT", "WINFUT"}
+
+
+def _resolve_futures_aliases(ticker: str) -> list[str]:
+    """Para WDOFUT/WINFUT retorna [alias, contrato_vigente, contrato_proximo].
+
+    WDO mensal: front month = today.month + 1.
+    WIN bimestre par (G/J/M/Q/V/Z): próximo par >= today.month, avança se day>15.
+    """
+    if ticker not in _FUTURES_ALIASES:
+        return [ticker]
+    today = _date.today()
+    yy = today.year % 100
+    out = [ticker]
+    if ticker == "WDOFUT":
+        for offset in (1, 2):
+            m = today.month + offset
+            y = yy
+            while m > 12:
+                m -= 12
+                y += 1
+            out.append(f"WDO{_MONTH_CODE[m]}{y:02d}")
+    elif ticker == "WINFUT":
+        m = today.month
+        if m % 2 != 0:
+            m += 1
+        elif today.day > 15:
+            m += 2
+        for _ in range(2):
+            cur_m = m
+            y = yy
+            while cur_m > 12:
+                cur_m -= 12
+                y += 1
+            out.append(f"WIN{_MONTH_CODE[cur_m]}{y:02d}")
+            m += 2
+    return out
+
+
 def _sanitize_resolution(resolution: str) -> str:
     if resolution not in _VALID_RES:
         raise HTTPException(400, detail=f"Resolucao invalida. Use: {sorted(_VALID_RES)}")
@@ -306,11 +352,14 @@ async def get_candles(
     # por 100). Janela [last*0.4, last*2.5] suporta penny stocks legítimos B3 (ex: VIIA3 ~R$0.40)
     # mas filtra dados em escala 100x menor.
     # Fix backend definitivo: migration para reescalar (×100) ou deletar bars antigos.
+    # `ticker = ANY($1)` permite unificar ticks de aliases de futuros (WDOFUT)
+    # com ticks do contrato vigente (WDOK26). Histórico mixed após fix
+    # subscribe.alias_resolved (commit 30e5772 do profit_agent).
     sql_template = """
         WITH last_valid AS (
             SELECT close AS ref
             FROM {source}
-            WHERE ticker = $1 AND close > 0.001
+            WHERE ticker = ANY($1) AND close > 0.001
             ORDER BY time DESC
             LIMIT 1
         ),
@@ -324,7 +373,7 @@ async def get_candles(
                 SUM(volume)                                AS volume,
                 SUM(trades)                                AS trades
             FROM {source}, last_valid
-            WHERE ticker = $1
+            WHERE ticker = ANY($1)
               AND time >= NOW() - (INTERVAL '1 minute' * $3)
               AND close BETWEEN last_valid.ref * 0.4 AND last_valid.ref * 2.5
               AND open  BETWEEN last_valid.ref * 0.4 AND last_valid.ref * 2.5
@@ -345,24 +394,26 @@ async def get_candles(
         SELECT date::timestamp AS ts, open, high, low, close, volume,
                NULL::int AS trades
         FROM ohlc_prices
-        WHERE ticker = $1
+        WHERE ticker = ANY($1)
           AND date >= (NOW() - (INTERVAL '1 day' * $3))::date
         ORDER BY date DESC
         LIMIT $2
     """
+    # Resolve aliases de futuros: WDOFUT -> [WDOFUT, WDOK26, WDOM26]
+    ticker_set = _resolve_futures_aliases(t)
     try:
         conn = await _conn()
         try:
             rows = await conn.fetch(
                 sql_template.format(bucket=bucket, source="ohlc_1m"),
-                t,
+                ticker_set,
                 limit,
                 window_min,
             )
             if not rows:
                 rows = await conn.fetch(
                     sql_template.format(bucket=bucket, source="ohlc_1m_from_ticks"),
-                    t,
+                    ticker_set,
                     limit,
                     window_min,
                 )
@@ -374,7 +425,7 @@ async def get_candles(
             try:
                 pg = await _pg_conn()
                 try:
-                    rows = await pg.fetch(sql_yahoo_daily, t, limit, _days)
+                    rows = await pg.fetch(sql_yahoo_daily, ticker_set, limit, _days)
                 finally:
                     await pg.close()
                 if rows:
