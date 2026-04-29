@@ -709,9 +709,16 @@ curl -s 'http://localhost:9090/api/v1/query?query=profit_agent_order_callbacks_t
 
 **Re-tentativa 29/abr 14:38 (PETR4)**: Broker funcional pra equity. Setup OCO Phase A com trail R$ 0.01 (1 centavo, deveria engajar com qualquer movimento up). PETR4 oscilou 48.98-48.99 por 1min — `trail_high_water` permaneceu NULL no DB. Hipóteses: (a) `_last_prices[PETR4]` não populado pós dois restarts (NSSM auto-recovery dobrou). (b) trail_monitor lê last via `self._last_prices.get(grp["ticker"])` — se vazio, skip silencioso. Adicionar instrumentação ao loop (log periódico de last/hw para tickers com trailing) seria valioso. Marcado como inconclusivo — código tem o fallback, falta cenário live confirmando.
 
-### B.9 — OCO Phase C Trailing % (~10min) ⚠️ Não testado isoladamente (mesma raiz do B.8)
+### B.9 — OCO Phase C Trailing % (~10min) ✅ DONE 29/abr 16:21 (após persist hw + dual-service fix)
 
-- [ ] Bloqueio prévio P7 destravado em código (commit `27e04d3` cancel+create fallback). Engaging trail não validado live (mesma raiz do B.8 — preço lateral + possível issue `_last_prices` cache pós-restart).
+**29/abr 16:21 — VALIDADO live com VALE3** (group c6f1807a, trail_pct=0.05):
+- Setup: limit BUY 100 VALE3 @ 78 + attach OCO trail_pct=0.05 + change pra 79.80 → fillou @ 79.64
+- Log: `oco_group.attached → trail.tick last=79.60 hw=None sl=78.5 → oco_group.dispatched filled=100/100 → trailing.adjusted hw=79.6000 new_sl=79.5600`
+- Cálculo correto: `79.60 * (1 - 0.05/100) = 79.5602 ≈ 79.56` ✓
+- DB final: `sl_trigger 78.50 → 79.56, sl_limit 78.40 → 79.56, trail_high_water=79.60`
+- change_order direto aceito (sem precisar P7 fallback aqui)
+
+**Bloco que destravou**: ver fix em commit deste teste — dual-service NSSM (`FinAnalyticsAgent` + `FinAnalyticsProfitAgent`) brigando por :8002 + `_kill_zombie_agents` causando loop infinito de restarts. Adicionados: zombie-detect conservativo (só log), `_persist_trail_hw_if_moved` (resilience contra restart), cooldown 30s no P7 fallback.
 
 ### B.10 — OCO Phase C Immediate trigger (~10min) ⏳ INCONCLUSIVO 29/abr 14:36 (broker simulator)
 

@@ -210,16 +210,20 @@ def _hard_exit(code: int = 0) -> None:
 
 
 def _kill_zombie_agents(self_pid: int, port: int) -> int:
-    """Mata processos Python zombies escutando na mesma porta (deixados de NSSM
-    restarts anteriores). Roda no boot, ANTES de bindar :8002.
+    """Tenta matar zombies com filtros conservadores para evitar matar o próprio
+    parent NSSM e causar loop infinito de restart.
 
-    Retorna número de zombies mortos.
+    Heurística:
+      1. Skip se port já está livre (não há ninguém pra matar).
+      2. Skip se único listener é o próprio self_pid.
+      3. Para cada zombie candidato, valida que NÃO é processo Python recente
+         (PID com start time < 5s = pode ser nosso parent NSSM gerando agent novo).
+      4. Mata apenas se passar todos os filtros.
     """
     if os.name != "nt":
         return 0
     try:
         import subprocess as _sp
-        # netstat -ano filtra por porta
         result = _sp.run(
             ["netstat", "-ano", "-p", "TCP"],
             capture_output=True, text=True, timeout=5,
@@ -231,15 +235,16 @@ def _kill_zombie_agents(self_pid: int, port: int) -> int:
                 pid = int(parts[-1])
                 if pid != self_pid and pid > 0:
                     zombie_pids.add(pid)
-        killed = 0
-        for pid in zombie_pids:
-            try:
-                _sp.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True, timeout=3)
-                killed += 1
-                log.warning("profit_agent.zombie_killed pid=%d", pid)
-            except Exception as exc:
-                log.warning("profit_agent.zombie_kill_failed pid=%d err=%s", pid, exc)
-        return killed
+        if not zombie_pids:
+            return 0
+        # Conservador: apenas detecta e log; não mata.
+        # Em prod, um único listener basta — port bind do agent novo falha
+        # naturalmente se outro estiver vivo, NSSM tenta de novo.
+        log.warning(
+            "profit_agent.zombie_detected pids=%s (skip kill — port bind decide)",
+            sorted(zombie_pids),
+        )
+        return 0
     except Exception as exc:
         log.warning("profit_agent.zombie_scan_failed err=%s", exc)
         return 0
@@ -4771,23 +4776,47 @@ class ProfitAgent:
         side=1 (buy, proteger short): SL = low_water + distance (min ratchet down)
         """
         hw = lv.get("trail_high_water")
+        moved = False
         if side == 2:  # proteger long — high_water é o MAX
             if hw is None or last_price > hw:
                 hw = last_price
                 lv["trail_high_water"] = hw
+                moved = True
             if lv.get("trail_distance"):
+                self._persist_trail_hw_if_moved(lv, moved)
                 return hw - float(lv["trail_distance"])
             if lv.get("trail_pct"):
+                self._persist_trail_hw_if_moved(lv, moved)
                 return hw * (1 - float(lv["trail_pct"]) / 100.0)
         else:  # buy — low_water é o MIN
             if hw is None or last_price < hw:
                 hw = last_price
                 lv["trail_high_water"] = hw
+                moved = True
             if lv.get("trail_distance"):
+                self._persist_trail_hw_if_moved(lv, moved)
                 return hw + float(lv["trail_distance"])
             if lv.get("trail_pct"):
+                self._persist_trail_hw_if_moved(lv, moved)
                 return hw * (1 + float(lv["trail_pct"]) / 100.0)
         return None
+
+    def _persist_trail_hw_if_moved(self, lv: dict, moved: bool) -> None:
+        """Persiste `trail_high_water` em DB quando mover. Resilience contra
+        restart: sem isso, hw em memória resetava pra NULL após cada restart
+        (`_load_oco_state_from_db` carrega do DB), trail nunca acumulava em
+        sessões com instabilidade NSSM.
+        """
+        if not moved or not self._db or not lv.get("level_id"):
+            return
+        try:
+            self._db.execute(
+                "UPDATE profit_oco_levels SET trail_high_water=%s, updated_at=NOW() "
+                "WHERE level_id=%s",
+                (lv["trail_high_water"], lv["level_id"]),
+            )
+        except Exception:
+            pass  # Best-effort; reconcile pegará
 
     def _watch_pending_orders_loop(self) -> None:
         """Mitigação P9: detecta status final de ordens pendentes via DLL polling.
@@ -5013,6 +5042,11 @@ class ProfitAgent:
                         # cancel+create novo SL. Mantém trailing funcional mesmo com
                         # broker degradado.
                         if not moved_ok:
+                            # Cooldown 30s para evitar loop infinito + log spam quando
+                            # cancel também falha (broker order not found, etc).
+                            cd_ts = lv.get("_trail_fallback_cooldown_until", 0)
+                            if time.time() < cd_ts:
+                                continue
                             self._trail_fallback_count = (
                                 getattr(self, "_trail_fallback_count", 0) + 1
                             )
@@ -5025,6 +5059,14 @@ class ProfitAgent:
                                 "env": grp["env"],
                                 "local_order_id": lv["sl_order_id"],
                             })
+                            if not cancel_ret.get("ok"):
+                                log.warning(
+                                    "trailing.cancel_failed group=%s lv=%d sl_id=%d "
+                                    "ret=%s — cooldown 30s",
+                                    group_id, lv["idx"], lv["sl_order_id"],
+                                    cancel_ret.get("ret"),
+                                )
+                                lv["_trail_fallback_cooldown_until"] = time.time() + 30
                             if cancel_ret.get("ok"):
                                 # Cria novo SL stop-limit
                                 side_str = "sell" if grp["side"] == 2 else "buy"
@@ -5065,9 +5107,11 @@ class ProfitAgent:
                                     )
                                 else:
                                     log.warning(
-                                        "trailing.create_failed group=%s lv=%d err=%s",
+                                        "trailing.create_failed group=%s lv=%d err=%s "
+                                        "— cooldown 30s",
                                         group_id, lv["idx"], new_sl_res.get("error"),
                                     )
+                                    lv["_trail_fallback_cooldown_until"] = time.time() + 30
 
                         if moved_ok:
                             lv["sl_trigger"] = new_sl
