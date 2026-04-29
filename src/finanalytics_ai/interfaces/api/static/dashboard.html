@@ -2786,16 +2786,19 @@ function _onChartMouseDown(e) {
     _draggingOrder.spread = (o.price || o.stop_price) - o.stop_price;
   }
   try { priceChart.applyOptions({ handleScroll: false, handleScale: false }); } catch(_) {}
-  document.body.style.cursor = 'ns-resize';
+  const container = document.getElementById('chart-price');
+  if (container) container.style.setProperty('cursor', 'ns-resize', 'important');
 }
 
-// Hover: muda cursor quando Ctrl está pressionado E mouse sobre linha draggable
+// Hover: muda cursor quando mouse sobre linha draggable (independente de Ctrl).
+// Usa !important pra prevalecer sobre cursor 'crosshair' do lightweight-charts.
 function _onChartHoverMove(e) {
   if (_draggingOrder) return;
   if (!priceSeries || !orderLines.length) return;
   const canvas = _isChartCanvasTarget(e.target);
-  if (!canvas || (!e.ctrlKey && !e.metaKey)) {
-    if (document.body.style.cursor === 'ns-resize') document.body.style.cursor = '';
+  const container = document.getElementById('chart-price');
+  if (!canvas) {
+    if (container) container.style.removeProperty('cursor');
     return;
   }
   const rect = canvas.getBoundingClientRect();
@@ -2808,7 +2811,10 @@ function _onChartHoverMove(e) {
     if (yPix === null || yPix === undefined) continue;
     if (Math.abs(y - yPix) <= ORDER_DRAG_TOLERANCE_PX) { near = true; break; }
   }
-  document.body.style.cursor = near ? 'ns-resize' : '';
+  if (container) {
+    if (near) container.style.setProperty('cursor', 'ns-resize', 'important');
+    else container.style.removeProperty('cursor');
+  }
 }
 
 function _onChartMouseMove(e) {
@@ -2840,7 +2846,8 @@ async function _onChartMouseUp(e) {
   if (!_draggingOrder) return;
   const drag = _draggingOrder;
   _draggingOrder = null;
-  document.body.style.cursor = '';
+  const container = document.getElementById('chart-price');
+  if (container) container.style.removeProperty('cursor');
   try { priceChart.applyOptions({ handleScroll: true, handleScale: true }); } catch(_) {}
   if (!drag.currentPrice || drag.currentPrice === drag.originalPrice) {
     // Restaura título sem o "→ R$"
@@ -2878,7 +2885,8 @@ async function _onChartMouseUp(e) {
 function _cancelDrag() {
   if (!_draggingOrder) return;
   try { _draggingOrder.ref.ln.applyOptions({ price: _draggingOrder.originalPrice }); } catch(_) {}
-  document.body.style.cursor = '';
+  const container = document.getElementById('chart-price');
+  if (container) container.style.removeProperty('cursor');
   try { priceChart.applyOptions({ handleScroll: true, handleScale: true }); } catch(_) {}
   _draggingOrder = null;
   refreshOrders();
