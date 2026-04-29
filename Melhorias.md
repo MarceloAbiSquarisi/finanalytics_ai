@@ -198,6 +198,43 @@ Schema base (`email_messages` + `email_attachments`), worker `gmail_sync_worker`
 
 ---
 
+## 🛠 Infra
+
+#### I1 — Migrar Docker Desktop → Docker Engine direto via WSL2 ⭐⭐ médio
+**Custo**: ~1-2d (investigação + migração de volumes). **Payoff**: médio (operação 24/7 mais robusta + sem dependência de user logado).
+
+**Motivação**: Docker Desktop hoje morre quando o user faz logoff do Windows. Pra setup que precisa rodar 24/7 (api/scheduler/timescale/grafana/alerts/snapshots/jobs), isso é frágil. Docker Engine instalado direto numa distro WSL2 roda como systemd service — independente de sessão de user.
+
+**Outros ganhos colaterais**:
+- Sem GUI overhead (Docker Desktop come ~500MB RAM mesmo minimizado)
+- Sem licença Docker Desktop (não obrigatória pra uso pessoal/<R$10M, mas por princípio)
+- Mais "server-like" (libera futuro hop pra Linux dedicado/colocation sem mudar workflow)
+
+**Plano**:
+1. Instalar Ubuntu/Debian em WSL2 (`wsl --install -d Ubuntu`)
+2. Instalar `docker-ce` + `docker-compose-plugin` + `nvidia-container-toolkit` na distro
+3. Habilitar systemd no `/etc/wsl.conf` + `systemctl enable docker`
+4. **Decisão de volumes** (crítica — NTFS bind via `/mnt/d/` é 10-50x mais lento que ext4 nativo):
+   - **Opção A**: mover todos volumes (TimescaleDB, Postgres, Grafana, Prometheus, Redis) pra dentro do filesystem WSL (`~/finanalytics/data/`). Performance ótima, mas backup/inspeção fora do WSL fica menos prática.
+   - **Opção B**: deixar volumes em `/mnt/d/` (mesmo path atual). Performance ruim — inviável pra TimescaleDB ingestão de ticks live.
+   - **Recomendado**: A (migrar volumes pra ext4 WSL).
+5. Stop Docker Desktop, validar Engine WSL2 sobe os mesmos containers via `docker compose up -d`
+6. Verificar `nvidia-smi` dentro container (Decisão 15 ainda vale — NVIDIA Container Runtime funciona idêntico)
+7. Depois de 1 semana estável: uninstall Docker Desktop
+
+**Riscos / pegadinhas**:
+- **Volume migration downtime**: parar TimescaleDB, copiar `pgdata`, restartar. ~30min por volume grande. Fazer fim-de-semana.
+- **profit_agent permanece no Windows host** (NSSM service). `host.docker.internal` continua funcionando dentro do Engine WSL2 via configuração equivalente (precisa testar — em WSL2 puro o nome resolve diferente).
+- **Sem UI Docker Desktop** pra inspecionar containers — usar `lazydocker` ou `ctop` no terminal compensa.
+- **`docker context` switch** durante transição: dá pra coexistir Docker Desktop + Engine WSL2 com contexts separados, validar antes de migrar de vez.
+- **Backup pré-migração obrigatório**: snapshot completo do volume Postgres+Timescale antes de mexer.
+
+**Quando atacar**: quando aparecer 1ª vez que o Docker Desktop "morreu" em situação ruim (user logoff acidental, update Windows reboot mal-timed). Hoje funciona — não fazer migração preventiva sem dor real, mas deixar documentado.
+
+**Alternativa mais radical** (não atacar agora): migrar containers pra Linux server dedicado (NUC/mini-PC barato, ou colocation) — desliga Windows do caminho crítico de produção. Faz sentido quando a operação virar realmente production-grade ou multi-user.
+
+---
+
 ## Notas
 
 - **Próxima sprint sugerida** (28/abr → 29/abr+): R2 (TSMOM ∩ ML overlay, baixo custo + edge documentado) OU E1 (Gmail research BTG MVP, alpha investível). Ambos ~5d. R2 tem menos risco operacional; E1 alpha mais imediato.
