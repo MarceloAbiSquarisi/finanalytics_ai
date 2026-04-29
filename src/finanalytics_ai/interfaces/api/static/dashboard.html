@@ -2735,15 +2735,31 @@ function _isChartCanvasTarget(target) {
 function _setupOrderDragHandlers() {
   if (typeof _setupOrderDragHandlers._installed !== 'undefined') return;
   _setupOrderDragHandlers._installed = true;
-  // Capture phase + ambos pointer/mouse pra prevalecer sobre lightweight-charts
+  // Capture phase pra prevalecer sobre handlers do lightweight-charts
   document.addEventListener('pointerdown', _onChartMouseDown, true);
   document.addEventListener('mousedown', _onChartMouseDown, true);
   document.addEventListener('pointermove', _onChartMouseMove, true);
   document.addEventListener('mousemove', _onChartMouseMove, true);
   document.addEventListener('pointerup', _onChartMouseUp, true);
   document.addEventListener('mouseup', _onChartMouseUp, true);
+  // Desabilita pan/zoom do chart enquanto Ctrl está pressionado.
+  // Sem isso, o chart pana o eixo X em mousedown antes do nosso handler agir.
   document.addEventListener('keydown', function(e){
-    if (e.key === 'Escape' && _draggingOrder) _cancelDrag();
+    if (e.key === 'Escape' && _draggingOrder) { _cancelDrag(); return; }
+    if ((e.key === 'Control' || e.key === 'Meta') && priceChart) {
+      try { priceChart.applyOptions({ handleScroll: false, handleScale: false }); } catch(_) {}
+    }
+  });
+  document.addEventListener('keyup', function(e){
+    if ((e.key === 'Control' || e.key === 'Meta') && !_draggingOrder && priceChart) {
+      try { priceChart.applyOptions({ handleScroll: true, handleScale: true }); } catch(_) {}
+    }
+  });
+  // Janela perde foco (Alt-Tab) → re-habilita pra não travar pan
+  window.addEventListener('blur', function(){
+    if (!_draggingOrder && priceChart) {
+      try { priceChart.applyOptions({ handleScroll: true, handleScale: true }); } catch(_) {}
+    }
   });
   // Hover cursor: muda pra ns-resize quando passa sobre uma linha draggable
   document.addEventListener('mousemove', _onChartHoverMove);
