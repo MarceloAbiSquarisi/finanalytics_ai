@@ -2100,10 +2100,12 @@ function renderPriceChart(bars, bb) {
     color: b.close>=b.open ? 'rgba(46,212,122,.22)' : 'rgba(224,85,85,.22)',
   })));
 
-  // Bollinger Bands overlay
+  // Bollinger Bands overlay — usa timestamps de _bars2 (comprimidos) pra alinhar
+  // com priceSeries. Antes usava bars[i].time (raw) e como o chart usa
+  // compressed time scale, bb ficava fora da viewport e parecia nao plotar.
   if (bb && indVisible.bb) {
     const bbData = (series) => bb[series]
-      .map((v,i) => v != null ? {time: bars[i]?.time, value: v} : null)
+      .map((v,i) => v != null ? {time: _bars2[i]?.time, value: v} : null)
       .filter(Boolean);
 
     bbUpper = priceChart.addLineSeries({
@@ -2123,8 +2125,8 @@ function renderPriceChart(bars, bb) {
     bbLower.setData(bbData('lower'));
   }
 
-  // MA overlays
-  drawAllMAOverlays(bars);
+  // MA overlays — usa _bars2 (compressed) pra alinhar com priceSeries
+  drawAllMAOverlays(_bars2);
 
   // Candle counters (reset diário, abaixo do mínimo)
   candleCounterMarkers = indVisibleCounter ? computeCandleCounters(_bars2) : [];
