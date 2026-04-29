@@ -1534,6 +1534,7 @@ let currentPeriod = '1y';
 let tradeMode     = 'buy';
 let indVisible    = {bb: false, rsi: false, macd: false, adx: true, patterns: false, sr_classic: false, sr_swing: false, sr_williams: false};
 let srLines       = [];   // refs de priceLines criadas no priceSeries (S/R overlays)
+let orderLines    = [];   // refs de priceLines pra ordens pendentes do ticker corrente
 let srCache       = null; // cache da última resposta /levels (evita refetch a cada toggle)
 let patternMarkers = [];  // markers ativos no gráfico
 let indConfig     = {rsiPeriod: 14, bbPeriod: 20, adxPeriod: 14};
@@ -1733,7 +1734,10 @@ async function refreshWLPrices() {
 
 // -- TICKERER --------------------------------------------------------------------
 async function selectTicker(ticker) {
-  if (currentTicker !== ticker) srCache = null;  // invalida cache S/R ao trocar ticker
+  if (currentTicker !== ticker) {
+    srCache = null;  // invalida cache S/R ao trocar ticker
+    clearOrderLines();  // remove linhas horizontais de ordens do ticker anterior
+  }
   currentTicker = ticker;
   // Sprint Fix UI 22/abr: persiste ticker selecionado para restore no refresh
   try { localStorage.setItem('fa_dashboard_ticker', ticker); } catch(e) {}
@@ -1745,6 +1749,8 @@ async function selectTicker(ticker) {
   if (wm) { wm.style.display = 'block'; document.getElementById('wm-ticker').textContent = ticker; }
 
   await Promise.all([loadDetail(ticker), loadChartAndIndicators(ticker, currentRange)]);
+  // Re-desenha linhas de ordens pendentes do novo ticker (refreshOrders busca lista atual)
+  try { refreshOrders(); } catch(e) {}
 }
 
 async function loadDetail(ticker) {
@@ -2580,6 +2586,62 @@ async function refreshSRLevels() {
     });
   }
   srLines = lines;
+}
+
+// ── Ordens pendentes overlay no chart ────────────────────────────────────────
+// Linha horizontal tracejada no preço de cada ordem aberta do ticker corrente:
+// verde = compra, vermelha = venda. Stop-limit usa stop_price como referência.
+function clearOrderLines() {
+  if (!priceSeries) { orderLines = []; return; }
+  orderLines.forEach(function(ln){ try { priceSeries.removePriceLine(ln); } catch(e){} });
+  orderLines = [];
+}
+
+function drawOrderLines(orders) {
+  clearOrderLines();
+  if (!priceSeries || !currentTicker) return;
+  const tk = currentTicker.toUpperCase();
+  // Tickers de futuros podem chegar como WDOK26 (resolved) mesmo se digitamos WDOFUT.
+  // Mostra ordens cujo ticker bate com o currentTicker OU compartilha prefix de futuros.
+  const isFut = /^(WDO|WIN|IND|DOL|BIT)/.test(tk);
+  const pending = (orders || []).filter(function(o){
+    if (![0, 1, 10].includes(o.order_status)) return false;  // só abertas
+    const ot = (o.ticker || '').toUpperCase();
+    if (ot === tk) return true;
+    if (isFut && ot.slice(0,3) === tk.slice(0,3)) return true;
+    return false;
+  });
+  // Dedup: ordens com mesmo (price, side, type) viram 1 linha agregada.
+  // Evita poluição quando há lixo do P9 stuck no DB.
+  const groups = new Map();
+  pending.forEach(function(o){
+    const isStop = o.order_type === 4 && o.stop_price && o.stop_price > 0;
+    const refPrice = isStop ? o.stop_price : o.price;
+    if (!refPrice || refPrice <= 0) return;  // market order (price=-1) skip
+    const key = refPrice.toFixed(4) + '|' + o.order_side + '|' + (isStop ? 'S' : 'L');
+    const g = groups.get(key) || { price: refPrice, side: o.order_side, isStop: isStop, qty: 0, ids: [] };
+    g.qty += (o.quantity || 0);
+    g.ids.push(o.local_order_id);
+    groups.set(key, g);
+  });
+  groups.forEach(function(g){
+    const isBuy = g.side === 1;
+    const color = isBuy ? 'rgba(46,212,122,.85)' : 'rgba(255,107,107,.85)';
+    const sideStr = isBuy ? '▲ C' : '▼ V';
+    const typeStr = g.isStop ? ' STP' : '';
+    const idStr = g.ids.length === 1 ? ' #' + g.ids[0] : ' (' + g.ids.length + ')';
+    try {
+      const ln = priceSeries.createPriceLine({
+        price: g.price,
+        color: color,
+        lineWidth: 2,
+        lineStyle: 2,  // dashed
+        axisLabelVisible: true,
+        title: sideStr + ' ' + g.qty + typeStr + idStr,
+      });
+      orderLines.push(ln);
+    } catch(e) {}
+  });
 }
 
 function updateIndBadge() {
@@ -3617,7 +3679,7 @@ async function refreshOrders() {
   const el = document.getElementById('orders-list');
   if (!el) return;
   try {
-    const r = await fetch('/api/v1/agent/orders').then(r=>r.json());
+    const r = await fetch('/api/v1/agent/orders?limit=200').then(r=>r.json());
     const orders = r.orders || [];
     if (!orders.length) { el.innerHTML='<div style="font-size:12px;color:var(--muted)">Nenhuma ordem hoje</div>'; return; }
     const open = orders.filter(o=>![2,4].includes(o.order_status));
@@ -3654,6 +3716,8 @@ async function refreshOrders() {
     }).join('');
     el.innerHTML = (open.length?`<div style="font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin:4px 0 2px">Abertas (${open.length})</div>`+render(open):'')
                  + (done.length?`<div style="font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin:8px 0 2px">Fechadas</div>`+render(done.slice(0,5)):'');
+    // Atualiza linhas horizontais no chart pra ordens pendentes do ticker corrente
+    try { drawOrderLines(open); } catch(e) {}
   } catch(e) {
     el.innerHTML = `<div style="font-size:12px;color:var(--red)">${e.message}</div>`;
   }
