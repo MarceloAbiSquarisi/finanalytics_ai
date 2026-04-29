@@ -2,13 +2,14 @@
 
 > Lista priorizada do que ainda está ativo. Itens entregues estão em `git log` + memory.
 >
-> **Última revisão**: 29/abr/2026 manhã — cleanup pré-pregão (corte agressivo de sprints DONE)
+> **Última revisão**: 29/abr/2026 16:30 — sessão maratona OCO Phase A+B+C+D + resilience broker degradado.
 
 **Histórico de sprints concluídas** (não re-documentar aqui):
 - N1-N12 + N5b/N4b/N6b/N10b + housekeeping A-H — DONE 28/abr madrugada
 - M1-M5 + features /diario + S/R + flatten — DONE 27/abr noite
 - Bugs P1-P7 + O1 (DLL callbacks, broker auth blips, trail fallback, NSSM zombies) — DONE 28/abr (`27e04d3`, `efc4235`, `568e9a3`, `202bdc3`)
 - Snapshot signals + ml_pickle_count fix — DONE 29/abr (`7ad0061`)
+- **P9 mitigado** + **P10 fix** + **P11/P11.2 fix** + resilience patterns broker degradado — DONE 29/abr 16:30 (`3896aeb`, `53372e1`, `b153037`, `ee58c06`, `43f3767`)
 
 ---
 

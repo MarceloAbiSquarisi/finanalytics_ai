@@ -187,6 +187,19 @@ agent._kill_zombie_agents(...)     # netstat scan + taskkill no boot
 - DDL: `profit_orders.validity_type VARCHAR(8) DEFAULT 'GTC'` + `validity_date TIMESTAMPTZ`
 - DLL ProfitDLL não expõe ValidityType no SendOrder — enforcement é local via `gtd_enforcer_loop` no scheduler (60s, cancela GTD expirada via `/order/cancel`; fallback `status=8 + error='gtd_expired_cancel_failed'`)
 
+### Resilience patterns para broker degradado (29/abr)
+
+> Operam em condições de simulator/broker real degradado: callback de status final falha, ordens stuck, sessão broker piscando.
+
+- **`_get_last_price(ticker)`** — cache `_last_prices` com fallback `profit_ticks` (last 5min). Trail engaging funciona mesmo com cache vazio pós-restart NSSM ou callback inativo. Resolve alias futuros automaticamente.
+- **`_watch_pending_orders_loop`** (mitigação P9) — após `_send_order_legacy`, registra `local_id` em `self._pending_orders`. Loop @5s polla DLL via `EnumerateAllOrders`, detecta status final em ~10s (vs 5min do reconcile). Marca `status=8 error='watch_orphan_no_dll_record'` se DLL não enumera + DB pendente após 60s.
+- **`_persist_trail_hw_if_moved`** — `trail_high_water` persistido no DB a cada movimento favorável (não só em `active`). Sobrevive restart; `_load_oco_state_from_db` recarrega valor corrente.
+- **`trail.tick` instrumentation** — log heartbeat 1/15s por group: `last/hw/sl`. `trail.no_price` 1/30s quando feed dead.
+- **P7 fallback cooldown 30s** — se `cancel_order` ou `_send_order_legacy` falham no fallback do trail, marca `lv["_trail_fallback_cooldown_until"]`; suprime tentativas seguintes por 30s. Anti log spam + load no broker degradado.
+- **`_kill_zombie_agents` conservativo** — apenas detecta + log, **não mata**. Em ambiente com 2+ NSSM services brigando por :8002, o kill agressivo causava loop infinito. Port bind decide; ops desabilita NSSM duplicado.
+- **`_load_oco_legacy_pairs_from_db`** (P10 fix) — strategy_id encoded `oco_legacy_pair_<tp_id>_sl` permite reload `_oco_pairs` no boot. Pares OCO legacy sobrevivem restart.
+- **`_resolve_active_contract` ubíquo** — `get_position_v2` + `flatten_ticker` + `_send_order_legacy` + `_subscribe` aceitam alias `WDOFUT/WINFUT` e resolvem para contrato vigente (`WDOK26/WINM26`) com `exchange="F"`. Aplicação não precisa saber qual o contrato corrente.
+
 ## UI compartilhada
 
 > **Documentação completa**: `src/finanalytics_ai/interfaces/api/static/STATIC_HELPERS.md` — tabela dos ~25 helpers, ordem de carregamento, exemplos de uso.
@@ -261,7 +274,11 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 - **R1-R5** Robô de Trade autônomo: `auto_trader_worker` + Strategy Loop + Risk Engine + 3 strategies candidatas (TSMOM∩ML, pares cointegrados B3, ORB WINFUT+filtro DI1)
 - **E1-E3** Leitura de Gmail: research bulletins → enrich /signals (E1, alpha real, MVP ~5d) | notas corretagem reconciliation (E2) | pipeline genérico (E3)
 
-**Histórico de sprints concluídas**: ver `git log` + `memory/project_*.md` (sprints 15-27 movidas para fora do CLAUDE.md). Bugs de produção catalogados em `Melhorias.md` (P1-P7+O1 todos DONE 28/abr).
+**Histórico de sprints concluídas**: ver `git log` + `memory/project_*.md` (sprints 15-27 movidas para fora do CLAUDE.md). Bugs de produção catalogados em `Melhorias.md`:
+- P1-P7 + O1 ✅ DONE 28/abr
+- P9 (DB stuck status=10) ✅ MITIGADO 29/abr via `_watch_pending_orders_loop` (detection ~10s vs 5min reconcile)
+- P10 (OCO legacy pares perdidos pós-restart) ✅ DONE 29/abr via `_load_oco_legacy_pairs_from_db`
+- P11 + P11.2 (futuros UI exchange/alias) ✅ DONE 29/abr via `_resolve_active_contract` em `get_position_v2` + `flatten_ticker`
 
 ## Decisões Arquiteturais (Imutáveis)
 

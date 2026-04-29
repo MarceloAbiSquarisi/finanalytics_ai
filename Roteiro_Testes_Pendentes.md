@@ -1,11 +1,12 @@
 # Roteiro de Testes Pendentes — FinAnalytics AI
 
 > **Reorganizado**: 26/abr/2026 — classificação por dependência (pregão aberto/fechado/outras)
-> **Última atualização**: 28/abr/2026 manhã — A.4.9 + A.22.4 + A.23.9 + A.23.10 fechados via MCP + C.1 Pushover 4/4 + C.2 Sudo 7/7 + **NSSM watchdog instalado** (resolveu issue de DLL ConnectorThread em restart). Bloco A 98.8%, C.1+C.2 100%.
+> **Última atualização**: 29/abr/2026 16:30 — Sessão maratona OCO Phase A/B/C/D + resilience broker degradado. **Bloco B 16/19 ✅** (B.1-B.9, B.11-B.15, B.18, B.19); B.16 PARCIAL (mitigado via watch_pending_orders); B.10 INCONCLUSIVO (broker simulator); B.17 N/A. **P-bugs**: P1-P11.2 todos DONE/mitigados. 8 commits (`3896aeb` → `43f3767`).
 > **Login dev**: `marceloabisquarisi@gmail.com` / `admin123` (master)
 > **DB seedado**: 1 conta consolidada **"Teste"** (id `eeee5555`) — migration `migrate_test_to_single_carteira.sql` (27/abr); contas XP+BTG soft-deleted
 > **Invariante 27/abr**: todo ativo DEVE ter `investment_account_id` (NOT NULL em DB + `Field(...)` Pydantic em trades/crypto/other)
 > **Cache**: SW v86 — `Ctrl+Shift+R` na 1ª abertura de cada página
+> **NSSM dual-service** (29/abr): havia 2 serviços brigando por :8002 (`FinAnalyticsAgent` + `FinAnalyticsProfitAgent`). FinAnalyticsProfitAgent **DESABILITADO**. Usar apenas `FinAnalyticsAgent`.
 
 ---
 
