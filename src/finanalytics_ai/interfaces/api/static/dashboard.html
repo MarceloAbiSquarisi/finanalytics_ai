@@ -1537,6 +1537,7 @@ let srLines       = [];   // refs de priceLines criadas no priceSeries (S/R over
 let orderLines    = [];   // refs: {ln, refPrice, side, isStop, ids:[], orders:[]}
 let positionLine  = null; // ref da priceLine da posicao aberta no PM (verde long, vermelha short)
 let _timeRealMap  = new Map();  // compressedTime → realTime (skip overnight gaps)
+let _chartIntervalSec = 300;    // interval (sec) detectado em _compressGaps; usado em updates real-time
 let srCache       = null; // cache da última resposta /levels (evita refetch a cada toggle)
 let patternMarkers = [];  // markers ativos no gráfico
 let indConfig     = {rsiPeriod: 14, bbPeriod: 20, adxPeriod: 14};
@@ -1859,6 +1860,7 @@ function _compressGaps(bars) {
   if (diffs.length === 0) return bars;
   diffs.sort((a, b) => a - b);
   const intervalSec = diffs[Math.floor(diffs.length / 2)];
+  _chartIntervalSec = intervalSec;  // memoriza pra updates real-time (priceSeries.update)
   const gapThreshold = intervalSec * 2.5;
   const result = [];
   let lastT = null;
@@ -1878,6 +1880,34 @@ function _compressGaps(bars) {
     lastT = useT;
   }
   return result;
+}
+
+// Comprime timestamp de update real-time mantendo continuidade visual.
+// Usado por priceSeries.update() vindo de SSE/poll.
+function _compressIncomingTime(realT) {
+  if (_timeRealMap.size === 0) return realT;
+  // Find latest entry (compressed → real)
+  let lastCompressed = 0, lastReal = 0;
+  for (const [c, r] of _timeRealMap) {
+    if (c > lastCompressed) { lastCompressed = c; lastReal = r; }
+  }
+  // Update do mesmo bar (timestamp real existente) — retorna compressed correspondente
+  for (const [c, r] of _timeRealMap) {
+    if (r === realT) return c;
+  }
+  // Bar mais antigo que o ultimo conhecido — não comprime
+  if (realT < lastReal) return realT;
+  const realDelta = realT - lastReal;
+  let useT;
+  if (realDelta > _chartIntervalSec * 2.5) {
+    // Gap (overnight/weekend) — comprime pra próximo intervalo após último
+    useT = lastCompressed + _chartIntervalSec;
+  } else {
+    // Sem gap — preserva delta real
+    useT = lastCompressed + realDelta;
+  }
+  _timeRealMap.set(useT, realT);
+  return useT;
 }
 
 async function loadChartAndIndicators(ticker, range, interval) {
@@ -4703,10 +4733,12 @@ async function _doRefresh() {
       t=Math.floor(new Date(ts).getTime()/1000);
     }
     if(!t||isNaN(t))return;
-    var bar={time:t,open:+c.open,high:+c.high,low:+c.low,close:+c.close};
-    console.debug("[_doRefresh] ts=" + c.ts + " -> unix=" + t + " bar=", bar);
+    // Comprime timestamp pro mesmo space dos bars históricos (skip gaps overnight)
+    var tCompressed = (typeof _compressIncomingTime === 'function') ? _compressIncomingTime(t) : t;
+    var bar={time:tCompressed,open:+c.open,high:+c.high,low:+c.low,close:+c.close};
+    console.debug("[_doRefresh] ts=" + c.ts + " -> unix=" + t + " compressed=" + tCompressed);
     (priceSeries||window.priceSeries).update(bar);
-    if(volSeries||window.volSeries)(volSeries||window.volSeries).update({time:t,value:+(c.volume||0),color:(+c.close>=+c.open)?"#00e67633":"#ff444433"});
+    if(volSeries||window.volSeries)(volSeries||window.volSeries).update({time:tCompressed,value:+(c.volume||0),color:(+c.close>=+c.open)?"#00e67633":"#ff444433"});
     var pxEl=document.getElementById("tk-px"),chgEl=document.getElementById("tk-chg");
     if(pxEl){pxEl.textContent="R$ "+f2(c.close);var chg=c.close-c.open,pct=(chg/c.open*100).toFixed(2);pxEl.style.color=chg>=0?"var(--green)":"var(--red)";if(chgEl){chgEl.textContent=(chg>=0?"+":"")+f2(chg)+" ("+pct+"%)";chgEl.className="tb-chg "+(chg>=0?"up":"dn");}}
   } catch(e) { console.warn("refresh err",e); }
