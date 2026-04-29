@@ -524,14 +524,16 @@ async def brapi_sync_job() -> dict:
 
 
 async def tick_to_ohlc_backfill_job(date_iso: str | None = None) -> dict:
-    """Agrega profit_ticks → ohlc_1m via continuous aggregate ohlc_1m_from_ticks.
+    """Substitui ohlc_1m do dia pelos valores limpos do continuous aggregate.
 
-    Compensa BRAPI ingestor stale: o tick_agg_v1 já gera bars 1min via
-    continuous aggregate, mas o ohlc_1m fisica pode ter rows desatualizadas
-    pra equity quando BRAPI não atualiza. INSERT com source='tick_agg_v1'
-    + ON CONFLICT DO NOTHING preserva rows do BRAPI quando existirem.
+    Estratégia DELETE + INSERT (não merge): em sessões com restart de agent,
+    transição de alias->vigente, ou ticks duplicados, ohlc_1m podia ter
+    rows incoerentes. O continuous aggregate ohlc_1m_from_ticks é a fonte
+    canônica (recomputada do profit_ticks). Substituímos o dia inteiro
+    pra garantir dados consistentes.
 
-    Roda 1x/dia ~21h BRT (após close pregão + after-market). Idempotente.
+    Roda 1x/dia ~21h BRT (00h UTC) — após close pregão + after-market.
+    Idempotente: re-rodar reproduz o mesmo resultado.
     """
     timescale_dsn = (
         os.environ.get("TIMESCALE_URL")
@@ -544,26 +546,42 @@ async def tick_to_ohlc_backfill_job(date_iso: str | None = None) -> dict:
     ts_dsn = timescale_dsn.replace("postgresql+asyncpg://", "postgresql://")
 
     target_date = date_iso or datetime.now(UTC).strftime("%Y-%m-%d")
-    logger.info("scheduler.tick_to_ohlc.start", date=target_date)
+    logger.info("scheduler.tick_to_ohlc.start", date=target_date, mode="replace")
     try:
         import asyncpg
         conn = await asyncpg.connect(ts_dsn)
         try:
-            result = await conn.execute(
-                f"""
-                INSERT INTO ohlc_1m (time, ticker, open, high, low, close, volume, trades, source)
-                SELECT time, ticker, open, high, low, close, volume, COALESCE(trades, 0),
-                       'tick_agg_v1'
-                FROM ohlc_1m_from_ticks
-                WHERE time >= '{target_date} 00:00:00+00'
-                  AND time < ('{target_date}'::date + INTERVAL '1 day')
-                ON CONFLICT (time, ticker) DO NOTHING
-                """
+            async with conn.transaction():
+                # 1. Limpa rows existentes do dia (qualquer source — substitui tudo)
+                deleted_result = await conn.execute(
+                    f"""
+                    DELETE FROM ohlc_1m
+                    WHERE time >= '{target_date} 00:00:00+00'
+                      AND time <  ('{target_date}'::date + INTERVAL '1 day')
+                    """
+                )
+                deleted = int(deleted_result.split()[-1]) if deleted_result.startswith("DELETE") else 0
+
+                # 2. Insere fresh do continuous aggregate (sem ON CONFLICT — limpamos antes)
+                inserted_result = await conn.execute(
+                    f"""
+                    INSERT INTO ohlc_1m (time, ticker, open, high, low, close, volume, trades, source)
+                    SELECT time, ticker, open, high, low, close, volume, COALESCE(trades, 0),
+                           'tick_agg_v1'
+                    FROM ohlc_1m_from_ticks
+                    WHERE time >= '{target_date} 00:00:00+00'
+                      AND time <  ('{target_date}'::date + INTERVAL '1 day')
+                    """
+                )
+                inserted = int(inserted_result.split()[-1]) if inserted_result.startswith("INSERT") else 0
+
+            logger.info(
+                "scheduler.tick_to_ohlc.done",
+                date=target_date, deleted=deleted, inserted=inserted,
+                net_change=inserted - deleted,
             )
-            inserted = int(result.split()[-1]) if result.startswith("INSERT") else 0
-            logger.info("scheduler.tick_to_ohlc.done", date=target_date, inserted=inserted)
             _record("tick_to_ohlc", "ok")
-            return {"status": "ok", "date": target_date, "inserted": inserted}
+            return {"status": "ok", "date": target_date, "deleted": deleted, "inserted": inserted}
         finally:
             await conn.close()
     except Exception as exc:
