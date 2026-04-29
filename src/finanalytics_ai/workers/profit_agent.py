@@ -2982,8 +2982,14 @@ class ProfitAgent:
                     return
             if not row:
                 return
-            ticker, side = row[0], (row[1] or "buy")
-            direction = "BUY" if side.lower().startswith("b") else "SELL"
+            # row[1] é order_side smallint (1=Buy, 2=Sell). Aceita int ou str
+            # (compat retro: alguns paths antigos passavam "buy"/"sell").
+            ticker = row[0]
+            side_raw = row[1] if row[1] is not None else 1
+            if isinstance(side_raw, int):
+                direction = "BUY" if side_raw == ORDER_SIDE_BUY else "SELL"
+            else:
+                direction = "BUY" if str(side_raw).lower().startswith("b") else "SELL"
 
             self._diary_notified.add(local_id)
             payload = {
