@@ -112,6 +112,7 @@ from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler
 import json
 import logging
+import logging.handlers
 import os
 from pathlib import Path
 import queue
@@ -165,11 +166,21 @@ def _setup_logging() -> None:
 
     Path(log_file).parent.mkdir(parents=True, exist_ok=True)
 
+    # RotatingFileHandler: 10MB por arquivo, 10 backups (~110MB max).
+    # Antes era FileHandler puro -> arquivo crescia indefinidamente
+    # (observado 666MB em 28-29/abr).
+    rotating = logging.handlers.RotatingFileHandler(
+        log_file,
+        maxBytes=10 * 1024 * 1024,
+        backupCount=10,
+        encoding="utf-8",
+    )
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
         handlers=[
-            logging.FileHandler(log_file, encoding="utf-8"),
+            rotating,
             logging.StreamHandler(sys.stdout),
         ],
     )

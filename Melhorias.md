@@ -198,7 +198,73 @@ Schema base (`email_messages` + `email_attachments`), worker `gmail_sync_worker`
 
 ---
 
+## 🐛 Bugs descobertos
+
+#### P8 — Broker simulator rejeita ordens em futuros (WDOFUT/WINFUT) ⭐ médio (29/abr)
+**Custo**: investigação ~1h (depende de doc Nelogica). **Payoff**: desbloqueia testes Bloco B com futuros antes de 10h (equity opening).
+
+**Sintoma**: 100% das ordens em WDOFUT (limit @ 4900, limit @ 4960, market) rejeitadas pelo broker simulator com `trading_msg code=5 status=8 msg=Ordem inválida`. P1 auto-retry funciona corretamente (validado live em 014021→014022→014023, todas com mesmo erro). Market data (ticks/quotes) funciona normal — `WDOFUT @ 4990.5` fluindo via subscribed_tickers.
+
+**Diferenças observadas**:
+- PETR4 (ações) última ordem com sucesso (status=2 FILLED) em 28/abr — broker aceita ações
+- WDOFUT (futuros) — todas rejeitadas em 29/abr, mesmo com routing_connected=true e login_ok=true
+- Símbolo `WDOFUT` é alias profit_agent que resolve corretamente para market data; pode não resolver para o roteamento
+- `sub_account_id=NULL` em todas as ordens (incluindo PETR4 que funcionou) — não parece ser causa
+
+**Hipóteses**:
+1. Conta de simulação Nelogica **não tem permissão de futuros habilitada** — checar com Nelogica
+2. Broker exige código contrato mensal específico (`WDOK26` p/ mai/26) em vez do alias `WDOFUT`
+3. Sub-account distinta necessária para futuros (BMF vs Bovespa)
+4. Problema temporário do simulator (mesmo padrão de degradação visto 28/abr 16h)
+
+**Próximos passos**:
+1. Verificar com Nelogica se conta sim tem permissão BMF/futuros
+2. Tentar ordem com símbolo de contrato específico (`WDOM26` ou ativo do mês)
+3. Documentar `account_type` e `exchange` esperados no `trading_accounts` para futuros
+
+**Workaround**: usar PETR4 ou outras ações pra todos os testes Bloco B até resolver.
+
+#### P2-futuros — DB não reflete `status=8` do broker (P2 fix não pegou pra rejeições "Ordem inválida")
+DB ficou com `order_status=10 (PendingNew)` mesmo após broker retornar `code=5 status=8 msg=Ordem inválida`. P2 fix de 28/abr (`27e04d3`) atualiza via reconcile loop — mas só dispara 10h-18h. Para ordens rejeitadas instantaneamente, o `trading_msg_cb` com `status=8` deveria atualizar DB direto. Verificar handler. Pequeno e independente.
+
+---
+
 ## 🛠 Infra
+
+#### I3 — Rebuild containers stale (após pregão 29/abr) ⭐ médio
+**Custo**: ~10min (`docker compose build api worker worker_v2 && docker compose up -d`). **Payoff**: alto (reaplica fixes P1-P7+O1 nos containers que ainda rodam código de mar/abr).
+
+**Achado 29/abr 09:34**: containers tem código defasado (file mtime dentro do container):
+- `finanalytics_worker` — di1 worker datado **20/abr** (perde 8d de fixes, incluindo P3 cursor)
+- `finanalytics_worker_v2` — event_worker_v2 datado **3/abr** (~mês de defasagem)
+- `finanalytics_api` — workers datados **21/abr** (perde fixes 28/abr noite: P1-P7+O1, snapshot_signals job, ml_metrics_refresh path fix)
+- `finanalytics_scheduler` ✅ — workers datados 28/abr (rebootado 29/abr 06:47)
+- `finanalytics_di1_realtime` ✅ — hot deploy P3 fix realizado 29/abr 09:18
+
+**Causa**: hot deploys via `docker cp` aplicados em alguns containers mas image não foi rebuilt. Próximo `compose up` (sem build) usa image antiga.
+
+**Comando**:
+```bash
+docker compose build api worker worker_v2
+docker compose up -d api worker worker_v2
+```
+
+**Quando**: pós-fechamento pregão (17h+). Não fazer minutos antes/durante pregão (api restart causa ~5s downtime no dashboard).
+
+**Não bloqueante hoje**: containers estão saudáveis pra observação/leitura. Funcionalidades dependentes dos fixes recentes (snapshot_signals job, ml_pickle_count fix) já foram hot-deployed onde necessário.
+
+#### I2 — Finalizar rotação log profit_agent (após pregão 29/abr) ⭐ trivial
+**Custo**: ~5min (Windows admin). **Payoff**: libera 666MB + previne reinflação.
+
+Código já fixado em `profit_agent.py:_setup_logging` (commit pendente desta sessão): substituiu `logging.FileHandler` por `RotatingFileHandler(maxBytes=10MB, backupCount=10)`. Resta:
+1. Stop NSSM service (Windows admin): `Stop-Service FinAnalyticsAgent -Force`
+2. Move arquivo legado: `Move-Item -Force logs\profit_agent.log _archive_logs\profit_agent_pre_rotate_20260429.log`
+3. Start NSSM: `Start-Service FinAnalyticsAgent`
+4. Adicionar pre_rotate.log ao zip + deletar solto
+5. Validar `logs/profit_agent.log` cresce até 10MB e rotaciona pra `.log.1` etc.
+6. Commit do fix do código (`profit_agent.py` + `Melhorias.md` removendo este item)
+
+**Não bloqueante**: rotação não impacta operação durante pregão. Tarefa offline pós-fechamento.
 
 #### I1 — Migrar Docker Desktop → Docker Engine direto via WSL2 ⭐⭐ médio
 **Custo**: ~1-2d (investigação + migração de volumes). **Payoff**: médio (operação 24/7 mais robusta + sem dependência de user logado).

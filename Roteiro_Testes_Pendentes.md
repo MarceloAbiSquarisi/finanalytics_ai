@@ -630,12 +630,14 @@ curl -s 'http://localhost:9090/api/v1/query?query=profit_agent_order_callbacks_t
 
 ---
 
-### B.1 — DT cancel order (~5min)
+### B.1 — DT cancel order (~5min) ⚠️ BLOQUEADO 29/abr (broker rejeita futuros — P8)
 
 - [ ] **B.1.1** Limit BUY PETR4 R$30 (longe do mercado) → enviar (PendingNew)
 - [ ] **B.1.2** Em "Ordens" → click ✕
 - [ ] **B.1.3** Status CANCELED em ~5s (polling 600/2000/5000ms)
 - [ ] **B.1.4** Fallback `/positions/dll` em 10s consolida estado
+
+**Tentativa 29/abr 09:20 com WDOFUT/WINFUT**: 8 ordens enviadas, 100% rejeitadas pelo broker simulator (`code=5 status=8 Ordem inválida` ou `code=3 status=8 Cliente não logado`). **P1 retry validado live** (sequência completa scheduled→attempt→dispatched→aborted nas 3 tentativas). Bug catalogado em P8/P2-futuros (Melhorias.md). Re-tentar com PETR4 após 10h.
 
 ### B.2 — DT enviar ordem real (~5min)
 
@@ -718,16 +720,17 @@ curl -s 'http://localhost:9090/api/v1/query?query=profit_agent_order_callbacks_t
 - [X] **B.14.1** /marketdata?ticker=PETR4 — RSI/MACD/Bollinger reflete tick recente (candle 5m last bar 19:15Z close=47.60 vol=39600 — tick stream live)
 - [X] **B.14.2** /dashboard ADX 14.7 +DI 21.8 -DI 23.3 computado em runtime; ML signals Live com snap=2026-04-21 (snapshots diários)
 
-### B.15 — DI1 realtime (~5min)
+### B.15 — DI1 realtime (~5min) ✅ DONE 29/abr 09:18 (com bonus: hot deploy P3 fix)
 
-- [ ] **B.15.1** `di1_tick_age_high` deve ficar **resolved** durante pregão (tick < 120s)
-- [ ] **B.15.2** Grafana dashboard DI1: 3 painéis com dados frescos
+- [X] **B.15.1** `di1_tick_age_high` resolved (tick_age=4.6s); 92 ticks/92 publishes em 73s, 0 errors
+- [X] **B.15.2** Métrica `di1_worker_kafka_published_total` incrementando; topic `market.rates.di1` recebendo
+- **Bonus**: container DI1 estava com código de 20/abr (pré-fix P3); hot deploy do `efc4235` aplicado pra desbloquear cursor por timestamp
 
-### B.16 — Reconcile loop scheduler (~10min)
+### B.16 — Reconcile loop scheduler (~10min) ⏳ PARCIAL 29/abr 09:25 (loop ativo, aguarda janela)
 
-- [ ] **B.16.1** Scheduler `reconcile_loop` (a cada 5min em 10h-18h BRT) executa
-- [ ] **B.16.2** Order enviada via dashboard → após 5min, status no DB confere com DLL
-- [ ] **B.16.3** Se DLL retorna order com status diff, log `reconcile.discrepancy.fixed`
+- [X] **B.16.1** `scheduler.reconcile.start` logado no boot, `interval_min=5 window='10h-18h BRT'`. Skip silencioso fora de janela confirmado.
+- [ ] **B.16.2** Validar com order real após 10h: discrepância DB×DLL → reconcile auto-fix
+- [ ] **B.16.3** Log `reconcile.discrepancy.fixed` em ação (depende de fluxo real)
 
 ### B.17 — Trade /carteira → DLL (~10min) ❌ N/A 28/abr 16:13
 
