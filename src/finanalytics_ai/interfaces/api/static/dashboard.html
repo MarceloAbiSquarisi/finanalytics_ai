@@ -1536,6 +1536,7 @@ let indVisible    = {bb: false, rsi: false, macd: false, adx: true, patterns: fa
 let srLines       = [];   // refs de priceLines criadas no priceSeries (S/R overlays)
 let orderLines    = [];   // refs: {ln, refPrice, side, isStop, ids:[], orders:[]}
 let positionLine  = null; // ref da priceLine da posicao aberta no PM (verde long, vermelha short)
+let _timeRealMap  = new Map();  // compressedTime → realTime (skip overnight gaps)
 let srCache       = null; // cache da última resposta /levels (evita refetch a cada toggle)
 let patternMarkers = [];  // markers ativos no gráfico
 let indConfig     = {rsiPeriod: 14, bbPeriod: 20, adxPeriod: 14};
@@ -1841,6 +1842,44 @@ async function changeRange(range) {
 
 
 // ── Separadores de dia ────────────────────────────────────────────────────────
+// ── Time compression: elimina gap visual do overnight/weekend ────────────────
+// Lightweight-charts plota proporcional ao tempo. Sem isso, 14h sem pregão
+// (sex 18:30 → seg 09:00) viram um vazio horizontal feio. Solução: substitui
+// timestamps por sequência "fake" quando gap > 2x o interval mediano dos bars.
+// _timeRealMap mantém compressedTs → realTs pra o eixo X mostrar a hora correta.
+function _compressGaps(bars) {
+  _timeRealMap = new Map();
+  if (!bars || bars.length < 2) return bars;
+  // Estima o interval típico via mediana das diferenças consecutivas
+  const diffs = [];
+  for (let i = 1; i < Math.min(bars.length, 100); i++) {
+    const d = bars[i].time - bars[i-1].time;
+    if (d > 0) diffs.push(d);
+  }
+  if (diffs.length === 0) return bars;
+  diffs.sort((a, b) => a - b);
+  const intervalSec = diffs[Math.floor(diffs.length / 2)];
+  const gapThreshold = intervalSec * 2.5;
+  const result = [];
+  let lastT = null;
+  for (let i = 0; i < bars.length; i++) {
+    const real = bars[i].time;
+    let useT;
+    if (lastT === null) {
+      useT = real;
+    } else if (real - lastT > gapThreshold) {
+      useT = lastT + intervalSec;  // comprime o gap
+    } else {
+      useT = real;
+    }
+    _timeRealMap.set(useT, real);
+    const copy = Object.assign({}, bars[i], { time: useT });
+    result.push(copy);
+    lastT = useT;
+  }
+  return result;
+}
+
 async function loadChartAndIndicators(ticker, range, interval) {
   interval = interval || currentInterval || '1wk';
   setLoading(true);
@@ -1955,8 +1994,8 @@ function renderPriceChart(bars, bb) {
       vertLine:{color:'rgba(58,191,248,.4)',labelBackgroundColor:'#0D2144'},
       horzLine:{color:'rgba(58,191,248,.4)',labelBackgroundColor:'#0D2144'} },
     rightPriceScale: { borderColor:'rgba(58,191,248,.1)', scaleMargins:{top:.06, bottom:.22} },
-    localization: { timeFormatter: (t) => { const d = new Date(t * 1000); return d.toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); } },
-    timeScale: { borderColor:'rgba(58,191,248,.1)', timeVisible:true, secondsVisible:false, fixLeftEdge:true, rightOffset:4, tickMarkFormatter: (t) => { const d = new Date(t * 1000); const h = String(d.getHours()).padStart(2,'0'); const m = String(d.getMinutes()).padStart(2,'0'); return h+':'+m; } },
+    localization: { timeFormatter: (t) => { const real = _timeRealMap.get(t) || t; const d = new Date(real * 1000); return d.toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); } },
+    timeScale: { borderColor:'rgba(58,191,248,.1)', timeVisible:true, secondsVisible:false, fixLeftEdge:true, rightOffset:4, tickMarkFormatter: (t) => { const real = _timeRealMap.get(t) || t; const d = new Date(real * 1000); const h = String(d.getHours()).padStart(2,'0'); const m = String(d.getMinutes()).padStart(2,'0'); return h+':'+m; } },
   });
 
   window.priceSeries = priceSeries = priceChart.addCandlestickSeries({
@@ -1981,6 +2020,10 @@ function renderPriceChart(bars, bb) {
     }
     return {time:t, open:b.open, high:b.high, low:b.low, close:b.close, volume:b.volume};
   });
+  // Compress gaps: overnight/weekend sem candles = espaço vazio horizontal.
+  // Substitui timestamps reais por sequencia "comprimida" quando gap > 2x interval mediano.
+  // _timeRealMap mantem mapping pra display do tempo real no eixo X.
+  _bars2 = _compressGaps(_bars2);
 
   // Filtro de outliers (impede candles em escala diferente — split não ajustado, dados legados)
   // Heurística robusta: usa o ÚLTIMO close como referência e filtra bars cujo close esteja
