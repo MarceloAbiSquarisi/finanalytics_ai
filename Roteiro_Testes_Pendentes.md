@@ -576,6 +576,60 @@
 
 > ✅ **Pré-requisito JÁ FEITO**: profit_agent rodando com Phase A+B+C+D (validado no batch — descoberta `5cf12d0` ativo).
 
+---
+
+### 🎯 Plano de execução 29/abr (pós P1-P7+O1 fixes)
+
+**Status atualizado** dos itens antes bloqueados:
+- B.8/B.9/B.10 (trailing) — **UNBLOCKED** (P7 fix `27e04d3`: cancel+create fallback). Esperar log `trailing.cancel_create` distinto de `trailing.adjusted`.
+- B.11 (cross-cancel) — **UNBLOCKED via DLL polling** (P4 fix `27e04d3` + diary hook P4-aware `568e9a3`). Cross-cancel via callback ainda risky; usar polling state.
+- B.12 (persist+restart) — **UNBLOCKED** (P6 fix `27e04d3`). `_oco_groups` deve repopular sem reload manual.
+- B.18 (diary hook) — **UNBLOCKED** (P4 fix + diary hook via `get_positions_dll` polling em vez de callback corrompido).
+- B.19 (flatten) — depende de **broker saudável** (rejeições 28/abr eram simulator degradado, não código).
+
+**Ordem sugerida** (~3h pregão):
+
+| Slot | Item | Tipo | Notas |
+|---|---|---|---|
+| 9h45 | Verify `routing_connected=true` | check | `curl localhost:8002/status \| jq .routing_connected`. Se false às 10h, restart via `/agent/restart` (sudo `admin123`) |
+| 10h-10h15 | B.5, B.15, B.16 | non-invasive | Quote/DI1 alert/reconcile loop — só observação |
+| 10h15-10h45 | B.1, B.2, B.13 | order primitives | Cancel + market BUY + cancel group |
+| 10h45-11h30 | B.6 (re-validar), B.3 | OCO basic | Phase A + OCO legacy |
+| 11h30-12h | **B.18 NEW** | diary hook | Após qualquer FILL acima, `/diario` deve ter entry. Validar idempotência |
+| 12h-13h | **B.8 NEW**, B.7 | trailing + splits | Trailing R$ — esperar log `trailing.cancel_create group=...`. Splits 60/40 |
+| 13h-14h | B.4, B.14 | indicadores | Posição/quote refresh + RSI/MACD live |
+| 14h-15h | **B.12 retry**, B.11 NEW | robustez | Persistence restart + cross-cancel via polling |
+| 15h-16h | **B.19 retry** | flatten | Em sessão saudável, `cancelled` deve ser >0 e `zero_ok=true` |
+
+**Pre-flight commands** (rodar antes de cada bloco):
+```bash
+# 1. Health
+curl -s localhost:8002/status | python -m json.tool | grep -E "market|routing|db_connected"
+
+# 2. Snapshot ordens atuais
+docker exec finanalytics_timescale psql -U finanalytics -d market_data \
+  -c "SELECT local_order_id, ticker, order_status, validity_type FROM profit_orders ORDER BY created_at DESC LIMIT 10;"
+
+# 3. OCO groups state
+curl -s localhost:8000/api/v1/agent/oco/groups | python -m json.tool
+
+# 4. Métricas vitais
+curl -s 'http://localhost:9090/api/v1/query?query=profit_agent_order_callbacks_total' | python -m json.tool
+```
+
+**Critérios de sucesso por item**:
+- B.8 NEW: log emite `trailing.cancel_create group=... lv=N old_local=X new_local=Y new_sl=Z` quando preço sobe acima de `entry + delta_R$`. **Sem mais `change_order rejected ret=-2147483645` no log**.
+- B.12 retry: pós-restart, `/oco/groups` retorna `count > 0` SEM precisar `/oco/state/reload` manual. **B.12.4 era o gargalo — agora deve passar**.
+- B.18 NEW: `/diario` ganha entry com `external_order_id != null` segundos após FILL. **Sem hook callback (que tinha struct corruption); via polling 500ms**.
+- B.19 retry: se broker continuar degradado, registrar e seguir — não é fix de código.
+
+**Critério de abort** (parar e investigar):
+- `routing_connected=false` por > 5min seguidos durante pregão → broker problem, não código. Verificar `/status` + Pushover.
+- `profit_agent_last_order_callback_age_seconds` > 120s → callback morto, restart agent.
+- 5 reconcile errors em 30min → alert `scheduler_reconcile_errors_high` deve disparar Pushover priority=critical.
+
+---
+
 ### B.1 — DT cancel order (~5min)
 
 - [ ] **B.1.1** Limit BUY PETR4 R$30 (longe do mercado) → enviar (PendingNew)
