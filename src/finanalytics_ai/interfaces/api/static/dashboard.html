@@ -1535,6 +1535,7 @@ let tradeMode     = 'buy';
 let indVisible    = {bb: false, rsi: false, macd: false, adx: true, patterns: false, sr_classic: false, sr_swing: false, sr_williams: false};
 let srLines       = [];   // refs de priceLines criadas no priceSeries (S/R overlays)
 let orderLines    = [];   // refs de priceLines pra ordens pendentes do ticker corrente
+let positionLine  = null; // ref da priceLine da posicao aberta no PM (verde long, vermelha short)
 let srCache       = null; // cache da última resposta /levels (evita refetch a cada toggle)
 let patternMarkers = [];  // markers ativos no gráfico
 let indConfig     = {rsiPeriod: 14, bbPeriod: 20, adxPeriod: 14};
@@ -1557,6 +1558,11 @@ var macdChart = null, macdLine  = null, sigLine = null, histSeries = null;
   buildWL();
   await loadPfs();
   await refreshWLPrices();
+  // Polling 5s pra orderLines + positionLine no chart (independente da aba aberta)
+  setInterval(function(){
+    if (document.hidden) return;  // pausa se aba inativa
+    if (typeof refreshOrders === 'function') { try { refreshOrders(); } catch(e) {} }
+  }, 5000);
 })();
 
 async function checkHealth() {
@@ -1737,6 +1743,7 @@ async function selectTicker(ticker) {
   if (currentTicker !== ticker) {
     srCache = null;  // invalida cache S/R ao trocar ticker
     clearOrderLines();  // remove linhas horizontais de ordens do ticker anterior
+    clearPositionLine();  // remove linha da posição do ticker anterior
   }
   currentTicker = ticker;
   // Sprint Fix UI 22/abr: persiste ticker selecionado para restore no refresh
@@ -2642,6 +2649,44 @@ function drawOrderLines(orders) {
       orderLines.push(ln);
     } catch(e) {}
   });
+}
+
+// ── Posição aberta overlay no chart ──────────────────────────────────────────
+// Linha horizontal SÓLIDA no preço médio (PM) da posição aberta:
+// verde se long (side=1), vermelha se short (side=2). Diferencia das linhas
+// de ordem (que são tracejadas) por ser sólida e mais grossa.
+function clearPositionLine() {
+  if (positionLine && priceSeries) {
+    try { priceSeries.removePriceLine(positionLine); } catch(e) {}
+  }
+  positionLine = null;
+}
+
+async function refreshPositionLine() {
+  clearPositionLine();
+  if (!priceSeries || !currentTicker) return;
+  try {
+    const tk = currentTicker.toUpperCase();
+    const isFut = /^(WDO|WIN|IND|DOL|BIT)/.test(tk);
+    const exParam = isFut ? '&exchange=F' : '';
+    const r = await fetch('/api/v1/agent/position/' + tk + '?type=1' + exParam).then(x => x.json());
+    if (r.error) return;
+    if (!r.open_qty || r.open_qty === 0) return;             // posição zerada
+    if (typeof r.open_avg_price !== 'number' || r.open_avg_price <= 0) return;
+    const isLong = r.open_side === 1;
+    const isShort = r.open_side === 2;
+    if (!isLong && !isShort) return;                         // open_side=200 = zerada
+    const color = isLong ? 'rgba(46,212,122,1)' : 'rgba(255,107,107,1)';
+    const sideStr = isLong ? '▲ Long' : '▼ Short';
+    positionLine = priceSeries.createPriceLine({
+      price: r.open_avg_price,
+      color: color,
+      lineWidth: 3,
+      lineStyle: 0,  // SOLID — diferencia das linhas de ordem (dashed)
+      axisLabelVisible: true,
+      title: sideStr + ' ' + r.open_qty + ' @ PM',
+    });
+  } catch(e) { /* silent — posição transitória */ }
 }
 
 function updateIndBadge() {
@@ -3718,6 +3763,8 @@ async function refreshOrders() {
                  + (done.length?`<div style="font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin:8px 0 2px">Fechadas</div>`+render(done.slice(0,5)):'');
     // Atualiza linhas horizontais no chart pra ordens pendentes do ticker corrente
     try { drawOrderLines(open); } catch(e) {}
+    // Atualiza linha da posição aberta (PM) — independente das ordens
+    try { refreshPositionLine(); } catch(e) {}
   } catch(e) {
     el.innerHTML = `<div style="font-size:12px;color:var(--red)">${e.message}</div>`;
   }
