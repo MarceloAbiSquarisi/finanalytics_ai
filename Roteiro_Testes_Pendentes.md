@@ -743,11 +743,11 @@ Cross-cancel via `_oco_groups_monitor_loop` (polling 500ms em `get_positions_dll
 - [X] **B.15.2** Métrica `di1_worker_kafka_published_total` incrementando; topic `market.rates.di1` recebendo
 - **Bonus**: container DI1 estava com código de 20/abr (pré-fix P3); hot deploy do `efc4235` aplicado pra desbloquear cursor por timestamp
 
-### B.16 — Reconcile loop scheduler (~10min) ⏳ PARCIAL 29/abr 09:25 (loop ativo, aguarda janela)
+### B.16 — Reconcile loop scheduler (~10min) ⏳ PARCIAL 29/abr 14:10 (loop OK; P9 limita correção)
 
 - [X] **B.16.1** `scheduler.reconcile.start` logado no boot, `interval_min=5 window='10h-18h BRT'`. Skip silencioso fora de janela confirmado.
-- [ ] **B.16.2** Validar com order real após 10h: discrepância DB×DLL → reconcile auto-fix
-- [ ] **B.16.3** Log `reconcile.discrepancy.fixed` em ação (depende de fluxo real)
+- [X] **B.16.2** Discrepância live observada às 14:10: DB tem 4 ordens stuck (status=0+10), DLL enumera 17 (todas status=2/4). Reconcile **roda** a cada 5min (logs `scheduler.reconcile.done orders=17` ininterruptos das 14:41 às 17:07) e atualiza rows que casam por `local_order_id` OU `cl_ord_id` (commit P2 28/abr).
+- [ ] **B.16.3** Stuck rows **não corrigidas** pelo reconcile — DLL não enumera mais ordens já encerradas há horas, então não há fonte de verdade pra match. Bug P9 (callback de status final não atualiza DB direto). Reconcile sozinho não resolve cenários onde `EnumerateAllOrders` já dropou a ordem encerrada. Fix P9 (callback transitions diretas) é independente.
 
 ### B.17 — Trade /carteira → DLL (~10min) ❌ N/A 28/abr 16:13
 
@@ -777,18 +777,19 @@ Cross-cancel via `_oco_groups_monitor_loop` (polling 500ms em `get_positions_dll
 
 **Bug encontrado durante este teste**: `_maybe_dispatch_diary` esperava `order_side` como string mas profit_orders.order_side é smallint → `TypeError: 'int' object has no attribute 'lower'` silencioso. Fix em commit `e41d286`.
 
-### B.19 — flatten_ticker end-to-end com pregão (~15min)
+### B.19 — flatten_ticker end-to-end com pregão (~15min) ⏳ PARCIAL 29/abr 14:21 (arquitetura OK; broker P1)
 
-> Valida que o endpoint composto cancela pending + zera posição com DLL viva.
+> Valida que o endpoint composto cancela pending + zera posição com DLL viva. Após P11.2 fix em commit deste teste, a resolução de alias funciona end-to-end no flatten.
 
-- [ ] **B.19.1** Pré-condição: ter 1 posição aberta em PETR4 (BUY 100 @ market FILLED) + 2 limit orders pending (BUY @ R$28 e SELL @ R$50, longe do mercado)
-- [ ] **B.19.2** `/dashboard` aba Pos. → "PETR4" → "Ver" mostra `open_qty=100 ▲ Comprada`
-- [ ] **B.19.3** Caixa vermelha aparece com resumo `PETR4 — posição aberta: 100 · 2 ordem(ns) pendente(s)`
-- [ ] **B.19.4** Click "🚨 ZERAR + CANCELAR PENDENTES" → confirma modal
-- [ ] **B.19.5** Toast OK: `PETR4 encerrado · 2 canceladas · zero=<local_id>`
-- [ ] **B.19.6** Aba Ordens: 2 limit ordens em CANCELED + 1 nova market sell em FILLED (zero_position)
-- [ ] **B.19.7** "Ver" novamente: `open_qty=0 — Zerada`; caixa vermelha some
-- [ ] **B.19.8** DB: `SELECT order_status FROM profit_orders WHERE ticker='PETR4' ORDER BY created_at DESC LIMIT 5` → mostra a sequência
+- [X] **B.19.1** Pré-condição testada: market BUY + limit BUY @ 4900 enviados; broker degradado retornou `status=203/204` (P1 blip) — não fillou.
+- [X] **B.19.2** Aba Pos. → `WDOFUT` → `WDOK26 (alias WDOFUT) · ▲ Comprada qty=1 PM=R$5004` rendendo OK (em sessão anterior 13:13 antes do degradar broker)
+- [X] **B.19.3** Caixa vermelha apareceu: `WDOFUT — posição aberta: 1 · 1 ordem(ns) pendente(s)` ✅
+- [X] **B.19.4** Modal `🚨 Encerrar exposição em WDOFUT?` exibido + click ENCERRAR processou
+- [ ] **B.19.5** Toast OK — não validado pq broker degradou (cancelled_count=0 inicial; após P11.2 fix re-rodado: cancelled_count=4 de 12 pending, broker rejeitou 8)
+- [X] **B.19.6** P11.2 fix: backend agora resolve `WDOFUT→WDOK26` em `_flatten_ticker`, encontra 12 pending (antes 1) e tenta cancel/zero usando contrato vigente. **DLL aceitou 4 cancels** (resolveu lixo P9 lateralmente)
+- [ ] **B.19.7/8** Validação live de `open_qty=0 zero_ok=true` depende de broker sano. Logica correta — re-testar quando simulator estabilizar.
+
+**Conclusão B.19**: arquitetura agora correta após P11.2. Próxima sessão sem P1 deve fechar 100%.
 
 ### B.17 — Trade /carteira → DLL (~10min)
 

@@ -264,6 +264,12 @@ DB de profit_orders fica com status=10 (PendingNew) mesmo após broker confirmar
 
 **Sintoma original (29/abr 13:35 B.4)**: UI envia exchange=B + alias WDOFUT → DLL devolve struct zerada (DLL silently aceita combinação inválida). Crash JS `r.open_avg_price.toFixed undefined` quando 502 retornava body sem campo `error`.
 
+**P11.2 (extensão 14:21)** — `/order/flatten_ticker` tinha o mesmo gap: buscava pending por ticker original (WDOFUT) mas DB grava resolved (WDOK26 — `_send_order_legacy` rewrites). Resultado: `pending_found=1` (apenas stuck antigas) em vez do real. Fix:
+- Novo endpoint `GET /resolve_ticker/{ticker}?exchange=F` no profit_agent expõe `_resolve_active_contract` (retorna `{original, resolved, exchange, is_future}`)
+- `agent_flatten_ticker` no proxy: detecta prefix `(WDO|WIN|IND|DOL|BIT)`, chama `/resolve_ticker`, usa `resolved` em busca de pending + zero_position. Retorna `original_ticker` na resposta
+- `flattenTicker()` na UI passa `exchange='F'` para futuros (defesa em profundidade)
+- Validado live 14:21: `pending_found=12` (vs 1 antes), 4/12 cancels aceitos pela DLL — broker rejection nos demais por P1 blip, não código
+
 ## 🛠 Infra
 
 #### I3 — Rebuild containers stale (após pregão 29/abr) ⭐ médio

@@ -5835,6 +5835,29 @@ class ProfitAgent:
                     _qs_d = _pqs_d(urlparse(self.path).query)
                     self._send_json(agent.get_positions_dll(_qs_d.get("env", ["simulation"])[0]))
 
+                elif self.path.startswith("/resolve_ticker/"):
+                    from urllib.parse import parse_qs as _pqs_r, urlparse as _up_r
+
+                    _p_r = _up_r(self.path)
+                    _tk = _p_r.path.split("/resolve_ticker/", 1)[-1].upper().strip("/")
+                    _qs_r = _pqs_r(_p_r.query)
+                    _ex = _qs_r.get("exchange", ["B"])[0]
+                    is_future = (
+                        _tk in FUTURES_ALIASES
+                        or _tk[:3] in ("WDO", "WIN", "IND", "DOL", "BIT")
+                    )
+                    if is_future:
+                        _ex = "F"
+                        _resolved = agent._resolve_active_contract(_tk, _ex)
+                    else:
+                        _resolved = _tk
+                    self._send_json({
+                        "original": _tk,
+                        "resolved": _resolved,
+                        "exchange": _ex,
+                        "is_future": is_future,
+                    })
+
                 elif self.path.startswith("/position/"):
                     from urllib.parse import parse_qs as _pqs_p, urlparse
 

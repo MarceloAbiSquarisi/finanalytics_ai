@@ -270,6 +270,19 @@ async def agent_flatten_ticker(body: dict):
     exchange = body.get("exchange", "B")
     env = body.get("env", "simulation")
     daytrade = bool(body.get("daytrade", True))
+    original_ticker = ticker
+
+    # Resolver alias de futuros (WDOFUT -> WDOK26) e forcar exchange=F.
+    # Sem isso, busca de pending no DB falha (gravado com codigo vigente)
+    # e zero_position rejeita (DLL exige codigo vigente).
+    is_future_prefix = ticker[:3] in ("WDO", "WIN", "IND", "DOL", "BIT")
+    if is_future_prefix:
+        try:
+            resolution = await _get(f"/resolve_ticker/{ticker}", {"exchange": "F"})
+            ticker = resolution.get("resolved") or ticker
+            exchange = resolution.get("exchange") or "F"
+        except Exception as exc:
+            logger.warning("agent.flatten_ticker.resolve_failed", error=str(exc), ticker=original_ticker)
 
     # 1. Lista pending orders desse ticker
     qs = {"ticker": ticker, "env": env, "limit": 200}
@@ -320,6 +333,7 @@ async def agent_flatten_ticker(body: dict):
     logger.info(
         "agent.flatten_ticker",
         ticker=ticker,
+        original_ticker=original_ticker,
         env=env,
         cancelled=cancelled_count,
         cancel_errors=len(cancel_errors),
@@ -330,6 +344,7 @@ async def agent_flatten_ticker(body: dict):
     return {
         "ok": zero_ok and not cancel_errors,
         "ticker": ticker,
+        "original_ticker": original_ticker,
         "cancelled_count": cancelled_count,
         "cancel_errors": cancel_errors,
         "pending_found": len(pending),

@@ -3979,10 +3979,11 @@ async function flattenTicker() {
   const originalLabel = btn.textContent;
   btn.textContent = 'Encerrando...';
   try {
+    const isFuture = /^(WDO|WIN|IND|DOL|BIT)/.test(ticker);
     const r = await fetch('/api/v1/agent/order/flatten_ticker', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ ticker, exchange:'B', env, daytrade: true }),
+      body: JSON.stringify({ ticker, exchange: isFuture ? 'F' : 'B', env, daytrade: true }),
     }).then(r => r.json());
     if (r.ok) {
       toast(`${ticker} encerrado · ${r.cancelled_count} canceladas · zero=${r.zero_local_order_id}`, 'ok');
