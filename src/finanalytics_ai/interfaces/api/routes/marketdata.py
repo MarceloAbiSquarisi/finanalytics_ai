@@ -355,11 +355,26 @@ async def get_candles(
     # `ticker = ANY($1)` permite unificar ticks de aliases de futuros (WDOFUT)
     # com ticks do contrato vigente (WDOK26). Histórico mixed após fix
     # subscribe.alias_resolved (commit 30e5772 do profit_agent).
+    #
+    # Sprint 29/abr: query SEMPRE faz UNION de ohlc_1m + ohlc_1m_from_ticks.
+    # Antes era fallback OR, mas se ohlc_1m tinha dados antigos (BRAPI ingestor
+    # stale), o fallback nunca era acionado e dados recentes (que estão em
+    # ohlc_1m_from_ticks via tick aggregator) ficavam invisíveis. UNION com
+    # bucket merge resolve.
     sql_template = """
-        WITH last_valid AS (
+        WITH source_union AS (
+            SELECT time, open, high, low, close, volume, trades
+            FROM ohlc_1m WHERE ticker = ANY($1)
+              AND time >= NOW() - (INTERVAL '1 minute' * $3)
+            UNION ALL
+            SELECT time, open, high, low, close, volume, trades
+            FROM ohlc_1m_from_ticks WHERE ticker = ANY($1)
+              AND time >= NOW() - (INTERVAL '1 minute' * $3)
+        ),
+        last_valid AS (
             SELECT close AS ref
-            FROM {source}
-            WHERE ticker = ANY($1) AND close > 0.001
+            FROM source_union
+            WHERE close > 0.001
             ORDER BY time DESC
             LIMIT 1
         ),
@@ -372,10 +387,8 @@ async def get_candles(
                 (array_agg(close ORDER BY time DESC))[1]   AS close,
                 SUM(volume)                                AS volume,
                 SUM(trades)                                AS trades
-            FROM {source}, last_valid
-            WHERE ticker = ANY($1)
-              AND time >= NOW() - (INTERVAL '1 minute' * $3)
-              AND close BETWEEN last_valid.ref * 0.4 AND last_valid.ref * 2.5
+            FROM source_union, last_valid
+            WHERE close BETWEEN last_valid.ref * 0.4 AND last_valid.ref * 2.5
               AND open  BETWEEN last_valid.ref * 0.4 AND last_valid.ref * 2.5
             GROUP BY 1
         )
@@ -405,18 +418,11 @@ async def get_candles(
         conn = await _conn()
         try:
             rows = await conn.fetch(
-                sql_template.format(bucket=bucket, source="ohlc_1m"),
+                sql_template.format(bucket=bucket),
                 ticker_set,
                 limit,
                 window_min,
             )
-            if not rows:
-                rows = await conn.fetch(
-                    sql_template.format(bucket=bucket, source="ohlc_1m_from_ticks"),
-                    ticker_set,
-                    limit,
-                    window_min,
-                )
         finally:
             await conn.close()
         # Fallback Yahoo daily — em conexão Postgres separada (DB diferente)
