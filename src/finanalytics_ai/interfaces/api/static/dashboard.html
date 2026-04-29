@@ -1534,9 +1534,8 @@ let currentPeriod = '1y';
 let tradeMode     = 'buy';
 let indVisible    = {bb: false, rsi: false, macd: false, adx: true, patterns: false, sr_classic: false, sr_swing: false, sr_williams: false};
 let srLines       = [];   // refs de priceLines criadas no priceSeries (S/R overlays)
-let orderLines    = [];   // refs ricas: {ln, refPrice, side, isStop, ids:[], orders:[]}
+let orderLines    = [];   // refs: {ln, refPrice, side, isStop, ids:[], orders:[]}
 let positionLine  = null; // ref da priceLine da posicao aberta no PM (verde long, vermelha short)
-let _draggingOrder = null; // {ln, order, originalPrice, currentPrice, isStop} durante drag
 let srCache       = null; // cache da última resposta /levels (evita refetch a cada toggle)
 let patternMarkers = [];  // markers ativos no gráfico
 let indConfig     = {rsiPeriod: 14, bbPeriod: 20, adxPeriod: 14};
@@ -1971,8 +1970,6 @@ function renderPriceChart(bars, bb) {
     priceLineStyle: 2,  // dashed
     lastValueVisible: true,
   });
-  // Habilita drag-to-modify nas linhas de ordem
-  try { _setupOrderDragHandlers(); } catch(_) {}
   // Garante timestamps numericos antes de setData
   var _bars2 = bars.map(function(b){
     var t = b.time;
@@ -2655,8 +2652,7 @@ function drawOrderLines(orders) {
       color = (g.side === 1) ? 'rgba(46,212,122,.85)' : 'rgba(255,107,107,.85)';
       roleStr = (g.side === 1) ? '▲ C' : '▼ V';
     }
-    const isDraggable = g.ids.length === 1;
-    const idStr = isDraggable ? ' #' + g.ids[0] + ' (ctrl⇕)' : ' (' + g.ids.length + ')';
+    const idStr = g.ids.length === 1 ? ' #' + g.ids[0] : ' (' + g.ids.length + ')';
     try {
       const ln = priceSeries.createPriceLine({
         price: g.price,
@@ -2673,7 +2669,6 @@ function drawOrderLines(orders) {
         isStop: g.isStop,
         ids: g.ids,
         orders: g.orders,
-        draggable: isDraggable,
       });
     } catch(e) {}
   });
@@ -2715,197 +2710,6 @@ async function refreshPositionLine() {
       title: sideStr + ' ' + r.open_qty + ' @ PM',
     });
   } catch(e) { /* silent — posição transitória */ }
-}
-
-// ── Drag-to-modify de orderLines ──────────────────────────────────────────────
-// Click + drag em uma linha de ordem (com 1 ordem só, ↕ no label) reposiciona
-// no eixo Y; ao soltar, chama /order/change com o novo preço.
-// Stop-limit: trigger e limit movem juntos (mantém spread original).
-const ORDER_DRAG_TOLERANCE_PX = 8;
-
-function _isChartCanvasTarget(target) {
-  // Lightweight Charts cria múltiplos canvases empilhados (overlay, crosshair, etc).
-  // Aceita qualquer canvas dentro de #chart-price.
-  if (!target || target.tagName !== 'CANVAS') return null;
-  const container = target.closest('#chart-price');
-  if (!container) return null;
-  return target;
-}
-
-function _setupOrderDragHandlers() {
-  if (typeof _setupOrderDragHandlers._installed !== 'undefined') return;
-  _setupOrderDragHandlers._installed = true;
-  // Capture phase pra prevalecer sobre handlers do lightweight-charts
-  document.addEventListener('pointerdown', _onChartMouseDown, true);
-  document.addEventListener('mousedown', _onChartMouseDown, true);
-  document.addEventListener('pointermove', _onChartMouseMove, true);
-  document.addEventListener('mousemove', _onChartMouseMove, true);
-  document.addEventListener('pointerup', _onChartMouseUp, true);
-  document.addEventListener('mouseup', _onChartMouseUp, true);
-  // Desabilita pan/zoom do chart enquanto Ctrl está pressionado.
-  // Sem isso, o chart pana o eixo X em mousedown antes do nosso handler agir.
-  document.addEventListener('keydown', function(e){
-    if (e.key === 'Escape' && _draggingOrder) { _cancelDrag(); return; }
-    if ((e.key === 'Control' || e.key === 'Meta') && priceChart) {
-      try { priceChart.applyOptions({ handleScroll: false, handleScale: false }); } catch(_) {}
-    }
-  });
-  document.addEventListener('keyup', function(e){
-    if ((e.key === 'Control' || e.key === 'Meta') && !_draggingOrder && priceChart) {
-      try { priceChart.applyOptions({ handleScroll: true, handleScale: true }); } catch(_) {}
-    }
-  });
-  // Janela perde foco (Alt-Tab) → re-habilita pra não travar pan
-  window.addEventListener('blur', function(){
-    if (!_draggingOrder && priceChart) {
-      try { priceChart.applyOptions({ handleScroll: true, handleScale: true }); } catch(_) {}
-    }
-  });
-  // Hover cursor: muda pra ns-resize quando passa sobre uma linha draggable
-  document.addEventListener('mousemove', _onChartHoverMove);
-}
-
-function _onChartMouseDown(e) {
-  if (!priceSeries || !priceChart || !orderLines.length) return;
-  // Drag exige Ctrl (Win/Linux) ou Cmd (Mac) — distingue do pan do chart
-  if (!e.ctrlKey && !e.metaKey) return;
-  const canvas = _isChartCanvasTarget(e.target);
-  if (!canvas) return;
-  if (e.button !== undefined && e.button !== 0) return;
-  const rect = canvas.getBoundingClientRect();
-  const y = e.clientY - rect.top;
-  let nearest = null, minDist = ORDER_DRAG_TOLERANCE_PX + 1;
-  for (const ref of orderLines) {
-    if (!ref.draggable) continue;
-    let yPix;
-    try { yPix = priceSeries.priceToCoordinate(ref.refPrice); } catch(_) { continue; }
-    if (yPix === null || yPix === undefined) continue;
-    const dist = Math.abs(y - yPix);
-    if (dist < minDist) { minDist = dist; nearest = ref; }
-  }
-  if (!nearest) return;
-  // Encontrou — pega controle do evento
-  e.preventDefault();
-  e.stopPropagation();
-  if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-  _draggingOrder = {
-    ref: nearest,
-    order: nearest.orders[0],
-    originalPrice: nearest.refPrice,
-    currentPrice: nearest.refPrice,
-    isStop: nearest.isStop,
-    canvas: canvas,
-    spread: 0,
-  };
-  if (nearest.isStop) {
-    const o = nearest.orders[0];
-    _draggingOrder.spread = (o.price || o.stop_price) - o.stop_price;
-  }
-  try { priceChart.applyOptions({ handleScroll: false, handleScale: false }); } catch(_) {}
-  const container = document.getElementById('chart-price');
-  if (container) container.style.setProperty('cursor', 'ns-resize', 'important');
-}
-
-// Hover: muda cursor quando mouse sobre linha draggable (independente de Ctrl).
-// Usa !important pra prevalecer sobre cursor 'crosshair' do lightweight-charts.
-function _onChartHoverMove(e) {
-  if (_draggingOrder) return;
-  if (!priceSeries || !orderLines.length) return;
-  const canvas = _isChartCanvasTarget(e.target);
-  const container = document.getElementById('chart-price');
-  if (!canvas) {
-    if (container) container.style.removeProperty('cursor');
-    return;
-  }
-  const rect = canvas.getBoundingClientRect();
-  const y = e.clientY - rect.top;
-  let near = false;
-  for (const ref of orderLines) {
-    if (!ref.draggable) continue;
-    let yPix;
-    try { yPix = priceSeries.priceToCoordinate(ref.refPrice); } catch(_) { continue; }
-    if (yPix === null || yPix === undefined) continue;
-    if (Math.abs(y - yPix) <= ORDER_DRAG_TOLERANCE_PX) { near = true; break; }
-  }
-  if (container) {
-    if (near) container.style.setProperty('cursor', 'ns-resize', 'important');
-    else container.style.removeProperty('cursor');
-  }
-}
-
-function _onChartMouseMove(e) {
-  if (!_draggingOrder || !priceSeries) return;
-  const rect = _draggingOrder.canvas.getBoundingClientRect();
-  const y = e.clientY - rect.top;
-  let newPrice;
-  try { newPrice = priceSeries.coordinateToPrice(y); } catch(_) { return; }
-  if (newPrice === null || newPrice === undefined || newPrice <= 0) return;
-  const rounded = Math.round(newPrice * 100) / 100;
-  _draggingOrder.currentPrice = rounded;
-  const o = _draggingOrder.order;
-  const sid = (o.strategy_id || '').toLowerCase();
-  const isTP = sid.endsWith('_tp');
-  const isSL = _draggingOrder.isStop || sid.endsWith('_sl');
-  let roleStr;
-  if (isSL) roleStr = 'SL';
-  else if (isTP) roleStr = 'TP';
-  else roleStr = (o.order_side === 1) ? '▲ C' : '▼ V';
-  try {
-    _draggingOrder.ref.ln.applyOptions({
-      price: rounded,
-      title: roleStr + ' ' + o.quantity + ' #' + o.local_order_id + ' → R$ ' + rounded.toFixed(2),
-    });
-  } catch(_) {}
-}
-
-async function _onChartMouseUp(e) {
-  if (!_draggingOrder) return;
-  const drag = _draggingOrder;
-  _draggingOrder = null;
-  const container = document.getElementById('chart-price');
-  if (container) container.style.removeProperty('cursor');
-  try { priceChart.applyOptions({ handleScroll: true, handleScale: true }); } catch(_) {}
-  if (!drag.currentPrice || drag.currentPrice === drag.originalPrice) {
-    // Restaura título sem o "→ R$"
-    try { refreshOrders(); } catch(_) {}
-    return;
-  }
-  const o = drag.order;
-  const newPrice = drag.currentPrice;
-  // Body do change_order:
-  //  - Limit (type=2): price = newPrice, stop_price = -1
-  //  - Stop-limit (type=4): stop_price = newPrice, price = newPrice + spread (preserva spread)
-  const body = drag.isStop
-    ? { env: 'simulation', local_order_id: o.local_order_id, price: Math.round((newPrice + drag.spread) * 100) / 100, stop_price: newPrice, quantity: o.quantity }
-    : { env: 'simulation', local_order_id: o.local_order_id, price: newPrice, stop_price: -1, quantity: o.quantity };
-  try {
-    const r = await fetch('/api/v1/agent/order/change', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }).then(x => x.json());
-    if (r && r.ok) {
-      toast('Ordem #' + o.local_order_id + ' alterada → R$ ' + newPrice.toFixed(2), 'ok');
-      refreshOrders();
-    } else {
-      toast('Falha alterar ordem: ' + (r && (r.error || ('ret=' + r.ret)) || 'erro'), 'err');
-      // Restaura linha pra preço original
-      try { drag.ref.ln.applyOptions({ price: drag.originalPrice }); } catch(_) {}
-      refreshOrders();
-    }
-  } catch(err) {
-    toast('Erro de rede: ' + err.message, 'err');
-    try { drag.ref.ln.applyOptions({ price: drag.originalPrice }); } catch(_) {}
-  }
-}
-
-function _cancelDrag() {
-  if (!_draggingOrder) return;
-  try { _draggingOrder.ref.ln.applyOptions({ price: _draggingOrder.originalPrice }); } catch(_) {}
-  const container = document.getElementById('chart-price');
-  if (container) container.style.removeProperty('cursor');
-  try { priceChart.applyOptions({ handleScroll: true, handleScale: true }); } catch(_) {}
-  _draggingOrder = null;
-  refreshOrders();
 }
 
 function updateIndBadge() {

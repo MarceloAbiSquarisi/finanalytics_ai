@@ -15,6 +15,31 @@
 
 ## 🔄 BACKLOG ATIVO
 
+### UI / Dashboard
+
+#### U1 — Drag-to-modify de linhas de ordem TP/SL no chart ⭐ médio (29/abr)
+**Custo**: ~1d (precisa entender deeper o event capture do lightweight-charts ou trocar lib). **Payoff**: alto UX (movem TP/SL diretamente no chart sem abrir modal).
+
+**Tentativa 29/abr 17:00-17:25** (commits `b1752b3` → `ce0cdc5` revertidos em `<este>`):
+- Implementado: `mousedown` capture phase + dispatchEvent funciona programaticamente
+- Validado via MCP Playwright que change_order é enviado e DLL aceita (mudou broker)
+- Mas user reportou que **mouse físico não conseguia arrastar — chart panava em vez da linha**
+
+**Causas raiz identificadas**:
+1. Lightweight-charts captura `mousedown` internamente (na lib C++ via canvas events) ANTES dos handlers JS em capture phase prevalecerem
+2. `e.stopImmediatePropagation` não tem efeito sobre listeners da lib em alguns canvases
+3. Tentativa de fix: desabilitar `handleScroll/handleScale` enquanto Ctrl pressionado — funciona via dispatchEvent mas não com Ctrl físico (lib pode rebindar listeners ao mudar handleScroll)
+
+**Próximas abordagens a considerar**:
+- (A) Reescrever overlay de ordens como `<svg>` ABSOLUTE position por cima do chart, fora do canvas — eventos vêm pra nós sem briga
+- (B) Trocar lightweight-charts por TradingView widget oficial (API rica `createOrderLine` com drag built-in mas é proprietário e closed-source)
+- (C) Usar `klinecharts` ou `apexcharts-financial` que têm drag de price lines built-in
+- (D) Fork do lightweight-charts com hook de event interception (complexo)
+
+**Workaround atual**: usar botão ✕ no painel de ordens pra cancelar + re-criar com novo preço. Funcional, mas 3 cliques em vez de 1 drag.
+
+**Estado revertido**: linhas TP/SL coloridas e o sufixo `↕`/`(ctrl⇕)` removidos do label. Bonus fix `reconcile UPDATE price` (commit `b1752b3`) **mantido** — sincroniza DB quando trader edita ordem por outro caminho. Cores TP/SL por propósito (commit `ad0cfe0`) **mantidas** — bom value isolated.
+
 ### ML & Sinais
 
 #### Z5 — Multi-horizonte ML (h3/h5/h21) ⭐⭐ aguarda Nelogica
