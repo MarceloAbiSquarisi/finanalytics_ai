@@ -98,3 +98,4 @@ test_history.py
 # Artefatos ML (modelos serializados + metadata) — regeneráveis via
 # scripts/train_*.py. Se precisar versionar, usar git-lfs ou release asset.
 models/
+*.log.*

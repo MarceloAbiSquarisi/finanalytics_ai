@@ -108,7 +108,7 @@ from ctypes import (
     c_wchar,
     c_wchar_p,
 )
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from http.server import BaseHTTPRequestHandler
 import json
 import logging
@@ -131,7 +131,9 @@ import urllib.error
 
 
 def _load_env(path: str) -> None:
-
+    # .env do projeto sobrescreve env do sistema/NSSM (igual python-dotenv com override=True).
+    # Antes: `if k not in os.environ` deixava NSSM service herdar valores stale do shell
+    # de install (caso 29/abr: PROFIT_SIM_BROKER_ID=15011 antigo persistia mesmo com .env=32003).
     try:
         with open(path, encoding="utf-8") as f:
             for line in f:
@@ -144,8 +146,7 @@ def _load_env(path: str) -> None:
 
                     v = v.strip().strip('"').strip("'")
 
-                    if k not in os.environ:
-                        os.environ[k] = v
+                    os.environ[k] = v
 
     except FileNotFoundError:
         pass
@@ -521,6 +522,16 @@ POSITION_TYPE_CONSOLIDATED = 2
 
 
 PG_IS_THEORIC = 1
+
+
+# Códigos CME-style de mês usados nos contratos futuros B3.
+# Aplicado em WDO (mensal) e WIN (bimestre par).
+MONTH_CODE = {1: "F", 2: "G", 3: "H", 4: "J", 5: "K", 6: "M",
+              7: "N", 8: "Q", 9: "U", 10: "V", 11: "X", 12: "Z"}
+
+# Aliases genéricos de futuros que precisam ser resolvidos para o contrato vigente
+# antes de chamar SubscribeTicker/SendOrder.
+FUTURES_ALIASES = {"WDOFUT", "WINFUT"}
 
 
 # ---------------------------------------------------------------------------
@@ -1831,17 +1842,82 @@ class ProfitAgent:
 
         log.info("profit_agent.v2_callbacks_registered")
 
+    def _resolve_active_contract(self, ticker: str, exchange: str = "F") -> str:
+        """Resolve alias de futuros (WDOFUT/WINFUT) para código vigente.
+
+        Algoritmo determinístico baseado na data atual:
+          - WDO (mensal): front month = mês corrente + 1 (ex: hoje=29/abr → WDOK26).
+            Após o roll (1º útil do mês), reflete o novo front naturalmente.
+          - WIN (bimestre par G/J/M/Q/V/Z): próximo mês par >= today.month, com
+            avanço se today.day > 15 (vencimento ~ quarta próxima do dia 15).
+
+        Self-healing: gera 3 candidatos sequenciais. Retorna o primeiro que está
+        em self._subscribed (cobre edge cases de roll). Se nenhum subscrito,
+        retorna o primeiro candidato (caller decide se subscreve ou rejeita).
+
+        Tickers fora de FUTURES_ALIASES (ex: PETR4, WDOK26 já específico)
+        passam direto sem alteração.
+        """
+        if ticker not in FUTURES_ALIASES:
+            return ticker
+
+        today = date.today()
+        yy = today.year % 100
+        candidates: list[str] = []
+
+        if ticker == "WDOFUT":
+            for offset in (1, 2, 3):
+                m = today.month + offset
+                y = yy
+                while m > 12:
+                    m -= 12
+                    y += 1
+                candidates.append(f"WDO{MONTH_CODE[m]}{y:02d}")
+
+        elif ticker == "WINFUT":
+            m = today.month
+            if m % 2 != 0:
+                m += 1
+            elif today.day > 15:
+                m += 2
+            for _ in range(3):
+                y = yy
+                cur_m = m
+                while cur_m > 12:
+                    cur_m -= 12
+                    y += 1
+                candidates.append(f"WIN{MONTH_CODE[cur_m]}{y:02d}")
+                m += 2
+
+        for c in candidates:
+            if f"{c}:{exchange}" in self._subscribed:
+                return c
+        return candidates[0]
+
     def _subscribe(self, ticker: str, exchange: str = "B") -> tuple[bool, int]:
         """Subscreve ticker na DLL. Retorna (sucesso, ret_code_dll).
+
+        Resolve alias de futuros (WDOFUT/WINFUT) para o contrato vigente
+        (ex: WDOK26) antes de chamar SubscribeTicker — DLL exige código
+        vigente. self._subscribed registra AMBAS as keys (alias + vigente)
+        pra que validações em _send_order_legacy funcionem com qualquer
+        forma e downstream legado (queries por WDOFUT) continue funcionando.
 
         ret_code_dll != 0 tipicamente indica:
           - ticker inexistente no feed
           - licenca nao permite (limite de subscricoes atingido)
           - mercado especifico nao liberado
         """
+        original = ticker
+        ticker = self._resolve_active_contract(ticker, exchange)
+        if ticker != original:
+            log.info("subscribe.alias_resolved alias=%s contract=%s", original, ticker)
+
         key = f"{ticker}:{exchange}"
+        alias_key = f"{original}:{exchange}"
 
         if key in self._subscribed:
+            self._subscribed.add(alias_key)  # garante alias registrado tambem
             return True, 0  # ja subscrito — idempotente
 
         ret_t = self._dll.SubscribeTicker(c_wchar_p(ticker), c_wchar_p(exchange))
@@ -1862,7 +1938,8 @@ class ProfitAgent:
 
         if ret_t == 0:
             self._subscribed.add(key)
-            log.info("profit_agent.subscribed ticker=%s exchange=%s", ticker, exchange)
+            self._subscribed.add(alias_key)  # alias resolve pro mesmo contrato
+            log.info("profit_agent.subscribed ticker=%s exchange=%s alias=%s", ticker, exchange, original)
             return True, 0
 
         log.warning("profit_agent.subscribe_failed ticker=%s ret=%d", ticker, ret_t)
@@ -3087,6 +3164,31 @@ class ProfitAgent:
 
         if not ticker or qty <= 0:
             return {"ok": False, "error": "ticker e quantity sao obrigatorios"}
+
+        # Resolve alias de futuros (WDOFUT/WINFUT → contrato vigente).
+        # DLL aceita o alias para market data mas rejeita ("Ordem inválida")
+        # quando usado em SendOrder — broker exige o código mensal específico.
+        original_ticker = ticker
+        ticker = self._resolve_active_contract(ticker, exchange)
+        if ticker != original_ticker:
+            log.info(
+                "order.alias_resolved alias=%s contract=%s exchange=%s",
+                original_ticker, ticker, exchange,
+            )
+            params["ticker"] = ticker  # propaga pro DB insert + retry mapping
+
+        # Valida subscrição: broker rejeita ordens em tickers não assinados via
+        # SubscribeTicker. self._subscribed é populado em _subscribe quando DLL
+        # retorna ret=0. Sem essa validação, ordens "Ordem inválida" silenciosas.
+        sub_key = f"{ticker}:{exchange}"
+        if sub_key not in self._subscribed:
+            err = (
+                f"ticker {ticker} (alias={original_ticker}) nao esta subscrito "
+                f"em SubscribeTicker. Use POST /subscribe/{ticker}?exchange={exchange} "
+                f"primeiro, ou adicione em profit_subscribed_tickers."
+            )
+            log.warning("order.rejected_not_subscribed ticker=%s exchange=%s", ticker, exchange)
+            return {"ok": False, "error": err}
 
         order = TConnectorSendOrder(Version=2)
 
