@@ -111,29 +111,34 @@ def _sanitize_ticker(ticker: str) -> str:
 # misturado: backend de candles deve unificar via `ticker = ANY([alias, vigente])`.
 _MONTH_CODE = {1: "F", 2: "G", 3: "H", 4: "J", 5: "K", 6: "M",
                7: "N", 8: "Q", 9: "U", 10: "V", 11: "X", 12: "Z"}
-_FUTURES_ALIASES = {"WDOFUT", "WINFUT"}
+# Mensais (qualquer mês): WDO, DOL, BGI, OZM
+_FUTURES_MONTHLY = {"WDOFUT", "DOLFUT", "BGIFUT", "OZMFUT"}
+# Bimestre par (G/J/M/Q/V/Z): WIN, IND
+_FUTURES_BIMESTER_EVEN = {"WINFUT", "INDFUT"}
+# CCM (Milho): F/H/K/N/U/X (impares)
+_FUTURES_ALIASES = _FUTURES_MONTHLY | _FUTURES_BIMESTER_EVEN | {"CCMFUT"}
 
 
 def _resolve_futures_aliases(ticker: str) -> list[str]:
-    """Para WDOFUT/WINFUT retorna [alias, contrato_vigente, contrato_proximo].
-
-    WDO mensal: front month = today.month + 1.
-    WIN bimestre par (G/J/M/Q/V/Z): próximo par >= today.month, avança se day>15.
+    """Para alias FUT retorna [alias, contrato_vigente, próximo].
+    Espelha _resolve_active_contract do profit_agent.py.
     """
     if ticker not in _FUTURES_ALIASES:
         return [ticker]
     today = _date.today()
     yy = today.year % 100
     out = [ticker]
-    if ticker == "WDOFUT":
+    if ticker in _FUTURES_MONTHLY:
+        prefix = ticker[:3]
         for offset in (1, 2):
             m = today.month + offset
             y = yy
             while m > 12:
                 m -= 12
                 y += 1
-            out.append(f"WDO{_MONTH_CODE[m]}{y:02d}")
-    elif ticker == "WINFUT":
+            out.append(f"{prefix}{_MONTH_CODE[m]}{y:02d}")
+    elif ticker in _FUTURES_BIMESTER_EVEN:
+        prefix = ticker[:3]
         m = today.month
         if m % 2 != 0:
             m += 1
@@ -145,8 +150,29 @@ def _resolve_futures_aliases(ticker: str) -> list[str]:
             while cur_m > 12:
                 cur_m -= 12
                 y += 1
-            out.append(f"WIN{_MONTH_CODE[cur_m]}{y:02d}")
+            out.append(f"{prefix}{_MONTH_CODE[cur_m]}{y:02d}")
             m += 2
+    elif ticker == "CCMFUT":
+        ccm_months = {1, 3, 5, 7, 9, 11}  # F/H/K/N/U/X
+        m = today.month
+        while m not in ccm_months:
+            m += 1
+            if m > 12:
+                m = 1
+                yy += 1
+        for _ in range(2):
+            cur_m = m
+            y = yy
+            if cur_m > 12:
+                cur_m -= 12
+                y += 1
+            out.append(f"CCM{_MONTH_CODE[cur_m]}{y:02d}")
+            m += 2
+            while m not in ccm_months and m <= 12:
+                m += 1
+            if m > 12:
+                m -= 12
+                yy += 1
     return out
 
 

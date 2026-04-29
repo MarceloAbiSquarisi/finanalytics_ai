@@ -536,7 +536,15 @@ MONTH_CODE = {1: "F", 2: "G", 3: "H", 4: "J", 5: "K", 6: "M",
 
 # Aliases genéricos de futuros que precisam ser resolvidos para o contrato vigente
 # antes de chamar SubscribeTicker/SendOrder.
-FUTURES_ALIASES = {"WDOFUT", "WINFUT"}
+# Mensal: vencimento todos os meses (WDO/DOL/BGI/OZ usam any month code).
+# Bimestre par: vencimento G/J/M/Q/V/Z (WIN/IND).
+# Específico: CCM (Milho) tem meses específicos (G/H/K/N/U/X) — não 100% mas próximo.
+FUTURES_ALIASES = {
+    "WDOFUT", "WINFUT", "DOLFUT", "INDFUT", "BGIFUT", "OZMFUT", "CCMFUT",
+}
+FUTURES_BIMESTER_EVEN = {"WINFUT", "INDFUT"}  # G/J/M/Q/V/Z (mes par)
+FUTURES_MONTHLY = {"WDOFUT", "DOLFUT", "BGIFUT", "OZMFUT"}  # qualquer mes
+FUTURES_CCM_MONTHS = {1, 3, 5, 7, 9, 11}  # CCM Milho (F/H/K/N/U/X)
 
 
 # ---------------------------------------------------------------------------
@@ -1893,16 +1901,20 @@ class ProfitAgent:
         yy = today.year % 100
         candidates: list[str] = []
 
-        if ticker == "WDOFUT":
+        # Mensais (todos os meses): WDO/DOL/BGI/OZM
+        if ticker in FUTURES_MONTHLY:
+            prefix = ticker[:3]  # WDO / DOL / BGI / OZM (3 chars)
             for offset in (1, 2, 3):
                 m = today.month + offset
                 y = yy
                 while m > 12:
                     m -= 12
                     y += 1
-                candidates.append(f"WDO{MONTH_CODE[m]}{y:02d}")
+                candidates.append(f"{prefix}{MONTH_CODE[m]}{y:02d}")
 
-        elif ticker == "WINFUT":
+        # Bimestre par G/J/M/Q/V/Z: WIN/IND
+        elif ticker in FUTURES_BIMESTER_EVEN:
+            prefix = ticker[:3]  # WIN / IND
             m = today.month
             if m % 2 != 0:
                 m += 1
@@ -1914,13 +1926,37 @@ class ProfitAgent:
                 while cur_m > 12:
                     cur_m -= 12
                     y += 1
-                candidates.append(f"WIN{MONTH_CODE[cur_m]}{y:02d}")
+                candidates.append(f"{prefix}{MONTH_CODE[cur_m]}{y:02d}")
                 m += 2
+
+        # CCM (Milho): meses F/H/K/N/U/X (jan/mar/mai/jul/set/nov)
+        elif ticker == "CCMFUT":
+            m = today.month
+            # avanca pra proximo mes valido CCM (impar)
+            while m % 2 == 0 or m not in FUTURES_CCM_MONTHS:
+                m += 1
+                if m > 12:
+                    m = 1
+                    yy += 1
+            for _ in range(3):
+                y = yy
+                cur_m = m
+                if cur_m > 12:
+                    cur_m -= 12
+                    y += 1
+                candidates.append(f"CCM{MONTH_CODE[cur_m]}{y:02d}")
+                # próximo mês CCM (~+2)
+                m += 2
+                while m not in FUTURES_CCM_MONTHS and m <= 12:
+                    m += 1
+                if m > 12:
+                    m -= 12
+                    yy += 1
 
         for c in candidates:
             if f"{c}:{exchange}" in self._subscribed:
                 return c
-        return candidates[0]
+        return candidates[0] if candidates else ticker
 
     def _subscribe(self, ticker: str, exchange: str = "B") -> tuple[bool, int]:
         """Subscreve ticker na DLL. Retorna (sucesso, ret_code_dll).
