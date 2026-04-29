@@ -92,6 +92,10 @@ test_history.py
 # Playwright MCP (logs/screenshots/network captures de browser)
 .playwright-mcp/
 
+# Screenshots ad-hoc de testes UI (gerados via mcp browser_take_screenshot)
+dashboard-*.png
+carteira-*.png
+
 # Backups automáticos timestamped (docker-compose.*.backup_YYYYMMDD_HHMM etc)
 *.backup_*
 
