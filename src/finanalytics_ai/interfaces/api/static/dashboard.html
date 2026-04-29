@@ -3906,18 +3906,26 @@ async function loadDLLPosition() {
   if (flatBox) flatBox.style.display = 'none';
   el.innerHTML = '<span style="color:var(--muted)">Buscando...</span>';
   try {
-    const r = await fetch(`/api/v1/agent/position/${tk}?type=${tp}`).then(r=>r.json());
+    const isFuture = /^(WDO|WIN|IND|DOL|BIT)/.test(tk);
+    const exParam = isFuture ? '&exchange=F' : '';
+    const resp = await fetch(`/api/v1/agent/position/${tk}?type=${tp}${exParam}`);
+    if (!resp.ok) { el.innerHTML=`<span style="color:var(--red)">HTTP ${resp.status} — agent indisponível</span>`; return; }
+    const r = await resp.json();
     if (r.error) { el.innerHTML=`<span style="color:var(--red)">${r.error}</span>`; return; }
+    if (typeof r.open_avg_price !== 'number') {
+      el.innerHTML=`<span style="color:var(--red)">Resposta inesperada do agent (sem campos de posição)</span>`; return;
+    }
     const sideMap={1:'▲ Comprada',2:'▼ Vendida'}; const side=sideMap[r.open_side]||'— Zerada';
     const sideClr = r.open_side===1?'var(--green)':r.open_side===2?'var(--red)':'var(--muted)';
+    const aliasNote = (r.ticker !== tk) ? ` <small style="color:var(--muted)">(alias ${tk})</small>` : '';
     el.innerHTML = `<div class="pos-card">
-      <div class="pos-row"><span class="pos-lbl">Ticker</span><span class="pos-val" style="color:var(--blue)">${r.ticker}</span></div>
+      <div class="pos-row"><span class="pos-lbl">Ticker</span><span class="pos-val" style="color:var(--blue)">${r.ticker}${aliasNote}</span></div>
       <div class="pos-row"><span class="pos-lbl">Posição</span><span class="pos-val" style="color:${sideClr}">${side}</span></div>
       <div class="pos-row"><span class="pos-lbl">Qty aberta</span><span class="pos-val">${r.open_qty}</span></div>
       <div class="pos-row"><span class="pos-lbl">Preço médio</span><span class="pos-val">R$ ${r.open_avg_price.toFixed(4)}</span></div>
       <div style="border-top:1px solid var(--border);margin:4px 0;padding-top:4px">
-        <div class="pos-row"><span class="pos-lbl">Compras dia</span><span class="pos-val" style="color:var(--green)">${r.daily_buy_qty} × R$ ${r.daily_buy_avg_price.toFixed(2)}</span></div>
-        <div class="pos-row"><span class="pos-lbl">Vendas dia</span><span class="pos-val" style="color:var(--red)">${r.daily_sell_qty} × R$ ${r.daily_sell_avg_price.toFixed(2)}</span></div>
+        <div class="pos-row"><span class="pos-lbl">Compras dia</span><span class="pos-val" style="color:var(--green)">${r.daily_buy_qty} × R$ ${(r.daily_buy_avg_price||0).toFixed(2)}</span></div>
+        <div class="pos-row"><span class="pos-lbl">Vendas dia</span><span class="pos-val" style="color:var(--red)">${r.daily_sell_qty} × R$ ${(r.daily_sell_avg_price||0).toFixed(2)}</span></div>
         <div class="pos-row"><span class="pos-lbl">Disponível</span><span class="pos-val">${r.qty_available}</span></div>
       </div>
     </div>`;

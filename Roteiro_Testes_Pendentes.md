@@ -652,10 +652,11 @@ curl -s 'http://localhost:9090/api/v1/query?query=profit_agent_order_callbacks_t
 - [X] **B.3.2** `oco.sent ticker=WDOFUT qty=1 tp_id=... sl_id=...` no log
 - [ ] **B.3.3** TP fillou após change_order, **SL ficou órfão** (sem auto-cancel) → bug **P10** catalogado: `/order/oco` não popula `_oco_pairs` → monitor ignora; `/oco/status/{tp_id}` retorna "não encontrado". Workaround: usar Phase A (B.6 funciona) ou cancel manual.
 
-### B.4 — GetPositionV2 (~5min)
+### B.4 — GetPositionV2 (~5min) ✅ DONE 29/abr 14:08 (após fix P11)
 
-- [ ] **B.4.1** Aba Pos. → search PETR4
-- [ ] **B.4.2** Retorna preço médio + qty real-time
+- [X] **B.4.1** Aba Pos. → PETR4 → `Posição: — Zerada · Qty: 0` ✅ render OK
+- [X] **B.4.2** Backend `/position/PETR4?type=1` retorna struct completa
+- [X] **B.4.3** Futuros via UI pós P11: `WDOFUT` resolve para `WDOK26 (alias WDOFUT)` + `daily_buy_qty=6 @ 5000.75 / daily_sell_qty=6 @ 5001` (+R$15 brutos confere com B.8). Backend agora detecta prefix WDO/WIN/IND/DOL/BIT e força exchange=F + chama `_resolve_active_contract`. UI também passa `exchange=F` defensivo + nota visual de alias.
 
 ### B.5 — Cotação live (~5min) ✅ DONE 29/abr 09:13 (futures + equity)
 

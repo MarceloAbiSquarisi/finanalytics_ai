@@ -250,6 +250,20 @@ DB ficou com `order_status=10 (PendingNew)` mesmo após broker retornar `code=5 
 #### P9 — DB stuck em status=10 mesmo após cancel/fill confirmado pelo broker ⭐ médio (29/abr)
 DB de profit_orders fica com status=10 (PendingNew) mesmo após broker confirmar cancel ou fill. cl_ord_id é populado via callback (P2 fix funcionou nesse aspecto), mas status final não é atualizado. Reconcile loop a cada 5min só corrige se DLL ainda enumera a ordem; ordens já canceladas/fillas saem do EnumerateAllOrders e ficam stuck no DB. Fix: callback de status FILLED/CANCELED/REJECTED deve gravar status diretamente, sem depender de reconcile. Validado em 29/abr B.1, B.2, B.3 — múltiplas ordens stuck apesar de DLL/posição refletirem realidade.
 
+#### P11 — Aba Pos. dashboard mostra futuros como "Zerada" ✅ DONE 29/abr 14:08
+**Fix aplicado** (commits pendentes):
+
+1. `profit_agent.py:get_position_v2` — detecta `ticker in FUTURES_ALIASES` ou prefix `(WDO|WIN|IND|DOL|BIT)`, força `exchange="F"` e chama `_resolve_active_contract()`. Loga `position_v2.alias_resolved alias=X contract=Y exchange=F`.
+2. `dashboard.html:loadDLLPosition` — regex client-side `/^(WDO|WIN|IND|DOL|BIT)/` injeta `exchange=F`; defensive contra response sem campos numéricos (502/error JSON); mostra `WDOK26 (alias WDOFUT)` quando alias foi resolvido.
+
+**Validado live 29/abr 14:08**:
+- WDOFUT via UI → `WDOK26 (alias WDOFUT) · Compras 6×R$5000.75 · Vendas 6×R$5001.00` (sessão B.2/B.6/B.8 hoje, +R$15 brutos confere)
+- WDOK26 direto via UI → mesma resposta
+- PETR4 (regressão) → `— Zerada · 0` mantido OK
+- Curl backend `WDOFUT` exchange=B (input antigo) → resposta retorna `WDOK26 exchange=F` ← auto-corrige em qualquer caller
+
+**Sintoma original (29/abr 13:35 B.4)**: UI envia exchange=B + alias WDOFUT → DLL devolve struct zerada (DLL silently aceita combinação inválida). Crash JS `r.open_avg_price.toFixed undefined` quando 502 retornava body sem campo `error`.
+
 ## 🛠 Infra
 
 #### I3 — Rebuild containers stale (após pregão 29/abr) ⭐ médio

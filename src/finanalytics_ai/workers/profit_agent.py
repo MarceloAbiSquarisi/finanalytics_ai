@@ -3937,9 +3937,24 @@ class ProfitAgent:
     def get_position_v2(
         self, ticker: str, exchange: str = "B", env: str = "simulation", position_type: int = 1
     ) -> dict:
-        """GetPositionV2 — posição real via DLL. ok=False é normal; dados ficam na struct."""
+        """GetPositionV2 — posição real via DLL. ok=False é normal; dados ficam na struct.
+
+        Resolve alias de futuros (WDOFUT/WINFUT) → contrato vigente e força
+        exchange="F" para tickers de futuros (WDO/WIN/IND/DOL/BIT prefix).
+        DLL exige código vigente + exchange correto, senão retorna struct zerada.
+        """
         if not self._dll:
             return {"error": "DLL nao inicializada"}
+        original_ticker = ticker
+        is_future = ticker in FUTURES_ALIASES or ticker[:3] in ("WDO", "WIN", "IND", "DOL", "BIT")
+        if is_future:
+            exchange = "F"
+            ticker = self._resolve_active_contract(ticker, exchange)
+            if ticker != original_ticker:
+                log.info(
+                    "position_v2.alias_resolved alias=%s contract=%s exchange=F",
+                    original_ticker, ticker,
+                )
         broker_id, account_id, sub_id, _ = self._get_account(env)
         if not account_id:
             return {"error": f"Conta {env} nao configurada"}
