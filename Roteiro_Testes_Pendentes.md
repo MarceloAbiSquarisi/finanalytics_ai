@@ -694,6 +694,8 @@ curl -s 'http://localhost:9090/api/v1/query?query=profit_agent_order_callbacks_t
 
 **Para testar trail engaging**: precisa preço subir acima de entry+trail_distance. P7 fix `cancel+create` permanece não validado live (mas existe no código em `profit_agent.py`).
 
+**Re-tentativa abortada 29/abr 14:23**: broker simulator degradou no final do pregão (status=10 stuck sem fillar, cancel também rejeitou ret=-2147483636). Sem parent FILLED, OCO trailing impossível. Mercado sustentou tick stream em DB (WDOK26 21k ticks/h) mas o roteamento de ordens ficou em P1+P9 combinados. Re-validar próxima sessão sem broker degradado.
+
 ### B.9 — OCO Phase C Trailing % (~10min) ⚠️ BLOQUEADO P7
 
 - [ ] mesmo bloqueio que B.8 — `change_order` em stop-limit não funciona
