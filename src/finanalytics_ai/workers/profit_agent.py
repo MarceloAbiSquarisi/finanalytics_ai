@@ -1371,6 +1371,13 @@ class ProfitAgent:
 
         self._stop_event = threading.Event()
 
+        # P9 mitigation: watch_pending_orders registry
+        # Quando _send_order_legacy aceita ordem, adiciona aqui.
+        # _watch_pending_orders_loop varre, atualiza DB com status final via
+        # EnumerateAllOrders, marca orphan se DLL nao enumera mais e DB stuck.
+        self._pending_orders: dict[int, dict] = {}
+        self._pending_lock = threading.RLock()
+
         # Refs de callbacks (evita GC)
 
         self._callbacks: list = []
@@ -1743,6 +1750,12 @@ class ProfitAgent:
         _oco_trail_thread = threading.Thread(target=self._trail_monitor_loop, daemon=True)
         _oco_trail_thread.start()
         log.info("profit_agent.oco_trail_monitor_started")
+
+        # Watch pending orders — mitigação P9: detecta status final de ordens
+        # mesmo quando callback de status nao chega (broker degradado).
+        _watch_thread = threading.Thread(target=self._watch_pending_orders_loop, daemon=True)
+        _watch_thread.start()
+        log.info("profit_agent.watch_pending_orders_started")
 
         # 7. Verifica contagem de contas (catalogo chega via SetAssetListInfoCallbackV2)
 
@@ -3292,6 +3305,14 @@ class ProfitAgent:
             if order.MessageID > 0:
                 self._msg_id_to_local[order.MessageID] = local_id
 
+        # P9 mitigation: registra ordem para _watch_pending_orders_loop polling
+        with self._pending_lock:
+            self._pending_orders[local_id] = {
+                "ts_sent": time.time(),
+                "ticker": ticker,
+                "env": params.get("env", "simulation"),
+            }
+
         return {"ok": True, "local_order_id": local_id, "message_id": order.MessageID}
 
     def _retry_rejected_order(self, old_local_id: int) -> None:
@@ -4703,6 +4724,43 @@ class ProfitAgent:
     # Decisão 6: se mercado já além do trigger ao criar → dispara market imediato
     # ──────────────────────────────────────────────────────────────────
 
+    def _get_last_price(self, ticker: str) -> float | None:
+        """Última cotação com fallback ao DB.
+
+        `_last_prices` é populado no callback de tick; após restart fica vazio
+        até primeiro tick de cada ticker chegar. Pra resilience (broker degradado,
+        callback inativo, restart recente), fallback consulta `profit_ticks`
+        last row do ticker. Cache hit é zero-overhead.
+        """
+        last = self._last_prices.get(ticker)
+        if last is not None and last > 0:
+            return float(last)
+        # Tenta alias resolvido tambem (WDOFUT/WDOK26)
+        if ticker in FUTURES_ALIASES or ticker[:3] in ("WDO", "WIN", "IND", "DOL", "BIT"):
+            resolved = self._resolve_active_contract(ticker, "F")
+            if resolved != ticker:
+                last2 = self._last_prices.get(resolved)
+                if last2 is not None and last2 > 0:
+                    self._last_prices[ticker] = float(last2)  # cache fwd
+                    return float(last2)
+        # Fallback: DB
+        if self._db is None:
+            return None
+        try:
+            row = self._db.fetch_one(
+                "SELECT price FROM profit_ticks WHERE ticker=%s "
+                "AND time > NOW() - INTERVAL '5 min' ORDER BY time DESC LIMIT 1",
+                (ticker,),
+            )
+            if row and row[0]:
+                price = float(row[0])
+                if price > 0:
+                    self._last_prices[ticker] = price  # cache fwd
+                    return price
+        except Exception:
+            pass
+        return None
+
     def _trail_compute_new_sl(
         self, side: int, last_price: float, lv: dict
     ) -> float | None:
@@ -4730,6 +4788,100 @@ class ProfitAgent:
             if lv.get("trail_pct"):
                 return hw * (1 + float(lv["trail_pct"]) / 100.0)
         return None
+
+    def _watch_pending_orders_loop(self) -> None:
+        """Mitigação P9: detecta status final de ordens pendentes via DLL polling.
+
+        Cenário: broker degradado/callback falho → DB stuck status=10 (PendingNew)
+        eternamente. Reconcile loop normal só corrige se DLL ainda enumera, mas
+        ordens já encerradas saem do `EnumerateAllOrders` rápido.
+
+        Fluxo:
+          1. `_send_order_legacy` registra `local_id` em `_pending_orders`.
+          2. Este loop varre a cada 5s, chama `EnumerateAllOrders` (já atualiza DB
+             via `get_positions_dll` para ordens enumeradas).
+          3. Para `local_id` registrado:
+             - Se DLL enumera → status updated pelo reconcile, remove do registry
+               se não-pendente.
+             - Se DLL NÃO enumera + DB ainda em status pendente após 60s →
+               marca como `status=8` (Rejected) com `error_message='watch_orphan_no_dll_record'`.
+             - Após 5min, remove do registry mesmo se ainda pending (não vai resolver).
+        """
+        log.info("watch_pending_orders.started")
+        while not self._stop_event.is_set():
+            try:
+                with self._pending_lock:
+                    if not self._pending_orders:
+                        time.sleep(5.0)
+                        continue
+                    snap = dict(self._pending_orders)
+
+                # Enumera + reconcile DB (já atualiza ordens enumeradas)
+                env = next(iter(snap.values()))["env"]
+                res = self.get_positions_dll(env=env)
+                dll_orders = res.get("orders", []) if isinstance(res, dict) else []
+                seen_local = {o.get("local_id") for o in dll_orders if o.get("local_id")}
+
+                now = time.time()
+                to_drop: list[int] = []
+                for local_id, info in snap.items():
+                    age = now - info["ts_sent"]
+                    # Read DB status atual (após reconcile run)
+                    if not self._db:
+                        continue
+                    row = self._db.fetch_one(
+                        "SELECT order_status FROM profit_orders WHERE local_order_id=%s",
+                        (local_id,),
+                    )
+                    if not row:
+                        if age > 60:
+                            to_drop.append(local_id)
+                        continue
+                    cur_status = int(row[0])
+                    if cur_status not in (0, 1, 10):
+                        # Final state — remove
+                        log.info(
+                            "watch.order_resolved local_id=%d status=%d age=%.1fs",
+                            local_id, cur_status, age,
+                        )
+                        to_drop.append(local_id)
+                        continue
+                    # Stuck pending no DB
+                    if local_id not in seen_local and age > 60:
+                        # DLL não enumera mais + DB ainda pending = orphan
+                        try:
+                            self._db.execute(
+                                "UPDATE profit_orders SET order_status=8, "
+                                "error_message='watch_orphan_no_dll_record', "
+                                "updated_at=NOW() "
+                                "WHERE local_order_id=%s AND order_status IN (0,1,10)",
+                                (local_id,),
+                            )
+                            log.warning(
+                                "watch.order_orphaned local_id=%d age=%.1fs ticker=%s "
+                                "marked status=8",
+                                local_id, age, info["ticker"],
+                            )
+                        except Exception as exc:
+                            log.warning("watch.orphan_update_failed local=%d e=%s", local_id, exc)
+                        to_drop.append(local_id)
+                    elif age > 300:
+                        # 5min sem resolução — desiste
+                        log.info(
+                            "watch.order_timeout local_id=%d age=%.1fs DB status=%d remove",
+                            local_id, age, cur_status,
+                        )
+                        to_drop.append(local_id)
+
+                if to_drop:
+                    with self._pending_lock:
+                        for lid in to_drop:
+                            self._pending_orders.pop(lid, None)
+
+                time.sleep(5.0)
+            except Exception as exc:
+                log.warning("watch_pending_orders error: %s", exc)
+                time.sleep(10.0)
 
     def _trail_check_immediate_trigger(
         self, group_id: str, grp: dict, lv: dict, last_price: float
@@ -4784,6 +4936,8 @@ class ProfitAgent:
         Roda a cada 1s — balance entre responsividade e overhead.
         """
         log.info("trail_monitor.started")
+        if not hasattr(self, "_trail_last_log_ts"):
+            self._trail_last_log_ts: dict[str, float] = {}
         while not self._stop_event.is_set():
             try:
                 if not hasattr(self, "_oco_groups") or not self._oco_groups:
@@ -4793,9 +4947,28 @@ class ProfitAgent:
                 for group_id, grp in groups_snap:
                     if grp["status"] not in ("active", "partial", "awaiting"):
                         continue
-                    last = self._last_prices.get(grp["ticker"])
+                    last = self._get_last_price(grp["ticker"])
                     if last is None or last <= 0:
+                        # Log raro para detectar problema de feed
+                        last_log = self._trail_last_log_ts.get(f"{group_id}:noprice", 0)
+                        if time.time() - last_log > 30:
+                            log.warning(
+                                "trail.no_price group=%s ticker=%s — cache+DB sem cotacao",
+                                group_id, grp["ticker"],
+                            )
+                            self._trail_last_log_ts[f"{group_id}:noprice"] = time.time()
                         continue
+                    # Heartbeat log periódico para observabilidade do trail
+                    last_log = self._trail_last_log_ts.get(group_id, 0)
+                    if time.time() - last_log > 15:
+                        for _lv in grp["levels"]:
+                            if _lv.get("is_trailing"):
+                                log.info(
+                                    "trail.tick group=%s lv=%d ticker=%s last=%.4f hw=%s sl=%s",
+                                    group_id, _lv.get("idx", 0), grp["ticker"], last,
+                                    _lv.get("trail_high_water"), _lv.get("sl_trigger"),
+                                )
+                        self._trail_last_log_ts[group_id] = time.time()
                     for lv in grp["levels"]:
                         if not lv.get("is_trailing"):
                             continue
