@@ -247,8 +247,21 @@ DB ficou com `order_status=10 (PendingNew)` mesmo após broker retornar `code=5 
 
 **Workaround temporário**: usar `/order/oco_phase_a` (Phase A com mãe) ou cancel manual da perna órfã.
 
-#### P9 — DB stuck em status=10 mesmo após cancel/fill confirmado pelo broker ⭐ médio (29/abr)
-DB de profit_orders fica com status=10 (PendingNew) mesmo após broker confirmar cancel ou fill. cl_ord_id é populado via callback (P2 fix funcionou nesse aspecto), mas status final não é atualizado. Reconcile loop a cada 5min só corrige se DLL ainda enumera a ordem; ordens já canceladas/fillas saem do EnumerateAllOrders e ficam stuck no DB. Fix: callback de status FILLED/CANCELED/REJECTED deve gravar status diretamente, sem depender de reconcile. Validado em 29/abr B.1, B.2, B.3 — múltiplas ordens stuck apesar de DLL/posição refletirem realidade.
+#### P9 — DB stuck em status=10 mesmo após cancel/fill confirmado pelo broker ✅ MITIGADO 29/abr 15:33
+**Status**: callback raiz não foi corrigido, mas mitigação operacional aplicada.
+
+**Mitigação aplicada (commit `b153037`)**: `_watch_pending_orders_loop` thread.
+- `_send_order_legacy` registra `local_id` em `self._pending_orders`.
+- Loop varre @5s: chama `EnumerateAllOrders` (reusa reconcile UPDATE).
+- Se DLL enumera com status final, watch remove do registry.
+- Se DLL não enumera + DB stuck pendente após 60s → marca `status=8` `error='watch_orphan_no_dll_record'`.
+- Após 5min, remove do registry mesmo se ainda pending (last-resort).
+
+**Validação live 29/abr 15:16**:
+- `watch.order_resolved local_id=126042915111691 status=2 age=10.6s` — parent FILLED detectado em 10s (vs 5min do reconcile loop)
+- `watch.order_resolved local_id=126042915111693 status=2 age=9.6s` — SL trail FILLED idem
+
+**Fix definitivo (futuro)**: callback `trading_msg_cb` pra status FILLED/CANCELED/REJECTED grava DB direto sem depender de polling. Vai ser obsoletado quando isso for feito.
 
 #### P11 — Aba Pos. dashboard mostra futuros como "Zerada" ✅ DONE 29/abr 14:08
 **Fix aplicado** (commits pendentes):

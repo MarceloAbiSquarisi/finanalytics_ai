@@ -683,7 +683,18 @@ curl -s 'http://localhost:9090/api/v1/query?query=profit_agent_order_callbacks_t
 - [X] **B.7.3** `profit_oco_levels` 2 rows level_idx 1+2 com qty/tp/sl corretos
 - [X] **B.7.4** Validação sum: 3+1=4 → resposta `{"ok":false, "error":"sum(levels.qty)=4 != parent.qty=5"}` (mensagem exata)
 
-### B.8 — OCO Phase C Trailing R$ (~15min) ⏳ PARCIAL 29/abr 12:48 (setup OK, trail não engajou — preço caiu)
+### B.8 — OCO Phase C Trailing R$ (~15min) ✅ DONE 29/abr 15:15 (após resilience fix _last_prices fallback DB)
+
+**29/abr 15:15 — VALIDADO live com PETR4** (group 43e759ce trail R$0.01):
+- Setup: limit BUY @ 48.50 + attach OCO is_trailing=true trail_distance=0.01 + change pra 49.20 → parent fillou @ 48.97
+- Log: `oco_group.attached → trail.tick last=49.0100 hw=None sl=48.3 → oco_group.dispatched filled=100/100 → trailing.adjusted hw=49.0100 new_sl=49.0000 → oco.sl_filled→tp_cancel → oco_group.completed`
+- DB: `sl_trigger 48.30 → 49.00, sl_limit 48.25 → 49.00, trail_high_water=49.01` (subiu R$0.70 favorável)
+- change_order direto aceitou (sem precisar P7 `cancel_create` fallback nesta janela)
+- Bonus: B.11 cross-cancel re-validado (SL fillou → TP auto-canceled)
+
+**Fix root cause**: trail_monitor lia `self._last_prices.get(ticker)` — vazio pós-restart NSSM. Helper `_get_last_price` agora tem fallback `profit_ticks` last 5min + alias resolution (commit `b153037`).
+
+
 
 - [X] **B.8.1** market BUY 1 WDOFUT → fillou @ avg 5001.5 (após retry P1)
 - [X] **B.8.2** attach OCO 1 nível: TP=5050, SL=4990/4985, ☑ trailing R$ 0.5 → group `a7aa2c12...` active, tp+sl=`sent`, `is_trailing=true, trail_distance=0.5` salvos no DB
