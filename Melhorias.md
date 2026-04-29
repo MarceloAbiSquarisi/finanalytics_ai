@@ -229,6 +229,27 @@ DB ficou com `order_status=10 (PendingNew)` mesmo após broker retornar `code=5 
 
 ---
 
+#### P10 — OCO legacy `/order/oco` não registra par no monitor → no auto-cancel ⭐⭐ alto (29/abr)
+**Custo**: ~1h (popular `_oco_pairs` no handler do `/order/oco`). **Payoff**: alto (deixa SL órfão se TP fillar primeiro, ou vice-versa, expondo a posição contrária se preço cruzar o stop).
+
+**Sintoma observado live 29/abr 12:17 (B.3)**:
+- POST `/order/oco` enviou TP=5050 + SL=4970/4965 com sucesso (broker aceitou ambas)
+- `GET /oco/status/{tp_id}` retornou `{"error":"OCO ... nao encontrado","pairs":{}}`
+- Após change_order TP→5001 (perto do mercado), TP fillou
+- SL ficou no book com status=0 (sem auto-cancel) — risco real de abrir short se preço cruzar 4970
+
+**Hipótese**: handler `/order/oco` chama `_send_order_legacy` para TP e SL mas pula o registro em `self._oco_pairs[tp_id] = {sl_id, ticker, qty, exchange, env, account, ...}`. O `_oco_monitor_loop` (500ms thread) varre `_oco_pairs` e cancela contraparte quando uma perna fillar — sem registro, monitor não age.
+
+**Fix**: localizar handler `/order/oco` (em `do_POST` ou método relacionado), após sucesso de TP+SL, popular `self._oco_pairs[tp_local_id] = {sl_local_id, ...}` com lock. Criar tests:
+- TP fillou → SL deve estar status=4 (CANCELED) em <2s
+- SL trigger+fillou → TP deve estar CANCELED
+- Cancel manual de uma perna → outra também cancela
+
+**Workaround temporário**: usar `/order/oco_phase_a` (Phase A com mãe) ou cancel manual da perna órfã.
+
+#### P9 — DB stuck em status=10 mesmo após cancel/fill confirmado pelo broker ⭐ médio (29/abr)
+DB de profit_orders fica com status=10 (PendingNew) mesmo após broker confirmar cancel ou fill. cl_ord_id é populado via callback (P2 fix funcionou nesse aspecto), mas status final não é atualizado. Reconcile loop a cada 5min só corrige se DLL ainda enumera a ordem; ordens já canceladas/fillas saem do EnumerateAllOrders e ficam stuck no DB. Fix: callback de status FILLED/CANCELED/REJECTED deve gravar status diretamente, sem depender de reconcile. Validado em 29/abr B.1, B.2, B.3 — múltiplas ordens stuck apesar de DLL/posição refletirem realidade.
+
 ## 🛠 Infra
 
 #### I3 — Rebuild containers stale (após pregão 29/abr) ⭐ médio
