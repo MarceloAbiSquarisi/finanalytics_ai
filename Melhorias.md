@@ -2,14 +2,23 @@
 
 > Lista priorizada do que ainda está ativo. Itens entregues estão em `git log` + memory.
 >
-> **Última revisão**: 29/abr/2026 16:30 — sessão maratona OCO Phase A+B+C+D + resilience broker degradado.
+> **Última revisão**: 29/abr/2026 19:30 — sessão maratona ~7h, 31 commits.
 
 **Histórico de sprints concluídas** (não re-documentar aqui):
 - N1-N12 + N5b/N4b/N6b/N10b + housekeeping A-H — DONE 28/abr madrugada
 - M1-M5 + features /diario + S/R + flatten — DONE 27/abr noite
 - Bugs P1-P7 + O1 (DLL callbacks, broker auth blips, trail fallback, NSSM zombies) — DONE 28/abr (`27e04d3`, `efc4235`, `568e9a3`, `202bdc3`)
 - Snapshot signals + ml_pickle_count fix — DONE 29/abr (`7ad0061`)
-- **P9 mitigado** + **P10 fix** + **P11/P11.2 fix** + resilience patterns broker degradado — DONE 29/abr 16:30 (`3896aeb`, `53372e1`, `b153037`, `ee58c06`, `43f3767`)
+- **P9 mitigado** + **P10 fix** + **P11/P11.2 fix** + resilience patterns broker degradado — DONE 29/abr (`3896aeb`, `53372e1`, `b153037`, `ee58c06`, `43f3767`)
+- **UI overhaul 29/abr noite** (`0b696f1` → `90acb2e`):
+  - Gap compression overnight + fitContent + UNION ohlc (`0b696f1`, `7739298`, `c296006`, `32a65e0`, `71eb1e1`)
+  - Bollinger client-side + lookup reverso (`28e41ae`, `c3876db`)
+  - 4 indicadores novos: Estocástico Lento + ATR + VWAP + IFR (`20b40d3`)
+  - Letter-spacing CSS fix global (`1ca102b`, `da5279c`)
+  - Subscribe 373 tickers + futuros B3 (`d6a0aa6`, `6c200ce`)
+  - `tick_to_ohlc_backfill_job` DELETE+INSERT diário (`6d1450a`, `37dcdef`)
+  - SW v100 + sw_kill.html (`c8e83da`, `8381013`)
+  - Carteira: coluna Horário + linha zero rentabilidade (`a070483`, `75697ae`)
 
 ---
 

@@ -280,6 +280,19 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 - P10 (OCO legacy pares perdidos pós-restart) ✅ DONE 29/abr via `_load_oco_legacy_pairs_from_db`
 - P11 + P11.2 (futuros UI exchange/alias) ✅ DONE 29/abr via `_resolve_active_contract` em `get_position_v2` + `flatten_ticker`
 
+**Sessão 29/abr UI overhaul** (commits `3896aeb` → `90acb2e`):
+- Gap compression overnight/weekend no chart (`_compressGaps` + `_timeRealMap` + `_realToCompressed`); `fitContent()` mostra todos os bars
+- Backend `/marketdata/candles/{ticker}` faz `UNION ohlc_1m + ohlc_1m_from_ticks` + resolve aliases futuros (`WDOFUT → WDOK26 + WDOM26`)
+- `_doRefresh` SSE comprime timestamps com `_compressIncomingTime`
+- Bollinger Bands calculadas **client-side** sobre `_bars2` (era backend `/indicators` daily, não alinhava com candles 5m)
+- 4 indicadores novos: Estocástico Lento (14·3·3), ATR (Wilder), VWAP intraday overlay, IFR (label dual RSI/IFR)
+- `/static/sw_kill.html` reset de SW + caches via UI
+- Carteira: coluna Horário (`created_at` HH:MM:SS), linha branca tracejada zero no chart Rentabilidade
+
+**Operacional 29/abr**:
+- `profit_subscribed_tickers` semeada com **373 tickers** (366 equities IBOV/B3 + 7 futuros: WDO/WIN/DOL/IND/BGI/OZM/CCM)
+- `tick_to_ohlc_backfill_job` diário 21h BRT (00h UTC): **DELETE + INSERT** do dia inteiro (substitui rows incoerentes pelo continuous aggregate)
+
 ## Decisões Arquiteturais (Imutáveis)
 
 > Não revogar sem evidência empírica nova. Detalhamento histórico de cada decisão (origem, justificativa, aplicação) em `git log` dos commits que as introduziram.

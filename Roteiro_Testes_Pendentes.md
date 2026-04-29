@@ -1,11 +1,11 @@
 # Roteiro de Testes Pendentes — FinAnalytics AI
 
 > **Reorganizado**: 26/abr/2026 — classificação por dependência (pregão aberto/fechado/outras)
-> **Última atualização**: 29/abr/2026 16:30 — Sessão maratona OCO Phase A/B/C/D + resilience broker degradado. **Bloco B 16/19 ✅** (B.1-B.9, B.11-B.15, B.18, B.19); B.16 PARCIAL (mitigado via watch_pending_orders); B.10 INCONCLUSIVO (broker simulator); B.17 N/A. **P-bugs**: P1-P11.2 todos DONE/mitigados. 8 commits (`3896aeb` → `43f3767`).
+> **Última atualização**: 29/abr/2026 19:30 — Sessão maratona ~7h, **31 commits** `3896aeb` → `90acb2e`. **Bloco B 16/19 ✅**; UI overhaul: gap compression overnight + fitContent + UNION ohlc/ticks + Bollinger client-side + 4 indicadores novos (Estocástico Lento, ATR, VWAP, IFR/label) + carteira (coluna Horário, linha branca zero). **373 tickers subscritos** (366 equity + 7 futuros). **`tick_to_ohlc_backfill_job`** diário 21h BRT (DELETE+INSERT). **P-bugs**: P1-P11.2 DONE/mitigados.
 > **Login dev**: `marceloabisquarisi@gmail.com` / `admin123` (master)
 > **DB seedado**: 1 conta consolidada **"Teste"** (id `eeee5555`) — migration `migrate_test_to_single_carteira.sql` (27/abr); contas XP+BTG soft-deleted
 > **Invariante 27/abr**: todo ativo DEVE ter `investment_account_id` (NOT NULL em DB + `Field(...)` Pydantic em trades/crypto/other)
-> **Cache**: SW v86 — `Ctrl+Shift+R` na 1ª abertura de cada página
+> **Cache**: SW v100 — usar `/static/sw_kill.html` se Ctrl+Shift+R não recarregar
 > **NSSM dual-service** (29/abr): havia 2 serviços brigando por :8002 (`FinAnalyticsAgent` + `FinAnalyticsProfitAgent`). FinAnalyticsProfitAgent **DESABILITADO**. Usar apenas `FinAnalyticsAgent`.
 
 ---
