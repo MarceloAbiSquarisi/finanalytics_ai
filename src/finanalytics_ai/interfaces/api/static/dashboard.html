@@ -2636,10 +2636,25 @@ function drawOrderLines(orders) {
     groups.set(key, g);
   });
   groups.forEach(function(g){
-    const isBuy = g.side === 1;
-    const color = isBuy ? 'rgba(46,212,122,.85)' : 'rgba(255,107,107,.85)';
-    const sideStr = isBuy ? '▲ C' : '▼ V';
-    const typeStr = g.isStop ? ' STP' : '';
+    // Cor por PROPÓSITO (TP/SL/entry), não por side:
+    //   - StopLimit (type=4) → SL → SEMPRE vermelha (corte de perda)
+    //   - Limit com strategy_id "_tp" → TP → SEMPRE verde (alvo de lucro)
+    //   - Limit puro (entry order) → cor por side (compra=verde, venda=vermelha)
+    const o = g.orders[0];
+    const sid = (o.strategy_id || '').toLowerCase();
+    const isTP = sid.endsWith('_tp') || sid.indexOf('_lv') >= 0 && sid.endsWith('tp');
+    const isSL = g.isStop || sid.endsWith('_sl') || sid.indexOf('_sl_') >= 0;
+    let color, roleStr;
+    if (isSL) {
+      color = 'rgba(255,107,107,.85)';
+      roleStr = 'SL';
+    } else if (isTP) {
+      color = 'rgba(46,212,122,.85)';
+      roleStr = 'TP';
+    } else {
+      color = (g.side === 1) ? 'rgba(46,212,122,.85)' : 'rgba(255,107,107,.85)';
+      roleStr = (g.side === 1) ? '▲ C' : '▼ V';
+    }
     const isDraggable = g.ids.length === 1;
     const idStr = isDraggable ? ' #' + g.ids[0] + ' ↕' : ' (' + g.ids.length + ')';
     try {
@@ -2649,7 +2664,7 @@ function drawOrderLines(orders) {
         lineWidth: 2,
         lineStyle: 2,  // dashed
         axisLabelVisible: true,
-        title: sideStr + ' ' + g.qty + typeStr + idStr,
+        title: roleStr + ' ' + g.qty + idStr,
       });
       orderLines.push({
         ln: ln,
@@ -2706,29 +2721,40 @@ async function refreshPositionLine() {
 // Click + drag em uma linha de ordem (com 1 ordem só, ↕ no label) reposiciona
 // no eixo Y; ao soltar, chama /order/change com o novo preço.
 // Stop-limit: trigger e limit movem juntos (mantém spread original).
-const ORDER_DRAG_TOLERANCE_PX = 6;
+const ORDER_DRAG_TOLERANCE_PX = 8;
 
-function _findChartCanvas() {
-  const container = document.getElementById('chart-price');
+function _isChartCanvasTarget(target) {
+  // Lightweight Charts cria múltiplos canvases empilhados (overlay, crosshair, etc).
+  // Aceita qualquer canvas dentro de #chart-price.
+  if (!target || target.tagName !== 'CANVAS') return null;
+  const container = target.closest('#chart-price');
   if (!container) return null;
-  return container.querySelector('canvas');
+  return target;
 }
 
 function _setupOrderDragHandlers() {
   if (typeof _setupOrderDragHandlers._installed !== 'undefined') return;
   _setupOrderDragHandlers._installed = true;
+  // Capture phase + ambos pointer/mouse pra prevalecer sobre lightweight-charts
+  document.addEventListener('pointerdown', _onChartMouseDown, true);
   document.addEventListener('mousedown', _onChartMouseDown, true);
-  document.addEventListener('mousemove', _onChartMouseMove);
-  document.addEventListener('mouseup', _onChartMouseUp);
+  document.addEventListener('pointermove', _onChartMouseMove, true);
+  document.addEventListener('mousemove', _onChartMouseMove, true);
+  document.addEventListener('pointerup', _onChartMouseUp, true);
+  document.addEventListener('mouseup', _onChartMouseUp, true);
   document.addEventListener('keydown', function(e){
     if (e.key === 'Escape' && _draggingOrder) _cancelDrag();
   });
+  // Hover cursor: muda pra ns-resize quando passa sobre uma linha draggable
+  document.addEventListener('mousemove', _onChartHoverMove);
 }
 
 function _onChartMouseDown(e) {
   if (!priceSeries || !priceChart || !orderLines.length) return;
-  const canvas = _findChartCanvas();
-  if (!canvas || e.target !== canvas) return;
+  const canvas = _isChartCanvasTarget(e.target);
+  if (!canvas) return;
+  // Botão esquerdo apenas
+  if (e.button !== undefined && e.button !== 0) return;
   const rect = canvas.getBoundingClientRect();
   const y = e.clientY - rect.top;
   // Acha linha mais próxima (priceToCoordinate retorna pixel y)
@@ -2742,9 +2768,10 @@ function _onChartMouseDown(e) {
     if (dist < minDist) { minDist = dist; nearest = ref; }
   }
   if (!nearest) return;
-  // Encontrou — pega controle do evento
+  // Encontrou — pega controle do evento (impede pan do chart)
   e.preventDefault();
   e.stopPropagation();
+  if (e.stopImmediatePropagation) e.stopImmediatePropagation();
   _draggingOrder = {
     ref: nearest,
     order: nearest.orders[0],
@@ -2752,16 +2779,36 @@ function _onChartMouseDown(e) {
     currentPrice: nearest.refPrice,
     isStop: nearest.isStop,
     canvas: canvas,
-    spread: 0,  // calculado abaixo se stop-limit
+    spread: 0,
   };
-  // Stop-limit: spread entre price (limit) e stop_price (trigger)
   if (nearest.isStop) {
     const o = nearest.orders[0];
     _draggingOrder.spread = (o.price || o.stop_price) - o.stop_price;
   }
-  // Desabilita scroll do chart durante drag pra não pular eixo
   try { priceChart.applyOptions({ handleScroll: false, handleScale: false }); } catch(_) {}
-  canvas.style.cursor = 'ns-resize';
+  document.body.style.cursor = 'ns-resize';
+}
+
+// Hover: muda cursor quando sobre linha draggable, mesmo sem pressionar botão
+function _onChartHoverMove(e) {
+  if (_draggingOrder) return;  // já sendo arrastado
+  if (!priceSeries || !orderLines.length) return;
+  const canvas = _isChartCanvasTarget(e.target);
+  if (!canvas) {
+    if (document.body.style.cursor === 'ns-resize') document.body.style.cursor = '';
+    return;
+  }
+  const rect = canvas.getBoundingClientRect();
+  const y = e.clientY - rect.top;
+  let near = false;
+  for (const ref of orderLines) {
+    if (!ref.draggable) continue;
+    let yPix;
+    try { yPix = priceSeries.priceToCoordinate(ref.refPrice); } catch(_) { continue; }
+    if (yPix === null || yPix === undefined) continue;
+    if (Math.abs(y - yPix) <= ORDER_DRAG_TOLERANCE_PX) { near = true; break; }
+  }
+  document.body.style.cursor = near ? 'ns-resize' : '';
 }
 
 function _onChartMouseMove(e) {
@@ -2771,17 +2818,20 @@ function _onChartMouseMove(e) {
   let newPrice;
   try { newPrice = priceSeries.coordinateToPrice(y); } catch(_) { return; }
   if (newPrice === null || newPrice === undefined || newPrice <= 0) return;
-  // Arredonda 2 decimais (PETR4-like)
   const rounded = Math.round(newPrice * 100) / 100;
   _draggingOrder.currentPrice = rounded;
   const o = _draggingOrder.order;
-  const isBuy = o.order_side === 1;
-  const sideStr = isBuy ? '▲ C' : '▼ V';
-  const typeStr = _draggingOrder.isStop ? ' STP' : '';
+  const sid = (o.strategy_id || '').toLowerCase();
+  const isTP = sid.endsWith('_tp');
+  const isSL = _draggingOrder.isStop || sid.endsWith('_sl');
+  let roleStr;
+  if (isSL) roleStr = 'SL';
+  else if (isTP) roleStr = 'TP';
+  else roleStr = (o.order_side === 1) ? '▲ C' : '▼ V';
   try {
     _draggingOrder.ref.ln.applyOptions({
       price: rounded,
-      title: sideStr + ' ' + o.quantity + typeStr + ' #' + o.local_order_id + ' → R$ ' + rounded.toFixed(2),
+      title: roleStr + ' ' + o.quantity + ' #' + o.local_order_id + ' → R$ ' + rounded.toFixed(2),
     });
   } catch(_) {}
 }
@@ -2790,7 +2840,7 @@ async function _onChartMouseUp(e) {
   if (!_draggingOrder) return;
   const drag = _draggingOrder;
   _draggingOrder = null;
-  try { drag.canvas.style.cursor = ''; } catch(_) {}
+  document.body.style.cursor = '';
   try { priceChart.applyOptions({ handleScroll: true, handleScale: true }); } catch(_) {}
   if (!drag.currentPrice || drag.currentPrice === drag.originalPrice) {
     // Restaura título sem o "→ R$"
@@ -2828,7 +2878,7 @@ async function _onChartMouseUp(e) {
 function _cancelDrag() {
   if (!_draggingOrder) return;
   try { _draggingOrder.ref.ln.applyOptions({ price: _draggingOrder.originalPrice }); } catch(_) {}
-  try { _draggingOrder.canvas.style.cursor = ''; } catch(_) {}
+  document.body.style.cursor = '';
   try { priceChart.applyOptions({ handleScroll: true, handleScale: true }); } catch(_) {}
   _draggingOrder = null;
   refreshOrders();
