@@ -682,13 +682,16 @@ curl -s 'http://localhost:9090/api/v1/query?query=profit_agent_order_callbacks_t
 - [X] **B.7.3** `profit_oco_levels` 2 rows level_idx 1+2 com qty/tp/sl corretos
 - [X] **B.7.4** Validação sum: 3+1=4 → resposta `{"ok":false, "error":"sum(levels.qty)=4 != parent.qty=5"}` (mensagem exata)
 
-### B.8 — OCO Phase C Trailing R$ (~15min) ⚠️ BLOQUEADO P7 28/abr 16h
+### B.8 — OCO Phase C Trailing R$ (~15min) ⏳ PARCIAL 29/abr 12:48 (setup OK, trail não engajou — preço caiu)
 
-- [X] **B.8.1** BUY PETR4 100 @ market → fill imediato (local=26042814073723, avg=47.54)
-- [X] **B.8.2** OCO 1 nível: TP=50 SL=47.30/47.20 + ☑ Trailing R$ 0,20 → confirmar (group `c5cbf5a1-5941-4d73-8128-caa5b7f374df` `active`, tp_status=sent, sl_status=sent)
-- [ ] **B.8.3** Mover preço pra +R$ 1 (PETR4 sobe pra ~31) — **N/A**: preço de mercado não controlável, depende de pregão
-- [ ] **B.8.4** Log: `trailing.adjusted group=... lv=1 hw=31.0000 new_sl=30.5000` — **NUNCA EMITIDO**: `change_order` em SL stop-limit retorna `ret=-2147483645` do broker simulator (P7). trail_monitor cicla mas não consegue ratchet.
-- [ ] **B.8.5** SL trigger no DB ajusta pra 30.50 — **N/A** mesmo motivo
+- [X] **B.8.1** market BUY 1 WDOFUT → fillou @ avg 5001.5 (após retry P1)
+- [X] **B.8.2** attach OCO 1 nível: TP=5050, SL=4990/4985, ☑ trailing R$ 0.5 → group `a7aa2c12...` active, tp+sl=`sent`, `is_trailing=true, trail_distance=0.5` salvos no DB
+- [ ] **B.8.3** Movimento preço UP — N/A nessa janela (preço caiu de 5001.5 → 4998 durante teste)
+- [ ] **B.8.4** Log `trailing.adjusted` ou `trailing.cancel_create` (P7 fix) — não disparou pq trail só sobe SL
+- [ ] **B.8.5** trail_high_water mudou no DB — N/A mesmo motivo
+- [X] **bonus**: cancel group via `/oco/groups/{id}/cancel` com trailing funcionou (`cancelled_orders=2`)
+
+**Para testar trail engaging**: precisa preço subir acima de entry+trail_distance. P7 fix `cancel+create` permanece não validado live (mas existe no código em `profit_agent.py`).
 
 ### B.9 — OCO Phase C Trailing % (~10min) ⚠️ BLOQUEADO P7
 
