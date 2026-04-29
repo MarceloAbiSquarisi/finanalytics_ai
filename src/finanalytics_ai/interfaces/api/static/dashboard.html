@@ -2156,31 +2156,18 @@ function renderPriceChart(bars, bb) {
     color: b.close>=b.open ? 'rgba(46,212,122,.22)' : 'rgba(224,85,85,.22)',
   })));
 
-  // Bollinger Bands overlay — alinha bb (vinda de /indicators) com priceSeries
-  // (que usa timestamps comprimidos). Pega timestamp real do bar correspondente
-  // (pelo close price match) ou pelo bb.timestamps se backend mandou.
-  // Cardinalidade pode diferir: bb tem N elementos, _bars2 pode ter M (M >= N).
-  // Estrategia: assume bb.timestamps[] paralelo ao bb.upper[] etc.; se ausente,
-  // mapeia pelos ULTIMOS bb.length elementos de _bars2 (overlay no fim).
-  if (bb && indVisible.bb) {
-    const bbTs = bb.timestamps || (window.indCache && window.indCache.timestamps) || null;
-    const bbData = (series) => {
-      const arr = bb[series] || [];
-      // Preferencia 1: bb tem timestamps proprios -> lookup reverso
-      if (bbTs && bbTs.length === arr.length) {
-        return arr.map((v, i) => {
-          if (v == null) return null;
-          let realT = bbTs[i];
-          if (typeof realT === 'string') realT = Math.floor(new Date(realT).getTime() / 1000);
-          const compressed = _realToCompressed.get(realT);
-          return compressed != null ? { time: compressed, value: v } : null;
-        }).filter(Boolean);
-      }
-      // Fallback: alinha pelas ULTIMAS N posicoes de _bars2 (assume bb cobre o fim)
-      const offset = Math.max(0, _bars2.length - arr.length);
-      return arr.map((v, i) => v != null && _bars2[offset + i] != null
-        ? { time: _bars2[offset + i].time, value: v } : null).filter(Boolean);
-    };
+  // Bollinger Bands — calculo CLIENT-SIDE em cima de _bars2 (mesma escala
+  // temporal do chart). Antes usava bb do /indicators (range=max daily, ~316
+  // pontos) que NAO sobrepunha com /candles 5m intraday (~2447 pontos).
+  // Calc local: bb cobre TODOS os bars do chart, sem mismatch.
+  if (indVisible.bb && _bars2 && _bars2.length > 0) {
+    const closes = _bars2.map(b => b.close);
+    const period = (indConfig && indConfig.bbPeriod) || 20;
+    const stdDev = 2;
+    const localBB = calcBollinger(closes, period, stdDev);
+    const buildPts = (arr) => arr
+      .map((v, i) => v != null ? { time: _bars2[i].time, value: parseFloat(v.toFixed(4)) } : null)
+      .filter(Boolean);
 
     bbUpper = priceChart.addLineSeries({
       color:'rgba(46,212,122,.45)', lineWidth:1, lineStyle:2,
@@ -2194,9 +2181,9 @@ function renderPriceChart(bars, bb) {
       color:'rgba(46,212,122,.45)', lineWidth:1, lineStyle:2,
       priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false,
     });
-    bbUpper.setData(bbData('upper'));
-    bbMiddle.setData(bbData('middle'));
-    bbLower.setData(bbData('lower'));
+    bbUpper.setData(buildPts(localBB.upper));
+    bbMiddle.setData(buildPts(localBB.middle));
+    bbLower.setData(buildPts(localBB.lower));
   }
 
   // VWAP overlay — alinhado por timestamps comprimidos (intraday)
@@ -3379,6 +3366,23 @@ function calcEMA(closes, period) {
   res.push(prev);
   for (let i = period; i < closes.length; i++) { prev = closes[i] * k + prev * (1 - k); res.push(prev); }
   return res;
+}
+
+// Bollinger Bands client-side: SMA + std_dev * k. Calcula sobre os bars
+// reais do chart (mesmo range), evitando mismatch com /indicators.
+function calcBollinger(closes, period, stdDev) {
+  const upper = [], middle = [], lower = [];
+  for (let i = 0; i < closes.length; i++) {
+    if (i < period - 1) { upper.push(null); middle.push(null); lower.push(null); continue; }
+    const win = closes.slice(i - period + 1, i + 1);
+    const mean = win.reduce((a, b) => a + b, 0) / period;
+    const variance = win.reduce((s, v) => s + (v - mean) ** 2, 0) / period;
+    const sd = Math.sqrt(variance);
+    middle.push(mean);
+    upper.push(mean + stdDev * sd);
+    lower.push(mean - stdDev * sd);
+  }
+  return { upper, middle, lower };
 }
 
 function drawMAOverlay(ma, bars) {
