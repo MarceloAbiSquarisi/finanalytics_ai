@@ -2024,6 +2024,9 @@ function renderPriceChart(bars, bb) {
   // Substitui timestamps reais por sequencia "comprimida" quando gap > 2x interval mediano.
   // _timeRealMap mantem mapping pra display do tempo real no eixo X.
   _bars2 = _compressGaps(_bars2);
+  // Por default lightweight-charts mostra so os ultimos N bars (auto-scroll right).
+  // Fitcontent ajusta range pra mostrar TODOS os candles preenchendo o chart.
+  setTimeout(() => { try { priceChart.timeScale().fitContent(); } catch(_) {} }, 50);
 
   // Filtro de outliers (impede candles em escala diferente — split não ajustado, dados legados)
   // Heurística robusta: usa o ÚLTIMO close como referência e filtra bars cujo close esteja
