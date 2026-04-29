@@ -115,7 +115,7 @@ tr:hover td{background:rgba(0,212,255,.02)}
 .ret-row{display:grid;grid-template-columns:90px 1fr 110px;gap:10px;align-items:center;margin-bottom:5px;font-size:13px;font-family:'DM Mono',monospace}
 .ret-label{color:var(--text);font-weight:600;text-transform:uppercase;letter-spacing:.4px;font-size:12px}
 .ret-bar-wrap{position:relative;height:14px;background:rgba(106,158,191,.05);border-radius:3px}
-.ret-bar-wrap::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(106,158,191,.3)}
+.ret-bar-wrap::before{content:'';position:absolute;left:50%;top:-2px;bottom:-2px;width:0;border-left:1px dashed rgba(255,255,255,.85);z-index:2;pointer-events:none}
 .ret-bar{position:absolute;top:0;bottom:0;border-radius:3px;transition:width .4s ease}
 .ret-bar.pos{left:50%;background:var(--green,#00e676)}
 .ret-bar.neg{right:50%;background:var(--red,#ff3d5a)}
