@@ -2656,7 +2656,7 @@ function drawOrderLines(orders) {
       roleStr = (g.side === 1) ? '▲ C' : '▼ V';
     }
     const isDraggable = g.ids.length === 1;
-    const idStr = isDraggable ? ' #' + g.ids[0] + ' ↕' : ' (' + g.ids.length + ')';
+    const idStr = isDraggable ? ' #' + g.ids[0] + ' (ctrl⇕)' : ' (' + g.ids.length + ')';
     try {
       const ln = priceSeries.createPriceLine({
         price: g.price,
@@ -2751,13 +2751,13 @@ function _setupOrderDragHandlers() {
 
 function _onChartMouseDown(e) {
   if (!priceSeries || !priceChart || !orderLines.length) return;
+  // Drag exige Ctrl (Win/Linux) ou Cmd (Mac) — distingue do pan do chart
+  if (!e.ctrlKey && !e.metaKey) return;
   const canvas = _isChartCanvasTarget(e.target);
   if (!canvas) return;
-  // Botão esquerdo apenas
   if (e.button !== undefined && e.button !== 0) return;
   const rect = canvas.getBoundingClientRect();
   const y = e.clientY - rect.top;
-  // Acha linha mais próxima (priceToCoordinate retorna pixel y)
   let nearest = null, minDist = ORDER_DRAG_TOLERANCE_PX + 1;
   for (const ref of orderLines) {
     if (!ref.draggable) continue;
@@ -2768,7 +2768,7 @@ function _onChartMouseDown(e) {
     if (dist < minDist) { minDist = dist; nearest = ref; }
   }
   if (!nearest) return;
-  // Encontrou — pega controle do evento (impede pan do chart)
+  // Encontrou — pega controle do evento
   e.preventDefault();
   e.stopPropagation();
   if (e.stopImmediatePropagation) e.stopImmediatePropagation();
@@ -2789,12 +2789,12 @@ function _onChartMouseDown(e) {
   document.body.style.cursor = 'ns-resize';
 }
 
-// Hover: muda cursor quando sobre linha draggable, mesmo sem pressionar botão
+// Hover: muda cursor quando Ctrl está pressionado E mouse sobre linha draggable
 function _onChartHoverMove(e) {
-  if (_draggingOrder) return;  // já sendo arrastado
+  if (_draggingOrder) return;
   if (!priceSeries || !orderLines.length) return;
   const canvas = _isChartCanvasTarget(e.target);
-  if (!canvas) {
+  if (!canvas || (!e.ctrlKey && !e.metaKey)) {
     if (document.body.style.cursor === 'ns-resize') document.body.style.cursor = '';
     return;
   }
