@@ -1534,8 +1534,9 @@ let currentPeriod = '1y';
 let tradeMode     = 'buy';
 let indVisible    = {bb: false, rsi: false, macd: false, adx: true, patterns: false, sr_classic: false, sr_swing: false, sr_williams: false};
 let srLines       = [];   // refs de priceLines criadas no priceSeries (S/R overlays)
-let orderLines    = [];   // refs de priceLines pra ordens pendentes do ticker corrente
+let orderLines    = [];   // refs ricas: {ln, refPrice, side, isStop, ids:[], orders:[]}
 let positionLine  = null; // ref da priceLine da posicao aberta no PM (verde long, vermelha short)
+let _draggingOrder = null; // {ln, order, originalPrice, currentPrice, isStop} durante drag
 let srCache       = null; // cache da última resposta /levels (evita refetch a cada toggle)
 let patternMarkers = [];  // markers ativos no gráfico
 let indConfig     = {rsiPeriod: 14, bbPeriod: 20, adxPeriod: 14};
@@ -1970,6 +1971,8 @@ function renderPriceChart(bars, bb) {
     priceLineStyle: 2,  // dashed
     lastValueVisible: true,
   });
+  // Habilita drag-to-modify nas linhas de ordem
+  try { _setupOrderDragHandlers(); } catch(_) {}
   // Garante timestamps numericos antes de setData
   var _bars2 = bars.map(function(b){
     var t = b.time;
@@ -2600,7 +2603,7 @@ async function refreshSRLevels() {
 // verde = compra, vermelha = venda. Stop-limit usa stop_price como referência.
 function clearOrderLines() {
   if (!priceSeries) { orderLines = []; return; }
-  orderLines.forEach(function(ln){ try { priceSeries.removePriceLine(ln); } catch(e){} });
+  orderLines.forEach(function(ref){ try { priceSeries.removePriceLine(ref.ln); } catch(e){} });
   orderLines = [];
 }
 
@@ -2626,9 +2629,10 @@ function drawOrderLines(orders) {
     const refPrice = isStop ? o.stop_price : o.price;
     if (!refPrice || refPrice <= 0) return;  // market order (price=-1) skip
     const key = refPrice.toFixed(4) + '|' + o.order_side + '|' + (isStop ? 'S' : 'L');
-    const g = groups.get(key) || { price: refPrice, side: o.order_side, isStop: isStop, qty: 0, ids: [] };
+    const g = groups.get(key) || { price: refPrice, side: o.order_side, isStop: isStop, qty: 0, ids: [], orders: [] };
     g.qty += (o.quantity || 0);
     g.ids.push(o.local_order_id);
+    g.orders.push(o);
     groups.set(key, g);
   });
   groups.forEach(function(g){
@@ -2636,7 +2640,8 @@ function drawOrderLines(orders) {
     const color = isBuy ? 'rgba(46,212,122,.85)' : 'rgba(255,107,107,.85)';
     const sideStr = isBuy ? '▲ C' : '▼ V';
     const typeStr = g.isStop ? ' STP' : '';
-    const idStr = g.ids.length === 1 ? ' #' + g.ids[0] : ' (' + g.ids.length + ')';
+    const isDraggable = g.ids.length === 1;
+    const idStr = isDraggable ? ' #' + g.ids[0] + ' ↕' : ' (' + g.ids.length + ')';
     try {
       const ln = priceSeries.createPriceLine({
         price: g.price,
@@ -2646,7 +2651,15 @@ function drawOrderLines(orders) {
         axisLabelVisible: true,
         title: sideStr + ' ' + g.qty + typeStr + idStr,
       });
-      orderLines.push(ln);
+      orderLines.push({
+        ln: ln,
+        refPrice: g.price,
+        side: g.side,
+        isStop: g.isStop,
+        ids: g.ids,
+        orders: g.orders,
+        draggable: isDraggable,
+      });
     } catch(e) {}
   });
 }
@@ -2687,6 +2700,138 @@ async function refreshPositionLine() {
       title: sideStr + ' ' + r.open_qty + ' @ PM',
     });
   } catch(e) { /* silent — posição transitória */ }
+}
+
+// ── Drag-to-modify de orderLines ──────────────────────────────────────────────
+// Click + drag em uma linha de ordem (com 1 ordem só, ↕ no label) reposiciona
+// no eixo Y; ao soltar, chama /order/change com o novo preço.
+// Stop-limit: trigger e limit movem juntos (mantém spread original).
+const ORDER_DRAG_TOLERANCE_PX = 6;
+
+function _findChartCanvas() {
+  const container = document.getElementById('chart-price');
+  if (!container) return null;
+  return container.querySelector('canvas');
+}
+
+function _setupOrderDragHandlers() {
+  if (typeof _setupOrderDragHandlers._installed !== 'undefined') return;
+  _setupOrderDragHandlers._installed = true;
+  document.addEventListener('mousedown', _onChartMouseDown, true);
+  document.addEventListener('mousemove', _onChartMouseMove);
+  document.addEventListener('mouseup', _onChartMouseUp);
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && _draggingOrder) _cancelDrag();
+  });
+}
+
+function _onChartMouseDown(e) {
+  if (!priceSeries || !priceChart || !orderLines.length) return;
+  const canvas = _findChartCanvas();
+  if (!canvas || e.target !== canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const y = e.clientY - rect.top;
+  // Acha linha mais próxima (priceToCoordinate retorna pixel y)
+  let nearest = null, minDist = ORDER_DRAG_TOLERANCE_PX + 1;
+  for (const ref of orderLines) {
+    if (!ref.draggable) continue;
+    let yPix;
+    try { yPix = priceSeries.priceToCoordinate(ref.refPrice); } catch(_) { continue; }
+    if (yPix === null || yPix === undefined) continue;
+    const dist = Math.abs(y - yPix);
+    if (dist < minDist) { minDist = dist; nearest = ref; }
+  }
+  if (!nearest) return;
+  // Encontrou — pega controle do evento
+  e.preventDefault();
+  e.stopPropagation();
+  _draggingOrder = {
+    ref: nearest,
+    order: nearest.orders[0],
+    originalPrice: nearest.refPrice,
+    currentPrice: nearest.refPrice,
+    isStop: nearest.isStop,
+    canvas: canvas,
+    spread: 0,  // calculado abaixo se stop-limit
+  };
+  // Stop-limit: spread entre price (limit) e stop_price (trigger)
+  if (nearest.isStop) {
+    const o = nearest.orders[0];
+    _draggingOrder.spread = (o.price || o.stop_price) - o.stop_price;
+  }
+  // Desabilita scroll do chart durante drag pra não pular eixo
+  try { priceChart.applyOptions({ handleScroll: false, handleScale: false }); } catch(_) {}
+  canvas.style.cursor = 'ns-resize';
+}
+
+function _onChartMouseMove(e) {
+  if (!_draggingOrder || !priceSeries) return;
+  const rect = _draggingOrder.canvas.getBoundingClientRect();
+  const y = e.clientY - rect.top;
+  let newPrice;
+  try { newPrice = priceSeries.coordinateToPrice(y); } catch(_) { return; }
+  if (newPrice === null || newPrice === undefined || newPrice <= 0) return;
+  // Arredonda 2 decimais (PETR4-like)
+  const rounded = Math.round(newPrice * 100) / 100;
+  _draggingOrder.currentPrice = rounded;
+  const o = _draggingOrder.order;
+  const isBuy = o.order_side === 1;
+  const sideStr = isBuy ? '▲ C' : '▼ V';
+  const typeStr = _draggingOrder.isStop ? ' STP' : '';
+  try {
+    _draggingOrder.ref.ln.applyOptions({
+      price: rounded,
+      title: sideStr + ' ' + o.quantity + typeStr + ' #' + o.local_order_id + ' → R$ ' + rounded.toFixed(2),
+    });
+  } catch(_) {}
+}
+
+async function _onChartMouseUp(e) {
+  if (!_draggingOrder) return;
+  const drag = _draggingOrder;
+  _draggingOrder = null;
+  try { drag.canvas.style.cursor = ''; } catch(_) {}
+  try { priceChart.applyOptions({ handleScroll: true, handleScale: true }); } catch(_) {}
+  if (!drag.currentPrice || drag.currentPrice === drag.originalPrice) {
+    // Restaura título sem o "→ R$"
+    try { refreshOrders(); } catch(_) {}
+    return;
+  }
+  const o = drag.order;
+  const newPrice = drag.currentPrice;
+  // Body do change_order:
+  //  - Limit (type=2): price = newPrice, stop_price = -1
+  //  - Stop-limit (type=4): stop_price = newPrice, price = newPrice + spread (preserva spread)
+  const body = drag.isStop
+    ? { env: 'simulation', local_order_id: o.local_order_id, price: Math.round((newPrice + drag.spread) * 100) / 100, stop_price: newPrice, quantity: o.quantity }
+    : { env: 'simulation', local_order_id: o.local_order_id, price: newPrice, stop_price: -1, quantity: o.quantity };
+  try {
+    const r = await fetch('/api/v1/agent/order/change', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then(x => x.json());
+    if (r && r.ok) {
+      toast('Ordem #' + o.local_order_id + ' alterada → R$ ' + newPrice.toFixed(2), 'ok');
+      refreshOrders();
+    } else {
+      toast('Falha alterar ordem: ' + (r && (r.error || ('ret=' + r.ret)) || 'erro'), 'err');
+      // Restaura linha pra preço original
+      try { drag.ref.ln.applyOptions({ price: drag.originalPrice }); } catch(_) {}
+      refreshOrders();
+    }
+  } catch(err) {
+    toast('Erro de rede: ' + err.message, 'err');
+    try { drag.ref.ln.applyOptions({ price: drag.originalPrice }); } catch(_) {}
+  }
+}
+
+function _cancelDrag() {
+  if (!_draggingOrder) return;
+  try { _draggingOrder.ref.ln.applyOptions({ price: _draggingOrder.originalPrice }); } catch(_) {}
+  try { _draggingOrder.canvas.style.cursor = ''; } catch(_) {}
+  try { priceChart.applyOptions({ handleScroll: true, handleScale: true }); } catch(_) {}
+  _draggingOrder = null;
+  refreshOrders();
 }
 
 function updateIndBadge() {

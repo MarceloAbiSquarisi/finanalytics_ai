@@ -3893,9 +3893,12 @@ class ProfitAgent:
                 cl_ord = o.get("cl_ord_id")
                 if not local_id and not cl_ord:
                     continue
+                # Sincroniza tambem price/stop_price quando DLL retorna valores positivos
+                # (mudancas via change_order — drag-to-modify, trail cancel+create, etc).
                 self._db.execute(
                     "UPDATE profit_orders SET order_status=%s,traded_qty=COALESCE(%s,traded_qty),"
                     "leaves_qty=COALESCE(%s,leaves_qty),avg_price=COALESCE(%s,avg_price),"
+                    "price=CASE WHEN %s IS NOT NULL AND %s > 0 THEN %s ELSE price END,"
                     "cl_ord_id=COALESCE(cl_ord_id,%s),updated_at=NOW() "
                     "WHERE local_order_id=%s OR cl_ord_id=%s",
                     (
@@ -3903,6 +3906,7 @@ class ProfitAgent:
                         o["traded_qty"] or None,
                         o["leaves_qty"] or None,
                         o["avg_price"],
+                        o.get("price"), o.get("price"), o.get("price"),
                         cl_ord or None,
                         local_id or 0,
                         cl_ord or "",
