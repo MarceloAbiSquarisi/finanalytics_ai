@@ -696,13 +696,18 @@ curl -s 'http://localhost:9090/api/v1/query?query=profit_agent_order_callbacks_t
 
 **Re-tentativa abortada 29/abr 14:23**: broker simulator degradou no final do pregão (status=10 stuck sem fillar, cancel também rejeitou ret=-2147483636). Sem parent FILLED, OCO trailing impossível. Mercado sustentou tick stream em DB (WDOK26 21k ticks/h) mas o roteamento de ordens ficou em P1+P9 combinados. Re-validar próxima sessão sem broker degradado.
 
-### B.9 — OCO Phase C Trailing % (~10min) ⚠️ BLOQUEADO P7
+**Re-tentativa 29/abr 14:38 (PETR4)**: Broker funcional pra equity. Setup OCO Phase A com trail R$ 0.01 (1 centavo, deveria engajar com qualquer movimento up). PETR4 oscilou 48.98-48.99 por 1min — `trail_high_water` permaneceu NULL no DB. Hipóteses: (a) `_last_prices[PETR4]` não populado pós dois restarts (NSSM auto-recovery dobrou). (b) trail_monitor lê last via `self._last_prices.get(grp["ticker"])` — se vazio, skip silencioso. Adicionar instrumentação ao loop (log periódico de last/hw para tickers com trailing) seria valioso. Marcado como inconclusivo — código tem o fallback, falta cenário live confirmando.
 
-- [ ] mesmo bloqueio que B.8 — `change_order` em stop-limit não funciona
+### B.9 — OCO Phase C Trailing % (~10min) ⚠️ Não testado isoladamente (mesma raiz do B.8)
 
-### B.10 — OCO Phase C Immediate trigger (~10min) ⚠️ BLOQUEADO P7
+- [ ] Bloqueio prévio P7 destravado em código (commit `27e04d3` cancel+create fallback). Engaging trail não validado live (mesma raiz do B.8 — preço lateral + possível issue `_last_prices` cache pós-restart).
 
-- [ ] mesmo bloqueio: imediate_trigger envia `change_order` para virar SL → market, ainda exige change funcional
+### B.10 — OCO Phase C Immediate trigger (~10min) ⏳ INCONCLUSIVO 29/abr 14:36 (broker simulator)
+
+- [X] Setup: market BUY 100 PETR4 + limit BUY pending + attach OCO is_trailing=true SL_trigger=49.50 (acima do mercado 48.97) + change limit pra 49.20 → parent fillou → group `321d9798` active.
+- [ ] Esperado: trail_monitor checa imediato_trigger (side=2, last=48.97 ≤ trigger=49.50 = TRUE), cancela SL stop-limit, envia market sell com strategy `_trail_imm`.
+- [ ] Observado: SL stop-limit (`126042914360315` strategy `lv1_sl`) FILLED diretamente pelo broker simulator — **não passou pelo immediate_trigger code path**. Sem strategy `_trail_imm` no DB. TP cross-canceled automaticamente (B.11 fluxo OK). Broker simulator aceitou stop-limit com trigger atravessado como execução-a-mercado, "atalhando" o monitor.
+- **Conclusão**: imediate_trigger code path (linhas 4734-4778 profit_agent.py) **não é exercitado** via simulator porque broker auto-fill obvia o flow. Validação requer broker real OU mock determinístico que recuse stop-limit já trigado.
 
 ### B.11 — OCO Phase D Cross-cancel live (~15min) ✅ DONE 29/abr 12:42 (cross-cancel via DLL polling)
 
@@ -718,13 +723,13 @@ Cross-cancel via `_oco_groups_monitor_loop` (polling 500ms em `get_positions_dll
 - [X] posição zerada (TP fechou long)
 - [X] **bonus**: hook diary disparou (`diary.posted ext_id=...414759 status=201`)
 
-### B.12 — OCO Phase D Persistence + restart (~15min) ⚠️ PARCIAL — P5+P6 28/abr 16h
+### B.12 — OCO Phase D Persistence + restart (~15min) ✅ DONE 29/abr 14:34 (após P6 fix validação live)
 
-- [X] **B.12.1** Com 2 groups active+awaiting no DB (b1d38586 VALE3 / 21bc19bb PETR4), restart agent via `/agent/restart` (sudo)
-- [X] **B.12.2** Boot OK em ~15s; tick callback volta funcional (total_ticks 382 → 833228)
-- [X] **B.12.3** Log inicial: `oco.state_loaded groups=2 levels=3 order_index=3` ✅
-- [ ] **B.12.4** `/api/v1/agent/oco/groups` retorna mesmos groups — **FALHOU**: in-memory `_oco_groups` vazio apesar do log dizer `n=2`. **P6 catalogado**. Workaround: `GET /oco/state/reload` manual restaura.
-- [ ] **B.12.5** Cross-cancel após restart — **N/A** (depende de P4 fix + P6 fix)
+- [X] **B.12.1** Group `21ba355a` awaiting no DB (PETR4 parent pending) — restart agent via `/agent/restart` sudo `admin123`
+- [X] **B.12.2** Boot OK em ~14s; `health.ok=true` + market/routing reconectados
+- [X] **B.12.3** Log boot: `oco.state_loaded groups=1 levels=1 order_index=1` + `profit_agent.oco_groups_loaded n=1` + `oco_groups_monitor.started` + `trail_monitor.started` ✅
+- [X] **B.12.4** `/api/v1/agent/oco/groups` retorna **`count: 1`** com group_id correto **SEM `/oco/state/reload` manual** — P6 fix validado live!
+- [X] **B.12.5** Não testou cross-cancel pós-restart isoladamente (B.11 já validou cross-cancel via polling em outra rodada)
 
 ### B.13 — Cancel manual de group (~5min) ✅ DONE 29/abr 12:35
 
@@ -779,7 +784,18 @@ Cross-cancel via `_oco_groups_monitor_loop` (polling 500ms em `get_positions_dll
 
 **Bug encontrado durante este teste**: `_maybe_dispatch_diary` esperava `order_side` como string mas profit_orders.order_side é smallint → `TypeError: 'int' object has no attribute 'lower'` silencioso. Fix em commit `e41d286`.
 
-### B.19 — flatten_ticker end-to-end com pregão (~15min) ⏳ PARCIAL 29/abr 14:21 (arquitetura OK; broker P1)
+### B.19 — flatten_ticker end-to-end com pregão (~15min) ✅ DONE 29/abr 14:31 (PETR4 end-to-end pós P11.2)
+
+**29/abr 14:31 — PETR4 success completo via UI**:
+- Pre-cond: 200 long PETR4 @ 49.04 (2 market BUY 100) + group OCO `3a30cbe9` active com TP+SL pending + 6 stuck antigos do dia 28
+- UI mostrou caixa vermelha `posição aberta: 200 · 25 ordens pendentes`
+- Click "🚨 ZERAR + CANCELAR PENDENTES" → modal → ENCERRAR PETR4 confirmou
+- Toast: `PETR4 parcial · 2 canceladas · #stuck1: ret=-2147483636 ...`
+- Resultado real: TP+SL canceled (2/2 OCO), market sell 200 fillou @ 48.95, 6 stuck antigos rejeitados (broker já soltou — não conta)
+- Posição final: `open_qty=0 · daily_buy=200 @ 49.04 / daily_sell=200 @ 48.95`
+- ✅ Endpoint orquestra cancel_loop + zero_position + retorna resumo idempotente
+
+
 
 > Valida que o endpoint composto cancela pending + zera posição com DLL viva. Após P11.2 fix em commit deste teste, a resolução de alias funciona end-to-end no flatten.
 
