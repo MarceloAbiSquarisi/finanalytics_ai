@@ -107,6 +107,11 @@ YAHOO_BARS_HOUR = int(os.environ.get("SCHEDULER_YAHOO_BARS_HOUR", "8"))  # 08:00
 CRYPTO_SIGNALS_ENABLED = os.environ.get("SCHEDULER_CRYPTO_SIGNALS_ENABLED", "true").lower() == "true"
 CRYPTO_SIGNALS_HOUR = int(os.environ.get("SCHEDULER_CRYPTO_SIGNALS_HOUR", "9"))  # 09:00 BRT
 
+# Snapshot diario de /api/v1/ml/signals → signal_history (29/abr/2026: re-ativado).
+# Roda apos pregao fechar (default 19h BRT, 2h margem sobre close 17h).
+SNAPSHOT_SIGNALS_ENABLED = os.environ.get("SCHEDULER_SNAPSHOT_SIGNALS_ENABLED", "true").lower() == "true"
+SNAPSHOT_SIGNALS_HOUR = int(os.environ.get("SCHEDULER_SNAPSHOT_SIGNALS_HOUR", "19"))  # 19:00 BRT
+
 # ── Logger ────────────────────────────────────────────────────────────────────
 structlog.configure(
     processors=[
@@ -788,6 +793,54 @@ async def crypto_signals_snapshot_job() -> dict[str, Any]:
         return {"status": "error", "error": str(exc)}
 
 
+async def snapshot_signals_job() -> dict[str, Any]:
+    """Snapshot diario de /api/v1/ml/signals → signal_history.
+
+    Chama scripts/snapshot_signals.py via subprocess. Idempotente
+    (UPSERT em signal_history). Sem skip de weekend (snapshot pode
+    rodar todo dia, simplesmente repete o estado se nada mudou).
+    """
+    logger.info("scheduler.snapshot_signals.start")
+    # DSN priority: TIMESCALE_URL (compose network) sobrescreve PROFIT_TIMESCALE_DSN
+    # (default localhost do .env). Mesma logica do gtd_enforcer_loop.
+    ts_dsn = (
+        os.environ.get("TIMESCALE_URL", "")
+        .replace("postgresql+asyncpg://", "postgresql://")
+        or os.environ.get("PROFIT_TIMESCALE_DSN", "")
+    )
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "python",
+            "/app/scripts/snapshot_signals.py",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            env={
+                **os.environ,
+                "FINANALYTICS_API_URL": os.environ.get("FINANALYTICS_API_URL", "http://api:8000"),
+                "PROFIT_TIMESCALE_DSN": ts_dsn,
+            },
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=300)
+        rc = proc.returncode
+        last_lines = stdout.decode("utf-8", errors="replace").splitlines()[-5:]
+        if rc == 0:
+            logger.info("scheduler.snapshot_signals.done", tail=last_lines)
+            _record("snapshot_signals", "ok")
+            return {"status": "ok", "tail": last_lines}
+        logger.warning("scheduler.snapshot_signals.bad_rc", rc=rc, tail=last_lines)
+        _record("snapshot_signals", "error")
+        return {"status": "error", "rc": rc, "tail": last_lines}
+
+    except asyncio.TimeoutError:
+        logger.error("scheduler.snapshot_signals.timeout")
+        _record("snapshot_signals", "error")
+        return {"status": "error", "reason": "timeout_5min"}
+    except Exception as exc:
+        logger.error("scheduler.snapshot_signals.failed", error=str(exc), exc_info=True)
+        _record("snapshot_signals", "error")
+        return {"status": "error", "error": str(exc)}
+
+
 async def yahoo_daily_bars_refresh_job() -> dict[str, Any]:
     """N11b (28/abr): refresh diario de profit_daily_bars com Yahoo OHLCV
     para FIIs+ETFs (asset_class IN ('fii','etf') no ticker_ml_config).
@@ -1206,6 +1259,24 @@ async def schedule_loop() -> None:
 
     if CRYPTO_SIGNALS_ENABLED:
         tasks.append(asyncio.create_task(crypto_signals_loop()))
+
+    async def snapshot_signals_loop() -> None:
+        # Snapshot diario de /signals → signal_history. Roda 19h BRT
+        # (pos-pregao + 2h margem). Idempotente; sem skip de weekend.
+        logger.info("scheduler.snapshot_signals.start_loop", hour=SNAPSHOT_SIGNALS_HOUR)
+        while True:
+            next_run = _next_run_utc(SNAPSHOT_SIGNALS_HOUR)
+            wait = _seconds_until(next_run)
+            logger.info(
+                "scheduler.snapshot_signals.next",
+                next_utc=next_run.isoformat(),
+                wait_min=round(wait / 60),
+            )
+            await asyncio.sleep(wait)
+            await snapshot_signals_job()
+
+    if SNAPSHOT_SIGNALS_ENABLED:
+        tasks.append(asyncio.create_task(snapshot_signals_loop()))
 
     async def stale_pending_loop() -> None:
         # C (28/abr): cleanup ordens pending stale 1x/dia (default 23h BRT,

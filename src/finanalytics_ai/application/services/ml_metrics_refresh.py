@@ -37,7 +37,7 @@ from finanalytics_ai.metrics import (
 logger = structlog.get_logger(__name__)
 
 REFRESH_SECONDS = int(os.environ.get("ML_METRICS_REFRESH_SECONDS", "300"))
-_default_models = Path(__file__).resolve().parents[3] / "models"
+_default_models = Path(__file__).resolve().parents[4] / "models"
 MODELS_DIR = Path(os.environ.get("FINANALYTICS_MODELS_DIR", str(_default_models)))
 
 
