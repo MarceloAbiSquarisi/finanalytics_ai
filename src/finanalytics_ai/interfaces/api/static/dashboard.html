@@ -1001,6 +1001,10 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     <div class="chart-area">
       <!-- Candlestick + Bollinger -->
       <div id="chart-price" style="flex:1;min-height:0;position:relative;display:flex;flex-direction:column">
+        <!-- Day-dividers overlay (sessão 30/abr). Linhas verticais
+             sutis no início de cada novo dia. z-index baixo (5) — fica
+             atrás dos handles de drag (10). -->
+        <svg id="day-dividers-svg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5"></svg>
         <!-- Drag-to-modify TP/SL overlay (sessão 30/abr).
              SVG ABSOLUTE por cima do canvas — events vêm direto pra nós,
              sem competir com o canvas listener interno do lightweight-charts. -->
@@ -2107,10 +2111,11 @@ function renderPriceChart(bars, bb) {
   });
   // Sessão 30/abr: re-renderiza handles SVG dos drag-to-modify quando o chart
   // muda visible range (pan/zoom). Skip durante drag ativo pra não resetar
-  // o handle que o user está arrastando.
+  // o handle que o user está arrastando. Também redraw de day-dividers.
   try {
     priceChart.timeScale().subscribeVisibleTimeRangeChange(function() {
       if (!_dragState && typeof updateOrderHandles === 'function') updateOrderHandles();
+      if (typeof updateDayDividers === 'function') updateDayDividers();
     });
   } catch (e) {}
   // Garante timestamps numericos antes de setData
@@ -2239,7 +2244,9 @@ function renderPriceChart(bars, bb) {
   setTimeout(function(){
     if (window.priceChart) window.priceChart.timeScale().fitContent();
   }, 300);
-  // Separadores de dia: drawDaySeparators(chart,bars,container) chamado abaixo
+  // Sessão 30/abr: divisor de dia inicial (subscribeVisibleTimeRangeChange
+  // re-renderiza em pan/zoom subsequente).
+  setTimeout(function(){ try { updateDayDividers(); } catch(_) {} }, 350);
   // Exibe ultimo preco imediatamente apos carregar
   if (bars && bars.length) {
     const last = bars[bars.length-1];
@@ -3009,6 +3016,63 @@ function drawOrderLines(orders) {
   // Sessão 30/abr: handles SVG overlay por cima do chart pra drag-to-modify.
   // Renderizados após criar priceLines (precisamos de orderLines populado).
   try { updateOrderHandles(); } catch(e) {}
+}
+
+// ── Day-dividers (sessão 30/abr) ─────────────────────────────────────────────
+// Linhas verticais sutis no início de cada novo dia para visualmente separar
+// sessões. Lê _timeRealMap (compressedTs → realTs) pra detectar mudança de
+// dia mesmo com gap compression overnight.
+function updateDayDividers() {
+  const svg = document.getElementById('day-dividers-svg');
+  if (!svg) return;
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  if (!priceChart || !_timeRealMap || _timeRealMap.size < 2) return;
+  const container = document.getElementById('chart-price');
+  if (!container) return;
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  if (!w || !h) return;
+  const ts = priceChart.timeScale();
+  // Visible range pra evitar desenhar fora da tela
+  const visible = ts.getVisibleRange();
+  if (!visible) return;
+  // Sort entries por compressedTs
+  const entries = Array.from(_timeRealMap.entries()).sort((a, b) => a[0] - b[0]);
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  let lastDayKey = null;
+  for (const [compressed, real] of entries) {
+    if (compressed < visible.from || compressed > visible.to) continue;
+    // YYYY-MM-DD em UTC pra agrupar — pregão B3 começa 13 UTC = sempre mesmo dia UTC
+    const d = new Date(real * 1000);
+    const dayKey = d.getUTCFullYear() + '-' + d.getUTCMonth() + '-' + d.getUTCDate();
+    if (lastDayKey !== null && dayKey !== lastDayKey) {
+      // Mudou de dia — desenha linha em `compressed`
+      const x = ts.timeToCoordinate(compressed);
+      if (x !== null && x > 0 && x < w) {
+        const line = document.createElementNS(SVG_NS, 'line');
+        line.setAttribute('x1', String(x));
+        line.setAttribute('y1', '0');
+        line.setAttribute('x2', String(x));
+        line.setAttribute('y2', String(h));
+        line.setAttribute('stroke', 'rgba(180,200,230,.45)');
+        line.setAttribute('stroke-width', '1');
+        line.setAttribute('stroke-dasharray', '5,4');
+        svg.appendChild(line);
+        // Label pequena com a data (DD/MM) acima da linha, no topo do chart
+        const label = document.createElementNS(SVG_NS, 'text');
+        label.setAttribute('x', String(x + 4));
+        label.setAttribute('y', '13');
+        label.setAttribute('fill', 'rgba(200,215,235,.85)');
+        label.setAttribute('font-size', '10');
+        label.setAttribute('font-family', 'DM Mono, monospace');
+        const dd = String(d.getUTCDate()).padStart(2, '0');
+        const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+        label.textContent = dd + '/' + mm;
+        svg.appendChild(label);
+      }
+    }
+    lastDayKey = dayKey;
+  }
 }
 
 // ── Drag-to-modify TP/SL via SVG overlay (sessão 30/abr) ─────────────────────
