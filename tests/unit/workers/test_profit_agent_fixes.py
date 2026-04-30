@@ -6,10 +6,21 @@ sem inicializar a DLL (que requer Windows + key Nelogica).
 
 from __future__ import annotations
 
-from ctypes import sizeof
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+# profit_agent.py importa WINFUNCTYPE/WinDLL/windll de ctypes (Windows-only).
+# Mocking parcial em CI Linux ainda quebra no top-level import. Os testes
+# validam ABI Win64 (TConnectorOrderIdentifier 24B match Delphi) — só fazem
+# sentido em Windows. CI Linux skip silencioso.
+pytestmark = pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="profit_agent.py é Windows-only (ctypes.WINFUNCTYPE/WinDLL).",
+)
+
+from ctypes import sizeof
 
 
 @pytest.fixture(scope="module")
