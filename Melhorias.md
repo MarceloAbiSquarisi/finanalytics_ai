@@ -148,16 +148,16 @@ Filtro adicional usando DI1 realtime (já implementado): só opera quando slope 
 **Edge**: Zarattini & Aziz 2023 (SSRN) documentou edge persistente em S&P futures. Replicação em WINFUT viável dado liquidez similar.
 
 #### R5 — Backtest harness (vectorbt-pro / próprio) ⭐⭐ multiplica produtividade
-**Custo**: ~3-5d. **Payoff**: alto (sem backtest robusto, qualquer strategy é lottery ticket).
+**Status (30/abr/2026)**: harness base já existe há tempo (`domain/backtesting/{engine,optimizer,multi_ticker,strategies}.py` + 4 services: backtest, walkforward, optimizer, multi_ticker) cobrindo walk-forward (rolling+anchored), grid search, equity curve, drawdown, profit factor, Calmar, multi-ticker. Aprimoramentos pós-pregão 30/abr:
+- ✅ **Slippage por classe de ativo** (`domain/backtesting/slippage.py`): futuros (WDO/WIN/IND/DOL/DI/CCM/BGI/OZM) cobram 2 ticks/lado em valor absoluto; ações cobram 0.05% por lado. Aplicado em `run_backtest` via `apply_slippage_model=True` default. Trade.entry_price/exit_price registram preço efetivo.
+- ✅ **Deflated Sharpe Ratio** (`domain/backtesting/metrics.py`): correção López de Prado 2014 para multiple testing bias do grid search. `OptimizationResult.deflated_sharpe` traz `{deflated_sharpe, prob_real, e_max_sharpe}` sobre o melhor candidato. Implementação canônica: SR_0 = sigma(SR_hat) × f(N), com f(N) = (1-γ)Φ⁻¹(1-1/N) + γΦ⁻¹(1-1/(Ne)). Probit Beasley-Springer-Moro sem dependência de scipy.
+- 31 unit tests novos (slippage 13 + DSR 18) + 199 tests de regressão verdes.
 
-Antes de R2/R3/R4 irem live com capital real, precisa harness que:
-- Walk-forward (López de Prado): janelas rolling, in-sample/out-of-sample/holdout
-- Slippage realista: 0.05% round-trip ações líquidas, 2 ticks WDOFUT/WINFUT
-- Deflated Sharpe (corrige multiple testing bias)
-- Survivorship bias check
-- Equity curve + drawdown report
-
-Usa `ohlc_resampled` + `fintz_cotacoes_ts` (já cobrem 10+ anos B3). Outputs em `backtest_results` table com `config_hash`.
+**Faltam (defer)**:
+- DSR aplicado também no `WalkForwardService` (precisa expor `_calc_metrics` reusável sobre `combined_equity` OOS).
+- Survivorship bias check (precisa lista de tickers delistados no DB).
+- Tabela `backtest_results` com `config_hash` para histórico comparativo (hoje cada run é volátil).
+- Slippage calibrável por liquidez (small caps merecem mais que 0.05%).
 
 ### Pitfalls comuns que matam robôs amadores (referência)
 

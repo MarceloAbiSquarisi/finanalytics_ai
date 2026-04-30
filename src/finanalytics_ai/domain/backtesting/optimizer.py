@@ -39,6 +39,7 @@ import itertools
 from typing import Any
 
 from finanalytics_ai.domain.backtesting.engine import BacktestMetrics, run_backtest
+from finanalytics_ai.domain.backtesting.metrics import deflated_sharpe
 from finanalytics_ai.domain.backtesting.strategies.technical import get_strategy
 
 MIN_TRADES = 3  # minimo de trades para resultado ser valido
@@ -154,6 +155,9 @@ class OptimizationResult:
     valid_runs: int
     top: list[OptimizedRun]
     heatmap: dict[str, Any] = field(default_factory=dict)
+    # R5: deflated Sharpe sobre o melhor run (corrige multiple testing bias do grid).
+    # None se nao houver runs validos. Ver domain.backtesting.metrics.
+    deflated_sharpe: dict[str, float] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -167,6 +171,7 @@ class OptimizationResult:
             "heatmap": self.heatmap,
             "best_params": self.best_params,
             "best_score": round(self.best_score, 4),
+            "deflated_sharpe": self.deflated_sharpe,
         }
 
     @property
@@ -271,6 +276,19 @@ def grid_search(
     # Monta heatmap (2 parametros principais vs score)
     heatmap = _build_heatmap(strategy_name, param_names, raw_results, objective)
 
+    # R5: Deflated Sharpe sobre o melhor candidato — corrige selection bias
+    # do grid (N=valid_count). T = sample_size = len(bars)-1 (retornos diarios).
+    # Pulado se nao ha candidato valido ou poucos retornos para inferencia.
+    dsr_payload: dict[str, float] | None = None
+    if top_runs and valid_count >= 2 and len(bars) > 30:
+        best = top_runs[0]
+        dsr = deflated_sharpe(
+            observed_sharpe=best.metrics.sharpe_ratio,
+            num_trials=valid_count,
+            sample_size=len(bars) - 1,
+        )
+        dsr_payload = dsr.to_dict()
+
     return OptimizationResult(
         ticker=ticker,
         strategy=strategy_name,
@@ -280,6 +298,7 @@ def grid_search(
         valid_runs=valid_count,
         top=top_runs,
         heatmap=heatmap,
+        deflated_sharpe=dsr_payload,
     )
 
 

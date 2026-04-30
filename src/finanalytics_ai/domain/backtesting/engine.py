@@ -37,6 +37,8 @@ from enum import StrEnum
 import math
 from typing import Any, Protocol, runtime_checkable
 
+from finanalytics_ai.domain.backtesting.slippage import apply_slippage
+
 # ── Sinais ────────────────────────────────────────────────────────────────────
 
 
@@ -203,6 +205,7 @@ def run_backtest(
     position_size: float = 1.0,  # fração do capital por trade (1.0 = 100%)
     commission_pct: float = 0.001,  # 0.1% por operação (B3 típico)
     range_period: str = "3mo",
+    apply_slippage_model: bool = True,  # R5: slippage por classe (futuros vs ações)
 ) -> BacktestResult:
     """
     Engine de backtesting event-driven.
@@ -210,6 +213,12 @@ def run_backtest(
     Itera barra a barra aplicando sinais da estratégia.
     Executa ao preço de fechamento da barra de sinal (simplificação).
     Comissão aplicada em abertura e fechamento de posição.
+
+    Slippage (R5, ativado por padrão via apply_slippage_model):
+      - Futuros (WDO/WIN/IND/DOL/DI/CCM/BGI/OZM): N_TICKS_FUTURE ticks/lado
+      - Ações: 0.05% por lado (relativo ao preço)
+      - Aplicado SOBRE o close da barra antes de calcular qty/proceeds.
+      - Trade.entry_price/exit_price registram o preço efetivo (com slippage).
 
     Design: sem look-ahead bias — cada barra só vê dados até ela mesma.
     """
@@ -232,24 +241,26 @@ def run_backtest(
         ts = bar["time"]
         date = datetime.fromtimestamp(ts) if isinstance(ts, (int, float)) else datetime.now(UTC)
 
-        # Marca o sinal
+        # Marca o sinal (loga o preço de mercado, não o efetivo — sinal é decisão)
         if signal != Signal.HOLD:
             signal_log.append({"time": ts, "signal": signal.value, "price": price})
 
         # Abre posição
         if signal == Signal.BUY and position == 0.0:
+            exec_price = apply_slippage(price, "buy", ticker) if apply_slippage_model else price
             capital_to_invest = equity * position_size
             commission = capital_to_invest * commission_pct
-            qty = (capital_to_invest - commission) / price
+            qty = (capital_to_invest - commission) / exec_price
             position = qty
-            entry_price = price
+            entry_price = exec_price
             entry_date = date
             entry_reason = f"Sinal BUY barra {i}"
             equity -= capital_to_invest  # desconta capital investido do caixa comissão de entrada
 
         # Fecha posição
         elif signal == Signal.SELL and position > 0.0:
-            proceeds = position * price
+            exec_price = apply_slippage(price, "sell", ticker) if apply_slippage_model else price
+            proceeds = position * exec_price
             commission = proceeds * commission_pct
             equity += proceeds - commission  # devolve capital + lucro ao caixa
 
@@ -258,7 +269,7 @@ def run_backtest(
                 entry_date=entry_date,
                 exit_date=date,
                 entry_price=entry_price,
-                exit_price=price,
+                exit_price=exec_price,
                 quantity=position,
                 entry_reason=entry_reason,
                 exit_reason=f"Sinal SELL barra {i}",
@@ -266,7 +277,7 @@ def run_backtest(
             trades.append(trade)
             position = 0.0
 
-        # Equity mark-to-market (inclui posição aberta)
+        # Equity mark-to-market (inclui posição aberta — preço de mercado, sem slippage)
         current_equity = equity + (position * price if position > 0 else 0.0)
         peak_equity = max(peak_equity, current_equity)
         drawdown_pct = (
@@ -281,16 +292,19 @@ def run_backtest(
             }
         )
 
-    # Fecha posição aberta no último bar (força saída)
+    # Fecha posição aberta no último bar (força saída) — slippage aplicado igual SELL
     if position > 0.0 and bars:
         last_bar = bars[-1]
         last_price = float(last_bar["close"])
+        last_exec = (
+            apply_slippage(last_price, "sell", ticker) if apply_slippage_model else last_price
+        )
         last_date = (
             datetime.fromtimestamp(last_bar["time"])
             if isinstance(last_bar["time"], (int, float))
             else datetime.now(UTC)
         )
-        proceeds = position * last_price
+        proceeds = position * last_exec
         commission = proceeds * commission_pct
         equity += proceeds - commission  # devolve capital + lucro ao caixa
         trades.append(
@@ -299,7 +313,7 @@ def run_backtest(
                 entry_date=entry_date,
                 exit_date=last_date,
                 entry_price=entry_price,
-                exit_price=last_price,
+                exit_price=last_exec,
                 quantity=position,
                 entry_reason=entry_reason,
                 exit_reason="Fim do período",
