@@ -95,6 +95,8 @@ test_history.py
 # Screenshots ad-hoc de testes UI (gerados via mcp browser_take_screenshot)
 dashboard-*.png
 carteira-*.png
+day-dividers*.png
+u1-*.png
 
 # Backups automáticos timestamped (docker-compose.*.backup_YYYYMMDD_HHMM etc)
 *.backup_*
