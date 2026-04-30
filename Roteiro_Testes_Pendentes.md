@@ -41,6 +41,29 @@
 
 ---
 
+### ⚠️ Gaps históricos de captura (semana de Tiradentes 21-27/abr)
+
+> Documentado 30/abr após queixa user "ITUB4 mostrando gaps intraday". Não é bug do chart — é dado realmente ausente.
+
+| Dia | Esperado | Real PETR4 ticks | Observação |
+|---|---|---|---|
+| 22/04 (qua) | ~40k | 43.336 | ✓ OK |
+| **23/04 (qui)** | ~40k | **9.760** | Agent caiu às **12:02 BRT** (sessão cortada após ~2h pregão) |
+| 24/04 (sex) | ~40k | 36.498 | ✓ OK |
+| **25/04 (sex)** | ~40k | **4** | **DLL offline o dia inteiro** |
+| 26/04 (sáb) | 0 | 3 | OK (sem pregão) |
+| **27/04 (seg)** | ~40k | **0** | **DLL offline o dia inteiro** |
+| 28/04 (ter) | ~40k | 32.116 | ✓ OK |
+| 29/04 (qua) | ~40k | 49.947 | ✓ OK |
+
+**3 dias úteis perdidos**: 23/04 parcial + 25/04 + 27/04 inteiros. Causa: DLL/agent offline (provavelmente reboot host ou crash não monitorado naquela semana — sem logs preservados desde então).
+
+**Decisão (30/abr)**: aceitar e documentar. Backfill Yahoo 5m via script seria viável (~30-60min) mas não prioritário no fluxo operacional atual. **Quando R5 backtest harness for atacado** (Melhorias.md), será necessário backfill esses dias para evitar viés histórico nos backtests.
+
+**Mitigação preventiva implementada 29/abr**: alert `profit_agent_last_order_callback_age_seconds > 120s` deveria detectar agent silent. Validar que está firing → Pushover quando isso acontecer no futuro.
+
+---
+
 ## 🟢 BLOCO A — Pregão FECHADO (pode fazer agora ~1h50)
 
 > Tudo é render UI ou usa dados do seed. Não precisa tick/ordem viva.
