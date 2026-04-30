@@ -1159,6 +1159,18 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
         <span class="sig-label">ADX</span>
         <span class="sig-badge neutral" id="sig-adx">—</span>
 </div>
+      <div class="sig-row" style="margin-bottom:0">
+        <span class="sig-label">Estoc.</span>
+        <span class="sig-badge neutral" id="sig-stoch">—</span>
+</div>
+      <div class="sig-row" style="margin-bottom:0">
+        <span class="sig-label">ATR</span>
+        <span class="sig-badge neutral" id="sig-atr">—</span>
+</div>
+      <div class="sig-row" style="margin-bottom:0">
+        <span class="sig-label">VWAP</span>
+        <span class="sig-badge neutral" id="sig-vwap">—</span>
+</div>
 </div>
 
     <!-- Painel DayTrade -->
@@ -2003,7 +2015,7 @@ async function loadChartAndIndicators(ticker, range, interval) {
       renderStoch(indData.stochastic, indData.timestamps);
       renderATR(indData.atr, indData.timestamps);
       renderADX(indData.adx, histData.bars.map(function(b){return b.time;}));
-      updateSignals(indData);
+      updateSignals(indData, histData.bars);
     } catch(e2) { console.warn('Indicadores indisponiveis:', e2.message); }
     indCache = indData; indCache._bars = histData.bars;
     // S/R levels overlay (só busca se algum toggle estiver ON)
@@ -2654,7 +2666,9 @@ function _setSig(el, text, klass, tip) {
   el.style.cursor = 'help';
 }
 
-function updateSignals(data) {
+function updateSignals(data, bars) {
+  bars = bars || (window.indCache && indCache._bars) || [];
+  const _lastClose = bars.length ? +bars[bars.length-1].close : null;
   // RSI Signal
   const rsiVals = data.rsi.values.filter(v => v != null);
   const lastRsi = rsiVals[rsiVals.length-1];
@@ -2747,6 +2761,93 @@ function updateSignals(data) {
         adxEl.className='sig-badge neutral';
         adxEl.title = '⚪ MANTER / AGUARDAR — ADX<25: mercado lateralizado, sem tendência clara. Estratégias direcionais arriscadas; preferir range trading.';
         adxEl.style.cursor = 'help';
+      }
+    }
+  }
+
+  // Estocástico Lento Signal (%K + %D, OB=80, OS=20)
+  const stochEl = document.getElementById('sig-stoch');
+  if (stochEl && data.stochastic && data.stochastic.k && data.stochastic.d) {
+    const kArr = data.stochastic.k.filter(v => v != null);
+    const dArr = data.stochastic.d.filter(v => v != null);
+    if (kArr.length >= 2 && dArr.length >= 2) {
+      const kPrev = kArr[kArr.length-2], kCurr = kArr[kArr.length-1];
+      const dPrev = dArr[dArr.length-2], dCurr = dArr[dArr.length-1];
+      const ob = data.stochastic.overbought || 80;
+      const os = data.stochastic.oversold   || 20;
+      const crossUp   = kPrev <= dPrev && kCurr >  dCurr;
+      const crossDown = kPrev >= dPrev && kCurr <  dCurr;
+      if (crossUp && kCurr < os + 10) {
+        _setSig(stochEl, `CRUZ ↑ ${kCurr.toFixed(0)}/${dCurr.toFixed(0)}`, 'buy',
+          '🟢 COMPRA FORTE — Cruzamento %K acima de %D na zona sobrevendida (<30). Sinal classico de reversao para alta apos exaustao da queda.');
+      } else if (crossDown && kCurr > ob - 10) {
+        _setSig(stochEl, `CRUZ ↓ ${kCurr.toFixed(0)}/${dCurr.toFixed(0)}`, 'sell',
+          '🔴 VENDA FORTE — Cruzamento %K abaixo de %D na zona sobrecomprada (>70). Sinal classico de reversao para baixa apos exaustao da alta.');
+      } else if (kCurr >= ob && dCurr >= ob) {
+        _setSig(stochEl, `SOBRECOMPRADO ${kCurr.toFixed(0)}`, 'sell',
+          '🔴 VENDA / CAUTELA — %K e %D ambos acima de 80: ativo sobrecomprado. Aguarde cruzamento de baixa antes de operar; pode continuar subindo em tendencia forte.');
+      } else if (kCurr <= os && dCurr <= os) {
+        _setSig(stochEl, `SOBREVENDIDO ${kCurr.toFixed(0)}`, 'buy',
+          '🟢 COMPRA / ATENCAO — %K e %D ambos abaixo de 20: ativo sobrevendido. Aguarde cruzamento de alta antes de operar; em queda forte pode persistir.');
+      } else if (kCurr > dCurr) {
+        _setSig(stochEl, `ALTA ${kCurr.toFixed(0)}/${dCurr.toFixed(0)}`, 'buy',
+          '🟢 MOMENTUM POSITIVO — %K acima de %D fora de zonas extremas: tendencia de curto prazo positiva. Manter long ou aumentar posicao.');
+      } else {
+        _setSig(stochEl, `BAIXA ${kCurr.toFixed(0)}/${dCurr.toFixed(0)}`, 'sell',
+          '🔴 MOMENTUM NEGATIVO — %K abaixo de %D fora de zonas extremas: tendencia de curto prazo negativa. Cautela com longs; considerar reduzir.');
+      }
+    }
+  }
+
+  // ATR Signal (volatilidade absoluta — contexto, não direcional)
+  const atrEl = document.getElementById('sig-atr');
+  if (atrEl && data.atr && data.atr.values) {
+    const atrArr = data.atr.values.filter(v => v != null);
+    if (atrArr.length && _lastClose && _lastClose > 0) {
+      const lastAtr = atrArr[atrArr.length-1];
+      const atrPct  = (lastAtr / _lastClose) * 100;  // ATR como % do preço
+      // Média do ATR nos últimos 50 valores p/ contexto (volatilidade alta vs normal)
+      const window  = atrArr.slice(-50);
+      const meanAtr = window.reduce((a,b)=>a+b, 0) / window.length;
+      const ratio   = lastAtr / meanAtr;  // 1.0 = média; >1.5 = pico
+      const atrAbs  = lastAtr.toFixed(2);
+      const atrPctS = atrPct.toFixed(2);
+      if (atrPct >= 4.0 || ratio >= 1.6) {
+        _setSig(atrEl, `ALTA ${atrPctS}%`, 'sell',
+          `⚠️ VOLATILIDADE ALTA — ATR R$${atrAbs} (${atrPctS}% do preço, ${ratio.toFixed(2)}x média). Stops largos para nao serem caçados; reduza tamanho de posição (volatilidade dobra = posição cai pela metade). Periodos de incerteza/news.`);
+      } else if (atrPct <= 1.0 && ratio <= 0.7) {
+        _setSig(atrEl, `BAIXA ${atrPctS}%`, 'buy',
+          `📉 VOLATILIDADE BAIXA — ATR R$${atrAbs} (${atrPctS}% do preço, ${ratio.toFixed(2)}x média). Squeeze possivel: rompimentos frequentemente seguidos de movimentos amplos. Bom contexto para Bollinger Squeeze e ORB.`);
+      } else {
+        _setSig(atrEl, `${atrPctS}%`, 'neutral',
+          `⚪ VOLATILIDADE NORMAL — ATR R$${atrAbs} (${atrPctS}% do preço). Use 1.5-2.0×ATR como referencia para stop loss; 2.5-3.0×ATR para take profit em swing. Tamanho de posição padrão.`);
+      }
+    }
+  }
+
+  // VWAP Signal (preço relativo à média ponderada por volume)
+  const vwapEl = document.getElementById('sig-vwap');
+  if (vwapEl && data.vwap && data.vwap.values) {
+    const vwapArr = data.vwap.values.filter(v => v != null);
+    if (vwapArr.length && _lastClose && _lastClose > 0) {
+      const lastVwap = vwapArr[vwapArr.length-1];
+      const distPct  = ((_lastClose - lastVwap) / lastVwap) * 100;
+      const vwapStr  = lastVwap.toFixed(2);
+      if (distPct > 1.0) {
+        _setSig(vwapEl, `ACIMA +${distPct.toFixed(2)}%`, 'buy',
+          `🟢 COMPRADOR NO CONTROLE — Preço R$${_lastClose.toFixed(2)} vs VWAP R$${vwapStr} (+${distPct.toFixed(2)}%). Forte momentum de alta no dia; institucional pagando acima da média. Pullback ao VWAP = entrada potencial em long.`);
+      } else if (distPct < -1.0) {
+        _setSig(vwapEl, `ABAIXO ${distPct.toFixed(2)}%`, 'sell',
+          `🔴 VENDEDOR NO CONTROLE — Preço R$${_lastClose.toFixed(2)} vs VWAP R$${vwapStr} (${distPct.toFixed(2)}%). Forte pressão de baixa no dia; institucional vendendo abaixo da média. Repique ao VWAP = entrada potencial em short.`);
+      } else if (distPct > 0.2) {
+        _setSig(vwapEl, `ACIMA +${distPct.toFixed(2)}%`, 'buy',
+          `⚠️ LEVE ALTA — Preço R$${_lastClose.toFixed(2)} acima do VWAP R$${vwapStr} (+${distPct.toFixed(2)}%). Equilibrio com vies comprador. Acima de VWAP intraday = bias long.`);
+      } else if (distPct < -0.2) {
+        _setSig(vwapEl, `ABAIXO ${distPct.toFixed(2)}%`, 'sell',
+          `⚠️ LEVE BAIXA — Preço R$${_lastClose.toFixed(2)} abaixo do VWAP R$${vwapStr} (${distPct.toFixed(2)}%). Equilibrio com vies vendedor. Abaixo de VWAP intraday = bias short.`);
+      } else {
+        _setSig(vwapEl, `SOBRE VWAP ${distPct >= 0 ? '+' : ''}${distPct.toFixed(2)}%`, 'neutral',
+          `⚪ EQUILIBRIO — Preço R$${_lastClose.toFixed(2)} colado no VWAP R$${vwapStr}. Mercado disputado. Aguarde rompimento claro de VWAP +/- ATR para definir bias direcional.`);
       }
     }
   }
