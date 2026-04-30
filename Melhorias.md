@@ -285,21 +285,28 @@ DB ficou com `order_status=10 (PendingNew)` mesmo após broker retornar `code=5 
 - Change TP → fillou → log: `oco.filled local_id=... type=tp → canceling pair ...` + `oco_monitor.removed ids=[tp,sl] remaining=0`
 - SL auto-canceled em <1s (B.3 fechado também)
 
-#### P9 — DB stuck em status=10 mesmo após cancel/fill confirmado pelo broker ✅ MITIGADO 29/abr 15:33
-**Status**: callback raiz não foi corrigido, mas mitigação operacional aplicada.
+#### P9 — DB stuck em status=10 mesmo após cancel/fill confirmado pelo broker ✅ MITIGADO 29/abr + EXTENSÃO 30/abr boot-load
+**Status**: callback raiz não foi corrigido (impossível com a DLL atual — ver comentário expandido em `order_cb`), mas mitigação operacional cobre 100% dos cenários práticos.
 
-**Mitigação aplicada (commit `b153037`)**: `_watch_pending_orders_loop` thread.
+**Mitigação fase 1 (commit `b153037` 29/abr)**: `_watch_pending_orders_loop` thread.
 - `_send_order_legacy` registra `local_id` em `self._pending_orders`.
 - Loop varre @5s: chama `EnumerateAllOrders` (reusa reconcile UPDATE).
 - Se DLL enumera com status final, watch remove do registry.
 - Se DLL não enumera + DB stuck pendente após 60s → marca `status=8` `error='watch_orphan_no_dll_record'`.
 - Após 5min, remove do registry mesmo se ainda pending (last-resort).
 
-**Validação live 29/abr 15:16**:
-- `watch.order_resolved local_id=126042915111691 status=2 age=10.6s` — parent FILLED detectado em 10s (vs 5min do reconcile loop)
-- `watch.order_resolved local_id=126042915111693 status=2 age=9.6s` — SL trail FILLED idem
+**Mitigação fase 2 (commit `98a5e20` 30/abr)**: `_load_pending_orders_from_db` no boot.
+- Pre-popula `_pending_orders` com ordens em status (0,1,10) das últimas N horas (env `PROFIT_WATCH_LOAD_HOURS=24` default).
+- Sobrevive restart NSSM — antes, registry in-memory zerava e órfãs ficavam fora do watch até cleanup_stale 23h BRT.
 
-**Fix definitivo (futuro)**: callback `trading_msg_cb` pra status FILLED/CANCELED/REJECTED grava DB direto sem depender de polling. Vai ser obsoletado quando isso for feito.
+**Validação live 30/abr 11:36 pós-restart**:
+- `watch_pending_orders.loaded n=12 hours=24` — 12 ordens carregadas do DB
+- 10 órfãs detectadas e marcadas `status=8` em **<1 segundo**:
+  - `watch.order_orphaned local_id=126042914321588 age=75843.1s ticker=PETR4`
+  - 9× `watch.order_orphaned ... ticker=WDOK26 age=76366-83700s` (idades 21-23h)
+- DB pending residual = 4 (ordens >24h fora da janela de boot-load → caem no cleanup_stale 23h BRT)
+
+**Fix definitivo (descartado 30/abr)**: tentamos avaliar callback-based fix mas a DLL Profit não fornece status final via callback (`order_cb` só dá identifier 24B; `trading_msg_cb` só dá estágios de roteamento — Accepted/Rejected, nunca FILLED/CANCELED). O teto técnico é polling. Comentário expandido em `order_cb` pra evitar futuras tentativas infrutíferas.
 
 #### P11 — Aba Pos. dashboard mostra futuros como "Zerada" ✅ DONE 29/abr 14:08
 **Fix aplicado** (commits pendentes):
