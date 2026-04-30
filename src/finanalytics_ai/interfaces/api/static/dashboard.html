@@ -1001,6 +1001,10 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
     <div class="chart-area">
       <!-- Candlestick + Bollinger -->
       <div id="chart-price" style="flex:1;min-height:0;position:relative;display:flex;flex-direction:column">
+        <!-- Drag-to-modify TP/SL overlay (sessão 30/abr).
+             SVG ABSOLUTE por cima do canvas — events vêm direto pra nós,
+             sem competir com o canvas listener interno do lightweight-charts. -->
+        <svg id="order-handles-svg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:10"></svg>
         <div class="empty" id="empty">
           <svg width="44" height="44" viewBox="0 0 44 44" fill="none" opacity=".22">
             <rect x="5" y="20" width="6" height="17" rx="2" fill="#3ABFF8"/>
@@ -2101,6 +2105,14 @@ function renderPriceChart(bars, bb) {
     priceLineStyle: 2,  // dashed
     lastValueVisible: true,
   });
+  // Sessão 30/abr: re-renderiza handles SVG dos drag-to-modify quando o chart
+  // muda visible range (pan/zoom). Skip durante drag ativo pra não resetar
+  // o handle que o user está arrastando.
+  try {
+    priceChart.timeScale().subscribeVisibleTimeRangeChange(function() {
+      if (!_dragState && typeof updateOrderHandles === 'function') updateOrderHandles();
+    });
+  } catch (e) {}
   // Garante timestamps numericos antes de setData
   var _bars2 = bars.map(function(b){
     var t = b.time;
@@ -2993,6 +3005,175 @@ function drawOrderLines(orders) {
         orders: g.orders,
       });
     } catch(e) {}
+  });
+  // Sessão 30/abr: handles SVG overlay por cima do chart pra drag-to-modify.
+  // Renderizados após criar priceLines (precisamos de orderLines populado).
+  try { updateOrderHandles(); } catch(e) {}
+}
+
+// ── Drag-to-modify TP/SL via SVG overlay (sessão 30/abr) ─────────────────────
+// Lightweight-charts captura mousedown no canvas internamente. Tentativa
+// anterior (commits b1752b3..c5967df revertidos 29/abr) falhou pq mouse
+// físico panava o chart em vez de pegar a linha. Solução: SVG ABSOLUTE
+// por cima do canvas — events vêm direto pra nós sem briga.
+//
+// Só desenhamos handles para linhas de TP/SL (não para entries) — drag de
+// entry pending muda intent da ordem, é caso de uso menos comum.
+let _dragState = null;  // { handle, lineRef, startY, startPrice, startMouseY }
+
+function updateOrderHandles() {
+  const svg = document.getElementById('order-handles-svg');
+  if (!svg) return;
+  // Reseta — recria todos os handles (mais simples que diff incremental)
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  if (!priceSeries || !orderLines.length) return;
+  const container = document.getElementById('chart-price');
+  if (!container) return;
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  if (!w || !h) return;
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  // priceScale fica na borda direita (~60px). Posicionamos handle alinhado
+  // com escala — fica visualmente ligado ao label do preço.
+  const handleX = Math.max(0, w - 78);
+  const handleW = 70;
+  const handleH = 14;
+  orderLines.forEach(function(line) {
+    // Só desenha handle pra TP/SL (não entry orders simples).
+    const o = line.orders && line.orders[0];
+    if (!o) return;
+    const sid = (o.strategy_id || '').toLowerCase();
+    const isTP = sid.endsWith('_tp') || (sid.indexOf('_lv') >= 0 && sid.endsWith('tp'));
+    const isSL = line.isStop || sid.endsWith('_sl') || sid.indexOf('_sl_') >= 0;
+    if (!isTP && !isSL) return;
+    const y = priceSeries.priceToCoordinate(line.refPrice);
+    if (y === null || y < handleH || y > h - handleH) return;
+    const color = isSL ? '#ff6b6b' : '#2ed47a';
+    // Group handle (rect + label)
+    const g = document.createElementNS(SVG_NS, 'g');
+    g.style.pointerEvents = 'auto';
+    g.style.cursor = 'ns-resize';
+    g.dataset.refPrice = line.refPrice;
+    g.dataset.ids = JSON.stringify(line.ids);
+    g.dataset.qty = String((o.quantity || 0));
+    g.dataset.role = isSL ? 'SL' : 'TP';
+    g.dataset.isStop = String(line.isStop);
+    g.dataset.handleY = String(y);
+    const rect = document.createElementNS(SVG_NS, 'rect');
+    rect.setAttribute('x', String(handleX));
+    rect.setAttribute('y', String(y - handleH / 2));
+    rect.setAttribute('width', String(handleW));
+    rect.setAttribute('height', String(handleH));
+    rect.setAttribute('rx', '3');
+    rect.setAttribute('fill', color);
+    rect.setAttribute('stroke', '#0b1220');
+    rect.setAttribute('stroke-width', '1');
+    rect.setAttribute('opacity', '0.92');
+    const text = document.createElementNS(SVG_NS, 'text');
+    text.setAttribute('x', String(handleX + handleW / 2));
+    text.setAttribute('y', String(y + 4));
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('fill', '#0b1220');
+    text.setAttribute('font-size', '10');
+    text.setAttribute('font-weight', '700');
+    text.textContent = (isSL ? 'SL ' : 'TP ') + Number(line.refPrice).toFixed(2);
+    g.appendChild(rect);
+    g.appendChild(text);
+    g.addEventListener('mousedown', _onHandleMouseDown);
+    svg.appendChild(g);
+  });
+}
+
+function _onHandleMouseDown(e) {
+  const g = e.currentTarget;
+  e.preventDefault();
+  e.stopPropagation();
+  _dragState = {
+    handle: g,
+    refPrice: parseFloat(g.dataset.refPrice),
+    ids: JSON.parse(g.dataset.ids),
+    qty: parseInt(g.dataset.qty, 10),
+    role: g.dataset.role,
+    isStop: g.dataset.isStop === 'true',
+    startY: parseFloat(g.dataset.handleY),
+    startMouseY: e.clientY,
+  };
+  document.addEventListener('mousemove', _onHandleMouseMove);
+  document.addEventListener('mouseup', _onHandleMouseUp);
+  // Visual feedback: opacity full + grab cursor body-wide
+  g.querySelector('rect').setAttribute('opacity', '1');
+  document.body.style.cursor = 'ns-resize';
+}
+
+function _onHandleMouseMove(e) {
+  if (!_dragState) return;
+  const dy = e.clientY - _dragState.startMouseY;
+  const newY = _dragState.startY + dy;
+  const g = _dragState.handle;
+  const rect = g.querySelector('rect');
+  const text = g.querySelector('text');
+  const handleH = 14;
+  rect.setAttribute('y', String(newY - handleH / 2));
+  text.setAttribute('y', String(newY + 4));
+  // Preview do novo preço no label
+  if (priceSeries) {
+    const p = priceSeries.coordinateToPrice(newY);
+    if (p && p > 0) {
+      text.textContent = (_dragState.role || 'PX') + ' ' + Number(p).toFixed(2) + ' ↕';
+    }
+  }
+}
+
+function _onHandleMouseUp() {
+  if (!_dragState) return;
+  const g = _dragState.handle;
+  const newY = parseFloat(g.querySelector('rect').getAttribute('y')) + 14 / 2;
+  const newPrice = priceSeries ? priceSeries.coordinateToPrice(newY) : null;
+  document.removeEventListener('mousemove', _onHandleMouseMove);
+  document.removeEventListener('mouseup', _onHandleMouseUp);
+  document.body.style.cursor = '';
+  const state = _dragState;
+  _dragState = null;
+  if (!newPrice || newPrice <= 0 || Math.abs(newPrice - state.refPrice) < 0.005) {
+    // Cancelado ou movimento desprezível — re-renderiza pra restaurar
+    updateOrderHandles();
+    return;
+  }
+  const newPriceStr = Number(newPrice).toFixed(2);
+  if (!confirm(`Mover ${state.role} de R$ ${state.refPrice.toFixed(2)} → R$ ${newPriceStr}?`)) {
+    updateOrderHandles();
+    return;
+  }
+  // Envia change_order para cada local_id agregado nesta linha.
+  Promise.all(state.ids.map(function(local_id) {
+    const body = {
+      env: 'simulation',
+      local_order_id: local_id,
+      quantity: state.qty,
+    };
+    if (state.isStop) {
+      body.price = parseFloat(newPriceStr);
+      body.stop_price = parseFloat(newPriceStr);
+    } else {
+      body.price = parseFloat(newPriceStr);
+    }
+    return fetch('/api/v1/agent/order/change', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then(function(r) { return r.json(); });
+  })).then(function(results) {
+    const okCount = results.filter(function(r) { return r && r.ok; }).length;
+    if (typeof FAToast !== 'undefined' && FAToast.success) {
+      FAToast.success(`${state.role} movido para R$ ${newPriceStr} (${okCount}/${state.ids.length})`);
+    }
+    // Polling de orderLines redesenha em ~5s; força refresh imediato.
+    if (typeof refreshOrders === 'function') refreshOrders();
+  }).catch(function(err) {
+    if (typeof FAToast !== 'undefined' && FAToast.error) {
+      FAToast.error('Erro ao mover ordem: ' + err.message);
+    }
+    updateOrderHandles();
   });
 }
 

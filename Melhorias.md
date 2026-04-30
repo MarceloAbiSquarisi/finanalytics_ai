@@ -26,28 +26,23 @@
 
 ### UI / Dashboard
 
-#### U1 — Drag-to-modify de linhas de ordem TP/SL no chart ⭐ médio (29/abr)
-**Custo**: ~1d (precisa entender deeper o event capture do lightweight-charts ou trocar lib). **Payoff**: alto UX (movem TP/SL diretamente no chart sem abrir modal).
+#### U1 — Drag-to-modify de linhas de ordem TP/SL no chart ✅ DONE 30/abr (Abordagem A — SVG overlay)
 
-**Tentativa 29/abr 17:00-17:25** (commits `b1752b3` → `ce0cdc5` revertidos em `<este>`):
-- Implementado: `mousedown` capture phase + dispatchEvent funciona programaticamente
-- Validado via MCP Playwright que change_order é enviado e DLL aceita (mudou broker)
-- Mas user reportou que **mouse físico não conseguia arrastar — chart panava em vez da linha**
+**Solução**: SVG `<svg id="order-handles-svg">` absolute position por cima do canvas dentro de `#chart-price`. Handles renderizados como `<g><rect><text>` com pointer-events auto. Os events vêm direto pra nossos listeners sem briga com canvas interno do lightweight-charts.
 
-**Causas raiz identificadas**:
-1. Lightweight-charts captura `mousedown` internamente (na lib C++ via canvas events) ANTES dos handlers JS em capture phase prevalecerem
-2. `e.stopImmediatePropagation` não tem efeito sobre listeners da lib em alguns canvases
-3. Tentativa de fix: desabilitar `handleScroll/handleScale` enquanto Ctrl pressionado — funciona via dispatchEvent mas não com Ctrl físico (lib pode rebindar listeners ao mudar handleScroll)
+**Implementação** (`dashboard.html`):
+- `updateOrderHandles()` enumera `orderLines`, filtra TP/SL (skip entries), calcula Y via `priceSeries.priceToCoordinate(price)`. Renderiza handle 70x14px na borda direita (perto do priceScale).
+- `_onHandleMouseDown` → captura, salva `_dragState` (refPrice, ids, qty, role, startY, startMouseY).
+- `_onHandleMouseMove` (document-level) → atualiza Y do rect/text + label preview ("TP 48.20 ↕").
+- `_onHandleMouseUp` → `priceSeries.coordinateToPrice(finalY)` → confirm() → POST `/api/v1/agent/order/change` para cada local_id agregado.
+- Subscribe `priceChart.timeScale().subscribeVisibleTimeRangeChange()` re-renderiza handles em pan/zoom (skip durante drag ativo via `_dragState` guard).
 
-**Próximas abordagens a considerar**:
-- (A) Reescrever overlay de ordens como `<svg>` ABSOLUTE position por cima do chart, fora do canvas — eventos vêm pra nós sem briga
-- (B) Trocar lightweight-charts por TradingView widget oficial (API rica `createOrderLine` com drag built-in mas é proprietário e closed-source)
-- (C) Usar `klinecharts` ou `apexcharts-financial` que têm drag de price lines built-in
-- (D) Fork do lightweight-charts com hook de event interception (complexo)
+**Validação live 30/abr 14:09 (Playwright MCP)**:
+- 2 handles SVG renderizados (TP @ 49.20 verde, SL @ 47.50 vermelho)
+- Drag físico TP → 47.50 disparou: confirm dialog + POST /change → DB price 49.20→47.50 → broker fillou (atravessou mercado) @ 48.60 → cross-cancel SL automático → group `completed`
+- Toast: `"TP movido para R$ 47.50 (1/1)"`
 
-**Workaround atual**: usar botão ✕ no painel de ordens pra cancelar + re-criar com novo preço. Funcional, mas 3 cliques em vez de 1 drag.
-
-**Estado revertido**: linhas TP/SL coloridas e o sufixo `↕`/`(ctrl⇕)` removidos do label. Bonus fix `reconcile UPDATE price` (commit `b1752b3`) **mantido** — sincroniza DB quando trader edita ordem por outro caminho. Cores TP/SL por propósito (commit `ad0cfe0`) **mantidas** — bom value isolated.
+**Limitação**: drag só cobre TP/SL. Entry orders simples ainda usam o ✕ + recriar (caso de uso menos comum).
 
 ### ML & Sinais
 
@@ -235,7 +230,18 @@ Schema base (`email_messages` + `email_attachments`), worker `gmail_sync_worker`
 
 ## 🐛 Bugs descobertos
 
-#### P8 — Broker simulator rejeita ordens em futuros (WDOFUT/WINFUT) ⭐ médio (29/abr)
+#### P8 — Broker simulator rejeita ordens em futuros (WDOFUT/WINFUT) ✅ FECHADO 30/abr (transient broker degradação 29/abr)
+
+**Status**: re-validado 30/abr 10:50 BRT — broker aceita normalmente. Cenários:
+- Limit BUY 1 WDOFUT @ 4985 → status=0 NEW ✓
+- Market BUY 1 WDOFUT → fillou @ 4987 ✓ (B.19 retry hoje)
+- Attach OCO em parent pending → group active + cancel ✓
+
+**Causa raiz**: degradação transient do broker simulator Nelogica em 29/abr (mesma janela em que P9/P11 também afetaram com errors P1+P9 stack). Não é bug do código — fix foi recovery natural do simulator.
+
+---
+
+#### P8 (histórico) — original report 29/abr
 **Custo**: investigação ~1h (depende de doc Nelogica). **Payoff**: desbloqueia testes Bloco B com futuros antes de 10h (equity opening).
 
 **Sintoma**: 100% das ordens em WDOFUT (limit @ 4900, limit @ 4960, market) rejeitadas pelo broker simulator com `trading_msg code=5 status=8 msg=Ordem inválida`. P1 auto-retry funciona corretamente (validado live em 014021→014022→014023, todas com mesmo erro). Market data (ticks/quotes) funciona normal — `WDOFUT @ 4990.5` fluindo via subscribed_tickers.

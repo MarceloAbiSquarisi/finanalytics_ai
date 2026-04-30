@@ -2816,11 +2816,20 @@ class ProfitAgent:
                 msg_text[:80],
             )
 
+            # P2-futuros fix (sessão 30/abr): r.OrderID.LocalOrderID vem 0 em
+            # códigos como code=5 (RejectedHades, "Ordem inválida"). Sem isso,
+            # WHERE local_order_id = 0 OR cl_ord_id = '' não acha row e
+            # status=10 fica stuck até reconcile_loop pegar (5min, só 10-18h BRT).
+            # Fallback via _msg_id_to_local (populado em _send_order_legacy).
+            resolved_local_id = r.OrderID.LocalOrderID
+            if resolved_local_id <= 0:
+                resolved_local_id = agent._msg_id_to_local.get(r.MessageID, 0)
+
             try:
                 agent._db_queue.put_nowait(
                     {
                         "_type": "trading_result",
-                        "local_order_id": r.OrderID.LocalOrderID,
+                        "local_order_id": resolved_local_id,
                         "cl_ord_id": r.OrderID.ClOrderID or "",
                         "message_id": r.MessageID,
                         "broker_id": r.BrokerID,
@@ -3023,8 +3032,21 @@ class ProfitAgent:
 
                     msg = item.get("message")
 
-                    # ResultCode = estágio de roteamento (não status da ordem)
-                    # Apenas atualiza cl_ord_id e error_message para rastreabilidade
+                    local_id = item.get("local_order_id") or 0
+                    cl_ord = item.get("cl_ord_id") or None
+                    # P2-futuros (30/abr): se ambos identifiers vazios, callback
+                    # corrompido — sem skip, query não acharia row mas tentaria
+                    # qualquer match e poderia bagunçar reconcile.
+                    if not local_id and not cl_ord:
+                        log.warning(
+                            "trading_result_skip msg_id=%d code=%d status=%d "
+                            "no_local_id no_cl_ord_id",
+                            item.get("message_id", 0),
+                            code,
+                            status,
+                        )
+                        continue
+
                     _is_rejection = status == 8  # RejectedBroker/Market/etc
                     self._db.execute(
                         """UPDATE profit_orders SET
@@ -3044,11 +3066,11 @@ class ProfitAgent:
                               OR cl_ord_id = %s""",
                         (
                             _is_rejection,
-                            item.get("cl_ord_id") or None,
+                            cl_ord,
                             msg,
                             msg,
-                            item.get("local_order_id"),
-                            item.get("cl_ord_id") or None,
+                            local_id,
+                            cl_ord,
                         ),
                     )
 
