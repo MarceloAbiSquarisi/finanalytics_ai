@@ -3956,6 +3956,7 @@ class ProfitAgent:
                         "order_type": o.OrderType,
                         "order_status": o.OrderStatus,
                         "price": round(o.Price, 4) if o.Price > 0 else None,
+                        "stop_price": round(o.StopPrice, 4) if o.StopPrice > 0 else None,
                         "quantity": o.Quantity,
                         "traded_qty": o.TradedQuantity,
                         "leaves_qty": o.LeavesQuantity,
@@ -4019,10 +4020,13 @@ class ProfitAgent:
                     continue
                 # Sincroniza tambem price/stop_price quando DLL retorna valores positivos
                 # (mudancas via change_order — drag-to-modify, trail cancel+create, etc).
+                # Sessão 30/abr: stop_price também — bug encontrado validando drag
+                # SL via U1 (price atualizou mas stop_price ficou antigo).
                 self._db.execute(
                     "UPDATE profit_orders SET order_status=%s,traded_qty=COALESCE(%s,traded_qty),"
                     "leaves_qty=COALESCE(%s,leaves_qty),avg_price=COALESCE(%s,avg_price),"
                     "price=CASE WHEN %s IS NOT NULL AND %s > 0 THEN %s ELSE price END,"
+                    "stop_price=CASE WHEN %s IS NOT NULL AND %s > 0 THEN %s ELSE stop_price END,"
                     "cl_ord_id=COALESCE(cl_ord_id,%s),updated_at=NOW() "
                     "WHERE local_order_id=%s OR cl_ord_id=%s",
                     (
@@ -4033,6 +4037,9 @@ class ProfitAgent:
                         o.get("price"),
                         o.get("price"),
                         o.get("price"),
+                        o.get("stop_price"),
+                        o.get("stop_price"),
+                        o.get("stop_price"),
                         cl_ord or None,
                         local_id or 0,
                         cl_ord or "",
