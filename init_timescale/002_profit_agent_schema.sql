@@ -111,11 +111,26 @@ CREATE TABLE IF NOT EXISTS profit_orders (
 -- Worker cleanup_stale_pending_orders_job verifica validity_date < NOW e cancela.
 ALTER TABLE profit_orders ADD COLUMN IF NOT EXISTS validity_type VARCHAR(8) NOT NULL DEFAULT 'GTC';
 ALTER TABLE profit_orders ADD COLUMN IF NOT EXISTS validity_date TIMESTAMPTZ;
+
+-- Origem da ordem (handshake C5 com trading-engine) — 30/abr/2026
+-- `source` identifica quem enviou a ordem para o agent via :8002. Usado por
+-- `_maybe_dispatch_diary` para suprimir o hook de fill em ordens originadas
+-- no trading-engine (que mantem journal proprio em trading_engine_orders.trade_journal).
+-- NULL = ordem manual (dashboard / profit_agent / scripts).
+-- 'trading_engine' = ordem do robo autonomo.
+ALTER TABLE profit_orders ADD COLUMN IF NOT EXISTS source VARCHAR(32);
+
 CREATE INDEX IF NOT EXISTS ix_profit_orders_ticker   ON profit_orders (ticker);
 CREATE INDEX IF NOT EXISTS ix_profit_orders_status   ON profit_orders (order_status);
 CREATE INDEX IF NOT EXISTS ix_profit_orders_local_id ON profit_orders (local_order_id);
 CREATE INDEX IF NOT EXISTS ix_profit_orders_validity ON profit_orders(validity_date)
   WHERE validity_date IS NOT NULL AND order_status IN (0,10);
+CREATE INDEX IF NOT EXISTS ix_profit_orders_source ON profit_orders (source)
+  WHERE source IS NOT NULL;
+-- C5: cl_ord_id = `_client_order_id` deterministico do engine. Index acelera
+-- reconcile cross-system (procurar ordem por client_order_id sem table scan).
+CREATE INDEX IF NOT EXISTS ix_profit_orders_cl_ord_id ON profit_orders (cl_ord_id)
+  WHERE cl_ord_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS profit_adjustments (
     id                 SERIAL  PRIMARY KEY,

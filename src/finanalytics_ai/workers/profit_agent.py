@@ -883,11 +883,11 @@ class DBWriter:
 
         sql = """
         INSERT INTO profit_orders
-            (local_order_id, message_id, broker_id, account_id, sub_account_id,
+            (local_order_id, message_id, cl_ord_id, broker_id, account_id, sub_account_id,
              env, ticker, exchange, order_type, order_side, price, stop_price,
              quantity, order_status, user_account_id, portfolio_id, is_daytrade,
-             strategy_id, notes, validity_type, validity_date)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,10,%s,%s,%s,%s,%s,%s,%s)
+             strategy_id, notes, validity_type, validity_date, source)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,10,%s,%s,%s,%s,%s,%s,%s,%s)
         """
 
         self.execute(
@@ -895,6 +895,7 @@ class DBWriter:
             (
                 data.get("local_order_id"),
                 data.get("message_id"),
+                data.get("cl_ord_id"),  # C5: client_order_id deterministico do engine (NULL p/ ordens manuais)
                 data["broker_id"],
                 data["account_id"],
                 data.get("sub_account_id"),
@@ -913,6 +914,7 @@ class DBWriter:
                 data.get("notes"),
                 data.get("validity_type", "GTC"),  # GTC | GTD
                 data.get("validity_date"),  # ISO datetime ou None
+                data.get("source"),  # C5: 'trading_engine' p/ ordens do robo, NULL p/ manuais
             ),
         )
 
@@ -3146,13 +3148,16 @@ class ProfitAgent:
             if not avg or not qty:
                 return
 
-            # Busca ticker e side em profit_orders (acabou de ser atualizado)
+            # Busca ticker, side e source em profit_orders (acabou de ser atualizado).
+            # C5: source='trading_engine' significa que a ordem veio do robo autonomo,
+            # que mantem journal proprio em trading_engine_orders.trade_journal — pular
+            # o hook evita duplicacao na unified VIEW.
             row = None
             if self._db:
                 try:
                     cur = self._db._conn.cursor()  # noqa: SLF001
                     cur.execute(
-                        "SELECT ticker, order_side FROM profit_orders WHERE local_order_id = %s",
+                        "SELECT ticker, order_side, source FROM profit_orders WHERE local_order_id = %s",
                         (local_id,),
                     )
                     row = cur.fetchone()
@@ -3161,6 +3166,17 @@ class ProfitAgent:
                     log.warning("diary.lookup_failed local_id=%d err=%s", local_id, exc)
                     return
             if not row:
+                return
+            source = row[2] if len(row) > 2 else None
+            if source == "trading_engine":
+                # Marca notified mesmo assim — evita re-checagem em ticks futuros do
+                # mesmo local_id (callback DLL pode disparar varias vezes).
+                self._diary_notified.add(local_id)
+                log.info(
+                    "diary.suppressed_engine_origin local_id=%d ticker=%s",
+                    local_id,
+                    row[0],
+                )
                 return
             # row[1] é order_side smallint (1=Buy, 2=Sell). Aceita int ou str
             # (compat retro: alguns paths antigos passavam "buy"/"sell").
@@ -3428,6 +3444,10 @@ class ProfitAgent:
                 {
                     "local_order_id": local_id,
                     "message_id": order.MessageID,
+                    # C5 (handshake trading-engine): aceita `_client_order_id` do body
+                    # como cl_ord_id (string deterministica). Engine envia, agent persiste,
+                    # callback DLL preserva (UPDATE so escreve quando cl_ord_id IS NULL).
+                    "cl_ord_id": params.get("_client_order_id") or None,
                     "broker_id": broker_id,
                     "account_id": account_id,
                     "env": env,
@@ -3446,6 +3466,8 @@ class ProfitAgent:
                     # Time In Force: GTC (default) ou GTD com validity_date ISO datetime
                     "validity_type": (params.get("validity_type") or "GTC").upper(),
                     "validity_date": params.get("validity_date") or None,
+                    # C5: 'trading_engine' suprime _maybe_dispatch_diary (engine tem journal proprio)
+                    "source": params.get("_source") or None,
                 }
             )
 
@@ -3480,7 +3502,14 @@ class ProfitAgent:
                 "env": params.get("env", "simulation"),
             }
 
-        return {"ok": True, "local_order_id": local_id, "message_id": order.MessageID}
+        # C5: ecoa cl_ord_id quando o engine envia `_client_order_id`. Permite
+        # ao engine fechar reconcile {client_order_id -> local_order_id} sem
+        # segunda tabela de mapping.
+        cl_ord_echo = params.get("_client_order_id")
+        resp = {"ok": True, "local_order_id": local_id, "message_id": order.MessageID}
+        if cl_ord_echo:
+            resp["cl_ord_id"] = cl_ord_echo
+        return resp
 
     def _retry_rejected_order(self, old_local_id: int) -> None:
         """P1 (28/abr): re-envia ordem rejeitada pelo broker com 'Cliente não logado'
