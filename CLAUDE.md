@@ -74,7 +74,7 @@ PROFIT_SIM_ROUTING_PASSWORD=o)u$$EVq4SU$$[MdZN
 ## Comandos Frequentes
 
 ### Iniciar o profit_agent (Windows)
-Roda como serviço NSSM `FinAnalyticsAgent`. Para restart preferir `/agent/restart` via API (sudo `admin123`); fallback `Restart-Service FinAnalyticsAgent` (admin). Manual standalone só pra debug:
+Roda como serviço NSSM `FinAnalyticsAgent`. Para restart preferir `/agent/restart` via API (sudo `admin123`) — funciona end-to-end em ~9s desde fix NSSM `AppExit=Restart` (sessão 30/abr); fallback `Restart-Service FinAnalyticsAgent` (admin). Manual standalone só pra debug:
 ```powershell
 cd D:\Projetos\finanalytics_ai_fresh
 .venv\Scripts\python.exe src\finanalytics_ai\workers\profit_agent.py
@@ -276,9 +276,12 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 
 **Histórico de sprints concluídas**: ver `git log` + `memory/project_*.md` (sprints 15-27 movidas para fora do CLAUDE.md). Bugs de produção catalogados em `Melhorias.md`:
 - P1-P7 + O1 ✅ DONE 28/abr
-- P9 (DB stuck status=10) ✅ MITIGADO 29/abr via `_watch_pending_orders_loop` (detection ~10s vs 5min reconcile)
+- P9 (DB stuck status=10) ✅ MITIGADO 29/abr via `_watch_pending_orders_loop` (detection ~10s vs 5min reconcile) + EXTENSÃO 30/abr via `_load_pending_orders_from_db` (cobre restart NSSM, validado live: 10 órfãs marcadas <1s)
 - P10 (OCO legacy pares perdidos pós-restart) ✅ DONE 29/abr via `_load_oco_legacy_pairs_from_db`
 - P11 + P11.2 (futuros UI exchange/alias) ✅ DONE 29/abr via `_resolve_active_contract` em `get_position_v2` + `flatten_ticker`
+- P2-futuros (DB não reflete status=8) ✅ DONE 30/abr via fallback `_msg_id_to_local` em `trading_msg_cb` (commit `07c2445`)
+- P8 (broker rejeita futuros) ✅ FECHADO 30/abr — era transient broker degradação 29/abr, não bug
+- I4 (`/agent/restart` não restartava) ✅ FECHADO 30/abr — causa real foi `nssm AppExit=Exit` em vez de `Restart`. Diagnóstico expandido (`hard_exit.attempt` + `last_error`) provou que `TerminateProcess` sempre funcionou. Fix: `& nssm set FinAnalyticsAgent AppExit Default Restart`. Ciclo completo agora 9s automático.
 
 **Sessão 29/abr UI overhaul** (commits `3896aeb` → `90acb2e`):
 - Gap compression overnight/weekend no chart (`_compressGaps` + `_timeRealMap` + `_realToCompressed`); `fitContent()` mostra todos os bars
@@ -292,6 +295,18 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 **Operacional 29/abr**:
 - `profit_subscribed_tickers` semeada com **373 tickers** (366 equities IBOV/B3 + 7 futuros: WDO/WIN/DOL/IND/BGI/OZM/CCM)
 - `tick_to_ohlc_backfill_job` diário 21h BRT (00h UTC): **DELETE + INSERT** do dia inteiro (substitui rows incoerentes pelo continuous aggregate)
+
+**Sessão 30/abr OHLC + bugs hardening + drag UI** (14 commits `5ad447d` → `a7b52aa`):
+- **OHLC limpo**: `ohlc_1m_from_ticks` recriado com `WHERE EXTRACT(hour FROM time) BETWEEN 13 AND 20` (UTC) — exclui heartbeats overnight + leilão pre-abertura + after-market que poluíam chart com OHLC estático. Refill 7M+ ticks. Validado: 0 bars 12/21 UTC pós-recreate.
+- **Endpoint admin OHLC rebuild**: `POST /api/v1/admin/ohlc/rebuild` (require_master) + UI aba "🛠️ Sistema" em `/admin` com form date+ticker → DELETE+INSERT do dia. Endpoint reutilizável quando aparecer ruído P9-like no futuro.
+- **`tick_to_ohlc_backfill_job` 2 bugs**: (1) env `TICK_TO_OHLC_BACKFILL_HOUR` interpretado como UTC mas `_next_run_utc` esperava local BRT → renomeado pra `TICK_TO_OHLC_BACKFILL_HOUR_BRT=21`. (2) `target_date=now(UTC).date()` rodando 03 UTC processava dia errado → trocado por `now(UTC) - 12h` que cai sempre dentro do dia BRT correto.
+- **CI verde** (após meses vermelho): ruff format 37 arquivos + 28 fixes auto + 1 manual + skipif Windows nos `test_profit_agent_fixes` + market_data_client tests alinhados com Decisão 20.
+- **`profit_agent_validators.py` novo módulo puro**: `validate_attach_oco_params` + `trail_should_immediate_trigger` extraídos pra unit test em CI Linux (sem ctypes WINFUNCTYPE Windows-only). 20 unit tests cobertura.
+- **Drag-to-modify TP/SL** (U1 ressuscitado via abordagem A): SVG overlay `#order-handles-svg` absolute por cima do canvas — handles 70x14 verde/vermelho na borda direita. Mouse events vêm direto pra nós sem competir com canvas listener interno do lightweight-charts. Validado live (Playwright MCP): drag TP 49.20→47.50 + drag SL 47.50→48.24 ambos mandando `change_order` ao DLL.
+- **Day-dividers chart** (`#day-dividers-svg` z-index 5, atrás dos handles z-10): linha vertical tracejada `rgba(180,200,230,.45)` + label DD/MM no topo em cada virada de dia UTC. Re-renderiza em pan/zoom. SW v100→v101 bumped pra invalidar cache do dashboard.html.
+- **`stop_price` reconcile fix**: enum_orders agora lê `o.StopPrice` da DLL + UPDATE adiciona `stop_price=CASE` (antes só `price`). Bug encontrado validando drag SL.
+- **NSSM `AppExit=Restart`**: ciclo completo `/agent/restart` em 9s automático — antes precisava PS elevado manual pq `AppExit=Exit` deixava service Stopped após `TerminateProcess`.
+- Master é solo dev confirmado (só Marcelo nos últimos 14 dias) → reformat massivo + bumps versão sem disrupção.
 
 ## Decisões Arquiteturais (Imutáveis)
 

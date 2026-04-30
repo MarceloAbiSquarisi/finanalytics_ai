@@ -2,7 +2,7 @@
 
 > Lista priorizada do que ainda está ativo. Itens entregues estão em `git log` + memory.
 >
-> **Última revisão**: 29/abr/2026 19:30 — sessão maratona ~7h, 31 commits.
+> **Última revisão**: 30/abr/2026 — sessão pós-pregão estendida, 14 commits `5ad447d` → `a7b52aa`.
 
 **Histórico de sprints concluídas** (não re-documentar aqui):
 - N1-N12 + N5b/N4b/N6b/N10b + housekeeping A-H — DONE 28/abr madrugada
@@ -10,6 +10,7 @@
 - Bugs P1-P7 + O1 (DLL callbacks, broker auth blips, trail fallback, NSSM zombies) — DONE 28/abr (`27e04d3`, `efc4235`, `568e9a3`, `202bdc3`)
 - Snapshot signals + ml_pickle_count fix — DONE 29/abr (`7ad0061`)
 - **P9 mitigado** + **P10 fix** + **P11/P11.2 fix** + resilience patterns broker degradado — DONE 29/abr (`3896aeb`, `53372e1`, `b153037`, `ee58c06`, `43f3767`)
+- **Sessão 30/abr** (`5ad447d` → `a7b52aa`): OHLC filtro 13-20 UTC + admin rebuild endpoint + scheduler bugs + CI verde + `profit_agent_validators.py` + 20 unit tests + P2-futuros + U1 drag SVG + day-dividers chart + I4 fechado (NSSM AppExit=Restart) + P8 fechado + P9 fase 2 boot-load
 - **UI overhaul 29/abr noite** (`0b696f1` → `90acb2e`):
   - Gap compression overnight + fitContent + UNION ohlc (`0b696f1`, `7739298`, `c296006`, `32a65e0`, `71eb1e1`)
   - Bollinger client-side + lookup reverso (`28e41ae`, `c3876db`)

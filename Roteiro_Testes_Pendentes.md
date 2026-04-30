@@ -1,12 +1,12 @@
 # Roteiro de Testes Pendentes — FinAnalytics AI
 
 > **Reorganizado**: 26/abr/2026 — classificação por dependência (pregão aberto/fechado/outras)
-> **Última atualização**: 29/abr/2026 19:30 — Sessão maratona ~7h, **31 commits** `3896aeb` → `90acb2e`. **Bloco B 16/19 ✅**; UI overhaul: gap compression overnight + fitContent + UNION ohlc/ticks + Bollinger client-side + 4 indicadores novos (Estocástico Lento, ATR, VWAP, IFR/label) + carteira (coluna Horário, linha branca zero). **373 tickers subscritos** (366 equity + 7 futuros). **`tick_to_ohlc_backfill_job`** diário 21h BRT (DELETE+INSERT). **P-bugs**: P1-P11.2 DONE/mitigados.
+> **Última atualização**: 30/abr/2026 — Sessão pós-pregão estendida, **14 commits** `5ad447d` → `a7b52aa`. **Bloco B 17/19 ✅** (B.10 skip simulator não exercita; B.16 PARCIAL); CI verde após meses; OHLC filtro 13-20 UTC; admin endpoint OHLC rebuild; U1 drag SVG ressuscitado; day-dividers chart; bugs P2-futuros + I4 (NSSM `AppExit=Restart`) + P8 fechados; P9 fase 2 boot-load (10 órfãs marcadas <1s). **`profit_agent_validators.py`** novo módulo puro com 20 unit tests CI Linux.
 > **Login dev**: `marceloabisquarisi@gmail.com` / `admin123` (master)
 > **DB seedado**: 1 conta consolidada **"Teste"** (id `eeee5555`) — migration `migrate_test_to_single_carteira.sql` (27/abr); contas XP+BTG soft-deleted
 > **Invariante 27/abr**: todo ativo DEVE ter `investment_account_id` (NOT NULL em DB + `Field(...)` Pydantic em trades/crypto/other)
-> **Cache**: SW v100 — usar `/static/sw_kill.html` se Ctrl+Shift+R não recarregar
-> **NSSM dual-service** (29/abr): havia 2 serviços brigando por :8002 (`FinAnalyticsAgent` + `FinAnalyticsProfitAgent`). FinAnalyticsProfitAgent **DESABILITADO**. Usar apenas `FinAnalyticsAgent`.
+> **Cache**: SW v101 (bumped 30/abr) — usar `/static/sw_kill.html` se Ctrl+Shift+R não recarregar. **Lembrete**: bumpar versão SW em qualquer mudança de `dashboard.html` ou outros HTMLs cacheados.
+> **NSSM dual-service** (29/abr): havia 2 serviços brigando por :8002 (`FinAnalyticsAgent` + `FinAnalyticsProfitAgent`). FinAnalyticsProfitAgent **DESABILITADO**. Usar apenas `FinAnalyticsAgent`. **AppExit=Restart** configurado 30/abr — `/agent/restart` agora end-to-end em 9s automático.
 
 ---
 
@@ -31,8 +31,13 @@
 | **/diario workflow incompletas** | ✅ 27/abr | is_complete + chip + sino FANotif persistente + hook DLL FILLED |
 | **/dashboard S/R no chart** | ✅ 27/abr | Pivots clássicos + Swings + Williams + outlier filter + warning |
 | **/dashboard flatten ticker** | ✅ 27/abr | Botão "ZERAR + CANCELAR PENDENTES" na aba Pos |
+| **/dashboard drag-to-modify TP/SL** | ✅ 30/abr | SVG overlay handles 70x14 verde/vermelho; drag físico → /order/change; validado live (PETR4 TP+SL) |
+| **/dashboard day-dividers** | ✅ 30/abr | Linhas verticais tracejadas + label DD/MM em cada virada de dia UTC; SVG overlay z-5 |
+| **/admin OHLC rebuild** | ✅ 30/abr | Aba "🛠️ Sistema" + form date+ticker → POST /api/v1/admin/ohlc/rebuild (require_master) |
+| **OHLC filtro pregão regular** | ✅ 30/abr | `ohlc_1m_from_ticks` recriado WHERE EXTRACT(hour) BETWEEN 13 AND 20 (exclui call auction + after-market + heartbeat overnight) |
+| **CI 5/5 verde** | ✅ 30/abr | Após meses vermelho — ruff format 37 arquivos + 28 lint fixes auto + skipif Windows tests + market_data_client Decisão 20 |
 
-**Falta apenas**: Bloco B (pregão aberto) + alguns checks com dependência de tempo (A.24.5 dia 5 do mês, A.24.16 7+ dias snapshots crypto) + A.15.10 destrutivo (zerar PETR4 com DLL viva).
+**Falta apenas**: Bloco B revalidações (B.10 inconclusivo simulator atalha, B.16.3 P9-dependent) + alguns checks com dependência de tempo (A.24.5 dia 5 do mês, A.24.16 7+ dias snapshots crypto) + A.15.10 destrutivo.
 
 ---
 
