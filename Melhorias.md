@@ -156,8 +156,9 @@ Filtro adicional usando DI1 realtime (já implementado): só opera quando slope 
 **Faltam (defer)**:
 - DSR aplicado também no `WalkForwardService` (precisa expor `_calc_metrics` reusável sobre `combined_equity` OOS).
 - Survivorship bias check (precisa lista de tickers delistados no DB).
-- Tabela `backtest_results` com `config_hash` para histórico comparativo (hoje cada run é volátil).
+- ✅ ~~Tabela `backtest_results` com `config_hash` para histórico comparativo~~ — DONE 30/abr pós-pregão (Alembic 0021 + `infrastructure/database/repositories/backtest_repo.py` + `compute_config_hash` SHA256 + UPSERT idempotente; demo script ganha flag `--persist`; 17 unit tests SQLite). Validado live: PETR4 RSI re-run UPDATE (created != updated), VALE3 MACD insert único.
 - Slippage calibrável por liquidez (small caps merecem mais que 0.05%).
+- Endpoint `/api/v1/backtest/history` para listar runs persistidos via UI (defer).
 
 ### Pitfalls comuns que matam robôs amadores (referência)
 

@@ -33,17 +33,15 @@ import sys
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-import psycopg2  # noqa: E402
+import psycopg2
 
-from finanalytics_ai.domain.backtesting.optimizer import (  # noqa: E402
+from finanalytics_ai.domain.backtesting.optimizer import (
     OptimizationObjective,
     grid_search,
 )
 
 
-def load_bars(
-    dsn: str, ticker: str, start_date: str, end_date: str
-) -> list[dict]:
+def load_bars(dsn: str, ticker: str, start_date: str, end_date: str) -> list[dict]:
     """
     Carrega OHLCV diario de fintz_cotacoes_ts no formato esperado pelo engine.
 
@@ -101,6 +99,12 @@ def main() -> int:
         action="store_true",
         help="Desabilita slippage (default: ativo). Util para sanity check.",
     )
+    ap.add_argument(
+        "--persist",
+        action="store_true",
+        help="Persiste resultado em backtest_results (UPSERT por config_hash). "
+        "Requer DATABASE_URL no .env e migration 0021 aplicada.",
+    )
     args = ap.parse_args()
 
     dsn = os.environ.get(
@@ -145,11 +149,7 @@ def main() -> int:
         verdict = (
             "[OK] PROVAVELMENTE REAL"
             if d["prob_real"] >= 0.95
-            else (
-                "[!!] SINAL FRACO"
-                if d["prob_real"] >= 0.5
-                else "[XX] PROVAVEL OVERFITTING"
-            )
+            else ("[!!] SINAL FRACO" if d["prob_real"] >= 0.5 else "[XX] PROVAVEL OVERFITTING")
         )
         print(f"   observed_sharpe : {d['observed_sharpe']:.3f}")
         print(f"   E[max SR | H0]  : {d['e_max_sharpe']:.3f} (sob {d['num_trials']} trials)")
@@ -163,9 +163,7 @@ def main() -> int:
     Path(ROOT / "backtest_runs").mkdir(exist_ok=True)
     ts = datetime.now().strftime("%Y%m%dT%H%M%S")
     out_path = (
-        ROOT
-        / "backtest_runs"
-        / f"{args.ticker.upper()}_{args.strategy}_{args.objective}_{ts}.json"
+        ROOT / "backtest_runs" / f"{args.ticker.upper()}_{args.strategy}_{args.objective}_{ts}.json"
     )
     payload = {
         "config": {
@@ -183,7 +181,79 @@ def main() -> int:
     }
     out_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
     print(f"\n-> Resultado completo salvo em: {out_path.relative_to(ROOT)}")
+
+    if args.persist:
+        _persist_to_db(args, result)
+
     return 0
+
+
+def _persist_to_db(args: argparse.Namespace, result: Any) -> None:
+    """
+    UPSERT em backtest_results via psycopg2 sync (mais simples que stand up
+    de async session_factory dentro de um script CLI). Re-runs do mesmo
+    config sao idempotentes via UNIQUE em config_hash.
+    """
+    import asyncio
+
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from finanalytics_ai.infrastructure.database.connection import Base
+    from finanalytics_ai.infrastructure.database.repositories.backtest_repo import (
+        BacktestResultRepository,
+        compute_config_hash,
+    )
+
+    db_url = os.environ.get("DATABASE_URL") or os.environ.get(
+        "FINANALYTICS_DATABASE_URL",
+        "postgresql+asyncpg://finanalytics:secret@localhost:5432/finanalytics",
+    )
+    if "+asyncpg" not in db_url:
+        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+    config_hash = compute_config_hash(
+        ticker=args.ticker,
+        strategy=args.strategy,
+        range_period=f"{args.start}..{args.end}",
+        start_date=args.start,
+        end_date=args.end,
+        initial_capital=args.initial_capital,
+        objective=args.objective,
+        slippage_applied=not args.no_slippage,
+        params=result.best_params,
+    )
+
+    async def _do_save() -> None:
+        engine = create_async_engine(db_url, echo=False)
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            factory = async_sessionmaker(engine, expire_on_commit=False)
+            repo = BacktestResultRepository(factory)
+            row, created = await repo.save_run(
+                config_hash=config_hash,
+                ticker=args.ticker,
+                strategy=args.strategy,
+                full_result=result.to_dict(),
+                range_period=f"{args.start}..{args.end}",
+                start_date=args.start,
+                end_date=args.end,
+                initial_capital=args.initial_capital,
+                objective=args.objective,
+                slippage_applied=not args.no_slippage,
+                params=result.best_params,
+            )
+            verb = "criado" if created else "atualizado"
+            print(
+                f"-> backtest_results: {verb} (config_hash={config_hash[:12]}..., id={row['id'][:8]}...)"
+            )
+        finally:
+            await engine.dispose()
+
+    try:
+        asyncio.run(_do_save())
+    except Exception as exc:
+        print(f"!! Persistencia falhou: {exc}", file=sys.stderr)
 
 
 if __name__ == "__main__":
