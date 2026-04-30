@@ -94,8 +94,19 @@ class TestNormalizeVolume:
 # ── CompositeMarketDataClient ─────────────────────────────────────────────────
 
 
-def _make_composite(brapi_bars=None, yahoo_bars=None, brapi_raises=False, yahoo_raises=False):
-    """Helper: cria composite com mocks configurados."""
+def _make_composite(
+    brapi_bars=None,
+    yahoo_bars=None,
+    db_bars=None,
+    brapi_raises=False,
+    yahoo_raises=False,
+):
+    """Helper: cria composite com mocks configurados.
+
+    Decisão 20: ordem é DB → Yahoo → BRAPI. db_bars=None equivale a DB vazio,
+    forçando fallback. Para testar happy-path "DB suficiente", passar
+    db_bars=_make_bars(50).
+    """
     from finanalytics_ai.infrastructure.adapters.market_data_client import CompositeMarketDataClient
 
     brapi = MagicMock()
@@ -116,7 +127,10 @@ def _make_composite(brapi_bars=None, yahoo_bars=None, brapi_raises=False, yahoo_
     brapi.close = AsyncMock()
     yahoo.close = AsyncMock()
 
-    return CompositeMarketDataClient(brapi, yahoo)
+    composite = CompositeMarketDataClient(brapi, yahoo)
+    # Patch _fetch_db_safe na instância (Decisão 20: DB primário).
+    composite._fetch_db_safe = AsyncMock(return_value=db_bars or [])
+    return composite
 
 
 def _make_bars(n: int) -> list[dict]:
@@ -128,13 +142,14 @@ def _make_bars(n: int) -> list[dict]:
 
 class TestCompositeMarketDataClient:
     @pytest.mark.asyncio
-    async def test_brapi_sufficient_no_yahoo_call(self) -> None:
-        """BRAPI com dados suficientes → Yahoo não é chamado."""
+    async def test_db_sufficient_no_yahoo_call(self) -> None:
+        """Decisão 20: DB com dados suficientes → Yahoo e BRAPI não chamados."""
         bars = _make_bars(50)
-        c = _make_composite(brapi_bars=bars)
+        c = _make_composite(db_bars=bars)
         result = await c.get_ohlc_bars("PETR4", "1y")
         assert result == bars
         c._yahoo.get_ohlc_bars.assert_not_called()
+        c._brapi.get_ohlc_bars.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_brapi_insufficient_triggers_yahoo(self) -> None:
@@ -195,26 +210,24 @@ class TestCompositeMarketDataClient:
 
     @pytest.mark.asyncio
     async def test_long_range_yahoo_fails_brapi_fallback(self) -> None:
-        """5y Yahoo falha → tenta BRAPI com 2y como fallback."""
+        """10y/max Yahoo falha → BRAPI como fallback derradeiro (Decisão 20)."""
         brapi_bars = _make_bars(500)
         c = _make_composite(brapi_bars=brapi_bars, yahoo_raises=True)
-        result = await c.get_ohlc_bars("PETR4", "5y")
+        result = await c.get_ohlc_bars("PETR4", "10y")
         assert result == brapi_bars
-        # BRAPI deve ter sido chamado com "2y"
         c._brapi.get_ohlc_bars.assert_called_once()
-        call_kwargs = c._brapi.get_ohlc_bars.call_args
-        assert "2y" in str(call_kwargs)
 
     @pytest.mark.asyncio
-    async def test_brapi_exactly_threshold_no_fallback(self) -> None:
-        """BRAPI com exatamente MIN_BARS (30) → sem fallback."""
+    async def test_db_exactly_threshold_no_fallback(self) -> None:
+        """DB com exatamente MIN_BARS (30) → sem fallback (Decisão 20)."""
         from finanalytics_ai.infrastructure.adapters.market_data_client import MIN_BARS_THRESHOLD
 
         bars = _make_bars(MIN_BARS_THRESHOLD)
-        c = _make_composite(brapi_bars=bars)
+        c = _make_composite(db_bars=bars)
         result = await c.get_ohlc_bars("RENT3", "1y")
         assert result == bars
         c._yahoo.get_ohlc_bars.assert_not_called()
+        c._brapi.get_ohlc_bars.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_brapi_below_threshold_triggers_fallback(self) -> None:
@@ -289,12 +302,13 @@ class TestCompositeMarketDataClient:
 
 
 class TestYahooPreferredRanges:
-    def test_5y_in_preferred(self) -> None:
+    def test_5y_not_in_preferred(self) -> None:
+        # Decisão 20: PREFERRED = {'10y', '@max'} apenas; 5y segue caminho padrão
         from finanalytics_ai.infrastructure.adapters.market_data_client import (
             YAHOO_PREFERRED_RANGES,
         )
 
-        assert "5y" in YAHOO_PREFERRED_RANGES
+        assert "5y" not in YAHOO_PREFERRED_RANGES
 
     def test_10y_in_preferred(self) -> None:
         from finanalytics_ai.infrastructure.adapters.market_data_client import (
