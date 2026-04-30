@@ -95,21 +95,25 @@ FII_FUND_HOUR = int(os.environ.get("SCHEDULER_FII_FUND_HOUR", "7"))  # 07:00 BRT
 # Roda em YAHOO_BARS_HOUR (default 7:30h BRT). Idempotente via ON CONFLICT.
 YAHOO_BARS_ENABLED = os.environ.get("SCHEDULER_YAHOO_BARS_ENABLED", "true").lower() == "true"
 # Cleanup ordens pending stale (28/abr): roda 23h BRT, cancela orders pending >24h
-STALE_PENDING_ENABLED = os.environ.get(
-    "SCHEDULER_STALE_PENDING_ENABLED", "true"
-).lower() == "true"
+STALE_PENDING_ENABLED = os.environ.get("SCHEDULER_STALE_PENDING_ENABLED", "true").lower() == "true"
 STALE_PENDING_HOUR = int(os.environ.get("SCHEDULER_STALE_PENDING_HOUR", "23"))
-YAHOO_BARS_HOUR = int(os.environ.get("SCHEDULER_YAHOO_BARS_HOUR", "8"))  # 08:00 BRT (depois do FII_FUND)
+YAHOO_BARS_HOUR = int(
+    os.environ.get("SCHEDULER_YAHOO_BARS_HOUR", "8")
+)  # 08:00 BRT (depois do FII_FUND)
 
 # N6 (28/abr/2026): snapshot diario de crypto signals (BTC/ETH/SOL/etc) para
 # crypto_signals_history. Roda 1x/dia em CRYPTO_SIGNALS_HOUR (default 9h BRT).
 # Crypto roda 24/7, nao tem skip de weekend. Idempotente via PK.
-CRYPTO_SIGNALS_ENABLED = os.environ.get("SCHEDULER_CRYPTO_SIGNALS_ENABLED", "true").lower() == "true"
+CRYPTO_SIGNALS_ENABLED = (
+    os.environ.get("SCHEDULER_CRYPTO_SIGNALS_ENABLED", "true").lower() == "true"
+)
 CRYPTO_SIGNALS_HOUR = int(os.environ.get("SCHEDULER_CRYPTO_SIGNALS_HOUR", "9"))  # 09:00 BRT
 
 # Snapshot diario de /api/v1/ml/signals → signal_history (29/abr/2026: re-ativado).
 # Roda apos pregao fechar (default 19h BRT, 2h margem sobre close 17h).
-SNAPSHOT_SIGNALS_ENABLED = os.environ.get("SCHEDULER_SNAPSHOT_SIGNALS_ENABLED", "true").lower() == "true"
+SNAPSHOT_SIGNALS_ENABLED = (
+    os.environ.get("SCHEDULER_SNAPSHOT_SIGNALS_ENABLED", "true").lower() == "true"
+)
 SNAPSHOT_SIGNALS_HOUR = int(os.environ.get("SCHEDULER_SNAPSHOT_SIGNALS_HOUR", "19"))  # 19:00 BRT
 
 # ── Logger ────────────────────────────────────────────────────────────────────
@@ -548,13 +552,11 @@ async def tick_to_ohlc_backfill_job(date_iso: str | None = None) -> dict:
     # Sessão 30/abr: target_date alinhado a BRT-12h evita processar dia errado
     # quando job roda pós-meia-noite UTC. Pregão fecha 18h BRT → "now-12h UTC"
     # cai sempre dentro do dia correto independentemente do horário de execução.
-    target_date = (
-        date_iso
-        or (datetime.now(UTC) - timedelta(hours=12)).strftime("%Y-%m-%d")
-    )
+    target_date = date_iso or (datetime.now(UTC) - timedelta(hours=12)).strftime("%Y-%m-%d")
     logger.info("scheduler.tick_to_ohlc.start", date=target_date, mode="replace")
     try:
         import asyncpg
+
         conn = await asyncpg.connect(ts_dsn)
         try:
             async with conn.transaction():
@@ -566,7 +568,9 @@ async def tick_to_ohlc_backfill_job(date_iso: str | None = None) -> dict:
                       AND time <  ('{target_date}'::date + INTERVAL '1 day')
                     """
                 )
-                deleted = int(deleted_result.split()[-1]) if deleted_result.startswith("DELETE") else 0
+                deleted = (
+                    int(deleted_result.split()[-1]) if deleted_result.startswith("DELETE") else 0
+                )
 
                 # 2. Insere fresh do continuous aggregate (sem ON CONFLICT — limpamos antes)
                 inserted_result = await conn.execute(
@@ -579,11 +583,15 @@ async def tick_to_ohlc_backfill_job(date_iso: str | None = None) -> dict:
                       AND time <  ('{target_date}'::date + INTERVAL '1 day')
                     """
                 )
-                inserted = int(inserted_result.split()[-1]) if inserted_result.startswith("INSERT") else 0
+                inserted = (
+                    int(inserted_result.split()[-1]) if inserted_result.startswith("INSERT") else 0
+                )
 
             logger.info(
                 "scheduler.tick_to_ohlc.done",
-                date=target_date, deleted=deleted, inserted=inserted,
+                date=target_date,
+                deleted=deleted,
+                inserted=inserted,
                 net_change=inserted - deleted,
             )
             _record("tick_to_ohlc", "ok")
@@ -812,7 +820,9 @@ async def settle_cash_transactions_job() -> dict[str, Any]:
     Idempotente (re-rodar nao muda nada — tx ja settled e skip).
     """
     try:
-        from finanalytics_ai.infrastructure.database.repositories.wallet_repo import WalletRepository
+        from finanalytics_ai.infrastructure.database.repositories.wallet_repo import (
+            WalletRepository,
+        )
         from datetime import date as _date
 
         repo = WalletRepository()
@@ -837,7 +847,8 @@ async def crypto_signals_snapshot_job() -> dict[str, Any]:
         proc = await asyncio.create_subprocess_exec(
             "python",
             "/app/scripts/snapshot_crypto_signals.py",
-            "--rate-limit", "2.0",
+            "--rate-limit",
+            "2.0",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
             env={
@@ -876,11 +887,9 @@ async def snapshot_signals_job() -> dict[str, Any]:
     logger.info("scheduler.snapshot_signals.start")
     # DSN priority: TIMESCALE_URL (compose network) sobrescreve PROFIT_TIMESCALE_DSN
     # (default localhost do .env). Mesma logica do gtd_enforcer_loop.
-    ts_dsn = (
-        os.environ.get("TIMESCALE_URL", "")
-        .replace("postgresql+asyncpg://", "postgresql://")
-        or os.environ.get("PROFIT_TIMESCALE_DSN", "")
-    )
+    ts_dsn = os.environ.get("TIMESCALE_URL", "").replace(
+        "postgresql+asyncpg://", "postgresql://"
+    ) or os.environ.get("PROFIT_TIMESCALE_DSN", "")
     try:
         proc = await asyncio.create_subprocess_exec(
             "python",
@@ -930,7 +939,8 @@ async def yahoo_daily_bars_refresh_job() -> dict[str, Any]:
         proc = await asyncio.create_subprocess_exec(
             "python",
             "/app/scripts/backfill_yahoo_daily_bars.py",
-            "--years", "2",
+            "--years",
+            "2",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
         )
@@ -1009,7 +1019,12 @@ async def cvm_informe_sync_job() -> dict[str, Any]:
     today = datetime.now(UTC)
     if today.day != CVM_INFORME_DAY:
         _record("cvm_informe", "skip")
-        return {"status": "skip", "reason": "wrong_day", "today": today.day, "target": CVM_INFORME_DAY}
+        return {
+            "status": "skip",
+            "reason": "wrong_day",
+            "today": today.day,
+            "target": CVM_INFORME_DAY,
+        }
 
     prev_month = today.replace(day=1) - timedelta(days=1)
     competencia = prev_month.strftime("%Y%m")
@@ -1192,6 +1207,7 @@ async def schedule_loop() -> None:
         # Feature C5 (24/abr): liquida tx pending com settlement_date <= today.
         # Roda 00:05 BRT + mais uma vez 09:00 BRT (antes do pregao abrir).
         import os as _os_sc
+
         settle_hour = int(_os_sc.getenv("SCHEDULER_SETTLE_HOUR", "0"))  # 00 BRT default
         logger.info("scheduler.settle_cash.start", daily_hour=settle_hour)
         while True:
@@ -1402,7 +1418,8 @@ async def schedule_loop() -> None:
             or os.environ.get("TIMESCALE_DSN", "")
         )
         agent_url = os.environ.get(
-            "PROFIT_AGENT_URL", "http://host.docker.internal:8002",
+            "PROFIT_AGENT_URL",
+            "http://host.docker.internal:8002",
         )
         if not timescale_dsn:
             logger.warning("scheduler.gtd.skip", reason="no_timescale_dsn")
@@ -1410,6 +1427,7 @@ async def schedule_loop() -> None:
         ts_dsn = timescale_dsn.replace("postgresql+asyncpg://", "postgresql://")
         logger.info("scheduler.gtd.start_loop")
         import asyncpg, httpx
+
         while True:
             await asyncio.sleep(60)
             try:
@@ -1467,12 +1485,14 @@ async def schedule_loop() -> None:
                                 except Exception as exc2:
                                     logger.warning(
                                         "scheduler.gtd.mark_failed",
-                                        local_order_id=lid, error=str(exc2),
+                                        local_order_id=lid,
+                                        error=str(exc2),
                                     )
                         except Exception as exc:
                             logger.warning(
                                 "scheduler.gtd.cancel_exception",
-                                local_order_id=lid, error=str(exc),
+                                local_order_id=lid,
+                                error=str(exc),
                             )
             except Exception as exc:
                 logger.warning("scheduler.gtd.loop_error", error=str(exc))
@@ -1482,6 +1502,7 @@ async def schedule_loop() -> None:
 
     # Feature C5: liquidacao diaria (on by default, simples e idempotente)
     import os as _os_sc
+
     if _os_sc.getenv("SCHEDULER_SETTLE_CASH_ENABLED", "true").lower() == "true":
         tasks.append(asyncio.create_task(settle_cash_loop()))
 

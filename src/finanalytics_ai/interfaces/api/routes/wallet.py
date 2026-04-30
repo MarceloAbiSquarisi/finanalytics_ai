@@ -310,8 +310,10 @@ async def deposit(
 ) -> dict:
     """Credita cash na conta. Status=settled imediato (dinheiro ja entrou)."""
     from datetime import date as _date
+
     ref = _date.fromisoformat(body.reference_date) if body.reference_date else _date.today()
     from decimal import Decimal as _Dec
+
     tx = await _repo().create_transaction(
         user_id=str(user.user_id),
         account_id=account_id,
@@ -371,16 +373,21 @@ async def cash_summary(account_id: str, user: User = Depends(get_current_user)) 
 @router.get("/accounts/{account_id}/transactions")
 async def list_account_transactions(
     account_id: str,
-    status_filter: str | None = Query(None, alias="status", description="pending|settled|cancelled"),
+    status_filter: str | None = Query(
+        None, alias="status", description="pending|settled|cancelled"
+    ),
     limit: int = Query(500, ge=1, le=5000),
     offset: int = Query(0, ge=0),
     date_from: str | None = Query(None, description="YYYY-MM-DD — default sem filtro"),
     date_to: str | None = Query(None, description="YYYY-MM-DD — default hoje"),
-    direction: str | None = Query(None, pattern="^(debit|credit)$", description="debit=saídas, credit=entradas"),
+    direction: str | None = Query(
+        None, pattern="^(debit|credit)$", description="debit=saídas, credit=entradas"
+    ),
     include_pending: bool = Query(True, description="Incluir lançamentos futuros (pending)"),
     user: User = Depends(get_current_user),
 ) -> list[dict]:
     from datetime import date as _date
+
     df = _date.fromisoformat(date_from) if date_from else None
     dt = _date.fromisoformat(date_to) if date_to else None
     return await _repo().list_transactions(
@@ -411,6 +418,7 @@ async def list_all_transactions(
     """Cross-account por default; filtra por conta se account_id for fornecido.
     Usado pela página /movimentacoes (C6 Fase 3 — 26/abr) e /overview."""
     from datetime import date as _date
+
     df = _date.fromisoformat(date_from) if date_from else None
     dt = _date.fromisoformat(date_to) if date_to else None
     return await _repo().list_transactions(
@@ -436,7 +444,9 @@ async def cancel_transaction(tx_id: str, user: User = Depends(get_current_user))
 
 
 class ReconcileBody(BaseModel):
-    ticker: str = Field(..., min_length=1, max_length=10, description="Ticker da posição a vincular")
+    ticker: str = Field(
+        ..., min_length=1, max_length=10, description="Ticker da posição a vincular"
+    )
 
 
 @router.post("/transactions/{tx_id}/reconcile")
@@ -518,6 +528,7 @@ async def list_trades(
     user: User = Depends(get_current_user),
 ) -> list[dict]:
     from datetime import date as _date
+
     df = _date.fromisoformat(date_from) if date_from else None
     dt = _date.fromisoformat(date_to) if date_to else None
     return await _repo().list_trades(

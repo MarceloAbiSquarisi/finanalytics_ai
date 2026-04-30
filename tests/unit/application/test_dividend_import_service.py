@@ -62,9 +62,7 @@ class TestParseCsv:
 
     def test_ignora_linhas_sem_keyword(self, svc: DividendImportService):
         csv_content = (
-            b"data,desc,valor\n"
-            b"05/04/2026,COMPRA PETR4,1500.00\n"
-            b"10/04/2026,DIVIDENDO BBSE3,200.50"
+            b"data,desc,valor\n05/04/2026,COMPRA PETR4,1500.00\n10/04/2026,DIVIDENDO BBSE3,200.50"
         )
         parsed = svc.parse_csv(csv_content)
         # COMPRA não é keyword — só DIVIDENDO conta
@@ -125,6 +123,7 @@ class TestParsePdf:
         """Se pdfplumber não está disponível, parse_pdf deve dar RuntimeError claro."""
         # Simula ImportError
         import builtins
+
         original_import = builtins.__import__
 
         def fake_import(name, *args, **kwargs):
@@ -139,25 +138,33 @@ class TestParsePdf:
 
 
 class TestClassifyType:
-    @pytest.mark.parametrize("text,expected", [
-        ("DIVIDENDOS RECEBIDOS PETR4", "dividendo"),
-        ("DIVIDENDO BBSE3 ref. 04/2026", "dividendo"),
-        ("JCP ITUB4 — juros sobre capital", "jcp"),
-        ("JUROS SOBRE O CAPITAL PRÓPRIO VALE3", "jcp"),
-        ("RENDIMENTO KNRI11", "rendimento"),
-        ("RENDIMENTOS HGRE11", "rendimento"),
-    ])
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            ("DIVIDENDOS RECEBIDOS PETR4", "dividendo"),
+            ("DIVIDENDO BBSE3 ref. 04/2026", "dividendo"),
+            ("JCP ITUB4 — juros sobre capital", "jcp"),
+            ("JUROS SOBRE O CAPITAL PRÓPRIO VALE3", "jcp"),
+            ("RENDIMENTO KNRI11", "rendimento"),
+            ("RENDIMENTOS HGRE11", "rendimento"),
+        ],
+    )
     def test_classifica_corretamente(self, svc: DividendImportService, text: str, expected: str):
         assert svc._classify_type(text) == expected
 
 
 class TestExtractTicker:
-    @pytest.mark.parametrize("text,ticker", [
-        ("DIVIDENDO PETR4 ref. 03/2026", "PETR4"),
-        ("RENDIMENTO KNRI11 abril", "KNRI11"),
-        ("JCP ITUB4", "ITUB4"),
-        ("DIVIDEND BBAS3 referência", "BBAS3"),
-        ("Pagamento de dividendos sem ticker explícito", None),
-    ])
-    def test_extrai_primeiro_ticker_b3(self, svc: DividendImportService, text: str, ticker: str | None):
+    @pytest.mark.parametrize(
+        "text,ticker",
+        [
+            ("DIVIDENDO PETR4 ref. 03/2026", "PETR4"),
+            ("RENDIMENTO KNRI11 abril", "KNRI11"),
+            ("JCP ITUB4", "ITUB4"),
+            ("DIVIDEND BBAS3 referência", "BBAS3"),
+            ("Pagamento de dividendos sem ticker explícito", None),
+        ],
+    )
+    def test_extrai_primeiro_ticker_b3(
+        self, svc: DividendImportService, text: str, ticker: str | None
+    ):
         assert svc._extract_ticker(text) == ticker

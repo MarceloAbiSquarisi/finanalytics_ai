@@ -149,7 +149,10 @@ async def fund_style_analysis(
 
     result = style_analysis(fund_returns, factor_returns)
     if result is None:
-        return {"ok": False, "error": "Overlap insuficiente entre fundo e fatores (<30 datas comuns)"}
+        return {
+            "ok": False,
+            "error": "Overlap insuficiente entre fundo e fatores (<30 datas comuns)",
+        }
     result["cnpj"] = cnpj
     return {"ok": True, **result}
 
@@ -157,7 +160,9 @@ async def fund_style_analysis(
 @router.get("/peer-ranking")
 async def peer_ranking_endpoint(
     session: AsyncSession = Depends(get_db_session),
-    tipo: str = Query("Multimercado", description="Classe CVM (Multimercado, Ações, Renda Fixa, FII...)"),
+    tipo: str = Query(
+        "Multimercado", description="Classe CVM (Multimercado, Ações, Renda Fixa, FII...)"
+    ),
     months: int = Query(6, ge=1, le=36),
     top: int = Query(20, ge=5, le=100),
     min_pl: float = Query(0.0, description="PL mínimo (de pl_atual em fundos_cadastro)"),
@@ -292,7 +297,7 @@ async def fund_anomalies(
     )
     series = [(r[0], float(r[1])) for r in rows.fetchall() if r[1] is not None]
     if len(series) < rolling_window + 5:
-        return {"ok": False, "error": f"Dados insuficientes (<{rolling_window+5} obs)"}
+        return {"ok": False, "error": f"Dados insuficientes (<{rolling_window + 5} obs)"}
 
     result = nav_anomalies(series, rolling_window=rolling_window, threshold_sigma=threshold_sigma)
     if result is None:

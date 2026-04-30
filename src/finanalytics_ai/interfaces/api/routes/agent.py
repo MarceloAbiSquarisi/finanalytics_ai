@@ -46,7 +46,10 @@ async def _inject_account(body: dict) -> dict:
     real sem liberacao explicita do ADMIN.
     """
     try:
-        from finanalytics_ai.infrastructure.database.repositories.wallet_repo import WalletRepository
+        from finanalytics_ai.infrastructure.database.repositories.wallet_repo import (
+            WalletRepository,
+        )
+
         account = await WalletRepository().get_dll_active()
     except Exception as exc:  # noqa: BLE001
         logger.warning("agent.inject_account.failed", error=str(exc))
@@ -282,23 +285,23 @@ async def agent_flatten_ticker(body: dict):
             ticker = resolution.get("resolved") or ticker
             exchange = resolution.get("exchange") or "F"
         except Exception as exc:
-            logger.warning("agent.flatten_ticker.resolve_failed", error=str(exc), ticker=original_ticker)
+            logger.warning(
+                "agent.flatten_ticker.resolve_failed", error=str(exc), ticker=original_ticker
+            )
 
     # 1. Lista pending orders desse ticker
     qs = {"ticker": ticker, "env": env, "limit": 200}
     listing = await _get("/orders", qs)
     all_orders = listing.get("orders", []) if isinstance(listing, dict) else []
-    pending = [
-        o
-        for o in all_orders
-        if int(o.get("order_status", -1)) in _PENDING_ORDER_STATUSES
-    ]
+    pending = [o for o in all_orders if int(o.get("order_status", -1)) in _PENDING_ORDER_STATUSES]
 
     # 2. Cancela cada pending. Sequencial pra DLL não enfileirar mal.
     cancel_errors: list[dict] = []
     cancelled_count = 0
     cancel_inject_keys = {
-        k: v for k, v in body.items() if k.startswith("_account") or k == "_routing_password" or k == "_sub_account_id"
+        k: v
+        for k, v in body.items()
+        if k.startswith("_account") or k == "_routing_password" or k == "_sub_account_id"
     }
     for o in pending:
         loc_id = o.get("local_order_id")

@@ -911,7 +911,9 @@ async def preview_dividends(
         except RuntimeError as exc:
             raise HTTPException(400, str(exc)) from exc
     else:
-        raise HTTPException(400, f"Formato nao suportado: {fn.split('.')[-1]}. Use CSV, OFX ou PDF.")
+        raise HTTPException(
+            400, f"Formato nao suportado: {fn.split('.')[-1]}. Use CSV, OFX ou PDF."
+        )
 
     matched = await svc.match_to_positions(parsed, account_id)
 
@@ -942,7 +944,9 @@ async def preview_dividends(
 @router.post("/dividends/commit", summary="Confirma e cria account_transactions de dividendos")
 async def commit_dividends(
     account_id: str = Query(..., min_length=1),
-    user_id: str = Query(..., min_length=1, description="user_id (master pode importar para qualquer)"),
+    user_id: str = Query(
+        ..., min_length=1, description="user_id (master pode importar para qualquer)"
+    ),
     only_matched: bool = Query(False, description="Se true, ignora linhas unmatched/ambiguous"),
     file: UploadFile = File(...),
 ) -> dict[str, Any]:
@@ -972,5 +976,7 @@ async def commit_dividends(
         raise HTTPException(400, f"Formato nao suportado: {fn.split('.')[-1]}.")
 
     matched = await svc.match_to_positions(parsed, account_id)
-    result = await svc.commit_dividends(matched, user_id=user_id, account_id=account_id, only_matched=only_matched)
+    result = await svc.commit_dividends(
+        matched, user_id=user_id, account_id=account_id, only_matched=only_matched
+    )
     return result

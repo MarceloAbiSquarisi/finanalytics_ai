@@ -235,7 +235,9 @@ async def change_admin_flag(
     if not target:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado.")
     await session.execute(
-        sa_update(UserModel).where(UserModel.user_id == user_id).values(is_admin=bool(body.is_admin))
+        sa_update(UserModel)
+        .where(UserModel.user_id == user_id)
+        .values(is_admin=bool(body.is_admin))
     )
     await session.commit()
     logger.info(

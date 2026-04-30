@@ -109,8 +109,20 @@ def _sanitize_ticker(ticker: str) -> str:
 # com fix de subscribe alias resolution (commit 30e5772), ticks novos passaram
 # a chegar com código vigente (WDOK26) em vez do alias (WDOFUT). Histórico
 # misturado: backend de candles deve unificar via `ticker = ANY([alias, vigente])`.
-_MONTH_CODE = {1: "F", 2: "G", 3: "H", 4: "J", 5: "K", 6: "M",
-               7: "N", 8: "Q", 9: "U", 10: "V", 11: "X", 12: "Z"}
+_MONTH_CODE = {
+    1: "F",
+    2: "G",
+    3: "H",
+    4: "J",
+    5: "K",
+    6: "M",
+    7: "N",
+    8: "Q",
+    9: "U",
+    10: "V",
+    11: "X",
+    12: "Z",
+}
 # Mensais (qualquer mês): WDO, DOL, BGI, OZM
 _FUTURES_MONTHLY = {"WDOFUT", "DOLFUT", "BGIFUT", "OZMFUT"}
 # Bimestre par (G/J/M/Q/V/Z): WIN, IND
@@ -203,7 +215,9 @@ async def _conn() -> asyncpg.Connection:  # type: ignore[type-arg]
 # Conexão alternativa para Postgres principal (finanalytics DB) — onde mora
 # ohlc_prices (Yahoo daily) usado como fallback de candles para tickers que
 # não estão no feed Profit/BRAPI (ETFs, BDRs, FIIs comuns).
-_PG_DSN_RAW = os.getenv("DATABASE_URL") or "postgresql://finanalytics:secret@postgres:5432/finanalytics"
+_PG_DSN_RAW = (
+    os.getenv("DATABASE_URL") or "postgresql://finanalytics:secret@postgres:5432/finanalytics"
+)
 _PG_DSN = _PG_DSN_RAW.replace("postgresql+asyncpg://", "postgres://").replace(
     "postgresql://", "postgres://"
 )
@@ -219,11 +233,21 @@ async def _pg_conn() -> asyncpg.Connection:  # type: ignore[type-arg]
 # CoinGecko API gratuita, sem auth, rate limit ~30/min anonymous.
 
 _CRYPTO_SYMBOL_TO_CG = {
-    "BTC": "bitcoin", "ETH": "ethereum", "BNB": "binancecoin", "SOL": "solana",
-    "XRP": "ripple", "ADA": "cardano", "DOGE": "dogecoin", "AVAX": "avalanche-2",
-    "LINK": "chainlink", "MATIC": "matic-network", "DOT": "polkadot",
-    "USDT": "tether", "USDC": "usd-coin",
-    "BTCBRL": "bitcoin", "ETHBRL": "ethereum",
+    "BTC": "bitcoin",
+    "ETH": "ethereum",
+    "BNB": "binancecoin",
+    "SOL": "solana",
+    "XRP": "ripple",
+    "ADA": "cardano",
+    "DOGE": "dogecoin",
+    "AVAX": "avalanche-2",
+    "LINK": "chainlink",
+    "MATIC": "matic-network",
+    "DOT": "polkadot",
+    "USDT": "tether",
+    "USDC": "usd-coin",
+    "BTCBRL": "bitcoin",
+    "ETHBRL": "ethereum",
 }
 
 _crypto_candles_cache: dict[str, tuple[float, list[dict]]] = {}  # ticker → (ts, candles)
@@ -233,6 +257,7 @@ _CRYPTO_CACHE_TTL = 300  # 5 min
 async def _fetch_crypto_candles(ticker: str, days: int = 30) -> list[dict]:
     """Busca candles diárias na CoinGecko. Retorna [{ts, open, high, low, close, volume, trades}]."""
     import time as _t
+
     cg_id = _CRYPTO_SYMBOL_TO_CG.get(ticker.upper().replace("-BRL", "").replace("BRL", ""))
     if not cg_id:
         return []
@@ -243,6 +268,7 @@ async def _fetch_crypto_candles(ticker: str, days: int = 30) -> list[dict]:
         return cached[1]
     try:
         import httpx
+
         url = f"https://api.coingecko.com/api/v3/coins/{cg_id}/market_chart"
         params = {"vs_currency": "brl", "days": str(days), "interval": "daily"}
         async with httpx.AsyncClient(timeout=8.0) as client:
@@ -256,17 +282,25 @@ async def _fetch_crypto_candles(ticker: str, days: int = 30) -> list[dict]:
         for ts_ms, price in prices:
             day = int(ts_ms / 1000 / 86400)
             from datetime import datetime as _dtmod, UTC
+
             dt_iso = _dtmod.fromtimestamp(ts_ms / 1000, tz=UTC).replace(tzinfo=None)
             # CoinGecko 'daily' retorna 1 ponto/dia (close); usa mesmo valor pra OHLC
-            candles.append({
-                "ts": dt_iso,
-                "open": price, "high": price, "low": price, "close": price,
-                "volume": volumes.get(day, 0), "trades": None,
-            })
+            candles.append(
+                {
+                    "ts": dt_iso,
+                    "open": price,
+                    "high": price,
+                    "low": price,
+                    "close": price,
+                    "volume": volumes.get(day, 0),
+                    "trades": None,
+                }
+            )
         _crypto_candles_cache[cache_key] = (now, candles)
         return candles
     except Exception as exc:
         import structlog as _sl
+
         _sl.get_logger(__name__).warning(
             "marketdata.crypto.coingecko_fail", ticker=ticker, error=str(exc)
         )
@@ -308,7 +342,9 @@ async def _get_prev_close_map() -> dict[str, float]:
                 GROUP BY o.ticker
             """)
             await conn.close()
-            _PREV_CLOSE_CACHE = {r["ticker"]: float(r["prev_close"]) for r in rows if r["prev_close"] is not None}
+            _PREV_CLOSE_CACHE = {
+                r["ticker"]: float(r["prev_close"]) for r in rows if r["prev_close"] is not None
+            }
             _PREV_CLOSE_REFRESHED_AT = now
         except Exception:
             pass
@@ -465,6 +501,7 @@ async def get_candles(
             except Exception as exc_pg:
                 # Falha silenciosa do fallback — retorna lista vazia
                 import structlog as _sl
+
                 _sl.get_logger(__name__).warning(
                     "marketdata.candles.yahoo_fallback_fail", ticker=t, error=str(exc_pg)
                 )

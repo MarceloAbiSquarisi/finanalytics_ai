@@ -1208,6 +1208,7 @@ def create_app() -> FastAPI:
         # Refactor 25/abr: modelo simplificado para 1 portfolio por conta.
         # /portfolios deprecada — gerenciamento centralizado em /profile#invest.
         from fastapi.responses import RedirectResponse
+
         return RedirectResponse(url="/profile#invest", status_code=302)
 
     @app.get("/fundos", response_class=HTMLResponse, include_in_schema=False)

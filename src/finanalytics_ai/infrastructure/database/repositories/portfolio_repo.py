@@ -150,9 +150,7 @@ class SQLPortfolioRepository:
     async def delete(self, portfolio_id: str) -> None:
         await self._session.execute(delete(PortfolioModel).where(PortfolioModel.id == portfolio_id))
 
-    async def link_to_account(
-        self, portfolio_id: str, account_id: str, user_id: str
-    ) -> bool:
+    async def link_to_account(self, portfolio_id: str, account_id: str, user_id: str) -> bool:
         """Associa portfolio a uma investment_account. Valida propriedade + atividade.
         Retorna True se linkou, False se conta inválida/não pertence/inativa."""
         from sqlalchemy import text as sql_text
@@ -180,8 +178,7 @@ class SQLPortfolioRepository:
             return False
         await self._session.execute(
             sql_text(
-                "UPDATE portfolios SET investment_account_id = :a, updated_at = NOW() "
-                "WHERE id = :p"
+                "UPDATE portfolios SET investment_account_id = :a, updated_at = NOW() WHERE id = :p"
             ),
             {"a": account_id, "p": portfolio_id},
         )
@@ -282,7 +279,9 @@ class SQLPortfolioRepository:
             is_active=bool(pm.is_active),
             currency=Currency(str(pm.currency)),
             cash=Money(Decimal(str(pm.cash)), Currency(str(pm.currency))),
-            investment_account_id=str(pm.investment_account_id) if pm.investment_account_id else None,
+            investment_account_id=str(pm.investment_account_id)
+            if pm.investment_account_id
+            else None,
             created_at=pm.created_at,  # type: ignore[arg-type]
             updated_at=pm.updated_at,  # type: ignore[arg-type]
         )

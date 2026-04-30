@@ -11,6 +11,7 @@ Use:
 Toda rota aqui retorna 410 Gone com mensagem explicando o novo path.
 A tabela trading_accounts foi removida apos migracao dos dados.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
@@ -20,15 +21,15 @@ router = APIRouter()
 
 _DEPRECATED = {
     "detail": "Deprecated: as credenciais Profit DLL foram unificadas em /api/v1/wallet/accounts/*. "
-              "Use /api/v1/wallet/accounts/{id}/connect-dll para cadastrar credenciais, "
-              "/activate-dll para marcar como ativa, e /disconnect-dll para remover.",
+    "Use /api/v1/wallet/accounts/{id}/connect-dll para cadastrar credenciais, "
+    "/activate-dll para marcar como ativa, e /disconnect-dll para remover.",
     "new_endpoints": {
-        "list":          "GET  /api/v1/wallet/accounts",
-        "create":        "POST /api/v1/wallet/accounts",
-        "update":        "PATCH /api/v1/wallet/accounts/{id}",
-        "delete":        "DELETE /api/v1/wallet/accounts/{id}",
-        "connect_dll":   "POST /api/v1/wallet/accounts/{id}/connect-dll",
-        "activate_dll":  "POST /api/v1/wallet/accounts/{id}/activate-dll",
+        "list": "GET  /api/v1/wallet/accounts",
+        "create": "POST /api/v1/wallet/accounts",
+        "update": "PATCH /api/v1/wallet/accounts/{id}",
+        "delete": "DELETE /api/v1/wallet/accounts/{id}",
+        "connect_dll": "POST /api/v1/wallet/accounts/{id}/connect-dll",
+        "activate_dll": "POST /api/v1/wallet/accounts/{id}/activate-dll",
         "disconnect_dll": "POST /api/v1/wallet/accounts/{id}/disconnect-dll",
     },
 }

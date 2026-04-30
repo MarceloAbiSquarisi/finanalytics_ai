@@ -43,14 +43,18 @@ class InvestmentAccountModel(Base):
     dll_account_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     dll_sub_account_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     dll_routing_password: Mapped[str | None] = mapped_column(Text, nullable=True)
-    dll_account_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # 'real' | 'simulator'
+    dll_account_type: Mapped[str | None] = mapped_column(
+        String(20), nullable=True
+    )  # 'real' | 'simulator'
     is_dll_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # Flag ADMIN-only: libera envio de ordens REAIS para esta conta (C3 24/abr).
     # Default FALSE — conta recem-criada so pode operar simulador ate admin liberar
     # (evita acidente de rodar estrategia em conta real sem autorizacao).
     real_operations_allowed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # Saldo cash settled (Feature C, 24/abr). Mantido pelo AccountTransactionService.
-    cash_balance: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False, default=Decimal("0"))
+    cash_balance: Mapped[Decimal] = mapped_column(
+        Numeric(18, 2), nullable=False, default=Decimal("0")
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -122,6 +126,7 @@ class EtfMetadataModel(Base):
     data, os fees/benchmark sao os mesmos — por isso tabela separada com
     PK=ticker, consultada pelo frontend ao abrir o form de trade ETF.
     """
+
     __tablename__ = "etf_metadata"
     ticker: Mapped[str] = mapped_column(String(20), primary_key=True)
     name: Mapped[str | None] = mapped_column(String(200), nullable=True)
@@ -130,7 +135,9 @@ class EtfMetadataModel(Base):
     perf_fee: Mapped[Decimal | None] = mapped_column(Numeric(6, 4), nullable=True)
     isin: Mapped[str | None] = mapped_column(String(12), nullable=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
     updated_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
 
@@ -227,14 +234,16 @@ class WalletRepository:
 
         async with get_session() as s:
             # Checa se ja existe portfolio ativo nesta conta
-            pf_row = (await s.execute(
-                sql_text(
-                    "SELECT id FROM portfolios "
-                    "WHERE investment_account_id = :a AND user_id = :u "
-                    "AND COALESCE(is_active, true) = true LIMIT 1"
-                ),
-                {"a": account_id, "u": user_id},
-            )).scalar_one_or_none()
+            pf_row = (
+                await s.execute(
+                    sql_text(
+                        "SELECT id FROM portfolios "
+                        "WHERE investment_account_id = :a AND user_id = :u "
+                        "AND COALESCE(is_active, true) = true LIMIT 1"
+                    ),
+                    {"a": account_id, "u": user_id},
+                )
+            ).scalar_one_or_none()
             if not pf_row:
                 pf_id = str(uuid.uuid4())
                 await s.execute(
@@ -245,7 +254,9 @@ class WalletRepository:
                     ),
                     {"id": pf_id, "u": user_id, "a": account_id},
                 )
-                log.info("account.auto_portfolio.created", account_id=account_id, portfolio_id=pf_id)
+                log.info(
+                    "account.auto_portfolio.created", account_id=account_id, portfolio_id=pf_id
+                )
 
             await s.commit()
 
@@ -269,9 +280,17 @@ class WalletRepository:
 
     async def update_account(self, account_id: str, user_id: str, data: dict) -> dict | None:
         # Campos proibidos no PATCH genérico (usar endpoints dedicados)
-        blocked = {"id", "user_id", "created_at",
-                   "dll_broker_id", "dll_account_id", "dll_sub_account_id",
-                   "dll_routing_password", "dll_account_type", "is_dll_active"}
+        blocked = {
+            "id",
+            "user_id",
+            "created_at",
+            "dll_broker_id",
+            "dll_account_id",
+            "dll_sub_account_id",
+            "dll_routing_password",
+            "dll_account_type",
+            "is_dll_active",
+        }
         async with get_session() as s:
             q = select(InvestmentAccountModel).where(
                 InvestmentAccountModel.id == account_id,
@@ -309,7 +328,9 @@ class WalletRepository:
           - account_type e imutavel apos primeira conexao (checa no service)
         """
         if account_type not in ("real", "simulator"):
-            raise ValueError(f"account_type deve ser 'real' ou 'simulator', recebi {account_type!r}")
+            raise ValueError(
+                f"account_type deve ser 'real' ou 'simulator', recebi {account_type!r}"
+            )
         if account_type == "real" and not (broker_id and dll_account_id and routing_password):
             raise ValueError("Conta real requer broker_id, dll_account_id e routing_password")
 
@@ -365,6 +386,7 @@ class WalletRepository:
             )
             # Usar UPDATE direto para evitar ORM overhead / conflito com unique index
             from sqlalchemy import update as sql_update
+
             await s.execute(
                 sql_update(InvestmentAccountModel)
                 .where(InvestmentAccountModel.user_id == user_id)
@@ -380,7 +402,9 @@ class WalletRepository:
             if not m:
                 return None
             if not m.dll_account_type:
-                raise ValueError("Conta nao tem credenciais DLL conectadas — conecte primeiro via /connect-dll")
+                raise ValueError(
+                    "Conta nao tem credenciais DLL conectadas — conecte primeiro via /connect-dll"
+                )
             m.is_dll_active = True
             await s.commit()
             await s.refresh(m)
@@ -398,7 +422,9 @@ class WalletRepository:
             m = (await s.execute(q)).scalar_one_or_none()
             return _model_to_dict(m, include_sensitive=True) if m else None
 
-    async def set_real_operations(self, account_id: str, user_id: str, allowed: bool) -> dict | None:
+    async def set_real_operations(
+        self, account_id: str, user_id: str, allowed: bool
+    ) -> dict | None:
         """Liga/desliga permissao de envio de ordens REAIS (ADMIN/MASTER-only).
         Validacao de role feita na rota antes de chamar."""
         async with get_session() as s:
@@ -494,9 +520,7 @@ class WalletRepository:
             await s.refresh(m)
             return _model_to_dict(m)
 
-    async def reconcile_transaction(
-        self, tx_id: str, user_id: str, ticker: str
-    ) -> dict | None:
+    async def reconcile_transaction(self, tx_id: str, user_id: str, ticker: str) -> dict | None:
         """C6 Fase 4 (26/abr): vincula tx unmatched a uma posição via ticker.
 
         Procura position do user_id que tenha o ticker; se encontra, seta
@@ -602,12 +626,16 @@ class WalletRepository:
             if account_id:
                 # Pega todas as tx da conta (sem filtros de periodo/dir/status)
                 # e ordena por data ASC para acumular
-                all_q = select(AccountTransactionModel).where(
-                    AccountTransactionModel.user_id == user_id,
-                    AccountTransactionModel.account_id == account_id,
-                ).order_by(
-                    AccountTransactionModel.reference_date.asc(),
-                    AccountTransactionModel.created_at.asc(),
+                all_q = (
+                    select(AccountTransactionModel)
+                    .where(
+                        AccountTransactionModel.user_id == user_id,
+                        AccountTransactionModel.account_id == account_id,
+                    )
+                    .order_by(
+                        AccountTransactionModel.reference_date.asc(),
+                        AccountTransactionModel.created_at.asc(),
+                    )
                 )
                 all_rows = (await s.execute(all_q)).scalars().all()
                 balance_map: dict[str, Decimal] = {}
@@ -672,10 +700,14 @@ class WalletRepository:
 
         async with get_session() as s:
             # Valida conta
-            acc = (await s.execute(
-                sql_text("SELECT id FROM investment_accounts WHERE id = :a AND user_id = :u AND is_active"),
-                {"a": account_id, "u": user_id},
-            )).scalar_one_or_none()
+            acc = (
+                await s.execute(
+                    sql_text(
+                        "SELECT id FROM investment_accounts WHERE id = :a AND user_id = :u AND is_active"
+                    ),
+                    {"a": account_id, "u": user_id},
+                )
+            ).scalar_one_or_none()
             if not acc:
                 return None
             pf_id = str(uuid.uuid4())
@@ -695,7 +727,11 @@ class WalletRepository:
                     await s.rollback()
                     return None
                 raise
-            return {"portfolio_id": pf_id, "name": name.strip(), "investment_account_id": account_id}
+            return {
+                "portfolio_id": pf_id,
+                "name": name.strip(),
+                "investment_account_id": account_id,
+            }
 
     # ── Feature C3b: ETF metadata ────────────────────────────────────────────
 
@@ -712,7 +748,9 @@ class WalletRepository:
             m = await s.get(EtfMetadataModel, ticker.upper())
             return _model_to_dict(m) if m else None
 
-    async def upsert_etf_metadata(self, ticker: str, data: dict, updated_by: str | None = None) -> dict:
+    async def upsert_etf_metadata(
+        self, ticker: str, data: dict, updated_by: str | None = None
+    ) -> dict:
         from sqlalchemy.dialects.postgresql import insert as pg_insert
 
         ticker = ticker.upper()
@@ -720,8 +758,12 @@ class WalletRepository:
             "ticker": ticker,
             "name": data.get("name"),
             "benchmark": data.get("benchmark"),
-            "mgmt_fee": Decimal(str(data["mgmt_fee"])) if data.get("mgmt_fee") is not None else None,
-            "perf_fee": Decimal(str(data["perf_fee"])) if data.get("perf_fee") is not None else None,
+            "mgmt_fee": Decimal(str(data["mgmt_fee"]))
+            if data.get("mgmt_fee") is not None
+            else None,
+            "perf_fee": Decimal(str(data["perf_fee"]))
+            if data.get("perf_fee") is not None
+            else None,
             "isin": data.get("isin"),
             "note": data.get("note"),
             "updated_by": updated_by,
@@ -801,8 +843,9 @@ class WalletRepository:
                     f"Saldo R$ {m.cash_balance} diferente de zero. Zere via saque/depósito antes de excluir."
                 )
             # BUG14 fix: bloqueia se há holdings ativos (trades, crypto, RF, outros)
-            counts = (await s.execute(
-                sql_text("""
+            counts = (
+                await s.execute(
+                    sql_text("""
                     SELECT
                       (SELECT COUNT(*) FROM trades WHERE investment_account_id = :acc) AS trades,
                       (SELECT COUNT(*) FROM crypto_holdings WHERE investment_account_id = :acc) AS crypto,
@@ -811,8 +854,9 @@ class WalletRepository:
                          JOIN portfolios p ON p.id = rh.portfolio_id
                          WHERE p.investment_account_id = :acc) AS rf
                 """),
-                {"acc": account_id},
-            )).mappings().first() or {}
+                    {"acc": account_id},
+                )
+            ).mappings().first() or {}
             total = sum(int(counts.get(k, 0) or 0) for k in ("trades", "crypto", "other", "rf"))
             if total > 0:
                 raise ValueError(
@@ -953,7 +997,9 @@ class WalletRepository:
                 # Checa saldo para warning (nao bloqueante)
                 summary = await self.get_cash_summary(acc_id, str(data["user_id"]))
                 if summary and op == "buy":
-                    after = summary["cash_balance"] + summary["pending_out"]  # pending_out e negativo
+                    after = (
+                        summary["cash_balance"] + summary["pending_out"]
+                    )  # pending_out e negativo
                     if after < 0:
                         trade_dict["warning"] = (
                             f"Saldo ficará negativo (R$ {after:.2f}) após esta compra liquidar em D+1. "
@@ -1007,14 +1053,20 @@ class WalletRepository:
 
         # Feature C: cancela tx(s) vinculada(s) a este trade (reverte cash_balance se settled)
         async with get_session() as s2:
-            txs = (await s2.execute(
-                select(AccountTransactionModel).where(
-                    AccountTransactionModel.related_type == "trade",
-                    AccountTransactionModel.related_id == trade_id,
-                    AccountTransactionModel.user_id == user_id,
-                    AccountTransactionModel.status != "cancelled",
+            txs = (
+                (
+                    await s2.execute(
+                        select(AccountTransactionModel).where(
+                            AccountTransactionModel.related_type == "trade",
+                            AccountTransactionModel.related_id == trade_id,
+                            AccountTransactionModel.user_id == user_id,
+                            AccountTransactionModel.status != "cancelled",
+                        )
+                    )
                 )
-            )).scalars().all()
+                .scalars()
+                .all()
+            )
             for tx in txs:
                 await self.cancel_transaction(tx.id, user_id)
         return True

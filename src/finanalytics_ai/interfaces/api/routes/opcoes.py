@@ -304,9 +304,7 @@ class LancamentoRequest(BaseModel):
     premium: float = Field(..., gt=0, description="Premio recebido (R$)")
     dias_uteis: int = Field(..., gt=0, description="Dias uteis ate o vencimento")
     cdi_anual: float = Field(..., ge=0, description="Taxa CDI anual (ex: 0.1475)")
-    retorno_min_x: float = Field(
-        1.0, gt=0, description="Multiplicador X do CDI desejado (ex: 3)"
-    )
+    retorno_min_x: float = Field(1.0, gt=0, description="Multiplicador X do CDI desejado (ex: 3)")
     side: str = Field("call", description="'call' ou 'put'")
 
 

@@ -217,9 +217,7 @@ def compute_classic_pivots(
 # ── 3. WILLIAMS FRACTALS (5-bar) ──────────────────────────────────────────────
 
 
-def compute_williams_fractals(
-    highs: list[float], lows: list[float]
-) -> WilliamsFractalsResult:
+def compute_williams_fractals(highs: list[float], lows: list[float]) -> WilliamsFractalsResult:
     """Bill Williams 5-bar fractals.
 
     Up Fractal em i (resistência local):

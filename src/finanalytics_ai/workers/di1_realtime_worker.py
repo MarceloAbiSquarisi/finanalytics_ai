@@ -178,8 +178,9 @@ class DI1RealtimeWorker:
         self._worker_start_ts = datetime.now(UTC)
         for c in CONTRACTS:
             self._last_tick_ts[c] = self._worker_start_ts
-        log.info("init worker_start_ts=%s (cursor por time, P3 fix)",
-                 self._worker_start_ts.isoformat())
+        log.info(
+            "init worker_start_ts=%s (cursor por time, P3 fix)", self._worker_start_ts.isoformat()
+        )
 
     async def _poll_once(self) -> None:
         assert self._pool is not None and self._producer is not None

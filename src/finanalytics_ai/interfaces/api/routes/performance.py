@@ -131,16 +131,22 @@ async def get_account_performance(
     )
 
     # Validação de propriedade da conta + resolve portfolio_id
-    row = (await session.execute(
-        sql_text("""
+    row = (
+        (
+            await session.execute(
+                sql_text("""
             SELECT p.id AS portfolio_id, p.name, ia.apelido, ia.institution_name, ia.user_id
               FROM investment_accounts ia
               LEFT JOIN portfolios p ON p.investment_account_id = ia.id
              WHERE ia.id = :acc_id AND ia.is_active
              LIMIT 1
         """),
-        {"acc_id": account_id},
-    )).mappings().first()
+                {"acc_id": account_id},
+            )
+        )
+        .mappings()
+        .first()
+    )
     if not row:
         raise HTTPException(404, detail="Conta não encontrada")
     if str(row["user_id"]) != str(user.user_id):
@@ -189,11 +195,21 @@ async def get_account_performance(
                 "win_rate_pct": m.win_rate_pct,
             },
             "equity_curve": [
-                {"date": p.date, "portfolio": p.portfolio, "benchmark": p.benchmark, "drawdown": p.drawdown}
+                {
+                    "date": p.date,
+                    "portfolio": p.portfolio,
+                    "benchmark": p.benchmark,
+                    "drawdown": p.drawdown,
+                }
                 for p in result.equity_curve
             ],
             "monthly_returns": [
-                {"year": r.year, "month": r.month, "portfolio_pct": r.portfolio_pct, "benchmark_pct": r.benchmark_pct}
+                {
+                    "year": r.year,
+                    "month": r.month,
+                    "portfolio_pct": r.portfolio_pct,
+                    "benchmark_pct": r.benchmark_pct,
+                }
                 for r in result.monthly_returns
             ],
             "positions_contribution": result.positions_contribution,

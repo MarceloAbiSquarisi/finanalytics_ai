@@ -63,13 +63,13 @@ class VWAPResult(TypedDict):
 
 
 class StochasticResult(TypedDict):
-    k: list[float | None]   # %K (Slow Stochastic) — Fast %K suavizado por SMA(smooth_k)
-    d: list[float | None]   # %D — SMA(smooth_d) do %K
-    overbought: float       # linha 80
-    oversold: float         # linha 20
-    period: int             # lookback (default 14)
-    smooth_k: int           # suavização do %K (default 3 = "Slow")
-    smooth_d: int           # suavização do %D (default 3)
+    k: list[float | None]  # %K (Slow Stochastic) — Fast %K suavizado por SMA(smooth_k)
+    d: list[float | None]  # %D — SMA(smooth_d) do %K
+    overbought: float  # linha 80
+    oversold: float  # linha 20
+    period: int  # lookback (default 14)
+    smooth_k: int  # suavização do %K (default 3 = "Slow")
+    smooth_d: int  # suavização do %D (default 3)
 
 
 class IndicatorsResult(TypedDict):
@@ -357,6 +357,7 @@ def compute_vwap(
     valores de várias sessões.
     """
     from datetime import datetime as _dt, UTC as _UTC
+
     n = len(closes)
     out: list[float | None] = [None] * n
     if n == 0:
@@ -402,15 +403,20 @@ def compute_stochastic(
     n = len(closes)
     if n == 0:
         return StochasticResult(
-            k=[], d=[], overbought=80.0, oversold=20.0,
-            period=period, smooth_k=smooth_k, smooth_d=smooth_d,
+            k=[],
+            d=[],
+            overbought=80.0,
+            oversold=20.0,
+            period=period,
+            smooth_k=smooth_k,
+            smooth_d=smooth_d,
         )
     fast_k: list[float | None] = [None] * n
     for i in range(n):
         if i < period - 1:
             continue
-        window_h = max(highs[i - period + 1: i + 1])
-        window_l = min(lows[i - period + 1: i + 1])
+        window_h = max(highs[i - period + 1 : i + 1])
+        window_l = min(lows[i - period + 1 : i + 1])
         rng = window_h - window_l
         if rng <= 0:
             fast_k[i] = 50.0  # range zero — neutro
@@ -419,18 +425,23 @@ def compute_stochastic(
     # Slow %K = SMA(smooth_k) do Fast %K
     slow_k: list[float | None] = [None] * n
     for i in range(n):
-        window = [v for v in fast_k[max(0, i - smooth_k + 1): i + 1] if v is not None]
+        window = [v for v in fast_k[max(0, i - smooth_k + 1) : i + 1] if v is not None]
         if len(window) >= smooth_k:
             slow_k[i] = sum(window) / smooth_k
     # %D = SMA(smooth_d) do Slow %K
     d_line: list[float | None] = [None] * n
     for i in range(n):
-        window = [v for v in slow_k[max(0, i - smooth_d + 1): i + 1] if v is not None]
+        window = [v for v in slow_k[max(0, i - smooth_d + 1) : i + 1] if v is not None]
         if len(window) >= smooth_d:
             d_line[i] = sum(window) / smooth_d
     return StochasticResult(
-        k=slow_k, d=d_line, overbought=80.0, oversold=20.0,
-        period=period, smooth_k=smooth_k, smooth_d=smooth_d,
+        k=slow_k,
+        d=d_line,
+        overbought=80.0,
+        oversold=20.0,
+        period=period,
+        smooth_k=smooth_k,
+        smooth_d=smooth_d,
     )
 
 
@@ -477,8 +488,13 @@ def compute_all(
                 std_dev=bb_std,
             ),
             stochastic=StochasticResult(
-                k=[], d=[], overbought=80.0, oversold=20.0,
-                period=stoch_period, smooth_k=stoch_smooth_k, smooth_d=stoch_smooth_d,
+                k=[],
+                d=[],
+                overbought=80.0,
+                oversold=20.0,
+                period=stoch_period,
+                smooth_k=stoch_smooth_k,
+                smooth_d=stoch_smooth_d,
             ),
             atr=ATRResult(values=[], period=atr_period),
             vwap=VWAPResult(values=[]),
@@ -498,7 +514,9 @@ def compute_all(
         rsi=compute_rsi(closes, rsi_period),
         macd=compute_macd(closes, macd_fast, macd_slow, macd_signal),
         bollinger=compute_bollinger(closes, bb_period, bb_std),
-        stochastic=compute_stochastic(highs, lows, closes, stoch_period, stoch_smooth_k, stoch_smooth_d),
+        stochastic=compute_stochastic(
+            highs, lows, closes, stoch_period, stoch_smooth_k, stoch_smooth_d
+        ),
         atr=compute_atr(highs, lows, closes, atr_period),
         vwap=compute_vwap(highs, lows, closes, volumes, timestamps),
         timestamps=timestamps,

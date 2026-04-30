@@ -66,11 +66,14 @@ class EtfMetadataUpsert(BaseModel):
 
 def _repo():
     from finanalytics_ai.infrastructure.database.repositories.wallet_repo import WalletRepository
+
     return WalletRepository()
 
 
 @router.get("/metadata")
-async def list_etf_metadata(tickers: str | None = Query(None, description="CSV de tickers (opcional)")) -> list[dict]:
+async def list_etf_metadata(
+    tickers: str | None = Query(None, description="CSV de tickers (opcional)"),
+) -> list[dict]:
     """Lista metadata de ETFs. Sem filtro: retorna todos seed + cadastrados."""
     ts = [t.strip().upper() for t in tickers.split(",")] if tickers else None
     return await _repo().list_etf_metadata(ts)
@@ -88,6 +91,7 @@ async def get_etf_metadata(ticker: str) -> dict:
 async def upsert_etf_metadata(ticker: str, body: EtfMetadataUpsert) -> dict:
     """Cria ou atualiza metadata do ETF. Idempotente."""
     from finanalytics_ai.interfaces.api.dependencies import get_current_user  # noqa: F401
+
     # TODO: require_admin ou require_master aqui? Por enquanto aberto a qualquer usuario logado.
     data = body.model_dump(exclude_none=False)
     return await _repo().upsert_etf_metadata(ticker, data, updated_by=None)

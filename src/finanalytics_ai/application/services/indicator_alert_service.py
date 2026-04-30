@@ -153,7 +153,9 @@ class IndicatorAlertService:
         _SYMBOL_TO_OP = {">": "gt", "<": "lt", ">=": "gte", "<=": "lte"}
         operator = _SYMBOL_TO_OP.get(operator, operator)
         if operator not in _OPERATORS:
-            raise ValueError(f"Operador '{operator}' invalido. Use: gt, lt, gte, lte (ou >, <, >=, <=)")
+            raise ValueError(
+                f"Operador '{operator}' invalido. Use: gt, lt, gte, lte (ou >, <, >=, <=)"
+            )
 
         condition = IndicatorAlertCondition(
             indicator=indicator,

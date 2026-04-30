@@ -294,15 +294,29 @@ class RFPortfolioRepository:
         Resolve (user_id, investment_account_id) via portfolio."""
         from decimal import Decimal
         from sqlalchemy import text as sql_text
-        from finanalytics_ai.infrastructure.database.repositories.wallet_repo import WalletRepository
+        from finanalytics_ai.infrastructure.database.repositories.wallet_repo import (
+            WalletRepository,
+        )
 
         try:
-            row = (await self._session.execute(
-                sql_text("SELECT user_id, investment_account_id FROM portfolios WHERE id = :pid"),
-                {"pid": portfolio_id},
-            )).mappings().first()
+            row = (
+                (
+                    await self._session.execute(
+                        sql_text(
+                            "SELECT user_id, investment_account_id FROM portfolios WHERE id = :pid"
+                        ),
+                        {"pid": portfolio_id},
+                    )
+                )
+                .mappings()
+                .first()
+            )
             if not row or not row.get("investment_account_id"):
-                logger.debug("rf_holding.cash_tx.skipped", reason="no_investment_account", portfolio_id=portfolio_id)
+                logger.debug(
+                    "rf_holding.cash_tx.skipped",
+                    reason="no_investment_account",
+                    portfolio_id=portfolio_id,
+                )
                 return
             await WalletRepository().create_transaction(
                 user_id=str(row["user_id"]),
@@ -325,18 +339,28 @@ class RFPortfolioRepository:
             WalletRepository,
             AccountTransactionModel,
         )
+
         repo = WalletRepository()
         # Busca user_id antes de deletar
-        pf_row = (await self._session.execute(
-            select(RFHoldingModel).where(RFHoldingModel.holding_id == holding_id)
-        )).scalar_one_or_none()
+        pf_row = (
+            await self._session.execute(
+                select(RFHoldingModel).where(RFHoldingModel.holding_id == holding_id)
+            )
+        ).scalar_one_or_none()
         user_id = None
         if pf_row:
             from sqlalchemy import text as sql_text
-            r = (await self._session.execute(
-                sql_text("SELECT user_id FROM portfolios WHERE id = :pid"),
-                {"pid": pf_row.portfolio_id},
-            )).mappings().first()
+
+            r = (
+                (
+                    await self._session.execute(
+                        sql_text("SELECT user_id FROM portfolios WHERE id = :pid"),
+                        {"pid": pf_row.portfolio_id},
+                    )
+                )
+                .mappings()
+                .first()
+            )
             user_id = r["user_id"] if r else None
 
         await self._session.execute(
@@ -348,13 +372,19 @@ class RFPortfolioRepository:
 
         # Cancela todas as tx vinculadas
         if user_id:
-            txs = (await self._session.execute(
-                select(AccountTransactionModel).where(
-                    AccountTransactionModel.related_type == "rf_holding",
-                    AccountTransactionModel.related_id == holding_id,
-                    AccountTransactionModel.status != "cancelled",
+            txs = (
+                (
+                    await self._session.execute(
+                        select(AccountTransactionModel).where(
+                            AccountTransactionModel.related_type == "rf_holding",
+                            AccountTransactionModel.related_id == holding_id,
+                            AccountTransactionModel.status != "cancelled",
+                        )
+                    )
                 )
-            )).scalars().all()
+                .scalars()
+                .all()
+            )
             for tx in txs:
                 await repo.cancel_transaction(tx.id, str(user_id))
 

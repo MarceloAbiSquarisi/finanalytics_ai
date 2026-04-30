@@ -201,6 +201,7 @@ def _hard_exit(code: int = 0) -> None:
     if os.name == "nt":
         try:
             import ctypes as _ct
+
             handle = _ct.windll.kernel32.GetCurrentProcess()
             _ct.windll.kernel32.TerminateProcess(handle, code)
         except Exception:
@@ -224,9 +225,12 @@ def _kill_zombie_agents(self_pid: int, port: int) -> int:
         return 0
     try:
         import subprocess as _sp
+
         result = _sp.run(
             ["netstat", "-ano", "-p", "TCP"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         zombie_pids = set()
         for line in result.stdout.splitlines():
@@ -531,8 +535,20 @@ PG_IS_THEORIC = 1
 
 # Códigos CME-style de mês usados nos contratos futuros B3.
 # Aplicado em WDO (mensal) e WIN (bimestre par).
-MONTH_CODE = {1: "F", 2: "G", 3: "H", 4: "J", 5: "K", 6: "M",
-              7: "N", 8: "Q", 9: "U", 10: "V", 11: "X", 12: "Z"}
+MONTH_CODE = {
+    1: "F",
+    2: "G",
+    3: "H",
+    4: "J",
+    5: "K",
+    6: "M",
+    7: "N",
+    8: "Q",
+    9: "U",
+    10: "V",
+    11: "X",
+    12: "Z",
+}
 
 # Aliases genéricos de futuros que precisam ser resolvidos para o contrato vigente
 # antes de chamar SubscribeTicker/SendOrder.
@@ -540,7 +556,13 @@ MONTH_CODE = {1: "F", 2: "G", 3: "H", 4: "J", 5: "K", 6: "M",
 # Bimestre par: vencimento G/J/M/Q/V/Z (WIN/IND).
 # Específico: CCM (Milho) tem meses específicos (G/H/K/N/U/X) — não 100% mas próximo.
 FUTURES_ALIASES = {
-    "WDOFUT", "WINFUT", "DOLFUT", "INDFUT", "BGIFUT", "OZMFUT", "CCMFUT",
+    "WDOFUT",
+    "WINFUT",
+    "DOLFUT",
+    "INDFUT",
+    "BGIFUT",
+    "OZMFUT",
+    "CCMFUT",
 }
 FUTURES_BIMESTER_EVEN = {"WINFUT", "INDFUT"}  # G/J/M/Q/V/Z (mes par)
 FUTURES_MONTHLY = {"WDOFUT", "DOLFUT", "BGIFUT", "OZMFUT"}  # qualquer mes
@@ -2003,7 +2025,9 @@ class ProfitAgent:
         if ret_t == 0:
             self._subscribed.add(key)
             self._subscribed.add(alias_key)  # alias resolve pro mesmo contrato
-            log.info("profit_agent.subscribed ticker=%s exchange=%s alias=%s", ticker, exchange, original)
+            log.info(
+                "profit_agent.subscribed ticker=%s exchange=%s alias=%s", ticker, exchange, original
+            )
             return True, 0
 
         log.warning("profit_agent.subscribe_failed ticker=%s ret=%d", ticker, ret_t)
@@ -2708,7 +2732,9 @@ class ProfitAgent:
                 if agent._order_cb_count % 100 == 1:
                     log.info(
                         "order_callback local_id=%d cl_ord=%s (count=%d)",
-                        local_id, cl_ord, agent._order_cb_count,
+                        local_id,
+                        cl_ord,
+                        agent._order_cb_count,
                     )
 
                 # Update incremental no DB: cl_ord_id (caso ainda NULL — bug P2 mitigation).
@@ -2772,26 +2798,24 @@ class ProfitAgent:
             # é mais confiavel mas r.OrderID.LocalOrderID as vezes vem 0 — usamos
             # fallback via _msg_id_to_local mapeado em _send_order_legacy.
             # Match: code=3 (rejeicao) AND msg contem "Cliente n"/"logado".
-            if code == 3 and (
-                "Cliente n" in msg_text or "logado" in msg_text.lower()
-            ):
+            if code == 3 and ("Cliente n" in msg_text or "logado" in msg_text.lower()):
                 rejected_id = r.OrderID.LocalOrderID
                 if rejected_id <= 0:
                     rejected_id = agent._msg_id_to_local.get(r.MessageID, 0)
                 if rejected_id > 0:
-                    t = threading.Timer(
-                        5.0, agent._retry_rejected_order, args=(rejected_id,)
-                    )
+                    t = threading.Timer(5.0, agent._retry_rejected_order, args=(rejected_id,))
                     t.daemon = True
                     t.start()
                     log.info(
                         "retry_scheduled local_id=%d msg_id=%d delay=5s reason=broker_auth_blip",
-                        rejected_id, r.MessageID,
+                        rejected_id,
+                        r.MessageID,
                     )
                 else:
                     log.warning(
                         "retry_skipped no_local_id msg_id=%d (struct: %d, fallback miss)",
-                        r.MessageID, r.OrderID.LocalOrderID,
+                        r.MessageID,
+                        r.OrderID.LocalOrderID,
                     )
 
         # 13. Broker account list changed
@@ -3066,9 +3090,7 @@ class ProfitAgent:
                 "timeframe": self._tf_by_local_id.get(local_id),
                 "user_id": self._diary_user_id,
             }
-            threading.Thread(
-                target=self._post_diary, args=(payload,), daemon=True
-            ).start()
+            threading.Thread(target=self._post_diary, args=(payload,), daemon=True).start()
         except Exception as exc:
             log.warning("diary.dispatch_error err=%s", exc)
 
@@ -3243,7 +3265,9 @@ class ProfitAgent:
         if ticker != original_ticker:
             log.info(
                 "order.alias_resolved alias=%s contract=%s exchange=%s",
-                original_ticker, ticker, exchange,
+                original_ticker,
+                ticker,
+                exchange,
             )
             params["ticker"] = ticker  # propaga pro DB insert + retry mapping
 
@@ -3405,7 +3429,9 @@ class ProfitAgent:
                 self._retry_params[new_id] = new_entry
             log.info(
                 "retry_dispatched old=%d new=%d attempts=%d",
-                old_local_id, new_id, attempts + 1,
+                old_local_id,
+                new_id,
+                attempts + 1,
             )
             if self._db:
                 try:
@@ -3942,7 +3968,9 @@ class ProfitAgent:
                         o["traded_qty"] or None,
                         o["leaves_qty"] or None,
                         o["avg_price"],
-                        o.get("price"), o.get("price"), o.get("price"),
+                        o.get("price"),
+                        o.get("price"),
+                        o.get("price"),
                         cl_ord or None,
                         local_id or 0,
                         cl_ord or "",
@@ -3956,12 +3984,14 @@ class ProfitAgent:
                     last = self._last_seen_status.get(local_id)
                     self._last_seen_status[local_id] = 2
                     if last != 2:
-                        self._maybe_dispatch_diary({
-                            "local_order_id": local_id,
-                            "order_status": 2,
-                            "avg_price": o["avg_price"],
-                            "traded_qty": o["traded_qty"],
-                        })
+                        self._maybe_dispatch_diary(
+                            {
+                                "local_order_id": local_id,
+                                "order_status": 2,
+                                "avg_price": o["avg_price"],
+                                "traded_qty": o["traded_qty"],
+                            }
+                        )
         return {"orders": orders_found, "positions": [], "env": env, "source": "dll"}
 
     def enumerate_position_assets(self, env: str = "simulation") -> dict:
@@ -4029,7 +4059,8 @@ class ProfitAgent:
             if ticker != original_ticker:
                 log.info(
                     "position_v2.alias_resolved alias=%s contract=%s exchange=F",
-                    original_ticker, ticker,
+                    original_ticker,
+                    ticker,
                 )
         broker_id, account_id, sub_id, _ = self._get_account(env)
         if not account_id:
@@ -4284,12 +4315,18 @@ class ProfitAgent:
             except Exception:
                 continue
             self._oco_pairs[tp_id] = {
-                "pair_id": sl_id, "env": env, "type": "tp",
-                "ticker": ticker, "price": tp_price,
+                "pair_id": sl_id,
+                "env": env,
+                "type": "tp",
+                "ticker": ticker,
+                "price": tp_price,
             }
             self._oco_pairs[sl_id] = {
-                "pair_id": tp_id, "env": env, "type": "sl",
-                "ticker": ticker, "price": float(stop_price) if stop_price else 0.0,
+                "pair_id": tp_id,
+                "env": env,
+                "type": "sl",
+                "ticker": ticker,
+                "price": float(stop_price) if stop_price else 0.0,
             }
             loaded += 1
         if loaded:
@@ -4376,8 +4413,19 @@ class ProfitAgent:
             )
             if not row:
                 return {"ok": False, "error": f"parent {parent_id} nao existe"}
-            (p_ticker, p_exch, p_side_int, p_qty, p_status,
-             p_broker, p_acct, p_sub, p_uacct, p_pid, p_env) = row
+            (
+                p_ticker,
+                p_exch,
+                p_side_int,
+                p_qty,
+                p_status,
+                p_broker,
+                p_acct,
+                p_sub,
+                p_uacct,
+                p_pid,
+                p_env,
+            ) = row
             if p_status not in (0, 10):  # New, PendingNew
                 return {"ok": False, "error": f"parent status={p_status} (precisa pending 0/10)"}
 
@@ -4415,9 +4463,22 @@ class ProfitAgent:
                         user_account_id, portfolio_id, notes)
                        VALUES (%s, %s, %s, %s, %s, %s, %s, 'awaiting', %s, %s, %s, %s, %s, %s, %s)
                        RETURNING group_id::text""",
-                    (parent_id, env, p_ticker, p_exch, side_int, p_qty, p_qty,
-                     bool(params.get("is_daytrade", True)), p_broker, p_acct, p_sub,
-                     p_uacct, p_pid, params.get("notes")),
+                    (
+                        parent_id,
+                        env,
+                        p_ticker,
+                        p_exch,
+                        side_int,
+                        p_qty,
+                        p_qty,
+                        bool(params.get("is_daytrade", True)),
+                        p_broker,
+                        p_acct,
+                        p_sub,
+                        p_uacct,
+                        p_pid,
+                        params.get("notes"),
+                    ),
                 )
             except Exception as exc:
                 msg = str(exc)
@@ -4437,13 +4498,19 @@ class ProfitAgent:
                         is_trailing, trail_distance, trail_pct)
                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                        RETURNING level_id::text""",
-                    (group_id, idx, int(lv["qty"]),
-                     float(tp) if tp is not None else None,
-                     float(sl) if sl is not None else None,
-                     float(slim) if slim is not None else None,
-                     bool(lv.get("is_trailing", False)),
-                     float(lv["trail_distance"]) if lv.get("trail_distance") is not None else None,
-                     float(lv["trail_pct"]) if lv.get("trail_pct") is not None else None),
+                    (
+                        group_id,
+                        idx,
+                        int(lv["qty"]),
+                        float(tp) if tp is not None else None,
+                        float(sl) if sl is not None else None,
+                        float(slim) if slim is not None else None,
+                        bool(lv.get("is_trailing", False)),
+                        float(lv["trail_distance"])
+                        if lv.get("trail_distance") is not None
+                        else None,
+                        float(lv["trail_pct"]) if lv.get("trail_pct") is not None else None,
+                    ),
                 )
                 level_ids.append(lvl_row[0])
 
@@ -4475,7 +4542,9 @@ class ProfitAgent:
                         "tp_order_id": None,
                         "tp_status": None,
                         "sl_trigger": lv.get("sl_trigger"),
-                        "sl_limit": lv.get("sl_limit") if lv.get("sl_limit") is not None else lv.get("sl_trigger"),
+                        "sl_limit": lv.get("sl_limit")
+                        if lv.get("sl_limit") is not None
+                        else lv.get("sl_trigger"),
                         "sl_order_id": None,
                         "sl_status": None,
                         "is_trailing": bool(lv.get("is_trailing", False)),
@@ -4489,13 +4558,19 @@ class ProfitAgent:
 
             log.info(
                 "oco_group.attached group=%s parent=%d ticker=%s qty=%d levels=%d",
-                group_id, parent_id, p_ticker, p_qty, len(levels_in),
+                group_id,
+                parent_id,
+                p_ticker,
+                p_qty,
+                len(levels_in),
             )
             return {
-                "ok": True, "group_id": group_id,
-                "parent_order_id": parent_id, "ticker": p_ticker,
-                "total_qty": p_qty, "levels": [{"level_id": l, "idx": i + 1}
-                                                for i, l in enumerate(level_ids)],
+                "ok": True,
+                "group_id": group_id,
+                "parent_order_id": parent_id,
+                "ticker": p_ticker,
+                "total_qty": p_qty,
+                "levels": [{"level_id": l, "idx": i + 1} for i, l in enumerate(level_ids)],
             }
         except Exception as exc:
             log.exception("attach_oco error: %s", exc)
@@ -4560,15 +4635,17 @@ class ProfitAgent:
                     continue
                 # TP (limit)
                 if lv["tp_price"] is not None:
-                    tp_res = self._send_order_legacy({
-                        **base_params,
-                        "order_type": "limit",
-                        "order_side": side_str,
-                        "price": float(lv["tp_price"]),
-                        "stop_price": -1,
-                        "quantity": int(lv["qty"]),
-                        "strategy_id": f"oco_grp_{group_id[:8]}_lv{lv['idx']}_tp",
-                    })
+                    tp_res = self._send_order_legacy(
+                        {
+                            **base_params,
+                            "order_type": "limit",
+                            "order_side": side_str,
+                            "price": float(lv["tp_price"]),
+                            "stop_price": -1,
+                            "quantity": int(lv["qty"]),
+                            "strategy_id": f"oco_grp_{group_id[:8]}_lv{lv['idx']}_tp",
+                        }
+                    )
                     if tp_res.get("ok"):
                         lv["tp_order_id"] = tp_res["local_order_id"]
                         lv["tp_status"] = "sent"
@@ -4579,18 +4656,24 @@ class ProfitAgent:
                         )
                         self._order_to_group[tp_res["local_order_id"]] = (group_id, lv["idx"], "tp")
                     else:
-                        log.warning("oco.tp_send_failed level=%s err=%s", lv["level_id"], tp_res.get("error"))
+                        log.warning(
+                            "oco.tp_send_failed level=%s err=%s",
+                            lv["level_id"],
+                            tp_res.get("error"),
+                        )
                 # SL (stop-limit)
                 if lv["sl_trigger"] is not None:
-                    sl_res = self._send_order_legacy({
-                        **base_params,
-                        "order_type": "stop",
-                        "order_side": side_str,
-                        "price": float(lv["sl_limit"]),
-                        "stop_price": float(lv["sl_trigger"]),
-                        "quantity": int(lv["qty"]),
-                        "strategy_id": f"oco_grp_{group_id[:8]}_lv{lv['idx']}_sl",
-                    })
+                    sl_res = self._send_order_legacy(
+                        {
+                            **base_params,
+                            "order_type": "stop",
+                            "order_side": side_str,
+                            "price": float(lv["sl_limit"]),
+                            "stop_price": float(lv["sl_trigger"]),
+                            "quantity": int(lv["qty"]),
+                            "strategy_id": f"oco_grp_{group_id[:8]}_lv{lv['idx']}_sl",
+                        }
+                    )
                     if sl_res.get("ok"):
                         lv["sl_order_id"] = sl_res["local_order_id"]
                         lv["sl_status"] = "sent"
@@ -4601,11 +4684,18 @@ class ProfitAgent:
                         )
                         self._order_to_group[sl_res["local_order_id"]] = (group_id, lv["idx"], "sl")
                     else:
-                        log.warning("oco.sl_send_failed level=%s err=%s", lv["level_id"], sl_res.get("error"))
+                        log.warning(
+                            "oco.sl_send_failed level=%s err=%s",
+                            lv["level_id"],
+                            sl_res.get("error"),
+                        )
 
             log.info(
                 "oco_group.dispatched group=%s filled=%d/%d levels=%d",
-                group_id, filled_qty, total, len(grp["levels"]),
+                group_id,
+                filled_qty,
+                total,
+                len(grp["levels"]),
             )
         except Exception as exc:
             log.exception("dispatch_oco_group error group=%s: %s", group_id, exc)
@@ -4652,29 +4742,63 @@ class ProfitAgent:
             # Agrupa levels por group_id
             levels_by_group: dict[str, list[dict]] = {}
             for lr in lvl_rows:
-                (lid, gid, idx, qty, tp_p, tp_oid, tp_st, sl_t, sl_l, sl_oid, sl_st,
-                 is_tr, t_dist, t_pct, t_hw) = lr
-                levels_by_group.setdefault(gid, []).append({
-                    "level_id": lid, "idx": idx, "qty": int(qty),
-                    "tp_price": float(tp_p) if tp_p is not None else None,
-                    "tp_order_id": int(tp_oid) if tp_oid is not None else None,
-                    "tp_status": tp_st,
-                    "sl_trigger": float(sl_t) if sl_t is not None else None,
-                    "sl_limit": float(sl_l) if sl_l is not None else None,
-                    "sl_order_id": int(sl_oid) if sl_oid is not None else None,
-                    "sl_status": sl_st,
-                    "is_trailing": bool(is_tr),
-                    "trail_distance": float(t_dist) if t_dist is not None else None,
-                    "trail_pct": float(t_pct) if t_pct is not None else None,
-                    "trail_high_water": float(t_hw) if t_hw is not None else None,
-                })
+                (
+                    lid,
+                    gid,
+                    idx,
+                    qty,
+                    tp_p,
+                    tp_oid,
+                    tp_st,
+                    sl_t,
+                    sl_l,
+                    sl_oid,
+                    sl_st,
+                    is_tr,
+                    t_dist,
+                    t_pct,
+                    t_hw,
+                ) = lr
+                levels_by_group.setdefault(gid, []).append(
+                    {
+                        "level_id": lid,
+                        "idx": idx,
+                        "qty": int(qty),
+                        "tp_price": float(tp_p) if tp_p is not None else None,
+                        "tp_order_id": int(tp_oid) if tp_oid is not None else None,
+                        "tp_status": tp_st,
+                        "sl_trigger": float(sl_t) if sl_t is not None else None,
+                        "sl_limit": float(sl_l) if sl_l is not None else None,
+                        "sl_order_id": int(sl_oid) if sl_oid is not None else None,
+                        "sl_status": sl_st,
+                        "is_trailing": bool(is_tr),
+                        "trail_distance": float(t_dist) if t_dist is not None else None,
+                        "trail_pct": float(t_pct) if t_pct is not None else None,
+                        "trail_high_water": float(t_hw) if t_hw is not None else None,
+                    }
+                )
 
             # Reconstrói self._oco_groups + self._order_to_group
             self._oco_groups = {}
             self._order_to_group = {}
             for gr in grp_rows:
-                (gid, parent_id, env, ticker, exch, side, tot, rem, status, isd,
-                 brk, acct, sub, uacct, pid) = gr
+                (
+                    gid,
+                    parent_id,
+                    env,
+                    ticker,
+                    exch,
+                    side,
+                    tot,
+                    rem,
+                    status,
+                    isd,
+                    brk,
+                    acct,
+                    sub,
+                    uacct,
+                    pid,
+                ) = gr
                 self._oco_groups[gid] = {
                     "parent_order_id": int(parent_id) if parent_id is not None else None,
                     "env": env,
@@ -4703,7 +4827,9 @@ class ProfitAgent:
 
             log.info(
                 "oco.state_loaded groups=%d levels=%d order_index=%d",
-                len(self._oco_groups), len(lvl_rows), len(self._order_to_group),
+                len(self._oco_groups),
+                len(lvl_rows),
+                len(self._order_to_group),
             )
             return len(self._oco_groups)
         except Exception as exc:
@@ -4760,7 +4886,9 @@ class ProfitAgent:
             sl_oid = lv.get("sl_order_id")
             tp_st = lv.get("tp_status")
             sl_st = lv.get("sl_status")
-            level_open = (tp_oid and tp_st in ("sent", "pending")) or (sl_oid and sl_st in ("sent", "pending"))
+            level_open = (tp_oid and tp_st in ("sent", "pending")) or (
+                sl_oid and sl_st in ("sent", "pending")
+            )
             if not level_open:
                 continue
 
@@ -4773,7 +4901,8 @@ class ProfitAgent:
                         lv["tp_status"] = "filled"
                         self._db.execute(
                             "UPDATE profit_oco_levels SET tp_status='filled', updated_at=NOW() "
-                            "WHERE level_id=%s", (lv["level_id"],),
+                            "WHERE level_id=%s",
+                            (lv["level_id"],),
                         )
                         any_filled_now = True
                         if sl_oid and sl_st == "sent":
@@ -4781,7 +4910,8 @@ class ProfitAgent:
                             lv["sl_status"] = "cancelled"
                             self._db.execute(
                                 "UPDATE profit_oco_levels SET sl_status='cancelled', updated_at=NOW() "
-                                "WHERE level_id=%s", (lv["level_id"],),
+                                "WHERE level_id=%s",
+                                (lv["level_id"],),
                             )
                             log.info("oco.tp_filled→sl_cancel group=%s lv=%d", group_id, lv["idx"])
                         continue
@@ -4797,7 +4927,8 @@ class ProfitAgent:
                         lv["sl_status"] = "filled"
                         self._db.execute(
                             "UPDATE profit_oco_levels SET sl_status='filled', updated_at=NOW() "
-                            "WHERE level_id=%s", (lv["level_id"],),
+                            "WHERE level_id=%s",
+                            (lv["level_id"],),
                         )
                         any_filled_now = True
                         if tp_oid and tp_st == "sent":
@@ -4805,7 +4936,8 @@ class ProfitAgent:
                             lv["tp_status"] = "cancelled"
                             self._db.execute(
                                 "UPDATE profit_oco_levels SET tp_status='cancelled', updated_at=NOW() "
-                                "WHERE level_id=%s", (lv["level_id"],),
+                                "WHERE level_id=%s",
+                                (lv["level_id"],),
                             )
                             log.info("oco.sl_filled→tp_cancel group=%s lv=%d", group_id, lv["idx"])
                         continue
@@ -4821,7 +4953,8 @@ class ProfitAgent:
         if not any_open:
             self._db.execute(
                 "UPDATE profit_oco_groups SET status='completed', completed_at=NOW(), "
-                "updated_at=NOW() WHERE group_id=%s", (group_id,),
+                "updated_at=NOW() WHERE group_id=%s",
+                (group_id,),
             )
             grp["status"] = "completed"
             log.info("oco_group.completed group=%s", group_id)
@@ -4875,9 +5008,7 @@ class ProfitAgent:
             pass
         return None
 
-    def _trail_compute_new_sl(
-        self, side: int, last_price: float, lv: dict
-    ) -> float | None:
+    def _trail_compute_new_sl(self, side: int, last_price: float, lv: dict) -> float | None:
         """Calcula novo SL baseado em high_water + distance/pct.
 
         Retorna None se SL não deve mover (high_water não favorável).
@@ -4980,7 +5111,9 @@ class ProfitAgent:
                         # Final state — remove
                         log.info(
                             "watch.order_resolved local_id=%d status=%d age=%.1fs",
-                            local_id, cur_status, age,
+                            local_id,
+                            cur_status,
+                            age,
                         )
                         to_drop.append(local_id)
                         continue
@@ -4998,7 +5131,9 @@ class ProfitAgent:
                             log.warning(
                                 "watch.order_orphaned local_id=%d age=%.1fs ticker=%s "
                                 "marked status=8",
-                                local_id, age, info["ticker"],
+                                local_id,
+                                age,
+                                info["ticker"],
                             )
                         except Exception as exc:
                             log.warning("watch.orphan_update_failed local=%d e=%s", local_id, exc)
@@ -5007,7 +5142,9 @@ class ProfitAgent:
                         # 5min sem resolução — desiste
                         log.info(
                             "watch.order_timeout local_id=%d age=%.1fs DB status=%d remove",
-                            local_id, age, cur_status,
+                            local_id,
+                            age,
+                            cur_status,
                         )
                         to_drop.append(local_id)
 
@@ -5034,28 +5171,40 @@ class ProfitAgent:
             return False
         # sell long: trigger é piso, last < trigger = já passou (executar)
         # buy short: trigger é teto, last > trigger = já passou (executar)
-        triggered = (side == 2 and last_price <= float(trig)) or \
-                    (side == 1 and last_price >= float(trig))
+        triggered = (side == 2 and last_price <= float(trig)) or (
+            side == 1 and last_price >= float(trig)
+        )
         if not triggered:
             return False
         log.info(
             "trailing.immediate_trigger group=%s lv=%d last=%.4f trigger=%.4f side=%d",
-            group_id, lv["idx"], last_price, float(trig), side,
+            group_id,
+            lv["idx"],
+            last_price,
+            float(trig),
+            side,
         )
         # Cancela SL pending (se existe) e envia market do lado oposto pra fechar
         if lv.get("sl_order_id") and lv.get("sl_status") == "sent":
             self.cancel_order({"local_order_id": lv["sl_order_id"], "env": grp["env"]})
             lv["sl_status"] = "cancelled"
         side_str = "buy" if side == 1 else "sell"
-        market_res = self._send_order_legacy({
-            "env": grp["env"], "ticker": grp["ticker"], "exchange": grp["exchange"],
-            "is_daytrade": grp["is_daytrade"],
-            "user_account_id": grp["user_account_id"],
-            "portfolio_id": grp["portfolio_id"],
-            "order_type": "market", "order_side": side_str,
-            "price": -1, "stop_price": -1, "quantity": int(lv["qty"]),
-            "strategy_id": f"oco_grp_{group_id[:8]}_lv{lv['idx']}_trail_imm",
-        })
+        market_res = self._send_order_legacy(
+            {
+                "env": grp["env"],
+                "ticker": grp["ticker"],
+                "exchange": grp["exchange"],
+                "is_daytrade": grp["is_daytrade"],
+                "user_account_id": grp["user_account_id"],
+                "portfolio_id": grp["portfolio_id"],
+                "order_type": "market",
+                "order_side": side_str,
+                "price": -1,
+                "stop_price": -1,
+                "quantity": int(lv["qty"]),
+                "strategy_id": f"oco_grp_{group_id[:8]}_lv{lv['idx']}_trail_imm",
+            }
+        )
         if market_res.get("ok"):
             lv["sl_order_id"] = market_res["local_order_id"]
             lv["sl_status"] = "sent"  # market deve fillar rápido
@@ -5092,7 +5241,8 @@ class ProfitAgent:
                         if time.time() - last_log > 30:
                             log.warning(
                                 "trail.no_price group=%s ticker=%s — cache+DB sem cotacao",
-                                group_id, grp["ticker"],
+                                group_id,
+                                grp["ticker"],
                             )
                             self._trail_last_log_ts[f"{group_id}:noprice"] = time.time()
                         continue
@@ -5103,8 +5253,12 @@ class ProfitAgent:
                             if _lv.get("is_trailing"):
                                 log.info(
                                     "trail.tick group=%s lv=%d ticker=%s last=%.4f hw=%s sl=%s",
-                                    group_id, _lv.get("idx", 0), grp["ticker"], last,
-                                    _lv.get("trail_high_water"), _lv.get("sl_trigger"),
+                                    group_id,
+                                    _lv.get("idx", 0),
+                                    grp["ticker"],
+                                    last,
+                                    _lv.get("trail_high_water"),
+                                    _lv.get("sl_trigger"),
                                 )
                         self._trail_last_log_ts[group_id] = time.time()
                     for lv in grp["levels"]:
@@ -5131,19 +5285,23 @@ class ProfitAgent:
                         if cur_trig is None:
                             continue
                         # Ratchet: só move SE favorecer (sell long: subir SL; buy short: descer SL)
-                        moved = (grp["side"] == 2 and new_sl > float(cur_trig) + 0.01) or \
-                                (grp["side"] == 1 and new_sl < float(cur_trig) - 0.01)
+                        moved = (grp["side"] == 2 and new_sl > float(cur_trig) + 0.01) or (
+                            grp["side"] == 1 and new_sl < float(cur_trig) - 0.01
+                        )
                         if not moved:
                             continue
                         # Trail R$: arredonda 2 decimais. Limit = trigger (stop-market emulado).
                         new_sl = round(new_sl, 2)
                         new_lim = round(new_sl, 2)
-                        ret = self.change_order({
-                            "env": grp["env"],
-                            "local_order_id": lv["sl_order_id"],
-                            "price": new_lim, "stop_price": new_sl,
-                            "quantity": int(lv["qty"]),
-                        })
+                        ret = self.change_order(
+                            {
+                                "env": grp["env"],
+                                "local_order_id": lv["sl_order_id"],
+                                "price": new_lim,
+                                "stop_price": new_sl,
+                                "quantity": int(lv["qty"]),
+                            }
+                        )
                         moved_ok = bool(ret.get("ok"))
 
                         # P7 fallback (28/abr): broker simulator rejeita change_order
@@ -5162,44 +5320,55 @@ class ProfitAgent:
                             log.warning(
                                 "trailing.change_failed_fallback_to_cancel_create "
                                 "group=%s lv=%d new_sl=%.4f ret=%s",
-                                group_id, lv["idx"], new_sl, ret.get("ret"),
+                                group_id,
+                                lv["idx"],
+                                new_sl,
+                                ret.get("ret"),
                             )
-                            cancel_ret = self.cancel_order({
-                                "env": grp["env"],
-                                "local_order_id": lv["sl_order_id"],
-                            })
+                            cancel_ret = self.cancel_order(
+                                {
+                                    "env": grp["env"],
+                                    "local_order_id": lv["sl_order_id"],
+                                }
+                            )
                             if not cancel_ret.get("ok"):
                                 log.warning(
                                     "trailing.cancel_failed group=%s lv=%d sl_id=%d "
                                     "ret=%s — cooldown 30s",
-                                    group_id, lv["idx"], lv["sl_order_id"],
+                                    group_id,
+                                    lv["idx"],
+                                    lv["sl_order_id"],
                                     cancel_ret.get("ret"),
                                 )
                                 lv["_trail_fallback_cooldown_until"] = time.time() + 30
                             if cancel_ret.get("ok"):
                                 # Cria novo SL stop-limit
                                 side_str = "sell" if grp["side"] == 2 else "buy"
-                                new_sl_res = self._send_order_legacy({
-                                    "env": grp["env"],
-                                    "ticker": grp["ticker"],
-                                    "exchange": grp["exchange"],
-                                    "is_daytrade": grp["is_daytrade"],
-                                    "user_account_id": grp.get("user_account_id"),
-                                    "portfolio_id": grp.get("portfolio_id"),
-                                    "order_type": "stop",
-                                    "order_side": side_str,
-                                    "price": new_lim,
-                                    "stop_price": new_sl,
-                                    "quantity": int(lv["qty"]),
-                                    "strategy_id": (
-                                        f"oco_grp_{group_id[:8]}_lv{lv['idx']}_sl_trail"
-                                    ),
-                                })
+                                new_sl_res = self._send_order_legacy(
+                                    {
+                                        "env": grp["env"],
+                                        "ticker": grp["ticker"],
+                                        "exchange": grp["exchange"],
+                                        "is_daytrade": grp["is_daytrade"],
+                                        "user_account_id": grp.get("user_account_id"),
+                                        "portfolio_id": grp.get("portfolio_id"),
+                                        "order_type": "stop",
+                                        "order_side": side_str,
+                                        "price": new_lim,
+                                        "stop_price": new_sl,
+                                        "quantity": int(lv["qty"]),
+                                        "strategy_id": (
+                                            f"oco_grp_{group_id[:8]}_lv{lv['idx']}_sl_trail"
+                                        ),
+                                    }
+                                )
                                 if new_sl_res.get("ok"):
                                     old_sl_id = lv["sl_order_id"]
                                     lv["sl_order_id"] = new_sl_res["local_order_id"]
                                     self._order_to_group[lv["sl_order_id"]] = (
-                                        group_id, lv["idx"], "sl"
+                                        group_id,
+                                        lv["idx"],
+                                        "sl",
                                     )
                                     self._order_to_group.pop(old_sl_id, None)
                                     self._db.execute(
@@ -5211,14 +5380,19 @@ class ProfitAgent:
                                     log.info(
                                         "trailing.cancel_create group=%s lv=%d "
                                         "old_sl=%d new_sl_id=%d new_sl=%.4f",
-                                        group_id, lv["idx"], old_sl_id,
-                                        lv["sl_order_id"], new_sl,
+                                        group_id,
+                                        lv["idx"],
+                                        old_sl_id,
+                                        lv["sl_order_id"],
+                                        new_sl,
                                     )
                                 else:
                                     log.warning(
                                         "trailing.create_failed group=%s lv=%d err=%s "
                                         "— cooldown 30s",
-                                        group_id, lv["idx"], new_sl_res.get("error"),
+                                        group_id,
+                                        lv["idx"],
+                                        new_sl_res.get("error"),
                                     )
                                     lv["_trail_fallback_cooldown_until"] = time.time() + 30
 
@@ -5230,12 +5404,13 @@ class ProfitAgent:
                                 "trail_high_water=%s, updated_at=NOW() WHERE level_id=%s",
                                 (new_sl, new_lim, lv["trail_high_water"], lv["level_id"]),
                             )
-                            self._trail_adjust_count = (
-                                getattr(self, "_trail_adjust_count", 0) + 1
-                            )
+                            self._trail_adjust_count = getattr(self, "_trail_adjust_count", 0) + 1
                             log.info(
                                 "trailing.adjusted group=%s lv=%d hw=%.4f new_sl=%.4f",
-                                group_id, lv["idx"], lv["trail_high_water"], new_sl,
+                                group_id,
+                                lv["idx"],
+                                lv["trail_high_water"],
+                                new_sl,
                             )
             except Exception as e:
                 log.warning("trail_monitor error: %s", e)
@@ -5256,8 +5431,13 @@ class ProfitAgent:
         for gid, g in self._oco_groups.items():
             if status_filter and g["status"] != status_filter:
                 continue
-            out.append({"group_id": gid, **{k: v for k, v in g.items() if k != "levels"},
-                        "levels_count": len(g["levels"])})
+            out.append(
+                {
+                    "group_id": gid,
+                    **{k: v for k, v in g.items() if k != "levels"},
+                    "levels_count": len(g["levels"]),
+                }
+            )
         return {"groups": out, "count": len(out)}
 
     def cancel_oco_group(self, group_id: str) -> dict:
@@ -5276,7 +5456,8 @@ class ProfitAgent:
         if self._db is not None:
             self._db.execute(
                 "UPDATE profit_oco_groups SET status='cancelled', completed_at=NOW(), "
-                "updated_at=NOW() WHERE group_id=%s", (group_id,),
+                "updated_at=NOW() WHERE group_id=%s",
+                (group_id,),
             )
         grp["status"] = "cancelled"
         log.info("oco_group.cancel_user group=%s cancelled=%d", group_id, cancelled)
@@ -5406,11 +5587,13 @@ class ProfitAgent:
         # Idade do último order_callback (gauge — alerta P5 visual no Grafana)
         last_cb = getattr(self, "_last_order_cb_at", None)
         age = (time.time() - last_cb) if last_cb else -1.0
-        lines.extend([
-            "# HELP profit_agent_last_order_callback_age_seconds Segundos desde ultimo callback (-1 se nunca recebeu)",
-            "# TYPE profit_agent_last_order_callback_age_seconds gauge",
-            f"profit_agent_last_order_callback_age_seconds {age:.2f}",
-        ])
+        lines.extend(
+            [
+                "# HELP profit_agent_last_order_callback_age_seconds Segundos desde ultimo callback (-1 se nunca recebeu)",
+                "# TYPE profit_agent_last_order_callback_age_seconds gauge",
+                f"profit_agent_last_order_callback_age_seconds {age:.2f}",
+            ]
+        )
         return "\n".join(lines) + "\n"
 
     def _instrument_probe(self, body: dict, result: dict, duration_s: float) -> None:
@@ -6088,7 +6271,7 @@ class ProfitAgent:
                     # Enriquece com: subscribed (set DLL) + has_recent_data (ticks recentes) + last_tick_age_sec
                     _now = datetime.now(tz=UTC)
                     for _row in full:
-                        _key = f"{_row.get('ticker','')}:{_row.get('exchange','')}"
+                        _key = f"{_row.get('ticker', '')}:{_row.get('exchange', '')}"
                         _row["subscribed"] = _key in agent._subscribed
                         _last = agent._last_tick_at.get(_key)
                         if _last:
@@ -6105,7 +6288,7 @@ class ProfitAgent:
                     active = agent._db.list_tickers_full(only_active=True) if agent._db else []
                     _now = datetime.now(tz=UTC)
                     for _row in active:
-                        _key = f"{_row.get('ticker','')}:{_row.get('exchange','')}"
+                        _key = f"{_row.get('ticker', '')}:{_row.get('exchange', '')}"
                         _row["subscribed"] = _key in agent._subscribed
                         _last = agent._last_tick_at.get(_key)
                         if _last:
@@ -6168,21 +6351,26 @@ class ProfitAgent:
                     _tk = _p_r.path.split("/resolve_ticker/", 1)[-1].upper().strip("/")
                     _qs_r = _pqs_r(_p_r.query)
                     _ex = _qs_r.get("exchange", ["B"])[0]
-                    is_future = (
-                        _tk in FUTURES_ALIASES
-                        or _tk[:3] in ("WDO", "WIN", "IND", "DOL", "BIT")
+                    is_future = _tk in FUTURES_ALIASES or _tk[:3] in (
+                        "WDO",
+                        "WIN",
+                        "IND",
+                        "DOL",
+                        "BIT",
                     )
                     if is_future:
                         _ex = "F"
                         _resolved = agent._resolve_active_contract(_tk, _ex)
                     else:
                         _resolved = _tk
-                    self._send_json({
-                        "original": _tk,
-                        "resolved": _resolved,
-                        "exchange": _ex,
-                        "is_future": is_future,
-                    })
+                    self._send_json(
+                        {
+                            "original": _tk,
+                            "resolved": _resolved,
+                            "exchange": _ex,
+                            "is_future": is_future,
+                        }
+                    )
 
                 elif self.path.startswith("/position/"):
                     from urllib.parse import parse_qs as _pqs_p, urlparse
@@ -6210,6 +6398,7 @@ class ProfitAgent:
 
                 elif self.path == "/oco/groups" or self.path.startswith("/oco/groups?"):
                     from urllib.parse import parse_qs as _pqs_g, urlparse as _up_g
+
                     _qs_g = _pqs_g(_up_g(self.path).query)
                     _filter = _qs_g.get("status", [None])[0]
                     self._send_json(agent.list_oco_groups(_filter))
@@ -6404,13 +6593,15 @@ class ProfitAgent:
                         if ok and body.get("active", True):
                             _dll_ok, _dll_ret = agent._subscribe(tkr, exch)
 
-                        self._send_json({
-                            "ok": ok,
-                            "ticker": tkr,
-                            "exchange": exch,
-                            "dll_subscribed": _dll_ok,
-                            "dll_ret": _dll_ret,
-                        })
+                        self._send_json(
+                            {
+                                "ok": ok,
+                                "ticker": tkr,
+                                "exchange": exch,
+                                "dll_subscribed": _dll_ok,
+                                "dll_ret": _dll_ret,
+                            }
+                        )
 
                 elif self.path == "/tickers/remove":
                     self._send_json(agent.unsubscribe_ticker(body))
@@ -6432,13 +6623,15 @@ class ProfitAgent:
                         if _ok and _act:
                             _dll_ok, _dll_ret = agent._subscribe(_tkr, _exch)
 
-                        self._send_json({
-                            "ok": _ok,
-                            "ticker": _tkr,
-                            "active": _act,
-                            "dll_subscribed": _dll_ok,
-                            "dll_ret": _dll_ret,
-                        })
+                        self._send_json(
+                            {
+                                "ok": _ok,
+                                "ticker": _tkr,
+                                "active": _act,
+                                "dll_subscribed": _dll_ok,
+                                "dll_ret": _dll_ret,
+                            }
+                        )
 
                 elif self.path == "/collect_history":
                     _t0 = time.time()

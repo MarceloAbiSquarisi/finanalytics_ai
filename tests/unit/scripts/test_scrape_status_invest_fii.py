@@ -9,6 +9,7 @@ Foco no que e reproduzivel sem rede:
 Nao testa scrape_one nem o main loop — esses dependem de HTTP live (status_invest.com.br).
 Cobertura ML/regex protege contra mudanca de layout — teste falha cedo.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -115,10 +116,13 @@ def test_regex_dy_returns_none_when_html_changes():
     assert m is None
 
 
-@pytest.mark.parametrize("term, expected", [
-    ("DY", 7.47),
-    ("PVP", 1.01),
-])
+@pytest.mark.parametrize(
+    "term, expected",
+    [
+        ("DY", 7.47),
+        ("PVP", 1.01),
+    ],
+)
 def test_combined_extraction(term, expected):
     """Smoke combinado — todos os 4 indicadores em 1 HTML."""
     if term == "DY":

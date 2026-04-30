@@ -45,7 +45,9 @@ class DiarioModel(Base):
     # Setup
     setup: Mapped[str | None] = mapped_column(String(50), nullable=True)
     timeframe: Mapped[str | None] = mapped_column(String(10), nullable=True)
-    trade_objective: Mapped[str | None] = mapped_column(String(20), nullable=True)  # daytrade|swing|buy_hold
+    trade_objective: Mapped[str | None] = mapped_column(
+        String(20), nullable=True
+    )  # daytrade|swing|buy_hold
 
     # Qualitativo
     reason_entry: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -382,9 +384,7 @@ class DiarioRepository:
         (é o eixo de comparação).
         """
         # Filtro de objetivo aplicado em todas as queries exceto by_objective
-        obj_filter = (
-            (DiarioModel.trade_objective == trade_objective,) if trade_objective else ()
-        )
+        obj_filter = (DiarioModel.trade_objective == trade_objective,) if trade_objective else ()
 
         async with self._session() as session:
             # Totais
@@ -557,9 +557,7 @@ class DiarioRepository:
         Inclui contagem de trades por celula para tooltip e somatorios
         marginais (por ano e por mes agregado em todos os anos).
         """
-        obj_filter = (
-            (DiarioModel.trade_objective == trade_objective,) if trade_objective else ()
-        )
+        obj_filter = (DiarioModel.trade_objective == trade_objective,) if trade_objective else ()
         async with self._session() as session:
             q = await session.execute(
                 select(
@@ -584,7 +582,9 @@ class DiarioRepository:
             # Estrutura: { year: { month: {pnl, trades, win_rate} } }
             by_year: dict[int, dict[int, dict[str, Any]]] = {}
             year_totals: dict[int, dict[str, Any]] = {}
-            month_totals: dict[int, dict[str, Any]] = {m: {"pnl": 0.0, "trades": 0, "wins": 0} for m in range(1, 13)}
+            month_totals: dict[int, dict[str, Any]] = {
+                m: {"pnl": 0.0, "trades": 0, "wins": 0} for m in range(1, 13)
+            }
             grand_total = {"pnl": 0.0, "trades": 0, "wins": 0}
 
             for r in q.all():

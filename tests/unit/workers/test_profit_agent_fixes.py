@@ -87,8 +87,7 @@ def test_p6_kill_zombie_skips_self_pid(pa_module):
         "  TCP    127.0.0.1:8002         0.0.0.0:0              LISTENING       12345\n"
         "  TCP    127.0.0.1:8002         0.0.0.0:0              LISTENING       99999\n"
     )
-    with patch.object(pa_module, "os") as mock_os, \
-         patch("subprocess.run") as mock_run:
+    with patch.object(pa_module, "os") as mock_os, patch("subprocess.run") as mock_run:
         mock_os.name = "nt"
         # netstat call
         mock_run.side_effect = [

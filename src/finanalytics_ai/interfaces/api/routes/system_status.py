@@ -283,8 +283,10 @@ async def system_status(_: User = Depends(require_admin)) -> dict:
         _market = bool(_s.get("market_connected"))
         _routing = bool(_s.get("routing_connected"))
         _db = bool(_s.get("db_connected"))
-        _status = "ok" if (_market and _routing and _db) else (
-            "warning" if _market or _routing else "error"
+        _status = (
+            "ok"
+            if (_market and _routing and _db)
+            else ("warning" if _market or _routing else "error")
         )
         _parts = []
         _parts.append(f"market={'ON' if _market else 'OFF'}")

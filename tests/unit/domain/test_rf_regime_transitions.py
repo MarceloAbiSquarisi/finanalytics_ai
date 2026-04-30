@@ -9,6 +9,7 @@ Cobertura de compute_transitions:
   - most_likely_next bate com argmax de next_regime_probs
   - sample_pairs = len(history) - 1
 """
+
 from __future__ import annotations
 
 import pytest
@@ -19,7 +20,7 @@ from finanalytics_ai.domain.rf_regime.classifier import compute_transitions
 def _make_history(regimes: list[str]) -> list[dict]:
     """Helper: gera lista [{dia, slope_2y_10y, regime}, ...]."""
     return [
-        {"dia": f"2026-01-{i+1:02d}", "slope_2y_10y": 0.01, "regime": r}
+        {"dia": f"2026-01-{i + 1:02d}", "slope_2y_10y": 0.01, "regime": r}
         for i, r in enumerate(regimes)
     ]
 
@@ -49,10 +50,7 @@ def test_sample_pairs_equals_history_minus_one():
 def test_matrix_rows_sum_to_one_when_observed():
     """Cada linha da matriz que tem transicoes observadas deve somar 1."""
     history = _make_history(
-        ["NORMAL"] * 20
-        + ["STEEPENING"] * 5
-        + ["NORMAL"] * 6
-        + ["FLATTENING"] * 5
+        ["NORMAL"] * 20 + ["STEEPENING"] * 5 + ["NORMAL"] * 6 + ["FLATTENING"] * 5
     )
     result = compute_transitions(history, "NORMAL")
     assert result is not None

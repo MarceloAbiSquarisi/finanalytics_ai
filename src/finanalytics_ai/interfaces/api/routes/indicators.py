@@ -216,9 +216,7 @@ async def get_support_resistance(
     requested = {m.strip().lower() for m in methods.split(",") if m.strip()}
     valid = {"swing", "classic", "williams"}
     if not requested or not (requested <= valid):
-        raise HTTPException(
-            400, f"methods inválido — use combinação de {sorted(valid)}"
-        )
+        raise HTTPException(400, f"methods inválido — use combinação de {sorted(valid)}")
 
     since = desde or (date.today() - timedelta(days=365))
     candles, source = await fetch_candles(ticker, since)
@@ -239,7 +237,8 @@ async def get_support_resistance(
         lo_b = last_close * 0.4
         hi_b = last_close * 2.5
         keep = [
-            i for i in range(len(candles))
+            i
+            for i in range(len(candles))
             if lo_b <= raw_closes[i] <= hi_b
             and lo_b <= raw_highs[i] <= hi_b
             and lo_b <= raw_lows[i] <= hi_b
@@ -262,7 +261,9 @@ async def get_support_resistance(
     lows = [raw_lows[i] for i in keep]
     closes = [raw_closes[i] for i in keep]
     timestamps = [
-        candles[i].date.isoformat() if hasattr(candles[i].date, "isoformat") else str(candles[i].date)
+        candles[i].date.isoformat()
+        if hasattr(candles[i].date, "isoformat")
+        else str(candles[i].date)
         for i in keep
     ]
     filtered_candles = [candles[i] for i in keep]

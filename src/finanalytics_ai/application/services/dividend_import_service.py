@@ -108,11 +108,22 @@ class DividendImportService:
         header_idx = -1
         for i, row in enumerate(rows[:5]):
             row_lower = " ".join(c.lower() for c in row)
-            if any(k in row_lower for k in ["data", "descrição", "descricao", "histórico", "historico", "valor", "movimentação"]):
+            if any(
+                k in row_lower
+                for k in [
+                    "data",
+                    "descrição",
+                    "descricao",
+                    "histórico",
+                    "historico",
+                    "valor",
+                    "movimentação",
+                ]
+            ):
                 header_idx = i
                 break
 
-        for line_num, row in enumerate(rows[header_idx + 1:], start=header_idx + 2):
+        for line_num, row in enumerate(rows[header_idx + 1 :], start=header_idx + 2):
             joined = " | ".join(c for c in row if c)
             if not _KEYWORDS_RE.search(joined):
                 continue
@@ -136,8 +147,7 @@ class DividendImportService:
         try:
             import pdfplumber
         except ImportError:
-            logger.error("dividend_import.pdf_no_pdfplumber",
-                         hint="add pdfplumber>=0.10.0 to deps")
+            logger.error("dividend_import.pdf_no_pdfplumber", hint="add pdfplumber>=0.10.0 to deps")
             raise RuntimeError("pdfplumber não instalado — adicione em pyproject.toml")
 
         results: list[ParsedDividend] = []
@@ -167,7 +177,9 @@ class DividendImportService:
 
         # OFX <STMTTRN> blocks
         results: list[ParsedDividend] = []
-        for block in re.findall(r"<STMTTRN>(.*?)</STMTTRN>", text_content, re.DOTALL | re.IGNORECASE):
+        for block in re.findall(
+            r"<STMTTRN>(.*?)</STMTTRN>", text_content, re.DOTALL | re.IGNORECASE
+        ):
             memo_match = re.search(r"<MEMO>([^<]+)", block, re.IGNORECASE)
             memo = memo_match.group(1).strip() if memo_match else ""
             if not _KEYWORDS_RE.search(memo):
@@ -179,16 +191,25 @@ class DividendImportService:
                 continue
 
             try:
-                d = date.fromisoformat(f"{dt_match.group(1)[:4]}-{dt_match.group(1)[4:6]}-{dt_match.group(1)[6:8]}")
+                d = date.fromisoformat(
+                    f"{dt_match.group(1)[:4]}-{dt_match.group(1)[4:6]}-{dt_match.group(1)[6:8]}"
+                )
                 a = float(amt_match.group(1))
             except (ValueError, IndexError):
                 continue
 
             ticker = self._extract_ticker(memo)
             tipo = self._classify_type(memo)
-            results.append(ParsedDividend(
-                ticker=ticker, amount=abs(a), date=d, description=memo, source_line=block[:200].strip(), detected_type=tipo,
-            ))
+            results.append(
+                ParsedDividend(
+                    ticker=ticker,
+                    amount=abs(a),
+                    date=d,
+                    description=memo,
+                    source_line=block[:200].strip(),
+                    detected_type=tipo,
+                )
+            )
 
         return results
 
@@ -238,7 +259,12 @@ class DividendImportService:
         ticker = self._extract_ticker(line)
         tipo = self._classify_type(line)
         return ParsedDividend(
-            ticker=ticker, amount=amount, date=parsed_date, description=line[:300], source_line=line, detected_type=tipo,
+            ticker=ticker,
+            amount=amount,
+            date=parsed_date,
+            description=line[:300],
+            source_line=line,
+            detected_type=tipo,
         )
 
     def _extract_ticker(self, text: str) -> str | None:
@@ -260,16 +286,24 @@ class DividendImportService:
     ) -> list[MatchedDividend]:
         """Match cada linha contra positions ativos da conta. Por ticker exato."""
         async with get_session() as s:
-            rows = (await s.execute(
-                sql_text(
-                    "SELECT id, ticker FROM positions WHERE investment_account_id = :acc"
-                ),
-                {"acc": account_id},
-            )).mappings().all()
+            rows = (
+                (
+                    await s.execute(
+                        sql_text(
+                            "SELECT id, ticker FROM positions WHERE investment_account_id = :acc"
+                        ),
+                        {"acc": account_id},
+                    )
+                )
+                .mappings()
+                .all()
+            )
         positions_by_ticker: dict[str, list[dict[str, str]]] = {}
         for r in rows:
             # positions.id pode ser INT (legacy) — força str
-            positions_by_ticker.setdefault(r["ticker"].upper(), []).append({"id": str(r["id"]), "ticker": r["ticker"]})
+            positions_by_ticker.setdefault(r["ticker"].upper(), []).append(
+                {"id": str(r["id"]), "ticker": r["ticker"]}
+            )
 
         matched: list[MatchedDividend] = []
         for p in parsed:
@@ -279,27 +313,44 @@ class DividendImportService:
                 continue
             cands = positions_by_ticker.get(ticker_up, [])
             if len(cands) == 1:
-                matched.append(MatchedDividend(
-                    parsed=p, matched_position_id=cands[0]["id"], matched_ticker=cands[0]["ticker"],
-                    confidence=1.0, match_status="matched",
-                ))
+                matched.append(
+                    MatchedDividend(
+                        parsed=p,
+                        matched_position_id=cands[0]["id"],
+                        matched_ticker=cands[0]["ticker"],
+                        confidence=1.0,
+                        match_status="matched",
+                    )
+                )
             elif len(cands) > 1:
-                matched.append(MatchedDividend(
-                    parsed=p, match_status="ambiguous", candidates=[c["ticker"] for c in cands],
-                ))
+                matched.append(
+                    MatchedDividend(
+                        parsed=p,
+                        match_status="ambiguous",
+                        candidates=[c["ticker"] for c in cands],
+                    )
+                )
             else:
                 # Sem match: oferece sugestões por similar
                 similar = [t for t in positions_by_ticker if ticker_up[:4] in t]
-                matched.append(MatchedDividend(
-                    parsed=p, match_status="unmatched", candidates=similar[:5],
-                ))
+                matched.append(
+                    MatchedDividend(
+                        parsed=p,
+                        match_status="unmatched",
+                        candidates=similar[:5],
+                    )
+                )
 
         return matched
 
     # ── Commit ───────────────────────────────────────────────────────────────
 
     async def commit_dividends(
-        self, matched: list[MatchedDividend], user_id: str, account_id: str, only_matched: bool = False,
+        self,
+        matched: list[MatchedDividend],
+        user_id: str,
+        account_id: str,
+        only_matched: bool = False,
     ) -> dict[str, Any]:
         """Cria account_transactions tipo=dividend para todas as linhas matched (ou todas se only_matched=False).
 
@@ -329,7 +380,9 @@ class DividendImportService:
                 )
                 created.append(tx.get("id", "?")[:8])
             except Exception as e:  # noqa: BLE001
-                logger.warning("dividend_import.commit.failed", error=str(e), line=m.parsed.source_line[:100])
+                logger.warning(
+                    "dividend_import.commit.failed", error=str(e), line=m.parsed.source_line[:100]
+                )
                 skipped.append(f"error: {str(e)[:60]}")
 
         return {

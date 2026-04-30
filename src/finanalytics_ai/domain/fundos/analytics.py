@@ -41,10 +41,10 @@ class StyleResult(TypedDict):
     cnpj: str
     sample_size: int
     r_squared: float
-    alpha_daily: float            # intercepto (alpha diário em decimal)
-    alpha_annualized_pct: float   # ann. ≈ (1+alpha)^252 - 1, em %
+    alpha_daily: float  # intercepto (alpha diário em decimal)
+    alpha_annualized_pct: float  # ann. ≈ (1+alpha)^252 - 1, em %
     coefficients: list[StyleCoef]
-    period: dict                   # {start, end}
+    period: dict  # {start, end}
 
 
 class PeerEntry(TypedDict):
@@ -117,9 +117,7 @@ def style_analysis(
     sorted_dates = sorted(common_dates)
     y = np.array([fund_map[d] for d in sorted_dates], dtype=float)
     factor_names = list(factor_returns.keys())
-    X = np.column_stack([
-        [factor_maps[fn][d] for d in sorted_dates] for fn in factor_names
-    ])
+    X = np.column_stack([[factor_maps[fn][d] for d in sorted_dates] for fn in factor_names])
     # Adiciona intercepto
     X_design = np.column_stack([np.ones(len(sorted_dates)), X])
 
@@ -190,15 +188,17 @@ def peer_ranking(
         total_return = (np.prod([1 + r for r in returns]) - 1) * 100
         vol_ann = sigma * (252**0.5) * 100
 
-        entries.append(PeerEntry(
-            cnpj=cnpj,
-            denominacao=denom,
-            rank=0,  # preenchido após sort
-            sharpe=round(sharpe, 3),
-            return_pct=round(float(total_return), 2),
-            volatility_pct=round(vol_ann, 2),
-            sample_size=len(returns),
-        ))
+        entries.append(
+            PeerEntry(
+                cnpj=cnpj,
+                denominacao=denom,
+                rank=0,  # preenchido após sort
+                sharpe=round(sharpe, 3),
+                return_pct=round(float(total_return), 2),
+                volatility_pct=round(vol_ann, 2),
+                sample_size=len(returns),
+            )
+        )
     entries.sort(key=lambda e: -e["sharpe"])
     for i, e in enumerate(entries[:top_n], 1):
         e["rank"] = i
@@ -242,7 +242,7 @@ def nav_anomalies(
         r_i = returns[i]
         if r_i is None:
             continue
-        window = [r for r in returns[i - rolling_window:i] if r is not None]
+        window = [r for r in returns[i - rolling_window : i] if r is not None]
         if len(window) < rolling_window // 2:
             continue
         mu = mean(window)
@@ -251,14 +251,16 @@ def nav_anomalies(
             continue
         z = (r_i - mu) / sigma
         if abs(z) >= threshold_sigma:
-            anomalies.append(NavAnomaly(
-                data=dates[i].isoformat(),
-                quota_value=round(quotas[i], 6),
-                daily_return_pct=round(r_i * 100, 4),
-                z_score=round(float(z), 2),
-                rolling_mean_pct=round(mu * 100, 4),
-                rolling_std_pct=round(sigma * 100, 4),
-            ))
+            anomalies.append(
+                NavAnomaly(
+                    data=dates[i].isoformat(),
+                    quota_value=round(quotas[i], 6),
+                    daily_return_pct=round(r_i * 100, 4),
+                    z_score=round(float(z), 2),
+                    rolling_mean_pct=round(mu * 100, 4),
+                    rolling_std_pct=round(sigma * 100, 4),
+                )
+            )
 
     return AnomaliesResult(
         cnpj="",  # caller preenche

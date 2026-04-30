@@ -69,9 +69,7 @@ def get_rf_regime(
 
     result = analyze_regime(rows_asc, history_days=history_days)
     if result is None:
-        raise HTTPException(
-            422, "Dados insuficientes (<30 dias com slope_2y_10y não-nulo)"
-        )
+        raise HTTPException(422, "Dados insuficientes (<30 dias com slope_2y_10y não-nulo)")
     logger.info(
         "rf_regime.computed",
         regime=result["regime"],

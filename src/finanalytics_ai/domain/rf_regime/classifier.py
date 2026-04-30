@@ -46,9 +46,9 @@ class RegimePoint(TypedDict):
 
 
 class RegimeAllocation(TypedDict):
-    cdi: float           # % alocação em pós-fixado (CDI)
-    pre_curto: float     # % em prefixado curto (1-3 anos)
-    ipca_longo: float    # % em IPCA+ longo (5+ anos)
+    cdi: float  # % alocação em pós-fixado (CDI)
+    pre_curto: float  # % em prefixado curto (1-3 anos)
+    ipca_longo: float  # % em IPCA+ longo (5+ anos)
 
 
 class RegimeRecommendation(TypedDict):
@@ -62,22 +62,22 @@ class RegimeTransitions(TypedDict):
     # N4 (28/abr): matriz de transicao empirica P(regime_t+1 | regime_t)
     # calculada a partir da history. Estilo "HMM-Markov simples" sem
     # lib pesada — usa frequencias relativas observadas.
-    matrix: dict[str, dict[str, float]]   # regime_from -> {regime_to: prob}
-    next_regime_probs: dict[str, float]   # P(amanha = X | hoje = regime_atual)
-    most_likely_next: Regime              # argmax do next_regime_probs
-    avg_duration_days: dict[str, float]   # quanto cada regime costuma durar
-    sample_pairs: int                     # n pares (t, t+1) usados
+    matrix: dict[str, dict[str, float]]  # regime_from -> {regime_to: prob}
+    next_regime_probs: dict[str, float]  # P(amanha = X | hoje = regime_atual)
+    most_likely_next: Regime  # argmax do next_regime_probs
+    avg_duration_days: dict[str, float]  # quanto cada regime costuma durar
+    sample_pairs: int  # n pares (t, t+1) usados
 
 
 class RegimeResult(TypedDict):
     regime: Regime
-    score: float                         # intensidade [0,1]: quanto mais alto, mais "puro" o regime
+    score: float  # intensidade [0,1]: quanto mais alto, mais "puro" o regime
     slope_2y_10y: float
     slope_2y_10y_delta_20d: float
     slope_z_score: float
     last_date: str
     sample_size: int
-    history: list[RegimePoint]            # série diária do regime nos últimos N dias
+    history: list[RegimePoint]  # série diária do regime nos últimos N dias
     transitions: RegimeTransitions | None  # N4: probabilidades empiricas
     recommendation: RegimeRecommendation
 
@@ -134,14 +134,14 @@ ALLOCATIONS: dict[Regime, RegimeAllocation] = {
     "INVERSION": {"cdi": 70, "pre_curto": 20, "ipca_longo": 10},
     "FLATTENING": {"cdi": 20, "pre_curto": 20, "ipca_longo": 60},
     "STEEPENING": {"cdi": 30, "pre_curto": 50, "ipca_longo": 20},
-    "NORMAL":     {"cdi": 30, "pre_curto": 30, "ipca_longo": 40},
+    "NORMAL": {"cdi": 30, "pre_curto": 30, "ipca_longo": 40},
 }
 
 HEADLINES: dict[Regime, str] = {
-    "INVERSION":  "🔻 Curva invertida — privilegiar pós-fixado (CDI)",
+    "INVERSION": "🔻 Curva invertida — privilegiar pós-fixado (CDI)",
     "STEEPENING": "📈 Curva abrindo — favorece prefixado curto",
     "FLATTENING": "📉 Curva achatando — favorece IPCA+ longo",
-    "NORMAL":     "⚖️ Curva balanceada — alocação diversificada",
+    "NORMAL": "⚖️ Curva balanceada — alocação diversificada",
 }
 
 RATIONALES: dict[Regime, str] = {
@@ -219,10 +219,7 @@ def compute_transitions(
                 run_state = r
                 run_len = 1
         durations[run_state].append(run_len)
-    avg_dur = {
-        s: round(sum(d) / len(d), 2) if d else 0.0
-        for s, d in durations.items()
-    }
+    avg_dur = {s: round(sum(d) / len(d), 2) if d else 0.0 for s, d in durations.items()}
 
     return {
         "matrix": matrix,
@@ -271,11 +268,14 @@ def analyze_regime(
     if len(slopes) >= DELTA_WINDOW_DAYS + 30:
         # Calcula histórico de deltas 20d
         deltas_history = [
-            slopes[i] - slopes[i - DELTA_WINDOW_DAYS]
-            for i in range(DELTA_WINDOW_DAYS, len(slopes))
+            slopes[i] - slopes[i - DELTA_WINDOW_DAYS] for i in range(DELTA_WINDOW_DAYS, len(slopes))
         ]
         # Pega janela de até 252 deltas mais recentes
-        window = deltas_history[-Z_WINDOW_DAYS:] if len(deltas_history) > Z_WINDOW_DAYS else deltas_history
+        window = (
+            deltas_history[-Z_WINDOW_DAYS:]
+            if len(deltas_history) > Z_WINDOW_DAYS
+            else deltas_history
+        )
         z_score = compute_z_score(window)
     else:
         z_score = 0.0
@@ -297,11 +297,13 @@ def analyze_regime(
             r_i = "FLATTENING"
         else:
             r_i = "NORMAL"
-        history.append({
-            "dia": d_i.isoformat(),
-            "slope_2y_10y": round(s_i, 6),
-            "regime": r_i,
-        })
+        history.append(
+            {
+                "dia": d_i.isoformat(),
+                "slope_2y_10y": round(s_i, 6),
+                "regime": r_i,
+            }
+        )
 
     transitions = compute_transitions(history, regime)
 

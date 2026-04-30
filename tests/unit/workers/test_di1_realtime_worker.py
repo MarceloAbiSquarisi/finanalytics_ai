@@ -115,8 +115,13 @@ async def test_p3_cursor_uses_time_not_trade_number(monkeypatch):
     boot_ts = datetime(2026, 4, 28, 13, 0, tzinfo=UTC)
     new_ts = datetime(2026, 4, 28, 13, 5, tzinfo=UTC)
     row = {
-        "time": new_ts, "ticker": "DI1F27", "price": 12.85, "quantity": 5,
-        "volume": 64.25, "buy_agent": 308, "sell_agent": 3,
+        "time": new_ts,
+        "ticker": "DI1F27",
+        "price": 12.85,
+        "quantity": 5,
+        "volume": 64.25,
+        "buy_agent": 308,
+        "sell_agent": 3,
         "trade_number": 50,  # MUITO menor que historico — bug original ignorava
         "trade_type": 3,
     }

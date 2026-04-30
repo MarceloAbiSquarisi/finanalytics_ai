@@ -108,7 +108,10 @@ class SQLAlertRepository:
         stmt = (
             update(AlertModel)
             .where(AlertModel.alert_id == alert_id)
-            .values(status=AlertStatus.TRIGGERED.value, triggered_at=datetime.now(UTC).replace(tzinfo=None))
+            .values(
+                status=AlertStatus.TRIGGERED.value,
+                triggered_at=datetime.now(UTC).replace(tzinfo=None),
+            )
         )
         await self._session.execute(stmt)
 

@@ -176,9 +176,7 @@ async def mark_incomplete(
 
 
 @router.get("/incomplete_count")
-async def incomplete_count(
-    request: Request, user_id: str = Query("user-demo")
-) -> dict[str, Any]:
+async def incomplete_count(request: Request, user_id: str = Query("user-demo")) -> dict[str, Any]:
     repo = _repo(request)
     n = await repo.count_incomplete(user_id=user_id)
     return {"count": n, "user_id": user_id}

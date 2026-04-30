@@ -106,7 +106,12 @@ async def get_technical(
 async def get_signal(
     symbol: str,
     request: Request,
-    days: int = Query(180, ge=180, le=365, description="180+ pra CoinGecko gerar candles diários suficientes pros indicadores"),
+    days: int = Query(
+        180,
+        ge=180,
+        le=365,
+        description="180+ pra CoinGecko gerar candles diários suficientes pros indicadores",
+    ),
     vs_currency: str = Query("usd"),
 ) -> dict[str, Any]:
     """Score weighted dos 4 indicadores técnicos → BUY/SELL/HOLD.
@@ -130,10 +135,14 @@ async def get_signal(
 
         rsi = t.get("rsi")
         if rsi is not None:
-            if rsi < 30: r = 2
-            elif rsi < 50: r = 1
-            elif rsi < 70: r = -1
-            else: r = -2
+            if rsi < 30:
+                r = 2
+            elif rsi < 50:
+                r = 1
+            elif rsi < 70:
+                r = -1
+            else:
+                r = -2
             components["rsi"] = {"value": rsi, "score": r}
             score += r
 
@@ -152,9 +161,12 @@ async def get_signal(
         bb_u, bb_l = t.get("bb_upper"), t.get("bb_lower")
         price = data.get("last_price") or data.get("current_price")
         if bb_u is not None and bb_l is not None and price is not None:
-            if price < bb_l: b = 1
-            elif price > bb_u: b = -1
-            else: b = 0
+            if price < bb_l:
+                b = 1
+            elif price > bb_u:
+                b = -1
+            else:
+                b = 0
             components["bollinger"] = {"price": price, "upper": bb_u, "lower": bb_l, "score": b}
             score += b
 
@@ -244,6 +256,7 @@ async def get_signal_history(
         scores = [i["score"] for i in window_items if i.get("score") is not None]
         avg = sum(scores) / len(scores) if scores else None
         from collections import Counter
+
         sigs = Counter(i["signal"] for i in window_items if i.get("signal"))
         return {
             "signal": sigs.most_common(1)[0][0] if sigs else None,
@@ -252,9 +265,15 @@ async def get_signal_history(
         }
 
     summary = {
-        "h7d":  _predominant(items[-7:]) if len(items) >= 1 else {"signal": None, "score_avg": None, "n": 0},
-        "h14d": _predominant(items[-14:]) if len(items) >= 1 else {"signal": None, "score_avg": None, "n": 0},
-        "h30d": _predominant(items[-30:]) if len(items) >= 1 else {"signal": None, "score_avg": None, "n": 0},
+        "h7d": _predominant(items[-7:])
+        if len(items) >= 1
+        else {"signal": None, "score_avg": None, "n": 0},
+        "h14d": _predominant(items[-14:])
+        if len(items) >= 1
+        else {"signal": None, "score_avg": None, "n": 0},
+        "h30d": _predominant(items[-30:])
+        if len(items) >= 1
+        else {"signal": None, "score_avg": None, "n": 0},
     }
 
     return {
