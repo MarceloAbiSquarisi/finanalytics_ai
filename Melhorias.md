@@ -12,6 +12,7 @@
 - **P9 mitigado** + **P10 fix** + **P11/P11.2 fix** + resilience patterns broker degradado — DONE 29/abr (`3896aeb`, `53372e1`, `b153037`, `ee58c06`, `43f3767`)
 - **Sessão 30/abr** (`5ad447d` → `a7b52aa`): OHLC filtro 13-20 UTC + admin rebuild endpoint + scheduler bugs + CI verde + `profit_agent_validators.py` + 20 unit tests + P2-futuros + U1 drag SVG + day-dividers chart + I4 fechado (NSSM AppExit=Restart) + P8 fechado + P9 fase 2 boot-load
 - **C5 Passo 7 + Passo 1** (`fdd81f9`, 30/abr pós-pregão): handshake `_source="trading_engine"` + `_client_order_id` no body de `:8002/order/send` → persistência em `profit_orders.source`/`cl_ord_id` + supressão de `_maybe_dispatch_diary` para ordens do engine (evita duplicata na unified VIEW). Smoke parcial validado (PETR4 simulation, 16:57 BRT). Passos 2-6 (VIEW + backend→VIEW + UI pill manual/engine) bloqueados pela migration do engine R-06 — agente agendado `trig_01VDzH3xriAC777KZku42SbK` p/ 21/mai abrir PR pareado. Spec: `c5_handoff_for_finanalyticsai.md`.
+- **I3 + I2 done** (30/abr pós-pregão): rebuild `api worker event_worker_v2 scheduler ohlc_ingestor` (~6min — `ohlc_ingestor` estava em loop fail há tempo indeterminado por image pre-27/abr sem migrations 0019-0020) + housekeeping logs legacy (1848 arquivos × 65.7MB → zip 6.44MB em `_archive_logs/`).
 - **UI overhaul 29/abr noite** (`0b696f1` → `90acb2e`):
   - Gap compression overnight + fitContent + UNION ohlc (`0b696f1`, `7739298`, `c296006`, `32a65e0`, `71eb1e1`)
   - Bollinger client-side + lookup reverso (`28e41ae`, `c3876db`)
@@ -380,8 +381,8 @@ DB ficou com `order_status=10 (PendingNew)` mesmo após broker retornar `code=5 
 
 ---
 
-#### I3 — Rebuild containers stale (após pregão 29/abr) ⭐ médio
-**Custo**: ~10min (`docker compose build api worker worker_v2 && docker compose up -d`). **Payoff**: alto (reaplica fixes P1-P7+O1 nos containers que ainda rodam código de mar/abr).
+#### I3 — Rebuild containers stale (após pregão 29/abr) ✅ DONE 30/abr pós-pregão
+Rebuild de `api worker event_worker_v2 scheduler ohlc_ingestor` em ~6min. Bug bonus encontrado: `ohlc_ingestor` estava em loop `Restarting (255)` há tempo indeterminado com erro `Can't locate revision identified by '0020_diario_is_complete'` — image antiga (pré-27/abr) não tinha as migrations 0019-0020. Rebuild resolveu. Validado: `profit_agent.py` mtime 30/abr 19:41 (commit C5) + `di1_realtime_worker.py` mtime 30/abr 13:03 nos containers, todos healthy.
 
 **Achado 29/abr 09:34**: containers tem código defasado (file mtime dentro do container):
 - `finanalytics_worker` — di1 worker datado **20/abr** (perde 8d de fixes, incluindo P3 cursor)
@@ -402,18 +403,8 @@ docker compose up -d api worker worker_v2
 
 **Não bloqueante hoje**: containers estão saudáveis pra observação/leitura. Funcionalidades dependentes dos fixes recentes (snapshot_signals job, ml_pickle_count fix) já foram hot-deployed onde necessário.
 
-#### I2 — Finalizar rotação log profit_agent (após pregão 29/abr) ⭐ trivial
-**Custo**: ~5min (Windows admin). **Payoff**: libera 666MB + previne reinflação.
-
-Código já fixado em `profit_agent.py:_setup_logging` (commit pendente desta sessão): substituiu `logging.FileHandler` por `RotatingFileHandler(maxBytes=10MB, backupCount=10)`. Resta:
-1. Stop NSSM service (Windows admin): `Stop-Service FinAnalyticsAgent -Force`
-2. Move arquivo legado: `Move-Item -Force logs\profit_agent.log _archive_logs\profit_agent_pre_rotate_20260429.log`
-3. Start NSSM: `Start-Service FinAnalyticsAgent`
-4. Adicionar pre_rotate.log ao zip + deletar solto
-5. Validar `logs/profit_agent.log` cresce até 10MB e rotaciona pra `.log.1` etc.
-6. Commit do fix do código (`profit_agent.py` + `Melhorias.md` removendo este item)
-
-**Não bloqueante**: rotação não impacta operação durante pregão. Tarefa offline pós-fechamento.
+#### I2 — Finalizar rotação log profit_agent (após pregão 29/abr) ✅ DONE 30/abr pós-pregão
+`RotatingFileHandler(maxBytes=10MB, backupCount=10)` já estava ativo em `profit_agent.py:_setup_logging` (linha 162). Housekeeping pós-pregão: 1848 arquivos `profit_agent-2026XXXXX.log` legacy (65.7MB total, gerados antes do switch para RotatingFileHandler) zipados em `_archive_logs/profit_agent_legacy_pre_rotate_20260430.zip` (6.44MB, ratio 10x) e removidos do `logs/`. Pasta `logs/` agora limpa.
 
 #### I1 — Migrar Docker Desktop → Docker Engine direto via WSL2 ⭐⭐ médio
 **Custo**: ~1-2d (investigação + migração de volumes). **Payoff**: médio (operação 24/7 mais robusta + sem dependência de user logado).
