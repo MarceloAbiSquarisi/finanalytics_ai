@@ -252,7 +252,7 @@ async def forgot_password(
         sender = get_email_sender()
         email_sent = sender.send_reset_password(user.email, user.full_name, reset_url)
         smtp_configured = sender.is_configured
-    except (AttributeError, Exception) as e:  # noqa: BLE001
+    except (AttributeError, Exception) as e:
         logger.warning("auth.forgot_password.email_sender_unavailable", error=str(e))
         email_sent = False
         smtp_configured = False

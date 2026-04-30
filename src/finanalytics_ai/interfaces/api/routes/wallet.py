@@ -169,7 +169,7 @@ async def create_account(body: AccountCreate, user: User = Depends(get_current_u
     data["user_id"] = str(user.user_id)
     try:
         return await _repo().create_account(data)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         msg = str(exc)
         if "uq_inv_accounts_user_inst_ag_acc" in msg:
             raise HTTPException(
@@ -254,7 +254,7 @@ async def connect_dll(
         )
     except ValueError as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         # BUG10 fix: UniqueViolation de ux_inv_accounts_one_dll_sim → 409 amigável
         msg = str(e)
         if "ux_inv_accounts_one_dll_sim" in msg or "duplicate key" in msg.lower():

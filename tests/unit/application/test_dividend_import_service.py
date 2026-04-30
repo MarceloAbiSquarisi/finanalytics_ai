@@ -13,7 +13,6 @@ import pytest
 
 from finanalytics_ai.application.services.dividend_import_service import (
     DividendImportService,
-    ParsedDividend,
 )
 
 

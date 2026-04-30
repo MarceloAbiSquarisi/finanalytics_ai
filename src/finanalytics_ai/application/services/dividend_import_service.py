@@ -15,15 +15,15 @@ Caso ambíguo (múltiplas positions) ou sem match → unmatched, reconcilia depo
 from __future__ import annotations
 
 import csv
-import io
-import re
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
+import io
+import re
 from typing import Any, Literal
 
-import structlog
 from sqlalchemy import text as sql_text
+import structlog
 
 from finanalytics_ai.infrastructure.database.connection import get_session
 from finanalytics_ai.infrastructure.database.repositories.wallet_repo import WalletRepository

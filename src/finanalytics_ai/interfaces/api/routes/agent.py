@@ -51,7 +51,7 @@ async def _inject_account(body: dict) -> dict:
         )
 
         account = await WalletRepository().get_dll_active()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("agent.inject_account.failed", error=str(exc))
         return body
 

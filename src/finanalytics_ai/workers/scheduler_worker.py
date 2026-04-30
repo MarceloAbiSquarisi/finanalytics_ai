@@ -820,10 +820,11 @@ async def settle_cash_transactions_job() -> dict[str, Any]:
     Idempotente (re-rodar nao muda nada — tx ja settled e skip).
     """
     try:
+        from datetime import date as _date
+
         from finanalytics_ai.infrastructure.database.repositories.wallet_repo import (
             WalletRepository,
         )
-        from datetime import date as _date
 
         repo = WalletRepository()
         count = await repo.settle_due_transactions(_date.today())
@@ -1426,7 +1427,8 @@ async def schedule_loop() -> None:
             return
         ts_dsn = timescale_dsn.replace("postgresql+asyncpg://", "postgresql://")
         logger.info("scheduler.gtd.start_loop")
-        import asyncpg, httpx
+        import asyncpg
+        import httpx
 
         while True:
             await asyncio.sleep(60)

@@ -293,7 +293,9 @@ class RFPortfolioRepository:
         """Feature C5: gera account_transaction vinculada ao holding RF.
         Resolve (user_id, investment_account_id) via portfolio."""
         from decimal import Decimal
+
         from sqlalchemy import text as sql_text
+
         from finanalytics_ai.infrastructure.database.repositories.wallet_repo import (
             WalletRepository,
         )
@@ -336,8 +338,8 @@ class RFPortfolioRepository:
     async def delete_holding(self, holding_id: str, portfolio_id: str) -> None:
         # C5: cancela tx rf_apply (pending ou settled → reverte cash)
         from finanalytics_ai.infrastructure.database.repositories.wallet_repo import (
-            WalletRepository,
             AccountTransactionModel,
+            WalletRepository,
         )
 
         repo = WalletRepository()

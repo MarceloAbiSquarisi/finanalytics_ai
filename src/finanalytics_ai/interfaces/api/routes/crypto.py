@@ -206,6 +206,7 @@ async def get_signal_history(
     Pre-requisito: scheduler rodando snapshot_crypto_signals.py diario.
     """
     import os as _os
+
     import psycopg2
 
     dsn = (

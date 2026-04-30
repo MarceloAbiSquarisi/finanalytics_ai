@@ -55,20 +55,20 @@ async def get_active_deprecated():
 
 
 @router.get("/{uuid}", tags=["Accounts (DEPRECATED)"])
-async def get_account_deprecated(uuid: str):  # noqa: ARG001
+async def get_account_deprecated(uuid: str):
     _gone()
 
 
 @router.put("/{uuid}/activate", tags=["Accounts (DEPRECATED)"])
-async def activate_deprecated(uuid: str):  # noqa: ARG001
+async def activate_deprecated(uuid: str):
     _gone()
 
 
 @router.patch("/{uuid}", tags=["Accounts (DEPRECATED)"])
-async def update_deprecated(uuid: str):  # noqa: ARG001
+async def update_deprecated(uuid: str):
     _gone()
 
 
 @router.delete("/{uuid}", tags=["Accounts (DEPRECATED)"])
-async def delete_deprecated(uuid: str):  # noqa: ARG001
+async def delete_deprecated(uuid: str):
     _gone()

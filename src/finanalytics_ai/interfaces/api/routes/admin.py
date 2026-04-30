@@ -15,9 +15,9 @@ Endpoints:
   POST   /api/v1/admin/ohlc/rebuild  (sessão 30/abr)
 """
 
+from datetime import date as _date
 import os
 import uuid
-from datetime import date as _date
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, status

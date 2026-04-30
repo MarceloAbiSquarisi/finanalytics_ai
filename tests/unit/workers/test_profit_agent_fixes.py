@@ -125,7 +125,7 @@ def test_p2_get_metrics_includes_new_counters(pa_module):
     fake._total_assets = 10
     fake._db_queue = MagicMock()
     fake._db_queue.qsize.return_value = 0
-    fake._subscribed = set(["PETR4:B"])
+    fake._subscribed = {"PETR4:B"}
     fake._total_probes = 0
     fake._total_contaminations = 0
     fake._probe_duration_sum_s = 0.0

@@ -356,7 +356,7 @@ def compute_vwap(
     Reset quando o dia (UTC YYYY-MM-DD) muda; isso evita acumular
     valores de várias sessões.
     """
-    from datetime import datetime as _dt, UTC as _UTC
+    from datetime import UTC as _UTC, datetime as _dt
 
     n = len(closes)
     out: list[float | None] = [None] * n

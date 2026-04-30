@@ -73,9 +73,9 @@ def _fetch_factor_log_returns_sync(
     ticker: str, days: int, end_date=None
 ) -> list[tuple[Any, float]]:
     """Lê features_daily.close (banco TIMESCALE) entre [end_date - days, end_date]."""
+    from datetime import date as _date, timedelta
     import math
     import os
-    from datetime import date as _date, timedelta
 
     import psycopg2
 
@@ -176,11 +176,10 @@ async def peer_ranking_endpoint(
     Filtros: `classe` ILIKE `%tipo%` em fundos_cadastro + min_pl. CNPJs sem dados na
     janela são pulados.
     """
+    from datetime import date as _date
     import math
 
     from finanalytics_ai.domain.fundos.analytics import peer_ranking
-
-    from datetime import date as _date
 
     days = months * 31
     if end_date is None:
@@ -272,9 +271,9 @@ async def fund_anomalies(
     rolling_window: int = Query(30, ge=10, le=120),
 ) -> dict:
     """Saltos > N σ na cota do fundo (suspeita de marcação errada/evento)."""
-    from finanalytics_ai.domain.fundos.analytics import nav_anomalies
-
     from datetime import timedelta as _td
+
+    from finanalytics_ai.domain.fundos.analytics import nav_anomalies
 
     days = months * 31
     max_row = await session.execute(

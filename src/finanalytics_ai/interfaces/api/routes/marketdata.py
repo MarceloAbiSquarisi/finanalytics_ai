@@ -281,7 +281,7 @@ async def _fetch_crypto_candles(ticker: str, days: int = 30) -> list[dict]:
         candles = []
         for ts_ms, price in prices:
             day = int(ts_ms / 1000 / 86400)
-            from datetime import datetime as _dtmod, UTC
+            from datetime import UTC, datetime as _dtmod
 
             dt_iso = _dtmod.fromtimestamp(ts_ms / 1000, tz=UTC).replace(tzinfo=None)
             # CoinGecko 'daily' retorna 1 ponto/dia (close); usa mesmo valor pra OHLC
@@ -310,7 +310,7 @@ async def _fetch_crypto_candles(ticker: str, days: int = 30) -> list[dict]:
 # ── prev_close cache (refresh diario) ────────────────────────────────────────
 # Sprint Fix UI 22/abr: change_pct na watchlist exige previous_close por ticker.
 # JOIN ohlc_1m a cada request custa ~1s; cacheamos 24h pois muda 1x/dia.
-from datetime import datetime as _dt, timezone as _tz
+from datetime import UTC, datetime as _dt
 
 _PREV_CLOSE_CACHE: dict[str, float] = {}
 _PREV_CLOSE_REFRESHED_AT: _dt | None = None
@@ -322,7 +322,7 @@ async def _get_prev_close_map() -> dict[str, float]:
     Usa o ultimo close disponivel em ohlc_1m anterior a CURRENT_DATE.
     """
     global _PREV_CLOSE_CACHE, _PREV_CLOSE_REFRESHED_AT
-    now = _dt.now(_tz.utc)
+    now = _dt.now(UTC)
     if _PREV_CLOSE_REFRESHED_AT and _PREV_CLOSE_REFRESHED_AT.date() == now.date():
         return _PREV_CLOSE_CACHE
     async with _PREV_CLOSE_LOCK:
