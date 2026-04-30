@@ -330,7 +330,32 @@ DB ficou com `order_status=10 (PendingNew)` mesmo após broker retornar `code=5 
 
 ## 🛠 Infra
 
-#### I4 — `/agent/restart` não consegue matar processo NSSM (descoberto 30/abr) ✅ DIAGNÓSTICO 30/abr (parte 1)
+#### I4 — `/agent/restart` não restartava o agente ✅ FECHADO 30/abr (causa real: NSSM AppExit=Exit)
+
+**Causa raiz REAL** (descoberta 30/abr 12:11 via diagnóstico):
+`nssm get FinAnalyticsAgent AppExit Default` retornava **`Exit`** em vez do default **`Restart`**. Por isso quando o processo Python morria via `_hard_exit` → `TerminateProcess`, o NSSM detectava o exit mas NÃO restartava — service ficava `Stopped` exigindo `Start-Service` manual.
+
+**`TerminateProcess` SEMPRE funcionou** (hipótese original estava errada): o diagnóstico (commit `cdc9349`) capturou `hard_exit.attempt` em 2 tentativas seguidas, ambas SEM `hard_exit.terminate_failed`, confirmando sucesso da chamada nativa.
+
+**Fix aplicado** (PowerShell elevado):
+```powershell
+& nssm set FinAnalyticsAgent AppExit Default Restart
+```
+
+**Validação live 30/abr 12:17**: ciclo completo `/agent/restart` em **9 segundos** (15:17:02 dispatch → 15:17:11 agent UP) — sem intervenção manual:
+- PID 78012 → `hard_exit.attempt pid=78012 code=0`
+- TerminateProcess succeeded (sem terminate_failed)
+- NSSM detected exit, AppExit=Restart triggered
+- PID novo 55484 spawned em ~2s
+- watch_pending_orders.loaded n=0 hours=24 — boot OK
+
+**Por que estava `Exit`**: provavelmente config inicial do NSSM (talvez setup manual antigo). Não é default — fresh install do NSSM usa `Restart` por padrão.
+
+**Lição**: o diagnóstico expandido em `_hard_exit` (commit `cdc9349`) provou-se útil mesmo com hipótese original errada — eliminou TerminateProcess como suspeito e direcionou pra config NSSM. Manter os logs para diagnose futura.
+
+---
+
+#### I4 (histórico) — sintomas e diagnóstico parte 1
 
 **Sintoma**: chamar `POST /api/v1/agent/restart` (com sudo válido) retorna `{ok:true,message:"restarting"}` mas o processo Python não morre. PID continua o mesmo (validado: PID 116820 com `creation=29/abr 18:41` mantido após /restart de 30/abr 14:22).
 
