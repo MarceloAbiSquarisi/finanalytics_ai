@@ -330,7 +330,8 @@ DB ficou com `order_status=10 (PendingNew)` mesmo após broker retornar `code=5 
 
 ## 🛠 Infra
 
-#### I4 — `/agent/restart` não consegue matar processo NSSM (descoberto 30/abr) ⭐ médio
+#### I4 — `/agent/restart` não consegue matar processo NSSM (descoberto 30/abr) ✅ DIAGNÓSTICO 30/abr (parte 1)
+
 **Sintoma**: chamar `POST /api/v1/agent/restart` (com sudo válido) retorna `{ok:true,message:"restarting"}` mas o processo Python não morre. PID continua o mesmo (validado: PID 116820 com `creation=29/abr 18:41` mantido após /restart de 30/abr 14:22).
 
 **Causa raiz hipotética**: `_hard_exit` chama `TerminateProcess(GetCurrentProcess(), 0)` via `kernel32`. Em serviço NSSM rodando como Local System com a conta atual sem permissão de "Process Termination" sobre o próprio handle (Windows ACL stricta), `TerminateProcess` falha silenciosamente. O `try/except` cai em `os._exit(0)` que CLAUDE.md já documentou: "não termina processo limpo — DLL ConnectorThread C++ bloqueia."
@@ -340,10 +341,13 @@ DB ficou com `order_status=10 (PendingNew)` mesmo após broker retornar `code=5 
 - nssm restart pelo CLI por user não-admin → `OpenService(): Acesso negado`
 - Único caminho hoje: PowerShell elevado (Run as Administrator) → `Restart-Service FinAnalyticsAgent -Force`
 
-**Fix proposto**:
-1. Adicionar log ANTES de tudo no `_hard_exit`: `log.warning("hard_exit: TerminateProcess about to be called rc=...")`. Hoje é silent — sem log indicando se TerminateProcess deu retornou ok.
-2. Capturar HRESULT retornado por `TerminateProcess` e logar (se 0 = falhou; também `GetLastError`).
-3. Considerar mecanismo alternativo: gravar arquivo "stop_marker" + script PowerShell elevado com privileges adequados (rodando via service trigger ou via UAC prompt) que faça o `Stop-Service`/`Start-Service`.
+**Diagnóstico aplicado** (commit 30/abr — parte 1):
+- `_hard_exit` agora tem `log.warning("hard_exit.attempt pid=...")` ANTES e `log.error("hard_exit.terminate_failed last_error=...")` quando `TerminateProcess` retorna 0.
+- Restypes corretos: `GetCurrentProcess: HANDLE`, `TerminateProcess: HANDLE+UINT→BOOL`, `GetLastError: DWORD`. Antes era ctypes default (int) e qualquer crash silenciava.
+- Próximo `/restart` que silenciosamente falhar deixará pista clara no log.
+
+**Resta** (parte 2 — opcional):
+- Mecanismo alternativo se diagnóstico confirmar `last_error=5` (ERROR_ACCESS_DENIED): gravar stop_marker + watchdog script externo elevado.
 
 **Workaround atual**: `/agent/restart` continua útil para rebuild de in-memory state (loops vão re-popular), mas ciclo de processo Python não rotaciona. Para deploy de novo código no profit_agent: PowerShell elevado manual.
 

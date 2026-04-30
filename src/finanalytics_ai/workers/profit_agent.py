@@ -197,16 +197,46 @@ def _hard_exit(code: int = 0) -> None:
     (parent+child relaunched pelo NSSM, ambos bind na mesma porta). TerminateProcess
     via Windows API encerra processo INTEIRO incluindo threads nativas, evitando
     duplicidade de listeners em :8002.
+
+    Sessão 30/abr (I4): log antes/depois com GetLastError quando TerminateProcess
+    falha. Antes era silent — `/agent/restart` aparecia OK no proxy mas processo
+    continuava vivo (validado: PID 116820 sobreviveu a 2 chamadas de /restart).
+    Causa raiz hipotética: serviço NSSM rodando como Local System e a thread
+    Python sem privilege "Process Termination" sobre o próprio handle — embora
+    GetCurrentProcess retorne pseudo-handle, TerminateProcess pode falhar com
+    ERROR_ACCESS_DENIED (5) em ACL stricta.
     """
+    pid = os.getpid()
     if os.name == "nt":
         try:
             import ctypes as _ct
+            from ctypes import wintypes as _wt
 
-            handle = _ct.windll.kernel32.GetCurrentProcess()
-            _ct.windll.kernel32.TerminateProcess(handle, code)
-        except Exception:
-            os._exit(code)
+            kernel32 = _ct.windll.kernel32
+            kernel32.GetCurrentProcess.restype = _wt.HANDLE
+            kernel32.TerminateProcess.argtypes = [_wt.HANDLE, _wt.UINT]
+            kernel32.TerminateProcess.restype = _wt.BOOL
+            kernel32.GetLastError.restype = _wt.DWORD
+            log.warning("hard_exit.attempt pid=%d code=%d", pid, code)
+            handle = kernel32.GetCurrentProcess()
+            ok = kernel32.TerminateProcess(handle, code)
+            if not ok:
+                err = kernel32.GetLastError()
+                log.error(
+                    "hard_exit.terminate_failed pid=%d ret=%d last_error=%d "
+                    "fallback=os._exit (likely will leave DLL ConnectorThread "
+                    "alive — Restart-Service manual required)",
+                    pid,
+                    ok,
+                    err,
+                )
+            # Se TerminateProcess teve sucesso, não voltamos daqui; se falhou,
+            # cai em os._exit logado (NSSM ainda pode reiniciar mesmo zombie).
+        except Exception as exc:
+            log.exception("hard_exit.exception pid=%d error=%s", pid, exc)
+        os._exit(code)
     else:
+        log.warning("hard_exit.posix pid=%d code=%d", pid, code)
         os._exit(code)
 
 
