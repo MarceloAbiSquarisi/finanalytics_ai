@@ -12,10 +12,14 @@ Endpoints:
   PATCH  /api/v1/admin/agents/{id}
   DELETE /api/v1/admin/agents/{id}
   POST   /api/v1/admin/bootstrap
+  POST   /api/v1/admin/ohlc/rebuild  (sessão 30/abr)
 """
 
+import os
 import uuid
+from datetime import date as _date
 
+import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -334,3 +338,107 @@ async def delete_agent(
     if not ok:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Agente não encontrado.")
     await session.commit()
+
+
+# ── OHLC rebuild (sessão 30/abr) ──────────────────────────────────────────────
+# Reconstrói bars 1m a partir do continuous aggregate ohlc_1m_from_ticks
+# (que filtra ticks fora do pregão B3, 12-21 UTC). Mesma lógica do
+# tick_to_ohlc_backfill_job, mas acionável manualmente por admin para
+# corrigir dias com ruído pre-market (heartbeats trade_type=3) ou
+# bars stale após restart do agent.
+
+_TS_DSN_RAW = (
+    os.getenv("TIMESCALE_URL")
+    or os.getenv("PROFIT_TIMESCALE_DSN")
+    or "postgresql://finanalytics:timescale_secret@timescale:5432/market_data"
+)
+_TS_DSN = _TS_DSN_RAW.replace("postgresql+asyncpg://", "postgres://").replace(
+    "postgresql://", "postgres://"
+)
+
+
+class OHLCRebuildRequest(BaseModel):
+    date: _date = Field(..., description="Dia a reconstruir (YYYY-MM-DD)")
+    ticker: str | None = Field(
+        default=None,
+        description="Ticker específico ou null para todos do dia",
+        max_length=20,
+    )
+
+
+@router.post("/ohlc/rebuild")
+async def rebuild_ohlc_day(
+    body: OHLCRebuildRequest,
+    actor: User = Depends(require_master),
+) -> dict:
+    target = body.date.isoformat()
+    ticker = (body.ticker or "").strip().upper() or None
+
+    conn = await asyncpg.connect(_TS_DSN)
+    try:
+        async with conn.transaction():
+            if ticker:
+                deleted_q = await conn.execute(
+                    """
+                    DELETE FROM ohlc_1m
+                    WHERE time >= $1::date
+                      AND time <  ($1::date + INTERVAL '1 day')
+                      AND ticker = $2
+                    """,
+                    target,
+                    ticker,
+                )
+                inserted_q = await conn.execute(
+                    """
+                    INSERT INTO ohlc_1m (time, ticker, open, high, low, close, volume, trades, source)
+                    SELECT time, ticker, open, high, low, close, volume, COALESCE(trades, 0), 'tick_agg_v1'
+                    FROM ohlc_1m_from_ticks
+                    WHERE time >= $1::date
+                      AND time <  ($1::date + INTERVAL '1 day')
+                      AND ticker = $2
+                    """,
+                    target,
+                    ticker,
+                )
+            else:
+                deleted_q = await conn.execute(
+                    """
+                    DELETE FROM ohlc_1m
+                    WHERE time >= $1::date
+                      AND time <  ($1::date + INTERVAL '1 day')
+                    """,
+                    target,
+                )
+                inserted_q = await conn.execute(
+                    """
+                    INSERT INTO ohlc_1m (time, ticker, open, high, low, close, volume, trades, source)
+                    SELECT time, ticker, open, high, low, close, volume, COALESCE(trades, 0), 'tick_agg_v1'
+                    FROM ohlc_1m_from_ticks
+                    WHERE time >= $1::date
+                      AND time <  ($1::date + INTERVAL '1 day')
+                    """,
+                    target,
+                )
+        deleted = int(deleted_q.split()[-1]) if deleted_q.startswith("DELETE") else 0
+        inserted = int(inserted_q.split()[-1]) if inserted_q.startswith("INSERT") else 0
+        logger.info(
+            "admin.ohlc.rebuild",
+            date=target,
+            ticker=ticker,
+            deleted=deleted,
+            inserted=inserted,
+            actor=actor.user_id,
+        )
+        return {
+            "status": "ok",
+            "date": target,
+            "ticker": ticker,
+            "deleted": deleted,
+            "inserted": inserted,
+            "net_change": inserted - deleted,
+        }
+    except Exception as exc:
+        logger.warning("admin.ohlc.rebuild_failed", error=str(exc), date=target, ticker=ticker)
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+    finally:
+        await conn.close()

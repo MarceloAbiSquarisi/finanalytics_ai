@@ -545,7 +545,13 @@ async def tick_to_ohlc_backfill_job(date_iso: str | None = None) -> dict:
         return {"status": "skip", "reason": "no_dsn"}
     ts_dsn = timescale_dsn.replace("postgresql+asyncpg://", "postgresql://")
 
-    target_date = date_iso or datetime.now(UTC).strftime("%Y-%m-%d")
+    # Sessão 30/abr: target_date alinhado a BRT-12h evita processar dia errado
+    # quando job roda pós-meia-noite UTC. Pregão fecha 18h BRT → "now-12h UTC"
+    # cai sempre dentro do dia correto independentemente do horário de execução.
+    target_date = (
+        date_iso
+        or (datetime.now(UTC) - timedelta(hours=12)).strftime("%Y-%m-%d")
+    )
     logger.info("scheduler.tick_to_ohlc.start", date=target_date, mode="replace")
     try:
         import asyncpg
@@ -1312,10 +1318,13 @@ async def schedule_loop() -> None:
     async def tick_to_ohlc_backfill_loop() -> None:
         # Backfill diario profit_ticks -> ohlc_1m via continuous aggregate.
         # Roda 21h BRT (00h UTC) — apos close pregao (17h) + after-market (18h).
-        hour = int(os.environ.get("TICK_TO_OHLC_BACKFILL_HOUR", "0"))  # UTC
-        logger.info("scheduler.tick_to_ohlc.start_loop", hour_utc=hour)
+        # Sessão 30/abr: var TICK_TO_OHLC_BACKFILL_HOUR_BRT (default 21h BRT).
+        # Antes interpretava como UTC mas _next_run_utc espera local hour BRT,
+        # resultando em execução às 03h UTC ao invés de 00h UTC.
+        hour_brt = int(os.environ.get("TICK_TO_OHLC_BACKFILL_HOUR_BRT", "21"))
+        logger.info("scheduler.tick_to_ohlc.start_loop", hour_brt=hour_brt)
         while True:
-            next_run = _next_run_utc(hour)
+            next_run = _next_run_utc(hour_brt)
             wait = _seconds_until(next_run)
             logger.info(
                 "scheduler.tick_to_ohlc.next",

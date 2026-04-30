@@ -215,6 +215,7 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
   <div class="tabs">
     <div class="tab active" onclick="switchTab('users',this)">👥 Usuários</div>
     <div class="tab" onclick="switchTab('agents',this)">🏦 Agentes Financeiros</div>
+    <div class="tab" onclick="switchTab('system',this)">🛠️ Sistema</div>
   </div>
 
   <!-- TAB USUÁRIOS -->
@@ -264,6 +265,38 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
       </table>
     </div>
     <div id="agentsMsg" class="msg"></div>
+  </div>
+
+  <!-- TAB SISTEMA -->
+  <div class="tab-panel" id="tab-system">
+    <div class="sec-header">
+      <span class="sec-title">Reconstrução de Bars 1m (OHLC)</span>
+    </div>
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:18px;max-width:720px">
+      <p style="font-size:14px;color:var(--muted);margin-bottom:14px;line-height:1.5">
+        Reconstrói os bars 1m em <code style="color:var(--accent)">ohlc_1m</code> a partir do continuous aggregate
+        <code style="color:var(--accent)">ohlc_1m_from_ticks</code> (filtra ticks fora do pregão B3, 12-21 UTC).
+        Use para corrigir dias com ruído pre-market ou dados stale após restart do agent.
+        <strong style="color:var(--gold)">DELETE + INSERT</strong> — operação destrutiva, sem rollback após confirmar.
+      </p>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group">
+          <label>Data <span style="color:var(--red)">*</span></label>
+          <input id="ohlc-date" type="date" required>
+        </div>
+        <div class="form-group">
+          <label>Ticker (opcional — vazio = todos)</label>
+          <input id="ohlc-ticker" type="text" placeholder="ex: ITUB4 (deixe vazio p/ todos)" style="text-transform:uppercase">
+        </div>
+      </div>
+      <div class="form-actions" style="margin-top:14px">
+        <button class="btn btn-warn" onclick="rebuildOhlc()" id="btn-rebuild-ohlc">
+          ↻ Reconstruir bars 1m
+        </button>
+      </div>
+      <div id="ohlcMsg" class="msg"></div>
+      <div id="ohlcResult" style="margin-top:14px;font-family:monospace;font-size:13px;color:var(--text);display:none;padding:12px;background:var(--s1);border-radius:6px;border:1px solid var(--border)"></div>
+    </div>
   </div>
 </div>
 </div>
@@ -408,6 +441,49 @@ function logout() {
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
   location.href = '/';
+}
+
+// ── OHLC Rebuild (Sistema) ────────────────────────────────────────────────────
+async function rebuildOhlc() {
+  const dateEl = document.getElementById('ohlc-date');
+  const tickerEl = document.getElementById('ohlc-ticker');
+  const btn = document.getElementById('btn-rebuild-ohlc');
+  const resultEl = document.getElementById('ohlcResult');
+  const date = (dateEl.value || '').trim();
+  const ticker = (tickerEl.value || '').trim().toUpperCase();
+  if (!date) { showMsg('ohlcMsg', 'Informe a data.', 'error'); return; }
+  const scope = ticker ? `${ticker} em ${date}` : `TODOS os tickers em ${date}`;
+  if (!confirm(`Reconstruir bars 1m de ${scope}?\n\nDELETE + INSERT — destrutivo, sem rollback.`)) return;
+  btn.disabled = true;
+  btn.textContent = '⌛ Reconstruindo…';
+  resultEl.style.display = 'none';
+  try {
+    const res = await fetch(`${API}/ohlc/rebuild`, {
+      method: 'POST',
+      headers: H(),
+      body: JSON.stringify({ date, ticker: ticker || null }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showMsg('ohlcMsg', `Erro: ${data.detail || res.status}`, 'error');
+    } else {
+      showMsg('ohlcMsg', `OK: ${data.deleted} deletados, ${data.inserted} inseridos.`, 'success');
+      resultEl.style.display = 'block';
+      resultEl.innerHTML = `
+        <div><strong>status:</strong> ${data.status}</div>
+        <div><strong>date:</strong> ${data.date}</div>
+        <div><strong>ticker:</strong> ${data.ticker || '(todos)'}</div>
+        <div><strong>deleted:</strong> ${data.deleted}</div>
+        <div><strong>inserted:</strong> ${data.inserted}</div>
+        <div><strong>net_change:</strong> ${data.net_change > 0 ? '+' : ''}${data.net_change}</div>
+      `;
+    }
+  } catch (err) {
+    showMsg('ohlcMsg', `Falha de rede: ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '↻ Reconstruir bars 1m';
+  }
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
