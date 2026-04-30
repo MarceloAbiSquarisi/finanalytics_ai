@@ -109,3 +109,6 @@ models/
 # Backtest run outputs (volatile, gerados por scripts/backtest_demo_dsr.py)
 backtest_runs/
 _archive_logs/
+
+# Logs runtime (profit_agent, api, NSSM stdout/stderr) — voláteis, sem valor histórico
+logs/
