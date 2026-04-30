@@ -489,6 +489,13 @@ _TRADING_RESULT_STATUS: dict[int, int] = {
 }
 
 
+# Sessão 30/abr: validators puros movidos para profit_agent_validators.py
+# (CI Linux pode testar sem importar ctypes.WINFUNCTYPE Windows-only).
+from finanalytics_ai.workers.profit_agent_validators import (  # noqa: E402
+    trail_should_immediate_trigger,
+    validate_attach_oco_params as _validate_attach_oco_params,
+)
+
 # ---------------------------------------------------------------------------
 
 # Constantes (manual pag. 13)
@@ -681,6 +688,25 @@ class DBWriter:
             return row
         except Exception as e:
             log.warning("db.fetch_one_failed error=%s sql=%.100s", e, sql)
+            try:
+                self._conn.rollback()
+            except Exception:
+                self._conn = None
+            raise
+
+    def fetch_all(self, sql: str, params: tuple = ()) -> list[tuple]:
+        """Executa SELECT e retorna todas as linhas como list[tuple]."""
+        if not self._ensure_connected():
+            return []
+        try:
+            with self._lock:
+                cur = self._conn.cursor()
+                cur.execute(sql, params)
+                rows = cur.fetchall() if cur.description else []
+                cur.close()
+            return list(rows)
+        except Exception as e:
+            log.warning("db.fetch_all_failed error=%s sql=%.100s", e, sql)
             try:
                 self._conn.rollback()
             except Exception:
@@ -1798,6 +1824,10 @@ class ProfitAgent:
 
         # Watch pending orders — mitigação P9: detecta status final de ordens
         # mesmo quando callback de status nao chega (broker degradado).
+        # Sessão 30/abr: pre-popula _pending_orders com ordens em status pendente
+        # nas últimas N horas. Antes, restart do agent perdia o registry e órfãs
+        # ficavam fora do watch até cleanup_stale_pending_orders_job (1×/dia).
+        self._load_pending_orders_from_db()
         _watch_thread = threading.Thread(target=self._watch_pending_orders_loop, daemon=True)
         _watch_thread.start()
         log.info("profit_agent.watch_pending_orders_started")
@@ -2715,6 +2745,16 @@ class ProfitAgent:
         #
         # Status/ticker/qty completos virão via _reconcile_orders_dll (polling
         # EnumerateAllOrders no scheduler a cada 5min, ou imediato via _check_levels_fill).
+        #
+        # Sessão 30/abr — P9 fix definitivo NÃO viável via callback:
+        # tentamos avaliar redução de latência abaixo dos 5s do _watch_pending_orders_loop
+        # mas a DLL não fornece status final via callback (order_cb só dá identifier;
+        # trading_msg_cb só dá estágios de roteamento — Accepted/Rejected, nunca
+        # FILLED/CANCELED). O teto técnico é polling. A combinação:
+        #   - _watch_pending_orders_loop @5s (resolve em 10-20s)
+        #   - _load_pending_orders_from_db no boot (cobre restart)
+        #   - cleanup_stale_pending_orders_job @23h BRT (sweep 24h+)
+        # é o estado-da-arte que a DLL permite. Não tentar callback-based fix.
 
         @WINFUNCTYPE(None, POINTER(TConnectorOrderIdentifier))
         def order_cb(oid_ptr) -> None:
@@ -4396,13 +4436,12 @@ class ProfitAgent:
         if self._db is None:
             return {"ok": False, "error": "DB nao inicializado"}
         try:
-            parent_id = int(params.get("parent_order_id", 0))
-            levels_in = params.get("levels") or []
+            invalid = _validate_attach_oco_params(params)
+            if invalid is not None:
+                return invalid
+            parent_id = int(params["parent_order_id"])
+            levels_in = params["levels"]
             env = params.get("env", "simulation")
-            if parent_id <= 0:
-                return {"ok": False, "error": "parent_order_id obrigatorio"}
-            if not levels_in:
-                return {"ok": False, "error": "levels[] vazio"}
 
             # 1. Valida parent: existe + status pending
             row = self._db.fetch_one(
@@ -5058,6 +5097,49 @@ class ProfitAgent:
         except Exception:
             pass  # Best-effort; reconcile pegará
 
+    def _load_pending_orders_from_db(self) -> None:
+        """Boot helper (sessão 30/abr): popula `_pending_orders` com ordens
+        em status pendente nas últimas N horas para que `_watch_pending_orders_loop`
+        cubra restarts do agent.
+
+        Antes desse fix, restart limpava o dict in-memory e órfãs ficavam fora
+        do watch até cleanup_stale_pending_orders_job rodar (1×/dia 23h BRT) —
+        gap visível no flatten WDOFUT 30/abr (9 órfãs de 28-29/abr ainda
+        retornando ret=-2147483636).
+
+        Janela default 24h (env `PROFIT_WATCH_LOAD_HOURS`). Mais tempo amplia
+        cobertura mas aumenta carga em DLL polling no loop.
+        """
+        if not self._db:
+            return
+        try:
+            hours = int(os.environ.get("PROFIT_WATCH_LOAD_HOURS", "24"))
+            rows = self._db.fetch_all(
+                """SELECT local_order_id, ticker, env, created_at
+                     FROM profit_orders
+                    WHERE order_status IN (0, 1, 10)
+                      AND created_at >= NOW() - (%s::int * INTERVAL '1 hour')
+                    ORDER BY created_at DESC
+                    LIMIT 500""",
+                (hours,),
+            )
+            now = time.time()
+            with self._pending_lock:
+                for row in rows or []:
+                    local_id, ticker, env, created_at = row[0], row[1], row[2], row[3]
+                    # ts_sent: usa idade real da ordem (created_at) para que
+                    # o loop logo classifique como orphan/timeout se DLL
+                    # já não enumera (vs assumir age=0 e ficar 60s no limbo).
+                    age_s = max(0.0, (now - created_at.timestamp()) if created_at else 0.0)
+                    self._pending_orders[int(local_id)] = {
+                        "ts_sent": now - age_s,
+                        "ticker": ticker or "",
+                        "env": env or "simulation",
+                    }
+            log.info("watch_pending_orders.loaded n=%d hours=%d", len(rows or []), hours)
+        except Exception as exc:
+            log.warning("watch_pending_orders.load_failed error=%s", exc)
+
     def _watch_pending_orders_loop(self) -> None:
         """Mitigação P9: detecta status final de ordens pendentes via DLL polling.
 
@@ -5167,14 +5249,8 @@ class ProfitAgent:
         Retorna True se disparou, False caso contrário."""
         side = grp["side"]
         trig = lv.get("sl_trigger")
-        if trig is None or last_price is None:
-            return False
-        # sell long: trigger é piso, last < trigger = já passou (executar)
-        # buy short: trigger é teto, last > trigger = já passou (executar)
-        triggered = (side == 2 and last_price <= float(trig)) or (
-            side == 1 and last_price >= float(trig)
-        )
-        if not triggered:
+        # Detecção extraída para validator puro (testável sem ctypes).
+        if not trail_should_immediate_trigger(side, last_price, trig):
             return False
         log.info(
             "trailing.immediate_trigger group=%s lv=%d last=%.4f trigger=%.4f side=%d",
