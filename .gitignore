@@ -105,3 +105,7 @@ u1-*.png
 # scripts/train_*.py. Se precisar versionar, usar git-lfs ou release asset.
 models/
 *.log.*
+
+# Backtest run outputs (volatile, gerados por scripts/backtest_demo_dsr.py)
+backtest_runs/
+_archive_logs/
