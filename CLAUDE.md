@@ -143,6 +143,13 @@ POST /agent/restart             → restart via NSSM (requer sudo_token)
 
 Todos acessíveis via `/api/v1/agent/...` no proxy FastAPI :8000 (resolve bloqueio Kaspersky).
 
+### Handshake C5 (trading-engine ↔ profit_agent) — 30/abr
+`/order/send` aceita 2 campos opcionais no body usados pelo `finanalyticsai-trading-engine` (R-06):
+- `_source: "trading_engine"` → persiste em `profit_orders.source`. Usado por `_maybe_dispatch_diary` para suprimir o hook do diário (engine mantém journal próprio em `trading_engine_orders.trade_journal`; sem supressão = duplicata na unified VIEW).
+- `_client_order_id: "<chave_deterministica>"` → persiste em `profit_orders.cl_ord_id` (callback DLL preserva via `WHERE cl_ord_id IS NULL`). Resposta ecoa `cl_ord_id` para o engine fechar reconcile sem segunda tabela de mapping.
+
+Spec viva: `c5_handoff_for_finanalyticsai.md`. Schema migration: `init_timescale/002_profit_agent_schema.sql` + `alembic/versions/ts_0003_profit_orders_source.py`. Implementação Passo 7 + Passo 1 em commit `fdd81f9`. Passos 2-6 (VIEW + UI pill) bloqueados pela migration do engine; agente agendado p/ 21/mai abre PR pareado.
+
 ## profit_agent.py — Arquitetura
 
 ### Classes principais

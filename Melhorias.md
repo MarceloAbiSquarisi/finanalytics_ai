@@ -11,6 +11,7 @@
 - Snapshot signals + ml_pickle_count fix — DONE 29/abr (`7ad0061`)
 - **P9 mitigado** + **P10 fix** + **P11/P11.2 fix** + resilience patterns broker degradado — DONE 29/abr (`3896aeb`, `53372e1`, `b153037`, `ee58c06`, `43f3767`)
 - **Sessão 30/abr** (`5ad447d` → `a7b52aa`): OHLC filtro 13-20 UTC + admin rebuild endpoint + scheduler bugs + CI verde + `profit_agent_validators.py` + 20 unit tests + P2-futuros + U1 drag SVG + day-dividers chart + I4 fechado (NSSM AppExit=Restart) + P8 fechado + P9 fase 2 boot-load
+- **C5 Passo 7 + Passo 1** (`fdd81f9`, 30/abr pós-pregão): handshake `_source="trading_engine"` + `_client_order_id` no body de `:8002/order/send` → persistência em `profit_orders.source`/`cl_ord_id` + supressão de `_maybe_dispatch_diary` para ordens do engine (evita duplicata na unified VIEW). Smoke parcial validado (PETR4 simulation, 16:57 BRT). Passos 2-6 (VIEW + backend→VIEW + UI pill manual/engine) bloqueados pela migration do engine R-06 — agente agendado `trig_01VDzH3xriAC777KZku42SbK` p/ 21/mai abrir PR pareado. Spec: `c5_handoff_for_finanalyticsai.md`.
 - **UI overhaul 29/abr noite** (`0b696f1` → `90acb2e`):
   - Gap compression overnight + fitContent + UNION ohlc (`0b696f1`, `7739298`, `c296006`, `32a65e0`, `71eb1e1`)
   - Bollinger client-side + lookup reverso (`28e41ae`, `c3876db`)
