@@ -265,6 +265,8 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 - `investment_accounts` — campos obrigatórios: `titular`, `cpf`, `apelido`, `institution_code/name`, `agency`, `account_number`. UNIQUE `(user_id, cpf) WHERE cpf NOT NULL`
 - `portfolios` — FK `user_id` + `investment_account_id`; `is_default` flag; **cardinalidade 1:1 com conta** (refactor 25/abr)
 - `trades` / `positions` / `crypto_holdings` / `rf_holdings` / `other_assets` — `portfolio_id NOT NULL`, `ON DELETE RESTRICT`
+- `trade_journal` — Diário de Trade (qualitativa+quantitativa). Inclui `trade_objective` ∈ {daytrade,swing,buy_hold} (Alembic 0019), `is_complete` BOOL + `external_order_id` UNIQUE (Alembic 0020). Hook `_maybe_dispatch_diary` no profit_agent cria entry pré-preenchida em FILLED.
+- `backtest_results` — histórico de runs grid_search/walk_forward (Alembic 0021). UNIQUE `config_hash` (SHA256) para UPSERT idempotente. Colunas escalares (sharpe, drawdown, deflated_sharpe, prob_real) + JSONB completo p/ drilldown.
 
 ### Candle fallback chain (`candle_repository.py`)
 1. `profit_daily_bars` — pré-agregado, 8 tickers DLL + 39 FIIs/ETFs Yahoo
@@ -314,6 +316,19 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 - **`stop_price` reconcile fix**: enum_orders agora lê `o.StopPrice` da DLL + UPDATE adiciona `stop_price=CASE` (antes só `price`). Bug encontrado validando drag SL.
 - **NSSM `AppExit=Restart`**: ciclo completo `/agent/restart` em 9s automático — antes precisava PS elevado manual pq `AppExit=Exit` deixava service Stopped após `TerminateProcess`.
 - Master é solo dev confirmado (só Marcelo nos últimos 14 dias) → reformat massivo + bumps versão sem disrupção.
+
+**Sessão 30/abr pós-pregão estendida** (8 commits `fdd81f9` → `0a40bf0`):
+- **C5 handshake `_source` + `_client_order_id`** (`fdd81f9`): `_send_order_legacy` aceita campos no body de `:8002/order/send`; persiste em `profit_orders.source`/`cl_ord_id` (Alembic `ts_0003`); `_maybe_dispatch_diary` early-returns + log `diary.suppressed_engine_origin` quando `source='trading_engine'`. Resposta ecoa `cl_ord_id` p/ engine fechar reconcile sem 2ª tabela. Spec: `c5_handoff_for_finanalyticsai.md`. Smoke validado live PETR4 simulation (cl_ord_id=`smoke_c5:PETR4:...`). Passos 2-6 (VIEW unified + UI pill manual/engine) bloqueados pela migration do trading-engine R-06; agente agendado `trig_01VDzH3xriAC777KZku42SbK` p/ 21/mai abre PR pareado.
+- **Documentação `diario_de_trade.md`** (`88b18f2`): inventário completo do módulo (schema 30+ colunas, endpoints REST, hook DLL, UI 6 abas, heatmap mensal Stormer, workflow incomplete→complete, sino topbar, 28 tests). 13 seções.
+- **I3 rebuild containers** (`992d06d`): `api worker event_worker_v2 scheduler ohlc_ingestor` — bug bonus `ohlc_ingestor` em loop `Restarting(255)` há tempo indeterminado por image pré-27/abr sem migrations 0019-0020. Rebuild resolveu. **I2 housekeeping**: 1848 logs legacy `profit_agent-2026XXXXX.log` (65.7MB) zipados em `_archive_logs/` (6.44MB ratio 10x).
+- **R5 backtest harness** (`df73263`, `5a938bf`, `0a40bf0`):
+  - `domain/backtesting/slippage.py` — futuros 2 ticks/lado (WDO=0.5, WIN=5.0, IND/DOL/DI/CCM/BGI/OZM); ações 0.05%/lado. `apply_slippage_model=True` default em `run_backtest`.
+  - `domain/backtesting/metrics.py` — Deflated Sharpe Ratio (LdP 2014 + Bailey 2014). SR_0 = sigma×f(N), com f(N) = (1-γ)Φ⁻¹(1-1/N) + γΦ⁻¹(1-1/Ne). Probit Beasley-Springer-Moro sem scipy.
+  - `OptimizationResult.deflated_sharpe` traz `{deflated_sharpe, prob_real, e_max_sharpe}` sobre best candidate.
+  - `infrastructure/database/repositories/backtest_repo.py` + Alembic `0021_backtest_results` — UPSERT idempotente por SHA256 do config completo.
+  - `scripts/backtest_demo_dsr.py` (CLI demo + flag `--persist`). Validado live: PETR4 RSI 30 trials → DSR z=0.31 prob=62% (sinal fraco); VALE3 MACD 48 trials → DSR z=-0.52 prob=30% (overfitting provável — SR observado ABAIXO de E[max|H0]).
+  - 49 unit tests novos (slippage 13 + DSR 18 + repo 17 + 1 fix). 199+ regressão verde.
+- Faltam do R5 (defer): DSR walk-forward, survivorship bias, slippage por liquidez, endpoint `/api/v1/backtest/history`.
 
 ## Decisões Arquiteturais (Imutáveis)
 
