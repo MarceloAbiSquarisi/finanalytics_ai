@@ -1,0 +1,52 @@
+{
+  "type": "record",
+  "name": "Tick",
+  "namespace": "br.com.finanalyticsai.market_data",
+  "doc": "Tick de mercado B3. Contrato C1 (kafka_market_data_v1). Versão 1 — congelada. Schema replicado de trading_engine_implementacao.md §8.3.",
+  "fields": [
+    {
+      "name": "version",
+      "type": "int",
+      "default": 1,
+      "doc": "Versão do schema. Decoders devem rejeitar valores desconhecidos."
+    },
+    {
+      "name": "symbol",
+      "type": "string",
+      "doc": "Ticker B3, ex: 'WINFUT', 'WDOK26', 'PETR4'."
+    },
+    {
+      "name": "ts_us",
+      "type": "long",
+      "doc": "Epoch microseconds UTC do trade."
+    },
+    {
+      "name": "price",
+      "type": {
+        "type": "bytes",
+        "logicalType": "decimal",
+        "precision": 18,
+        "scale": 4
+      },
+      "doc": "Preço do trade. Decimal exato — conversão para Decimal('xxx.yyyy') no decoder."
+    },
+    {
+      "name": "volume",
+      "type": "long",
+      "doc": "Quantidade do trade (contratos para futuros, ações para equities)."
+    },
+    {
+      "name": "aggressor",
+      "type": [
+        "null",
+        {
+          "type": "enum",
+          "name": "Side",
+          "symbols": ["BUY", "SELL"]
+        }
+      ],
+      "default": null,
+      "doc": "Lado agressor. null = leilão / desconhecido. Mapeia para Side enum no domain."
+    }
+  ]
+}
