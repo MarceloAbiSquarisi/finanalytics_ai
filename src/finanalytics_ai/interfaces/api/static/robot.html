@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Robô — FinAnalytics AI</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<meta name="robots" content="noindex, nofollow">
+<script>(function(){try{var t=localStorage.getItem('fa_theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script>
+<link rel="stylesheet" href="/static/theme.css">
+<style>
+:root{--bg:#080b10;--s1:#0d1117;--s2:#111822;--s3:#0e1520;--border:#1c2535;
+  --text:#cdd6e0;--muted:#7a8a99;--gold:#F0B429;--green:#00e676;--red:#ff3d5a;
+  --accent:#3ABFF8;--purple:#a855f7}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;
+  font-size:15px;min-height:100vh}
+main{max-width:1280px;margin:0 auto;padding:18px}
+.page-title{font-family:monospace;font-size:24px;font-weight:600;color:var(--text);
+  letter-spacing:.04em;margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--muted);font-family:monospace;margin-bottom:18px}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:8px;
+  padding:14px 18px;margin-bottom:14px}
+.card-title{font-family:monospace;font-size:13px;font-weight:600;color:#7a95b0;
+  text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
+
+.status-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.metric{background:rgba(0,0,0,.25);border-radius:6px;padding:12px 14px;
+  border:1px solid var(--border)}
+.metric-label{color:var(--muted);font-size:10px;text-transform:uppercase;
+  letter-spacing:.08em;font-family:monospace}
+.metric-value{color:var(--text);font-size:24px;font-weight:bold;
+  font-family:monospace;margin-top:4px}
+
+.badge{display:inline-block;padding:4px 10px;border-radius:4px;
+  font-family:monospace;font-size:13px;font-weight:bold;letter-spacing:.05em}
+.badge-running{background:rgba(0,230,118,.15);border:1px solid var(--green);color:var(--green)}
+.badge-paused{background:rgba(255,61,90,.15);border:1px solid var(--red);color:var(--red)}
+
+.btn{font-family:monospace;font-size:14px;font-weight:600;cursor:pointer;
+  padding:8px 16px;border-radius:6px;letter-spacing:.05em;transition:.15s}
+.btn-pause{background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;border:none}
+.btn-pause:hover{filter:brightness(1.15)}
+.btn-resume{background:linear-gradient(135deg,#059669,#047857);color:#fff;border:none}
+.btn-resume:hover{filter:brightness(1.15)}
+.btn-secondary{background:transparent;color:var(--muted);
+  border:1px solid var(--border)}
+.btn-secondary:hover{color:var(--text);border-color:var(--accent)}
+
+table{width:100%;border-collapse:collapse;font-family:monospace;font-size:13px}
+thead{background:rgba(58,191,248,.05);border-bottom:1px solid var(--border)}
+thead th{padding:8px 10px;text-align:left;color:#7a95b0;text-transform:uppercase;
+  letter-spacing:.05em;font-size:11px;font-weight:600}
+tbody td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.03)}
+tbody tr:hover{background:rgba(58,191,248,.04)}
+
+.action-BUY{color:var(--green);font-weight:bold}
+.action-SELL{color:var(--red);font-weight:bold}
+.action-HOLD{color:var(--accent)}
+.action-SKIP{color:var(--muted)}
+.action-HEARTBEAT{color:#888;font-style:italic}
+
+.live-pill{display:inline-block;background:rgba(0,230,118,.1);
+  border:1px solid var(--green);color:var(--green);padding:2px 8px;
+  border-radius:3px;font-size:11px;font-family:monospace;letter-spacing:.05em}
+.live-pill::before{content:'';display:inline-block;width:6px;height:6px;
+  border-radius:50%;background:var(--green);margin-right:5px;
+  animation:livePulse 1.8s ease-in-out infinite;vertical-align:middle}
+@keyframes livePulse{50%{opacity:.3}}
+</style>
+</head>
+<body>
+<div class="fa-topbar" style="height:52px;background:var(--s1);
+  border-bottom:1px solid var(--border);display:flex;align-items:center;
+  gap:12px;padding:0 16px;position:sticky;top:0;z-index:300">
+  <a href="/dashboard" style="font-family:monospace;font-size:17px;font-weight:600;
+    color:var(--text);text-decoration:none">FinAnalytics <span style="color:var(--gold)">AI</span></a>
+  <span style="font-size:14px;font-weight:600;color:#7a95b0;letter-spacing:.06em;
+    margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Robô</span>
+  <span class="live-pill" id="liveBadge" style="margin-left:auto">auto-refresh 10s</span>
+</div>
+
+<main>
+  <div class="page-title">Robô de Trade</div>
+  <div class="page-sub">Auto-trader autônomo — read-only + kill switch</div>
+
+  <!-- STATUS -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="card-title" style="margin:0">Status</div>
+      <div id="status-badge"></div>
+    </div>
+
+    <div class="status-grid">
+      <div class="metric">
+        <div class="metric-label">Strategies enabled</div>
+        <div class="metric-value" id="m-strategies">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Sinais 24h (sent)</div>
+        <div class="metric-value" id="m-signals-sent" style="color:var(--green)">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Sinais 24h (skipped)</div>
+        <div class="metric-value" id="m-signals-skipped" style="color:var(--muted)">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">P&amp;L hoje</div>
+        <div class="metric-value" id="m-pnl">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Posições</div>
+        <div class="metric-value" id="m-positions">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Último sinal</div>
+        <div class="metric-value" id="m-last-signal" style="font-size:14px">—</div>
+      </div>
+    </div>
+
+    <div id="paused-box" style="display:none;margin-top:14px;padding:12px 16px;
+      background:rgba(255,61,90,.1);border-left:3px solid var(--red);
+      border-radius:4px">
+      <div style="color:var(--red);font-weight:bold;font-family:monospace">
+        ⚠ Robô PAUSADO</div>
+      <div id="paused-reason" style="color:var(--muted);font-size:13px;
+        font-family:monospace;margin-top:4px"></div>
+    </div>
+
+    <!-- Action buttons -->
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn btn-pause" id="btn-pause" onclick="confirmPause()">
+        🛑 Pausar (kill switch)
+      </button>
+      <button class="btn btn-resume" id="btn-resume" onclick="confirmResume()" style="display:none">
+        ▶ Retomar
+      </button>
+      <button class="btn btn-secondary" onclick="loadAll()">↻ Recarregar</button>
+    </div>
+  </div>
+
+  <!-- STRATEGIES -->
+  <div class="card">
+    <div class="card-title">Strategies registradas</div>
+    <div style="overflow-x:auto">
+      <table id="strategies-table">
+        <thead>
+          <tr>
+            <th>ID</th><th>Nome</th><th>Status</th><th>Tickers</th>
+            <th>Account</th><th>Descrição</th>
+          </tr>
+        </thead>
+        <tbody id="strategies-tbody">
+          <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:18px">Carregando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SIGNALS LOG -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="card-title" style="margin:0">Últimos sinais</div>
+      <div style="color:var(--muted);font-size:11px;font-family:monospace">
+        50 mais recentes
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table id="signals-table">
+        <thead>
+          <tr>
+            <th>Quando</th><th>Strategy</th><th>Ticker</th><th>Action</th>
+            <th>Sent</th><th>Order</th><th>Reason / Payload</th>
+          </tr>
+        </thead>
+        <tbody id="signals-tbody">
+          <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:18px">Carregando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script>
+function authHeaders(){
+  return {'Authorization': 'Bearer ' + (localStorage.getItem('access_token') || '')};
+}
+
+function authHeadersWithSudo(token){
+  return {
+    'Authorization': 'Bearer ' + (localStorage.getItem('access_token') || ''),
+    'Content-Type': 'application/json',
+    'X-Sudo-Token': token,
+  };
+}
+
+async function loadStatus(){
+  try {
+    const r = await fetch('/api/v1/robot/status', {headers: authHeaders()});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    renderStatus(d);
+  } catch(e){
+    document.getElementById('status-badge').innerHTML = '<span class="badge badge-paused">ERRO</span>';
+    console.error(e);
+  }
+}
+
+function renderStatus(d){
+  const badge = document.getElementById('status-badge');
+  if (d.paused) {
+    badge.innerHTML = '<span class="badge badge-paused">⏸ PAUSADO</span>';
+    document.getElementById('paused-box').style.display = 'block';
+    document.getElementById('paused-reason').textContent =
+      'Razão: ' + (d.paused_reason || 'manual') +
+      (d.paused_at ? ' · desde ' + new Date(d.paused_at).toLocaleString('pt-BR') : '');
+    document.getElementById('btn-pause').style.display = 'none';
+    document.getElementById('btn-resume').style.display = 'inline-block';
+  } else {
+    badge.innerHTML = '<span class="badge badge-running">▶ RUNNING</span>';
+    document.getElementById('paused-box').style.display = 'none';
+    document.getElementById('btn-pause').style.display = 'inline-block';
+    document.getElementById('btn-resume').style.display = 'none';
+  }
+  document.getElementById('m-strategies').textContent = d.n_strategies_enabled;
+  document.getElementById('m-signals-sent').textContent = d.signals_24h.sent_to_dll;
+  document.getElementById('m-signals-skipped').textContent = d.signals_24h.skipped;
+  const pnl = (d.pnl_today.total || 0).toFixed(2);
+  const pnlEl = document.getElementById('m-pnl');
+  pnlEl.textContent = 'R$ ' + pnl;
+  pnlEl.style.color = d.pnl_today.total >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('m-positions').textContent = d.pnl_today.positions_count;
+  if (d.last_signal) {
+    const ago = d.last_signal.computed_at
+      ? new Date(d.last_signal.computed_at).toLocaleTimeString('pt-BR')
+      : '—';
+    document.getElementById('m-last-signal').textContent = d.last_signal.action + ' · ' + ago;
+  }
+}
+
+async function loadStrategies(){
+  try {
+    const r = await fetch('/api/v1/robot/strategies', {headers: authHeaders()});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    renderStrategies(d.items || []);
+  } catch(e){ console.error(e); }
+}
+
+function renderStrategies(items){
+  const tbody = document.getElementById('strategies-tbody');
+  if (!items.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:18px">Nenhuma strategy registrada. Insira em robot_strategies via SQL/admin.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = items.map(it => {
+    const tickers = (it.config && it.config.tickers) ? it.config.tickers.join(', ') : '—';
+    const enabledBadge = it.enabled
+      ? '<span class="badge badge-running" style="font-size:11px;padding:2px 8px">enabled</span>'
+      : '<span class="badge" style="font-size:11px;padding:2px 8px;border:1px solid var(--border);color:var(--muted)">disabled</span>';
+    return `<tr>
+      <td>${it.id}</td>
+      <td style="color:var(--gold);font-weight:bold">${it.name}</td>
+      <td>${enabledBadge}</td>
+      <td style="color:var(--muted)">${tickers}</td>
+      <td style="color:var(--muted)">${it.account_id ?? '—'}</td>
+      <td style="color:var(--muted);font-size:11px">${it.description || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadSignals(){
+  try {
+    const r = await fetch('/api/v1/robot/signals_log?limit=50', {headers: authHeaders()});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    renderSignals(d.items || []);
+  } catch(e){ console.error(e); }
+}
+
+function renderSignals(items){
+  const tbody = document.getElementById('signals-tbody');
+  if (!items.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:18px">Nenhum sinal ainda. Suba o auto_trader_worker para começar.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = items.map(it => {
+    const when = it.computed_at
+      ? new Date(it.computed_at).toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'medium'})
+      : '—';
+    const sent = it.sent_to_dll
+      ? '<span style="color:var(--green)">✓</span>'
+      : '<span style="color:var(--muted)">—</span>';
+    const reason = it.reason_skipped || (it.payload && it.payload.reason) || '—';
+    const order = it.local_order_id ? `#${it.local_order_id}` : '—';
+    return `<tr>
+      <td style="color:var(--muted);font-size:11px">${when}</td>
+      <td style="color:var(--gold)">${it.strategy_name || '—'}</td>
+      <td>${it.ticker || '—'}</td>
+      <td class="action-${it.action}">${it.action}</td>
+      <td>${sent}</td>
+      <td style="color:var(--muted)">${order}</td>
+      <td style="color:var(--muted);font-size:11px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(reason||'').replace(/"/g,'&quot;')}">${reason}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function getSudoToken(action){
+  const password = prompt(action + ' o robô?\n\nDigite sua senha de admin para confirmar:');
+  if (!password) return null;
+  try {
+    const r = await fetch('/api/v1/auth/sudo', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (localStorage.getItem('access_token') || ''),
+      },
+      body: JSON.stringify({password}),
+    });
+    if (!r.ok) {
+      alert('Senha inválida (HTTP ' + r.status + ')');
+      return null;
+    }
+    const d = await r.json();
+    return d.sudo_token;
+  } catch(e){
+    alert('Erro: ' + e.message);
+    return null;
+  }
+}
+
+async function confirmPause(){
+  const reason = prompt('Motivo da pausa? (manual, dd_circuit, latency, etc.)', 'manual');
+  if (!reason) return;
+  const token = await getSudoToken('PAUSAR');
+  if (!token) return;
+  try {
+    const r = await fetch('/api/v1/robot/pause', {
+      method: 'PUT',
+      headers: authHeadersWithSudo(token),
+      body: JSON.stringify({reason}),
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status + ': ' + await r.text());
+    await loadAll();
+    alert('✓ Robô pausado. Próximo tick do worker bloqueia novas entradas.');
+  } catch(e){
+    alert('Erro: ' + e.message);
+  }
+}
+
+async function confirmResume(){
+  const token = await getSudoToken('RETOMAR');
+  if (!token) return;
+  try {
+    const r = await fetch('/api/v1/robot/resume', {
+      method: 'PUT',
+      headers: authHeadersWithSudo(token),
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status + ': ' + await r.text());
+    await loadAll();
+    alert('✓ Robô retomado.');
+  } catch(e){
+    alert('Erro: ' + e.message);
+  }
+}
+
+function loadAll(){
+  return Promise.all([loadStatus(), loadStrategies(), loadSignals()]);
+}
+
+// Initial load + auto-refresh
+loadAll();
+setInterval(loadAll, 10000);
+</script>
+</body>
+</html>

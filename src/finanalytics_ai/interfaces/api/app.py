@@ -44,6 +44,7 @@ from finanalytics_ai.interfaces.api.routes import (
     producer,
     quotes,
     reports,
+    robot as robot_routes,
     screener,
     wallet,
     watchlist,
@@ -1005,6 +1006,7 @@ def create_app() -> FastAPI:
         logger.warning("live_market.route.FAILED", error=str(_lme))
     app.include_router(anomaly.router, tags=["Anomaly"])
     app.include_router(reports.router, tags=["Reports"])
+    app.include_router(robot_routes.router, tags=["Robot"])
     app.include_router(watchlist.router, tags=["Watchlist"])
     app.include_router(performance.router, tags=["Performance"])
 
@@ -1303,6 +1305,10 @@ def create_app() -> FastAPI:
     @app.get("/backtest", response_class=HTMLResponse, include_in_schema=False)
     async def serve_backtest() -> HTMLResponse:
         return _html("backtest.html")
+
+    @app.get("/robot", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_robot() -> HTMLResponse:
+        return _html("robot.html")
 
     @app.get("/diario", response_class=HTMLResponse, include_in_schema=False)
     async def serve_diario() -> HTMLResponse:
