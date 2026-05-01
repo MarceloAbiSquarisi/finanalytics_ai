@@ -173,3 +173,66 @@ class TestCustom:
             f.fetch_closes("PETR4", n=1)
         # No double slash
         assert "//api/v1" not in captured["url"]
+
+
+# ── fetch_bars (full OHLC dicts, p/ ATR/strategies) ───────────────────────────
+
+
+class TestFetchBars:
+    def test_returns_last_n_full_bars(self) -> None:
+        bars = [
+            {"close": float(i), "high": float(i) + 0.5, "low": float(i) - 0.5, "time": i}
+            for i in range(1, 11)
+        ]
+
+        def handler(req):
+            return httpx.Response(200, json={"bars": bars})
+
+        with _patched_client(_mock_transport(handler)):
+            f = HttpCandleFetcher("http://api:8000")
+            out = f.fetch_bars("PETR4", n=3)
+
+        assert out is not None
+        assert len(out) == 3
+        assert out[0]["close"] == 8.0
+        assert out[-1]["high"] == 10.5  # full dict preservado, nao so close
+
+    def test_per_call_range_period_overrides_default(self) -> None:
+        captured: dict = {}
+
+        def handler(req):
+            captured["url"] = str(req.url)
+            return httpx.Response(200, json={"bars": [{"close": 1.0, "high": 1.5}]})
+
+        with _patched_client(_mock_transport(handler)):
+            f = HttpCandleFetcher("http://api:8000", range_period="1y")
+            f.fetch_bars("PETR4", n=1, range_period="3mo")
+
+        assert "range_period=3mo" in captured["url"]
+
+    def test_empty_bars_returns_none(self) -> None:
+        def handler(req):
+            return httpx.Response(200, json={"bars": []})
+
+        with _patched_client(_mock_transport(handler)):
+            f = HttpCandleFetcher("http://api:8000")
+            assert f.fetch_bars("PETR4", n=5) is None
+
+    def test_http_error_returns_none(self) -> None:
+        def handler(req):
+            return httpx.Response(503, json={"error": "down"})
+
+        with _patched_client(_mock_transport(handler)):
+            f = HttpCandleFetcher("http://api:8000")
+            assert f.fetch_bars("PETR4", n=5) is None
+
+    def test_falls_back_to_candles_key(self) -> None:
+        def handler(req):
+            return httpx.Response(
+                200, json={"candles": [{"close": 50.0, "high": 51.0, "low": 49.0}]}
+            )
+
+        with _patched_client(_mock_transport(handler)):
+            f = HttpCandleFetcher("http://api:8000")
+            out = f.fetch_bars("PETR4", n=1)
+        assert out == [{"close": 50.0, "high": 51.0, "low": 49.0}]

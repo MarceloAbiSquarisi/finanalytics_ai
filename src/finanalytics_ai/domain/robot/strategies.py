@@ -45,6 +45,9 @@ from finanalytics_ai.domain.robot.risk import (
     position_size_vol_target,
     realized_vol_daily,
 )
+from finanalytics_ai.infrastructure.market_data.http_candle_fetcher import (
+    HttpCandleFetcher,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -102,8 +105,13 @@ class MLSignalsStrategy:
 
     name = "ml_signals"
 
-    def __init__(self, base_url: str | None = None) -> None:
+    def __init__(
+        self,
+        base_url: str | None = None,
+        candle_fetcher: HttpCandleFetcher | None = None,
+    ) -> None:
         self._base_url = base_url or API_BASE_URL
+        self._candle_fetcher = candle_fetcher or HttpCandleFetcher(self._base_url)
         self._signals_cache: dict[str, dict[str, Any]] = {}
         self._cache_ts: datetime | None = None
         # 60s TTL: dentro do mesmo loop tick (default 60s) o cache fica quente.
@@ -262,20 +270,8 @@ class MLSignalsStrategy:
     def _fetch_bars(
         self, ticker: str, n: int, range_period: str = "3mo"
     ) -> list[dict[str, Any]] | None:
-        """Busca daily bars do /api/v1/marketdata/candles/{ticker}."""
-        try:
-            with httpx.Client(timeout=10.0) as client:
-                r = client.get(
-                    f"{self._base_url}/api/v1/marketdata/candles/{ticker}",
-                    params={"range_period": range_period},
-                )
-                r.raise_for_status()
-                data = r.json()
-            bars = data.get("bars") or data.get("candles") or []
-            return bars[-n:] if bars else None
-        except Exception as exc:
-            logger.warning("ml_signals.bars_fetch_failed", ticker=ticker, error=str(exc))
-            return None
+        """Busca daily bars via HttpCandleFetcher (DRY com worker pairs flow)."""
+        return self._candle_fetcher.fetch_bars(ticker, n=n, range_period=range_period)
 
 
 # ── TSMOM ∩ ML Overlay (R2) ──────────────────────────────────────────────────
