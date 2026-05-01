@@ -431,7 +431,13 @@ docker compose up -d api worker worker_v2
 #### I2 — Finalizar rotação log profit_agent (após pregão 29/abr) ✅ DONE 30/abr pós-pregão
 `RotatingFileHandler(maxBytes=10MB, backupCount=10)` já estava ativo em `profit_agent.py:_setup_logging` (linha 162). Housekeeping pós-pregão: 1848 arquivos `profit_agent-2026XXXXX.log` legacy (65.7MB total, gerados antes do switch para RotatingFileHandler) zipados em `_archive_logs/profit_agent_legacy_pre_rotate_20260430.zip` (6.44MB, ratio 10x) e removidos do `logs/`. Pasta `logs/` agora limpa.
 
-#### I1 — Migrar Docker Desktop → Docker Engine direto via WSL2 ⭐⭐ médio
+#### I1 — Migrar Docker Desktop → Docker Engine direto via WSL2 🔄 EM ANDAMENTO 01/mai
+**Status (01/mai/2026)**:
+- ✅ **Fase A** concluída: Docker Engine 29.4.2 + Compose Plugin instalados em Ubuntu-22.04 WSL2 com systemd. NVIDIA Container Toolkit 1.19.0 configurado. Validações passaram: hello-world OK, GPU passthrough OK (2x RTX 4090 listadas, mapeamento PCIe 01:00.0/08:00.0 idêntico ao validado em Decisão 15). Comportamento `nvidia-smi` listar 2 GPUs mesmo com `CUDA_VISIBLE_DEVICES=0` é peculiaridade conhecida (CLAUDE.md), isolamento real continua via libs CUDA.
+- 🔄 **Fase B.1** (em execução): cutover dos 18 containers pro Engine WSL2 mantendo volumes em `/mnt/e/finanalytics_data/` (paths do mesmo NTFS, sem cópia). Risco baixo — rollback é `docker compose down` no WSL + `up -d` no Docker Desktop. Ganho: independência de Docker Desktop logado, systemd nativo. Performance fica igual (overhead 9P NTFS preservado).
+- 🔲 **Fase B.2** (defer): migrar volumes 1 a 1 de `/mnt/e/` pra `~/finanalytics/data/` ext4. Postgres 35GB → ~10min. Timescale 182GB → ~45min. Faz sentido quando ingestão de ticks live for prioridade. Independente do smoke segunda 11h.
+
+
 **Custo**: ~1-2d (investigação + migração de volumes). **Payoff**: médio (operação 24/7 mais robusta + sem dependência de user logado).
 
 **Motivação**: Docker Desktop hoje morre quando o user faz logoff do Windows. Pra setup que precisa rodar 24/7 (api/scheduler/timescale/grafana/alerts/snapshots/jobs), isso é frágil. Docker Engine instalado direto numa distro WSL2 roda como systemd service — independente de sessão de user.
