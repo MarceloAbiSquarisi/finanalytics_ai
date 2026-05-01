@@ -182,12 +182,14 @@ Filtro adicional usando DI1 realtime (já implementado): só opera quando slope 
 - ✅ **Deflated Sharpe Ratio** (`domain/backtesting/metrics.py`): correção López de Prado 2014 para multiple testing bias do grid search. `OptimizationResult.deflated_sharpe` traz `{deflated_sharpe, prob_real, e_max_sharpe}` sobre o melhor candidato. Implementação canônica: SR_0 = sigma(SR_hat) × f(N), com f(N) = (1-γ)Φ⁻¹(1-1/N) + γΦ⁻¹(1-1/(Ne)). Probit Beasley-Springer-Moro sem dependência de scipy.
 - 31 unit tests novos (slippage 13 + DSR 18) + 199 tests de regressão verdes.
 
-**Faltam (defer)**:
-- DSR aplicado também no `WalkForwardService` (precisa expor `_calc_metrics` reusável sobre `combined_equity` OOS).
-- Survivorship bias check (precisa lista de tickers delistados no DB).
+**Follow-up fechado 30/abr noite** (`3c60baa` + `978482e`):
+- ✅ ~~DSR aplicado também no `WalkForwardService`~~ — DONE. Por fold OOS (`WalkForwardFold.oos_dsr` com `num_is_trials` como N e `len(oos_bars_slice)-1` como T) + agregado (`WalkForwardResult.deflated_sharpe` traz `avg_z`, `avg_prob`, `folds_real`, `total_trials`). Persist em `walkforward_service._persist` com strategy `wf:<name>` pra não colidir com runs grid_search. 12 unit tests `test_walkforward_dsr.py`.
 - ✅ ~~Tabela `backtest_results` com `config_hash` para histórico comparativo~~ — DONE 30/abr pós-pregão (Alembic 0021 + `infrastructure/database/repositories/backtest_repo.py` + `compute_config_hash` SHA256 + UPSERT idempotente; demo script ganha flag `--persist`; 17 unit tests SQLite). Validado live: PETR4 RSI re-run UPDATE (created != updated), VALE3 MACD insert único.
-- Slippage calibrável por liquidez (small caps merecem mais que 0.05%).
-- Endpoint `/api/v1/backtest/history` para listar runs persistidos via UI (defer).
+- ✅ ~~Slippage calibrável por liquidez (small caps merecem mais que 0.05%)~~ — DONE 30/abr noite (`978482e`). Sqrt-impact ADV-aware: `slippage_pct = base_pct × sqrt(trade_size_pct_adv)` capado em 5x base. Configurável via `apply_slippage_model={"liquidity_aware": True, "adv": ADV_USD}`. 13 unit tests `test_slippage.py` cobrindo small/mid/large caps e cap.
+- ✅ ~~Endpoint `/api/v1/backtest/history` para listar runs persistidos via UI~~ — DONE 30/abr noite (`3c60baa`). GET `/history` (list + filter por ticker/strategy + paginação), GET `/history/{config_hash}` (drilldown completo com `full_result_json`), DELETE `/history/{config_hash}`. UI `backtest.html:2456-2535` consome endpoint com filtros. 20 unit tests `test_backtest_history_routes.py` + 6 `test_backtest_history_persist.py`.
+
+**Único item R5 ainda aberto**:
+- Survivorship bias check (precisa lista de tickers delistados B3 no DB — coleta CVM/B3 ainda não feita).
 
 ### Pitfalls comuns que matam robôs amadores (referência)
 

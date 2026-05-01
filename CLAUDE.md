@@ -4,7 +4,7 @@
 Sistema de análise financeira com DayTrade via ProfitDLL (Nelogica).
 Stack: FastAPI :8000 (Docker) + profit_agent :8002 (Windows host) + TimescaleDB :5433 + Redis.
 
-**Runtime Docker (desde 01/mai/2026)**: rodando em **Docker Engine direto em WSL2 Ubuntu-22.04** (não Docker Desktop). Migração I1 Fase B.1 completa — volumes mantidos em `/mnt/e/finanalytics_data/` (Fase B.2 = mover pra ext4 nativo defer). Dockerd ouve TCP 127.0.0.1:2375; `docker context wsl-engine` ativo no PowerShell. Docker Desktop continua instalado no host como fallback (`docker context use default`).
+**Runtime Docker (desde 01/mai/2026)**: rodando em **Docker Engine direto em WSL2 Ubuntu-22.04** (não Docker Desktop). I1 Fases A+B.1+B.2 todas completas — volumes Postgres+Timescale em `/home/abi/finanalytics/data/{postgres,timescale}/` (ext4 nativo, performance 10-50x vs `/mnt/e/` NTFS+9P). Backups originais em `/mnt/e/finanalytics_data/docker/{postgres,timescale}/` ficam intocados até ~08/mai antes de delete. Dockerd ouve TCP 127.0.0.1:2375; `docker context wsl-engine` ativo no PowerShell. Docker Desktop **autostart desativado em 01/mai** (HKCU Run key removida) — abrir manualmente quando precisar do fallback `default` context.
 
 ## Hardware
 
@@ -89,16 +89,25 @@ cd D:\Projetos\finanalytics_ai_fresh
 ```
 
 ### Subir/parar a stack completa (Engine WSL2)
-Sempre passar os 3 compose files (main + override + wsl):
-```powershell
-# Up (de dentro do projeto, qualquer shell — docker context = wsl-engine)
-$env:DATA_DIR_HOST="/mnt/e/finanalytics_data"
-docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.wsl.yml up -d
+Sempre passar os 3 compose files (main + override + wsl). Volumes Postgres+Timescale agora em ext4 nativo (`/home/abi/finanalytics/data/`), demais volumes ainda em `/mnt/e/finanalytics_data/`. **Importante**: rodar `compose` de dentro do WSL bash — PowerShell direto resolve paths como Windows-absolute e quebra (gotcha #6 sessão 01/mai):
+
+```bash
+# Up (dentro do WSL Ubuntu-22.04)
+cd /mnt/d/Projetos/finanalytics_ai_fresh
+DATA_DIR_HOST=/mnt/e/finanalytics_data \
+  docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.wsl.yml up -d
 
 # Down
 docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.wsl.yml down
+```
 
-# Trocar pra Docker Desktop fallback (não tem volumes — só pra debug)
+```powershell
+# Comandos diretos (docker ps/exec/logs) funcionam no PS via context wsl-engine
+docker ps
+docker logs finanalytics_api --tail 50
+
+# Reativar Docker Desktop fallback (autostart desativado desde 01/mai):
+& "C:\Program Files\Docker\Docker\Docker Desktop.exe"
 docker context use default
 ```
 
@@ -280,6 +289,11 @@ Tabelas principais:
 - `fii_fundamentals` — DY TTM/PVP/div_12m/valor_mercado (27 FIIs, refresh 7h BRT)
 - `crypto_signals_history` — snapshots BTC/ETH/SOL/etc (refresh 9h BRT)
 - `copom_documents` / `copom_sentiment` — pipeline BERTimbau COPOM (vazio até BCB recuperar)
+- **Robô** (Alembic `ts_0004`, sessão 01/mai):
+  - `robot_strategies` — registry de strategies (config JSONB + account_id + enabled)
+  - `robot_signals_log` — auditoria de toda decisão do worker (envio ou skip)
+  - `robot_orders_intent` — espelho compacto de ordens originadas pelo robô (separa de `profit_orders` manual; liga via `local_order_id`)
+  - `robot_risk_state` — estado diário de risco + kill switch (`paused`)
 
 ### PostgreSQL (finanalytics) — multi-tenant
 Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
@@ -289,6 +303,9 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 - `trades` / `positions` / `crypto_holdings` / `rf_holdings` / `other_assets` — `portfolio_id NOT NULL`, `ON DELETE RESTRICT`
 - `trade_journal` — Diário de Trade (qualitativa+quantitativa). Inclui `trade_objective` ∈ {daytrade,swing,buy_hold} (Alembic 0019), `is_complete` BOOL + `external_order_id` UNIQUE (Alembic 0020). Hook `_maybe_dispatch_diary` no profit_agent cria entry pré-preenchida em FILLED.
 - `backtest_results` — histórico de runs grid_search/walk_forward (Alembic 0021). UNIQUE `config_hash` (SHA256) para UPSERT idempotente. Colunas escalares (sharpe, drawdown, deflated_sharpe, prob_real) + JSONB completo p/ drilldown.
+- `email_research` — research bulletins parseados pelo classifier E1.1 (Alembic 0022, sessão 01/mai). `(msg_id UNIQUE, ticker, sentiment, target_price, source, received_at, raw_excerpt)`. Anthropic SDK + Haiku 4.5 com prompt caching.
+- `cointegrated_pairs` — pairs Engle-Granger screening (Alembic 0023, sessão 01/mai). `(asset_a, asset_b, beta_hedge, alpha, half_life, p_value, lookback_days, screened_at)`. Job `cointegration_screen_job` 06:30 BRT diário popula.
+- `robot_pair_positions` — posições abertas do dispatcher de pairs (Alembic 0024, sessão 01/mai). Liga `(pair_key, leg_a_local_id, leg_b_local_id, entry_zscore, target_zscore, status)` p/ rastrear naked-leg recovery.
 
 ### Candle fallback chain (`candle_repository.py`)
 1. `profit_daily_bars` — pré-agregado, 8 tickers DLL + 39 FIIs/ETFs Yahoo
@@ -299,11 +316,24 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 
 ## Pendências Técnicas
 
-**Ativa**: aguardando arquivo Nelogica 1m → rodar `runbook_import_dados_historicos.md`. Inclui treinar pickles h3/h5 para `predict_ensemble` multi-horizon real (hoje só h21 existe).
+**Ativas**:
+- Aguardando arquivo Nelogica 1m → rodar `runbook_import_dados_historicos.md`. Inclui treinar pickles h3/h5 para `predict_ensemble` multi-horizon real (hoje só h21 existe).
+- **Survivorship bias** (R5 último item aberto): coletar lista de tickers delistados B3 (CVM/B3 scraping) + tabela `b3_delisted_tickers (ticker, delisting_date, reason)` + integração no candle fallback chain.
+- **Smoke live robô R1.5+R2+R3** Segunda 04/mai 11h BRT — routine `trig_013JvZLcbANEuRf8rSYiFhK5` agendada. Pré-req: seed `robot_strategies` com config_json + `AUTO_TRADER_ENABLED=true` + `AUTO_TRADER_DRY_RUN=false`.
+- **C5 Passos 2-6** (VIEW unified + UI pill manual/engine) bloqueados pela migration do trading-engine R-06; agente `trig_01VDzH3xriAC777KZku42SbK` p/ 21/mai abre PR pareado.
+- **E1.2 Gmail OAuth integration** (defer próxima sessão): conectar classifier E1.1 ao MCP `claude_ai_Gmail` p/ polling automático.
+
+**Done (sessão 01/mai)**:
+- ✅ R1.1-R1.5 + R2 + R3.1 + R3.2.A + R3.2.B.1-3 + R3.3 — robô de trade completo (TSMOM ∩ ML overlay + pairs cointegrados B3)
+- ✅ E1.1 Gmail classifier (Anthropic SDK + Haiku 4.5 + prompt caching) — pronto offline, falta conectar OAuth (E1.2)
+- ✅ I1 Fases A+B.1+B.2 — Engine WSL2 + volumes ext4 nativo
+- ✅ C1 contratos + producer Kafka `market_data.ticks.v1` (Avro) — base de event-driven
+- ✅ R5 follow-up — `/history` endpoint + DSR walk-forward + slippage ADV-aware (commits 30/abr noite)
+- ✅ Perf `/api/v1/ml/signals` 30s+ → 2.5s via `_load_latest_features_bulk` (DISTINCT ON)
 
 **Roadmap futuro** (documentado em `Melhorias.md`):
-- **R1-R5** Robô de Trade autônomo: `auto_trader_worker` + Strategy Loop + Risk Engine + 3 strategies candidatas (TSMOM∩ML, pares cointegrados B3, ORB WINFUT+filtro DI1)
-- **E1-E3** Leitura de Gmail: research bulletins → enrich /signals (E1, alpha real, MVP ~5d) | notas corretagem reconciliation (E2) | pipeline genérico (E3)
+- **R4** ORB WINFUT + filtro DI1 — defer ~7-10d
+- **E2-E3** Leitura de Gmail: notas corretagem reconciliation (E2) | pipeline genérico (E3)
 
 **Histórico de sprints concluídas**: ver `git log` + `memory/project_*.md` (sprints 15-27 movidas para fora do CLAUDE.md). Bugs de produção catalogados em `Melhorias.md`:
 - P1-P7 + O1 ✅ DONE 28/abr
@@ -350,7 +380,24 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
   - `infrastructure/database/repositories/backtest_repo.py` + Alembic `0021_backtest_results` — UPSERT idempotente por SHA256 do config completo.
   - `scripts/backtest_demo_dsr.py` (CLI demo + flag `--persist`). Validado live: PETR4 RSI 30 trials → DSR z=0.31 prob=62% (sinal fraco); VALE3 MACD 48 trials → DSR z=-0.52 prob=30% (overfitting provável — SR observado ABAIXO de E[max|H0]).
   - 49 unit tests novos (slippage 13 + DSR 18 + repo 17 + 1 fix). 199+ regressão verde.
-- Faltam do R5 (defer): DSR walk-forward, survivorship bias, slippage por liquidez, endpoint `/api/v1/backtest/history`.
+- **R5 follow-up fechado 30/abr noite** (`3c60baa` + `978482e`): endpoint `/api/v1/backtest/history` (GET list/filter, GET/{hash} drilldown, DELETE) consumido pela UI `backtest.html:2456-2535`; auto-persist em `OptimizerService` + `WalkForwardService`; DSR walk-forward por fold OOS + agregado (`WalkForwardResult.deflated_sharpe` + `WalkForwardFold.oos_dsr`) com `num_is_trials` como N e `len(oos_bars)-1` como T; slippage ADV-aware sqrt-impact capado em 5x. 92 unit tests R5 verdes. **Único item R5 ainda aberto**: survivorship bias (precisa coleta de delistados B3).
+
+**Sessão 01/mai full day (58 commits, ~11.5h)** — feriado Trabalho. Histórico cronológico via `git log --since=2026-05-01`. Pontos vinculantes:
+- **Robô de Trade R1.1→R3.3 completo** — `auto_trader_worker.py` (asyncio loop, kill switch, dry_run env), `domain/robot/{risk,strategies}.py` (Risk Engine vol-target Kelly 0.25x + ATR Wilder + max_positions + circuit_breaker DD<-2%), `MLSignalsStrategy` (consome `/api/v1/ml/signals` + cache 60s), `TsmomMlOverlayStrategy` (concordance momentum 252d on-the-fly + ML signal — divergem → SKIP), pairs trading completo (Engle-Granger screening offline + decision logic + service layer + worker integration + dual-leg dispatcher + position persistence + naked_leg→Pushover critical). UI `/robot` (read-only + kill switch) + `/pairs` (z-score real-time + drilldown history) + entries no sidebar. Service `auto_trader` em `docker-compose.override.yml` (`AUTO_TRADER_ENABLED=false` default).
+- **E1.1 Gmail classifier** (`9fc4da9`) — Anthropic SDK + Haiku 4.5 + prompt caching; tabela `email_research` semeada por classify offline; OAuth integration (E1.2) defer.
+- **C1 producer Kafka** (`ef31d26`) — `profit_agent` publica `market_data.ticks.v1` (Avro) em Kafka. Base de event-driven async pra futura ingest pipeline.
+- **I1 Fase B.2** (`ffcd06c`) — volumes Postgres+Timescale migrados pra `/home/abi/finanalytics/data/{postgres,timescale}/` (ext4 nativo). Backups originais em `/mnt/e/finanalytics_data/docker/{postgres,timescale}/` ficam até ~08/mai antes de delete (rollback fácil = trocar paths). Runbook completo `docs/runbook_wsl2_engine_setup.md` (Fase A+B.1+B.2+troubleshooting).
+- **P2-futuros** (`1af8279`) — `compute_trading_result_match` em `profit_agent_validators.py` adiciona match por `message_id` quando `local_id`+`cl_ord_id` chegam zerados (broker rejeita futuros instantâneos com struct corrompida).
+- **Perf `/api/v1/ml/signals`** (`dfccc57`) — 30s+ → 2.5s via `_load_latest_features_bulk` (DISTINCT ON em vez de N queries serializadas).
+- **Refactor**: `MLSignalsStrategy._fetch_bars` delega pro `HttpCandleFetcher.fetch_bars` (extract `infrastructure/adapters/http_candle_fetcher.py`, commit `a565667` + `e53d676`). `auto_trader_dispatcher` chama proxy `:8000` (não `:8002` direto) p/ usar `AccountService` injection; handshake C5 `_source='auto_trader'` + `cl_ord_id='robot:<sid>:<tkr>:<act>:<min_iso>'` determinístico p/ idempotência; OCO automático quando TP+SL fornecidos.
+- **Trade-engine UI** (`9cb7dfb`) — página read-only `/trade-engine` monitorando o `finanalyticsai-trading-engine` externo.
+- **Scheduler**: novo job `cointegration_screen_job` 06:30 BRT diário (`1c6dce7`); validado live `next_utc=2026-05-02T09:30:00Z`.
+- **Endpoints novos** (`prefix /api/v1/`):
+  - `/robot/{status,strategies,signals_log,pause,resume}` — read-only + kill switch
+  - `/pairs/{active,zscores,zscores/{pair_key}/history,positions}` — pairs trading state
+  - `/ml/signals` agora retorna em 2.5s (era 30s+)
+- **Gotchas WSL2 importantes** (memorial completo em `memory/project_session_01mai_full.md`): (a) `host-gateway` NÃO resolve pra Windows host em Engine WSL2 puro (resolve pra docker bridge interna), use `172.17.80.1` direto; (b) WSL gateway IP estável dentro da sessão WSL mas pode mudar após `wsl --shutdown` ou reboot Windows; (c) `docker compose` rodando do PowerShell direto resolve paths como Windows-absolute e quebra — sempre rodar de dentro do WSL bash; (d) Alembic tem 2 heads (Postgres `0xxx` + Timescale `ts_0xxx`), `alembic upgrade head` falha — usar revision específica; (e) `bind 0.0.0.0:8002` no profit_agent é necessário pra Engine WSL2 alcançar via WSL gateway.
+- **PAIRS_DSN bug** (`5e2afc0`) — worker passava DSN do Timescale pro `PsycopgPairsRepository` quando deveria usar Postgres. Detectado durante pré-validação do auto_trader. Novo env `PAIRS_DSN` (fallback `DATABASE_URL_SYNC` → `DATABASE_URL` → default Postgres) porque `cointegrated_pairs` está em Postgres principal (Alembic 0023) enquanto `robot_strategies/signals_log/orders_intent` estão em Timescale (`ts_0004`).
 
 ## Decisões Arquiteturais (Imutáveis)
 
@@ -421,8 +468,8 @@ Runbook detalhado: `docs/runbook_profit_daily_bars_scale.md`.
 Origem: Docker Desktop morre quando user faz logoff Windows; setup precisa rodar 24/7. Engine WSL2 com systemd é independente de sessão.
 
 **Regras vinculantes:**
-1. **Runtime canônico**: Docker Engine 29.4.2 dentro de Ubuntu-22.04 WSL2 (`systemctl is-active docker` = active). Volumes em `/mnt/e/finanalytics_data/` (ainda NTFS via 9P; ext4 nativo é Fase B.2 defer).
-2. **PowerShell**: `docker context use wsl-engine` apontando pra `tcp://127.0.0.1:2375`. Default context (`default`/Docker Desktop) só pra debug emergencial.
+1. **Runtime canônico**: Docker Engine 29.4.2 dentro de Ubuntu-22.04 WSL2 (`systemctl is-active docker` = active). Volumes Postgres+Timescale em **ext4 nativo** (`/home/abi/finanalytics/data/{postgres,timescale}/`, 10-50x perf vs NTFS+9P, Fase B.2 done 01/mai). Demais volumes (`prometheus`, `grafana`, `pgadmin`, etc.) ainda em `/mnt/e/finanalytics_data/` — não foram migrados pq não são caminho crítico de IO.
+2. **PowerShell**: `docker context use wsl-engine` apontando pra `tcp://127.0.0.1:2375`. **Docker Desktop autostart desativado em 01/mai** — abrir manualmente quando precisar do `default` context.
 3. **profit_agent bind 0.0.0.0:8002** desde 01/mai (era 127.0.0.1) — Engine WSL2 puro precisa pra alcançar via WSL gateway. Override via env `PROFIT_AGENT_BIND` se quiser restringir.
 4. **`docker-compose.wsl.yml` é OBRIGATÓRIO** ao subir a stack — converte paths NTFS `E:/` pra `/mnt/e/`, mapeia `host.docker.internal:172.17.80.1` (não `:host-gateway` — esse resolve pra docker bridge interna em Engine WSL2 puro).
 5. **Firewall Windows** tem regra `Profit Agent WSL Inbound` permitindo TCP 8002 da subnet `172.17.80.0/20`. Se WSL gateway IP mudar (após `wsl --shutdown` ou reboot), atualizar regra **e** o `docker-compose.wsl.yml`.
@@ -434,7 +481,7 @@ Origem: Docker Desktop morre quando user faz logoff Windows; setup precisa rodar
    ```
 7. **Imagens stale**: rebuilds via `docker compose build api worker` (~5min com cache). NÃO usar `--no-cache` casual — pode falhar transient em pip install torch+prophet (2GB re-download).
 
-Histórico: I1 Fase A done 01/mai (commit `ab0ea8b`). Fase B.1 cutover live 01/mai (commit `950ac35`).
+Histórico: I1 Fase A done 01/mai (commit `ab0ea8b`). Fase B.1 cutover live 01/mai (commit `950ac35`). Fase B.2 done 01/mai (commit `ffcd06c`) — volumes Postgres+Timescale em ext4 nativo. Runbook completo: `docs/runbook_wsl2_engine_setup.md`.
 
 ## Observabilidade
 
