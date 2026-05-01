@@ -413,29 +413,11 @@ async def _evaluate_strategies(iteration: int) -> None:
 # fresh — mesmo padrão do `is_paused()`/`fetch_enabled_strategies()`).
 
 
-class _HttpCandleFetcher:
-    """CandleFetcher Protocol via /api/v1/marketdata/candles/{ticker}."""
-
-    def __init__(self, base_url: str) -> None:
-        self._base_url = base_url
-
-    def fetch_closes(self, ticker: str, n: int) -> list[float] | None:
-        import httpx
-
-        try:
-            with httpx.Client(timeout=10.0) as client:
-                r = client.get(
-                    f"{self._base_url}/api/v1/marketdata/candles/{ticker}",
-                    params={"range_period": "1y"},
-                )
-                r.raise_for_status()
-                data = r.json()
-            bars = data.get("bars") or data.get("candles") or []
-            closes = [float(b["close"]) for b in bars if b.get("close")]
-            return closes[-n:] if closes else None
-        except Exception as exc:
-            logger.warning("pairs.candle_fetch_failed", ticker=ticker, error=str(exc))
-            return None
+# HttpCandleFetcher movido pra infrastructure/market_data/http_candle_fetcher.py
+# (R3 polish 01/mai) — extração permite tests + reuso por outras strategies.
+from finanalytics_ai.infrastructure.market_data.http_candle_fetcher import (
+    HttpCandleFetcher as _HttpCandleFetcher,
+)
 
 
 def _compute_leg_quantities(*, capital: float, price_a: float, price_b: float) -> tuple[int, int]:
