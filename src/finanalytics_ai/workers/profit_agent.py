@@ -525,6 +525,9 @@ from finanalytics_ai.workers.profit_agent_validators import (  # noqa: E402
     trail_should_immediate_trigger,
     validate_attach_oco_params as _validate_attach_oco_params,
 )
+from finanalytics_ai.infrastructure.market_data.kafka_producer import (  # noqa: E402
+    MarketDataProducer,
+)
 
 # ---------------------------------------------------------------------------
 
@@ -1470,6 +1473,11 @@ class ProfitAgent:
         # EnumerateAllOrders, marca orphan se DLL nao enumera mais e DB stuck.
         self._pending_orders: dict[int, dict] = {}
         self._pending_lock = threading.RLock()
+
+        # Producer Kafka (C1 - market_data.ticks.v1). Lazy init via
+        # PROFIT_KAFKA_BOOTSTRAP — sem essa env, fica desabilitado (noop).
+        # Backward compatible: instalacoes que ainda nao querem Kafka nao precisam mudar nada.
+        self._kafka_producer = MarketDataProducer.from_env()
 
         # Refs de callbacks (evita GC)
 
@@ -2935,6 +2943,52 @@ class ProfitAgent:
 
     # ------------------------------------------------------------------
 
+    # Kafka helpers (C1 - market_data.ticks.v1)
+
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _trade_type_to_aggressor(trade_type: int | None) -> int:
+        """ProfitDLL TradeType -> aggressor int (1=BUY, -1=SELL, 0=unknown).
+
+        Convencao Nelogica (manual ProfitDLL):
+          1 = trade aggressor at buy
+          2 = trade aggressor at sell
+          outros (auction, RLP, cross) -> 0 -> mapeado p/ enum null no Avro.
+        """
+        if trade_type == 1:
+            return 1
+        if trade_type == 2:
+            return -1
+        return 0
+
+    def _publish_tick_kafka(self, item: dict) -> None:
+        """Publica tick em Kafka topic `market_data.ticks.v1`.
+
+        Errors swallowed por design — esse hot path roda dentro do db_worker
+        thread e NAO pode bloquear o ingest TimescaleDB. Falhas Kafka viram
+        log.warning sem afetar persistencia local.
+        """
+        if not self._kafka_producer.enabled:
+            return
+        try:
+            ts_us = int(item["time"].timestamp() * 1_000_000)
+            self._kafka_producer.publish_tick(
+                symbol=item["ticker"],
+                ts_us=ts_us,
+                price=item["price"],
+                volume=int(item["quantity"]),
+                aggressor=self._trade_type_to_aggressor(item.get("trade_type")),
+            )
+        except Exception as exc:
+            log.warning(
+                "kafka.publish_failed ticker=%s err=%s",
+                item.get("ticker"),
+                exc,
+            )
+
+    # ------------------------------------------------------------------
+
     # DB Worker thread
 
     # ------------------------------------------------------------------
@@ -2958,6 +3012,9 @@ class ProfitAgent:
 
                 if t == "tick":
                     self._db.insert_tick(item)
+                    # C1: publica em Kafka topic market_data.ticks.v1 paralelo
+                    # ao insert TimescaleDB. Noop quando producer desabilitado.
+                    self._publish_tick_kafka(item)
 
                 elif t == "daily":
                     self._db.upsert_daily_bar(item)
@@ -6932,6 +6989,13 @@ class ProfitAgent:
         log.info("profit_agent.stopping")
 
         self._stop_event.set()
+
+        # C1: drena buffer Kafka antes de finalizar DLL — evita perder ticks
+        # ja produzidos mas nao entregues ao broker.
+        if self._kafka_producer.enabled:
+            unflushed = self._kafka_producer.flush(timeout_s=5.0)
+            if unflushed:
+                log.warning("kafka.flush_unflushed count=%d", unflushed)
 
         if self._dll:
             try:
