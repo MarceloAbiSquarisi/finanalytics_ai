@@ -60,10 +60,9 @@ count.txt
 test_*.txt
 # Arquivos temporários e binários que não devem ir ao git
 src/finanalytics_ai/interfaces/api/static/000/
-src/finanalytics_ai/interfaces/api/static/ProfitDLL/bin/
-src/finanalytics_ai/interfaces/api/static/ProfitDLL/DLLs/
-src/finanalytics_ai/interfaces/api/static/ProfitDLL/Manual/
-src/finanalytics_ai/interfaces/api/static/ProfitDLL/OnBoarding*
+# ProfitDLL examples + Manual + PDF — referência Nelogica, não usado em runtime.
+# Movido pra D:/Projetos/references/ProfitDLL/ em 01/mai/2026.
+src/finanalytics_ai/interfaces/api/static/ProfitDLL/
 src/finanalytics_ai/interfaces/api/static/patch_*.py
 src/finanalytics_ai/interfaces/api/static/fix_*.py
 src/finanalytics_ai/interfaces/api/static/diag_*.py
