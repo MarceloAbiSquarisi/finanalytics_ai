@@ -364,14 +364,14 @@ def make_pair_cl_ord_id(
 async def dispatch_pair_order(
     *,
     base_url: str,
-    pair_key: str,         # 'CMIN3-VALE3'
+    pair_key: str,  # 'CMIN3-VALE3'
     ticker_a: str,
-    side_a: str,           # 'buy'|'sell'
+    side_a: str,  # 'buy'|'sell'
     quantity_a: float,
     ticker_b: str,
     side_b: str,
     quantity_b: float,
-    action: str,           # 'OPEN_SHORT'|'OPEN_LONG'|'CLOSE'|'STOP'
+    action: str,  # 'OPEN_SHORT'|'OPEN_LONG'|'CLOSE'|'STOP'
     is_daytrade: bool = True,
     env: str = "simulation",
     timeout_sec: float = ORDER_TIMEOUT_SEC,
@@ -393,12 +393,8 @@ async def dispatch_pair_order(
     tentamos rollback automatico (cancel pode falhar tambem -> caos).
     Caller deve emitir alert (Pushover) p/ revisao manual.
     """
-    cl_a = make_pair_cl_ord_id(
-        pair_key=pair_key, leg="a", action=action, computed_at=computed_at
-    )
-    cl_b = make_pair_cl_ord_id(
-        pair_key=pair_key, leg="b", action=action, computed_at=computed_at
-    )
+    cl_a = make_pair_cl_ord_id(pair_key=pair_key, leg="a", action=action, computed_at=computed_at)
+    cl_b = make_pair_cl_ord_id(pair_key=pair_key, leg="b", action=action, computed_at=computed_at)
 
     log = logger.bind(pair_key=pair_key, action=action, cl_a=cl_a, cl_b=cl_b)
 

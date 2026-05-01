@@ -426,15 +426,11 @@ class _HttpCandleFetcher:
             closes = [float(b["close"]) for b in bars if b.get("close")]
             return closes[-n:] if closes else None
         except Exception as exc:
-            logger.warning(
-                "pairs.candle_fetch_failed", ticker=ticker, error=str(exc)
-            )
+            logger.warning("pairs.candle_fetch_failed", ticker=ticker, error=str(exc))
             return None
 
 
-def _compute_leg_quantities(
-    *, capital: float, price_a: float, price_b: float
-) -> tuple[int, int]:
+def _compute_leg_quantities(*, capital: float, price_a: float, price_b: float) -> tuple[int, int]:
     """
     Aloca metade do capital em cada leg (dollar-neutral approx).
     qty_a = floor((capital/2) / price_a). Mesma logica p/ B.

@@ -88,9 +88,7 @@ def msg_id_already_processed(dsn: str, msg_id: str) -> bool:
     """True se ha pelo menos 1 row em email_research com esse msg_id."""
     try:
         with _get_conn(dsn) as conn, conn.cursor() as cur:
-            cur.execute(
-                "SELECT 1 FROM email_research WHERE msg_id = %s LIMIT 1", (msg_id,)
-            )
+            cur.execute("SELECT 1 FROM email_research WHERE msg_id = %s LIMIT 1", (msg_id,))
             return cur.fetchone() is not None
     except Exception as exc:
         logger.warning("email_research.dedup_check_failed", error=str(exc))

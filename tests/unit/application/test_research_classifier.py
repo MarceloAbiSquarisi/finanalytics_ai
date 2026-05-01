@@ -107,16 +107,24 @@ class TestHappyPath:
         expected = ClassificationResult(
             mentions=[
                 ResearchMention(
-                    ticker="ITUB4", sentiment="BULLISH", action="BUY",
-                    target_price=36.0, confidence=0.92,
+                    ticker="ITUB4",
+                    sentiment="BULLISH",
+                    action="BUY",
+                    target_price=36.0,
+                    confidence=0.92,
                 ),
                 ResearchMention(
-                    ticker="BBDC4", sentiment="NEUTRAL", action="HOLD",
+                    ticker="BBDC4",
+                    sentiment="NEUTRAL",
+                    action="HOLD",
                     confidence=0.88,
                 ),
                 ResearchMention(
-                    ticker="SANB11", sentiment="BEARISH", action="SELL",
-                    target_price=14.0, confidence=0.93,
+                    ticker="SANB11",
+                    sentiment="BEARISH",
+                    action="SELL",
+                    target_price=14.0,
+                    confidence=0.93,
                 ),
             ]
         )

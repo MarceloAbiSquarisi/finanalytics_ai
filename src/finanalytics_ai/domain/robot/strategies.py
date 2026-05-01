@@ -369,9 +369,7 @@ class TsmomMlOverlayStrategy(MLSignalsStrategy):
             mom_sign = 0
 
         # 4. Concordance check
-        disagree = (ml_signal == "BUY" and mom_sign <= 0) or (
-            ml_signal == "SELL" and mom_sign >= 0
-        )
+        disagree = (ml_signal == "BUY" and mom_sign <= 0) or (ml_signal == "SELL" and mom_sign >= 0)
         if disagree:
             return {
                 "action": "SKIP",
@@ -398,9 +396,7 @@ class TsmomMlOverlayStrategy(MLSignalsStrategy):
 
         closes = [float(b["close"]) for b in bars[-(vol_lookback + 1) :]]
         rets = [
-            (closes[i] / closes[i - 1] - 1.0)
-            for i in range(1, len(closes))
-            if closes[i - 1] > 0
+            (closes[i] / closes[i - 1] - 1.0) for i in range(1, len(closes)) if closes[i - 1] > 0
         ]
         vol_annual = annualize_vol(realized_vol_daily(rets))
 

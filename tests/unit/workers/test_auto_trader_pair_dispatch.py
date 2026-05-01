@@ -39,38 +39,44 @@ def _utc(year=2026, month=5, day=1, hour=12, minute=35) -> datetime:
 class TestPairClOrdId:
     def test_format(self) -> None:
         s = make_pair_cl_ord_id(
-            pair_key="CMIN3-VALE3", leg="a", action="OPEN_SHORT_SPREAD",
+            pair_key="CMIN3-VALE3",
+            leg="a",
+            action="OPEN_SHORT_SPREAD",
             computed_at=_utc(),
         )
         assert s.startswith("pairs:CMIN3-VALE3:a:OPEN_SHORT_SPREAD:2026-05-01T12:35")
 
     def test_different_legs_different_id(self) -> None:
         a = make_pair_cl_ord_id(
-            pair_key="CMIN3-VALE3", leg="a", action="OPEN_SHORT_SPREAD",
+            pair_key="CMIN3-VALE3",
+            leg="a",
+            action="OPEN_SHORT_SPREAD",
             computed_at=_utc(),
         )
         b = make_pair_cl_ord_id(
-            pair_key="CMIN3-VALE3", leg="b", action="OPEN_SHORT_SPREAD",
+            pair_key="CMIN3-VALE3",
+            leg="b",
+            action="OPEN_SHORT_SPREAD",
             computed_at=_utc(),
         )
         assert a != b
 
     def test_deterministic_per_minute(self) -> None:
-        a = make_pair_cl_ord_id(
-            pair_key="CMIN3-VALE3", leg="a", action="CLOSE", computed_at=_utc()
-        )
-        b = make_pair_cl_ord_id(
-            pair_key="CMIN3-VALE3", leg="a", action="CLOSE", computed_at=_utc()
-        )
+        a = make_pair_cl_ord_id(pair_key="CMIN3-VALE3", leg="a", action="CLOSE", computed_at=_utc())
+        b = make_pair_cl_ord_id(pair_key="CMIN3-VALE3", leg="a", action="CLOSE", computed_at=_utc())
         assert a == b
 
     def test_different_minute_different_id(self) -> None:
         a = make_pair_cl_ord_id(
-            pair_key="CMIN3-VALE3", leg="a", action="CLOSE",
+            pair_key="CMIN3-VALE3",
+            leg="a",
+            action="CLOSE",
             computed_at=_utc(minute=10),
         )
         b = make_pair_cl_ord_id(
-            pair_key="CMIN3-VALE3", leg="a", action="CLOSE",
+            pair_key="CMIN3-VALE3",
+            leg="a",
+            action="CLOSE",
             computed_at=_utc(minute=20),
         )
         assert a != b
@@ -79,7 +85,9 @@ class TestPairClOrdId:
         # pair_key longo demais p/ 64 chars
         long_key = "X" * 80
         s = make_pair_cl_ord_id(
-            pair_key=long_key, leg="a", action="OPEN_LONG_SPREAD",
+            pair_key=long_key,
+            leg="a",
+            action="OPEN_LONG_SPREAD",
             computed_at=_utc(),
         )
         assert len(s) <= 64
@@ -89,9 +97,11 @@ class TestPairClOrdId:
 # ── dispatch_pair_order ──────────────────────────────────────────────────────
 
 
-def _mock_transport_router(response_map: dict[str, dict[str, Any]] | None = None,
-                           fail_tickers: set[str] | None = None,
-                           captured: dict[str, Any] | None = None):
+def _mock_transport_router(
+    response_map: dict[str, dict[str, Any]] | None = None,
+    fail_tickers: set[str] | None = None,
+    captured: dict[str, Any] | None = None,
+):
     """
     MockTransport configurável: retorna response baseado no ticker do body,
     ou levanta ConnectError se ticker em fail_tickers.
@@ -248,8 +258,12 @@ class TestDispatchPairOrder:
             result = await dispatch_pair_order(
                 base_url="http://api:8000",
                 pair_key="CMIN3-VALE3",
-                ticker_a="CMIN3", side_a="buy", quantity_a=100,
-                ticker_b="VALE3", side_b="sell", quantity_b=20,
+                ticker_a="CMIN3",
+                side_a="buy",
+                quantity_a=100,
+                ticker_b="VALE3",
+                side_b="sell",
+                quantity_b=20,
                 action="CLOSE",
                 computed_at=_utc(),
             )

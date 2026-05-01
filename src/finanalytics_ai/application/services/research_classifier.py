@@ -343,9 +343,7 @@ class ResearchClassifier:
 
         result = getattr(response, "parsed_output", None)
         if not isinstance(result, ClassificationResult):
-            raise ResearchClassifierError(
-                f"unexpected_parsed_output_type: {type(result)}"
-            )
+            raise ResearchClassifierError(f"unexpected_parsed_output_type: {type(result)}")
         return result
 
 

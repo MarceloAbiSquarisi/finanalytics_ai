@@ -177,9 +177,7 @@ def test_constant_spread_returns_zscore_none() -> None:
     out = evaluate_active_pairs(
         repo=_StubRepo([p]),
         # Spread = A - 0.1 * B = const se A e B sao const proporcionais
-        candles=_StubCandles(
-            {"CMIN3": [10.0] * 70, "VALE3": [100.0] * 70}
-        ),
+        candles=_StubCandles({"CMIN3": [10.0] * 70, "VALE3": [100.0] * 70}),
         position_state=_StubState(),
         n_pairs_tested=28,
     )
@@ -242,7 +240,7 @@ class TestDecisions:
         )
         assert out[0].action == PairAction.OPEN_SHORT_SPREAD
         assert out[0].leg_a_side == "sell"  # vende A
-        assert out[0].leg_b_side == "buy"   # compra B
+        assert out[0].leg_b_side == "buy"  # compra B
         assert out[0].z > 2.0
 
     def test_z_low_negative_opens_long_spread(self) -> None:
@@ -255,7 +253,7 @@ class TestDecisions:
             n_pairs_tested=28,
         )
         assert out[0].action == PairAction.OPEN_LONG_SPREAD
-        assert out[0].leg_a_side == "buy"   # compra A
+        assert out[0].leg_a_side == "buy"  # compra A
         assert out[0].leg_b_side == "sell"  # vende B
 
     def test_short_spread_position_z_exit_closes(self) -> None:

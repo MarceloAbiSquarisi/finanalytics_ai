@@ -38,9 +38,7 @@ class PsycopgPairsRepository:
     def __init__(self, dsn: str) -> None:
         self._dsn = dsn
 
-    def get_active_pairs(
-        self, *, min_test_date: date | None = None
-    ) -> list[ActivePair]:
+    def get_active_pairs(self, *, min_test_date: date | None = None) -> list[ActivePair]:
         if min_test_date is None:
             min_test_date = date.today() - timedelta(days=7)
 
