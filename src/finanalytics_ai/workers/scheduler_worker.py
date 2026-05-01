@@ -116,6 +116,16 @@ SNAPSHOT_SIGNALS_ENABLED = (
 )
 SNAPSHOT_SIGNALS_HOUR = int(os.environ.get("SCHEDULER_SNAPSHOT_SIGNALS_HOUR", "19"))  # 19:00 BRT
 
+# Cointegration screening (R3.1) — re-test diario antes do open. Pares quebram
+# em regime change; PairsTradingStrategy só trada com last_test_date >= today-7d.
+# 06:30 BRT (= 09:30 UTC) folga 3h30 do open. Skip weekend (sem dados novos).
+COINT_SCREEN_ENABLED = (
+    os.environ.get("SCHEDULER_COINT_SCREEN_ENABLED", "true").lower() == "true"
+)
+COINT_SCREEN_HOUR = int(os.environ.get("SCHEDULER_COINT_SCREEN_HOUR", "6"))
+COINT_SCREEN_MIN = int(os.environ.get("SCHEDULER_COINT_SCREEN_MIN", "30"))
+COINT_SCREEN_LOOKBACK = int(os.environ.get("SCHEDULER_COINT_SCREEN_LOOKBACK", "504"))
+
 # ── Logger ────────────────────────────────────────────────────────────────────
 structlog.configure(
     processors=[
@@ -169,11 +179,17 @@ def _record(job: str, status: str) -> None:
 # ── Helpers de tempo ──────────────────────────────────────────────────────────
 
 
-def _next_run_utc(local_hour: int, tz_offset: int = TZ_OFFSET) -> datetime:
-    """Calcula próxima execução em UTC dado um horário local (e.g. 06:00 BRT = 09:00 UTC)."""
+def _next_run_utc(
+    local_hour: int, tz_offset: int = TZ_OFFSET, minute: int = 0
+) -> datetime:
+    """Calcula próxima execução em UTC dado um horário local (e.g. 06:00 BRT = 09:00 UTC).
+
+    minute opcional p/ jobs que precisam slot fora de hora cheia (ex:
+    cointegration_screen 06:30 BRT pra não colidir com macro_job 06:00).
+    """
     now_utc = datetime.now(UTC)
     utc_hour = (local_hour - tz_offset) % 24  # converte para UTC
-    next_run = now_utc.replace(hour=utc_hour, minute=0, second=0, microsecond=0)
+    next_run = now_utc.replace(hour=utc_hour, minute=minute, second=0, microsecond=0)
     if next_run <= now_utc:
         next_run += timedelta(days=1)
     return next_run
@@ -878,6 +894,71 @@ async def crypto_signals_snapshot_job() -> dict[str, Any]:
         return {"status": "error", "error": str(exc)}
 
 
+async def cointegration_screen_job() -> dict[str, Any]:
+    """R3 (01/mai): re-screening diario de pares cointegrados.
+
+    Roda scripts/cointegration_screen.py --persist --lookback N. UPSERT em
+    cointegrated_pairs (Postgres principal). PairsTradingStrategy le essa
+    tabela com filtro last_test_date >= today-7d — sem job, ela nao trada
+    apos 7 dias.
+
+    Skip weekend: sem dados novos, re-test traria os mesmos resultados.
+    """
+    if not _is_weekday():
+        logger.info("scheduler.coint_screen.skip_weekend")
+        return {"status": "skipped_weekend"}
+
+    logger.info("scheduler.coint_screen.start", lookback=COINT_SCREEN_LOOKBACK)
+
+    # DSN pra Timescale (le fintz_cotacoes_ts) — mesmo padrao snapshot_signals_job
+    ts_dsn = os.environ.get("TIMESCALE_URL", "").replace(
+        "postgresql+asyncpg://", "postgresql://"
+    ) or os.environ.get("PROFIT_TIMESCALE_DSN", "")
+
+    # DSN pra Postgres principal (escreve cointegrated_pairs)
+    main_dsn = os.environ.get("DATABASE_URL_SYNC", "")
+    if not main_dsn:
+        main_dsn = os.environ.get("DATABASE_URL", "").replace(
+            "postgresql+asyncpg://", "postgresql://"
+        )
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "python",
+            "/app/scripts/cointegration_screen.py",
+            "--persist",
+            "--lookback",
+            str(COINT_SCREEN_LOOKBACK),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            env={
+                **os.environ,
+                "PROFIT_TIMESCALE_DSN": ts_dsn,
+                "DATABASE_URL_SYNC": main_dsn,
+            },
+        )
+        # Timeout 5min — script processa ~28 pares com queries DB locais; folga
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=300)
+        rc = proc.returncode
+        last_lines = stdout.decode("utf-8", errors="replace").splitlines()[-10:]
+        if rc == 0:
+            logger.info("scheduler.coint_screen.done", tail=last_lines)
+            _record("coint_screen", "ok")
+            return {"status": "ok", "tail": last_lines}
+        logger.warning("scheduler.coint_screen.bad_rc", rc=rc, tail=last_lines)
+        _record("coint_screen", "error")
+        return {"status": "error", "rc": rc, "tail": last_lines}
+
+    except asyncio.TimeoutError:
+        logger.error("scheduler.coint_screen.timeout")
+        _record("coint_screen", "error")
+        return {"status": "error", "reason": "timeout_5min"}
+    except Exception as exc:
+        logger.error("scheduler.coint_screen.failed", error=str(exc), exc_info=True)
+        _record("coint_screen", "error")
+        return {"status": "error", "error": str(exc)}
+
+
 async def snapshot_signals_job() -> dict[str, Any]:
     """Snapshot diario de /api/v1/ml/signals → signal_history.
 
@@ -1331,6 +1412,28 @@ async def schedule_loop() -> None:
 
     if YAHOO_BARS_ENABLED:
         tasks.append(asyncio.create_task(yahoo_bars_loop()))
+
+    async def coint_screen_loop() -> None:
+        # R3 (01/mai): re-screening diario antes do open. 06:30 BRT default
+        # (= 09:30 UTC) — folga 3h30 do open 10h. Skip weekend dentro do job.
+        logger.info(
+            "scheduler.coint_screen.start_loop",
+            hour=COINT_SCREEN_HOUR,
+            min=COINT_SCREEN_MIN,
+        )
+        while True:
+            next_run = _next_run_utc(COINT_SCREEN_HOUR, minute=COINT_SCREEN_MIN)
+            wait = _seconds_until(next_run)
+            logger.info(
+                "scheduler.coint_screen.next",
+                next_utc=next_run.isoformat(),
+                wait_min=round(wait / 60),
+            )
+            await asyncio.sleep(wait)
+            await cointegration_screen_job()
+
+    if COINT_SCREEN_ENABLED:
+        tasks.append(asyncio.create_task(coint_screen_loop()))
 
     async def tick_to_ohlc_backfill_loop() -> None:
         # Backfill diario profit_ticks -> ohlc_1m via continuous aggregate.

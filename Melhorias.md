@@ -164,7 +164,7 @@ Implementação:
   - `/api/v1/pairs/zscores?lookback_days=60` — calcula on-the-fly via `compute_residuals` + `compute_zscore` (funções puras), busca closes via `request.app.state.market_client` (Decisão 20 fallback chain). Retorna `bars_age_days` p/ audit data freshness.
   Auto-refresh 30s, sidebar entry com ícone.
 - 🔲 **R3 smoke live** (próximo pregão): `PAIRS_TRADING_ENABLED=true` + `AUTO_TRADER_DRY_RUN=false`. Pré-req: `cointegration_screen.py --persist --lookback 504` populou `cointegrated_pairs`; `PAIRS_CAPITAL_PER_PAIR=10000` razoável p/ smoke. Validar: `pairs.evaluation` logs cada ciclo, OPEN dispara 2 ordens em `profit_orders` com `cl_ord_id` `pairs:*`, position state atualiza, CLOSE reverte legs corretamente.
-- 🔲 **Operacional**: agendar `cointegration_screen.py --persist --lookback 504` no scheduler 06:30 BRT (antes do open) p/ refresh diário. Pares quebram em regime change — re-test obrigatório.
+- ✅ **Operacional** (01/mai): scheduler job `cointegration_screen_job` agendado 06:30 BRT (= 09:30 UTC) via `coint_screen_loop` em `scheduler_worker.py`. Skip weekend (dentro do job via `_is_weekday`). Env vars: `SCHEDULER_COINT_SCREEN_{ENABLED,HOUR,MIN,LOOKBACK}` (defaults: true / 6 / 30 / 504). Subprocess timeout 5min. Validado live: scheduler container restartado, logs `scheduler.coint_screen.start_loop hour=6 min=30` + `next_utc=2026-05-02T09:30:00+00:00`. Próxima execução real: seg 04/mai 06:30 BRT.
 
 #### R4 — Strategy: Opening Range Breakout WINFUT ⭐⭐ futuros
 **Custo**: ~7-10d. **Payoff**: alto se filtros funcionam (Sharpe ~1.5 documentado em ES, replicável em WIN).
