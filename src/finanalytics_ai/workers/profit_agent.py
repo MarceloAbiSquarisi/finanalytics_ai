@@ -291,238 +291,32 @@ def _kill_zombie_agents(self_pid: int, port: int) -> int:
 # ---------------------------------------------------------------------------
 
 
-class SystemTime(Structure):
-    _fields_ = [
-        ("wYear", c_ushort),
-        ("wMonth", c_ushort),
-        ("wDayOfWeek", c_ushort),
-        ("wDay", c_ushort),
-        ("wHour", c_ushort),
-        ("wMinute", c_ushort),
-        ("wSecond", c_ushort),
-        ("wMilliseconds", c_ushort),
-    ]
-
-
-class TAssetID(Structure):
-    _fields_ = [
-        ("ticker", c_wchar_p),
-        ("bolsa", c_wchar_p),
-        ("feed", c_int),
-    ]
-
-
-class TConnectorAccountIdentifier(Structure):
-    _fields_ = [
-        ("Version", c_ubyte),
-        ("BrokerID", c_int),
-        ("AccountID", c_wchar_p),
-        ("SubAccountID", c_wchar_p),
-        ("Reserved", c_int64),
-    ]
-
-
-class TConnectorAccountIdentifierOut(Structure):
-    _fields_ = [
-        ("Version", c_ubyte),
-        ("BrokerID", c_int),
-        ("AccountID", c_wchar * 100),
-        ("AccountIDLength", c_int),
-        ("SubAccountID", c_wchar * 100),
-        ("SubAccountIDLength", c_int),
-        ("Reserved", c_int64),
-    ]
-
-
-class TConnectorAssetIdentifier(Structure):
-    _fields_ = [
-        ("Version", c_ubyte),
-        ("Ticker", c_wchar_p),
-        ("Exchange", c_wchar_p),
-        ("FeedType", c_ubyte),
-    ]
-
-
-class TConnectorOrderIdentifier(Structure):
-    _fields_ = [
-        ("Version", c_ubyte),
-        ("LocalOrderID", c_int64),
-        ("ClOrderID", c_wchar_p),
-    ]
-
-
-class TConnectorOrder(Structure):
-    """Ordem completa com status — usada no SetOrderCallback e EnumerateOrders."""
-
-    _fields_ = [
-        ("Version", c_ubyte),
-        ("OrderID", TConnectorOrderIdentifier),
-        ("AccountID", TConnectorAccountIdentifier),
-        ("AssetID", TConnectorAssetIdentifier),
-        ("Quantity", c_int64),
-        ("TradedQuantity", c_int64),
-        ("LeavesQuantity", c_int64),
-        ("Price", c_double),
-        ("StopPrice", c_double),
-        ("AveragePrice", c_double),
-        ("OrderSide", c_ubyte),
-        ("OrderType", c_ubyte),
-        ("OrderStatus", c_ubyte),
-        ("ValidityType", c_ubyte),
-    ]
-
-
-class TConnectorTradingAccountPosition(Structure):
-    """Posição consolidada por ativo — populada via callback de posição."""
-
-    _fields_ = [
-        ("Version", c_ubyte),
-        ("AccountID", TConnectorAccountIdentifier),
-        ("AssetID", TConnectorAssetIdentifier),
-        ("OpenQuantity", c_int64),
-        ("OpenAveragePrice", c_double),
-        ("OpenSide", c_ubyte),
-        ("DailyAverageSellPrice", c_double),
-        ("DailySellQuantity", c_int64),
-        ("DailyAverageBuyPrice", c_double),
-        ("DailyBuyQuantity", c_int64),
-        ("DailyQuantityD1", c_int64),
-        ("DailyQuantityD2", c_int64),
-        ("DailyQuantityD3", c_int64),
-        ("DailyQuantityBlocked", c_int64),
-        ("DailyQuantityPending", c_int64),
-        ("DailyQuantityAlloc", c_int64),
-        ("DailyQuantityProvision", c_int64),
-        ("DailyQuantity", c_int64),
-        ("DailyQuantityAvailable", c_int64),
-        ("PositionType", c_ubyte),
-        ("EventID", c_int64),
-    ]
-
-
-# Tipo callback para EnumerateOrders
-TConnectorEnumerateOrdersProc = WINFUNCTYPE(c_bool, POINTER(TConnectorOrder), c_long)
-
-
-class TConnectorSendOrder(Structure):
-    _fields_ = [
-        ("Version", c_ubyte),
-        ("AccountID", TConnectorAccountIdentifier),
-        ("AssetID", TConnectorAssetIdentifier),
-        ("Password", c_wchar_p),
-        ("OrderType", c_ubyte),
-        ("OrderSide", c_ubyte),
-        ("Price", c_double),
-        ("StopPrice", c_double),
-        ("Quantity", c_int64),
-        ("MessageID", c_int64),
-    ]
-
-
-class TConnectorChangeOrder(Structure):
-    _fields_ = [
-        ("Version", c_ubyte),
-        ("AccountID", TConnectorAccountIdentifier),
-        ("OrderID", TConnectorOrderIdentifier),
-        ("Password", c_wchar_p),
-        ("Price", c_double),
-        ("StopPrice", c_double),
-        ("Quantity", c_int64),
-        ("MessageID", c_int64),
-    ]
-
-
-class TConnectorCancelOrder(Structure):
-    _fields_ = [
-        ("Version", c_ubyte),
-        ("AccountID", TConnectorAccountIdentifier),
-        ("OrderID", TConnectorOrderIdentifier),
-        ("Password", c_wchar_p),
-        ("MessageID", c_int64),
-    ]
-
-
-class TConnectorCancelAllOrders(Structure):
-    _fields_ = [
-        ("Version", c_ubyte),
-        ("AccountID", TConnectorAccountIdentifier),
-        ("Password", c_wchar_p),
-    ]
-
-
-class TConnectorZeroPosition(Structure):
-    _fields_ = [
-        ("Version", c_ubyte),
-        ("AccountID", TConnectorAccountIdentifier),
-        ("AssetID", TConnectorAssetIdentifier),
-        ("Password", c_wchar_p),
-        ("Price", c_double),
-        ("PositionType", c_ubyte),
-        ("MessageID", c_int64),
-    ]
-
-
-class TConnectorTrade(Structure):
-    _fields_ = [
-        ("Version", c_ubyte),
-        ("TradeDate", SystemTime),
-        ("TradeNumber", c_uint),
-        ("Price", c_double),
-        ("Quantity", c_longlong),
-        ("Volume", c_double),
-        ("BuyAgent", c_int),
-        ("SellAgent", c_int),
-        ("TradeType", c_ubyte),
-    ]
-
-
-class TConnectorPriceGroup(Structure):
-    _fields_ = [
-        ("Version", c_ubyte),
-        ("Price", c_double),
-        ("Count", c_uint),
-        ("Quantity", c_long),  # c_long = 32-bit no Windows (conforme manual Nelogica)
-        ("PriceGroupFlags", c_uint),
-    ]
-
-
-class TConnectorTradingMessageResult(Structure):
-    """Resultado de uma operacao de roteamento (aceite, rejeicao, fill)."""
-
-    _fields_ = [
-        ("Version", c_ubyte),
-        ("BrokerID", c_int),
-        ("OrderID", TConnectorOrderIdentifier),
-        ("MessageID", c_int64),
-        ("ResultCode", c_ubyte),
-        ("Message", c_wchar_p),
-        ("MessageLength", c_int),
-    ]
-
-
-# Mapa de ResultCode para order_status (convencao FIX parcial)
-
-_TRADING_RESULT_STATUS: dict[int, int] = {
-    # TConnectorTradingMessageResultCode → estágio de roteamento
-    0: 0,  # Starting
-    1: 8,  # NotConnected → rejeitada
-    2: 0,  # SentToHadesProxy
-    3: 8,  # RejectedMercury → rejeitada
-    4: 0,  # SentToHades
-    5: 8,  # RejectedHades → rejeitada
-    6: 0,  # SentToBroker
-    7: 8,  # RejectedBroker → rejeitada
-    8: 0,  # SentToMarket
-    9: 8,  # RejectedMarket → rejeitada
-    10: 0,  # Accepted (pendente no book)
-    24: 8,  # BlockedByRisk → rejeitada
-}
-
-
+# Tipos ctypes movidos pra profit_agent_types.py em 01/mai/2026.
+# Re-export preserva API publica (profit_agent.TConnectorOrder etc. continuam funcionando).
 # Sessão 30/abr: validators puros movidos para profit_agent_validators.py
 # (CI Linux pode testar sem importar ctypes.WINFUNCTYPE Windows-only).
 from finanalytics_ai.infrastructure.market_data.kafka_producer import (  # noqa: E402
     MarketDataProducer,
+)
+from finanalytics_ai.workers.profit_agent_types import (  # noqa: E402, F401
+    _TRADING_RESULT_STATUS,
+    SystemTime,
+    TAssetID,
+    TConnectorAccountIdentifier,
+    TConnectorAccountIdentifierOut,
+    TConnectorAssetIdentifier,
+    TConnectorCancelAllOrders,
+    TConnectorCancelOrder,
+    TConnectorChangeOrder,
+    TConnectorEnumerateOrdersProc,
+    TConnectorOrder,
+    TConnectorOrderIdentifier,
+    TConnectorPriceGroup,
+    TConnectorSendOrder,
+    TConnectorTrade,
+    TConnectorTradingAccountPosition,
+    TConnectorTradingMessageResult,
+    TConnectorZeroPosition,
 )
 from finanalytics_ai.workers.profit_agent_validators import (  # noqa: E402
     compute_trading_result_match,
