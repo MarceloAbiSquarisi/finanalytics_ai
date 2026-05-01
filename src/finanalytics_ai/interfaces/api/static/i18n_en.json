@@ -64,6 +64,8 @@
   "nav.daytrade_setups": "DT Setups",
   "nav.daytrade_risco": "DT Risk",
   "nav.tape": "Tape",
+  "nav.robot": "Robot",
+  "nav.pairs": "Pairs",
   "nav.marketdata": "Market Data",
   "nav.macro": "Macro",
   "nav.fintz": "Fintz",
