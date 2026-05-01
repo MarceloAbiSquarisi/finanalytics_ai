@@ -37,6 +37,11 @@ dependencies = [
     # ── HTTP client ────────────────────────────────────────────────────────
     "aiohttp>=3.9.5",
     "httpx>=0.27.0",
+    # ── LLM (Anthropic SDK) ────────────────────────────────────────────────
+    # Usado por research_classifier (E1) com Haiku 4.5 + prompt caching.
+    # narrative_service.py ainda usa httpx raw com modelo legado — migrar
+    # gradualmente quando tocar nele.
+    "anthropic>=0.40.0",
     # ── Resiliência ────────────────────────────────────────────────────────
     "tenacity>=8.3.0",
     # ── Observabilidade ────────────────────────────────────────────────────
