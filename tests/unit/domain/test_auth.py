@@ -306,6 +306,11 @@ class TestJWTHandler:
 
 # ── Password Hasher ───────────────────────────────────────────────────────────
 
+# Skip toda a classe se bcrypt nao estiver instalado (passlib usa bcrypt como
+# backend default — em CI Linux containers e venvs corrompidos a dep pode
+# faltar e os testes falham com MissingBackendError).
+pytest.importorskip("bcrypt", reason="passlib bcrypt backend required")
+
 
 class TestPasswordHasher:
     @pytest.fixture

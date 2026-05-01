@@ -12,7 +12,7 @@ Todos os testes são offline (sem rede). Yahoo e BRAPI são mockados.
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -277,6 +277,14 @@ class TestCompositeMarketDataClient:
 
     @pytest.mark.asyncio
     async def test_is_healthy_false_if_both_down(self) -> None:
+        """is_healthy retorna False quando todos os providers (incluindo
+        profit_agent via _PROFIT_AGENT_URL) estao indisponiveis.
+
+        Mock httpx.AsyncClient para evitar dependencia de profit_agent local
+        (Decisao 20: is_healthy checa profit_agent antes de yahoo/brapi).
+        Sem mock, em ambiente de dev local com profit_agent NSSM rodando
+        em :8002, o teste falha porque o provider real responde.
+        """
         from finanalytics_ai.infrastructure.adapters.market_data_client import (
             CompositeMarketDataClient,
         )
@@ -288,7 +296,18 @@ class TestCompositeMarketDataClient:
         yahoo.is_healthy = AsyncMock(return_value=False)
         yahoo.close = AsyncMock()
         c = CompositeMarketDataClient(brapi, yahoo)
-        assert await c.is_healthy() is False
+
+        # Mock httpx.AsyncClient pra forcar exception no fetch profit_agent
+        import httpx
+
+        mock_client_ctx = AsyncMock()
+        mock_client_ctx.__aenter__ = AsyncMock(side_effect=httpx.ConnectError("mocked"))
+        mock_client_ctx.__aexit__ = AsyncMock(return_value=False)
+        with patch(
+            "finanalytics_ai.infrastructure.adapters.market_data_client.httpx.AsyncClient",
+            return_value=mock_client_ctx,
+        ):
+            assert await c.is_healthy() is False
 
     @pytest.mark.asyncio
     async def test_close_calls_both(self) -> None:
