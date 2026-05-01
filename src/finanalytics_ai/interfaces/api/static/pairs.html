@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pairs — FinAnalytics AI</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<meta name="robots" content="noindex, nofollow">
+<script>(function(){try{var t=localStorage.getItem('fa_theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script>
+<link rel="stylesheet" href="/static/theme.css">
+<style>
+:root{--bg:#080b10;--s1:#0d1117;--s2:#111822;--s3:#0e1520;--border:#1c2535;
+  --text:#cdd6e0;--muted:#7a8a99;--gold:#F0B429;--green:#00e676;--red:#ff3d5a;
+  --accent:#3ABFF8;--purple:#a855f7}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;
+  font-size:15px;min-height:100vh}
+main{max-width:1280px;margin:0 auto;padding:18px}
+.page-title{font-family:monospace;font-size:24px;font-weight:600;color:var(--text);
+  letter-spacing:.04em;margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--muted);font-family:monospace;margin-bottom:18px}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:8px;
+  padding:14px 18px;margin-bottom:14px}
+.card-title{font-family:monospace;font-size:13px;font-weight:600;color:#7a95b0;
+  text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
+
+table{width:100%;border-collapse:collapse;font-family:monospace;font-size:13px}
+thead{background:rgba(58,191,248,.05);border-bottom:1px solid var(--border)}
+thead th{padding:8px 10px;text-align:left;color:#7a95b0;text-transform:uppercase;
+  letter-spacing:.05em;font-size:11px;font-weight:600}
+tbody td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.03)}
+tbody tr:hover{background:rgba(58,191,248,.04)}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+
+.pos-LONG_SPREAD{color:var(--green);font-weight:bold}
+.pos-SHORT_SPREAD{color:var(--red);font-weight:bold}
+.pos-NONE{color:var(--muted)}
+.coint-good{color:var(--green)}
+.coint-marginal{color:var(--gold)}
+.coint-borderline{color:var(--muted)}
+
+.live-pill{display:inline-block;background:rgba(0,230,118,.1);
+  border:1px solid var(--green);color:var(--green);padding:2px 8px;
+  border-radius:3px;font-size:11px;font-family:monospace;letter-spacing:.05em}
+.live-pill::before{content:'';display:inline-block;width:6px;height:6px;
+  border-radius:50%;background:var(--green);margin-right:5px;
+  animation:livePulse 1.8s ease-in-out infinite;vertical-align:middle}
+@keyframes livePulse{50%{opacity:.3}}
+
+.empty-state{padding:40px;text-align:center;color:var(--muted);font-family:monospace}
+</style>
+</head>
+<body>
+<div class="fa-topbar" style="height:52px;background:var(--s1);
+  border-bottom:1px solid var(--border);display:flex;align-items:center;
+  gap:12px;padding:0 16px;position:sticky;top:0;z-index:300">
+  <a href="/dashboard" style="font-family:monospace;font-size:17px;font-weight:600;
+    color:var(--text);text-decoration:none">FinAnalytics <span style="color:var(--gold)">AI</span></a>
+  <span style="font-size:14px;font-weight:600;color:#7a95b0;letter-spacing:.06em;
+    margin-left:8px;border-left:1px solid #1c2535;padding-left:12px">Pairs</span>
+  <span class="live-pill" id="liveBadge" style="margin-left:auto">auto-refresh 30s</span>
+</div>
+
+<main>
+  <div class="page-title">Pairs Trading</div>
+  <div class="page-sub">R3 — pares cointegrados B3 + posições do PairsTradingStrategy (read-only)</div>
+
+  <!-- POSIÇÕES ABERTAS -->
+  <div class="card">
+    <div class="card-title">Posições Abertas</div>
+    <div id="positionsTable">
+      <div class="empty-state">Carregando...</div>
+    </div>
+  </div>
+
+  <!-- PARES ATIVOS -->
+  <div class="card">
+    <div class="card-title">Pares Cointegrados Ativos</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">
+      <span class="coint-good">●</span> p &lt; 0.001 (Bonferroni 50 pares)
+      &nbsp;
+      <span class="coint-marginal">●</span> p &lt; 0.01
+      &nbsp;
+      <span class="coint-borderline">●</span> p &lt; 0.05
+    </div>
+    <div id="pairsTable">
+      <div class="empty-state">Carregando...</div>
+    </div>
+  </div>
+
+  <div class="card" style="font-size:12px;color:var(--muted)">
+    <div class="card-title">Notas operacionais</div>
+    <ul style="padding-left:20px;line-height:1.7">
+      <li>Pares são re-testados diariamente via <code>scripts/cointegration_screen.py</code> (ideal: scheduler 06:30 BRT antes do open).</li>
+      <li>Cointegração quebra em regime change — half-life entre 5-30 dias é o sweet spot tradeable.</li>
+      <li>R3.2.B.3 persiste posições em <code>robot_pair_positions</code>; sobrevive restart do worker.</li>
+      <li>Z-score em tempo real ainda não exposto neste UI — vem em iteração futura.</li>
+    </ul>
+  </div>
+</main>
+
+<script>
+async function fetchJSON(url) {
+  const r = await fetch(url, {credentials: 'include'});
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  return r.json();
+}
+
+function renderPositions(positions) {
+  const c = document.getElementById('positionsTable');
+  if (!positions || positions.length === 0) {
+    c.innerHTML = '<div class="empty-state">Nenhuma posição aberta</div>';
+    return;
+  }
+  c.innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Par</th><th>Posição</th><th>Aberta em</th><th>Last cl_ord_id</th>
+      </tr></thead>
+      <tbody>
+        ${positions.map(p => `
+          <tr>
+            <td><strong>${p.pair_key}</strong></td>
+            <td class="pos-${p.position}">${p.position}</td>
+            <td>${new Date(p.opened_at).toLocaleString('pt-BR')}</td>
+            <td style="font-size:11px;color:var(--muted)">${p.last_dispatch_cl_ord_id || '—'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function classifyP(p) {
+  if (p < 0.001) return 'coint-good';
+  if (p < 0.01) return 'coint-marginal';
+  return 'coint-borderline';
+}
+
+function renderPairs(pairs) {
+  const c = document.getElementById('pairsTable');
+  if (!pairs || pairs.length === 0) {
+    c.innerHTML = '<div class="empty-state">Sem pares ativos. Rode <code>scripts/cointegration_screen.py --persist</code> primeiro.</div>';
+    return;
+  }
+  c.innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Par</th><th class="num">β</th><th class="num">ρ</th>
+        <th class="num">p-ADF</th><th class="num">half-life</th>
+        <th class="num">lookback</th><th>last test</th><th>posição</th>
+      </tr></thead>
+      <tbody>
+        ${pairs.map(p => `
+          <tr>
+            <td><strong>${p.ticker_a}</strong>—<strong>${p.ticker_b}</strong></td>
+            <td class="num">${p.beta.toFixed(4)}</td>
+            <td class="num">${p.rho.toFixed(3)}</td>
+            <td class="num ${classifyP(p.p_value_adf)}">${p.p_value_adf.toFixed(4)}</td>
+            <td class="num">${p.half_life ? p.half_life.toFixed(1) + 'd' : '—'}</td>
+            <td class="num">${p.lookback_days}d</td>
+            <td>${p.last_test_date}</td>
+            <td class="pos-${p.position || 'NONE'}">${p.position || '—'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+async function load() {
+  try {
+    const [positions, pairs] = await Promise.all([
+      fetchJSON('/api/v1/pairs/positions'),
+      fetchJSON('/api/v1/pairs/active'),
+    ]);
+    renderPositions(positions);
+    renderPairs(pairs);
+  } catch (e) {
+    document.getElementById('positionsTable').innerHTML = `<div class="empty-state" style="color:var(--red)">Erro: ${e.message}</div>`;
+    document.getElementById('pairsTable').innerHTML = `<div class="empty-state" style="color:var(--red)">Erro: ${e.message}</div>`;
+  }
+}
+
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>
