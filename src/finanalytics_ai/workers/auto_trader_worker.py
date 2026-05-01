@@ -404,22 +404,13 @@ async def _evaluate_strategies(iteration: int) -> None:
             )
 
 
-# ── Pairs trading helpers (R3.2.B.2) ─────────────────────────────────────────
+# ── Pairs trading helpers (R3.2.B.3) ─────────────────────────────────────────
 #
-# Mantemos in-memory dict de posicoes — sobrevive vida do processo, NAO
-# sobrevive restart. R3.3+ adicionara robot_pair_positions table p/ persistir.
-# Pratica: smoke live -> validar -> tabela.
-
-_pair_positions: dict[str, Any] = {}  # pair_key -> PairPosition
-
-
-class _InMemoryPositionState:
-    """Adapter para o PositionState Protocol."""
-
-    def get(self, pair_key: str):
-        from finanalytics_ai.domain.pairs import PairPosition
-
-        return _pair_positions.get(pair_key, PairPosition.NONE)
+# Posições persistidas em robot_pair_positions (Postgres principal, Alembic 0024).
+# PsycopgPairPositionsRepository.get() satisfaz o PositionState Protocol direto —
+# sem adapter intermediário. Sobrevive restart NSSM/container. Worker
+# instancia o repo dentro de _evaluate_pairs (cada ciclo abre conexão psycopg2
+# fresh — mesmo padrão do `is_paused()`/`fetch_enabled_strategies()`).
 
 
 class _HttpCandleFetcher:
@@ -475,6 +466,9 @@ async def _evaluate_pairs(iteration: int) -> None:
         evaluate_active_pairs,
     )
     from finanalytics_ai.domain.pairs import PairAction, PairPosition
+    from finanalytics_ai.infrastructure.database.repositories.pair_positions_repository import (
+        PsycopgPairPositionsRepository,
+    )
     from finanalytics_ai.infrastructure.database.repositories.pairs_repository import (
         PsycopgPairsRepository,
     )
@@ -482,7 +476,10 @@ async def _evaluate_pairs(iteration: int) -> None:
 
     repo = PsycopgPairsRepository(PAIRS_DSN)
     candles = _HttpCandleFetcher(API_BASE_URL)
-    pos_state = _InMemoryPositionState()
+    # PsycopgPairPositionsRepository.get() satisfaz PositionState Protocol
+    # direto — leitura e escrita via robot_pair_positions (Alembic 0024).
+    positions_repo = PsycopgPairPositionsRepository(PAIRS_DSN)
+    pos_state = positions_repo
 
     try:
         evaluations = evaluate_active_pairs(
@@ -595,20 +592,39 @@ async def _evaluate_pairs(iteration: int) -> None:
             continue
 
         if result.get("ok"):
-            # Update in-memory position
-            if ev.action == PairAction.OPEN_SHORT_SPREAD:
-                _pair_positions[pair_key] = PairPosition.SHORT_SPREAD
-            elif ev.action == PairAction.OPEN_LONG_SPREAD:
-                _pair_positions[pair_key] = PairPosition.LONG_SPREAD
-            elif ev.action in (PairAction.CLOSE, PairAction.STOP):
-                _pair_positions.pop(pair_key, None)
+            # Persist position state em robot_pair_positions (R3.2.B.3).
+            # OPEN -> upsert com cl_a (cl_ord_id do leg_a) p/ audit; CLOSE/STOP
+            # -> delete da row.
+            new_pos_value = "NONE"
+            try:
+                if ev.action == PairAction.OPEN_SHORT_SPREAD:
+                    positions_repo.upsert(
+                        pair_key,
+                        PairPosition.SHORT_SPREAD,
+                        last_cl_ord_id=result.get("cl_a"),
+                    )
+                    new_pos_value = "SHORT_SPREAD"
+                elif ev.action == PairAction.OPEN_LONG_SPREAD:
+                    positions_repo.upsert(
+                        pair_key,
+                        PairPosition.LONG_SPREAD,
+                        last_cl_ord_id=result.get("cl_a"),
+                    )
+                    new_pos_value = "LONG_SPREAD"
+                elif ev.action in (PairAction.CLOSE, PairAction.STOP):
+                    positions_repo.delete(pair_key)
+            except Exception as exc:
+                logger.error(
+                    "pairs.position_state_persist_failed",
+                    pair_key=pair_key,
+                    action=ev.action.value,
+                    error=str(exc),
+                )
             logger.info(
                 "pairs.dispatched",
                 pair_key=pair_key,
                 action=ev.action.value,
-                new_position=_pair_positions.get(pair_key, PairPosition.NONE).value
-                if hasattr(_pair_positions.get(pair_key, PairPosition.NONE), "value")
-                else "NONE",
+                new_position=new_pos_value,
             )
 
 
