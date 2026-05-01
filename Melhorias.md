@@ -438,7 +438,7 @@ docker compose up -d api worker worker_v2
   - Editar `profit_agent.py` pra bind em `0.0.0.0:8002` (mais limpo, mais permanente, mas expõe :8002 na LAN — OK p/ uso pessoal)
   - `netsh interface portproxy add v4tov4 listenport=8002 listenaddress=0.0.0.0 connectport=8002 connectaddress=127.0.0.1` (admin Windows uma vez, persiste após reboot)
   - Config IP estático WSL2 (`.wslconfig` networkingMode=mirrored) — testar mas pode quebrar outras coisas
-- 🔲 **Pendência paralela do rollback**: imagens Docker `finanalytics-ai:latest` e `finanalytics-worker:latest` foram buildadas há ~24h (antes dos commits R1.5/R2/R3.1/R3.2/E1.1 de hoje). Container entrypoint roda `alembic upgrade` mas as migrations 0021/0022/0023/ts_0004 não estão na imagem. Workaround temporário: `docker cp` das 4 migrations no container running. **Permanente**: rebuild via `docker compose build api worker` (falhou hoje em pip install torch+prophet — precisa investigar antes do smoke 2ª).
+- ✅ **Pendência paralela** (resolvida 01/mai): imagens `finanalytics-ai:latest` e `finanalytics-worker:latest` foram rebuildadas pra incluir migrations 0021/0022/0023/ts_0004. **Diagnóstico**: build COM cache funciona (~5min), build `--no-cache` falhou transient em pip install torch+prophet (re-download 2GB) — não é bug do Dockerfile, só network glitch ocasional. Para futuras falhas similares: re-tentar build SEM `--no-cache` antes de investigar fundo. Containers api/worker/scheduler/ohlc_ingestor recreated com nova imagem; `/api/v1/agent/health = {"ok":true}` validado.
 - 🔲 **Fase B.2** (defer): migrar volumes 1 a 1 de `/mnt/e/` pra `~/finanalytics/data/` ext4. Postgres 35GB → ~10min. Timescale 182GB → ~45min. Faz sentido quando ingestão de ticks live for prioridade.
 
 
