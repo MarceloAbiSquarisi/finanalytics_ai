@@ -30,11 +30,23 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 import numpy as np
 import psycopg2
-from pydantic import BaseModel, Field
 
 from finanalytics_ai.observability.logging import get_logger
 
 log = get_logger(__name__)
+
+# Schemas movidos pra predict_mvp_schemas.py em 01/mai/2026.
+from finanalytics_ai.interfaces.api.routes.predict_mvp_schemas import (
+    CalibrationInfo,
+    ChangeItem,
+    EnsembleHorizonItem,
+    EnsembleResponse,
+    HistoryItem,
+    MLMetrics,
+    PredictResponse,
+    SignalItem,
+    SignalsResponse,
+)
 
 router = APIRouter(prefix="/api/v1/ml", tags=["ML Probabilistico"])
 
@@ -89,40 +101,6 @@ RF_FEATURES_AVAILABLE = {
     "fra_1y2y",
     "fra_2y5y",
 }
-
-
-class CalibrationInfo(BaseModel):
-    th_buy: float
-    th_sell: float
-    horizon_days: int
-    best_sharpe: float | None = None
-    best_return_pct: float | None = None
-    best_trades: int | None = None
-    best_win_rate: float | None = None
-    calibrated_at: str | None = None
-
-
-class PredictResponse(BaseModel):
-    model_config = {"protected_namespaces": ()}
-
-    ticker: str
-    reference_date: date
-    predicted_log_return: float = Field(..., description="log(close[t+1]/close[t])")
-    predicted_return_pct: float = Field(..., description="(exp(log_ret) - 1) * 100")
-    model_file: str
-    model_trained_at: str | None = None
-    model_metrics: dict[str, Any] | None = None
-    features_used: dict[str, Any]
-    signal: str | None = Field(None, description="BUY | SELL | HOLD | None (se sem calibração)")
-    signal_method: str | None = Field(
-        None,
-        description=(
-            "scaled_linear_1d: th_buy/th_sell calibrados em horizon_days "
-            "(ex 21d) divididos por horizon_days para comparação com "
-            "prediction 1d — aproximação de primeira ordem"
-        ),
-    )
-    calibration: CalibrationInfo | None = None
 
 
 def _find_latest_pickle(ticker: str, prefer_horizon: int | None = None) -> tuple[Path, dict] | None:
@@ -375,34 +353,6 @@ async def predict_mvp(ticker: str) -> PredictResponse:
 # ─── /signals batch ────────────────────────────────────────────────────────
 
 
-class SignalItem(BaseModel):
-    ticker: str
-    asset_class: str | None = None
-    signal: str | None = None
-    predicted_log_return: float | None = None
-    predicted_return_pct: float | None = None
-    reference_date: date | None = None
-    th_buy: float | None = None
-    th_sell: float | None = None
-    horizon_days: int | None = None
-    best_sharpe: float | None = None
-    # N5b (28/abr): fundamentals FII (dy_ttm em %, p_vp adimensional). Vem
-    # do snapshot mais recente em fii_fundamentals para asset_class='fii'.
-    # null para acoes/ETFs (nao aplica).
-    dy_ttm: float | None = None
-    p_vp: float | None = None
-    error: str | None = None
-
-
-class SignalsResponse(BaseModel):
-    count: int
-    buy: int
-    sell: int
-    hold: int
-    errors: int
-    items: list[SignalItem]
-
-
 def _load_all_calibrations(
     dsn: str,
     min_sharpe: float | None,
@@ -604,28 +554,6 @@ async def signals_batch(
 # ─── /signal_history ──────────────────────────────────────────────────────
 
 
-class HistoryItem(BaseModel):
-    snapshot_date: date
-    ticker: str
-    signal: str
-    predicted_log_return: float | None = None
-    predicted_return_pct: float | None = None
-    th_buy: float | None = None
-    th_sell: float | None = None
-    horizon_days: int | None = None
-    best_sharpe: float | None = None
-    signal_method: str | None = None
-
-
-class ChangeItem(BaseModel):
-    ticker: str
-    snapshot_date: date
-    prev_signal: str | None = None
-    curr_signal: str
-    prev_date: date | None = None
-    best_sharpe: float | None = None
-
-
 @router.get("/signal_history", response_model=list[HistoryItem])
 async def signal_history(
     ticker: str | None = Query(None, description="Filtra por ticker"),
@@ -734,24 +662,6 @@ async def signal_history_changes(
 # ─── /metrics — saude do pipeline ML (Sprint V2, 21/abr) ──────────────────
 
 
-class MLMetrics(BaseModel):
-    config_count: int = Field(..., description="Linhas em ticker_ml_config")
-    pickle_count: int = Field(..., description="Pickles MVP h21 disponiveis em models/")
-    drift_count: int = Field(..., description="Tickers calibrados sem pickle (config - pickle)")
-    drift_tickers: list[str] = Field(default_factory=list, description="Ate 10 tickers em drift")
-    last_calibration_at: str | None = Field(
-        None, description="ticker_ml_config.MAX(updated_at) ISO"
-    )
-    last_snapshot_at: str | None = Field(None, description="signal_history.MAX(snapshot_date) ISO")
-    snapshot_age_days: int | None = Field(None, description="Dias desde o ultimo snapshot")
-    latest_pickle_age_days: int | None = Field(
-        None, description="Idade do pickle mais recente em models/"
-    )
-    signals_24h: dict[str, int] = Field(
-        default_factory=dict, description="Contagem BUY/SELL/HOLD nas ultimas 24h em signal_history"
-    )
-
-
 @router.get("/metrics", response_model=MLMetrics)
 async def ml_metrics() -> MLMetrics:
     """Saude do pipeline ML — drift de modelos, freshness de calibracao
@@ -837,29 +747,6 @@ async def ml_metrics() -> MLMetrics:
 
 
 # ─── /predict_ensemble — multi-horizon ensemble (Sprint Z4, 21/abr) ──────
-
-
-class EnsembleHorizonItem(BaseModel):
-    horizon_days: int
-    model_file: str
-    predicted_log_return: float
-    predicted_return_pct: float
-    weight: float = Field(..., description="Peso usado no ensemble (sharpe-based ou uniform)")
-    sharpe: float | None = None
-
-
-class EnsembleResponse(BaseModel):
-    ticker: str
-    reference_date: date
-    ensemble_log_return: float
-    ensemble_return_pct: float
-    weighting: str = Field(
-        ..., description="'sharpe' se todos models tem sharpe; 'uniform' caso contrario"
-    )
-    horizons: list[EnsembleHorizonItem]
-    signal: str | None = None
-    signal_method: str | None = None
-    calibration: CalibrationInfo | None = None
 
 
 def _find_all_pickles(ticker: str) -> list[tuple[Path, dict]]:
