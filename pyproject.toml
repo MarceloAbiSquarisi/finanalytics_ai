@@ -25,6 +25,11 @@ dependencies = [
     # ── Cache / Messaging ──────────────────────────────────────────────────
     "redis>=5.0.3",
     "aiokafka>=0.10.0",
+    # confluent-kafka: producer sync para hot path do profit_agent (ticks B3).
+    # Usamos aiokafka para event bus async e confluent-kafka onde a thread
+    # do callback DLL precisa de produce sync sem bridge async.
+    "confluent-kafka>=2.4.0",
+    "fastavro>=1.9.0",                # Avro serializer (schema C1)
     # ── Validation / Settings ──────────────────────────────────────────────
     "pydantic>=2.7.0",
     "pydantic-settings>=2.2.0",
