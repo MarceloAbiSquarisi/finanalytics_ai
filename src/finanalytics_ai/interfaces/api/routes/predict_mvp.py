@@ -216,7 +216,13 @@ def _signal_from_prediction(
 
 
 def _load_latest_features(ticker: str, dsn: str, features: list[str]) -> dict[str, Any] | None:
-    """Lê última linha de features_daily_full (JOIN técnicas + RF)."""
+    """Lê última linha de features_daily_full (JOIN técnicas + RF).
+
+    Para chamadas batch (signals_batch), prefira `_load_latest_features_bulk`
+    que faz 1 query DISTINCT ON em vez de N queries — corrige o gargalo de
+    /api/v1/ml/signals que travava em 200 conexões serializadas (descoberto
+    01/mai/2026 durante smoke pre-validation).
+    """
     cols = ", ".join(features)
     with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
         cur.execute(
@@ -232,6 +238,39 @@ def _load_latest_features(ticker: str, dsn: str, features: list[str]) -> dict[st
         v = row[i]
         d[f] = float(v) if v is not None else None
     return d
+
+
+def _load_latest_features_bulk(
+    tickers: list[str], dsn: str, features: list[str]
+) -> dict[str, dict[str, Any]]:
+    """Bulk fetch pra batch endpoints. 1 query DISTINCT ON em vez de N
+    conexões serializadas. Retorna {ticker_upper: {dia, feature_1, ...}}.
+
+    Tickers sem row no features_daily_full ficam ausentes do dict
+    (caller checa via `bulk.get(t)` e cai no fallback per-ticker se quiser).
+    """
+    if not tickers or not features:
+        return {}
+    cols = ", ".join(features)
+    upper = [t.upper() for t in tickers]
+    sql = (
+        f"SELECT DISTINCT ON (ticker) ticker, dia, {cols} "
+        "FROM features_daily_full "
+        "WHERE ticker = ANY(%s) "
+        "ORDER BY ticker, dia DESC"
+    )
+    out: dict[str, dict[str, Any]] = {}
+    with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute(sql, (upper,))
+        rows = cur.fetchall()
+    for row in rows:
+        ticker = row[0]
+        d: dict[str, Any] = {"dia": row[1]}
+        for i, f in enumerate(features, 2):
+            v = row[i]
+            d[f] = float(v) if v is not None else None
+        out[ticker] = d
+    return out
 
 
 @router.get("/predict_mvp/{ticker}", response_model=PredictResponse)
@@ -450,6 +489,33 @@ async def signals_batch(
     counts = {"BUY": 0, "SELL": 0, "HOLD": 0}
     errors = 0
 
+    # Pré-pass: identifica pickle de cada ticker + coleta union de features
+    # pra fazer 1 bulk query em features_daily_full em vez de N queries
+    # (fix gargalo /api/v1/ml/signals 30s+ com 200 tickers — 01/mai).
+    pickles_by_ticker: dict[str, tuple[Path, dict]] = {}
+    feature_union: set[str] = set()
+    for cfg in configs:
+        t = cfg["ticker"]
+        pkl_info = _find_latest_pickle(t, prefer_horizon=cfg["horizon_days"])
+        if pkl_info is not None:
+            pickles_by_ticker[t] = pkl_info
+            feature_union.update(pkl_info[1].get("features") or FEATURES_DEFAULT)
+
+    # Fallback se nenhum pickle: ainda faz query com defaults (caller pode ter
+    # filtrado, mas evita crash em mapping vazio).
+    if not feature_union:
+        feature_union = set(FEATURES_DEFAULT)
+
+    bulk_features: dict[str, dict[str, Any]] = {}
+    if pickles_by_ticker:
+        try:
+            bulk_features = _load_latest_features_bulk(
+                list(pickles_by_ticker.keys()), dsn, sorted(feature_union)
+            )
+        except Exception as exc:
+            log.warning("signals_batch.bulk_features_failed", error=str(exc))
+            bulk_features = {}
+
     for cfg in configs:
         t = cfg["ticker"]
         fund = fundamentals_map.get(t, {})
@@ -463,7 +529,7 @@ async def signals_batch(
             dy_ttm=fund.get("dy_ttm"),
             p_vp=fund.get("p_vp"),
         )
-        pkl_info = _find_latest_pickle(t, prefer_horizon=cfg["horizon_days"])
+        pkl_info = pickles_by_ticker.get(t)
         if pkl_info is None:
             base.error = "no_model"
             items.append(base)
@@ -484,13 +550,17 @@ async def signals_batch(
                 continue
         model, _meta, _pkl_path = model_cache[t]
 
-        try:
-            feats = _load_latest_features(t, dsn, features)
-        except Exception as exc:
-            base.error = f"features_fail:{type(exc).__name__}"
-            items.append(base)
-            errors += 1
-            continue
+        # Pega features do bulk; fallback per-ticker so se nao apareceu (ex:
+        # bulk falhou ou ticker nao tem row em features_daily_full).
+        feats = bulk_features.get(t)
+        if feats is None:
+            try:
+                feats = _load_latest_features(t, dsn, features)
+            except Exception as exc:
+                base.error = f"features_fail:{type(exc).__name__}"
+                items.append(base)
+                errors += 1
+                continue
         if feats is None:
             base.error = "no_features"
             items.append(base)
