@@ -39,6 +39,18 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
 .coint-marginal{color:var(--gold)}
 .coint-borderline{color:var(--muted)}
 
+/* Z-score colors: |z|>stop = vermelho forte, |z|>entry = laranja (entry zone),
+   |z|<exit = verde (mean reversion zone), entre exit e entry = neutro */
+.z-stop{color:var(--red);font-weight:bold;background:rgba(255,61,90,.1);
+  padding:1px 6px;border-radius:3px}
+.z-entry{color:var(--gold);font-weight:bold}
+.z-exit{color:var(--green)}
+.z-neutral{color:var(--muted)}
+.z-na{color:var(--muted);font-style:italic}
+
+.bars-age-stale{color:var(--gold)}
+.bars-age-fresh{color:var(--muted)}
+
 .live-pill{display:inline-block;background:rgba(0,230,118,.1);
   border:1px solid var(--green);color:var(--green);padding:2px 8px;
   border-radius:3px;font-size:11px;font-family:monospace;letter-spacing:.05em}
@@ -70,6 +82,23 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
     <div class="card-title">Posições Abertas</div>
     <div id="positionsTable">
       <div class="empty-state">Carregando...</div>
+    </div>
+  </div>
+
+  <!-- Z-SCORES REAL-TIME -->
+  <div class="card">
+    <div class="card-title">Z-Score atual (lookback 60d)</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">
+      <span class="z-exit">●</span> |z|&lt;0.5 (mean reversion)
+      &nbsp;
+      <span class="z-neutral">●</span> 0.5≤|z|&lt;2 (banda neutra)
+      &nbsp;
+      <span class="z-entry">●</span> 2≤|z|&lt;4 (zona de entrada)
+      &nbsp;
+      <span class="z-stop">●</span> |z|≥4 (stop)
+    </div>
+    <div id="zscoresTable">
+      <div class="empty-state">Carregando z-scores...</div>
     </div>
   </div>
 
@@ -137,6 +166,52 @@ function classifyP(p) {
   return 'coint-borderline';
 }
 
+function classifyZ(z, entry, exit_, stop) {
+  if (z === null || z === undefined) return 'z-na';
+  const a = Math.abs(z);
+  if (a >= stop) return 'z-stop';
+  if (a >= entry) return 'z-entry';
+  if (a < exit_) return 'z-exit';
+  return 'z-neutral';
+}
+
+function renderZscores(rows) {
+  const c = document.getElementById('zscoresTable');
+  if (!rows || rows.length === 0) {
+    c.innerHTML = '<div class="empty-state">Sem pares ativos pra calcular z-score.</div>';
+    return;
+  }
+  c.innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Par</th><th class="num">β</th><th class="num">z</th>
+        <th class="num">spread</th><th class="num">μ</th><th class="num">σ</th>
+        <th class="num">N</th><th>data</th><th>nota</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(r => {
+          const cls = classifyZ(r.z, r.z_entry, r.z_exit, r.z_stop);
+          const zStr = r.z !== null ? r.z.toFixed(2) : '—';
+          const ageCls = (r.bars_age_days !== null && r.bars_age_days > 1) ? 'bars-age-stale' : 'bars-age-fresh';
+          return `
+            <tr>
+              <td><strong>${r.ticker_a}</strong>—<strong>${r.ticker_b}</strong></td>
+              <td class="num">${r.beta.toFixed(4)}</td>
+              <td class="num ${cls}">${zStr}</td>
+              <td class="num">${r.current_spread !== null ? r.current_spread.toFixed(3) : '—'}</td>
+              <td class="num">${r.spread_mean !== null ? r.spread_mean.toFixed(3) : '—'}</td>
+              <td class="num">${r.spread_std !== null ? r.spread_std.toFixed(3) : '—'}</td>
+              <td class="num">${r.history_size}</td>
+              <td class="${ageCls}">${r.bars_age_days !== null ? r.bars_age_days + 'd' : '—'}</td>
+              <td style="font-size:11px;color:var(--muted)">${r.reason_skipped || '—'}</td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
 function renderPairs(pairs) {
   const c = document.getElementById('pairsTable');
   if (!pairs || pairs.length === 0) {
@@ -170,15 +245,18 @@ function renderPairs(pairs) {
 
 async function load() {
   try {
-    const [positions, pairs] = await Promise.all([
+    const [positions, pairs, zscores] = await Promise.all([
       fetchJSON('/api/v1/pairs/positions'),
       fetchJSON('/api/v1/pairs/active'),
+      fetchJSON('/api/v1/pairs/zscores').catch(e => { console.warn('zscores fail', e); return []; }),
     ]);
     renderPositions(positions);
     renderPairs(pairs);
+    renderZscores(zscores);
   } catch (e) {
     document.getElementById('positionsTable').innerHTML = `<div class="empty-state" style="color:var(--red)">Erro: ${e.message}</div>`;
     document.getElementById('pairsTable').innerHTML = `<div class="empty-state" style="color:var(--red)">Erro: ${e.message}</div>`;
+    document.getElementById('zscoresTable').innerHTML = `<div class="empty-state" style="color:var(--red)">Erro: ${e.message}</div>`;
   }
 }
 

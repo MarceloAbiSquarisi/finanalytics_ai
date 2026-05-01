@@ -12,11 +12,18 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 import structlog
 
 from finanalytics_ai.domain.auth.entities import User
+from finanalytics_ai.domain.pairs.cointegration import compute_residuals
+from finanalytics_ai.domain.pairs.strategy_logic import (
+    DEFAULT_Z_ENTRY,
+    DEFAULT_Z_EXIT,
+    DEFAULT_Z_STOP,
+    compute_zscore,
+)
 from finanalytics_ai.interfaces.api.dependencies import get_current_user
 
 logger = structlog.get_logger(__name__)
@@ -72,6 +79,25 @@ class PositionOut(BaseModel):
     last_dispatch_cl_ord_id: str | None
 
 
+class ZScoreOut(BaseModel):
+    pair_key: str
+    ticker_a: str
+    ticker_b: str
+    beta: float
+    z: float | None  # None quando série degenerada (std=0) ou bars insuficientes
+    current_spread: float | None
+    spread_mean: float | None
+    spread_std: float | None
+    history_size: int
+    bars_age_days: int | None  # gap entre last bar e hoje (data freshness)
+    reason_skipped: str | None  # populado se z=None (debug)
+    # Limiares de referência (mesmo do PairsTradingStrategy default — UI usa
+    # pra colorir verde/amarelo/vermelho)
+    z_entry: float = DEFAULT_Z_ENTRY
+    z_exit: float = DEFAULT_Z_EXIT
+    z_stop: float = DEFAULT_Z_STOP
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 
@@ -117,6 +143,186 @@ async def list_active_pairs(
         )
         for (a, b, beta, rho, p_adf, hl, lb, ltd, pos) in rows
     ]
+
+
+@router.get("/zscores", response_model=list[ZScoreOut])
+async def list_zscores(
+    request: Request,
+    lookback_days: int = Query(60, ge=20, le=252, description="Janela do Z-score"),
+    _user: User = Depends(get_current_user),
+) -> list[ZScoreOut]:
+    """
+    Z-score atual de cada par cointegrado ativo. Calcula on-the-fly:
+      1. Lê ativos de cointegrated_pairs (mesmos filtros que /active)
+      2. Para cada par, fetch closes 1y de A e B via market_client (DB → Yahoo → BRAPI)
+      3. Alinha pelo N comum, calcula spread = A - beta * B
+      4. spread_history = todos menos último, current_spread = último
+      5. z = (current - mean) / std
+
+    Mesma janela default (60d) que o worker em PairsServiceConfig. Caller
+    pode customizar via ?lookback_days= entre 20 e 252.
+
+    Datapoints retornados:
+      - z = None se bars insuficientes ou std degenerado (reason_skipped explica)
+      - bars_age_days = gap entre last bar e hoje (audit data freshness)
+    """
+    market = getattr(request.app.state, "market_client", None)
+    if market is None:
+        raise HTTPException(503, "market_client indisponivel")
+
+    sql = """
+        SELECT ticker_a, ticker_b, beta
+          FROM cointegrated_pairs
+         WHERE cointegrated = TRUE
+         ORDER BY p_value_adf ASC
+    """
+    try:
+        with _conn() as conn, conn.cursor() as cur:
+            cur.execute(sql)
+            pairs = cur.fetchall()
+    except Exception as exc:
+        logger.error("pairs.zscores.db_error", error=str(exc))
+        raise HTTPException(503, f"Erro acessando pairs DB: {exc}") from exc
+
+    n_needed = lookback_days + 5  # buffer p/ alinhamento + 1 ponto current
+    out: list[ZScoreOut] = []
+    from datetime import UTC, datetime
+
+    today = datetime.now(UTC).date()
+
+    for ticker_a, ticker_b, beta in pairs:
+        beta = float(beta)
+        try:
+            bars_a = await market.get_ohlc_bars(ticker_a, range_period="1y")
+            bars_b = await market.get_ohlc_bars(ticker_b, range_period="1y")
+        except Exception as exc:
+            logger.warning(
+                "pairs.zscores.fetch_failed",
+                pair=f"{ticker_a}-{ticker_b}",
+                error=str(exc),
+            )
+            out.append(
+                ZScoreOut(
+                    pair_key=f"{ticker_a}-{ticker_b}",
+                    ticker_a=ticker_a,
+                    ticker_b=ticker_b,
+                    beta=beta,
+                    z=None,
+                    current_spread=None,
+                    spread_mean=None,
+                    spread_std=None,
+                    history_size=0,
+                    bars_age_days=None,
+                    reason_skipped=f"fetch_failed: {exc}",
+                )
+            )
+            continue
+
+        if not bars_a or not bars_b:
+            out.append(
+                ZScoreOut(
+                    pair_key=f"{ticker_a}-{ticker_b}",
+                    ticker_a=ticker_a,
+                    ticker_b=ticker_b,
+                    beta=beta,
+                    z=None,
+                    current_spread=None,
+                    spread_mean=None,
+                    spread_std=None,
+                    history_size=0,
+                    bars_age_days=None,
+                    reason_skipped="no_bars",
+                )
+            )
+            continue
+
+        # Alinha pelo N comum mais recente
+        n = min(len(bars_a), len(bars_b), n_needed)
+        if n < lookback_days + 1:
+            out.append(
+                ZScoreOut(
+                    pair_key=f"{ticker_a}-{ticker_b}",
+                    ticker_a=ticker_a,
+                    ticker_b=ticker_b,
+                    beta=beta,
+                    z=None,
+                    current_spread=None,
+                    spread_mean=None,
+                    spread_std=None,
+                    history_size=n - 1 if n > 0 else 0,
+                    bars_age_days=None,
+                    reason_skipped=f"insufficient_bars ({n} < {lookback_days + 1})",
+                )
+            )
+            continue
+
+        ca = [float(b["close"]) for b in bars_a[-n:] if b.get("close")]
+        cb = [float(b["close"]) for b in bars_b[-n:] if b.get("close")]
+        n_aligned = min(len(ca), len(cb))
+        ca = ca[-n_aligned:]
+        cb = cb[-n_aligned:]
+
+        residuals = compute_residuals(ca, cb, beta)
+        spread_history = list(residuals[:-1])
+        current_spread = float(residuals[-1])
+        z = compute_zscore(spread_history, current_spread)
+
+        # Audit data freshness
+        bars_age = None
+        try:
+            last_bar = bars_a[-1]
+            ts = last_bar.get("time") or last_bar.get("date")
+            if ts is not None:
+                if isinstance(ts, int | float):
+                    last_date = datetime.fromtimestamp(int(ts), UTC).date()
+                else:
+                    last_date = datetime.fromisoformat(str(ts).replace("Z", "+00:00")).date()
+                bars_age = (today - last_date).days
+        except Exception:
+            pass
+
+        if z is None:
+            out.append(
+                ZScoreOut(
+                    pair_key=f"{ticker_a}-{ticker_b}",
+                    ticker_a=ticker_a,
+                    ticker_b=ticker_b,
+                    beta=beta,
+                    z=None,
+                    current_spread=current_spread,
+                    spread_mean=None,
+                    spread_std=None,
+                    history_size=len(spread_history),
+                    bars_age_days=bars_age,
+                    reason_skipped="zscore_undefined (std degenerado)",
+                )
+            )
+            continue
+
+        spread_mean = sum(spread_history) / len(spread_history)
+        # variance estimator com ddof=1 (mesmo do compute_zscore)
+        var = sum((s - spread_mean) ** 2 for s in spread_history) / max(
+            1, len(spread_history) - 1
+        )
+        spread_std = var**0.5
+
+        out.append(
+            ZScoreOut(
+                pair_key=f"{ticker_a}-{ticker_b}",
+                ticker_a=ticker_a,
+                ticker_b=ticker_b,
+                beta=beta,
+                z=z,
+                current_spread=current_spread,
+                spread_mean=spread_mean,
+                spread_std=spread_std,
+                history_size=len(spread_history),
+                bars_age_days=bars_age,
+                reason_skipped=None,
+            )
+        )
+
+    return out
 
 
 @router.get("/positions", response_model=list[PositionOut])
