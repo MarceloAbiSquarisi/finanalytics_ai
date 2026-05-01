@@ -59,6 +59,16 @@ class Settings(BaseSettings):
     timescale_pool_size: int = Field(default=10, ge=1, le=50)
     timescale_max_overflow: int = Field(default=20, ge=0)
 
+    # ── Trading-engine (read-only via role trading_engine_reader) ───────────
+    # Aponta pro mesmo cluster do `database_url` mas com role read-only no
+    # schema `trading_engine_orders`. None = UI de trading desabilitada.
+    trading_engine_reader_url: PostgresDsn | None = Field(
+        default=None,
+        description="URL read-only pro schema trading_engine_orders. None = desabilitado.",
+    )
+    trading_engine_pool_size: int = Field(default=5, ge=1, le=20)
+    trading_engine_max_overflow: int = Field(default=10, ge=0)
+
     # ── Segurança ───────────────────────────────────────────────────────────
     app_secret_key: str = Field(default=..., min_length=16)
 

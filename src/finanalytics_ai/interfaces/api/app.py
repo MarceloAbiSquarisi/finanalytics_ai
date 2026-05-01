@@ -679,6 +679,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception:
         pass
     await close_engine()
+    try:
+        from finanalytics_ai.infrastructure.database.connection_trading import (
+            close_trading_engine,
+        )
+
+        await close_trading_engine()
+    except Exception:
+        pass
     logger.info("api.stopped")
 
 
@@ -766,6 +774,14 @@ def create_app() -> FastAPI:
     except Exception as _fae:
         logger.warning("fundos_analytics.router.FAILED", error=str(_fae))
     app.include_router(backtest.router, tags=["Backtest"])
+
+    try:
+        from finanalytics_ai.interfaces.api.routes import trading_engine as trading_engine_routes
+
+        app.include_router(trading_engine_routes.router)
+        logger.info("trading_engine.router.ok")
+    except Exception as _te:
+        logger.warning("trading_engine.router.SKIP", error=str(_te))
 
     try:
         from finanalytics_ai.interfaces.api.routes import import_route
@@ -1252,6 +1268,10 @@ def create_app() -> FastAPI:
     @app.get("/tape", response_class=HTMLResponse, include_in_schema=False)
     async def serve_tape() -> HTMLResponse:
         return _html("tape.html")
+
+    @app.get("/trade-engine", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_trade_engine() -> HTMLResponse:
+        return _html("trade-engine.html")
 
     @app.get("/whatsapp", response_class=HTMLResponse, include_in_schema=False)
     async def serve_whatsapp() -> HTMLResponse:
