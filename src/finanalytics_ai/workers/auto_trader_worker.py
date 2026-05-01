@@ -66,6 +66,14 @@ DSN = os.environ.get(
 # Heartbeat a cada N iteracoes (debug "worker vivo" no signals_log)
 HEARTBEAT_EVERY = int(os.environ.get("AUTO_TRADER_HEARTBEAT_EVERY", "5"))
 
+# ── Pairs trading (R3.2.B.2) ─────────────────────────────────────────────────
+PAIRS_ENABLED = os.environ.get("PAIRS_TRADING_ENABLED", "false").lower() == "true"
+# Capital alocado por pair trade (split em 2 legs aproximadamente iguais).
+PAIRS_CAPITAL_PER_PAIR = float(os.environ.get("PAIRS_CAPITAL_PER_PAIR", "10000"))
+# Lookback de testes feitos no ultimo screening (Bonferroni alpha_eff).
+# Default 28 = combinacoes de 8 tickers da watchlist do scripts/cointegration_screen.
+PAIRS_N_TESTED = int(os.environ.get("PAIRS_N_TESTED", "28"))
+
 
 # ── Tipos / Protocol ──────────────────────────────────────────────────────────
 
@@ -379,6 +387,218 @@ async def _evaluate_strategies(iteration: int) -> None:
             )
 
 
+# ── Pairs trading helpers (R3.2.B.2) ─────────────────────────────────────────
+#
+# Mantemos in-memory dict de posicoes — sobrevive vida do processo, NAO
+# sobrevive restart. R3.3+ adicionara robot_pair_positions table p/ persistir.
+# Pratica: smoke live -> validar -> tabela.
+
+_pair_positions: dict[str, Any] = {}  # pair_key -> PairPosition
+
+
+class _InMemoryPositionState:
+    """Adapter para o PositionState Protocol."""
+
+    def get(self, pair_key: str):
+        from finanalytics_ai.domain.pairs import PairPosition
+
+        return _pair_positions.get(pair_key, PairPosition.NONE)
+
+
+class _HttpCandleFetcher:
+    """CandleFetcher Protocol via /api/v1/marketdata/candles/{ticker}."""
+
+    def __init__(self, base_url: str) -> None:
+        self._base_url = base_url
+
+    def fetch_closes(self, ticker: str, n: int) -> list[float] | None:
+        import httpx
+
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                r = client.get(
+                    f"{self._base_url}/api/v1/marketdata/candles/{ticker}",
+                    params={"range_period": "1y"},
+                )
+                r.raise_for_status()
+                data = r.json()
+            bars = data.get("bars") or data.get("candles") or []
+            closes = [float(b["close"]) for b in bars if b.get("close")]
+            return closes[-n:] if closes else None
+        except Exception as exc:
+            logger.warning(
+                "pairs.candle_fetch_failed", ticker=ticker, error=str(exc)
+            )
+            return None
+
+
+def _compute_leg_quantities(
+    *, capital: float, price_a: float, price_b: float
+) -> tuple[int, int]:
+    """
+    Aloca metade do capital em cada leg (dollar-neutral approx).
+    qty_a = floor((capital/2) / price_a). Mesma logica p/ B.
+    Retorna (0, 0) se inputs invalidos.
+    """
+    if capital <= 0 or price_a <= 0 or price_b <= 0:
+        return (0, 0)
+    half = capital / 2.0
+    qty_a = int(half // price_a)
+    qty_b = int(half // price_b)
+    return (qty_a, qty_b)
+
+
+async def _evaluate_pairs(iteration: int) -> None:
+    """
+    Avalia pares cointegrados ativos e dispara dual-leg dispatch quando
+    Z-score cruza thresholds. Apenas em pregao real (DRY_RUN=false) e
+    PAIRS_ENABLED=true.
+    """
+    if not PAIRS_ENABLED:
+        return
+
+    # Imports diferidos p/ nao impactar boot quando desabilitado
+    from finanalytics_ai.application.services.pairs_trading_service import (
+        evaluate_active_pairs,
+    )
+    from finanalytics_ai.domain.pairs import PairAction, PairPosition
+    from finanalytics_ai.infrastructure.database.repositories.pairs_repository import (
+        PsycopgPairsRepository,
+    )
+    from finanalytics_ai.workers.auto_trader_dispatcher import dispatch_pair_order
+
+    repo = PsycopgPairsRepository(DSN)
+    candles = _HttpCandleFetcher(API_BASE_URL)
+    pos_state = _InMemoryPositionState()
+
+    try:
+        evaluations = evaluate_active_pairs(
+            repo=repo,
+            candles=candles,
+            position_state=pos_state,
+            n_pairs_tested=PAIRS_N_TESTED,
+        )
+    except Exception as exc:
+        logger.error("pairs.evaluate_failed", error=str(exc))
+        return
+
+    if not evaluations:
+        if iteration % HEARTBEAT_EVERY == 0:
+            logger.info("pairs.no_active_pairs")
+        return
+
+    for ev in evaluations:
+        # SEMPRE log a evaluation pra audit (mesmo NONE)
+        logger.info(
+            "pairs.evaluation",
+            pair_key=ev.snapshot.get("pair_key"),
+            action=ev.action.value,
+            z=ev.z,
+            reason=ev.reason,
+            blocked=ev.blocked_by_filter,
+        )
+
+        if ev.action == PairAction.NONE:
+            continue
+
+        if DRY_RUN:
+            logger.info("pairs.dry_run_skip_dispatch", action=ev.action.value)
+            continue
+
+        pair_key = ev.snapshot.get("pair_key", "")
+
+        # Para CLOSE/STOP, leg sides invertem a posicao corrente
+        if ev.action in (PairAction.CLOSE, PairAction.STOP):
+            if ev.current_position == PairPosition.SHORT_SPREAD:
+                # Era short A + long B; reverte: buy A + sell B
+                side_a, side_b = "buy", "sell"
+            elif ev.current_position == PairPosition.LONG_SPREAD:
+                side_a, side_b = "sell", "buy"
+            else:
+                logger.warning(
+                    "pairs.close_without_position",
+                    pair_key=pair_key,
+                    current_position=ev.current_position.value,
+                )
+                continue
+        else:
+            # OPEN_*: leg_a_side e leg_b_side ja vem populados pelo service
+            side_a = ev.leg_a_side or ""
+            side_b = ev.leg_b_side or ""
+            if not side_a or not side_b:
+                logger.error("pairs.open_missing_legs", pair_key=pair_key)
+                continue
+
+        # Position sizing precisa preco corrente — usa ultimo close das candles
+        # (caching naive mas suficiente p/ MVP — orderbook real fica em R3.2.B.3+)
+        closes_a = candles.fetch_closes(ev.pair.ticker_a, 1) or []
+        closes_b = candles.fetch_closes(ev.pair.ticker_b, 1) or []
+        if not closes_a or not closes_b:
+            logger.error("pairs.dispatch_skip_missing_price", pair_key=pair_key)
+            continue
+        price_a, price_b = closes_a[-1], closes_b[-1]
+        qty_a, qty_b = _compute_leg_quantities(
+            capital=PAIRS_CAPITAL_PER_PAIR, price_a=price_a, price_b=price_b
+        )
+        if qty_a == 0 or qty_b == 0:
+            logger.warning(
+                "pairs.dispatch_skip_zero_qty",
+                pair_key=pair_key,
+                qty_a=qty_a,
+                qty_b=qty_b,
+            )
+            continue
+
+        # Dispatch dual-leg
+        try:
+            result = await dispatch_pair_order(
+                base_url=API_BASE_URL,
+                pair_key=pair_key,
+                ticker_a=ev.pair.ticker_a,
+                side_a=side_a,
+                quantity_a=qty_a,
+                ticker_b=ev.pair.ticker_b,
+                side_b=side_b,
+                quantity_b=qty_b,
+                action=ev.action.value,
+                env=TRADE_ENV,
+            )
+        except Exception as exc:
+            logger.error(
+                "pairs.dispatch_exception",
+                pair_key=pair_key,
+                error=str(exc),
+            )
+            continue
+
+        if result.get("naked_leg"):
+            logger.error(
+                "pairs.naked_leg_alert",
+                pair_key=pair_key,
+                naked_leg=result["naked_leg"],
+                error=result.get("error"),
+            )
+            # Nao atualiza state — caller manual deve tratar
+            continue
+
+        if result.get("ok"):
+            # Update in-memory position
+            if ev.action == PairAction.OPEN_SHORT_SPREAD:
+                _pair_positions[pair_key] = PairPosition.SHORT_SPREAD
+            elif ev.action == PairAction.OPEN_LONG_SPREAD:
+                _pair_positions[pair_key] = PairPosition.LONG_SPREAD
+            elif ev.action in (PairAction.CLOSE, PairAction.STOP):
+                _pair_positions.pop(pair_key, None)
+            logger.info(
+                "pairs.dispatched",
+                pair_key=pair_key,
+                action=ev.action.value,
+                new_position=_pair_positions.get(pair_key, PairPosition.NONE).value
+                if hasattr(_pair_positions.get(pair_key, PairPosition.NONE), "value")
+                else "NONE",
+            )
+
+
 async def main() -> int:
     if not ENABLED:
         logger.info("auto_trader.disabled_via_env")
@@ -410,6 +630,14 @@ async def main() -> int:
             await _evaluate_strategies(iteration)
         except Exception as exc:
             logger.error("auto_trader.loop_iteration_failed", error=str(exc))
+
+        # Pairs trading flow (gated separadamente — pode rodar isolado das
+        # strategies per-ticker pra debug)
+        try:
+            await _evaluate_pairs(iteration)
+        except Exception as exc:
+            logger.error("auto_trader.pairs_iteration_failed", error=str(exc))
+
         try:
             await asyncio.sleep(INTERVAL_SEC)
         except asyncio.CancelledError:

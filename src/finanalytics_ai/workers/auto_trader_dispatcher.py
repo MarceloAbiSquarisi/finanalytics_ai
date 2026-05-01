@@ -333,3 +333,131 @@ async def dispatch_order(
         "cl_ord_id": cl_ord_id,
         "send_response": send_resp,
     }
+
+
+# ── Pair dispatcher (R3.2.B.2) ───────────────────────────────────────────────
+
+
+def make_pair_cl_ord_id(
+    *,
+    pair_key: str,
+    leg: str,
+    action: str,
+    computed_at: datetime | None = None,
+) -> str:
+    """
+    Identificador deterministico p/ legs de um pair trade.
+
+    Format: pairs:{pair_key}:{leg}:{action}:{minuto_iso}
+    Ex: pairs:CMIN3-VALE3:a:OPEN:2026-05-01T12:35
+
+    leg = 'a' ou 'b'. Mesma minuto -> mesmo cl_ord_id (idempotencia).
+    """
+    ts = computed_at or datetime.now(UTC)
+    minute = ts.replace(second=0, microsecond=0).isoformat()
+    raw = f"pairs:{pair_key}:{leg}:{action}:{minute}"
+    if len(raw) <= 64:
+        return raw
+    return "pairs:" + hashlib.sha256(raw.encode()).hexdigest()[:48]
+
+
+async def dispatch_pair_order(
+    *,
+    base_url: str,
+    pair_key: str,         # 'CMIN3-VALE3'
+    ticker_a: str,
+    side_a: str,           # 'buy'|'sell'
+    quantity_a: float,
+    ticker_b: str,
+    side_b: str,
+    quantity_b: float,
+    action: str,           # 'OPEN_SHORT'|'OPEN_LONG'|'CLOSE'|'STOP'
+    is_daytrade: bool = True,
+    env: str = "simulation",
+    timeout_sec: float = ORDER_TIMEOUT_SEC,
+    computed_at: datetime | None = None,
+) -> dict[str, Any]:
+    """
+    Dispara 2 ordens de mercado simultaneas (long A + short B ou inverso).
+
+    SEM intent persistence aqui — pairs flow tem proprio audit. Strategy
+    no worker deve registrar em robot_signals_log antes de chamar; legs
+    persistem em profit_orders normalmente via callback DLL (cl_ord_id
+    permite reconcile depois).
+
+    Retorna {ok, leg_a, leg_b, naked_leg?}.
+      ok=True quando AMBAS as legs aceitas pelo proxy.
+      ok=False com naked_leg='a'|'b' indica leg fillable -> alerta caller.
+
+    Naked leg risk handling: se leg_b falha apos leg_a sucesso, NAO
+    tentamos rollback automatico (cancel pode falhar tambem -> caos).
+    Caller deve emitir alert (Pushover) p/ revisao manual.
+    """
+    cl_a = make_pair_cl_ord_id(
+        pair_key=pair_key, leg="a", action=action, computed_at=computed_at
+    )
+    cl_b = make_pair_cl_ord_id(
+        pair_key=pair_key, leg="b", action=action, computed_at=computed_at
+    )
+
+    log = logger.bind(pair_key=pair_key, action=action, cl_a=cl_a, cl_b=cl_b)
+
+    # 1. Leg A
+    try:
+        resp_a = await post_order(
+            base_url=base_url,
+            side=side_a,
+            ticker=ticker_a,
+            quantity=quantity_a,
+            price=None,
+            order_type="market",
+            cl_ord_id=cl_a,
+            is_daytrade=is_daytrade,
+            env=env,
+            timeout_sec=timeout_sec,
+        )
+    except Exception as exc:
+        log.error("pair_dispatch.leg_a_failed", error=str(exc))
+        return {
+            "ok": False,
+            "naked_leg": None,  # nenhuma leg foi enviada -> sem risco naked
+            "error": f"leg_a_failed: {exc}",
+            "cl_a": cl_a,
+            "cl_b": cl_b,
+        }
+
+    log.info("pair_dispatch.leg_a_ok", local_order_id=resp_a.get("local_order_id"))
+
+    # 2. Leg B
+    try:
+        resp_b = await post_order(
+            base_url=base_url,
+            side=side_b,
+            ticker=ticker_b,
+            quantity=quantity_b,
+            price=None,
+            order_type="market",
+            cl_ord_id=cl_b,
+            is_daytrade=is_daytrade,
+            env=env,
+            timeout_sec=timeout_sec,
+        )
+    except Exception as exc:
+        log.error("pair_dispatch.leg_b_failed_NAKED", error=str(exc))
+        return {
+            "ok": False,
+            "naked_leg": "a",  # leg A executou, leg B falhou -> NAKED
+            "error": f"leg_b_failed: {exc}",
+            "cl_a": cl_a,
+            "cl_b": cl_b,
+            "leg_a": resp_a,
+        }
+
+    log.info("pair_dispatch.both_legs_ok", local_order_id=resp_b.get("local_order_id"))
+    return {
+        "ok": True,
+        "leg_a": resp_a,
+        "leg_b": resp_b,
+        "cl_a": cl_a,
+        "cl_b": cl_b,
+    }
