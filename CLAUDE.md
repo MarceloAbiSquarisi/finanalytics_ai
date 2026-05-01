@@ -4,6 +4,8 @@
 Sistema de análise financeira com DayTrade via ProfitDLL (Nelogica).
 Stack: FastAPI :8000 (Docker) + profit_agent :8002 (Windows host) + TimescaleDB :5433 + Redis.
 
+**Runtime Docker (desde 01/mai/2026)**: rodando em **Docker Engine direto em WSL2 Ubuntu-22.04** (não Docker Desktop). Migração I1 Fase B.1 completa — volumes mantidos em `/mnt/e/finanalytics_data/` (Fase B.2 = mover pra ext4 nativo defer). Dockerd ouve TCP 127.0.0.1:2375; `docker context wsl-engine` ativo no PowerShell. Docker Desktop continua instalado no host como fallback (`docker context use default`).
+
 ## Hardware
 
 | Componente | Configuração |
@@ -54,10 +56,16 @@ D:\Projetos\finanalytics_ai_fresh\
 
 | Serviço | Porta | Onde roda |
 |---------|-------|-----------|
-| FastAPI (finanalytics_api) | :8000 | Docker container |
-| profit_agent | :8002 | Windows host (NSSM service `FinAnalyticsAgent`) |
-| TimescaleDB | :5433 | Docker container |
-| Redis | :6379 | Docker container |
+| FastAPI (finanalytics_api) | :8000 | Docker container (Engine WSL2) |
+| profit_agent | :8002 | Windows host (NSSM service `FinAnalyticsAgent`) — bind `0.0.0.0:8002` desde 01/mai (env `PROFIT_AGENT_BIND` p/ override) |
+| TimescaleDB | :5433 | Docker container (Engine WSL2) |
+| Redis | :6379 | Docker container (Engine WSL2) |
+| dockerd (WSL2) | :2375 (loopback) | WSL Ubuntu-22.04 systemd service |
+
+**Network bridges relevantes**:
+- WSL2 gateway (= IP do Windows host visto de dentro do WSL): `172.17.80.1` (estável dentro de uma sessão; verificar com `wsl -d Ubuntu-22.04 -- ip route show default` após `wsl --shutdown` ou reboot Windows)
+- `docker-compose.wsl.yml` mapeia `host.docker.internal:172.17.80.1` direto (o `:host-gateway` do Engine WSL2 puro resolve pra docker bridge interna `172.18.0.1`, não pro Windows host)
+- Firewall Windows tem regra inbound TCP 8002 da subnet `172.17.80.0/20` (`Get-NetFirewallRule | Where-Object DisplayName -eq "Profit Agent WSL Inbound"`)
 
 ## Credenciais de Dev (.env)
 ```
@@ -78,6 +86,20 @@ Roda como serviço NSSM `FinAnalyticsAgent`. Para restart preferir `/agent/resta
 ```powershell
 cd D:\Projetos\finanalytics_ai_fresh
 .venv\Scripts\python.exe src\finanalytics_ai\workers\profit_agent.py
+```
+
+### Subir/parar a stack completa (Engine WSL2)
+Sempre passar os 3 compose files (main + override + wsl):
+```powershell
+# Up (de dentro do projeto, qualquer shell — docker context = wsl-engine)
+$env:DATA_DIR_HOST="/mnt/e/finanalytics_data"
+docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.wsl.yml up -d
+
+# Down
+docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.wsl.yml down
+
+# Trocar pra Docker Desktop fallback (não tem volumes — só pra debug)
+docker context use default
 ```
 
 ### Deploy no container (sem rebuild)
@@ -394,6 +416,25 @@ Origem: ticks em `market_history_trades` mostram escala /100 intermitente. `ohlc
 4. Se voltar a aparecer escala mista, regenerar via `populate_daily_bars.py --ticker $T --source 1m` após `DELETE FROM profit_daily_bars WHERE ticker=$T`. Não tentar "patch in place".
 
 Runbook detalhado: `docs/runbook_profit_daily_bars_scale.md`.
+
+### Decisão 22 — Docker runtime: Engine direto em WSL2 (não Docker Desktop)
+Origem: Docker Desktop morre quando user faz logoff Windows; setup precisa rodar 24/7. Engine WSL2 com systemd é independente de sessão.
+
+**Regras vinculantes:**
+1. **Runtime canônico**: Docker Engine 29.4.2 dentro de Ubuntu-22.04 WSL2 (`systemctl is-active docker` = active). Volumes em `/mnt/e/finanalytics_data/` (ainda NTFS via 9P; ext4 nativo é Fase B.2 defer).
+2. **PowerShell**: `docker context use wsl-engine` apontando pra `tcp://127.0.0.1:2375`. Default context (`default`/Docker Desktop) só pra debug emergencial.
+3. **profit_agent bind 0.0.0.0:8002** desde 01/mai (era 127.0.0.1) — Engine WSL2 puro precisa pra alcançar via WSL gateway. Override via env `PROFIT_AGENT_BIND` se quiser restringir.
+4. **`docker-compose.wsl.yml` é OBRIGATÓRIO** ao subir a stack — converte paths NTFS `E:/` pra `/mnt/e/`, mapeia `host.docker.internal:172.17.80.1` (não `:host-gateway` — esse resolve pra docker bridge interna em Engine WSL2 puro).
+5. **Firewall Windows** tem regra `Profit Agent WSL Inbound` permitindo TCP 8002 da subnet `172.17.80.0/20`. Se WSL gateway IP mudar (após `wsl --shutdown` ou reboot), atualizar regra **e** o `docker-compose.wsl.yml`.
+6. **Smoke test após qualquer mudança de stack**:
+   ```powershell
+   docker context show  # wsl-engine
+   docker ps  # 17 containers
+   curl http://localhost:8000/api/v1/agent/health  # {"ok":true}
+   ```
+7. **Imagens stale**: rebuilds via `docker compose build api worker` (~5min com cache). NÃO usar `--no-cache` casual — pode falhar transient em pip install torch+prophet (2GB re-download).
+
+Histórico: I1 Fase A done 01/mai (commit `ab0ea8b`). Fase B.1 cutover live 01/mai (commit `950ac35`).
 
 ## Observabilidade
 
