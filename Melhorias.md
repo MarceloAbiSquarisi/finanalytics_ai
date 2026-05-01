@@ -434,7 +434,13 @@ docker compose up -d api worker worker_v2
 #### I1 — Migrar Docker Desktop → Docker Engine direto via WSL2 🔄 EM ANDAMENTO 01/mai
 **Status (01/mai/2026)**:
 - ✅ **Fase A** concluída: Docker Engine 29.4.2 + Compose Plugin instalados em Ubuntu-22.04 WSL2 com systemd. NVIDIA Container Toolkit 1.19.0 configurado. Validações passaram: hello-world OK, GPU passthrough OK (2x RTX 4090 listadas, mapeamento PCIe 01:00.0/08:00.0 idêntico ao validado em Decisão 15). Comportamento `nvidia-smi` listar 2 GPUs mesmo com `CUDA_VISIBLE_DEVICES=0` é peculiaridade conhecida (CLAUDE.md), isolamento real continua via libs CUDA.
-- 🟡 **Fase B.1** (parcialmente concluída, rollback feito 01/mai): cutover bem sucedido no plano "containers up + volumes preservados" — 17 containers subiram em Engine WSL2 lendo de `/mnt/e/finanalytics_data/`, todas DBs mantiveram dados (28 cointegrated_pairs, 884 fintz tickers). Override em `docker-compose.wsl.yml` versionado p/ próxima tentativa. **BLOQUEADOR descoberto**: `host.docker.internal:host-gateway` no Engine WSL2 puro resolve pra IP da bridge Docker (ex `172.18.0.1`), não pro Windows host. **Fix aplicado 01/mai (commit pendente)**: `profit_agent.py` bind agora `0.0.0.0:8002` por default (override via `PROFIT_AGENT_BIND` env). Compatível com Docker Desktop **e** Engine WSL2. Pendente: restart NSSM `FinAnalyticsAgent` (admin) pra ativar.
+- ✅ **Fase B.1 destravada** (01/mai): bloqueador `host.docker.internal:host-gateway` resolvido em 2 mudanças complementares:
+  1. `profit_agent.py` bind `0.0.0.0:8002` por default (env `PROFIT_AGENT_BIND` p/ override). Funciona em Docker Desktop **e** Engine WSL2. NSSM service restartado.
+  2. Regra firewall Windows inbound permitindo TCP 8002 de `172.17.80.0/20` (subnet WSL):
+     ```powershell
+     New-NetFirewallRule -DisplayName "Profit Agent WSL Inbound" -Direction Inbound -LocalPort 8002 -Protocol TCP -Action Allow -RemoteAddress 172.17.80.0/20 -Profile Any
+     ```
+  Validado: WSL `curl http://172.17.80.1:8002/health` → `{"ok":true}` ✅. Cutover B.1 reaplicável a qualquer momento — `docker-compose.wsl.yml` já versionado.
 - ✅ **Pendência paralela** (resolvida 01/mai): imagens `finanalytics-ai:latest` e `finanalytics-worker:latest` foram rebuildadas pra incluir migrations 0021/0022/0023/ts_0004. **Diagnóstico**: build COM cache funciona (~5min), build `--no-cache` falhou transient em pip install torch+prophet (re-download 2GB) — não é bug do Dockerfile, só network glitch ocasional. Para futuras falhas similares: re-tentar build SEM `--no-cache` antes de investigar fundo. Containers api/worker/scheduler/ohlc_ingestor recreated com nova imagem; `/api/v1/agent/health = {"ok":true}` validado.
 - 🔲 **Fase B.2** (defer): migrar volumes 1 a 1 de `/mnt/e/` pra `~/finanalytics/data/` ext4. Postgres 35GB → ~10min. Timescale 182GB → ~45min. Faz sentido quando ingestão de ticks live for prioridade.
 
