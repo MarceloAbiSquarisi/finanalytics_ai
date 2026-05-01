@@ -6943,8 +6943,15 @@ class ProfitAgent:
 
         from http.server import ThreadingHTTPServer
 
-        server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+        # Bind configurável via PROFIT_AGENT_BIND (default 0.0.0.0 desde 01/mai/2026
+        # — necessário pro Engine WSL2 puro alcançar host:8002. Antes era
+        # 127.0.0.1 hardcoded; Docker Desktop fazia magica VPNkit que resolvia.
+        # Pra restringir a localhost only (ambiente sem WSL ou paranoia), set
+        # PROFIT_AGENT_BIND=127.0.0.1 no env do NSSM service.
+        bind_host = os.getenv("PROFIT_AGENT_BIND", "0.0.0.0")
+        server = ThreadingHTTPServer((bind_host, port), Handler)
 
+        log.info("http_server.bound host=%s port=%d", bind_host, port)
         server.serve_forever()
 
     # ------------------------------------------------------------------
