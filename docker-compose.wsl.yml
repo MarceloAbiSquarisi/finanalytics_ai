@@ -65,24 +65,54 @@ services:
   #    host-gateway. Engine WSL2 não auto-resolve host.docker.internal.
   api:
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      # IP DIRETO do WSL gateway (= Windows host) em vez de host-gateway:
+      # em Engine WSL2 puro, host-gateway resolve pra docker bridge interna
+      # (172.18.0.1), nao pro Windows host. WSL gateway e' estavel dentro
+      # de uma sessao WSL mas pode mudar apos `wsl --shutdown` ou reboot
+      # Windows. Verifique com: wsl -d Ubuntu-22.04 -- ip route show default
+      - "host.docker.internal:172.17.80.1"
 
   worker:
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      # IP DIRETO do WSL gateway (= Windows host) em vez de host-gateway:
+      # em Engine WSL2 puro, host-gateway resolve pra docker bridge interna
+      # (172.18.0.1), nao pro Windows host. WSL gateway e' estavel dentro
+      # de uma sessao WSL mas pode mudar apos `wsl --shutdown` ou reboot
+      # Windows. Verifique com: wsl -d Ubuntu-22.04 -- ip route show default
+      - "host.docker.internal:172.17.80.1"
 
   scheduler:
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      # IP DIRETO do WSL gateway (= Windows host) em vez de host-gateway:
+      # em Engine WSL2 puro, host-gateway resolve pra docker bridge interna
+      # (172.18.0.1), nao pro Windows host. WSL gateway e' estavel dentro
+      # de uma sessao WSL mas pode mudar apos `wsl --shutdown` ou reboot
+      # Windows. Verifique com: wsl -d Ubuntu-22.04 -- ip route show default
+      - "host.docker.internal:172.17.80.1"
 
   ohlc_ingestor:
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      # IP DIRETO do WSL gateway (= Windows host) em vez de host-gateway:
+      # em Engine WSL2 puro, host-gateway resolve pra docker bridge interna
+      # (172.18.0.1), nao pro Windows host. WSL gateway e' estavel dentro
+      # de uma sessao WSL mas pode mudar apos `wsl --shutdown` ou reboot
+      # Windows. Verifique com: wsl -d Ubuntu-22.04 -- ip route show default
+      - "host.docker.internal:172.17.80.1"
 
   fintz_sync_worker:
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      # IP DIRETO do WSL gateway (= Windows host) em vez de host-gateway:
+      # em Engine WSL2 puro, host-gateway resolve pra docker bridge interna
+      # (172.18.0.1), nao pro Windows host. WSL gateway e' estavel dentro
+      # de uma sessao WSL mas pode mudar apos `wsl --shutdown` ou reboot
+      # Windows. Verifique com: wsl -d Ubuntu-22.04 -- ip route show default
+      - "host.docker.internal:172.17.80.1"
 
   fintz_maintenance:
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      # IP DIRETO do WSL gateway (= Windows host) em vez de host-gateway:
+      # em Engine WSL2 puro, host-gateway resolve pra docker bridge interna
+      # (172.18.0.1), nao pro Windows host. WSL gateway e' estavel dentro
+      # de uma sessao WSL mas pode mudar apos `wsl --shutdown` ou reboot
+      # Windows. Verifique com: wsl -d Ubuntu-22.04 -- ip route show default
+      - "host.docker.internal:172.17.80.1"
