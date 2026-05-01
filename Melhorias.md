@@ -133,6 +133,7 @@ Combina sinal ML calibrado h21d com filtro de momentum 12m (Time Series Momentum
 - Lookback configurável em `config_json.momentum_lookback_days` (default 252).
 - Registry: `'tsmom_ml_overlay': TsmomMlOverlayStrategy()` em `auto_trader_worker.STRATEGY_REGISTRY`.
 - 10 unit tests (`tests/unit/domain/test_robot_strategies.py`): concordance BUY/SELL, disagree skip, neutral momentum skip, HOLD passthrough sem fetch, bars insuficientes, custom 60d lookback. Helpers usam ruído senoidal determinista p/ produzir vol > 0 nos bars sintéticos.
+- ✅ **Polish 01/mai noite (commit `a565667`)**: `MLSignalsStrategy._fetch_bars` agora delega pro `HttpCandleFetcher.fetch_bars` (extraído em `e53d676`). `httpx.Client(...)` inline removido — DRY com worker pairs flow. Construtor aceita `candle_fetcher` kwarg p/ injeção em testes. 5 unit tests novos no fetcher (last-N bars, per-call range_period, fallback `candles` key, HTTP/empty errors). 1636/1636 unit suite verde.
 
 **Edge documentado**: TSMOM tem Sharpe 0.7-1.2 cross-asset desde anos 80, replicado em B3 (Hosp Brasil). ML solo + overfitting risk; sobreposição reduz drawdown.
 
@@ -486,9 +487,9 @@ docker compose up -d api worker worker_v2
 
 ## Notas
 
-- **Próxima sprint sugerida** (28/abr → 29/abr+): R2 (TSMOM ∩ ML overlay, baixo custo + edge documentado) OU E1 (Gmail research BTG MVP, alpha investível). Ambos ~5d. R2 tem menos risco operacional; E1 alpha mais imediato.
-- **Quando atacar**: off-hours ou início de sprint planejada. Nenhum bloqueia operação atual.
+- **Próxima sprint sugerida** (02/mai+): smoke live R1.5+R2+R3.2 no pregão de 04/mai (segunda) — routine `trig_013JvZLcbANEuRf8rSYiFhK5` agendada 11h BRT roda re-screening cointegração + tail dos logs do auto_trader. Depois: E1.2 (Gmail OAuth + integração ao classifier) ou R4 (ORB WINFUT, ~7-10d).
 - **Dependência crítica**: Z5 (treinar pickles h3/h5) bloqueado em dados Nelogica.
+- **Operação atual**: estável em Docker Engine WSL2 (Decisão 22). Volumes Postgres/Timescale em ext4 nativo (Fase B.2 done 01/mai). Backups originais `/mnt/e/finanalytics_data/docker/{postgres,timescale}` ficam até ~08/mai antes de delete.
 
 ---
 
