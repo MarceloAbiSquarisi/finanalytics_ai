@@ -1,6 +1,9 @@
 # reset_password.py - usa SHA256 + bcrypt igual ao PasswordHasher do projeto
-import subprocess, hashlib
+import hashlib
+import subprocess
+
 from passlib.context import CryptContext
+
 
 def sha256_hex(password):
     return hashlib.sha256(password.encode('utf-8')).hexdigest()

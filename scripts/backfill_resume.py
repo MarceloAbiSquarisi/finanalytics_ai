@@ -15,13 +15,13 @@ Uso:
 from __future__ import annotations
 
 import argparse
+from datetime import date, timedelta
 import json
+from pathlib import Path
 import sys
 import time
-import urllib.request
 import urllib.error
-from datetime import date, timedelta
-from pathlib import Path
+import urllib.request
 
 # Carrega .env para PROFIT_TIMESCALE_DSN
 _env_file = Path(__file__).resolve().parents[1] / ".env"
@@ -147,7 +147,7 @@ def format_dt(d: date, hour: str) -> str:
 
 def backfill_resume(end: date, fallback_start: date, delay: float, dry_run: bool) -> None:
     print(f"\n{'='*60}")
-    print(f"BACKFILL INCREMENTAL (resume per-ticker)")
+    print("BACKFILL INCREMENTAL (resume per-ticker)")
     print(f"  End             : {end}")
     print(f"  Fallback start  : {fallback_start} (se nunca coletado)")
     print(f"  Delay           : {delay}s")
@@ -269,12 +269,12 @@ def backfill_resume(end: date, fallback_start: date, delay: float, dry_run: bool
         print(f"  [{ticker}] subtotal: {ticker_ticks:,} ticks")
 
     print(f"\n{'='*60}")
-    print(f"RESUMO")
+    print("RESUMO")
     print(f"  Ticks coletados : {total_ticks:,}")
     print(f"  Chamadas OK     : {done_calls - len(errors)}/{done_calls}")
     print(f"  Erros           : {len(errors)}")
     if errors:
-        print(f"\n  Erros:")
+        print("\n  Erros:")
         for tkr, d, err in errors:
             print(f"    {tkr} {d}: {err}")
     print(f"{'='*60}\n")

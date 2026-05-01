@@ -33,6 +33,7 @@ async def main() -> None:
 
     # Lista estado final
     from sqlalchemy import text
+
     from finanalytics_ai.infrastructure.database.connection import get_session
     async with get_session() as s:
         rows = (await s.execute(text("""

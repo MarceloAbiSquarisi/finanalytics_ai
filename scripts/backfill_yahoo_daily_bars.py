@@ -18,10 +18,10 @@ Uso:
 from __future__ import annotations
 
 import argparse
+from datetime import date, timedelta
 import os
 import sys
 import time
-from datetime import date, timedelta
 
 import psycopg2
 

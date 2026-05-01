@@ -19,13 +19,12 @@ Uso:
 from __future__ import annotations
 
 import argparse
+from datetime import date
 import os
 import sys
 import time as _time
-from datetime import date
 
 import psycopg2
-
 
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",
@@ -163,7 +162,7 @@ def main() -> int:
                     print(f"  ERRO {ticker} {n_min}m: {type(exc).__name__}: {str(exc)[:120]}")
 
         elapsed = _time.time() - t0
-        print(f"\n=== RESUMO ===")
+        print("\n=== RESUMO ===")
         for n_min in intervals:
             print(f"  {n_min:>3}m: {totals[n_min]:>8} bars (total {len(tickers)} tickers)")
         print(f"  elapsed: {elapsed:.1f}s")

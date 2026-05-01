@@ -19,11 +19,11 @@ Pós-backfill:
 from __future__ import annotations
 
 import argparse
+from datetime import date, timedelta
 import os
+from pathlib import Path
 import sys
 import time
-from datetime import date, timedelta
-from pathlib import Path
 
 import psycopg2
 
@@ -32,12 +32,11 @@ sys.path.insert(0, str(_ROOT / "scripts"))
 sys.path.insert(0, str(_ROOT / "src"))
 
 # Reusa pipeline (compute features + upsert) e fetcher Yahoo do FII
-from features_daily_builder import (  # noqa: E402
+from backfill_yahoo_fii import fetch_yahoo_daily
+from features_daily_builder import (
     compute_features_for_ticker,
     upsert_features,
 )
-from backfill_yahoo_fii import fetch_yahoo_daily  # noqa: E402 — assina (ticker, start, end)
-
 
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",

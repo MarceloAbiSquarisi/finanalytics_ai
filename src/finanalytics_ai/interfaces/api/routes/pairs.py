@@ -10,7 +10,6 @@ Tabelas em Postgres principal (Alembic 0023, 0024). Acesso via psycopg2 sync.
 from __future__ import annotations
 
 import os
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel

@@ -13,7 +13,6 @@ import os
 import aiohttp
 import pandas as pd
 
-
 API_KEY  = os.environ.get("FINTZ_API_KEY", "")
 BASE_URL = "https://api.fintz.com.br"
 HEADERS  = {"X-API-Key": API_KEY}
@@ -42,7 +41,7 @@ async def inspecionar(nome: str, endpoint: str, params: dict) -> None:
         print(f"  Sem link: {data}")
         return
 
-    print(f"  Link obtido. Baixando...")
+    print("  Link obtido. Baixando...")
     async with aiohttp.ClientSession() as s:
         r = await s.get(link)
         raw = await r.read()
@@ -50,12 +49,12 @@ async def inspecionar(nome: str, endpoint: str, params: dict) -> None:
     df = pd.read_parquet(io.BytesIO(raw))
 
     print(f"\n  Shape: {df.shape[0]:,} linhas × {df.shape[1]} colunas")
-    print(f"\n  Colunas e dtypes:")
+    print("\n  Colunas e dtypes:")
     for col, dtype in df.dtypes.items():
         nulos = df[col].isna().sum()
         print(f"    {col:<45} {str(dtype):<12} nulos={nulos:,}")
 
-    print(f"\n  Primeiras 3 linhas:")
+    print("\n  Primeiras 3 linhas:")
     print(df.head(3).to_string(index=False))
 
 

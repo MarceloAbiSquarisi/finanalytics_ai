@@ -16,15 +16,14 @@ Saida:
 from __future__ import annotations
 
 import argparse
+from datetime import date, datetime
 import json
 import os
 import sys
-import urllib.request
-from datetime import date, datetime
 from typing import Any
+import urllib.request
 
 import psycopg2
-
 
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",

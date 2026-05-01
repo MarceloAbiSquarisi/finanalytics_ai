@@ -21,11 +21,11 @@ Uso:
 from __future__ import annotations
 
 import argparse
-import os
-import sys
 from dataclasses import dataclass
 from datetime import date, datetime, timezone as tz
+import os
 from pathlib import Path
+import sys
 from typing import Any
 
 import numpy as np
@@ -36,8 +36,7 @@ _SRC = _ROOT / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from finanalytics_ai.domain.backtesting.engine import Signal, run_backtest  # noqa: E402
-
+from finanalytics_ai.domain.backtesting.engine import Signal, run_backtest
 
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",

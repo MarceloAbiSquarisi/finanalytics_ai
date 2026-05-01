@@ -20,17 +20,16 @@ Pos-Sprint 1 completo (6 anos de historico), re-executar para validar KPIs
 from __future__ import annotations
 
 import argparse
+from dataclasses import asdict, dataclass
+from datetime import date, datetime
 import json
 import os
+from pathlib import Path
 import pickle
 import sys
-from dataclasses import dataclass, asdict
-from datetime import date, datetime
-from pathlib import Path
 
 import numpy as np
 import psycopg2
-
 
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",

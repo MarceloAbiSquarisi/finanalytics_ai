@@ -227,6 +227,7 @@ extend-exclude = [
     "src/finanalytics_ai/interfaces/api/static/ProfitDLL",
     "Melhorias",
     ".venv",
+    "scripts/_archive",  # scripts one-shot arquivados — nao mantemos standards
 ]
 
 [tool.ruff.lint]
@@ -322,7 +323,7 @@ ignore = [
 "src/finanalytics_ai/metrics/**"          = ["ANN", "F401", "F405", "F811", "F821", "F841", "SIM", "UP", "B", "C408", "RUF100"]
 "src/finanalytics_ai/exceptions/**"       = ["ANN", "F401", "F405", "F811", "F821", "F841", "SIM", "UP", "B", "C408", "RUF100"]
 "src/finanalytics_ai/notification/**"     = ["ANN", "F401", "F405", "F811", "F821", "F841", "SIM", "UP", "B", "C408", "RUF100"]
-"scripts/**"                              = ["ANN", "F401", "F403", "F405", "F841", "SIM105", "SIM117", "UP", "B", "E402"]
+"scripts/**"                              = ["ANN", "F401", "F403", "F405", "F841", "SIM", "UP", "B", "E402", "E701", "E702", "C", "RUF"]
 
 [tool.ruff.lint.isort]
 known-first-party  = ["finanalytics_ai"]

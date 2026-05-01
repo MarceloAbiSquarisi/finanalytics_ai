@@ -29,7 +29,6 @@ from finanalytics_ai.application.services.research_classifier import (
 )
 from finanalytics_ai.infrastructure.llm import AnthropicClientError
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 

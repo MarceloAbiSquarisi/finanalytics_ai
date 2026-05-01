@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import asyncio
+from decimal import Decimal
 import os
 import sys
-from decimal import Decimal
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -19,6 +19,7 @@ async def main() -> None:
     print(f"Cash antes: R$ {acc.get('cash_balance', 0)}\n")
 
     from sqlalchemy import text
+
     from finanalytics_ai.infrastructure.database.connection import get_session
     async with get_session() as s:
         pfid = (await s.execute(text("SELECT id FROM portfolios WHERE user_id = :u LIMIT 1"), {"u": acc["user_id"]})).scalar()
@@ -59,7 +60,7 @@ async def main() -> None:
 
     # Delete (fecha restante: 0.07 @ 210k = 14.7k)
     await repo.delete_crypto(h1["id"], acc["user_id"])
-    print(f"Delete (fecha posicao restante)")
+    print("Delete (fecha posicao restante)")
     summary = await repo.get_cash_summary(acc["id"], acc["user_id"])
     print(f"  cash final: R$ {summary['cash_balance']}")
 

@@ -18,11 +18,10 @@ from __future__ import annotations
 import argparse
 import csv
 import os
-import sys
 from pathlib import Path
+import sys
 
 import psycopg2
-
 
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",

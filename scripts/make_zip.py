@@ -3,8 +3,10 @@ make_zip.py
 Cria ZIP limpo do projeto finanalytics_ai excluindo arquivos desnecessarios.
 Uso: python make_zip.py
 """
-import os, zipfile, pathlib
 from datetime import datetime
+import os
+import pathlib
+import zipfile
 
 ROOT = pathlib.Path(r"D:\Projetos\finanalytics_ai_fresh")
 

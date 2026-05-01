@@ -296,8 +296,11 @@ def live_ticks(ticker:str,limit:int=Query(100,ge=1,le=1000)):
     return {'ticker':t,'count':len(rows),'ticks':rows}
 
 # __ SSE Live Ticks __
+import asyncio as _aio
+import json as _json
+
 from fastapi.responses import StreamingResponse
-import asyncio as _aio, json as _json
+
 
 @router.get('/live/sse/tickers', summary='SSE stream de precos ao vivo')
 async def sse_tickers(interval: float = 1.0):

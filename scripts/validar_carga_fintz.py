@@ -20,12 +20,12 @@ Uso:
 from __future__ import annotations
 
 import asyncio
-import sys
 from datetime import date, timedelta
+import sys
 from typing import Any
 
-import structlog
 from sqlalchemy import text
+import structlog
 
 from finanalytics_ai.infrastructure.database.connection import get_session
 

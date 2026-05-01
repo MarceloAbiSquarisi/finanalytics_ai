@@ -19,15 +19,14 @@ Uso:
 from __future__ import annotations
 
 import argparse
+from datetime import date, datetime, timedelta
 import os
 import sys
-from datetime import date, datetime, timedelta
 from typing import Any
 
 import numpy as np
 import psycopg2
 import psycopg2.extras
-
 
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",
@@ -68,11 +67,11 @@ def load_features(conn) -> tuple[list[date], np.ndarray, dict]:
     # SELIC over
     with conn.cursor() as cur:
         cur.execute("SELECT time::date, value FROM br_macro_daily WHERE series='SELIC_OVER' AND value IS NOT NULL ORDER BY time")
-        selic = {d: v for d, v in cur.fetchall()}
+        selic = dict(cur.fetchall())
     # IPCA mensal
     with conn.cursor() as cur:
         cur.execute("SELECT time::date, value FROM br_macro_daily WHERE series='IPCA' AND value IS NOT NULL ORDER BY time")
-        ipca_m = {d: v for d, v in cur.fetchall()}
+        ipca_m = dict(cur.fetchall())
     # slope BR pre 2y-10y (via yield_curves interpolado — aqui uso ~504 e ~2520 direto)
     with conn.cursor() as cur:
         cur.execute(

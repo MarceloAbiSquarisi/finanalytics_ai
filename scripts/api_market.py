@@ -8,15 +8,15 @@ Endpoints:
 """
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
+import os
 from typing import Optional
 
-import psycopg2
-import psycopg2.extras
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+import psycopg2
+import psycopg2.extras
 from pydantic import BaseModel
 import uvicorn
 

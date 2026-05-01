@@ -8,8 +8,8 @@ Skip dashboard.html (lógica auth própria, migração manual cuidadosa).
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1] / "src/finanalytics_ai/interfaces/api/static"
 

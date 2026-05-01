@@ -13,7 +13,6 @@ import os
 
 import asyncpg
 
-
 DSN = os.getenv(
     "POSTGRES_DSN",
     "postgresql://finanalytics:secret@localhost:5432/finanalytics",

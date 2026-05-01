@@ -15,13 +15,13 @@ Resume automaticamente a partir do last_collected_to de cada ticker.
 from __future__ import annotations
 
 import argparse
+from datetime import date, timedelta
 import json
+from pathlib import Path
 import sys
 import time
-import urllib.request
 import urllib.error
-from datetime import date, timedelta
-from pathlib import Path
+import urllib.request
 
 # Carrega .env para PROFIT_TIMESCALE_DSN
 _env_file = Path(__file__).resolve().parents[1] / ".env"
@@ -88,6 +88,7 @@ def http_get(path: str) -> dict:
 
 # Configuração do banco (mesmo DSN do profit_agent)
 import os as _os
+
 DB_DSN = _os.getenv(
     "PROFIT_TIMESCALE_DSN",
     "postgresql://finanalytics:timescale_secret@localhost:5433/market_data"
@@ -179,7 +180,7 @@ def format_dt(d: date, hour: str) -> str:
 # ── Coleta principal ──────────────────────────────────────────────────────────
 def backfill(start: date, end: date, delay: float, dry_run: bool) -> None:
     print(f"\n{'='*60}")
-    print(f"BACKFILL HISTÓRICO")
+    print("BACKFILL HISTÓRICO")
     print(f"  Período : {start} → {end}")
     print(f"  Delay   : {delay}s entre chamadas")
     print(f"  Dry-run : {dry_run}")
@@ -246,7 +247,7 @@ def backfill(start: date, end: date, delay: float, dry_run: bool) -> None:
 
         # Consulta banco para ver datas que já têm dados reais
         if not dry_run:
-            print(f"  Verificando datas já coletadas no banco...", flush=True)
+            print("  Verificando datas já coletadas no banco...", flush=True)
             collected = get_collected_dates(ticker, exchange, start, end)
             if collected:
                 before = len(days_for_ticker)
@@ -312,12 +313,12 @@ def backfill(start: date, end: date, delay: float, dry_run: bool) -> None:
 
     # ── Resumo final ─────────────────────────────────────────────────────────
     print(f"\n{'='*60}")
-    print(f"RESUMO FINAL")
+    print("RESUMO FINAL")
     print(f"  Total de ticks : {total_ticks:,}")
     print(f"  Chamadas OK    : {done_calls - len(errors)}/{done_calls}")
     print(f"  Erros          : {len(errors)}")
     if errors:
-        print(f"\n  Erros detalhados:")
+        print("\n  Erros detalhados:")
         for tkr, d, err in errors:
             print(f"    {tkr} {d}: {err}")
     print(f"{'='*60}\n")

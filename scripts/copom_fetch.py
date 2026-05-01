@@ -12,18 +12,17 @@ falhar, tenta cache local em data/copom_index.json de execucao anterior.
 from __future__ import annotations
 
 import argparse
+from datetime import date, datetime
 import io
 import json
 import os
+from pathlib import Path
 import sys
 import time
-from datetime import date, datetime
-from pathlib import Path
 from typing import Any
 
 import psycopg2
 import requests
-
 
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",

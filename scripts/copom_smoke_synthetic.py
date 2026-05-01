@@ -16,11 +16,10 @@ from __future__ import annotations
 
 import argparse
 import csv
+from pathlib import Path
 import random
 import sys
 import tempfile
-from pathlib import Path
-
 
 HAWKISH_FRAGMENTS = [
     "A inflacao segue pressionada e exige postura mais restritiva do Comite.",
@@ -118,7 +117,7 @@ def main() -> int:
 
     # Inferencia em 3 textos novos (um por classe) para sanity
     import torch
-    from transformers import AutoTokenizer, AutoModelForSequenceClassification
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
     model_dir = root / "models" / f"copom_bert_smoke_{args.epochs}e"
     tok = AutoTokenizer.from_pretrained(str(model_dir))
     model = AutoModelForSequenceClassification.from_pretrained(str(model_dir))

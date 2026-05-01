@@ -521,13 +521,13 @@ _TRADING_RESULT_STATUS: dict[int, int] = {
 
 # Sessão 30/abr: validators puros movidos para profit_agent_validators.py
 # (CI Linux pode testar sem importar ctypes.WINFUNCTYPE Windows-only).
+from finanalytics_ai.infrastructure.market_data.kafka_producer import (  # noqa: E402
+    MarketDataProducer,
+)
 from finanalytics_ai.workers.profit_agent_validators import (  # noqa: E402
     compute_trading_result_match,
     trail_should_immediate_trigger,
     validate_attach_oco_params as _validate_attach_oco_params,
-)
-from finanalytics_ai.infrastructure.market_data.kafka_producer import (  # noqa: E402
-    MarketDataProducer,
 )
 
 # ---------------------------------------------------------------------------

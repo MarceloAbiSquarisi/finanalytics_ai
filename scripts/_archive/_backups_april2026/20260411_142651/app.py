@@ -13,39 +13,39 @@ import asyncio
 from contextlib import asynccontextmanager, suppress
 from typing import Any
 
-import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+import structlog
 
+from finanalytics_ai.application.services.account_service import AccountService
 from finanalytics_ai.config import get_settings
 from finanalytics_ai.exceptions import FinAnalyticsError
 from finanalytics_ai.infrastructure.database.connection import close_engine, get_engine
-from finanalytics_ai.interfaces.api.routes import admin as admin_routes
-from finanalytics_ai.interfaces.api.routes import ml_forecasting as ml_routes
-from finanalytics_ai.interfaces.api.routes import marketdata as marketdata_routes
-from finanalytics_ai.interfaces.api.routes import live_market as live_market_routes
-from finanalytics_ai.interfaces.api.routes import fundos as fundos_routes
-from finanalytics_ai.interfaces.api.routes import accounts as accounts_routes
-from finanalytics_ai.application.services.account_service import AccountService
 from finanalytics_ai.interfaces.api.routes import (
-    wallet,
+    accounts as accounts_routes,
+    admin as admin_routes,
     alerts,
     anomaly,
     backtest,
     correlation,
     dashboard,
-    fundamental_analysis,
     events,
     fixed_income,
+    fundamental_analysis,
+    fundos as fundos_routes,
     health,
+    live_market as live_market_routes,
+    marketdata as marketdata_routes,
+    ml_forecasting as ml_routes,
     performance,
     portfolio,
     producer,
     quotes,
     reports,
     screener,
-    watchlist
+    wallet,
+    watchlist,
 )
 
 try:
@@ -76,10 +76,11 @@ try:
     _PATRIMONY_AVAILABLE = True
 except ImportError:
     _PATRIMONY_AVAILABLE = False
+from collections.abc import AsyncGenerator
+
 from finanalytics_ai.infrastructure.cache.backend import create_cache_backend
 from finanalytics_ai.infrastructure.cache.rate_limiter import create_rate_limiter
 from finanalytics_ai.metrics import PrometheusMiddleware, metrics_endpoint
-from collections.abc import AsyncGenerator
 
 logger = structlog.get_logger(__name__)
 
@@ -116,8 +117,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # ── Bootstrap: garante que marceloabisquarisi é sempre MASTER ─────────────
     try:
+        from finanalytics_ai.infrastructure.database.connection import (
+            get_session as _get_bs_session,
+        )
         from finanalytics_ai.interfaces.api.routes.admin import run_bootstrap
-        from finanalytics_ai.infrastructure.database.connection import get_session as _get_bs_session
         async with _get_bs_session() as _bs_session:
             _result = await run_bootstrap(_bs_session)
             logger.info("bootstrap.master", result=_result)
@@ -170,9 +173,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # ── AccountService ────────────────────────────────────────────────────────
     try:
-        from finanalytics_ai.infrastructure.database.connection import get_session_factory as _gsf_acc
+        from finanalytics_ai.infrastructure.database.connection import (
+            get_session_factory as _gsf_acc,
+        )
         from finanalytics_ai.infrastructure.database.repositories.sql_account_repo import (
-            TradingAccountModel,  # noqa: F401 — registra tabela no metadata
+            TradingAccountModel,
         )
         _account_service = AccountService(_gsf_acc())
         logger.info("account_service.ready")
@@ -206,7 +211,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 try:
                     from finanalytics_ai.infrastructure.timescale.repository import (
                         TimescalePriceTickRepository,
-                        get_timescale_pool
+                        get_timescale_pool,
                     )
 
                     pool = await get_timescale_pool()
@@ -237,7 +242,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from finanalytics_ai.application.services.screener_service import ScreenerService
         from finanalytics_ai.application.services.walkforward_service import WalkForwardService
         from finanalytics_ai.infrastructure.adapters.market_data_client import (
-            create_cached_market_data_client
+            create_cached_market_data_client,
         )
         from finanalytics_ai.infrastructure.database.connection import get_session_factory
 
@@ -255,7 +260,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Sem token BRAPI: serviços analíticos indisponíveis, mas watchlist
         # funciona com Yahoo Finance como fonte primária
         from finanalytics_ai.infrastructure.adapters.market_data_client import (
-            create_cached_market_data_client
+            create_cached_market_data_client,
         )
         from finanalytics_ai.infrastructure.database.connection import get_session_factory
 
@@ -279,25 +284,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Importa os models ANTES do create_all para registrá-los no metadata.
     # Sem o import, Base.metadata não conhece as tabelas e create_all é no-op.
     from finanalytics_ai.infrastructure.database.connection import Base
-    from finanalytics_ai.infrastructure.database.repositories.ohlc_repo import (  # noqa: F401
+    from finanalytics_ai.infrastructure.database.repositories.diario_repo import (
+        DiarioModel,
+    )
+    from finanalytics_ai.infrastructure.database.repositories.ohlc_repo import (
         OHLCBarModel,
-        OHLCCacheMetaModel
+        OHLCCacheMetaModel,
     )
     from finanalytics_ai.infrastructure.database.repositories.rf_repo import (
-        Base as RFBase
-    )
-    from finanalytics_ai.infrastructure.database.repositories.rf_repo import (  # noqa: F401
+        Base as RFBase,
         RFHoldingModel,
-        RFPortfolioModel
+        RFPortfolioModel,
     )
     from finanalytics_ai.infrastructure.database.repositories.user_repo import (
-        UserModel,  # noqa: F401
+        UserModel,
     )
     from finanalytics_ai.infrastructure.database.repositories.watchlist_repo import (
-        WatchlistItemModel,  # noqa: F401
-    )
-    from finanalytics_ai.infrastructure.database.repositories.diario_repo import (
-        DiarioModel,  # noqa: F401 — registra trade_journal na metadata
+        WatchlistItemModel,
     )
 
     try:
@@ -318,8 +321,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         from finanalytics_ai.application.services.ohlc_1m_service import OHLC1mService as _S1m
         from finanalytics_ai.infrastructure.adapters.brapi_client import BrapiClient as _BC2
-        from finanalytics_ai.infrastructure.database.connection import get_engine as _ge2
-        from finanalytics_ai.infrastructure.database.connection import get_session_factory as _gsf2
+        from finanalytics_ai.infrastructure.database.connection import (
+            get_engine as _ge2,
+            get_session_factory as _gsf2,
+        )
         from finanalytics_ai.infrastructure.database.repositories.ohlc_1m_repo import Base as _B1m
 
         async with _ge2().begin() as _c2:
@@ -338,7 +343,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from finanalytics_ai.application.services.ohlc_updater import OHLCUpdaterService
         from finanalytics_ai.infrastructure.timescale.connection import (
             init_ts_pool,
-            ts_pool_available
+            ts_pool_available,
         )
         from finanalytics_ai.infrastructure.timescale.ohlc_ts_repo import OHLCTimescaleRepo
         from finanalytics_ai.infrastructure.timescale.schema import init_schema
@@ -362,13 +367,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # -- Ticker Service ------------------------------------------------
     app.state.ticker_service = None
     try:
-        from finanalytics_ai.infrastructure.database.connection import get_engine as _get_eng
-        from finanalytics_ai.infrastructure.database.connection import get_session_factory
+        from finanalytics_ai.infrastructure.database.connection import (
+            get_engine as _get_eng,
+            get_session_factory,
+        )
         from finanalytics_ai.infrastructure.database.repositories.ticker_repo import (
-            Base as TickerBase
+            Base as TickerBase,
         )
         from finanalytics_ai.infrastructure.database.repositories.ticker_service import (
-            TickerService
+            TickerService,
         )
 
         async with _get_eng().begin() as conn:
@@ -394,9 +401,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning("intraday_setup_service.FAILED", error=str(_ise))
         app.state.intraday_setup_service = None
 
-    
-    
-    
+
+
+
     # -- TapeService (Tape Reading via ProfitDLL)
     try:
         from finanalytics_ai.application.services.tape_service import TapeService
@@ -405,6 +412,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("tape_service.ready")
         # Inicia consumer Redis (recebe ticks do profit_market_worker)
         import asyncio as _asyncio
+
         from finanalytics_ai.config import get_settings as _gs
         _redis_url = _gs().redis_url if hasattr(_gs(), "redis_url") else "redis://redis:6379/0"
         _tape_task = _asyncio.create_task(tape_svc.start_redis_consumer(_redis_url))
@@ -491,15 +499,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.fintz_screener_service = None
 
     # ── DiarioRepository ──────────────────────────────────────────────────────
-    
-    
-    
+
+
+
 
     try:
+        from finanalytics_ai.infrastructure.database.connection import get_session_factory
         from finanalytics_ai.infrastructure.database.repositories.diario_repo import (
             DiarioRepository,
         )
-        from finanalytics_ai.infrastructure.database.connection import get_session_factory
 
         app.state.diario_repo = DiarioRepository(get_session_factory())
         logger.info("diario_repo.ready")
@@ -544,7 +552,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # ── Fundamental Analysis Service ──────────────────────────────────────
     try:
         from finanalytics_ai.application.services.fundamental_analysis_service import (
-            FundamentalAnalysisService
+            FundamentalAnalysisService,
         )
         from finanalytics_ai.infrastructure.database.repositories.fintz_repo import FintzRepo
         _fintz_repo = FintzRepo()
@@ -938,7 +946,7 @@ def create_app() -> FastAPI:
     async def serve_carteira() -> HTMLResponse:
         return _html("carteira.html")
 
-    
+
     @app.get("/daytrade/setups", response_class=HTMLResponse, include_in_schema=False)
     async def serve_daytrade_setups() -> HTMLResponse:
         return _html("daytrade_setups.html")
@@ -947,24 +955,24 @@ def create_app() -> FastAPI:
     async def serve_daytrade_risco() -> HTMLResponse:
         return _html("daytrade_risco.html")
 
-    
-    
+
+
     @app.get("/opcoes/estrategias", response_class=HTMLResponse, include_in_schema=False)
     async def serve_opcoes_estrategias() -> HTMLResponse:
         return _html("opcoes_estrategias.html")
 
-    
-    
-    
-    
-    
+
+
+
+
+
     @app.get("/vol-surface", response_class=HTMLResponse, include_in_schema=False)
     async def serve_vol_surface() -> HTMLResponse:
         return _html("vol_surface.html")
 
-    
-    
-    
+
+
+
     @app.get("/crypto", response_class=HTMLResponse, include_in_schema=False)
     async def serve_crypto() -> HTMLResponse:
         return _html("crypto.html")

@@ -40,7 +40,6 @@ from finanalytics_ai.domain.pairs.cointegration import (
     engle_granger,
 )
 
-
 # ── compute_hedge_ratio ───────────────────────────────────────────────────────
 
 

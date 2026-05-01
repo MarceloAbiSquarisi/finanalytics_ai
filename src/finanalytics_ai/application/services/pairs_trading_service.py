@@ -22,7 +22,7 @@ Deps abstratas (Protocol) p/ ser totalmente testavel em isolamento:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 import structlog
@@ -67,7 +67,7 @@ class PositionState(Protocol):
 class PairsServiceConfig:
     """Config single-source para o service."""
 
-    z_thresholds: PairThresholds = PairThresholds()
+    z_thresholds: PairThresholds = field(default_factory=PairThresholds)
     alpha: float = DEFAULT_BONFERRONI_ALPHA
     min_half_life: float = DEFAULT_MIN_HALF_LIFE
     max_half_life: float = DEFAULT_MAX_HALF_LIFE

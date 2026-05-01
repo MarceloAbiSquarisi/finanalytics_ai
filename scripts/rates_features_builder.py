@@ -20,10 +20,10 @@ Uso:
 from __future__ import annotations
 
 import argparse
-import os
-import sys
 from collections import defaultdict
 from datetime import date, datetime
+import os
+import sys
 from typing import Any
 
 import psycopg2
@@ -40,7 +40,6 @@ from finanalytics_ai.application.ml.rates_features import (
     value_momentum_combined,
     value_zscore,
 )
-
 
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",
@@ -251,7 +250,7 @@ def main() -> int:
 
     conn = psycopg2.connect(DSN)
     try:
-        print(f"rates_features_builder: carregando yield_curves + breakevens...")
+        print("rates_features_builder: carregando yield_curves + breakevens...")
         curves_pre, curves_ipca, breakevens = load_curves(conn)
         print(f"  pre={len(curves_pre)} dias, ipca={len(curves_ipca)} dias, be={len(breakevens)} dias")
 

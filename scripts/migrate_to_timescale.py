@@ -15,10 +15,10 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import os
-import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import os
+import time
 
 import asyncpg
 
@@ -271,7 +271,7 @@ async def main() -> None:
     ts_dsn = TIMESCALE_URL.replace("postgresql+asyncpg://","postgresql://")
 
     print(f"\n{'═'*62}")
-    print(f"  Sprint C v3 — Migração com COPY protocol")
+    print("  Sprint C v3 — Migração com COPY protocol")
     print(f"  Postgres   : {pg_dsn.split('@')[1]}")
     print(f"  TimescaleDB: {ts_dsn.split('@')[1]}")
     print(f"  Batch: {fmt_num(BATCH_SIZE)} | Paralelo: {args.parallel} anos")

@@ -24,16 +24,15 @@ Uso:
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta
 import math
 import os
 import sys
-from dataclasses import dataclass
-from datetime import date, datetime, timedelta
 from typing import Iterable
 
 import psycopg2
 import psycopg2.extras
-
 
 # ─── Config ────────────────────────────────────────────────────────────────────
 
@@ -118,10 +117,7 @@ def _atr_14(highs: list[float], lows: list[float], closes: list[float]) -> list[
         if i < 13:
             out.append(None)
             continue
-        if i == 13:
-            atr = sum(tr[:14]) / 14
-        else:
-            atr = alpha * tv + (1 - alpha) * (atr or 0.0)
+        atr = sum(tr[:14]) / 14 if i == 13 else alpha * tv + (1 - alpha) * (atr or 0.0)
         out.append(atr)
     return out
 

@@ -7,13 +7,12 @@ from __future__ import annotations
 
 import argparse
 import os
+from pathlib import Path
 import subprocess
 import sys
 import time
-from pathlib import Path
 
 import psycopg2
-
 
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",

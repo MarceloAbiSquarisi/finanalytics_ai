@@ -16,11 +16,11 @@ from __future__ import annotations
 
 import argparse
 import csv
+from datetime import date, datetime
 import io
 import os
 import sys
 import time
-from datetime import date, datetime
 from typing import Any
 
 import psycopg2
@@ -133,7 +133,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     d_start = date.fromisoformat(args.start)
-    series_filter = set(s.strip().upper() for s in args.only.split(",")) if args.only else None
+    series_filter = {s.strip().upper() for s in args.only.split(",")} if args.only else None
 
     conn = psycopg2.connect(DSN)
     try:

@@ -31,14 +31,14 @@ Uso:
 from __future__ import annotations
 
 import argparse
+from datetime import date, datetime, timedelta
 import json
+from pathlib import Path
 import signal
 import sys
 import time
 import urllib.error
 import urllib.request
-from datetime import date, datetime, timedelta
-from pathlib import Path
 
 # ----------------------------------------------------------------------------
 # .env loader
@@ -275,7 +275,7 @@ def backfill(
     only: list[str] | None,
 ) -> None:
     print(f"\n{'='*72}")
-    print(f"BACKFILL HISTORICO - watchlist completa + futuros")
+    print("BACKFILL HISTORICO - watchlist completa + futuros")
     print(f"  Periodo  : {start.isoformat()} -> {end.isoformat()}")
     print(f"  Delay    : {delay}s")
     print(f"  Futuros  : {','.join(futures) if include_futures else '(desativados)'}")
@@ -421,14 +421,14 @@ def backfill(
 
     # Resumo final
     print(f"\n{'='*72}")
-    print(f"RESUMO")
+    print("RESUMO")
     print(f"  Probes executados   : {done_calls:,}/{total_calls:,}")
     print(f"  Ticks coletados     : {total_ticks:,}")
     print(f"  Ticks inseridos     : {total_ins:,} (resto = ON CONFLICT DO NOTHING)")
     print(f"  Erros/warns         : {len(errors):,}")
     print(f"  Contaminacoes       : {contaminacoes:,}   <- se > 0, patch NAO ativo")
     if errors:
-        print(f"\n  Primeiros 30 erros:")
+        print("\n  Primeiros 30 erros:")
         for tkr, d, err in errors[:30]:
             print(f"    {tkr:10s} {d.isoformat()}: {err}")
         if len(errors) > 30:

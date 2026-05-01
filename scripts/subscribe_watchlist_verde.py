@@ -14,11 +14,10 @@ import json
 import os
 import sys
 import time
-import urllib.request
 from urllib.error import HTTPError, URLError
+import urllib.request
 
 import psycopg2
-
 
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",

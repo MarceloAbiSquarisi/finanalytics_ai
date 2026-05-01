@@ -19,17 +19,16 @@ Uso:
 from __future__ import annotations
 
 import argparse
-import os
-import sys
 from dataclasses import dataclass
 from datetime import date, datetime, timezone as tz
+import os
+import sys
 from typing import Any
 
 import numpy as np
 import psycopg2
 
 from finanalytics_ai.domain.backtesting.engine import Signal, run_backtest
-
 
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",

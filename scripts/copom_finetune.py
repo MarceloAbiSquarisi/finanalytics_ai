@@ -15,13 +15,12 @@ from __future__ import annotations
 
 import argparse
 import csv
+from datetime import datetime
 import json
 import os
+from pathlib import Path
 import random
 import sys
-from datetime import datetime
-from pathlib import Path
-
 
 LABELS = ["dovish", "neutral", "hawkish"]
 L2I    = {l: i for i, l in enumerate(LABELS)}
@@ -31,9 +30,9 @@ MODEL_BASE = "neuralmind/bert-base-portuguese-cased"
 
 def _load_model_with_layernorm_rename(model_base: str, n_labels: int):
     """Workaround para BERTimbau (checkpoint TF-style com beta/gamma)."""
-    import torch
-    from transformers import AutoModelForSequenceClassification, AutoConfig
     from huggingface_hub import snapshot_download
+    import torch
+    from transformers import AutoConfig, AutoModelForSequenceClassification
 
     local = snapshot_download(repo_id=model_base)
     sd_path = Path(local) / "pytorch_model.bin"
@@ -120,12 +119,15 @@ def main() -> int:
     print(f"dist label val  : {count_labels(val_rows)}")
 
     # imports aqui p/ facilitar --help sem torch carregado
-    import torch
-    import numpy as np
     from datasets import Dataset
+    import numpy as np
+    import torch
     from transformers import (
-        AutoTokenizer, AutoModelForSequenceClassification,
-        Trainer, TrainingArguments, DataCollatorWithPadding,
+        AutoModelForSequenceClassification,
+        AutoTokenizer,
+        DataCollatorWithPadding,
+        Trainer,
+        TrainingArguments,
     )
 
     print(f"torch={torch.__version__} cuda={torch.cuda.is_available()}")

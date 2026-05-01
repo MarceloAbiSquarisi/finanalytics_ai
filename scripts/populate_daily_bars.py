@@ -12,11 +12,11 @@ Uso:
 from __future__ import annotations
 
 import argparse
+from datetime import date
 import os
+from pathlib import Path
 import sys
 import time
-from datetime import date
-from pathlib import Path
 
 # Carrega .env
 _env_file = Path(__file__).resolve().parents[1] / ".env"
@@ -171,7 +171,7 @@ def main() -> None:
 
     conn = psycopg2.connect(DB_DSN)
     print(f"\n{'='*60}")
-    print(f"POPULATE DAILY BARS (ticks/1m -> profit_daily_bars)")
+    print("POPULATE DAILY BARS (ticks/1m -> profit_daily_bars)")
     print(f"  DSN: ...@{DB_DSN.split('@')[-1]}")
     print(f"  Dry-run: {args.dry_run}")
     print(f"{'='*60}\n")

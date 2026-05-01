@@ -49,7 +49,6 @@ from finanalytics_ai.domain.pairs.cointegration import (
     engle_granger,
 )
 
-
 DEFAULT_WATCHLIST = [
     # Bancos (cointegracao classica B3)
     "ITUB4", "BBDC4", "SANB11", "BBAS3",

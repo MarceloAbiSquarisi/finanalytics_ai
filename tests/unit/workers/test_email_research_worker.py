@@ -15,7 +15,6 @@ substituido, _get_conn substituido p/ controle das queries.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -29,7 +28,6 @@ from finanalytics_ai.workers.email_research_worker import (
     RawEmail,
     process_once,
 )
-
 
 # ── Stub fetcher ─────────────────────────────────────────────────────────────
 
@@ -183,7 +181,7 @@ async def test_classifier_error_continues_to_next_email() -> None:
 
 
 class _BoomFetcher:
-    def fetch_unprocessed(self, limit: int = 50) -> list[RawEmail]:  # noqa: ARG002
+    def fetch_unprocessed(self, limit: int = 50) -> list[RawEmail]:
         raise RuntimeError("gmail offline")
 
 

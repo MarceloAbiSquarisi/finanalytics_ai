@@ -28,12 +28,11 @@ Uso:
 from __future__ import annotations
 
 import argparse
+from datetime import date
 import os
 import sys
-from datetime import date
 
 import psycopg2
-
 
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",

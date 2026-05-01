@@ -27,7 +27,6 @@ import math
 import pytest
 
 from finanalytics_ai.domain.robot.risk import (
-    DEFAULT_TARGET_VOL,
     annualize_vol,
     check_circuit_breaker,
     check_max_positions,
@@ -36,7 +35,6 @@ from finanalytics_ai.domain.robot.risk import (
     position_size_vol_target,
     realized_vol_daily,
 )
-
 
 # ── realized_vol_daily / annualize_vol ────────────────────────────────────────
 

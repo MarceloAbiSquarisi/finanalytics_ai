@@ -46,7 +46,6 @@ from finanalytics_ai.domain.pairs import (
     validate_pair_filters,
 )
 
-
 # ── compute_zscore ────────────────────────────────────────────────────────────
 
 

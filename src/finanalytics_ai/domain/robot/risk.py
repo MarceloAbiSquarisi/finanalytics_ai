@@ -26,7 +26,6 @@ from dataclasses import dataclass
 import math
 from typing import Any
 
-
 # ── Constantes ────────────────────────────────────────────────────────────────
 
 ANNUALIZATION_FACTOR: float = 252.0  # dias uteis B3

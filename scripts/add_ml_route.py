@@ -1,4 +1,5 @@
 import pathlib
+
 f = pathlib.Path('src/finanalytics_ai/interfaces/api/app.py')
 t = f.read_text(encoding='utf-8')
 old = "        return _html('screener.html')"

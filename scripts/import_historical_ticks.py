@@ -40,18 +40,17 @@ from __future__ import annotations
 
 import argparse
 import csv
-import json
-import os
-import sys
-import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import json
+import os
 from pathlib import Path
+import sys
+import time
 from typing import Any, Iterator
 
 import psycopg2
 import psycopg2.extras
-
 
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",
@@ -269,7 +268,7 @@ def main() -> int:
             k, v = pair.split("=", 1)
             col_map[k.strip()] = v.strip()
 
-    only = set(t.strip().upper() for t in args.only_tickers.split(",") if t.strip()) if args.only_tickers else None
+    only = {t.strip().upper() for t in args.only_tickers.split(",") if t.strip()} if args.only_tickers else None
 
     print(f"import_historical_ticks: file={src.name} format={src.suffix} "
           f"col_map={col_map} only={only} min_price={args.min_price} "
@@ -324,7 +323,7 @@ def main() -> int:
                 stats.upserted += len(buffer)
 
         elapsed = time.time() - t0
-        print(f"\n=== RESUMO ===")
+        print("\n=== RESUMO ===")
         print(f"  read_total         = {stats.read_total}")
         print(f"  rejected_invalid   = {stats.rejected_invalid}")
         print(f"  rejected_filtered  = {stats.rejected_dedup_filtered}")
@@ -332,7 +331,7 @@ def main() -> int:
         print(f"  tickers_únicos     = {len(stats.tickers_seen)}")
         print(f"  elapsed            = {elapsed:.1f}s ({stats.read_total/max(elapsed,1):.0f} rows/s)")
         if stats.errors:
-            print(f"\n  Primeiros erros:")
+            print("\n  Primeiros erros:")
             for e in stats.errors[:10]:
                 print(f"    {e}")
     finally:

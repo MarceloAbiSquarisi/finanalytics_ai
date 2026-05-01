@@ -37,7 +37,6 @@ import psycopg2
 
 from finanalytics_ai.domain.pairs.cointegration import engle_granger
 
-
 # Universo intra-setor (B3, todos com Fintz cobertura 2010+)
 SECTORS: dict[str, list[str]] = {
     "bancos": ["ITUB4", "BBDC4", "SANB11", "BBAS3", "ABCB4", "BPAC11"],

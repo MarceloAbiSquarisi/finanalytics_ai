@@ -18,7 +18,6 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import httpx
-import pytest
 
 from finanalytics_ai.infrastructure.market_data.http_candle_fetcher import (
     HttpCandleFetcher,

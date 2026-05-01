@@ -37,7 +37,6 @@ from dataclasses import dataclass
 from enum import Enum
 import math
 
-
 # ── Constantes default (sobreescritas por config_json da strategy) ───────────
 
 DEFAULT_Z_ENTRY: float = 2.0  # |Z| > 2 abre posicao

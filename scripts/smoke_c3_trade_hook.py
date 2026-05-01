@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import asyncio
-import os
-import sys
 from datetime import date
 from decimal import Decimal
+import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -26,6 +26,7 @@ async def main() -> None:
 
     # Pega um portfolio (trades.portfolio_id e NOT NULL)
     from sqlalchemy import select, text
+
     from finanalytics_ai.infrastructure.database.connection import get_session
     async with get_session() as s:
         pfid = (await s.execute(text("SELECT id FROM portfolios WHERE user_id = :u LIMIT 1"), {"u": acc["user_id"]})).scalar()
@@ -60,7 +61,7 @@ async def main() -> None:
 
     # Resumo
     summary = await repo.get_cash_summary(acc["id"], acc["user_id"])
-    print(f"\nResumo cash da conta:")
+    print("\nResumo cash da conta:")
     print(f"  cash_balance: R$ {summary['cash_balance']}")
     print(f"  pending_in: R$ {summary['pending_in']}")
     print(f"  pending_out: R$ {summary['pending_out']}")
@@ -68,9 +69,9 @@ async def main() -> None:
 
     # Cleanup: deleta o trade de teste
     await repo.delete_trade(trade["id"], acc["user_id"])
-    print(f"\nTrade deletado (reverte tx).")
+    print("\nTrade deletado (reverte tx).")
     summary2 = await repo.get_cash_summary(acc["id"], acc["user_id"])
-    print(f"Resumo apos delete:")
+    print("Resumo apos delete:")
     print(f"  cash_balance: R$ {summary2['cash_balance']}")
     print(f"  pending_in: R$ {summary2['pending_in']}")
     print(f"  pending_out: R$ {summary2['pending_out']}")

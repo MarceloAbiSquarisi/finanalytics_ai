@@ -56,12 +56,12 @@ async def inspecionar(nome: str, url: str, params: dict) -> None:
     df = pd.read_parquet(io.BytesIO(raw))
 
     print(f"\n  Shape: {df.shape[0]:,} linhas x {df.shape[1]} colunas")
-    print(f"\n  Colunas e dtypes:")
+    print("\n  Colunas e dtypes:")
     for col, dtype in df.dtypes.items():
         nulos = int(df[col].isna().sum())
         print(f"    {str(col):<45} {str(dtype):<15} nulos={nulos:,}")
 
-    print(f"\n  Primeiras 3 linhas:")
+    print("\n  Primeiras 3 linhas:")
     print(df.head(3).to_string(index=False))
 
 

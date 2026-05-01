@@ -17,11 +17,11 @@ Execução:
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 import os
 import sys
 import time
 import uuid
-from datetime import datetime, timezone
 
 sys.path.insert(0, "src")
 
@@ -52,8 +52,8 @@ def section(title: str) -> None:
 # ── Infra ─────────────────────────────────────────────────────────────────────
 
 async def setup_engines():
-    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
     import asyncpg
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
     pg_engine = create_async_engine(PG_DSN, pool_pre_ping=True)
     pg_session = async_sessionmaker(pg_engine, expire_on_commit=False)
@@ -131,18 +131,22 @@ async def test_3_processar_evento(pg_session, ts_pool, redis, event_id: str) -> 
     """Processa o evento inline com EventProcessor + PostSyncOrchestrator."""
     section("3. Processar evento (EventProcessor + PostSyncOrchestrator)")
 
+    import json
+
+    from sqlalchemy import text
+
+    from finanalytics_ai.application.rules.fintz_post_sync_rule import PostSyncOrchestrator
+    from finanalytics_ai.application.rules.fintz_sync_failed_rule import FintzSyncFailedRule
+    from finanalytics_ai.application.rules.fintz_sync_rule import FintzSyncCompletedRule
+    from finanalytics_ai.application.services.event_processor import EventProcessor
     from finanalytics_ai.config import get_settings
     from finanalytics_ai.container import build_observability
-    from finanalytics_ai.application.services.event_processor import EventProcessor
-    from finanalytics_ai.application.rules.fintz_sync_rule import FintzSyncCompletedRule
-    from finanalytics_ai.application.rules.fintz_sync_failed_rule import FintzSyncFailedRule
-    from finanalytics_ai.application.rules.fintz_post_sync_rule import PostSyncOrchestrator
-    from finanalytics_ai.infrastructure.database.repositories.event_repository import PostgresEventRepository
-    from finanalytics_ai.infrastructure.timescale.fintz_repo import TimescaleFintzRepository
-    from finanalytics_ai.infrastructure.cache.backend import InMemoryCache
     from finanalytics_ai.domain.events.entities import Event, EventId, EventType
-    from sqlalchemy import text
-    import json
+    from finanalytics_ai.infrastructure.cache.backend import InMemoryCache
+    from finanalytics_ai.infrastructure.database.repositories.event_repository import (
+        PostgresEventRepository,
+    )
+    from finanalytics_ai.infrastructure.timescale.fintz_repo import TimescaleFintzRepository
 
     settings = get_settings()
 
@@ -266,19 +270,23 @@ async def test_6_idempotencia(pg_session, ts_pool, redis, event_id: str) -> None
     """Reprocessa o mesmo evento — deve ser ignorado (idempotência)."""
     section("6. Idempotência — reprocessar mesmo evento")
 
+    import json
+
+    from sqlalchemy import text
+
+    from finanalytics_ai.application.rules.fintz_post_sync_rule import PostSyncOrchestrator
+    from finanalytics_ai.application.rules.fintz_sync_failed_rule import FintzSyncFailedRule
+    from finanalytics_ai.application.rules.fintz_sync_rule import FintzSyncCompletedRule
+    from finanalytics_ai.application.services.event_processor import EventProcessor
     from finanalytics_ai.config import get_settings
     from finanalytics_ai.container import build_observability
-    from finanalytics_ai.application.services.event_processor import EventProcessor
-    from finanalytics_ai.application.rules.fintz_sync_rule import FintzSyncCompletedRule
-    from finanalytics_ai.application.rules.fintz_sync_failed_rule import FintzSyncFailedRule
-    from finanalytics_ai.application.rules.fintz_post_sync_rule import PostSyncOrchestrator
-    from finanalytics_ai.infrastructure.database.repositories.event_repository import PostgresEventRepository
-    from finanalytics_ai.infrastructure.timescale.fintz_repo import TimescaleFintzRepository
-    from finanalytics_ai.infrastructure.cache.backend import InMemoryCache
-    from finanalytics_ai.domain.events.entities import Event, EventId, EventType, EventStatus
+    from finanalytics_ai.domain.events.entities import Event, EventId, EventStatus, EventType
     from finanalytics_ai.exceptions import EventAlreadyProcessedError
-    from sqlalchemy import text
-    import json
+    from finanalytics_ai.infrastructure.cache.backend import InMemoryCache
+    from finanalytics_ai.infrastructure.database.repositories.event_repository import (
+        PostgresEventRepository,
+    )
+    from finanalytics_ai.infrastructure.timescale.fintz_repo import TimescaleFintzRepository
 
     settings = get_settings()
 
@@ -393,7 +401,7 @@ async def main() -> None:
     print(f"\n\033[36m{'═' * 62}\033[0m")
     print(f"  Resultado: {passed}/{total} verificações passaram")
     if failed:
-        print(f"\n  \033[31mFalhas:\033[0m")
+        print("\n  \033[31mFalhas:\033[0m")
         for name, ok, detail in results:
             if not ok:
                 print(f"    ✗ {name}: {detail}")

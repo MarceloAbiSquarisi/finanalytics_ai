@@ -23,13 +23,12 @@ Uso:
 from __future__ import annotations
 
 import argparse
+from datetime import date, datetime, timedelta
 import os
 import sys
-from datetime import date, datetime, timedelta
 
 import psycopg2
 import psycopg2.extras
-
 
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",

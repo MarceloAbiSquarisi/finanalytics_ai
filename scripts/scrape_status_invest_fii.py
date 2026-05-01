@@ -17,11 +17,11 @@ Rate limit: 1 req/s (cortesia ao Status Invest). 30 FIIs ~30s.
 from __future__ import annotations
 
 import argparse
+from datetime import date
 import os
 import re
 import sys
 import time
-from datetime import date
 
 import httpx
 import psycopg2

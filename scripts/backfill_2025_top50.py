@@ -13,13 +13,13 @@ Uso:
 from __future__ import annotations
 
 import argparse
+from datetime import date, timedelta
 import json
+from pathlib import Path
 import sys
 import time
-import urllib.request
 import urllib.error
-from datetime import date, timedelta
-from pathlib import Path
+import urllib.request
 
 # Carrega .env
 _env_file = Path(__file__).resolve().parents[1] / ".env"
@@ -128,7 +128,7 @@ def format_dt(d: date, hour: str) -> str:
 
 def backfill(start: date, end: date, delay: float, dry_run: bool) -> None:
     print(f"\n{'='*60}")
-    print(f"BACKFILL 2025+2026 - TOP 50 (Cenario B)")
+    print("BACKFILL 2025+2026 - TOP 50 (Cenario B)")
     print(f"  Periodo  : {start} -> {end}")
     print(f"  Tickers  : {len(TOP50_2025)} (ranking fintz_cotacoes_ts 2025)")
     print(f"  Delay    : {delay}s")
@@ -225,12 +225,12 @@ def backfill(start: date, end: date, delay: float, dry_run: bool) -> None:
         print(f"  [{ticker}] subtotal: {ticker_ticks:,} ticks")
 
     print(f"\n{'='*60}")
-    print(f"RESUMO")
+    print("RESUMO")
     print(f"  Ticks coletados : {total_ticks:,}")
     print(f"  Chamadas OK     : {done_calls - len(errors)}/{done_calls}")
     print(f"  Erros           : {len(errors)}")
     if errors:
-        print(f"\n  Erros:")
+        print("\n  Erros:")
         for tkr, d, err in errors[:50]:  # cap em 50 linhas
             print(f"    {tkr} {d}: {err}")
         if len(errors) > 50:

@@ -21,16 +21,15 @@ Uso:
 from __future__ import annotations
 
 import argparse
+from datetime import date, datetime
 import json
 import os
 import sys
-import urllib.request
-from datetime import date, datetime
 from typing import Any
+import urllib.request
 
 import psycopg2
 import psycopg2.extras
-
 
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",
@@ -128,7 +127,7 @@ def main() -> int:
     args = parse_args()
     d_start = date.fromisoformat(args.start)
     d_end = date.fromisoformat(args.end) if args.end else date.today()
-    only = set(s.strip().upper() for s in args.only.split(",")) if args.only else None
+    only = {s.strip().upper() for s in args.only.split(",")} if args.only else None
 
     conn = psycopg2.connect(DSN)
     try:

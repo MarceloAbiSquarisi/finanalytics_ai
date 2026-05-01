@@ -14,16 +14,15 @@ Uso:
 from __future__ import annotations
 
 import argparse
+from datetime import date, datetime
 import json
 import os
+from pathlib import Path
 import pickle
 import sys
-from datetime import date, datetime
-from pathlib import Path
 
 import numpy as np
 import psycopg2
-
 
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",

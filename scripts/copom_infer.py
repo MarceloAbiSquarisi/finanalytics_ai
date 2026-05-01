@@ -8,14 +8,13 @@ Uso:
 from __future__ import annotations
 
 import argparse
+from datetime import date
 import json
 import os
-import sys
-from datetime import date
 from pathlib import Path
+import sys
 
 import psycopg2
-
 
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",
@@ -76,7 +75,7 @@ def main() -> int:
         print(f"model dir nao existe: {model_dir}", file=sys.stderr); return 2
 
     import torch
-    from transformers import AutoTokenizer, AutoModelForSequenceClassification
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
     meta_path = model_dir / "copom_meta.json"
     if not meta_path.exists():

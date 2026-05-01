@@ -27,13 +27,13 @@ Uso:
 from __future__ import annotations
 
 import argparse
+from datetime import date, datetime
 import json
+from pathlib import Path
 import sys
 import time
-import urllib.request
 import urllib.error
-from datetime import date, datetime
-from pathlib import Path
+import urllib.request
 
 # Carrega .env
 _env_file = Path(__file__).resolve().parents[1] / ".env"
@@ -152,7 +152,7 @@ def validar_response(ticker_esperado: str, d: date, resp: dict) -> tuple[str, st
 
 def backfill(tickers: list[str], delay: float, timeout: int, dry_run: bool) -> None:
     print(f"\n{'='*70}")
-    print(f"BACKFILL 4 DIAS RECENTES - re-coleta pos-patch contaminacao")
+    print("BACKFILL 4 DIAS RECENTES - re-coleta pos-patch contaminacao")
     print(f"  Dias     : {', '.join(d.isoformat() for d in DIAS_ALVO)}")
     print(f"  Tickers  : {len(tickers)} (watchlist VERDE+AMARELO)")
     print(f"  Delay    : {delay}s")
@@ -238,14 +238,14 @@ def backfill(tickers: list[str], delay: float, timeout: int, dry_run: bool) -> N
 
     # Resumo
     print(f"\n{'='*70}")
-    print(f"RESUMO")
+    print("RESUMO")
     print(f"  Probes executados  : {done}/{total_calls}")
     print(f"  Ticks coletados    : {total_ticks:,}")
     print(f"  Ticks inseridos    : {total_ins:,} (resto foi ON CONFLICT DO NOTHING)")
     print(f"  Erros/warns        : {len(errors)}")
     print(f"  Contaminacoes      : {contaminacoes}   <- se > 0, patch NAO esta funcionando")
     if errors:
-        print(f"\n  Primeiros 30 problemas:")
+        print("\n  Primeiros 30 problemas:")
         for tkr, d, flag, det in errors[:30]:
             print(f"    [{flag:12s}] {tkr:8s} {d.isoformat()}: {det}")
         if len(errors) > 30:

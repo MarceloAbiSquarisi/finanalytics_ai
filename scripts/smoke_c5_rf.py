@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import date
 import os
 import sys
-from datetime import date
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -61,7 +61,7 @@ async def main() -> None:
         print(f"Resgate 3000: status={r.get('status')} D+{r.get('liquidity_days')} settle={r.get('settlement_date')}")
 
     summary = await w.get_cash_summary(acc["id"], acc["user_id"])
-    print(f"\nResumo cash:")
+    print("\nResumo cash:")
     print(f"  cash_balance: R$ {summary['cash_balance']} (ainda nao liquidou)")
     print(f"  pending_in:   R$ {summary['pending_in']} (resgate futuro D+30)")
     print(f"  pending_out:  R$ {summary['pending_out']}")
@@ -75,7 +75,7 @@ async def main() -> None:
     print(f"Transacoes liquidadas: {settled}")
 
     summary = await w.get_cash_summary(acc["id"], acc["user_id"])
-    print(f"\nApos settle:")
+    print("\nApos settle:")
     print(f"  cash_balance: R$ {summary['cash_balance']}")
     print(f"  pending_in:   R$ {summary['pending_in']}")
 
@@ -84,7 +84,7 @@ async def main() -> None:
         repo3 = RFPortfolioRepository(s3)
         await repo3.delete_holding(h.holding_id, pfid)
         await s3.commit()
-        print(f"\nHolding deletado, tx canceladas, cash revertido.")
+        print("\nHolding deletado, tx canceladas, cash revertido.")
 
     summary = await w.get_cash_summary(acc["id"], acc["user_id"])
     print(f"Cash final: R$ {summary['cash_balance']}")

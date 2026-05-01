@@ -25,11 +25,11 @@ Após rodar:
 from __future__ import annotations
 
 import argparse
+from datetime import date, datetime, timedelta
 import os
+from pathlib import Path
 import sys
 import time
-from datetime import date, datetime, timedelta
-from pathlib import Path
 
 import psycopg2
 import psycopg2.extras
@@ -39,12 +39,11 @@ sys.path.insert(0, str(_ROOT / "scripts"))
 sys.path.insert(0, str(_ROOT / "src"))
 
 # Reusa pipeline de features e upsert do builder existente.
-from features_daily_builder import (  # noqa: E402
+from features_daily_builder import (
     Bar,
     compute_features_for_ticker,
     upsert_features,
 )
-
 
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",

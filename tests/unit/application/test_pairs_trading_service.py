@@ -21,10 +21,8 @@ data construida p/ produzir Z-score conhecido.
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
 
 import numpy as np
-import pytest
 
 from finanalytics_ai.application.services.pairs_trading_service import (
     PairsServiceConfig,
@@ -36,7 +34,6 @@ from finanalytics_ai.domain.pairs import (
     PairThresholds,
 )
 from finanalytics_ai.domain.pairs.entities import ActivePair
-
 
 # ── Stubs ────────────────────────────────────────────────────────────────────
 

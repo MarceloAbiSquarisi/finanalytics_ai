@@ -23,13 +23,12 @@ Uso:
 """
 from __future__ import annotations
 
+from datetime import date, datetime
 import os
 import sys
-from datetime import date, datetime
 
 import numpy as np
 import psycopg2
-
 
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",
