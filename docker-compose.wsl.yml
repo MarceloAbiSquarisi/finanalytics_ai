@@ -1,0 +1,88 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# docker-compose.wsl.yml
+#
+# Override pra rodar a stack no Engine Docker direto em WSL2 (Ubuntu-22.04),
+# em vez do Docker Desktop.
+#
+# Mantém os volumes em /mnt/e/finanalytics_data/ — mesmos arquivos NTFS, sem
+# migração de dados (Fase B.1 da I1). Performance fica IGUAL ao Docker Desktop
+# (overhead 9P do NTFS preservado). Ganho operacional: independência de
+# Docker Desktop logado, runs como systemd service no WSL2.
+#
+# Uso (de dentro do WSL2 Ubuntu):
+#   cd /mnt/d/Projetos/finanalytics_ai_fresh
+#   DATA_DIR_HOST=/mnt/e/finanalytics_data \
+#     docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.wsl.yml up -d
+#
+# Rollback: parar containers no WSL Engine, voltar a usar Docker Desktop.
+#   docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.wsl.yml down
+#   # Em PowerShell (Docker Desktop):
+#   docker compose up -d
+#
+# Decisões:
+# - Bind paths usam /mnt/e/ em vez de E:/ — semântica idêntica, mesmo NTFS.
+# - extra_hosts: host.docker.internal:host-gateway adicionado em TODOS os
+#   serviços que falam com profit_agent (api/worker/scheduler/worker_v2/
+#   ohlc_ingestor/fintz_sync_worker). Em Engine WSL2 puro, host-gateway
+#   resolve pra IP do Windows host (gateway da bridge) — equivalente ao
+#   comportamento do Docker Desktop.
+# - Não toca em GPU config — Decisão 15 (CUDA_VISIBLE_DEVICES=0) já está
+#   no compose principal e funciona idêntico no Engine WSL2.
+# - Fase B.2 (defer): mover volumes pra ext4 WSL nativo (~/finanalytics/data/)
+#   pra ganhar 10-50x perf. Necessário só quando ingestão live de ticks for
+#   prioridade.
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  postgres:
+    volumes:
+      - /mnt/e/finanalytics_data/docker/postgres:/var/lib/postgresql/data
+
+  timescale:
+    volumes:
+      - /mnt/e/finanalytics_data/docker/timescale:/var/lib/postgresql/data
+
+  zookeeper:
+    volumes:
+      - /mnt/e/finanalytics_data/docker/zookeeper/data:/var/lib/zookeeper/data
+      - /mnt/e/finanalytics_data/docker/zookeeper/logs:/var/lib/zookeeper/log
+
+  kafka:
+    volumes:
+      - /mnt/e/finanalytics_data/docker/kafka:/var/lib/kafka/data
+
+  evolution-api:
+    volumes:
+      - /mnt/e/finanalytics_data/docker/evolution:/evolution/instances
+
+  # Backup mount em H:\ (Seagate externo) — path WSL é /mnt/h
+  backup:
+    volumes:
+      - /mnt/h/finanalytics_data/docker/backups:/backups
+
+  # ── Serviços que falam com profit_agent (Windows host NSSM) precisam de
+  #    host-gateway. Engine WSL2 não auto-resolve host.docker.internal.
+  api:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  worker:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  scheduler:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  ohlc_ingestor:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  fintz_sync_worker:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  fintz_maintenance:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
