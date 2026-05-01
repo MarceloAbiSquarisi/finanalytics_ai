@@ -189,9 +189,7 @@ def apply_slippage(
     """
     if price <= 0:
         return price
-    s = slippage_amount(
-        price, ticker, notional_trade=notional_trade, adv_notional=adv_notional
-    )
+    s = slippage_amount(price, ticker, notional_trade=notional_trade, adv_notional=adv_notional)
     if side.lower().startswith("b"):
         return price + s
     return max(price - s, 0.0)

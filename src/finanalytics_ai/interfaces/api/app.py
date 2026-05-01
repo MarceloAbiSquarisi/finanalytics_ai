@@ -268,7 +268,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             settings.brapi_token, get_session_factory()
         )
         app.state.backtest_service = BacktestService(market_client)
-        app.state.optimizer_service = OptimizerService(market_client, result_repo=backtest_result_repo)
+        app.state.optimizer_service = OptimizerService(
+            market_client, result_repo=backtest_result_repo
+        )
         app.state.walkforward_service = WalkForwardService(
             market_client, result_repo=backtest_result_repo
         )
@@ -285,7 +287,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.market_client = market_client
 
         app.state.backtest_service = BacktestService(market_client)
-        app.state.optimizer_service = OptimizerService(market_client, result_repo=backtest_result_repo)
+        app.state.optimizer_service = OptimizerService(
+            market_client, result_repo=backtest_result_repo
+        )
         app.state.walkforward_service = WalkForwardService(
             market_client, result_repo=backtest_result_repo
         )

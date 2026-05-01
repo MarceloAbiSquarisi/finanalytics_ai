@@ -99,12 +99,8 @@ class TestPositionSizing:
         assert s.notional == pytest.approx(33 * 30)
 
     def test_high_vol_smaller_size(self) -> None:
-        s_low = position_size_vol_target(
-            capital=100_000, price=30, realized_vol_annual=0.20
-        )
-        s_high = position_size_vol_target(
-            capital=100_000, price=30, realized_vol_annual=0.50
-        )
+        s_low = position_size_vol_target(capital=100_000, price=30, realized_vol_annual=0.20)
+        s_high = position_size_vol_target(capital=100_000, price=30, realized_vol_annual=0.50)
         # Vol mais alta -> qty menor (ou igual se ambos saturarem cap)
         assert s_high.qty <= s_low.qty
 

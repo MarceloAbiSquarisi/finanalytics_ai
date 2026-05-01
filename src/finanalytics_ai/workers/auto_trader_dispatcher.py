@@ -35,9 +35,7 @@ logger = structlog.get_logger(__name__)
 
 # Base URL do proxy FastAPI (NAO o profit_agent direto). Use a API porque ela
 # resolve `_account_*` injection automatico via AccountService.
-API_BASE_URL = os.environ.get(
-    "AUTO_TRADER_API_URL", "http://api:8000"
-)
+API_BASE_URL = os.environ.get("AUTO_TRADER_API_URL", "http://api:8000")
 ORDER_TIMEOUT_SEC = float(os.environ.get("AUTO_TRADER_ORDER_TIMEOUT", "10.0"))
 
 
@@ -295,9 +293,7 @@ async def dispatch_order(
         )
     except Exception as exc:
         log.error("dispatcher.send_failed", error=str(exc))
-        update_intent_sent(
-            dsn=dsn, intent_id=intent_id, local_order_id=None, error_msg=str(exc)
-        )
+        update_intent_sent(dsn=dsn, intent_id=intent_id, local_order_id=None, error_msg=str(exc))
         update_signal_log_sent(
             dsn=dsn, signal_log_id=signal_log_id, local_order_id=None, sent=False
         )
@@ -306,9 +302,7 @@ async def dispatch_order(
     local_order_id = send_resp.get("local_order_id") or send_resp.get("local_id")
     log.info("dispatcher.sent", local_order_id=local_order_id)
 
-    update_intent_sent(
-        dsn=dsn, intent_id=intent_id, local_order_id=local_order_id, error_msg=None
-    )
+    update_intent_sent(dsn=dsn, intent_id=intent_id, local_order_id=local_order_id, error_msg=None)
     update_signal_log_sent(
         dsn=dsn, signal_log_id=signal_log_id, local_order_id=local_order_id, sent=True
     )

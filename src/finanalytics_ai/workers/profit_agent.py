@@ -898,7 +898,9 @@ class DBWriter:
             (
                 data.get("local_order_id"),
                 data.get("message_id"),
-                data.get("cl_ord_id"),  # C5: client_order_id deterministico do engine (NULL p/ ordens manuais)
+                data.get(
+                    "cl_ord_id"
+                ),  # C5: client_order_id deterministico do engine (NULL p/ ordens manuais)
                 data["broker_id"],
                 data["account_id"],
                 data.get("sub_account_id"),

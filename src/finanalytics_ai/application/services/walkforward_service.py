@@ -212,9 +212,7 @@ class WalkForwardService:
                         "max_drawdown_pct": max_dd,
                         "win_rate_pct": avg_win_rate,
                         "profit_factor": avg_pf,
-                        "calmar_ratio": (
-                            (result.combined_return / max_dd) if max_dd > 0 else 0.0
-                        ),
+                        "calmar_ratio": ((result.combined_return / max_dd) if max_dd > 0 else 0.0),
                         "total_trades": total_trades,
                     },
                 }

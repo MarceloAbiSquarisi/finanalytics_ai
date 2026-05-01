@@ -166,9 +166,7 @@ class MLSignalsStrategy:
         # 3. Vol annual (lookback retornos diarios)
         closes = [float(b["close"]) for b in bars[-(vol_lookback + 1) :]]
         rets = [
-            (closes[i] / closes[i - 1] - 1.0)
-            for i in range(1, len(closes))
-            if closes[i - 1] > 0
+            (closes[i] / closes[i - 1] - 1.0) for i in range(1, len(closes)) if closes[i - 1] > 0
         ]
         vol_annual = annualize_vol(realized_vol_daily(rets))
 
@@ -245,8 +243,7 @@ class MLSignalsStrategy:
         """Busca sinal ML; cache TTL 60s. Retorna SignalItem ou None."""
         now = datetime.now(UTC)
         cache_stale = (
-            self._cache_ts is None
-            or (now - self._cache_ts).total_seconds() > self._cache_ttl_sec
+            self._cache_ts is None or (now - self._cache_ts).total_seconds() > self._cache_ttl_sec
         )
         if cache_stale:
             try:
@@ -254,9 +251,7 @@ class MLSignalsStrategy:
                     r = client.get(f"{self._base_url}/api/v1/ml/signals?limit=500")
                     r.raise_for_status()
                     data = r.json()
-                self._signals_cache = {
-                    it["ticker"].upper(): it for it in data.get("items", [])
-                }
+                self._signals_cache = {it["ticker"].upper(): it for it in data.get("items", [])}
                 self._cache_ts = now
             except Exception as exc:
                 logger.warning("ml_signals.cache_refresh_failed", error=str(exc))
