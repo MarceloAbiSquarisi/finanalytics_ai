@@ -24,11 +24,11 @@ class ActivePair:
 
     ticker_a: str
     ticker_b: str
-    beta: float            # OLS A ~ B (sem intercept)
-    rho: float             # correlacao Pearson (info-only)
-    p_value_adf: float     # ADF p-value mais recente
+    beta: float  # OLS A ~ B (sem intercept)
+    rho: float  # correlacao Pearson (info-only)
+    p_value_adf: float  # ADF p-value mais recente
     half_life: float | None  # dias (None se nao mean-reverte)
-    lookback_days: int     # janela do screening
+    lookback_days: int  # janela do screening
     last_test_date: date
 
 
@@ -37,10 +37,10 @@ class PairEvaluation:
     """Saida da strategy para 1 par em 1 evaluation cycle."""
 
     pair: ActivePair
-    z: float | None             # Z-score atual (None se historico insuficiente)
+    z: float | None  # Z-score atual (None se historico insuficiente)
     action: PairAction
     current_position: PairPosition
-    reason: str                 # explicacao p/ log/audit
+    reason: str  # explicacao p/ log/audit
     blocked_by_filter: bool = False  # True se filtro estatistico/economico bloqueou
     # Detalhes da ordem (preenchido quando action e' OPEN_*).
     # leg_a/leg_b serao usados pelo dispatcher dual-leg em R3.2.B.2.

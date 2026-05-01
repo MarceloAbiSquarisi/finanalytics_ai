@@ -136,12 +136,8 @@ class TestDecideNonePosition:
 class TestDecideShortSpread:
     def test_z_in_band_holds(self) -> None:
         # Z entre exit e stop -> aguarda
-        assert (
-            decide_pair_action(1.5, PairPosition.SHORT_SPREAD) == PairAction.NONE
-        )
-        assert (
-            decide_pair_action(2.5, PairPosition.SHORT_SPREAD) == PairAction.NONE
-        )
+        assert decide_pair_action(1.5, PairPosition.SHORT_SPREAD) == PairAction.NONE
+        assert decide_pair_action(2.5, PairPosition.SHORT_SPREAD) == PairAction.NONE
 
     def test_z_below_exit_closes(self) -> None:
         # Z desceu abaixo de z_exit -> mean reversion atingida
@@ -205,52 +201,42 @@ class TestBonferroni:
 
 class TestValidateFilters:
     def test_all_pass(self) -> None:
-        ok, reason = validate_pair_filters(
-            p_value=0.001, half_life=15.0, n_pairs_tested=28
-        )
+        ok, reason = validate_pair_filters(p_value=0.001, half_life=15.0, n_pairs_tested=28)
         assert ok is True
         assert reason is None
 
     def test_p_above_bonferroni_fails(self) -> None:
         # alpha_eff = 0.05/28 ≈ 0.00179. p=0.04 falha
-        ok, reason = validate_pair_filters(
-            p_value=0.04, half_life=15.0, n_pairs_tested=28
-        )
+        ok, reason = validate_pair_filters(p_value=0.04, half_life=15.0, n_pairs_tested=28)
         assert ok is False
         assert "bonferroni_failed" in reason
 
     def test_p_below_bonferroni_passes(self) -> None:
         # p=0.001 < alpha_eff
-        ok, reason = validate_pair_filters(
-            p_value=0.001, half_life=10.0, n_pairs_tested=28
-        )
+        ok, reason = validate_pair_filters(p_value=0.001, half_life=10.0, n_pairs_tested=28)
         assert ok is True
 
     def test_half_life_none_fails(self) -> None:
-        ok, reason = validate_pair_filters(
-            p_value=0.0001, half_life=None, n_pairs_tested=28
-        )
+        ok, reason = validate_pair_filters(p_value=0.0001, half_life=None, n_pairs_tested=28)
         assert ok is False
         assert "half_life_undefined" in reason
 
     def test_half_life_too_short_fails(self) -> None:
-        ok, reason = validate_pair_filters(
-            p_value=0.0001, half_life=2.0, n_pairs_tested=28
-        )
+        ok, reason = validate_pair_filters(p_value=0.0001, half_life=2.0, n_pairs_tested=28)
         assert ok is False
         assert "half_life_too_short" in reason
 
     def test_half_life_too_long_fails(self) -> None:
-        ok, reason = validate_pair_filters(
-            p_value=0.0001, half_life=60.0, n_pairs_tested=28
-        )
+        ok, reason = validate_pair_filters(p_value=0.0001, half_life=60.0, n_pairs_tested=28)
         assert ok is False
         assert "half_life_too_long" in reason
 
     def test_custom_half_life_range(self) -> None:
         # half_life=8 OK no default (5-30) mas falha em (10-30)
         ok, _ = validate_pair_filters(
-            p_value=0.0001, half_life=8.0, n_pairs_tested=28,
+            p_value=0.0001,
+            half_life=8.0,
+            n_pairs_tested=28,
             min_half_life=10.0,
         )
         assert ok is False
@@ -260,16 +246,12 @@ class TestValidateFilters:
         Caso real do screening 01/mai: CMIN3-VALE3 com p=0.045, half-life=27d,
         em 28 pares testados.
         """
-        ok, reason = validate_pair_filters(
-            p_value=0.0452, half_life=27.0, n_pairs_tested=28
-        )
+        ok, reason = validate_pair_filters(p_value=0.0452, half_life=27.0, n_pairs_tested=28)
         # alpha_eff = 0.05/28 ≈ 0.00179. p=0.0452 >> alpha_eff -> reject
         assert ok is False
         assert "bonferroni" in reason
 
     def test_real_world_strict_p(self) -> None:
         """Mesmo caso mas com p hipotetico apertado (0.0001) -> pass."""
-        ok, reason = validate_pair_filters(
-            p_value=0.0001, half_life=27.0, n_pairs_tested=28
-        )
+        ok, reason = validate_pair_filters(p_value=0.0001, half_life=27.0, n_pairs_tested=28)
         assert ok is True

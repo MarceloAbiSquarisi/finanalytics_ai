@@ -40,11 +40,11 @@ import math
 
 # ── Constantes default (sobreescritas por config_json da strategy) ───────────
 
-DEFAULT_Z_ENTRY: float = 2.0      # |Z| > 2 abre posicao
-DEFAULT_Z_EXIT: float = 0.5       # |Z| < 0.5 fecha (mean reversion)
-DEFAULT_Z_STOP: float = 4.0       # |Z| > 4 stop loss forcado
-DEFAULT_MIN_HALF_LIFE: float = 5.0    # dias — abaixo: ruido
-DEFAULT_MAX_HALF_LIFE: float = 30.0   # dias — acima: capital preso por muito tempo
+DEFAULT_Z_ENTRY: float = 2.0  # |Z| > 2 abre posicao
+DEFAULT_Z_EXIT: float = 0.5  # |Z| < 0.5 fecha (mean reversion)
+DEFAULT_Z_STOP: float = 4.0  # |Z| > 4 stop loss forcado
+DEFAULT_MIN_HALF_LIFE: float = 5.0  # dias — abaixo: ruido
+DEFAULT_MAX_HALF_LIFE: float = 30.0  # dias — acima: capital preso por muito tempo
 DEFAULT_BONFERRONI_ALPHA: float = 0.05
 
 
@@ -55,18 +55,18 @@ class PairPosition(str, Enum):
     """Estado atual da posicao no par."""
 
     NONE = "NONE"
-    LONG_SPREAD = "LONG_SPREAD"     # long A, short B (apostando spread sobe)
-    SHORT_SPREAD = "SHORT_SPREAD"   # short A, long B (apostando spread cai)
+    LONG_SPREAD = "LONG_SPREAD"  # long A, short B (apostando spread sobe)
+    SHORT_SPREAD = "SHORT_SPREAD"  # short A, long B (apostando spread cai)
 
 
 class PairAction(str, Enum):
     """Decisao a tomar a partir do estado + Z-score atual."""
 
-    NONE = "NONE"                       # nada a fazer (HOLD)
+    NONE = "NONE"  # nada a fazer (HOLD)
     OPEN_LONG_SPREAD = "OPEN_LONG_SPREAD"
     OPEN_SHORT_SPREAD = "OPEN_SHORT_SPREAD"
-    CLOSE = "CLOSE"                     # mean reversion atingida
-    STOP = "STOP"                       # |Z| explodiu - stop loss
+    CLOSE = "CLOSE"  # mean reversion atingida
+    STOP = "STOP"  # |Z| explodiu - stop loss
 
 
 # ── Z-score ──────────────────────────────────────────────────────────────────

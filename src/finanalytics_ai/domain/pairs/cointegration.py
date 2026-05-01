@@ -38,19 +38,21 @@ import numpy as np
 class CointegrationResult:
     """Resultado completo do Engle-Granger pra um par."""
 
-    beta: float           # coef OLS A ~ B (sem intercept)
-    rho: float            # correlacao Pearson de A vs B
+    beta: float  # coef OLS A ~ B (sem intercept)
+    rho: float  # correlacao Pearson de A vs B
     residuals: np.ndarray  # spread_t = A_t - beta * B_t
-    p_value_adf: float    # ADF p-value no spread
-    cointegrated: bool    # p_value_adf < 0.05
+    p_value_adf: float  # ADF p-value no spread
+    cointegrated: bool  # p_value_adf < 0.05
     half_life: float | None  # dias (None se beta_ar1 nao reverte)
-    sample_size: int      # len(prices_a)
+    sample_size: int  # len(prices_a)
 
 
 # ── 1. Hedge ratio ───────────────────────────────────────────────────────────
 
 
-def compute_hedge_ratio(prices_a: list[float] | np.ndarray, prices_b: list[float] | np.ndarray) -> float:
+def compute_hedge_ratio(
+    prices_a: list[float] | np.ndarray, prices_b: list[float] | np.ndarray
+) -> float:
     """
     OLS sem intercept: beta = (B'A) / (B'B).
     Resolve A = beta * B no sentido de minimizar sum((A - beta*B)^2).
@@ -124,8 +126,8 @@ def compute_half_life(residuals: np.ndarray | list[float]) -> float | None:
     if len(arr) < 3:
         return None
 
-    diff = np.diff(arr)        # delta_t = arr_t - arr_{t-1}
-    lag = arr[:-1]             # arr_{t-1} para o mesmo t
+    diff = np.diff(arr)  # delta_t = arr_t - arr_{t-1}
+    lag = arr[:-1]  # arr_{t-1} para o mesmo t
 
     # OLS sem intercept: coef = (lag'diff) / (lag'lag)
     denom = float(np.dot(lag, lag))

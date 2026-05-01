@@ -59,7 +59,9 @@ def _result_with(*tickers: str) -> ClassificationResult:
     return ClassificationResult(
         mentions=[
             ResearchMention(
-                ticker=t, sentiment="BULLISH", action="BUY",
+                ticker=t,
+                sentiment="BULLISH",
+                action="BUY",
                 confidence=0.95,
             )
             for t in tickers
@@ -76,9 +78,7 @@ async def test_empty_fetcher_returns_zero_stats() -> None:
     classifier = MagicMock()
     classifier.classify.return_value = _result_with()
 
-    stats = await process_once(
-        fetcher=fetcher, classifier=classifier, dsn="postgres://stub"
-    )
+    stats = await process_once(fetcher=fetcher, classifier=classifier, dsn="postgres://stub")
 
     assert stats == {"fetched": 0, "skipped_dup": 0, "classified": 0, "mentions": 0}
     classifier.classify.assert_not_called()
@@ -94,21 +94,20 @@ async def test_single_email_classified_and_inserted() -> None:
     classifier = MagicMock()
     classifier.classify.return_value = _result_with("PETR4", "VALE3")
 
-    with patch(
-        "finanalytics_ai.workers.email_research_worker.msg_id_already_processed",
-        return_value=False,
-    ), patch(
-        "finanalytics_ai.workers.email_research_worker.insert_mentions",
-        return_value=2,
-    ) as m_insert:
-        stats = await process_once(
-            fetcher=fetcher, classifier=classifier, dsn="postgres://stub"
-        )
+    with (
+        patch(
+            "finanalytics_ai.workers.email_research_worker.msg_id_already_processed",
+            return_value=False,
+        ),
+        patch(
+            "finanalytics_ai.workers.email_research_worker.insert_mentions",
+            return_value=2,
+        ) as m_insert,
+    ):
+        stats = await process_once(fetcher=fetcher, classifier=classifier, dsn="postgres://stub")
 
     assert stats == {"fetched": 1, "skipped_dup": 0, "classified": 1, "mentions": 2}
-    classifier.classify.assert_called_once_with(
-        "PETR4 mantemos compra", "btg"
-    )
+    classifier.classify.assert_called_once_with("PETR4 mantemos compra", "btg")
     m_insert.assert_called_once()
     insert_kwargs = m_insert.call_args.kwargs
     assert insert_kwargs["msg_id"] == "m1"
@@ -129,16 +128,17 @@ async def test_duplicate_msg_id_skipped() -> None:
     def already(_dsn: str, msg_id: str) -> bool:
         return msg_id == "m1"
 
-    with patch(
-        "finanalytics_ai.workers.email_research_worker.msg_id_already_processed",
-        side_effect=already,
-    ), patch(
-        "finanalytics_ai.workers.email_research_worker.insert_mentions",
-        return_value=1,
-    ) as m_insert:
-        stats = await process_once(
-            fetcher=fetcher, classifier=classifier, dsn="postgres://stub"
-        )
+    with (
+        patch(
+            "finanalytics_ai.workers.email_research_worker.msg_id_already_processed",
+            side_effect=already,
+        ),
+        patch(
+            "finanalytics_ai.workers.email_research_worker.insert_mentions",
+            return_value=1,
+        ) as m_insert,
+    ):
+        stats = await process_once(fetcher=fetcher, classifier=classifier, dsn="postgres://stub")
 
     assert stats == {"fetched": 2, "skipped_dup": 1, "classified": 1, "mentions": 1}
     # classifier so foi chamado pra m2
@@ -160,16 +160,17 @@ async def test_classifier_error_continues_to_next_email() -> None:
         _result_with("VALE3"),
     ]
 
-    with patch(
-        "finanalytics_ai.workers.email_research_worker.msg_id_already_processed",
-        return_value=False,
-    ), patch(
-        "finanalytics_ai.workers.email_research_worker.insert_mentions",
-        return_value=1,
-    ) as m_insert:
-        stats = await process_once(
-            fetcher=fetcher, classifier=classifier, dsn="postgres://stub"
-        )
+    with (
+        patch(
+            "finanalytics_ai.workers.email_research_worker.msg_id_already_processed",
+            return_value=False,
+        ),
+        patch(
+            "finanalytics_ai.workers.email_research_worker.insert_mentions",
+            return_value=1,
+        ) as m_insert,
+    ):
+        stats = await process_once(fetcher=fetcher, classifier=classifier, dsn="postgres://stub")
 
     # m1 falhou, m2 passou
     assert stats == {"fetched": 2, "skipped_dup": 0, "classified": 1, "mentions": 1}
@@ -191,9 +192,7 @@ async def test_fetcher_error_returns_zero_stats() -> None:
     fetcher = _BoomFetcher()
     classifier = MagicMock()
 
-    stats = await process_once(
-        fetcher=fetcher, classifier=classifier, dsn="postgres://stub"
-    )
+    stats = await process_once(fetcher=fetcher, classifier=classifier, dsn="postgres://stub")
 
     assert stats == {"fetched": 0, "skipped_dup": 0, "classified": 0, "mentions": 0}
     classifier.classify.assert_not_called()
@@ -209,16 +208,17 @@ async def test_excerpt_truncated_to_500_chars() -> None:
     classifier = MagicMock()
     classifier.classify.return_value = _result_with("PETR4")
 
-    with patch(
-        "finanalytics_ai.workers.email_research_worker.msg_id_already_processed",
-        return_value=False,
-    ), patch(
-        "finanalytics_ai.workers.email_research_worker.insert_mentions",
-        return_value=1,
-    ) as m_insert:
-        await process_once(
-            fetcher=fetcher, classifier=classifier, dsn="postgres://stub"
-        )
+    with (
+        patch(
+            "finanalytics_ai.workers.email_research_worker.msg_id_already_processed",
+            return_value=False,
+        ),
+        patch(
+            "finanalytics_ai.workers.email_research_worker.insert_mentions",
+            return_value=1,
+        ) as m_insert,
+    ):
+        await process_once(fetcher=fetcher, classifier=classifier, dsn="postgres://stub")
 
     excerpt = m_insert.call_args.kwargs["raw_text_excerpt"]
     assert len(excerpt) == 500
