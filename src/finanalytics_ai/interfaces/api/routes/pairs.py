@@ -79,6 +79,21 @@ class PositionOut(BaseModel):
     last_dispatch_cl_ord_id: str | None
 
 
+class ZScorePoint(BaseModel):
+    date: str  # ISO YYYY-MM-DD
+    spread: float
+    z: float | None  # None nos primeiros lookback_days bars (rolling window não cheia)
+
+
+class ZScoreHistoryOut(BaseModel):
+    pair_key: str
+    ticker_a: str
+    ticker_b: str
+    beta: float
+    lookback_days: int  # janela rolling do z-score
+    points: list[ZScorePoint]
+
+
 class ZScoreOut(BaseModel):
     pair_key: str
     ticker_a: str
@@ -143,6 +158,110 @@ async def list_active_pairs(
         )
         for (a, b, beta, rho, p_adf, hl, lb, ltd, pos) in rows
     ]
+
+
+@router.get("/zscores/{pair_key}/history", response_model=ZScoreHistoryOut)
+async def get_zscore_history(
+    request: Request,
+    pair_key: str,
+    days: int = Query(180, ge=30, le=504, description="Total de bars retornados"),
+    lookback_days: int = Query(60, ge=20, le=252, description="Janela rolling do z-score"),
+    _user: User = Depends(get_current_user),
+) -> ZScoreHistoryOut:
+    """
+    Histórico de Z-score pra um par específico — drilldown pra UI plottar
+    chart timeseries.
+
+    Calcula rolling z-score: pra cada bar `t`, z(t) = (spread[t] - mean(spread[t-lookback:t]))
+    / std(spread[t-lookback:t]). Primeiros `lookback_days` bars retornam z=None.
+
+    pair_key esperado em formato 'TICKER_A-TICKER_B' (ordem alfabética
+    canônica de cointegrated_pairs).
+    """
+    if "-" not in pair_key:
+        raise HTTPException(400, f"pair_key invalido (esperado A-B): {pair_key}")
+    ticker_a, ticker_b = pair_key.split("-", 1)
+
+    # Lookup beta + valida que par existe e cointegrou
+    sql = """
+        SELECT beta FROM cointegrated_pairs
+         WHERE ticker_a = %s AND ticker_b = %s AND cointegrated = TRUE
+    """
+    try:
+        with _conn() as conn, conn.cursor() as cur:
+            cur.execute(sql, (ticker_a, ticker_b))
+            row = cur.fetchone()
+    except Exception as exc:
+        logger.error("pairs.zscore_history.db_error", error=str(exc))
+        raise HTTPException(503, f"DB error: {exc}") from exc
+    if row is None:
+        raise HTTPException(404, f"Par {pair_key} nao encontrado ou nao cointegrado")
+    beta = float(row[0])
+
+    market = getattr(request.app.state, "market_client", None)
+    if market is None:
+        raise HTTPException(503, "market_client indisponivel")
+
+    range_period = "1y" if days <= 252 else "2y"
+    try:
+        bars_a = await market.get_ohlc_bars(ticker_a, range_period=range_period)
+        bars_b = await market.get_ohlc_bars(ticker_b, range_period=range_period)
+    except Exception as exc:
+        raise HTTPException(503, f"Falha ao buscar bars: {exc}") from exc
+
+    if not bars_a or not bars_b:
+        raise HTTPException(404, "Bars indisponíveis pra um dos tickers")
+
+    # Alinha pelo N comum mais recente
+    n_target = days + lookback_days  # buffer pra rolling window inicial
+    n = min(len(bars_a), len(bars_b), n_target)
+    bars_a = bars_a[-n:]
+    bars_b = bars_b[-n:]
+
+    from datetime import UTC, datetime
+
+    points: list[ZScorePoint] = []
+    spreads: list[float] = []
+    for ba, bb in zip(bars_a, bars_b, strict=False):
+        ca = ba.get("close")
+        cb = bb.get("close")
+        if ca is None or cb is None:
+            continue
+        spread = float(ca) - beta * float(cb)
+        spreads.append(spread)
+        # Rolling z (excluindo o ponto atual do mean/std — usa bars anteriores)
+        if len(spreads) <= lookback_days:
+            z_val = None
+        else:
+            window = spreads[-lookback_days - 1 : -1]  # últimos lookback bars (excluindo current)
+            mean = sum(window) / len(window)
+            var = sum((s - mean) ** 2 for s in window) / max(1, len(window) - 1)
+            std = var**0.5
+            z_val = (spread - mean) / std if std > 0 else None
+        # Date parsing — bars trazem time epoch ou date string
+        ts = ba.get("time") or ba.get("date")
+        try:
+            if isinstance(ts, int | float):
+                date_iso = datetime.fromtimestamp(int(ts), UTC).date().isoformat()
+            else:
+                date_iso = (
+                    datetime.fromisoformat(str(ts).replace("Z", "+00:00")).date().isoformat()
+                )
+        except Exception:
+            date_iso = "unknown"
+        points.append(ZScorePoint(date=date_iso, spread=spread, z=z_val))
+
+    # Trim aos últimos `days` pontos (descarta os primeiros lookback_days que ficaram None)
+    points = points[-days:]
+
+    return ZScoreHistoryOut(
+        pair_key=pair_key,
+        ticker_a=ticker_a,
+        ticker_b=ticker_b,
+        beta=beta,
+        lookback_days=lookback_days,
+        points=points,
+    )
 
 
 @router.get("/zscores", response_model=list[ZScoreOut])
