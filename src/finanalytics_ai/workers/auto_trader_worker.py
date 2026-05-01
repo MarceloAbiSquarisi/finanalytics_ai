@@ -54,6 +54,10 @@ ENABLED = os.environ.get("AUTO_TRADER_ENABLED", "false").lower() == "true"
 DRY_RUN = os.environ.get("AUTO_TRADER_DRY_RUN", "true").lower() == "true"
 INTERVAL_SEC = int(os.environ.get("SCHEDULE_INTERVAL_SEC", "60"))
 AGENT_URL = os.environ.get("PROFIT_AGENT_URL", "http://host.docker.internal:8002")
+# Phase 2: dispatcher fala com o proxy FastAPI (NAO direto com o agent), pra
+# usar AccountService injection automatico de _account_broker_id/account_id.
+API_BASE_URL = os.environ.get("AUTO_TRADER_API_URL", "http://api:8000")
+TRADE_ENV = os.environ.get("AUTO_TRADER_TRADE_ENV", "simulation")  # simulation|production
 DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",
     "postgresql://finanalytics:timescale_secret@finanalytics_timescale:5432/market_data",
@@ -91,28 +95,19 @@ class Strategy(Protocol):
         ...
 
 
-# ── Strategy implementations (scaffold) ──────────────────────────────────────
+# ── Strategy implementations ─────────────────────────────────────────────────
+#
+# Implementacoes vivem em domain/robot/strategies.py — testaveis em isolamento.
 
+from finanalytics_ai.domain.robot.strategies import (
+    DummyHeartbeatStrategy,
+    MLSignalsStrategy,
+)
 
-class DummyHeartbeatStrategy:
-    """Sempre HOLD. Util pra validar pipeline sem disparar trade."""
-
-    name = "dummy_heartbeat"
-
-    def evaluate(self, ticker: str, context: dict[str, Any]) -> dict[str, Any]:
-        return {
-            "action": Action.HOLD,
-            "payload": {
-                "reason": "dummy_heartbeat_ok",
-                "ticker": ticker,
-                "ts": datetime.now(UTC).isoformat(),
-            },
-        }
-
-
-# Registry — apply patch quando R2/R3/R4 chegarem.
+# Registry — adicionar R2/R3/R4 aqui quando chegarem.
 STRATEGY_REGISTRY: dict[str, Strategy] = {
     "dummy_heartbeat": DummyHeartbeatStrategy(),
+    "ml_signals": MLSignalsStrategy(),
 }
 
 
@@ -299,17 +294,75 @@ async def _evaluate_strategies(iteration: int) -> None:
                 )
                 continue
 
-            # Sem trade real ainda nesta versao — placeholder para Phase 2
+            # Phase 2: dispatch real para o proxy FastAPI -> profit_agent.
+            # Strategy retorna em payload: quantity, price (None=market),
+            # order_type, take_profit, stop_loss. Risk Engine ja foi chamado
+            # pelo Strategy.evaluate antes (decisao composta).
             if action in (Action.BUY, Action.SELL):
-                log_signal(
+                qty = payload.get("quantity")
+                if not qty or qty <= 0:
+                    log_signal(
+                        strategy_id=strat_row["id"],
+                        strategy_name=strat_row["name"],
+                        ticker=ticker,
+                        action=action,
+                        sent_to_dll=False,
+                        reason_skipped="missing_or_zero_quantity",
+                        payload=payload,
+                    )
+                    continue
+
+                # 1. Log signal PRIMEIRO p/ ter signal_log_id (FK do intent)
+                signal_log_id = log_signal(
                     strategy_id=strat_row["id"],
                     strategy_name=strat_row["name"],
                     ticker=ticker,
                     action=action,
-                    sent_to_dll=False,
-                    reason_skipped="phase1_no_real_trade",
+                    sent_to_dll=False,  # Updated apos dispatch
+                    reason_skipped=None,
                     payload=payload,
                 )
+                if signal_log_id is None:
+                    logger.error(
+                        "auto_trader.signal_log_failed_skip_dispatch",
+                        strategy=strat_row["name"],
+                        ticker=ticker,
+                    )
+                    continue
+
+                # 2. Dispatch via proxy FastAPI
+                from finanalytics_ai.workers.auto_trader_dispatcher import dispatch_order
+
+                try:
+                    dispatch_result = await dispatch_order(
+                        dsn=DSN,
+                        base_url=API_BASE_URL,
+                        signal_log_id=signal_log_id,
+                        strategy_id=strat_row["id"],
+                        ticker=ticker,
+                        side=action.lower(),
+                        quantity=int(qty),
+                        price=payload.get("price"),
+                        order_type=payload.get("order_type", "market"),
+                        take_profit=payload.get("take_profit"),
+                        stop_loss=payload.get("stop_loss"),
+                        is_daytrade=payload.get("is_daytrade", True),
+                        env=TRADE_ENV,
+                    )
+                    logger.info(
+                        "auto_trader.dispatched",
+                        ticker=ticker,
+                        side=action,
+                        ok=dispatch_result.get("ok"),
+                        local_order_id=dispatch_result.get("local_order_id"),
+                        cl_ord_id=dispatch_result.get("cl_ord_id"),
+                    )
+                except Exception as exc:
+                    logger.error(
+                        "auto_trader.dispatch_exception",
+                        ticker=ticker,
+                        error=str(exc),
+                    )
                 continue
 
             # HOLD/SKIP — log normal
