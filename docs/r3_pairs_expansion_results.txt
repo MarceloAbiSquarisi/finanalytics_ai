@@ -1,0 +1,328 @@
+Carregando closes (756d) de 37 tickers...
+
+
+## BANCOS — 6 tickers, 15 pares
+
+### lookback=252d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+ABCB4-BBAS3        0.8370    0.871      n/a         no         no
+ABCB4-BBDC4        0.8926    1.471      n/a         no         no
+ABCB4-BPAC11       0.8472    0.550      n/a         no         no
+ABCB4-ITUB4        0.7088    0.628      n/a         no         no
+ABCB4-SANB11       0.6339    0.797      n/a         no         no
+BBAS3-BBDC4        0.9719    1.624      n/a         no         no
+BBAS3-BPAC11       0.9528    0.609      n/a         no         no
+BBAS3-ITUB4        0.9214    0.699      n/a         no         no
+BBAS3-SANB11       0.9553    0.894      n/a         no         no
+BBDC4-BPAC11       0.0407    0.373      8.8        YES        YES
+BBDC4-ITUB4        0.7390    0.424      n/a         no         no
+BBDC4-SANB11       0.8899    0.534      n/a         no         no
+BPAC11-ITUB4        0.9175    1.134      n/a         no         no
+BPAC11-SANB11       0.7585    1.429      n/a         no         no
+ITUB4-SANB11       0.4325    1.264      n/a         no         no
+
+### lookback=504d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+ABCB4-BBAS3        0.5603    0.891      n/a         no         no
+ABCB4-BBDC4        0.9158    1.600      n/a         no         no
+ABCB4-BPAC11       0.9185    0.608      n/a         no         no
+ABCB4-ITUB4        0.9692    0.706      n/a         no         no
+ABCB4-SANB11       0.5639    0.824      n/a         no         no
+BBAS3-BBDC4        0.9162    1.762      n/a         no         no
+BBAS3-BPAC11       0.9917    0.670      n/a         no         no
+BBAS3-ITUB4        0.9690    0.782      n/a         no         no
+BBAS3-SANB11       0.9022    0.914      n/a         no         no
+BBDC4-BPAC11       0.0309    0.379     15.8        YES        YES
+BBDC4-ITUB4        0.1194    0.440      n/a         no         no
+BBDC4-SANB11       0.7442    0.508      n/a         no         no
+BPAC11-ITUB4        0.2685    1.162      n/a         no         no
+BPAC11-SANB11       0.8246    1.337      n/a         no         no
+ITUB4-SANB11       0.4662    1.147      n/a         no         no
+
+### lookback=756d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+ABCB4-BBAS3        0.1357    0.917      n/a         no         no
+ABCB4-BBDC4        0.5402    1.564      n/a         no         no
+ABCB4-BPAC11       0.9431    0.631      n/a         no         no
+ABCB4-ITUB4        0.9765    0.741      n/a         no         no
+ABCB4-SANB11       0.2812    0.803      n/a         no         no
+BBAS3-BBDC4        0.4322    1.663      n/a         no         no
+BBAS3-BPAC11       0.9776    0.677      n/a         no         no
+BBAS3-ITUB4        0.9676    0.798      n/a         no         no
+BBAS3-SANB11       0.5341    0.859      n/a         no         no
+BBDC4-BPAC11       0.0890    0.401      n/a         no        YES
+BBDC4-ITUB4        0.1998    0.470      n/a         no         no
+BBDC4-SANB11       0.0937    0.508      n/a         no        YES
+BPAC11-ITUB4        0.5447    1.172      n/a         no         no
+BPAC11-SANB11       0.8757    1.243      n/a         no         no
+ITUB4-SANB11       0.9127    1.056      n/a         no         no
+
+## PETROLEO — 5 tickers, 10 pares
+
+### lookback=252d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+PETR3-PETR4        0.2797    1.088      n/a         no         no
+PETR3-PRIO3        0.2726    0.886      n/a         no         no
+PETR3-RAPT4        0.3884    4.112      n/a         no         no
+PETR3-RECV3        0.1425    2.447      n/a         no         no
+PETR4-PRIO3        0.2845    0.814      n/a         no         no
+PETR4-RAPT4        0.4493    3.776      n/a         no         no
+PETR4-RECV3        0.1196    2.248      n/a         no         no
+PRIO3-RAPT4        0.5792    4.619      n/a         no         no
+PRIO3-RECV3        0.3829    2.753      n/a         no         no
+RAPT4-RECV3        0.2086    0.586      n/a         no         no
+
+### lookback=504d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+PETR3-PETR4        0.1792    1.081      n/a         no         no
+PETR3-PRIO3        0.1843    0.801      n/a         no         no
+PETR3-RAPT4        0.5889    3.438      n/a         no         no
+PETR3-RECV3        0.4100    2.127      n/a         no         no
+PETR4-PRIO3        0.1292    0.742      n/a         no         no
+PETR4-RAPT4        0.6123    3.185      n/a         no         no
+PETR4-RECV3        0.3642    1.970      n/a         no         no
+PRIO3-RAPT4        0.2849    4.310      n/a         no         no
+PRIO3-RECV3        0.0378    2.655     16.7        YES        YES
+RAPT4-RECV3        0.0483    0.609     21.7        YES        YES
+
+### lookback=756d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+PETR3-PETR4        0.3483    1.090      n/a         no         no
+PETR3-PRIO3        0.5211    0.730      n/a         no         no
+PETR3-RAPT4        0.7332    3.109      n/a         no         no
+PETR3-RECV3        0.4186    1.665      n/a         no         no
+PETR4-PRIO3        0.6021    0.668      n/a         no         no
+PETR4-RAPT4        0.7823    2.842      n/a         no         no
+PETR4-RECV3        0.4450    1.516      n/a         no         no
+PRIO3-RAPT4        0.1110    4.267      n/a         no         no
+PRIO3-RECV3        0.0888    2.338      n/a         no        YES
+RAPT4-RECV3        0.2400    0.538      n/a         no         no
+
+## MINERACAO_METALURGIA — 6 tickers, 15 pares
+
+### lookback=252d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+CMIN3-CSNA3        0.5285    0.595      n/a         no         no
+CMIN3-GGBR4        0.3584    0.310      n/a         no         no
+CMIN3-GOAU4        0.4113    0.554      n/a         no         no
+CMIN3-USIM5        0.4155    1.007      n/a         no         no
+CMIN3-VALE3        0.1907    0.098      n/a         no         no
+CSNA3-GGBR4        0.0888    0.517      n/a         no        YES
+CSNA3-GOAU4        0.1548    0.925      n/a         no         no
+CSNA3-USIM5        0.1116    1.689      n/a         no         no
+CSNA3-VALE3        0.4918    0.163      n/a         no         no
+GGBR4-GOAU4        0.9299    1.788      n/a         no         no
+GGBR4-USIM5        0.3436    3.226      n/a         no         no
+GGBR4-VALE3        0.5897    0.314      n/a         no         no
+GOAU4-USIM5        0.4442    1.802      n/a         no         no
+GOAU4-VALE3        0.4617    0.176      n/a         no         no
+USIM5-VALE3        0.6634    0.096      n/a         no         no
+
+### lookback=504d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+CMIN3-CSNA3        0.8862    0.448      n/a         no         no
+CMIN3-GGBR4        0.1932    0.302      n/a         no         no
+CMIN3-GOAU4        0.2646    0.534      n/a         no         no
+CMIN3-USIM5        0.7714    0.744      n/a         no         no
+CMIN3-VALE3        0.0452    0.094     26.9        YES        YES
+CSNA3-GGBR4        0.7865    0.640      n/a         no         no
+CSNA3-GOAU4        0.8316    1.135      n/a         no         no
+CSNA3-USIM5        0.0919    1.671      n/a         no        YES
+CSNA3-VALE3        0.8664    0.199      n/a         no         no
+GGBR4-GOAU4        0.1345    1.774      n/a         no         no
+GGBR4-USIM5        0.7631    2.474      n/a         no         no
+GGBR4-VALE3        0.1636    0.308      n/a         no         no
+GOAU4-USIM5        0.7929    1.394      n/a         no         no
+GOAU4-VALE3        0.1069    0.174      n/a         no         no
+USIM5-VALE3        0.8057    0.118      n/a         no         no
+
+### lookback=756d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+CMIN3-CSNA3        0.8652    0.398      n/a         no         no
+CMIN3-GGBR4        0.4792    0.251      n/a         no         no
+CMIN3-GOAU4        0.4049    0.462      n/a         no         no
+CMIN3-USIM5        0.6355    0.661      n/a         no         no
+CMIN3-VALE3        0.3001    0.079      n/a         no         no
+CSNA3-GGBR4        0.5900    0.615      n/a         no         no
+CSNA3-GOAU4        0.6639    1.125      n/a         no         no
+CSNA3-USIM5        0.0099    1.666     29.4        YES        YES
+CSNA3-VALE3        0.6821    0.193      n/a         no         no
+GGBR4-GOAU4        0.7576    1.826      n/a         no         no
+GGBR4-USIM5        0.5774    2.609      n/a         no         no
+GGBR4-VALE3        0.1036    0.312      n/a         no         no
+GOAU4-USIM5        0.6160    1.428      n/a         no         no
+GOAU4-VALE3        0.0923    0.171      n/a         no        YES
+USIM5-VALE3        0.5446    0.115      n/a         no         no
+
+## PAPEL_CELULOSE — 2 tickers, 1 pares
+
+### lookback=252d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+KLBN11-SUZB3        0.0038    0.352      7.2        YES        YES
+
+### lookback=504d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+KLBN11-SUZB3        0.0167    0.353     16.6        YES        YES
+
+### lookback=756d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+KLBN11-SUZB3        0.0142    0.352     26.6        YES        YES
+
+## VAREJO — 5 tickers, 10 pares
+
+### lookback=252d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+AMER3-LREN3        0.0537    0.390      n/a         no        YES
+AMER3-MGLU3        0.2004    0.686      n/a         no         no
+AMER3-PETZ3        0.0005    1.423      6.5        YES        YES
+AMER3-RENT3        0.0102    0.158      8.6        YES        YES
+LREN3-MGLU3        0.5425    1.709      n/a         no         no
+LREN3-PETZ3        0.6252    3.534      n/a         no         no
+LREN3-RENT3        0.4752    0.399      n/a         no         no
+MGLU3-PETZ3        0.1565    2.035      n/a         no         no
+MGLU3-RENT3        0.0544    0.230      n/a         no        YES
+PETZ3-RENT3        0.5252    0.111      n/a         no         no
+
+### lookback=504d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+AMER3-LREN3        0.4061    1.900      n/a         no         no
+AMER3-MGLU3        0.0738    2.919      n/a         no        YES
+AMER3-PETZ3        0.3975    6.765      n/a         no         no
+AMER3-RENT3        0.3366    0.771      n/a         no         no
+LREN3-MGLU3        0.6982    1.015      n/a         no         no
+LREN3-PETZ3        0.0923    3.478      n/a         no        YES
+LREN3-RENT3        0.4052    0.311      n/a         no         no
+MGLU3-PETZ3        0.6652    2.880      n/a         no         no
+MGLU3-RENT3        0.3963    0.283      n/a         no         no
+PETZ3-RENT3        0.3937    0.088      n/a         no         no
+
+### lookback=756d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+AMER3-LREN3        0.0002    9.874     30.3        YES        YES
+AMER3-MGLU3        0.0000    8.253     28.2        YES        YES
+AMER3-PETZ3        0.0001   32.992     29.4        YES        YES
+AMER3-RENT3        0.0001    2.897     29.4        YES        YES
+LREN3-MGLU3        0.6508    0.609      n/a         no         no
+LREN3-PETZ3        0.2086    3.005      n/a         no         no
+LREN3-RENT3        0.5622    0.286      n/a         no         no
+MGLU3-PETZ3        0.5555    4.151      n/a         no         no
+MGLU3-RENT3        0.2605    0.400      n/a         no         no
+PETZ3-RENT3        0.1405    0.094      n/a         no         no
+
+## ALIMENTOS — 3 tickers, 3 pares
+
+### lookback=252d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+BRFS3-JBSS3        0.4894    0.543      n/a         no         no
+BRFS3-MRFG3        0.6701    0.979      n/a         no         no
+JBSS3-MRFG3        0.2892    1.802      n/a         no         no
+
+### lookback=504d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+BRFS3-JBSS3        0.4897    0.585      n/a         no         no
+BRFS3-MRFG3        0.8409    1.089      n/a         no         no
+JBSS3-MRFG3        0.0376    1.863     24.3        YES        YES
+
+### lookback=756d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+BRFS3-JBSS3        0.4372    0.516      n/a         no         no
+BRFS3-MRFG3        0.7270    1.079      n/a         no         no
+JBSS3-MRFG3        0.2088    2.002      n/a         no         no
+
+## TELECOM — 2 tickers, 1 pares
+
+### lookback=252d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+TIMS3-VIVT3        0.8072    0.440      n/a         no         no
+
+### lookback=504d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+TIMS3-VIVT3        0.9489    0.381      n/a         no         no
+
+### lookback=756d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+TIMS3-VIVT3        0.9746    0.367      n/a         no         no
+
+## SANEAMENTO — 2 tickers, 1 pares
+
+### lookback=252d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+SAPR11-SBSP3        0.4598    0.284      n/a         no         no
+
+### lookback=504d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+SAPR11-SBSP3        0.4694    0.297      n/a         no         no
+
+### lookback=756d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+SAPR11-SBSP3        0.4628    0.302      n/a         no         no
+
+## EDUCACAO — 2 tickers, 1 pares
+
+### lookback=252d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+COGN3-YDUQ3        0.9907    0.186      n/a         no         no
+
+### lookback=504d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+COGN3-YDUQ3        0.9971    0.158      n/a         no         no
+
+### lookback=756d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+COGN3-YDUQ3        0.9675    0.160      n/a         no         no
+
+## ENERGIA — 4 tickers, 6 pares
+
+### lookback=252d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+CMIG4-ENGI11       0.9035    0.243      n/a         no         no
+CMIG4-EQTL3        0.6866    0.315      n/a         no         no
+CMIG4-TAEE11       0.4326    0.307      n/a         no         no
+ENGI11-EQTL3        0.9367    1.293      n/a         no         no
+ENGI11-TAEE11       0.8727    1.251      n/a         no         no
+EQTL3-TAEE11       0.6340    0.969      n/a         no         no
+
+### lookback=504d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+CMIG4-ENGI11       0.6728    0.222      n/a         no         no
+CMIG4-EQTL3        0.5144    0.297      n/a         no         no
+CMIG4-TAEE11       0.5780    0.279      n/a         no         no
+ENGI11-EQTL3        0.3162    1.331      n/a         no         no
+ENGI11-TAEE11       0.3804    1.247      n/a         no         no
+EQTL3-TAEE11       0.4692    0.936      n/a         no         no
+
+### lookback=756d
+PAIR                  P-ADF     BETA       HL  COINT@.05  COINT@.10
+CMIG4-ENGI11       0.5249    0.212      n/a         no         no
+CMIG4-EQTL3        0.4723    0.288      n/a         no         no
+CMIG4-TAEE11       0.4016    0.253      n/a         no         no
+ENGI11-EQTL3        0.3132    1.350      n/a         no         no
+ENGI11-TAEE11       0.4344    1.195      n/a         no         no
+EQTL3-TAEE11       0.2439    0.882      n/a         no         no
+
+
+==========================================================================================
+SUMARIO — pares com p<0.05 + half_life em [5, 50] dias (faixa operacional R3.2.B)
+==========================================================================================
+  [                varejo] AMER3-MGLU3 lb=756d p=0.0000 hl=28.2d
+  [                varejo] AMER3-RENT3 lb=756d p=0.0001 hl=29.4d
+  [                varejo] AMER3-PETZ3 lb=756d p=0.0001 hl=29.4d
+  [                varejo] AMER3-LREN3 lb=756d p=0.0002 hl=30.3d
+  [                varejo] AMER3-PETZ3 lb=252d p=0.0005 hl=6.5d
+  [        papel_celulose] KLBN11-SUZB3 lb=252d p=0.0038 hl=7.2d
+  [  mineracao_metalurgia] CSNA3-USIM5 lb=756d p=0.0099 hl=29.4d
+  [                varejo] AMER3-RENT3 lb=252d p=0.0102 hl=8.6d
+  [        papel_celulose] KLBN11-SUZB3 lb=756d p=0.0142 hl=26.6d
+  [        papel_celulose] KLBN11-SUZB3 lb=504d p=0.0167 hl=16.6d
+  [                bancos] BBDC4-BPAC11 lb=504d p=0.0309 hl=15.8d
+  [             alimentos] JBSS3-MRFG3 lb=504d p=0.0376 hl=24.3d
+  [              petroleo] PRIO3-RECV3 lb=504d p=0.0378 hl=16.7d
+  [                bancos] BBDC4-BPAC11 lb=252d p=0.0407 hl=8.8d
+  [  mineracao_metalurgia] CMIN3-VALE3 lb=504d p=0.0452 hl=26.9d
+  [              petroleo] RAPT4-RECV3 lb=504d p=0.0483 hl=21.7d
+
+--- pares borderline (p<0.10, p>=0.05) — re-test em janela maior ---
+  (nenhum)
+
+
+Total: 16 cointegrados @0.05, 0 adicionais @0.10, 16 tradeable (hl em [5,50]).
