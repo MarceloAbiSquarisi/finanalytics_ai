@@ -462,6 +462,7 @@ async def _handle_pair_evaluation(
     base_url: str,
     trade_env: str,
     dry_run: bool,
+    notify_fn=None,
 ) -> None:
     """
     Pipeline pós-evaluate pra UMA pair evaluation. Extraído de
@@ -561,6 +562,28 @@ async def _handle_pair_evaluation(
             naked_leg=result["naked_leg"],
             error=result.get("error"),
         )
+        # Pushover critical alert (priority=1+siren). Naked leg = posicao
+        # parcial aberta, exige cleanup manual antes do robô poder operar
+        # esse pair de novo.
+        if notify_fn is not None:
+            try:
+                await notify_fn(
+                    title=f"NAKED LEG {pair_key}",
+                    message=(
+                        f"Pair dispatch falhou após leg A executar.\n"
+                        f"pair={pair_key} naked_leg={result['naked_leg']}\n"
+                        f"action={ev.action.value} env={trade_env}\n"
+                        f"error={result.get('error', 'unknown')}\n"
+                        f"Manual cleanup necessário antes de re-trade desse pair."
+                    ),
+                    critical=True,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "pairs.naked_leg_pushover_failed",
+                    pair_key=pair_key,
+                    error=str(exc),
+                )
         return
 
     if not result.get("ok"):
@@ -615,6 +638,7 @@ async def _evaluate_pairs(iteration: int) -> None:
     from finanalytics_ai.infrastructure.database.repositories.pairs_repository import (
         PsycopgPairsRepository,
     )
+    from finanalytics_ai.infrastructure.notifications.pushover import notify_system
     from finanalytics_ai.workers.auto_trader_dispatcher import dispatch_pair_order
 
     repo = PsycopgPairsRepository(PAIRS_DSN)
@@ -647,6 +671,7 @@ async def _evaluate_pairs(iteration: int) -> None:
             base_url=API_BASE_URL,
             trade_env=TRADE_ENV,
             dry_run=DRY_RUN,
+            notify_fn=notify_system,
         )
 
 

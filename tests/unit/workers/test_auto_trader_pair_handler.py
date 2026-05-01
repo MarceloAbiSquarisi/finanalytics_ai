@@ -261,6 +261,86 @@ async def test_naked_leg_does_not_persist() -> None:
 
 
 @pytest.mark.asyncio
+async def test_naked_leg_emits_pushover_critical() -> None:
+    """naked_leg dispara notify_fn(critical=True) com pair_key + erro no body."""
+    from finanalytics_ai.workers.auto_trader_worker import _handle_pair_evaluation
+
+    repo = MagicMock()
+    dispatch = AsyncMock(
+        return_value={"ok": False, "naked_leg": "a", "error": "leg_b_failed: timeout"}
+    )
+    notify = AsyncMock(return_value=True)
+    kwargs = _make_kwargs(repo, _candles_with_prices(), dispatch)
+    kwargs["notify_fn"] = notify
+    await _handle_pair_evaluation(
+        _ev(action=PairAction.OPEN_SHORT_SPREAD, leg_a_side="sell", leg_b_side="buy"),
+        **kwargs,
+    )
+    notify.assert_called_once()
+    call_kwargs = notify.call_args.kwargs
+    assert "NAKED LEG" in call_kwargs["title"]
+    assert "CMIN3-VALE3" in call_kwargs["title"]
+    assert "leg_b_failed" in call_kwargs["message"]
+    assert call_kwargs["critical"] is True
+
+
+@pytest.mark.asyncio
+async def test_naked_leg_pushover_failure_does_not_break() -> None:
+    """notify_fn raise -> log warning mas handler retorna normal."""
+    from finanalytics_ai.workers.auto_trader_worker import _handle_pair_evaluation
+
+    repo = MagicMock()
+    dispatch = AsyncMock(
+        return_value={"ok": False, "naked_leg": "a", "error": "leg_b_failed"}
+    )
+    notify = AsyncMock(side_effect=RuntimeError("pushover api 500"))
+    kwargs = _make_kwargs(repo, _candles_with_prices(), dispatch)
+    kwargs["notify_fn"] = notify
+    # Não deve raise
+    await _handle_pair_evaluation(
+        _ev(action=PairAction.OPEN_SHORT_SPREAD, leg_a_side="sell", leg_b_side="buy"),
+        **kwargs,
+    )
+    notify.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_naked_leg_no_notify_fn_does_not_break() -> None:
+    """notify_fn=None (default) -> handler funciona, sem notification."""
+    from finanalytics_ai.workers.auto_trader_worker import _handle_pair_evaluation
+
+    repo = MagicMock()
+    dispatch = AsyncMock(
+        return_value={"ok": False, "naked_leg": "a", "error": "leg_b_failed"}
+    )
+    # Sem passar notify_fn — default None
+    await _handle_pair_evaluation(
+        _ev(action=PairAction.OPEN_SHORT_SPREAD, leg_a_side="sell", leg_b_side="buy"),
+        **_make_kwargs(repo, _candles_with_prices(), dispatch),
+    )
+    # Nao raise, dispatch chamado normal, repo nao tocado
+    dispatch.assert_called_once()
+    repo.upsert.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_happy_path_does_not_emit_pushover() -> None:
+    """OPEN sucesso normal nao deve disparar notify_fn (so naked_leg)."""
+    from finanalytics_ai.workers.auto_trader_worker import _handle_pair_evaluation
+
+    repo = MagicMock()
+    dispatch = _ok_dispatch()
+    notify = AsyncMock()
+    kwargs = _make_kwargs(repo, _candles_with_prices(), dispatch)
+    kwargs["notify_fn"] = notify
+    await _handle_pair_evaluation(
+        _ev(action=PairAction.OPEN_SHORT_SPREAD, leg_a_side="sell", leg_b_side="buy"),
+        **kwargs,
+    )
+    notify.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_dispatch_exception_does_not_persist() -> None:
     from finanalytics_ai.workers.auto_trader_worker import _handle_pair_evaluation
 
