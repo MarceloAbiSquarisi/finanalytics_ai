@@ -21,6 +21,10 @@ from finanalytics_ai.infrastructure.adapters.dados_mercado_client import (
 )
 from finanalytics_ai.infrastructure.adapters.focus_client import FocusClient, get_focus_client
 from finanalytics_ai.infrastructure.database.connection import get_session_factory
+from finanalytics_ai.infrastructure.database.connection_trading import (
+    get_trading_engine_session_factory,
+    is_trading_engine_enabled,
+)
 from finanalytics_ai.infrastructure.database.repositories.event_store_repo import SQLEventStore
 from finanalytics_ai.infrastructure.database.repositories.portfolio_repo import (
     SQLPortfolioRepository,
@@ -67,6 +71,22 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         except Exception:
             await session.rollback()
             raise
+
+
+async def get_trading_engine_db_session() -> AsyncGenerator[AsyncSession, None]:
+    """Read-only session pro schema trading_engine_orders.
+
+    Levanta 503 se TRADING_ENGINE_READER_URL não estiver configurada — UI
+    mostra empty state com link pra docs.
+    """
+    if not is_trading_engine_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="trading_engine_reader_url não configurado",
+        )
+    factory = get_trading_engine_session_factory()
+    async with factory() as session:
+        yield session
 
 
 async def get_current_user(
