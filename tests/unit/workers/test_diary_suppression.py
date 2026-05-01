@@ -7,6 +7,7 @@ no unified trade_journal — o engine mantem journal proprio).
 
 Ver: docs/c5_finanalyticsai_implementation_patch.md no repo trading-engine.
 """
+
 from __future__ import annotations
 
 import logging
@@ -25,6 +26,10 @@ if sys.platform != "win32":
         ctypes.WinDLL = lambda path: MagicMock()  # type: ignore[attr-defined]
     if not hasattr(ctypes, "windll"):
         ctypes.windll = MagicMock()  # type: ignore[attr-defined]
+    if not hasattr(ctypes, "WINFUNCTYPE"):
+        # Linux ctypes nao tem WINFUNCTYPE — CFUNCTYPE tem assinatura compativel
+        # para o uso do profit_agent (apenas declaracao de callbacks Win64).
+        ctypes.WINFUNCTYPE = ctypes.CFUNCTYPE  # type: ignore[attr-defined]
 
 
 @pytest.fixture
@@ -51,12 +56,14 @@ def test_dispatch_diary_runs_for_manual_origin(fake_agent_with_db):
     cursor.fetchone.return_value = ("WINFUT", 1, None)
 
     with patch("finanalytics_ai.workers.profit_agent.threading.Thread") as mock_thread:
-        agent._maybe_dispatch_diary({
-            "order_status": 2,
-            "local_order_id": 12345,
-            "avg_price": 130000.0,
-            "traded_qty": 1,
-        })
+        agent._maybe_dispatch_diary(
+            {
+                "order_status": 2,
+                "local_order_id": 12345,
+                "avg_price": 130000.0,
+                "traded_qty": 1,
+            }
+        )
 
     mock_thread.assert_called_once()
     assert 12345 in agent._diary_notified
@@ -70,16 +77,15 @@ def test_dispatch_diary_suppressed_for_engine_origin(fake_agent_with_db, caplog)
     cursor.fetchone.return_value = ("WINFUT", 1, "trading_engine")
 
     with patch("finanalytics_ai.workers.profit_agent.threading.Thread") as mock_thread:
-        agent._maybe_dispatch_diary({
-            "order_status": 2,
-            "local_order_id": 99999,
-            "avg_price": 130000.0,
-            "traded_qty": 1,
-        })
+        agent._maybe_dispatch_diary(
+            {
+                "order_status": 2,
+                "local_order_id": 99999,
+                "avg_price": 130000.0,
+                "traded_qty": 1,
+            }
+        )
 
     mock_thread.assert_not_called()
     assert 99999 in agent._diary_notified  # marcado, nao re-tentara
-    assert any(
-        "diary.suppressed_engine_origin" in r.getMessage()
-        for r in caplog.records
-    )
+    assert any("diary.suppressed_engine_origin" in r.getMessage() for r in caplog.records)
