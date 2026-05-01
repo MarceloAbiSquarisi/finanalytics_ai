@@ -62,6 +62,23 @@ DSN = os.environ.get(
     "PROFIT_TIMESCALE_DSN",
     "postgresql://finanalytics:timescale_secret@finanalytics_timescale:5432/market_data",
 )
+# robot_strategies/signals_log/orders_intent/risk_state estão em Timescale (DSN
+# acima). cointegrated_pairs está em Postgres principal (Alembic 0023). Default
+# tenta reusar DATABASE_URL (postgres) e cai pro DSN se ausente — em
+# desenvolvimento local sem PAIRS_DSN explícito.
+PAIRS_DSN = os.environ.get(
+    "PAIRS_DSN",
+    os.environ.get(
+        "DATABASE_URL_SYNC",
+        os.environ.get(
+            "DATABASE_URL",
+            "postgresql://finanalytics:secret@postgres:5432/finanalytics",
+        ),
+    ),
+)
+# Se DATABASE_URL veio com prefixo asyncpg, normaliza pra psycopg2 sync
+if "asyncpg" in PAIRS_DSN:
+    PAIRS_DSN = PAIRS_DSN.replace("+asyncpg", "")
 
 # Heartbeat a cada N iteracoes (debug "worker vivo" no signals_log)
 HEARTBEAT_EVERY = int(os.environ.get("AUTO_TRADER_HEARTBEAT_EVERY", "5"))
@@ -463,7 +480,7 @@ async def _evaluate_pairs(iteration: int) -> None:
     )
     from finanalytics_ai.workers.auto_trader_dispatcher import dispatch_pair_order
 
-    repo = PsycopgPairsRepository(DSN)
+    repo = PsycopgPairsRepository(PAIRS_DSN)
     candles = _HttpCandleFetcher(API_BASE_URL)
     pos_state = _InMemoryPositionState()
 

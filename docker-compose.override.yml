@@ -211,3 +211,36 @@ services:
       options:
         max-size: "50m"
         max-file: "5"
+  # ── Auto Trader Worker (R1.5+R2+R3.2 — adicionado 01/mai p/ smoke 2ª) ────
+  # Reusa imagem worker. Boot idle se AUTO_TRADER_ENABLED=false (default).
+  # Depende de Timescale (robot_strategies/signals_log/orders_intent/risk_state)
+  # E Postgres (cointegrated_pairs). API service usado pra dispatch via proxy
+  # /api/v1/agent/order/send (resolve AccountService injection).
+  auto_trader:
+    image: finanalytics-worker:latest
+    container_name: finanalytics_auto_trader
+    restart: unless-stopped
+    depends_on:
+      timescale:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      AUTO_TRADER_ENABLED:     ${AUTO_TRADER_ENABLED:-false}
+      AUTO_TRADER_DRY_RUN:     ${AUTO_TRADER_DRY_RUN:-true}
+      SCHEDULE_INTERVAL_SEC:   ${AUTO_TRADER_INTERVAL:-60}
+      AUTO_TRADER_API_URL:     http://api:8000
+      AUTO_TRADER_TRADE_ENV:   ${AUTO_TRADER_TRADE_ENV:-simulation}
+      PAIRS_TRADING_ENABLED:   ${PAIRS_TRADING_ENABLED:-false}
+      PAIRS_CAPITAL_PER_PAIR:  ${PAIRS_CAPITAL_PER_PAIR:-10000}
+      PAIRS_N_TESTED:          ${PAIRS_N_TESTED:-28}
+      PROFIT_TIMESCALE_DSN:    postgresql://finanalytics:${TIMESCALE_PASSWORD:-timescale_secret}@timescale:5432/market_data
+      PAIRS_DSN:               postgresql://finanalytics:${POSTGRES_PASSWORD:-secret}@postgres:5432/finanalytics
+      PYTHONPATH:              /app/src
+    entrypoint: ["python"]
+    command: ["/app/src/finanalytics_ai/workers/auto_trader_worker.py"]
+    networks:
+      - finanalytics_net
