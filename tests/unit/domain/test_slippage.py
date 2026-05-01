@@ -100,10 +100,7 @@ from finanalytics_ai.domain.backtesting.slippage import (
 
 def _bars_with_volume(n: int = 30, volume: float = 1_000_000.0, close: float = 30.0) -> list[dict]:
     """Helper: bars com volume e close constantes — ADV notional previsível."""
-    return [
-        {"time": 1700_000_000 + i * 86400, "close": close, "volume": volume}
-        for i in range(n)
-    ]
+    return [{"time": 1700_000_000 + i * 86400, "close": close, "volume": volume} for i in range(n)]
 
 
 class TestComputeADV:
@@ -114,9 +111,7 @@ class TestComputeADV:
         assert adv == pytest.approx(30.0 * 1_000_000)
 
     def test_no_lookahead_excludes_current_bar(self) -> None:
-        bars = [
-            {"time": i, "close": 30.0, "volume": 1_000_000.0} for i in range(10)
-        ]
+        bars = [{"time": i, "close": 30.0, "volume": 1_000_000.0} for i in range(10)]
         bars.append({"time": 10, "close": 30.0, "volume": 999_999_999.0})  # outlier
         # idx=10 com lookback=10: media de bars[0:10] (sem outlier)
         adv = compute_adv(bars, idx=10, lookback=10)
@@ -183,16 +178,12 @@ class TestSlippageAmountADVAware:
         # 0.001% participation: stock de 30 BRL com base 0.05% = 0.015 BRL.
         # Multiplier ≈ 1.001 -> diff < 0.001%
         base = slippage_amount(30.0, "PETR4")  # sem ADV = base
-        with_adv = slippage_amount(
-            30.0, "PETR4", notional_trade=100, adv_notional=10_000_000
-        )
+        with_adv = slippage_amount(30.0, "PETR4", notional_trade=100, adv_notional=10_000_000)
         assert with_adv == pytest.approx(base, rel=0.01)
 
     def test_high_participation_increases_slippage(self) -> None:
         base = slippage_amount(30.0, "PETR4")
-        with_adv = slippage_amount(
-            30.0, "PETR4", notional_trade=500_000, adv_notional=10_000_000
-        )
+        with_adv = slippage_amount(30.0, "PETR4", notional_trade=500_000, adv_notional=10_000_000)
         # 5% participation -> mult > 1.2
         assert with_adv > base * 1.2
 
@@ -206,9 +197,7 @@ class TestSlippageAmountADVAware:
     def test_futures_also_scaled(self) -> None:
         """ADV-aware tambem afeta futuros (mult sobre N_TICKS_FUTURE * tick)."""
         base = slippage_amount(5500.0, "WDOK26")  # 2 * 0.5 = 1.0
-        with_adv = slippage_amount(
-            5500.0, "WDOK26", notional_trade=500_000, adv_notional=1_000_000
-        )
+        with_adv = slippage_amount(5500.0, "WDOK26", notional_trade=500_000, adv_notional=1_000_000)
         assert with_adv > base * 1.4  # 50% participation -> mult ~1.5+
 
     def test_no_kwargs_falls_back_to_fixed(self) -> None:
@@ -222,9 +211,7 @@ class TestApplySlippageADVAware:
         from finanalytics_ai.domain.backtesting.slippage import apply_slippage as apply_sl
 
         base_price = apply_sl(30.0, "buy", "PETR4")  # base: 30 + 0.015 = 30.015
-        adv_price = apply_sl(
-            30.0, "buy", "PETR4", notional_trade=500_000, adv_notional=10_000_000
-        )
+        adv_price = apply_sl(30.0, "buy", "PETR4", notional_trade=500_000, adv_notional=10_000_000)
         # Buy paga acima -> com ADV, paga MAIS acima
         assert adv_price > base_price
 
@@ -232,8 +219,6 @@ class TestApplySlippageADVAware:
         from finanalytics_ai.domain.backtesting.slippage import apply_slippage as apply_sl
 
         base_price = apply_sl(30.0, "sell", "PETR4")  # base: 30 - 0.015 = 29.985
-        adv_price = apply_sl(
-            30.0, "sell", "PETR4", notional_trade=500_000, adv_notional=10_000_000
-        )
+        adv_price = apply_sl(30.0, "sell", "PETR4", notional_trade=500_000, adv_notional=10_000_000)
         # Sell recebe abaixo -> com ADV, recebe MENOS
         assert adv_price < base_price

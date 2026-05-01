@@ -430,11 +430,17 @@ class TestEngineADVAwareSlippage:
         strategy = RSIStrategy(period=14, oversold=30.0, overbought=70.0)
 
         result_fixed = run_backtest(
-            bars_low_vol, strategy, ticker="ILLIQ", initial_capital=10_000,
+            bars_low_vol,
+            strategy,
+            ticker="ILLIQ",
+            initial_capital=10_000,
             slippage_model="fixed",
         )
         result_adv = run_backtest(
-            bars_low_vol, strategy, ticker="ILLIQ", initial_capital=10_000,
+            bars_low_vol,
+            strategy,
+            ticker="ILLIQ",
+            initial_capital=10_000,
             slippage_model="adv",
         )
 
@@ -454,11 +460,17 @@ class TestEngineADVAwareSlippage:
 
         # Capital pequeno relativo ao ADV -> participation desprezivel
         result_fixed = run_backtest(
-            bars_high_vol, strategy, ticker="LIQUID", initial_capital=1_000,
+            bars_high_vol,
+            strategy,
+            ticker="LIQUID",
+            initial_capital=1_000,
             slippage_model="fixed",
         )
         result_adv = run_backtest(
-            bars_high_vol, strategy, ticker="LIQUID", initial_capital=1_000,
+            bars_high_vol,
+            strategy,
+            ticker="LIQUID",
+            initial_capital=1_000,
             slippage_model="adv",
         )
 
@@ -480,7 +492,10 @@ class TestEngineADVAwareSlippage:
 
         result_default = run_backtest(bars, strategy, ticker="PETR4", initial_capital=10_000)
         result_explicit_fixed = run_backtest(
-            bars, strategy, ticker="PETR4", initial_capital=10_000,
+            bars,
+            strategy,
+            ticker="PETR4",
+            initial_capital=10_000,
             slippage_model="fixed",
         )
 
@@ -507,11 +522,17 @@ class TestEngineADVAwareSlippage:
         strategy = RSIStrategy(period=14, oversold=30.0, overbought=70.0)
 
         result_fixed = run_backtest(
-            bars_no_vol, strategy, ticker="PETR4", initial_capital=10_000,
+            bars_no_vol,
+            strategy,
+            ticker="PETR4",
+            initial_capital=10_000,
             slippage_model="fixed",
         )
         result_adv = run_backtest(
-            bars_no_vol, strategy, ticker="PETR4", initial_capital=10_000,
+            bars_no_vol,
+            strategy,
+            ticker="PETR4",
+            initial_capital=10_000,
             slippage_model="adv",
         )
 

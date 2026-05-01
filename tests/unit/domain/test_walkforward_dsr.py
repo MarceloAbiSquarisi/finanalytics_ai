@@ -47,14 +47,16 @@ def _bars(n: int = 800, pattern: str = "zigzag") -> list[dict]:
             )
         else:  # flat
             p = 100.0
-        out.append({
-            "time": 1700_000_000 + i * 86400,
-            "open": p,
-            "high": p + 1.5,
-            "low": p - 1.5,
-            "close": p,
-            "volume": 1_000_000.0,
-        })
+        out.append(
+            {
+                "time": 1700_000_000 + i * 86400,
+                "open": p,
+                "high": p + 1.5,
+                "low": p - 1.5,
+                "close": p,
+                "volume": 1_000_000.0,
+            }
+        )
     return out
 
 

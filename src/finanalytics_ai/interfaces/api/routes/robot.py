@@ -28,6 +28,7 @@ from finanalytics_ai.interfaces.api.dependencies import get_current_user, requir
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/v1/robot", tags=["robot"])
 
+
 def _resolve_dsn() -> str:
     """
     Resolve DSN para psycopg2 sync. Container-aware: PROFIT_TIMESCALE_DSN

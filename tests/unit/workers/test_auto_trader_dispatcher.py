@@ -58,9 +58,7 @@ class TestClOrdId:
     def test_hash_fallback_for_long(self) -> None:
         # Ticker artificialmente longo -> raw > 64 chars -> hash
         long_ticker = "X" * 80
-        s = make_cl_ord_id(
-            strategy_id=999, ticker=long_ticker, action="BUY", computed_at=_utc()
-        )
+        s = make_cl_ord_id(strategy_id=999, ticker=long_ticker, action="BUY", computed_at=_utc())
         assert len(s) <= 64
         assert s.startswith("robot:")
 
@@ -280,9 +278,7 @@ class TestDispatchOrder:
     @patch("finanalytics_ai.workers.auto_trader_dispatcher.update_signal_log_sent")
     @patch("finanalytics_ai.workers.auto_trader_dispatcher.update_intent_sent")
     @patch("finanalytics_ai.workers.auto_trader_dispatcher.insert_intent")
-    async def test_no_oco_when_no_tp_sl(
-        self, m_insert, m_update_intent, m_update_signal
-    ) -> None:
+    async def test_no_oco_when_no_tp_sl(self, m_insert, m_update_intent, m_update_signal) -> None:
         """Sem TP+SL nao chama OCO endpoint."""
         m_insert.return_value = 200
         captured: dict[str, Any] = {}

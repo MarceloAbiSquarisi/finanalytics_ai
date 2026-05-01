@@ -96,9 +96,7 @@ class TestListHistory:
 
         client.get("/api/v1/backtest/history?ticker=PETR4&strategy=rsi&limit=10&offset=5")
 
-        repo.list.assert_awaited_once_with(
-            ticker="PETR4", strategy="rsi", limit=10, offset=5
-        )
+        repo.list.assert_awaited_once_with(ticker="PETR4", strategy="rsi", limit=10, offset=5)
 
     def test_503_when_repo_not_initialized(self) -> None:
         app = FastAPI()

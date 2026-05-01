@@ -30,14 +30,16 @@ def _bars(n: int = 200) -> list[dict[str, Any]]:
     out = []
     for i in range(n):
         p = 100.0 + 15.0 * math.sin(i * 0.2) + i * 0.05
-        out.append({
-            "time": 1700_000_000 + i * 86400,
-            "open": p,
-            "high": p + 1.0,
-            "low": p - 1.0,
-            "close": p,
-            "volume": 1_000_000.0,
-        })
+        out.append(
+            {
+                "time": 1700_000_000 + i * 86400,
+                "open": p,
+                "high": p + 1.0,
+                "low": p - 1.0,
+                "close": p,
+                "volume": 1_000_000.0,
+            }
+        )
     return out
 
 
@@ -195,14 +197,16 @@ class TestWalkForwardPersist:
                 + rnd.uniform(-2.0, 2.0)
                 + i * 0.02
             )
-            bars.append({
-                "time": 1700_000_000 + i * 86400,
-                "open": p,
-                "high": p + 1.5,
-                "low": p - 1.5,
-                "close": p,
-                "volume": 1_000_000.0,
-            })
+            bars.append(
+                {
+                    "time": 1700_000_000 + i * 86400,
+                    "open": p,
+                    "high": p + 1.5,
+                    "low": p - 1.5,
+                    "close": p,
+                    "volume": 1_000_000.0,
+                }
+            )
 
         repo = AsyncMock()
         repo.save_run.return_value = ({"id": "x"}, True)

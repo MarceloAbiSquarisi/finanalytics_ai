@@ -703,20 +703,22 @@ async def list_backtest_history(
     # Lista compacta: omite full_result_json (volumoso) — drilldown via /history/{hash}
     compact = []
     for r in rows:
-        compact.append({
-            "id": r["id"],
-            "config_hash": r["config_hash"],
-            "ticker": r["ticker"],
-            "strategy": r["strategy"],
-            "range_period": r["range_period"],
-            "objective": r["objective"],
-            "slippage_applied": r["slippage_applied"],
-            "metrics": r["metrics"],
-            "deflated_sharpe": r["deflated_sharpe"],
-            "params": r["params"],
-            "created_at": r["created_at"],
-            "updated_at": r["updated_at"],
-        })
+        compact.append(
+            {
+                "id": r["id"],
+                "config_hash": r["config_hash"],
+                "ticker": r["ticker"],
+                "strategy": r["strategy"],
+                "range_period": r["range_period"],
+                "objective": r["objective"],
+                "slippage_applied": r["slippage_applied"],
+                "metrics": r["metrics"],
+                "deflated_sharpe": r["deflated_sharpe"],
+                "params": r["params"],
+                "created_at": r["created_at"],
+                "updated_at": r["updated_at"],
+            }
+        )
     return {"count": len(compact), "limit": limit, "offset": offset, "items": compact}
 
 
