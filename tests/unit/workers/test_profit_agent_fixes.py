@@ -92,25 +92,30 @@ def test_p6_kill_zombie_agents_callable(pa_module):
     assert params == ["self_pid", "port"]
 
 
-def test_p6_kill_zombie_skips_self_pid(pa_module):
-    """Não mata o próprio processo, apenas zombies com PID diferente."""
+def test_p6_kill_zombie_detects_but_does_not_kill(pa_module):
+    """Sessão 29/abr: comportamento mudou pra DETECT-ONLY — port bind decide
+    quem fica vivo. Antes (kill agressivo) causava loop NSSM em ambiente
+    com 2 services brigando por :8002. Agora apenas log warning + return 0.
+    Self_pid sempre filtrado out do scan independente do código.
+    """
+    import subprocess as _sp
+
     fake_netstat = (
         "  TCP    127.0.0.1:8002         0.0.0.0:0              LISTENING       12345\n"
         "  TCP    127.0.0.1:8002         0.0.0.0:0              LISTENING       99999\n"
     )
-    with patch.object(pa_module, "os") as mock_os, patch("subprocess.run") as mock_run:
+    with patch.object(pa_module, "os") as mock_os, patch.object(
+        _sp, "run"
+    ) as mock_run:
         mock_os.name = "nt"
-        # netstat call
-        mock_run.side_effect = [
-            MagicMock(stdout=fake_netstat),  # netstat
-            MagicMock(),  # taskkill (só 1, do 99999 — 12345 é "self")
-        ]
+        mock_run.return_value = MagicMock(stdout=fake_netstat)
         killed = pa_module._kill_zombie_agents(self_pid=12345, port=8002)
-        assert killed == 1
-        # taskkill chamado 1x para PID 99999 (zombie), não 12345 (self)
+        # Detect-only: 0 kills (mesmo com zombie 99999 detectado)
+        assert killed == 0
+        # netstat chamado 1x; nenhum taskkill
+        assert mock_run.call_count == 1
         kill_calls = [c for c in mock_run.call_args_list if "taskkill" in str(c)]
-        assert len(kill_calls) == 1
-        assert "99999" in str(kill_calls[0])
+        assert len(kill_calls) == 0
 
 
 def test_p6_kill_zombie_no_action_on_linux(pa_module):
