@@ -605,6 +605,75 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
 </div>
 
 
+  <!-- HISTORICO (R5 follow-up) -->
+  <div class="form-card" id="history-card" style="margin-top:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer"
+         onclick="toggleHistory()">
+      <div>
+        <div class="form-title" style="margin:0">📜 Histórico de Runs</div>
+        <div style="font-size:13px;color:var(--muted);font-family:monospace;margin-top:3px"
+             id="history-summary">— clique para expandir</div>
+      </div>
+      <button id="history-toggle-btn" type="button"
+              style="background:transparent;border:1px solid var(--border);
+                     color:var(--muted);border-radius:6px;padding:5px 12px;
+                     font-size:14px;font-family:monospace;cursor:pointer">▼ Expandir</button>
+    </div>
+
+    <div id="history-body" style="display:none;margin-top:14px">
+      <!-- Filter row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 120px;gap:10px;margin-bottom:12px">
+        <div class="fld">
+          <label>Ticker (filtro)</label>
+          <input id="history-filter-ticker" placeholder="(todos)" maxlength="10"
+                 style="text-transform:uppercase">
+        </div>
+        <div class="fld">
+          <label>Strategy (filtro)</label>
+          <input id="history-filter-strategy" placeholder="(todas) — use 'wf:rsi' p/ walk-forward">
+        </div>
+        <div class="fld" style="display:flex;align-items:flex-end">
+          <button class="run-btn" onclick="loadHistory()"
+                  style="width:100%;background:linear-gradient(135deg,#3a8fb0,#1e6b8c);
+                         color:#fff;border:none;border-radius:6px;padding:8px;
+                         font-family:monospace;cursor:pointer">↻ Recarregar</button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div style="overflow-x:auto;background:rgba(0,0,0,.15);border-radius:6px;
+                  border:1px solid var(--border)">
+        <table id="history-table" style="width:100%;border-collapse:collapse;
+               font-family:monospace;font-size:13px">
+          <thead style="background:rgba(58,191,248,.05);border-bottom:1px solid var(--border)">
+            <tr style="color:#7a95b0;text-transform:uppercase;letter-spacing:.05em;font-size:11px">
+              <th style="padding:8px 10px;text-align:left">Ticker</th>
+              <th style="padding:8px 10px;text-align:left">Strategy</th>
+              <th style="padding:8px 10px;text-align:left">Range</th>
+              <th style="padding:8px 10px;text-align:right">Retorno</th>
+              <th style="padding:8px 10px;text-align:right">Sharpe</th>
+              <th style="padding:8px 10px;text-align:right">DD</th>
+              <th style="padding:8px 10px;text-align:center">DSR</th>
+              <th style="padding:8px 10px;text-align:right">Trades</th>
+              <th style="padding:8px 10px;text-align:right">Quando</th>
+            </tr>
+          </thead>
+          <tbody id="history-tbody">
+            <tr><td colspan="9" style="padding:20px;text-align:center;color:var(--muted)">
+              Carregando...
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Drilldown panel (hidden until row clicked) -->
+      <div id="history-detail" style="display:none;margin-top:14px;
+           background:rgba(58,191,248,.04);border:1px solid rgba(58,191,248,.2);
+           border-radius:6px;padding:14px"></div>
+    </div>
+  </div>
+
+
   <!-- OPTIMIZER SECTION -->
   <div id="optimizer-area">
     <div class="opt-card">
@@ -2360,6 +2429,237 @@ function loadStatus() {
 }
 
 loadStatus();
+
+/* ── HISTORICO (R5 follow-up) ────────────────────────────────────────────── */
+var _historyLoaded = false;
+
+function toggleHistory(){
+  var body = document.getElementById('history-body');
+  var btn = document.getElementById('history-toggle-btn');
+  var summary = document.getElementById('history-summary');
+  if (body.style.display === 'none') {
+    body.style.display = 'block';
+    btn.textContent = '▲ Recolher';
+    if (!_historyLoaded) {
+      var current = (document.getElementById('f-ticker').value || '').trim().toUpperCase();
+      if (current) document.getElementById('history-filter-ticker').value = current;
+      loadHistory();
+    }
+  } else {
+    body.style.display = 'none';
+    btn.textContent = '▼ Expandir';
+    summary.textContent = '— clique para expandir';
+  }
+}
+
+function loadHistory(){
+  var ticker = (document.getElementById('history-filter-ticker').value || '').trim();
+  var strategy = (document.getElementById('history-filter-strategy').value || '').trim();
+  var url = '/api/v1/backtest/history?limit=100';
+  if (ticker) url += '&ticker=' + encodeURIComponent(ticker);
+  if (strategy) url += '&strategy=' + encodeURIComponent(strategy);
+
+  var tbody = document.getElementById('history-tbody');
+  tbody.innerHTML = '<tr><td colspan="9" style="padding:20px;text-align:center;color:var(--muted)">Carregando...</td></tr>';
+
+  fetch(url, {headers: {'Authorization': 'Bearer ' + (localStorage.getItem('access_token') || '')}})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      _historyLoaded = true;
+      var summary = document.getElementById('history-summary');
+      summary.textContent = d.count + ' run(s) ' + (ticker ? '(' + ticker + ')' : '') + (strategy ? ' [' + strategy + ']' : '');
+      renderHistory(d.items || []);
+    })
+    .catch(function(e){
+      tbody.innerHTML = '<tr><td colspan="9" style="padding:20px;text-align:center;color:var(--red)">Erro: ' + e.message + '</td></tr>';
+    });
+}
+
+function renderHistory(items){
+  var tbody = document.getElementById('history-tbody');
+  if (!items.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="padding:20px;text-align:center;color:var(--muted)">Nenhum run encontrado. Rode um backtest com optimize ou walkforward para popular.</td></tr>';
+    return;
+  }
+  var rows = items.map(function(it){
+    var m = it.metrics || {};
+    var dsr = it.deflated_sharpe;
+    var dsrBadge = '—';
+    if (dsr && typeof dsr.prob_real === 'number') {
+      var prob = dsr.prob_real;
+      var color, label;
+      if (prob >= 0.95) { color = '#00e676'; label = 'REAL'; }
+      else if (prob >= 0.5) { color = '#ffd740'; label = 'FRACO'; }
+      else { color = '#ff4444'; label = 'OVERFIT'; }
+      dsrBadge = '<span style="display:inline-block;padding:2px 6px;border-radius:3px;'
+               + 'background:' + color + '22;border:1px solid ' + color + ';color:' + color + ';'
+               + 'font-size:11px;font-weight:bold" title="prob_real=' + prob.toFixed(3)
+               + ', z=' + (dsr.deflated_sharpe||0).toFixed(2) + '">'
+               + (prob*100).toFixed(0) + '% ' + label + '</span>';
+    }
+    var when = it.created_at ? new Date(it.created_at).toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'}) : '—';
+    var ret = (m.total_return_pct != null) ? m.total_return_pct.toFixed(1) + '%' : '—';
+    var sr = (m.sharpe_ratio != null) ? m.sharpe_ratio.toFixed(2) : '—';
+    var dd = (m.max_drawdown_pct != null) ? m.max_drawdown_pct.toFixed(1) + '%' : '—';
+    var trades = m.total_trades != null ? m.total_trades : '—';
+    var stratColor = it.strategy && it.strategy.indexOf('wf:') === 0 ? '#A78BFA' : '#3ABFF8';
+    return '<tr style="border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer" '
+         + 'onmouseover="this.style.background=\'rgba(58,191,248,.05)\'" '
+         + 'onmouseout="this.style.background=\'transparent\'" '
+         + 'onclick="showHistoryDetail(\'' + it.config_hash + '\')">'
+         + '<td style="padding:8px 10px;color:var(--gold);font-weight:bold">' + (it.ticker||'—') + '</td>'
+         + '<td style="padding:8px 10px;color:' + stratColor + '">' + (it.strategy||'—') + '</td>'
+         + '<td style="padding:8px 10px;color:var(--muted)">' + (it.range_period||'—') + '</td>'
+         + '<td style="padding:8px 10px;text-align:right;color:' + (m.total_return_pct >= 0 ? '#00e676' : '#ff4444') + '">' + ret + '</td>'
+         + '<td style="padding:8px 10px;text-align:right">' + sr + '</td>'
+         + '<td style="padding:8px 10px;text-align:right;color:#ff8888">' + dd + '</td>'
+         + '<td style="padding:8px 10px;text-align:center">' + dsrBadge + '</td>'
+         + '<td style="padding:8px 10px;text-align:right">' + trades + '</td>'
+         + '<td style="padding:8px 10px;text-align:right;color:var(--muted);font-size:11px">' + when + '</td>'
+         + '</tr>';
+  }).join('');
+  tbody.innerHTML = rows;
+}
+
+function showHistoryDetail(configHash){
+  var detail = document.getElementById('history-detail');
+  detail.style.display = 'block';
+  detail.innerHTML = '<div style="text-align:center;color:var(--muted)">Carregando drilldown...</div>';
+  detail.scrollIntoView({behavior:'smooth', block:'nearest'});
+
+  fetch('/api/v1/backtest/history/' + encodeURIComponent(configHash),
+        {headers: {'Authorization': 'Bearer ' + (localStorage.getItem('access_token') || '')}})
+    .then(function(r){
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(d){ renderHistoryDetail(d); })
+    .catch(function(e){
+      detail.innerHTML = '<div style="color:var(--red);text-align:center">Erro: ' + e.message + '</div>';
+    });
+}
+
+function renderHistoryDetail(d){
+  var m = d.metrics || {};
+  var dsr = d.deflated_sharpe;
+  var full = d.full_result || {};
+  var top = full.top || [];
+  var isWalkForward = (d.strategy || '').indexOf('wf:') === 0;
+
+  var html = '';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
+  html += '<div><div style="color:var(--gold);font-weight:bold;font-size:16px">' + d.ticker + ' / ' + d.strategy + '</div>';
+  html += '<div style="color:var(--muted);font-size:12px;margin-top:2px">' + (d.range_period||'—') + ' · objetivo: ' + (d.objective||'—') + ' · slippage: ' + (d.slippage_applied?'on':'off') + '</div></div>';
+  html += '<button onclick="document.getElementById(\'history-detail\').style.display=\'none\'" '
+        + 'style="background:transparent;border:1px solid var(--border);color:var(--muted);'
+        + 'border-radius:6px;padding:5px 12px;font-family:monospace;cursor:pointer">✕ Fechar</button>';
+  html += '</div>';
+
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:14px">';
+  html += metricCard('Retorno', (m.total_return_pct||0).toFixed(2)+'%', m.total_return_pct >= 0 ? '#00e676' : '#ff4444');
+  html += metricCard('Sharpe', (m.sharpe_ratio||0).toFixed(3), '#3ABFF8');
+  html += metricCard('Max DD', (m.max_drawdown_pct||0).toFixed(1)+'%', '#ff8888');
+  html += metricCard('Win Rate', (m.win_rate_pct||0).toFixed(1)+'%', '#3ABFF8');
+  html += metricCard('Profit F', (m.profit_factor||0).toFixed(2), '#3ABFF8');
+  html += metricCard('Trades', m.total_trades||0, 'var(--muted)');
+  html += '</div>';
+
+  if (dsr && dsr.deflated_sharpe != null) {
+    var prob = dsr.prob_real;
+    var color = prob >= 0.95 ? '#00e676' : (prob >= 0.5 ? '#ffd740' : '#ff4444');
+    html += '<div style="background:rgba(0,0,0,.2);border-left:3px solid ' + color + ';'
+          + 'padding:10px 14px;margin-bottom:14px;border-radius:4px">';
+    html += '<div style="font-weight:bold;color:' + color + ';margin-bottom:6px">'
+          + 'Deflated Sharpe Ratio (LdP 2014)</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;font-size:13px">';
+    html += '<div><span style="color:var(--muted)">DSR z-score:</span> <b>' + dsr.deflated_sharpe.toFixed(3) + '</b></div>';
+    html += '<div><span style="color:var(--muted)">prob_real:</span> <b style="color:' + color + '">' + (prob*100).toFixed(1) + '%</b></div>';
+    if (dsr.num_trials != null) html += '<div><span style="color:var(--muted)">N trials:</span> <b>' + dsr.num_trials + '</b></div>';
+    if (dsr.sample_size != null) html += '<div><span style="color:var(--muted)">Sample T:</span> <b>' + dsr.sample_size + '</b></div>';
+    if (dsr.folds_with_dsr != null) html += '<div><span style="color:var(--muted)">Folds DSR:</span> <b>' + dsr.folds_with_dsr + '</b></div>';
+    if (dsr.folds_real != null) html += '<div><span style="color:var(--muted)">Folds reais (≥95%):</span> <b style="color:#00e676">' + dsr.folds_real + '</b></div>';
+    html += '</div></div>';
+  }
+
+  if (d.params && Object.keys(d.params).length) {
+    html += '<div style="margin-bottom:14px"><div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Best Params</div>';
+    html += '<code style="background:rgba(0,0,0,.3);padding:6px 10px;border-radius:4px;font-size:12px;display:inline-block">'
+          + JSON.stringify(d.params) + '</code></div>';
+  }
+
+  if (!isWalkForward && top.length) {
+    html += '<div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Top ' + Math.min(top.length, 5) + ' candidatos</div>';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:12px;font-family:monospace">';
+    html += '<thead><tr style="color:#7a95b0;text-transform:uppercase;font-size:10px">'
+          + '<th style="padding:4px 6px;text-align:left">#</th>'
+          + '<th style="padding:4px 6px;text-align:left">Params</th>'
+          + '<th style="padding:4px 6px;text-align:right">Score</th>'
+          + '<th style="padding:4px 6px;text-align:right">Sharpe</th>'
+          + '<th style="padding:4px 6px;text-align:right">Retorno</th>'
+          + '<th style="padding:4px 6px;text-align:right">Trades</th>'
+          + '</tr></thead><tbody>';
+    top.slice(0, 5).forEach(function(r){
+      var rm = r.metrics || {};
+      html += '<tr style="border-top:1px solid rgba(255,255,255,.04)">'
+            + '<td style="padding:4px 6px;color:var(--gold)">' + (r.rank||'—') + '</td>'
+            + '<td style="padding:4px 6px;color:var(--muted);font-size:11px">' + JSON.stringify(r.params||{}) + '</td>'
+            + '<td style="padding:4px 6px;text-align:right">' + (r.score||0).toFixed(3) + '</td>'
+            + '<td style="padding:4px 6px;text-align:right">' + (rm.sharpe_ratio||0).toFixed(2) + '</td>'
+            + '<td style="padding:4px 6px;text-align:right;color:' + (rm.total_return_pct >= 0 ? '#00e676' : '#ff4444') + '">' + (rm.total_return_pct||0).toFixed(1) + '%</td>'
+            + '<td style="padding:4px 6px;text-align:right">' + (rm.total_trades||0) + '</td>'
+            + '</tr>';
+    });
+    html += '</tbody></table>';
+  }
+
+  if (isWalkForward && full.walkforward && full.walkforward.folds) {
+    var folds = full.walkforward.folds;
+    html += '<div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px">Folds Walk-Forward</div>';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:12px;font-family:monospace">';
+    html += '<thead><tr style="color:#7a95b0;text-transform:uppercase;font-size:10px">'
+          + '<th style="padding:4px 6px;text-align:left">Fold</th>'
+          + '<th style="padding:4px 6px;text-align:left">Best params (IS)</th>'
+          + '<th style="padding:4px 6px;text-align:right">N trials</th>'
+          + '<th style="padding:4px 6px;text-align:right">OOS bars</th>'
+          + '<th style="padding:4px 6px;text-align:center">OOS valid</th>'
+          + '<th style="padding:4px 6px;text-align:center">OOS DSR</th>'
+          + '</tr></thead><tbody>';
+    folds.forEach(function(f){
+      var foldDsr = f.oos_dsr;
+      var foldDsrTxt = '—';
+      if (foldDsr) {
+        var fcolor = foldDsr.prob_real >= 0.95 ? '#00e676' : (foldDsr.prob_real >= 0.5 ? '#ffd740' : '#ff4444');
+        foldDsrTxt = '<span style="color:' + fcolor + ';font-weight:bold">' + (foldDsr.prob_real*100).toFixed(0) + '%</span>';
+      }
+      html += '<tr style="border-top:1px solid rgba(255,255,255,.04)">'
+            + '<td style="padding:4px 6px;color:var(--gold)">' + f.fold + '</td>'
+            + '<td style="padding:4px 6px;color:var(--muted);font-size:11px">' + JSON.stringify(f.best_params||{}) + '</td>'
+            + '<td style="padding:4px 6px;text-align:right">' + (f.num_is_trials || 0) + '</td>'
+            + '<td style="padding:4px 6px;text-align:right">' + (f.oos_bars || 0) + '</td>'
+            + '<td style="padding:4px 6px;text-align:center">' + (f.oos_valid ? '✓' : '✕') + '</td>'
+            + '<td style="padding:4px 6px;text-align:center">' + foldDsrTxt + '</td>'
+            + '</tr>';
+    });
+    html += '</tbody></table>';
+  }
+
+  html += '<div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border);'
+        + 'display:flex;justify-content:space-between;font-size:11px;color:var(--muted)">';
+  html += '<div title="' + d.config_hash + '">hash: ' + d.config_hash.substring(0, 12) + '...</div>';
+  html += '<div>criado: ' + (d.created_at ? new Date(d.created_at).toLocaleString('pt-BR') : '—')
+        + (d.updated_at && d.updated_at !== d.created_at ? ' · atualizado: ' + new Date(d.updated_at).toLocaleString('pt-BR') : '') + '</div>';
+  html += '</div>';
+
+  document.getElementById('history-detail').innerHTML = html;
+}
+
+function metricCard(label, value, color){
+  return '<div style="background:rgba(0,0,0,.2);border-radius:4px;padding:8px 12px;border:1px solid var(--border)">'
+       + '<div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.05em">' + label + '</div>'
+       + '<div style="color:' + color + ';font-size:18px;font-weight:bold;font-family:monospace;margin-top:2px">' + value + '</div>'
+       + '</div>';
+}
+
 </script>
 
 <script>
