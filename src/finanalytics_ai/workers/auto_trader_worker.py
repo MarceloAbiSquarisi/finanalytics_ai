@@ -452,6 +452,150 @@ def _compute_leg_quantities(*, capital: float, price_a: float, price_b: float) -
     return (qty_a, qty_b)
 
 
+async def _handle_pair_evaluation(
+    ev,
+    *,
+    positions_repo,
+    candles_fetcher,
+    dispatch_fn,
+    capital_per_pair: float,
+    base_url: str,
+    trade_env: str,
+    dry_run: bool,
+) -> None:
+    """
+    Pipeline pós-evaluate pra UMA pair evaluation. Extraído de
+    _evaluate_pairs p/ ser testável em isolamento (deps injetadas).
+
+    Decisões de side:
+      - OPEN_*: usa ev.leg_a_side / ev.leg_b_side (populados pelo service)
+      - CLOSE/STOP: inverte sides baseado em ev.current_position
+
+    Após dispatch sucesso, persiste position state via positions_repo:
+      - OPEN -> upsert(pair_key, position, last_cl_ord_id=result['cl_a'])
+      - CLOSE/STOP -> delete(pair_key)
+      - naked_leg -> NÃO persiste (manual cleanup necessário)
+    """
+    from finanalytics_ai.domain.pairs import PairAction, PairPosition
+
+    # Log evaluation (mesmo NONE) p/ audit
+    logger.info(
+        "pairs.evaluation",
+        pair_key=ev.snapshot.get("pair_key"),
+        action=ev.action.value,
+        z=ev.z,
+        reason=ev.reason,
+        blocked=ev.blocked_by_filter,
+    )
+
+    if ev.action == PairAction.NONE:
+        return
+
+    if dry_run:
+        logger.info("pairs.dry_run_skip_dispatch", action=ev.action.value)
+        return
+
+    pair_key = ev.snapshot.get("pair_key", "")
+
+    # Resolver leg sides
+    if ev.action in (PairAction.CLOSE, PairAction.STOP):
+        if ev.current_position == PairPosition.SHORT_SPREAD:
+            side_a, side_b = "buy", "sell"
+        elif ev.current_position == PairPosition.LONG_SPREAD:
+            side_a, side_b = "sell", "buy"
+        else:
+            logger.warning(
+                "pairs.close_without_position",
+                pair_key=pair_key,
+                current_position=ev.current_position.value,
+            )
+            return
+    else:
+        side_a = ev.leg_a_side or ""
+        side_b = ev.leg_b_side or ""
+        if not side_a or not side_b:
+            logger.error("pairs.open_missing_legs", pair_key=pair_key)
+            return
+
+    # Sizing usa último close
+    closes_a = candles_fetcher.fetch_closes(ev.pair.ticker_a, 1) or []
+    closes_b = candles_fetcher.fetch_closes(ev.pair.ticker_b, 1) or []
+    if not closes_a or not closes_b:
+        logger.error("pairs.dispatch_skip_missing_price", pair_key=pair_key)
+        return
+    price_a, price_b = closes_a[-1], closes_b[-1]
+    qty_a, qty_b = _compute_leg_quantities(
+        capital=capital_per_pair, price_a=price_a, price_b=price_b
+    )
+    if qty_a == 0 or qty_b == 0:
+        logger.warning(
+            "pairs.dispatch_skip_zero_qty",
+            pair_key=pair_key,
+            qty_a=qty_a,
+            qty_b=qty_b,
+        )
+        return
+
+    # Dispatch dual-leg
+    try:
+        result = await dispatch_fn(
+            base_url=base_url,
+            pair_key=pair_key,
+            ticker_a=ev.pair.ticker_a,
+            side_a=side_a,
+            quantity_a=qty_a,
+            ticker_b=ev.pair.ticker_b,
+            side_b=side_b,
+            quantity_b=qty_b,
+            action=ev.action.value,
+            env=trade_env,
+        )
+    except Exception as exc:
+        logger.error("pairs.dispatch_exception", pair_key=pair_key, error=str(exc))
+        return
+
+    if result.get("naked_leg"):
+        logger.error(
+            "pairs.naked_leg_alert",
+            pair_key=pair_key,
+            naked_leg=result["naked_leg"],
+            error=result.get("error"),
+        )
+        return
+
+    if not result.get("ok"):
+        return
+
+    # Persistir position state — try/except local pra não quebrar ciclo
+    new_pos_value = "NONE"
+    try:
+        if ev.action == PairAction.OPEN_SHORT_SPREAD:
+            positions_repo.upsert(
+                pair_key, PairPosition.SHORT_SPREAD, last_cl_ord_id=result.get("cl_a")
+            )
+            new_pos_value = "SHORT_SPREAD"
+        elif ev.action == PairAction.OPEN_LONG_SPREAD:
+            positions_repo.upsert(
+                pair_key, PairPosition.LONG_SPREAD, last_cl_ord_id=result.get("cl_a")
+            )
+            new_pos_value = "LONG_SPREAD"
+        elif ev.action in (PairAction.CLOSE, PairAction.STOP):
+            positions_repo.delete(pair_key)
+    except Exception as exc:
+        logger.error(
+            "pairs.position_state_persist_failed",
+            pair_key=pair_key,
+            action=ev.action.value,
+            error=str(exc),
+        )
+    logger.info(
+        "pairs.dispatched",
+        pair_key=pair_key,
+        action=ev.action.value,
+        new_position=new_pos_value,
+    )
+
+
 async def _evaluate_pairs(iteration: int) -> None:
     """
     Avalia pares cointegrados ativos e dispara dual-leg dispatch quando
@@ -465,7 +609,6 @@ async def _evaluate_pairs(iteration: int) -> None:
     from finanalytics_ai.application.services.pairs_trading_service import (
         evaluate_active_pairs,
     )
-    from finanalytics_ai.domain.pairs import PairAction, PairPosition
     from finanalytics_ai.infrastructure.database.repositories.pair_positions_repository import (
         PsycopgPairPositionsRepository,
     )
@@ -476,16 +619,13 @@ async def _evaluate_pairs(iteration: int) -> None:
 
     repo = PsycopgPairsRepository(PAIRS_DSN)
     candles = _HttpCandleFetcher(API_BASE_URL)
-    # PsycopgPairPositionsRepository.get() satisfaz PositionState Protocol
-    # direto — leitura e escrita via robot_pair_positions (Alembic 0024).
     positions_repo = PsycopgPairPositionsRepository(PAIRS_DSN)
-    pos_state = positions_repo
 
     try:
         evaluations = evaluate_active_pairs(
             repo=repo,
             candles=candles,
-            position_state=pos_state,
+            position_state=positions_repo,
             n_pairs_tested=PAIRS_N_TESTED,
         )
     except Exception as exc:
@@ -498,134 +638,16 @@ async def _evaluate_pairs(iteration: int) -> None:
         return
 
     for ev in evaluations:
-        # SEMPRE log a evaluation pra audit (mesmo NONE)
-        logger.info(
-            "pairs.evaluation",
-            pair_key=ev.snapshot.get("pair_key"),
-            action=ev.action.value,
-            z=ev.z,
-            reason=ev.reason,
-            blocked=ev.blocked_by_filter,
+        await _handle_pair_evaluation(
+            ev,
+            positions_repo=positions_repo,
+            candles_fetcher=candles,
+            dispatch_fn=dispatch_pair_order,
+            capital_per_pair=PAIRS_CAPITAL_PER_PAIR,
+            base_url=API_BASE_URL,
+            trade_env=TRADE_ENV,
+            dry_run=DRY_RUN,
         )
-
-        if ev.action == PairAction.NONE:
-            continue
-
-        if DRY_RUN:
-            logger.info("pairs.dry_run_skip_dispatch", action=ev.action.value)
-            continue
-
-        pair_key = ev.snapshot.get("pair_key", "")
-
-        # Para CLOSE/STOP, leg sides invertem a posicao corrente
-        if ev.action in (PairAction.CLOSE, PairAction.STOP):
-            if ev.current_position == PairPosition.SHORT_SPREAD:
-                # Era short A + long B; reverte: buy A + sell B
-                side_a, side_b = "buy", "sell"
-            elif ev.current_position == PairPosition.LONG_SPREAD:
-                side_a, side_b = "sell", "buy"
-            else:
-                logger.warning(
-                    "pairs.close_without_position",
-                    pair_key=pair_key,
-                    current_position=ev.current_position.value,
-                )
-                continue
-        else:
-            # OPEN_*: leg_a_side e leg_b_side ja vem populados pelo service
-            side_a = ev.leg_a_side or ""
-            side_b = ev.leg_b_side or ""
-            if not side_a or not side_b:
-                logger.error("pairs.open_missing_legs", pair_key=pair_key)
-                continue
-
-        # Position sizing precisa preco corrente — usa ultimo close das candles
-        # (caching naive mas suficiente p/ MVP — orderbook real fica em R3.2.B.3+)
-        closes_a = candles.fetch_closes(ev.pair.ticker_a, 1) or []
-        closes_b = candles.fetch_closes(ev.pair.ticker_b, 1) or []
-        if not closes_a or not closes_b:
-            logger.error("pairs.dispatch_skip_missing_price", pair_key=pair_key)
-            continue
-        price_a, price_b = closes_a[-1], closes_b[-1]
-        qty_a, qty_b = _compute_leg_quantities(
-            capital=PAIRS_CAPITAL_PER_PAIR, price_a=price_a, price_b=price_b
-        )
-        if qty_a == 0 or qty_b == 0:
-            logger.warning(
-                "pairs.dispatch_skip_zero_qty",
-                pair_key=pair_key,
-                qty_a=qty_a,
-                qty_b=qty_b,
-            )
-            continue
-
-        # Dispatch dual-leg
-        try:
-            result = await dispatch_pair_order(
-                base_url=API_BASE_URL,
-                pair_key=pair_key,
-                ticker_a=ev.pair.ticker_a,
-                side_a=side_a,
-                quantity_a=qty_a,
-                ticker_b=ev.pair.ticker_b,
-                side_b=side_b,
-                quantity_b=qty_b,
-                action=ev.action.value,
-                env=TRADE_ENV,
-            )
-        except Exception as exc:
-            logger.error(
-                "pairs.dispatch_exception",
-                pair_key=pair_key,
-                error=str(exc),
-            )
-            continue
-
-        if result.get("naked_leg"):
-            logger.error(
-                "pairs.naked_leg_alert",
-                pair_key=pair_key,
-                naked_leg=result["naked_leg"],
-                error=result.get("error"),
-            )
-            # Nao atualiza state — caller manual deve tratar
-            continue
-
-        if result.get("ok"):
-            # Persist position state em robot_pair_positions (R3.2.B.3).
-            # OPEN -> upsert com cl_a (cl_ord_id do leg_a) p/ audit; CLOSE/STOP
-            # -> delete da row.
-            new_pos_value = "NONE"
-            try:
-                if ev.action == PairAction.OPEN_SHORT_SPREAD:
-                    positions_repo.upsert(
-                        pair_key,
-                        PairPosition.SHORT_SPREAD,
-                        last_cl_ord_id=result.get("cl_a"),
-                    )
-                    new_pos_value = "SHORT_SPREAD"
-                elif ev.action == PairAction.OPEN_LONG_SPREAD:
-                    positions_repo.upsert(
-                        pair_key,
-                        PairPosition.LONG_SPREAD,
-                        last_cl_ord_id=result.get("cl_a"),
-                    )
-                    new_pos_value = "LONG_SPREAD"
-                elif ev.action in (PairAction.CLOSE, PairAction.STOP):
-                    positions_repo.delete(pair_key)
-            except Exception as exc:
-                logger.error(
-                    "pairs.position_state_persist_failed",
-                    pair_key=pair_key,
-                    action=ev.action.value,
-                    error=str(exc),
-                )
-            logger.info(
-                "pairs.dispatched",
-                pair_key=pair_key,
-                action=ev.action.value,
-                new_position=new_pos_value,
-            )
 
 
 async def main() -> int:
