@@ -35,13 +35,17 @@
 
 services:
 
+  # Fase B.2 (01/mai): volumes Postgres + Timescale migrados pra ext4 nativo
+  # WSL (~/finanalytics/data/) — performance 10-50x melhor vs /mnt/e (NTFS via 9P).
+  # Backups originais em /mnt/e/finanalytics_data/docker/{postgres,timescale}/
+  # ficam INTOCADOS por 1 semana antes de delete (rollback fácil = trocar paths).
   postgres:
     volumes:
-      - /mnt/e/finanalytics_data/docker/postgres:/var/lib/postgresql/data
+      - /home/abi/finanalytics/data/postgres:/var/lib/postgresql/data
 
   timescale:
     volumes:
-      - /mnt/e/finanalytics_data/docker/timescale:/var/lib/postgresql/data
+      - /home/abi/finanalytics/data/timescale:/var/lib/postgresql/data
 
   zookeeper:
     volumes:
