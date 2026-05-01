@@ -37,7 +37,7 @@ from enum import StrEnum
 import math
 from typing import Any, Protocol, runtime_checkable
 
-from finanalytics_ai.domain.backtesting.slippage import apply_slippage
+from finanalytics_ai.domain.backtesting.slippage import apply_slippage, compute_adv
 
 # ── Sinais ────────────────────────────────────────────────────────────────────
 
@@ -206,6 +206,8 @@ def run_backtest(
     commission_pct: float = 0.001,  # 0.1% por operação (B3 típico)
     range_period: str = "3mo",
     apply_slippage_model: bool = True,  # R5: slippage por classe (futuros vs ações)
+    slippage_model: str = "fixed",  # R5 follow-up: "fixed" | "adv"
+    adv_lookback: int = 20,  # janela rolling p/ ADV-aware
 ) -> BacktestResult:
     """
     Engine de backtesting event-driven.
@@ -215,13 +217,21 @@ def run_backtest(
     Comissão aplicada em abertura e fechamento de posição.
 
     Slippage (R5, ativado por padrão via apply_slippage_model):
-      - Futuros (WDO/WIN/IND/DOL/DI/CCM/BGI/OZM): N_TICKS_FUTURE ticks/lado
-      - Ações: 0.05% por lado (relativo ao preço)
+      - "fixed" (default, compat retro): N_TICKS_FUTURE ticks futuros / 0.05% acoes
+      - "adv": fixed * (1 + IMPACT_COEF*sqrt(notional/ADV)), capado em 5x.
+        Requer 'volume' nas bars; ADV calculado em janela `adv_lookback`
+        antes de cada trade. Trade pequeno (low participation) ≈ fixed; trade
+        grande (high participation) sofre penalty sublinear (Almgren-Chriss).
+
+    Slippage details:
       - Aplicado SOBRE o close da barra antes de calcular qty/proceeds.
       - Trade.entry_price/exit_price registram o preço efetivo (com slippage).
 
     Design: sem look-ahead bias — cada barra só vê dados até ela mesma.
     """
+    use_adv = (
+        apply_slippage_model and slippage_model == "adv"
+    )  # toggles ADV-aware na funcao apply_slippage
     signals = strategy.generate_signals(bars)
     assert len(signals) == len(bars), "signals deve ter mesmo tamanho que bars"
 
@@ -247,8 +257,19 @@ def run_backtest(
 
         # Abre posição
         if signal == Signal.BUY and position == 0.0:
-            exec_price = apply_slippage(price, "buy", ticker) if apply_slippage_model else price
             capital_to_invest = equity * position_size
+            adv = compute_adv(bars, i, lookback=adv_lookback) if use_adv else None
+            exec_price = (
+                apply_slippage(
+                    price,
+                    "buy",
+                    ticker,
+                    notional_trade=capital_to_invest if use_adv else None,
+                    adv_notional=adv,
+                )
+                if apply_slippage_model
+                else price
+            )
             commission = capital_to_invest * commission_pct
             qty = (capital_to_invest - commission) / exec_price
             position = qty
@@ -259,7 +280,19 @@ def run_backtest(
 
         # Fecha posição
         elif signal == Signal.SELL and position > 0.0:
-            exec_price = apply_slippage(price, "sell", ticker) if apply_slippage_model else price
+            adv = compute_adv(bars, i, lookback=adv_lookback) if use_adv else None
+            notional = position * price
+            exec_price = (
+                apply_slippage(
+                    price,
+                    "sell",
+                    ticker,
+                    notional_trade=notional if use_adv else None,
+                    adv_notional=adv,
+                )
+                if apply_slippage_model
+                else price
+            )
             proceeds = position * exec_price
             commission = proceeds * commission_pct
             equity += proceeds - commission  # devolve capital + lucro ao caixa
@@ -296,8 +329,19 @@ def run_backtest(
     if position > 0.0 and bars:
         last_bar = bars[-1]
         last_price = float(last_bar["close"])
+        last_idx = len(bars) - 1
+        last_adv = compute_adv(bars, last_idx, lookback=adv_lookback) if use_adv else None
+        last_notional = position * last_price
         last_exec = (
-            apply_slippage(last_price, "sell", ticker) if apply_slippage_model else last_price
+            apply_slippage(
+                last_price,
+                "sell",
+                ticker,
+                notional_trade=last_notional if use_adv else None,
+                adv_notional=last_adv,
+            )
+            if apply_slippage_model
+            else last_price
         )
         last_date = (
             datetime.fromtimestamp(last_bar["time"])

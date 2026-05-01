@@ -400,3 +400,122 @@ class TestBacktestService:
         svc = BacktestService(mock_brapi)
         with pytest.raises(BacktestError, match="não encontrada"):
             await svc.run("PETR4", "invalid_strategy")
+
+
+# ── Engine ADV-aware slippage (R5 follow-up) ──────────────────────────────────
+
+
+def _bars_with_volume(prices: list[float], volume: float = 1_000_000.0) -> list[dict]:
+    """Bars com volume controlado p/ ADV-aware tests."""
+    return [
+        {
+            "time": 1_700_000_000 + i * 86400,
+            "open": p,
+            "high": p * 1.01,
+            "low": p * 0.99,
+            "close": p,
+            "volume": volume,
+        }
+        for i, p in enumerate(prices)
+    ]
+
+
+class TestEngineADVAwareSlippage:
+    def test_adv_mode_high_participation_costs_more(self):
+        """Trade com participation alta no ADV deve render menos retorno que fixed."""
+        # Cenario: ADV minusculo (vol=100), trade com $10k -> participation enorme
+        prices = [100.0 + i * 0.5 for i in range(30)] + [120.0, 110.0]  # rampa + reversao
+        bars_low_vol = _bars_with_volume(prices, volume=100.0)
+
+        strategy = RSIStrategy(period=14, oversold=30.0, overbought=70.0)
+
+        result_fixed = run_backtest(
+            bars_low_vol, strategy, ticker="ILLIQ", initial_capital=10_000,
+            slippage_model="fixed",
+        )
+        result_adv = run_backtest(
+            bars_low_vol, strategy, ticker="ILLIQ", initial_capital=10_000,
+            slippage_model="adv",
+        )
+
+        # Sem trades em ambos -> teste irrelevante (skip)
+        if not result_fixed.trades or not result_adv.trades:
+            pytest.skip("Estrategia nao gerou trades neste regime")
+
+        # Mesmos trades, mas ADV cobra mais slippage -> equity final menor
+        assert result_adv.equity_curve[-1]["equity"] <= result_fixed.equity_curve[-1]["equity"]
+
+    def test_adv_mode_low_participation_close_to_fixed(self):
+        """Trade pequeno no ADV grande deve diferir <1% do fixed."""
+        prices = [100.0 + i * 0.5 for i in range(30)] + [120.0, 110.0]
+        bars_high_vol = _bars_with_volume(prices, volume=10_000_000.0)
+
+        strategy = RSIStrategy(period=14, oversold=30.0, overbought=70.0)
+
+        # Capital pequeno relativo ao ADV -> participation desprezivel
+        result_fixed = run_backtest(
+            bars_high_vol, strategy, ticker="LIQUID", initial_capital=1_000,
+            slippage_model="fixed",
+        )
+        result_adv = run_backtest(
+            bars_high_vol, strategy, ticker="LIQUID", initial_capital=1_000,
+            slippage_model="adv",
+        )
+
+        if not result_fixed.trades or not result_adv.trades:
+            pytest.skip("Estrategia nao gerou trades neste regime")
+
+        eq_fixed = result_fixed.equity_curve[-1]["equity"]
+        eq_adv = result_adv.equity_curve[-1]["equity"]
+        # Diff < 1% — modelo ADV nao deve penalizar trades pequenos
+        diff_pct = abs(eq_fixed - eq_adv) / eq_fixed * 100
+        assert diff_pct < 1.0
+
+    def test_default_slippage_model_is_fixed(self):
+        """Compat retro: nao especificar slippage_model usa fixed."""
+        prices = [100.0 + i * 0.5 for i in range(30)] + [120.0, 110.0]
+        bars = _bars_with_volume(prices, volume=1_000_000)
+
+        strategy = RSIStrategy(period=14, oversold=30.0, overbought=70.0)
+
+        result_default = run_backtest(bars, strategy, ticker="PETR4", initial_capital=10_000)
+        result_explicit_fixed = run_backtest(
+            bars, strategy, ticker="PETR4", initial_capital=10_000,
+            slippage_model="fixed",
+        )
+
+        # Mesmos resultados (mesmos trades, mesmas execucoes)
+        eq_default = result_default.equity_curve[-1]["equity"]
+        eq_fixed = result_explicit_fixed.equity_curve[-1]["equity"]
+        assert eq_default == pytest.approx(eq_fixed)
+
+    def test_adv_mode_bars_without_volume_falls_back(self):
+        """Bars sem 'volume' -> ADV=0 -> multiplier=1 -> equivalente a fixed."""
+        prices = [100.0 + i * 0.5 for i in range(30)] + [120.0, 110.0]
+        bars_no_vol = [
+            {
+                "time": 1_700_000_000 + i * 86400,
+                "open": p,
+                "high": p * 1.01,
+                "low": p * 0.99,
+                "close": p,
+                # sem 'volume'
+            }
+            for i, p in enumerate(prices)
+        ]
+
+        strategy = RSIStrategy(period=14, oversold=30.0, overbought=70.0)
+
+        result_fixed = run_backtest(
+            bars_no_vol, strategy, ticker="PETR4", initial_capital=10_000,
+            slippage_model="fixed",
+        )
+        result_adv = run_backtest(
+            bars_no_vol, strategy, ticker="PETR4", initial_capital=10_000,
+            slippage_model="adv",
+        )
+
+        # ADV=0 forca fallback para fixed -> resultados identicos
+        eq_fixed = result_fixed.equity_curve[-1]["equity"]
+        eq_adv = result_adv.equity_curve[-1]["equity"]
+        assert eq_fixed == pytest.approx(eq_adv)
