@@ -59,3 +59,52 @@ def validate_attach_oco_params(params: dict) -> dict | None:
             ),
         }
     return None
+
+
+def compute_trading_result_match(
+    local_id: int | None, cl_ord: str | None, message_id: int | None
+) -> tuple[str, tuple] | None:
+    """P2-futuros fix (sessão 01/mai): decide se um trading_result do callback
+    pode ser matched contra `profit_orders` e constrói o WHERE clause.
+
+    Antes (P2 30/abr): WHERE local_order_id = X OR cl_ord_id = Y. Quando
+    broker rejeita instantâneo (ex: code=5 "Ordem inválida" em futuros) com
+    `r.OrderID.LocalOrderID=0` E `_msg_id_to_local` sem mapping (post-restart),
+    o UPDATE fica zero rows. status fica stuck em 10 (PendingNew) até o
+    reconcile_loop pegar — mas reconcile só roda 10h-18h.
+
+    Fix: incluir `message_id` no fallback. `profit_orders.message_id` já é
+    persistido em `insert_order` (linha 889). Match adicional cobre o caso
+    em que `local_order_id` e `cl_ord_id` chegam zerados.
+
+    Retorna:
+      None — skip (todos identifiers vazios; UPDATE sem WHERE seria desastre).
+      (where_sql, params) — onde where_sql é uma string com placeholders %s
+        e params é a tupla na ordem.
+
+    Convenção: identifiers tratados como "vazios":
+      local_id: None ou <= 0
+      cl_ord:   None, "", whitespace
+      message_id: None ou <= 0
+
+    Ao menos um deve estar populado pra retornar match.
+    """
+    has_local = local_id is not None and local_id > 0
+    has_cl = bool(cl_ord and cl_ord.strip())
+    has_msg = message_id is not None and message_id > 0
+    if not (has_local or has_cl or has_msg):
+        return None
+
+    parts: list[str] = []
+    params: list[int | str] = []
+    if has_local:
+        parts.append("local_order_id = %s")
+        params.append(local_id)
+    if has_cl:
+        parts.append("cl_ord_id = %s")
+        params.append(cl_ord)
+    if has_msg:
+        parts.append("message_id = %s")
+        params.append(message_id)
+
+    return (" OR ".join(parts), tuple(params))

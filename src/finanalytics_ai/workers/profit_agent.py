@@ -522,6 +522,7 @@ _TRADING_RESULT_STATUS: dict[int, int] = {
 # Sessão 30/abr: validators puros movidos para profit_agent_validators.py
 # (CI Linux pode testar sem importar ctypes.WINFUNCTYPE Windows-only).
 from finanalytics_ai.workers.profit_agent_validators import (  # noqa: E402
+    compute_trading_result_match,
     trail_should_immediate_trigger,
     validate_attach_oco_params as _validate_attach_oco_params,
 )
@@ -3118,51 +3119,41 @@ class ProfitAgent:
 
                 elif t == "trading_result":
                     code = item.get("result_code", 0)
-
                     status = item.get("order_status", 0)
-
                     msg = item.get("message")
-
                     local_id = item.get("local_order_id") or 0
                     cl_ord = item.get("cl_ord_id") or None
-                    # P2-futuros (30/abr): se ambos identifiers vazios, callback
-                    # corrompido — sem skip, query não acharia row mas tentaria
-                    # qualquer match e poderia bagunçar reconcile.
-                    if not local_id and not cl_ord:
+                    msg_id = item.get("message_id") or 0
+
+                    # P2-futuros fix (01/mai): tentativa de match com message_id
+                    # como fallback quando local_id e cl_ord vêm zerados (ex:
+                    # broker rejeita futuro com code=5 + struct callback corrompida
+                    # + post-restart sem _msg_id_to_local mapping).
+                    match = compute_trading_result_match(local_id, cl_ord, msg_id)
+                    if match is None:
                         log.warning(
                             "trading_result_skip msg_id=%d code=%d status=%d "
-                            "no_local_id no_cl_ord_id",
-                            item.get("message_id", 0),
+                            "no_local_id no_cl_ord_id no_message_id",
+                            msg_id,
                             code,
                             status,
                         )
                         continue
 
+                    where_sql, where_params = match
                     _is_rejection = status == 8  # RejectedBroker/Market/etc
+                    sql = (
+                        "UPDATE profit_orders SET "
+                        "order_status = CASE WHEN %s THEN 8 ELSE order_status END, "
+                        "cl_ord_id = COALESCE(%s, cl_ord_id), "
+                        "error_message = CASE WHEN %s IS NOT NULL THEN %s "
+                        "ELSE error_message END, "
+                        "updated_at = NOW() "
+                        f"WHERE {where_sql}"
+                    )
                     self._db.execute(
-                        """UPDATE profit_orders SET
-
-                               order_status  = CASE WHEN %s THEN 8 ELSE order_status END,
-
-                               cl_ord_id     = COALESCE(%s, cl_ord_id),
-
-                               error_message = CASE WHEN %s IS NOT NULL THEN %s
-
-                                                    ELSE error_message END,
-
-                               updated_at    = NOW()
-
-                           WHERE local_order_id = %s
-
-                              OR cl_ord_id = %s""",
-                        (
-                            _is_rejection,
-                            cl_ord,
-                            msg,
-                            msg,
-                            local_id,
-                            cl_ord,
-                        ),
+                        sql,
+                        (_is_rejection, cl_ord, msg, msg, *where_params),
                     )
 
                 elif t == "state":

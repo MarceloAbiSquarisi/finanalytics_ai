@@ -293,8 +293,8 @@ Schema base (`email_messages` + `email_attachments`), worker `gmail_sync_worker`
 
 **Workaround**: usar PETR4 ou outras ações pra todos os testes Bloco B até resolver.
 
-#### P2-futuros — DB não reflete `status=8` do broker (P2 fix não pegou pra rejeições "Ordem inválida")
-DB ficou com `order_status=10 (PendingNew)` mesmo após broker retornar `code=5 status=8 msg=Ordem inválida`. P2 fix de 28/abr (`27e04d3`) atualiza via reconcile loop — mas só dispara 10h-18h. Para ordens rejeitadas instantaneamente, o `trading_msg_cb` com `status=8` deveria atualizar DB direto. Verificar handler. Pequeno e independente.
+#### P2-futuros — DB não reflete `status=8` do broker (P2 fix não pegou pra rejeições "Ordem inválida") ✅ DONE 01/mai
+**Status (01/mai/2026)**: ✅ FECHADO. **Causa raiz**: `_db_worker.trading_result` handler usava `WHERE local_order_id = X OR cl_ord_id = Y`. Quando broker rejeita futuro com `code=5 status=8` ("Ordem inválida") E `r.OrderID.LocalOrderID = 0` (struct callback corrompida em alguns codes) E `_msg_id_to_local` sem mapping (in-memory, perdido em restart NSSM), ambos identifiers chegavam vazios → handler skip + status stuck em 10. **Fix**: extraído `compute_trading_result_match(local_id, cl_ord, message_id)` puro em `profit_agent_validators.py` que adiciona `OR message_id = X` no WHERE. `profit_orders.message_id` já era persistido em `insert_order` desde o início — só faltava o handler usar. Skip apenas se TODOS os 3 vazios. 9 unit tests novos cobrem caso P2-futuros + boundaries (negative IDs, whitespace cl_ord, todas combinações de identifiers). 29 tests verde (regression OK).
 
 ---
 

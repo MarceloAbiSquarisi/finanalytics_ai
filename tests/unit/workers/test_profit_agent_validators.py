@@ -6,6 +6,7 @@ Não depende de ctypes — roda em CI Linux normalmente.
 from __future__ import annotations
 
 from finanalytics_ai.workers.profit_agent_validators import (
+    compute_trading_result_match,
     trail_should_immediate_trigger,
     validate_attach_oco_params,
 )
@@ -189,3 +190,70 @@ def test_immediate_trigger_accepts_int_or_float() -> None:
     """sl_trigger pode chegar como Decimal/int do DB — float() coerce."""
     assert trail_should_immediate_trigger(side=2, last_price=47.99, sl_trigger=48) is True
     assert trail_should_immediate_trigger(side=1, last_price=52.01, sl_trigger=52) is True
+
+
+# ── compute_trading_result_match (P2-futuros fix 01/mai) ─────────────────────
+
+
+class TestTradingResultMatch:
+    def test_all_empty_returns_none(self) -> None:
+        """Sem nenhum identifier — skip (UPDATE sem WHERE = desastre)."""
+        assert compute_trading_result_match(0, None, 0) is None
+        assert compute_trading_result_match(None, "", None) is None
+        assert compute_trading_result_match(0, "  ", 0) is None  # whitespace = vazio
+
+    def test_only_local_id(self) -> None:
+        match = compute_trading_result_match(12345, None, 0)
+        assert match is not None
+        where, params = match
+        assert where == "local_order_id = %s"
+        assert params == (12345,)
+
+    def test_only_cl_ord_id(self) -> None:
+        match = compute_trading_result_match(0, "robot:1:PETR4:BUY:2026-05-01T12:00", None)
+        assert match is not None
+        where, params = match
+        assert where == "cl_ord_id = %s"
+        assert params == ("robot:1:PETR4:BUY:2026-05-01T12:00",)
+
+    def test_only_message_id_p2_futuros_case(self) -> None:
+        """P2-futuros core case — local_id=0 + cl_ord vazio + msg_id válido.
+
+        Antes do fix: skip + status stuck em 10. Depois: match por message_id.
+        """
+        match = compute_trading_result_match(0, "", 999_888_777)
+        assert match is not None
+        where, params = match
+        assert where == "message_id = %s"
+        assert params == (999_888_777,)
+
+    def test_all_three_identifiers(self) -> None:
+        match = compute_trading_result_match(123, "cl_xyz", 456)
+        assert match is not None
+        where, params = match
+        # OR'd na ordem: local, cl, message
+        assert where == "local_order_id = %s OR cl_ord_id = %s OR message_id = %s"
+        assert params == (123, "cl_xyz", 456)
+
+    def test_local_and_message_no_cl(self) -> None:
+        match = compute_trading_result_match(123, None, 456)
+        assert match is not None
+        where, params = match
+        assert where == "local_order_id = %s OR message_id = %s"
+        assert params == (123, 456)
+
+    def test_cl_and_message_no_local(self) -> None:
+        match = compute_trading_result_match(0, "cl_xyz", 456)
+        assert match is not None
+        where, params = match
+        assert where == "cl_ord_id = %s OR message_id = %s"
+        assert params == ("cl_xyz", 456)
+
+    def test_negative_local_id_treated_as_empty(self) -> None:
+        """local_id <= 0 nunca deve fazer match (NULL e 0 reservados)."""
+        match = compute_trading_result_match(-1, None, 0)
+        assert match is None
+
+    def test_negative_message_id_treated_as_empty(self) -> None:
+        match = compute_trading_result_match(0, None, -1)
+        assert match is None
