@@ -148,6 +148,16 @@ Implementação:
 
 **Pitfalls**: cointegração quebra em regime change (2008/2020 quebrou vários). Re-test rolling obrigatório.
 
+**Status R3 (01/mai/2026)**:
+- ✅ R3.1 Engle-Granger screening (offline) — commit `419cb73`. Schema `cointegrated_pairs`, domain puro (`compute_hedge_ratio`/`compute_residuals`/`adf_test`/`compute_half_life`/`engle_granger`), CLI `scripts/cointegration_screen.py`. 18 unit tests verde com data sintética (par OU mean-rev cointegrado detectado, random walks independentes não).
+- ✅ Validação live 01/mai (8 tickers x 28 pares contra `fintz_cotacoes_ts` até 2025-11-03):
+  - **252d → 0 cointegrados**. PETR3/PETR4 (rho=0.99) p=0.28 — janela curta + regime instável 2024-25 (Selic 13.75→11.25, mudanças governança Petrobras).
+  - **504d → 2 cointegrados**: `CMIN3-VALE3` (p=0.045, β=0.094, half-life=27d, fundamento mineração) e `SANB11-VALE3` (p=0.039, half-life=22d, **provável spurious** — 28 testes a p=0.05 → ~1.4 falsos positivos esperados por sorte).
+- 🔲 **R3.2 deve aplicar Bonferroni** (`p_threshold = 0.05 / N_pairs ≈ 0.0018`) ou exigir filtros adicionais antes de tradar: half-life razoável (5-30d) + fundamento econômico (mesmo setor/subsetor). CMIN3-VALE3 passa esses filtros; SANB11-VALE3 não.
+- 🔲 **R3.2 PairsTradingStrategy** (2-3d): lê `cointegrated_pairs WHERE cointegrated=TRUE AND last_test_date >= today - 7d`, calcula Z-score real-time, dispara 2 OCOs simétricos quando `|Z|>2`. Integra com `auto_trader_worker.STRATEGY_REGISTRY`.
+- 🔲 **R3.3 UI `/pairs`** (1-2d): lista pares ativos + chart Z-score histórico. Defer.
+- 🔲 **Operacional**: agendar `cointegration_screen.py --persist --lookback 504` no scheduler 06:30 BRT (antes do open) p/ refresh diário. Pares quebram em regime change — re-test obrigatório.
+
 #### R4 — Strategy: Opening Range Breakout WINFUT ⭐⭐ futuros
 **Custo**: ~7-10d. **Payoff**: alto se filtros funcionam (Sharpe ~1.5 documentado em ES, replicável em WIN).
 
