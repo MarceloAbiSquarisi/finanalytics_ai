@@ -102,12 +102,14 @@ class Strategy(Protocol):
 from finanalytics_ai.domain.robot.strategies import (
     DummyHeartbeatStrategy,
     MLSignalsStrategy,
+    TsmomMlOverlayStrategy,
 )
 
-# Registry — adicionar R2/R3/R4 aqui quando chegarem.
+# Registry — adicionar R3/R4 aqui quando chegarem.
 STRATEGY_REGISTRY: dict[str, Strategy] = {
     "dummy_heartbeat": DummyHeartbeatStrategy(),
     "ml_signals": MLSignalsStrategy(),
+    "tsmom_ml_overlay": TsmomMlOverlayStrategy(),
 }
 
 

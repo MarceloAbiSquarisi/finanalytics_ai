@@ -259,13 +259,15 @@ class MLSignalsStrategy:
                     return None  # sem cache stale tambem
         return self._signals_cache.get(ticker)
 
-    def _fetch_bars(self, ticker: str, n: int) -> list[dict[str, Any]] | None:
-        """Busca daily bars do /api/v1/marketdata/candles/{ticker} (range '3mo')."""
+    def _fetch_bars(
+        self, ticker: str, n: int, range_period: str = "3mo"
+    ) -> list[dict[str, Any]] | None:
+        """Busca daily bars do /api/v1/marketdata/candles/{ticker}."""
         try:
             with httpx.Client(timeout=10.0) as client:
                 r = client.get(
                     f"{self._base_url}/api/v1/marketdata/candles/{ticker}",
-                    params={"range_period": "3mo"},
+                    params={"range_period": range_period},
                 )
                 r.raise_for_status()
                 data = r.json()
@@ -274,3 +276,199 @@ class MLSignalsStrategy:
         except Exception as exc:
             logger.warning("ml_signals.bars_fetch_failed", ticker=ticker, error=str(exc))
             return None
+
+
+# ── TSMOM ∩ ML Overlay (R2) ──────────────────────────────────────────────────
+
+
+class TsmomMlOverlayStrategy(MLSignalsStrategy):
+    """
+    Time-Series Momentum overlay sobre MLSignals (Moskowitz/Ooi/Pedersen 2012).
+
+    Filtro de regime: usa o sinal ML como base e SO trada quando o momentum
+    de 252 dias uteis concorda com a direcao. Reduz whipsaws em mean-reverting
+    regimes onde ML solo costuma errar.
+
+    Logica:
+      mom_sign = sign(close_today / close_252d_ago - 1)
+      BUY ML  + mom_sign >= 0 -> trada (full size do MLSignals.sizing)
+      SELL ML + mom_sign <= 0 -> trada
+      ML e momentum divergem  -> SKIP com reason
+
+    Usa range_period='1y' (~252 bars) para puxar tudo numa chamada e roda o
+    pipeline herdado de MLSignals em cima do mesmo dataset.
+
+    Edge documentado: TSMOM Sharpe 0.7-1.2 cross-asset (Moskowitz 2012);
+    replicado em B3 (Hosp Brasil 2018). Sobreposicao com ML reduz drawdown.
+
+    Config esperado em robot_strategies.config_json: idem MLSignalsStrategy +
+      "momentum_lookback_days": 252  # default Moskowitz
+    """
+
+    name = "tsmom_ml_overlay"
+
+    def evaluate(self, ticker: str, context: dict[str, Any]) -> dict[str, Any]:
+        ticker = ticker.upper()
+        momentum_lookback = int(context.get("momentum_lookback_days", 252))
+
+        # 1. Sinal ML
+        signal_item = self._fetch_signal(ticker)
+        if signal_item is None or signal_item.get("error"):
+            return {
+                "action": "SKIP",
+                "payload": {
+                    "reason": f"no_signal_for_{ticker}: "
+                    + str(signal_item.get("error") if signal_item else "missing"),
+                    "snapshot": {"ticker": ticker},
+                },
+            }
+
+        ml_signal = (signal_item.get("signal") or "").upper()
+        if ml_signal not in ("BUY", "SELL"):
+            return {
+                "action": "HOLD",
+                "payload": {
+                    "reason": f"ml_signal_is_{ml_signal or 'none'}",
+                    "snapshot": {"ticker": ticker, "ml_signal": ml_signal},
+                },
+            }
+
+        # 2. Bars 1y para momentum + sizing num so fetch
+        atr_period = int(context.get("atr_period", 14))
+        vol_lookback = int(context.get("vol_lookback_days", 20))
+        n_needed = max(momentum_lookback + 5, vol_lookback + 5, atr_period + 5)
+        bars = self._fetch_bars(ticker, n=n_needed, range_period="1y")
+        if not bars or len(bars) < momentum_lookback + 1:
+            return {
+                "action": "SKIP",
+                "payload": {
+                    "reason": f"insufficient_bars_for_momentum "
+                    f"({len(bars) if bars else 0} < {momentum_lookback + 1})",
+                    "snapshot": {"ticker": ticker, "ml_signal": ml_signal},
+                },
+            }
+
+        # 3. Sign do retorno 252d
+        close_today = float(bars[-1].get("close", 0) or 0)
+        close_lookback = float(bars[-(momentum_lookback + 1)].get("close", 0) or 0)
+        if close_today <= 0 or close_lookback <= 0:
+            return {
+                "action": "SKIP",
+                "payload": {
+                    "reason": "zero_close_in_momentum_window",
+                    "snapshot": {"ticker": ticker, "ml_signal": ml_signal},
+                },
+            }
+        momentum_ret = (close_today / close_lookback) - 1.0
+        # Sign zero (raro, exato 0%) trata como neutro -> nao concorda nem com BUY nem SELL.
+        if momentum_ret > 0:
+            mom_sign = 1
+        elif momentum_ret < 0:
+            mom_sign = -1
+        else:
+            mom_sign = 0
+
+        # 4. Concordance check
+        disagree = (ml_signal == "BUY" and mom_sign <= 0) or (
+            ml_signal == "SELL" and mom_sign >= 0
+        )
+        if disagree:
+            return {
+                "action": "SKIP",
+                "payload": {
+                    "reason": f"tsmom_disagree: ml={ml_signal} mom={momentum_ret:+.2%}",
+                    "snapshot": {
+                        "ticker": ticker,
+                        "ml_signal": ml_signal,
+                        "momentum_252d_ret": momentum_ret,
+                        "momentum_sign": mom_sign,
+                        "lookback_days": momentum_lookback,
+                    },
+                },
+            }
+
+        # 5. Concordam: roda sizing + ATR levels (mesma logica MLSignals) e
+        # enriquece payload com info do momentum.
+        capital = float(context.get("capital_per_strategy", 10_000.0))
+        target_vol = float(context.get("target_vol_annual", DEFAULT_TARGET_VOL))
+        kelly = float(context.get("kelly_fraction", DEFAULT_KELLY_FRACTION))
+        max_pct = float(context.get("max_position_pct", 0.10))
+        atr_sl_mult = float(context.get("atr_sl_mult", 2.0))
+        atr_tp_mult = float(context.get("atr_tp_mult", 3.0))
+
+        closes = [float(b["close"]) for b in bars[-(vol_lookback + 1) :]]
+        rets = [
+            (closes[i] / closes[i - 1] - 1.0)
+            for i in range(1, len(closes))
+            if closes[i - 1] > 0
+        ]
+        vol_annual = annualize_vol(realized_vol_daily(rets))
+
+        atr = compute_atr(bars, period=atr_period)
+        tp, sl = compute_atr_levels(
+            entry=close_today,
+            side=ml_signal,
+            atr=atr,
+            sl_mult=atr_sl_mult,
+            tp_mult=atr_tp_mult,
+        )
+
+        sl_distance = abs(close_today - sl) if sl else None
+        sizing = position_size_vol_target(
+            capital=capital,
+            price=close_today,
+            realized_vol_annual=vol_annual,
+            target_vol=target_vol,
+            kelly_fraction=kelly,
+            max_position_pct=max_pct,
+            sl_distance=sl_distance,
+            lot_size=1,
+        )
+
+        if sizing.blocked:
+            return {
+                "action": "SKIP",
+                "payload": {
+                    "reason": f"risk_blocked: {sizing.reason}",
+                    "snapshot": {
+                        "ticker": ticker,
+                        "ml_signal": ml_signal,
+                        "momentum_252d_ret": momentum_ret,
+                        "vol_annual": vol_annual,
+                        "atr": atr,
+                        "last_close": close_today,
+                    },
+                },
+            }
+
+        return {
+            "action": ml_signal,
+            "payload": {
+                "quantity": sizing.qty,
+                "price": None,
+                "order_type": "market",
+                "take_profit": tp,
+                "stop_loss": sl,
+                "is_daytrade": context.get("is_daytrade", True),
+                "reason": f"ml+tsmom concordant: {ml_signal} mom={momentum_ret:+.2%}",
+                "snapshot": {
+                    "ticker": ticker,
+                    "ml_signal": ml_signal,
+                    "momentum_252d_ret": momentum_ret,
+                    "momentum_sign": mom_sign,
+                    "momentum_lookback_days": momentum_lookback,
+                    "predicted_return_pct": signal_item.get("predicted_return_pct"),
+                    "th_buy": signal_item.get("th_buy"),
+                    "th_sell": signal_item.get("th_sell"),
+                    "best_sharpe": signal_item.get("best_sharpe"),
+                    "last_close": close_today,
+                    "atr": atr,
+                    "vol_annual": vol_annual,
+                    "qty": sizing.qty,
+                    "notional": sizing.notional,
+                    "capital_at_risk": sizing.capital_at_risk,
+                    "tp": tp,
+                    "sl": sl,
+                },
+            },
+        }
