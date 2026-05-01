@@ -114,6 +114,13 @@ auto_trader_worker (container novo, asyncio)
 
 **MVP fim-de-semana**: schema + 1 strategy (R2) + risk vol-target + UI read-only `/robot` + kill switch.
 
+**Status R1 (01/mai/2026)**:
+- ✅ R1.1 schema `robot_trade` (4 hypertables) — commit `4acab4a`
+- ✅ R1.2 worker scaffold asyncio + dry run — commit `cd738cc`
+- ✅ R1.3+R1.4 endpoints + UI `/robot` (read-only + kill switch) — commit `22b5b65`
+- ✅ R1.5 Risk Engine (vol-target, ATR, gates) + dispatcher real (POST `/agent/order/send` via proxy `:8000` + handshake C5 `cl_ord_id` deterministico + auto-OCO se TP+SL) + `MLSignalsStrategy` consome `/api/v1/ml/signals`. 38 unit tests verde — commit `53b7c58`
+- 🔲 **Smoke test live (próximo pregão)**: subir `auto_trader_worker` em simulação com `AUTO_TRADER_ENABLED=true` + `AUTO_TRADER_DRY_RUN=false` + 1 strategy `ml_signals` enabled p/ 2-3 tickers líquidos (PETR4, VALE3). Validar: signal_log populado com `sent_to_dll=true`, `robot_orders_intent` com `local_order_id` recebido do DLL, OCO atrelado quando TP+SL gerados, kill switch `PUT /api/v1/robot/pause` interrompe novas entradas em <1 ciclo, ordem aparece em `profit_orders` com `source='auto_trader'` + `cl_ord_id` ecoado. Defer pra 02/mai (sex pregão) ou 05/mai (seg) — R2 pode iniciar em paralelo no sandbox.
+
 #### R2 — Strategy: TSMOM ∩ ML overlay ⭐⭐⭐ baixo custo, alto edge
 **Custo**: ~3-5d dentro do R1. **Payoff**: alto (filtro de regime grátis sobre ML existente).
 
