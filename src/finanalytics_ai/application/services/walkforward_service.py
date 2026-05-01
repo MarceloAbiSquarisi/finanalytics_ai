@@ -32,13 +32,21 @@ from finanalytics_ai.domain.value_objects.money import Ticker
 
 if TYPE_CHECKING:
     from finanalytics_ai.domain.ports.market_data import MarketDataProvider
+    from finanalytics_ai.infrastructure.database.repositories.backtest_repo import (
+        BacktestResultRepository,
+    )
 
 logger = structlog.get_logger(__name__)
 
 
 class WalkForwardService:
-    def __init__(self, market_data: MarketDataProvider) -> None:
+    def __init__(
+        self,
+        market_data: MarketDataProvider,
+        result_repo: BacktestResultRepository | None = None,
+    ) -> None:
         self._market = market_data
+        self._result_repo = result_repo
 
     async def run(
         self,
@@ -113,4 +121,121 @@ class WalkForwardService:
             combined_return=result.combined_return,
         )
 
+        # R5: persistencia idempotente. Strategy fica `wf:<name>` para nao
+        # colidir com runs grid_search no historico. Metricas agregadas vem
+        # dos folds OOS (a parte "honesta" do walk-forward).
+        if self._result_repo is not None and result.folds:
+            try:
+                await self._persist(
+                    result=result,
+                    ticker=ticker,
+                    strategy_name=strategy_name,
+                    range_period=range_period,
+                    initial_capital=initial_capital,
+                    objective=objective,
+                    n_splits=n_splits,
+                    oos_pct=oos_pct,
+                    anchored=anchored,
+                    log=log,
+                )
+            except Exception as exc:  # noqa: BLE001
+                log.warning("walkforward.persist_failed", error=str(exc))
+
         return result
+
+    async def _persist(
+        self,
+        *,
+        result: WalkForwardResult,
+        ticker: str,
+        strategy_name: str,
+        range_period: str,
+        initial_capital: float,
+        objective: str,
+        n_splits: int,
+        oos_pct: float,
+        anchored: bool,
+        log: Any,
+    ) -> None:
+        """
+        UPSERT em backtest_results com payload sintetico compativel com
+        BacktestResultRepository.save_run (que extrai metrics de top[0]).
+
+        Config hash inclui parametros do walk-forward (n_splits, oos_pct,
+        anchored) — re-rodar com mesmo setup atualiza a mesma row.
+        """
+        from finanalytics_ai.infrastructure.database.repositories.backtest_repo import (
+            compute_config_hash,
+        )
+
+        # Agregado OOS: media de sharpe/win_rate/profit_factor dos folds validos +
+        # soma de trades + worst-case drawdown. Conservador para tomada de decisao.
+        oos_folds = [f for f in result.folds if f.oos_metrics is not None]
+        if not oos_folds:
+            return
+
+        total_trades = sum(f.oos_metrics.total_trades for f in oos_folds)
+        avg_sharpe = sum(f.oos_metrics.sharpe_ratio for f in oos_folds) / len(oos_folds)
+        max_dd = max(f.oos_metrics.max_drawdown_pct for f in oos_folds)
+        avg_win_rate = sum(f.oos_metrics.win_rate_pct for f in oos_folds) / len(oos_folds)
+        avg_pf = sum(f.oos_metrics.profit_factor for f in oos_folds) / len(oos_folds)
+
+        wf_params = {
+            "n_splits": n_splits,
+            "oos_pct": round(oos_pct, 4),
+            "anchored": bool(anchored),
+        }
+        config_hash = compute_config_hash(
+            ticker=ticker,
+            strategy=f"wf:{strategy_name}",
+            range_period=range_period,
+            start_date=None,
+            end_date=None,
+            initial_capital=initial_capital,
+            objective=objective,
+            slippage_applied=True,
+            params=wf_params,
+        )
+
+        synthetic = {
+            "ticker": ticker,
+            "strategy": f"wf:{strategy_name}",
+            "top": [
+                {
+                    "rank": 1,
+                    "params": wf_params,
+                    "score": result.avg_oos_score,
+                    "is_valid": True,
+                    "metrics": {
+                        "total_return_pct": result.combined_return,
+                        "sharpe_ratio": avg_sharpe,
+                        "max_drawdown_pct": max_dd,
+                        "win_rate_pct": avg_win_rate,
+                        "profit_factor": avg_pf,
+                        "calmar_ratio": (
+                            (result.combined_return / max_dd) if max_dd > 0 else 0.0
+                        ),
+                        "total_trades": total_trades,
+                    },
+                }
+            ],
+            "bars_count": result.total_bars,
+            "best_params": wf_params,
+            # DSR agregado dos OOS folds — preenche colunas escalares do
+            # backtest_results via repo.save_run.
+            "deflated_sharpe": result.deflated_sharpe,
+            "walkforward": result.to_dict(),  # payload completo p/ drilldown
+        }
+
+        await self._result_repo.save_run(
+            config_hash=config_hash,
+            ticker=ticker,
+            strategy=f"wf:{strategy_name}",
+            full_result=synthetic,
+            range_period=range_period,
+            initial_capital=initial_capital,
+            objective=objective,
+            slippage_applied=True,
+            params=wf_params,
+        )
+        log.info("walkforward.persisted", config_hash=config_hash[:12])

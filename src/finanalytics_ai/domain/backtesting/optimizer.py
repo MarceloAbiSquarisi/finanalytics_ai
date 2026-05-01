@@ -431,10 +431,16 @@ class WalkForwardFold:
     best_params: dict[str, Any]
     best_is_score: float
     best_is_trades: int
+    # Numero de candidatos validos avaliados no IS — entra como N no DSR OOS
+    # (Lopez de Prado 2014). Default 0 mantem compat com testes legados.
+    num_is_trials: int = 0
     # Performance OOS com os params do IS
-    oos_metrics: BacktestMetrics | None
-    oos_score: float
-    oos_valid: bool  # True se >= MIN_TRADES no OOS
+    oos_metrics: BacktestMetrics | None = None
+    oos_score: float = 0.0
+    oos_valid: bool = False  # True se >= MIN_TRADES no OOS
+    # DSR sobre o OOS deste fold — corrige selection bias do grid IS.
+    # None se OOS invalido, num_is_trials < 2 ou oos_bars insuficiente.
+    oos_dsr: dict[str, float] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -444,9 +450,11 @@ class WalkForwardFold:
             "best_params": self.best_params,
             "best_is_score": round(self.best_is_score, 4),
             "best_is_trades": self.best_is_trades,
+            "num_is_trials": self.num_is_trials,
             "oos_score": round(self.oos_score, 4),
             "oos_valid": self.oos_valid,
             "oos_metrics": self.oos_metrics.to_dict() if self.oos_metrics else None,
+            "oos_dsr": self.oos_dsr,
         }
 
 
@@ -471,6 +479,12 @@ class WalkForwardResult:
     # Equity OOS concatenada (como se tivesse operado ao vivo)
     combined_equity: list[dict[str, Any]]
     combined_return: float
+    # DSR agregado sobre OOS (LdP 2014, R5 follow-up). None quando nenhum fold
+    # produz DSR valido (poucos trials no IS ou OOS muito curto). Quando ha
+    # ao menos 1 fold com DSR, traz medias + counts. Mais conservador que o
+    # SR cru porque OOS ja e selecao "honesta", mas N trials no IS ainda
+    # introduz ruido.
+    deflated_sharpe: dict[str, float | int] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -489,6 +503,7 @@ class WalkForwardResult:
             "degradation": round(self.degradation, 4),
             "combined_equity": self.combined_equity,
             "combined_return": round(self.combined_return, 2),
+            "deflated_sharpe": self.deflated_sharpe,
         }
 
 
@@ -579,6 +594,7 @@ def walk_forward(
             best_params = is_result.best_params
             best_is_score = is_result.best_score
             best_is_trades = is_result.top[0].metrics.total_trades
+            num_is_trials = is_result.valid_runs
         except Exception:
             continue
 
@@ -619,6 +635,26 @@ def walk_forward(
         except Exception:
             pass
 
+        # DSR sobre OOS (LdP 2014). Aplica corretamente:
+        #   N trials (selecao no IS) + T amostras OOS independentes
+        # Pulado quando OOS invalido ou inferencia impossivel.
+        oos_dsr_payload: dict[str, float] | None = None
+        if (
+            oos_valid
+            and oos_metrics is not None
+            and num_is_trials >= 2
+            and len(oos_bars_slice) > 30
+        ):
+            try:
+                dsr = deflated_sharpe(
+                    observed_sharpe=oos_metrics.sharpe_ratio,
+                    num_trials=num_is_trials,
+                    sample_size=len(oos_bars_slice) - 1,
+                )
+                oos_dsr_payload = dsr.to_dict()
+            except Exception:
+                oos_dsr_payload = None
+
         folds.append(
             WalkForwardFold(
                 fold=split_idx + 1,
@@ -631,9 +667,11 @@ def walk_forward(
                 best_params=best_params,
                 best_is_score=best_is_score,
                 best_is_trades=best_is_trades,
+                num_is_trials=num_is_trials,
                 oos_metrics=oos_metrics,
                 oos_score=oos_score,
                 oos_valid=oos_valid,
+                oos_dsr=oos_dsr_payload,
             )
         )
 
@@ -660,6 +698,34 @@ def walk_forward(
         (current_capital - initial_capital) / initial_capital * 100 if initial_capital > 0 else 0.0
     )
 
+    # ── DSR agregado (R5 follow-up) ──────────────────────────────────────────
+    # Media simples sobre folds com DSR computado. folds_real e o numero de
+    # folds onde prob_real >= 0.95 — diagnostico mais util que a media para
+    # walk-forward de poucos folds (3-5). Total trials e a soma para dar
+    # ideia do "preco" combinado de selection bias do harness inteiro.
+    folds_with_dsr = [f for f in folds if f.oos_dsr is not None]
+    wf_dsr_payload: dict[str, float | int] | None = None
+    if folds_with_dsr:
+        avg_z = sum(f.oos_dsr["deflated_sharpe"] for f in folds_with_dsr) / len(folds_with_dsr)
+        avg_prob = sum(f.oos_dsr["prob_real"] for f in folds_with_dsr) / len(folds_with_dsr)
+        avg_observed = sum(f.oos_dsr["observed_sharpe"] for f in folds_with_dsr) / len(
+            folds_with_dsr
+        )
+        avg_e_max = sum(f.oos_dsr["e_max_sharpe"] for f in folds_with_dsr) / len(folds_with_dsr)
+        total_trials = sum(int(f.oos_dsr["num_trials"]) for f in folds_with_dsr)
+        total_oos_bars = sum(int(f.oos_dsr["sample_size"]) for f in folds_with_dsr)
+        folds_real = sum(1 for f in folds_with_dsr if f.oos_dsr["prob_real"] >= 0.95)
+        wf_dsr_payload = {
+            "deflated_sharpe": round(avg_z, 3),
+            "prob_real": round(avg_prob, 4),
+            "observed_sharpe": round(avg_observed, 3),
+            "e_max_sharpe": round(avg_e_max, 3),
+            "num_trials": total_trials,
+            "sample_size": total_oos_bars,
+            "folds_with_dsr": len(folds_with_dsr),
+            "folds_real": folds_real,
+        }
+
     return WalkForwardResult(
         ticker=ticker,
         strategy=strategy_name,
@@ -676,4 +742,5 @@ def walk_forward(
         degradation=degradation,
         combined_equity=combined_equity,
         combined_return=combined_return,
+        deflated_sharpe=wf_dsr_payload,
     )

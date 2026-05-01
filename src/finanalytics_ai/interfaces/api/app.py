@@ -243,25 +243,34 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning("kafka.unavailable", error=str(exc))
 
     # ── 5. BacktestService + OptimizerService + WalkForwardService ───────────
+    from finanalytics_ai.application.services.anomaly_service import AnomalyService
+    from finanalytics_ai.application.services.backtest_service import BacktestService
+    from finanalytics_ai.application.services.correlation_service import CorrelationService
+    from finanalytics_ai.application.services.multi_ticker_service import MultiTickerService
+    from finanalytics_ai.application.services.optimizer_service import OptimizerService
+    from finanalytics_ai.application.services.walkforward_service import WalkForwardService
+    from finanalytics_ai.infrastructure.adapters.market_data_client import (
+        create_cached_market_data_client,
+    )
+    from finanalytics_ai.infrastructure.database.connection import get_session_factory
+    from finanalytics_ai.infrastructure.database.repositories.backtest_repo import (
+        BacktestResultRepository,
+    )
+
+    backtest_result_repo = BacktestResultRepository(get_session_factory())
+    app.state.backtest_result_repo = backtest_result_repo
+
     if settings.brapi_token:
-        from finanalytics_ai.application.services.anomaly_service import AnomalyService
-        from finanalytics_ai.application.services.backtest_service import BacktestService
-        from finanalytics_ai.application.services.correlation_service import CorrelationService
-        from finanalytics_ai.application.services.multi_ticker_service import MultiTickerService
-        from finanalytics_ai.application.services.optimizer_service import OptimizerService
         from finanalytics_ai.application.services.screener_service import ScreenerService
-        from finanalytics_ai.application.services.walkforward_service import WalkForwardService
-        from finanalytics_ai.infrastructure.adapters.market_data_client import (
-            create_cached_market_data_client,
-        )
-        from finanalytics_ai.infrastructure.database.connection import get_session_factory
 
         market_client = create_cached_market_data_client(
             settings.brapi_token, get_session_factory()
         )
         app.state.backtest_service = BacktestService(market_client)
-        app.state.optimizer_service = OptimizerService(market_client)
-        app.state.walkforward_service = WalkForwardService(market_client)
+        app.state.optimizer_service = OptimizerService(market_client, result_repo=backtest_result_repo)
+        app.state.walkforward_service = WalkForwardService(
+            market_client, result_repo=backtest_result_repo
+        )
         app.state.multi_ticker_service = MultiTickerService(market_client)
         app.state.correlation_service = CorrelationService(market_client)
         app.state.screener_service = ScreenerService(market_client)  # type: ignore[arg-type]
@@ -271,23 +280,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     else:
         # Sem token BRAPI: serviços analíticos indisponíveis, mas watchlist
         # funciona com Yahoo Finance como fonte primária
-        from finanalytics_ai.infrastructure.adapters.market_data_client import (
-            create_cached_market_data_client,
-        )
-        from finanalytics_ai.infrastructure.database.connection import get_session_factory
-
         market_client = create_cached_market_data_client(None, get_session_factory())
         app.state.market_client = market_client
-        from finanalytics_ai.application.services.anomaly_service import AnomalyService
-        from finanalytics_ai.application.services.backtest_service import BacktestService
-        from finanalytics_ai.application.services.correlation_service import CorrelationService
-        from finanalytics_ai.application.services.multi_ticker_service import MultiTickerService
-        from finanalytics_ai.application.services.optimizer_service import OptimizerService
-        from finanalytics_ai.application.services.walkforward_service import WalkForwardService
 
         app.state.backtest_service = BacktestService(market_client)
-        app.state.optimizer_service = OptimizerService(market_client)
-        app.state.walkforward_service = WalkForwardService(market_client)
+        app.state.optimizer_service = OptimizerService(market_client, result_repo=backtest_result_repo)
+        app.state.walkforward_service = WalkForwardService(
+            market_client, result_repo=backtest_result_repo
+        )
         app.state.multi_ticker_service = MultiTickerService(market_client)
         app.state.correlation_service = CorrelationService(market_client)
         app.state.anomaly_service = AnomalyService(market_client)

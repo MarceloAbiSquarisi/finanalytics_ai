@@ -660,3 +660,84 @@ async def compare_multi_ticker_get(
     except Exception as exc:
         logger.error("multi_ticker.unexpected_error", error=str(exc))
         raise HTTPException(500, "Erro interno no comparativo multi-ticker") from exc
+
+
+# ── History (R5 follow-up) ────────────────────────────────────────────────────
+#
+# Drilldown sobre `backtest_results`. Resultados sao persistidos
+# automaticamente por OptimizerService/WalkForwardService ao final de cada
+# run. UPSERT por config_hash garante idempotencia (re-rodar mesmo config
+# atualiza row em vez de duplicar).
+
+
+def _get_result_repo(request: Request):
+    repo = getattr(request.app.state, "backtest_result_repo", None)
+    if repo is None:
+        raise HTTPException(503, "BacktestResultRepository nao inicializado")
+    return repo
+
+
+@router.get("/history")
+async def list_backtest_history(
+    request: Request,
+    ticker: str | None = Query(None, description="Filtra por ticker (case-insensitive)"),
+    strategy: str | None = Query(
+        None, description="Filtra por strategy. 'wf:<name>' para walk-forward"
+    ),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+) -> dict[str, Any]:
+    """Lista historico de backtests (descrescente por created_at)."""
+    repo = _get_result_repo(request)
+    try:
+        rows = await repo.list(
+            ticker=ticker,
+            strategy=strategy,
+            limit=limit,
+            offset=offset,
+        )
+    except Exception as exc:
+        logger.error("backtest.history.list_error", error=str(exc))
+        raise HTTPException(500, "Erro ao listar historico") from exc
+
+    # Lista compacta: omite full_result_json (volumoso) — drilldown via /history/{hash}
+    compact = []
+    for r in rows:
+        compact.append({
+            "id": r["id"],
+            "config_hash": r["config_hash"],
+            "ticker": r["ticker"],
+            "strategy": r["strategy"],
+            "range_period": r["range_period"],
+            "objective": r["objective"],
+            "slippage_applied": r["slippage_applied"],
+            "metrics": r["metrics"],
+            "deflated_sharpe": r["deflated_sharpe"],
+            "params": r["params"],
+            "created_at": r["created_at"],
+            "updated_at": r["updated_at"],
+        })
+    return {"count": len(compact), "limit": limit, "offset": offset, "items": compact}
+
+
+@router.get("/history/{config_hash}")
+async def get_backtest_history(request: Request, config_hash: str) -> dict[str, Any]:
+    """Drilldown — retorna config + metricas + full_result completo."""
+    repo = _get_result_repo(request)
+    row = await repo.get_by_hash(config_hash)
+    if row is None:
+        raise HTTPException(404, f"Backtest com config_hash={config_hash[:12]}... nao encontrado")
+    return row
+
+
+@router.delete("/history/{config_hash}")
+async def delete_backtest_history(
+    request: Request,
+    config_hash: str,
+) -> dict[str, Any]:
+    """Remove uma row do historico. Sem auth no MVP — historico nao e dado sensivel."""
+    repo = _get_result_repo(request)
+    deleted = await repo.delete(config_hash)
+    if not deleted:
+        raise HTTPException(404, f"Backtest com config_hash={config_hash[:12]}... nao encontrado")
+    return {"deleted": True, "config_hash": config_hash}

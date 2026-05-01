@@ -31,6 +31,9 @@ from finanalytics_ai.domain.value_objects.money import Ticker
 
 if TYPE_CHECKING:
     from finanalytics_ai.domain.ports.market_data import MarketDataProvider
+    from finanalytics_ai.infrastructure.database.repositories.backtest_repo import (
+        BacktestResultRepository,
+    )
 
 logger = structlog.get_logger(__name__)
 
@@ -39,12 +42,17 @@ class OptimizerService:
     """
     Servico de otimizacao de parametros.
 
-    Injecao de dependencia: recebe BrapiClient no construtor
-    (mesmo padrao do BacktestService).
+    Injecao de dependencia: recebe MarketDataProvider e (opcional)
+    BacktestResultRepository para persistencia idempotente do resultado.
     """
 
-    def __init__(self, market_data: MarketDataProvider) -> None:
+    def __init__(
+        self,
+        market_data: MarketDataProvider,
+        result_repo: BacktestResultRepository | None = None,
+    ) -> None:
         self._market = market_data
+        self._result_repo = result_repo
 
     async def optimize(
         self,
@@ -129,5 +137,39 @@ class OptimizerService:
             best_score=result.best_score,
             best_params=result.best_params,
         )
+
+        # R5: persistencia idempotente do resultado em backtest_results.
+        # Best-effort: erro de DB nao quebra o response da API.
+        if self._result_repo is not None and result.top:
+            try:
+                from finanalytics_ai.infrastructure.database.repositories.backtest_repo import (
+                    compute_config_hash,
+                )
+
+                config_hash = compute_config_hash(
+                    ticker=ticker,
+                    strategy=strategy_name,
+                    range_period=range_period,
+                    start_date=None,
+                    end_date=None,
+                    initial_capital=initial_capital,
+                    objective=objective,
+                    slippage_applied=True,
+                    params=result.best_params,
+                )
+                await self._result_repo.save_run(
+                    config_hash=config_hash,
+                    ticker=ticker,
+                    strategy=strategy_name,
+                    full_result=result.to_dict(),
+                    range_period=range_period,
+                    initial_capital=initial_capital,
+                    objective=objective,
+                    slippage_applied=True,
+                    params=result.best_params,
+                )
+                log.info("optimizer.persisted", config_hash=config_hash[:12])
+            except Exception as exc:  # noqa: BLE001
+                log.warning("optimizer.persist_failed", error=str(exc))
 
         return result
