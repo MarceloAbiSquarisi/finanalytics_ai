@@ -56,6 +56,11 @@ class _StubCandles:
             return None
         return c[-n:]
 
+    def fetch_daily_closes(self, ticker: str, n: int) -> list[float] | None:
+        # Mesma fonte que fetch_closes p/ tests; o ponto do bug fix pré-04/mai
+        # é que em prod elas vinham de queries diferentes (5m vs daily).
+        return self.fetch_closes(ticker, n)
+
 
 class _StubState:
     def __init__(self, positions: dict[str, PairPosition] | None = None) -> None:

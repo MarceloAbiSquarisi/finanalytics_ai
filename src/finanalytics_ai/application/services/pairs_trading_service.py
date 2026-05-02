@@ -48,10 +48,23 @@ logger = structlog.get_logger(__name__)
 
 
 class CandleFetcher(Protocol):
-    """Port — retorna closes diarios alinhados (mais recente por ultimo)."""
+    """Port — retorna closes alinhados (mais recente por último).
+
+    Distingue closes intraday (último preço, sizing) de closes daily
+    (z-score history, lookback 60d). Bug pré-04/mai: pairs service usava
+    `fetch_closes` (5m default no HttpCandleFetcher impl) com lookback 60
+    — z-score era computado sobre 65 closes 5min (~5h pregão), não 60d.
+    Fix: `fetch_daily_closes` consome `/candles_daily` (UNION cross-source).
+    """
 
     def fetch_closes(self, ticker: str, n: int) -> list[float] | None:
-        """Retorna ate `n` closes mais recentes de `ticker`. None se falhar."""
+        """Retorna ate `n` closes mais recentes intraday/5m. None se falhar.
+        Para z-score histórico, usar `fetch_daily_closes`."""
+        ...
+
+    def fetch_daily_closes(self, ticker: str, n: int) -> list[float] | None:
+        """Retorna ate `n` closes DAILY (UNION cross-source com cobertura
+        Fintz histórica). None se falhar."""
         ...
 
 
@@ -142,8 +155,8 @@ def evaluate_active_pairs(
 
         # 2. Fetch closes A + B
         n_needed = cfg.zscore_lookback_days + 5
-        closes_a = candles.fetch_closes(p.ticker_a, n_needed)
-        closes_b = candles.fetch_closes(p.ticker_b, n_needed)
+        closes_a = candles.fetch_daily_closes(p.ticker_a, n_needed)
+        closes_b = candles.fetch_daily_closes(p.ticker_b, n_needed)
         if not closes_a or not closes_b:
             evaluations.append(
                 PairEvaluation(

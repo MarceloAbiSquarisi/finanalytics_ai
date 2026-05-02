@@ -83,6 +83,24 @@ class HttpCandleFetcher:
             return None
         return bars[-n:]
 
+    def fetch_daily_closes(self, ticker: str, n: int) -> list[float] | None:
+        """Retorna até `n` closes daily ASC via `/marketdata/candles_daily`.
+
+        Wrapper de `fetch_daily_bars` extraindo só os closes — usado pelo
+        z-score de pair trading (lookback 60d) onde só importa close. None
+        em qualquer falha (network/empty/parse). Closes inválidos (None,
+        zero, NaN) são filtrados.
+        """
+        bars = self.fetch_daily_bars(ticker, n)
+        if not bars:
+            return None
+        closes = [
+            float(b["close"])
+            for b in bars
+            if b.get("close") is not None and float(b["close"]) > 0
+        ]
+        return closes if closes else None
+
     def fetch_daily_bars(self, ticker: str, n: int) -> list[dict[str, Any]] | None:
         """Retorna até `n` daily bars via `/marketdata/candles_daily` (UNION
         profit_daily_bars + ohlc_1m + fintz_cotacoes_ts com dedup ASC).

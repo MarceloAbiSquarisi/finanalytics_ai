@@ -329,3 +329,76 @@ class TestFetchDailyBars:
         assert out is not None
         assert out[0]["ts"] == "2025-01-01"
         assert out[0]["time"] == "2025-01-01"
+
+
+class TestFetchDailyCloses:
+    """fetch_daily_closes — wrapper de fetch_daily_bars + extrai closes (ASC)."""
+
+    def test_extracts_closes_only(self) -> None:
+        candles = [
+            {"ts": f"2025-01-{i:02d}", "open": float(i), "high": float(i),
+             "low": float(i), "close": float(i * 10), "volume": 1000.0}
+            for i in range(1, 6)
+        ]
+
+        def handler(req):
+            return httpx.Response(200, json={"candles": candles})
+
+        with _patched_client(_mock_transport(handler)):
+            f = HttpCandleFetcher("http://api:8000")
+            closes = f.fetch_daily_closes("PETR4", n=300)
+
+        assert closes == [10.0, 20.0, 30.0, 40.0, 50.0]
+
+    def test_filters_invalid_closes(self) -> None:
+        """None, 0, e zero-valued closes são filtrados (ruído de fonte)."""
+        candles = [
+            {"close": None},
+            {"close": 30.5},
+            {"close": 0.0},
+            {"close": 31.0},
+        ]
+
+        def handler(req):
+            return httpx.Response(200, json={"candles": candles})
+
+        with _patched_client(_mock_transport(handler)):
+            f = HttpCandleFetcher("http://api:8000")
+            closes = f.fetch_daily_closes("PETR4", n=10)
+
+        assert closes == [30.5, 31.0]
+
+    def test_empty_returns_none(self) -> None:
+        def handler(req):
+            return httpx.Response(200, json={"candles": []})
+
+        with _patched_client(_mock_transport(handler)):
+            f = HttpCandleFetcher("http://api:8000")
+            assert f.fetch_daily_closes("XXXX", n=10) is None
+
+    def test_all_invalid_returns_none(self) -> None:
+        """Se TODOS os closes são None/0, retorna None (não lista vazia)."""
+
+        def handler(req):
+            return httpx.Response(
+                200,
+                json={"candles": [{"close": None}, {"close": 0.0}]},
+            )
+
+        with _patched_client(_mock_transport(handler)):
+            f = HttpCandleFetcher("http://api:8000")
+            assert f.fetch_daily_closes("XXXX", n=10) is None
+
+    def test_uses_candles_daily_endpoint(self) -> None:
+        captured: dict = {}
+
+        def handler(req):
+            captured["url"] = str(req.url)
+            return httpx.Response(200, json={"candles": [{"close": 30.0}]})
+
+        with _patched_client(_mock_transport(handler)):
+            f = HttpCandleFetcher("http://api:8000")
+            f.fetch_daily_closes("PETR4", n=65)
+
+        assert "candles_daily/PETR4" in captured["url"]
+        assert "n=65" in captured["url"]
