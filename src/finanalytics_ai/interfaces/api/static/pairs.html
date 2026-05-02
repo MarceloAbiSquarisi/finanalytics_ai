@@ -7,11 +7,32 @@
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <meta name="robots" content="noindex, nofollow">
 <script>(function(){try{var t=localStorage.getItem('fa_theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script>
+<script src="/static/auth_guard.js"></script>
 <link rel="stylesheet" href="/static/theme.css">
 <style>
 :root{--bg:#080b10;--s1:#0d1117;--s2:#111822;--s3:#0e1520;--border:#1c2535;
   --text:#cdd6e0;--muted:#7a8a99;--gold:#F0B429;--green:#00e676;--red:#ff3d5a;
-  --accent:#3ABFF8;--purple:#a855f7}
+  --accent:#3ABFF8;--purple:#a855f7;--sb-w:220px;--sb-w-collapsed:52px}
+
+/* Sidebar canonica (Decisao 16) */
+.fa-sidebar{position:fixed;left:0;top:52px;bottom:0;width:var(--sb-w-collapsed);
+  background:#0a0f18;border-right:1px solid var(--border);display:flex;
+  flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1);z-index:200}
+.fa-sidebar.open{width:var(--sb-w)}
+.fa-sidebar-toggle{width:100%;padding:10px 14px;background:transparent;border:none;
+  border-bottom:1px solid var(--border);color:#7a95b0;cursor:pointer;display:flex;
+  align-items:center;gap:10px;font-size:17px;white-space:nowrap;overflow:hidden}
+.fa-sidebar-toggle:hover{color:var(--gold);background:rgba(240,180,41,.06)}
+.fa-sidebar-toggle svg{flex-shrink:0}
+.fa-sb-link{display:flex;align-items:center;gap:10px;padding:7px 14px;color:#6a8aa8;
+  text-decoration:none;font-size:16px;white-space:nowrap;overflow:hidden;transition:all .15s}
+.fa-sb-link:hover{color:var(--text);background:rgba(0,212,255,.05)}
+.fa-sb-link.active{color:var(--gold);background:rgba(240,180,41,.08);border-right:2px solid var(--gold)}
+.fa-sb-link svg{flex-shrink:0}
+.fa-sb-link span{opacity:0;transition:opacity .15s}
+.fa-sidebar.open .fa-sb-link span{opacity:1}
+.fa-page-content{margin-left:var(--sb-w-collapsed);transition:margin-left .22s cubic-bezier(.4,0,.2,1)}
+body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;
   font-size:15px;min-height:100vh}
@@ -73,6 +94,9 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
   <span class="live-pill" id="liveBadge" style="margin-left:auto">auto-refresh 30s</span>
 </div>
 
+<aside class="fa-sidebar" id="fa-sidebar"></aside>
+
+<div class="fa-page-content">
 <main>
   <div class="page-title">Pairs Trading</div>
   <div class="page-sub">R3 — pares cointegrados B3 + posições do PairsTradingStrategy (read-only)</div>
@@ -127,10 +151,16 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
     </ul>
   </div>
 </main>
+</div>
 
+<script src="/static/sidebar.js"></script>
 <script>
 async function fetchJSON(url) {
-  const r = await fetch(url, {credentials: 'include'});
+  const token = localStorage.getItem('access_token') || '';
+  const r = await fetch(url, {
+    credentials: 'include',
+    headers: token ? {'Authorization': 'Bearer ' + token} : {},
+  });
   if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
   return r.json();
 }

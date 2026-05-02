@@ -476,7 +476,10 @@ def register_routers(app: FastAPI, logger=None) -> None:
 
     from fastapi.responses import HTMLResponse
 
-    _static = pathlib.Path(__file__).parent / "static"
+    # __file__ aqui e' startup/routers.py — sobe 1 nivel pra interfaces/api/static.
+    # Bug introduzido em 01/mai durante extracao de register_routers (sessao limpeza):
+    # pre-extracao __file__ era app.py em interfaces/api/, agora e' startup/.
+    _static = pathlib.Path(__file__).parent.parent / "static"
 
     def _html(name: str) -> HTMLResponse:
         f = _static / name
