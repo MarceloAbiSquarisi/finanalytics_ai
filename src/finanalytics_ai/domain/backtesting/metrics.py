@@ -368,6 +368,4 @@ def roc_auc(y_true: list[bool], y_score: list[float]) -> RocAucResult | None:
     curve.append((fpr, tpr))
     auc_val += (fpr - prev_fpr) * (tpr + prev_tpr) / 2.0
 
-    return RocAucResult(
-        auc=auc_val, n_positive=n_pos, n_negative=n_neg, n_total=n, curve=curve
-    )
+    return RocAucResult(auc=auc_val, n_positive=n_pos, n_negative=n_neg, n_total=n, curve=curve)
