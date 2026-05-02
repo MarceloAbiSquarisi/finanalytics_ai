@@ -6,6 +6,9 @@ Sem mutações — toda escrita fica no trading-engine. Auth obrigatório
 
 GET /api/v1/trading-engine/orders          — orders 24h (paginadas)
 GET /api/v1/trading-engine/trade-journal   — trades fechados + agregados
+GET /api/v1/trading-engine/trade-journal/equity-curve — equity rolling
+GET /api/v1/trading-engine/trade-journal/by-hour      — pnl/n_trades por hora BRT
+GET /api/v1/trading-engine/trade-journal/by-setup     — pnl/win_rate por setup
 GET /api/v1/trading-engine/engine-events   — audit feed (filtrável por tipo)
 GET /api/v1/trading-engine/backtests       — runs persistidas
 GET /api/v1/trading-engine/backtests/{id}  — detalhe + equity curve
@@ -109,6 +112,122 @@ async def list_trade_journal(
     agg["hit_rate"] = (n_wins / n_trades) if n_trades else 0.0
     rows = [_row_to_dict(r) for r in await session.execute(rows_q, {"days": days, "limit": limit})]
     return {"days": days, "aggregates": agg, "trades": rows}
+
+
+@router.get("/trade-journal/equity-curve")
+async def trade_journal_equity_curve(
+    days: int = Query(30, ge=1, le=365),
+    strategy: str | None = Query(None, description="filtra por setup (= strategy name no engine)"),
+    session: AsyncSession = Depends(get_trading_engine_db_session),
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Curva de equity (running sum de pnl) por trade fechado em ordem cronológica.
+
+    Útil pra plotar em produção o equivalente do `pnl_curve` do BacktestReport.
+    Apenas trades com `exit_date` e `pnl` preenchidos entram (i.e. roundtrip
+    fechado). Retorna lista vazia com 0 trades (UI não quebra).
+    """
+    filters = [
+        "entry_date > NOW() - make_interval(days => :days)",
+        "exit_date IS NOT NULL",
+        "pnl IS NOT NULL",
+    ]
+    params: dict[str, Any] = {"days": days}
+    if strategy:
+        filters.append("setup = :strategy")
+        params["strategy"] = strategy
+    where = "WHERE " + " AND ".join(filters)
+    query = text(
+        f"""
+        SELECT
+            exit_date AS ts,
+            SUM(pnl) OVER (ORDER BY exit_date, id ROWS UNBOUNDED PRECEDING) AS equity,
+            pnl,
+            setup AS strategy
+        FROM trading_engine_orders.trade_journal
+        {where}
+        ORDER BY exit_date, id
+        """
+    )
+    rows = [_row_to_dict(r) for r in await session.execute(query, params)]
+    return {"days": days, "strategy": strategy, "count": len(rows), "points": rows}
+
+
+@router.get("/trade-journal/by-hour")
+async def trade_journal_by_hour(
+    days: int = Query(30, ge=1, le=365),
+    session: AsyncSession = Depends(get_trading_engine_db_session),
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Distribuição de trades por hora BRT — n_trades, pnl_total, win_rate.
+
+    Hora extraída de `entry_date` convertida para `America/Sao_Paulo`. Cobre
+    o pregão B3 (10-17h BRT) com naturalidade. Hours sem trades não aparecem.
+    """
+    query = text(
+        """
+        SELECT
+            EXTRACT(HOUR FROM (entry_date AT TIME ZONE 'America/Sao_Paulo'))::int AS hour_brt,
+            COUNT(*)                                                 AS n_trades,
+            COUNT(*) FILTER (WHERE is_winner)                        AS n_wins,
+            COALESCE(SUM(pnl), 0)                                    AS pnl_total,
+            COALESCE(AVG(pnl), 0)                                    AS pnl_avg
+        FROM trading_engine_orders.trade_journal
+        WHERE entry_date > NOW() - make_interval(days => :days)
+          AND pnl IS NOT NULL
+        GROUP BY hour_brt
+        ORDER BY hour_brt
+        """
+    )
+    rows = []
+    for r in await session.execute(query, {"days": days}):
+        d = _row_to_dict(r)
+        n = d.get("n_trades") or 0
+        w = d.get("n_wins") or 0
+        d["win_rate"] = (w / n) if n else 0.0
+        rows.append(d)
+    return {"days": days, "count": len(rows), "buckets": rows}
+
+
+@router.get("/trade-journal/by-setup")
+async def trade_journal_by_setup(
+    days: int = Query(30, ge=1, le=365),
+    session: AsyncSession = Depends(get_trading_engine_db_session),
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Agregados por valor da coluna `setup` (= strategy name no engine).
+
+    Útil pra comparar performance entre estratégias em produção. Retorna
+    array ordenado por pnl_total DESC. Setups sem trades fechados não
+    aparecem.
+    """
+    query = text(
+        """
+        SELECT
+            setup,
+            COUNT(*)                                          AS n_trades,
+            COUNT(*) FILTER (WHERE is_winner)                 AS n_wins,
+            COALESCE(SUM(pnl), 0)                             AS pnl_total,
+            COALESCE(AVG(pnl), 0)                             AS pnl_avg,
+            COALESCE(AVG(pnl) FILTER (WHERE is_winner), 0)    AS avg_win,
+            COALESCE(AVG(pnl) FILTER (WHERE NOT is_winner), 0) AS avg_loss,
+            MAX(COALESCE(exit_date, entry_date))              AS last_trade_at
+        FROM trading_engine_orders.trade_journal
+        WHERE entry_date > NOW() - make_interval(days => :days)
+          AND pnl IS NOT NULL
+          AND setup IS NOT NULL
+        GROUP BY setup
+        ORDER BY pnl_total DESC NULLS LAST
+        """
+    )
+    rows = []
+    for r in await session.execute(query, {"days": days}):
+        d = _row_to_dict(r)
+        n = d.get("n_trades") or 0
+        w = d.get("n_wins") or 0
+        d["win_rate"] = (w / n) if n else 0.0
+        rows.append(d)
+    return {"days": days, "count": len(rows), "setups": rows}
 
 
 @router.get("/engine-events")
