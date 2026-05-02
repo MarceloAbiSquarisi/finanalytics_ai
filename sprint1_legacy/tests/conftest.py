@@ -7,6 +7,7 @@ Design decision: fixtures com scope adequado.
 
 Use pytest-asyncio em modo "auto" (configurado no pyproject.toml).
 """
+
 from __future__ import annotations
 import os
 import pytest

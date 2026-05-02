@@ -23,6 +23,7 @@ Revision ID: ts_0003
 Revises: ts_0002
 Create Date: 2026-04-30
 """
+
 from __future__ import annotations
 
 revision = "ts_0003"

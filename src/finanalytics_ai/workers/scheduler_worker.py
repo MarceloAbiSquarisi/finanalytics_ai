@@ -119,9 +119,7 @@ SNAPSHOT_SIGNALS_HOUR = int(os.environ.get("SCHEDULER_SNAPSHOT_SIGNALS_HOUR", "1
 # Cointegration screening (R3.1) — re-test diario antes do open. Pares quebram
 # em regime change; PairsTradingStrategy só trada com last_test_date >= today-7d.
 # 06:30 BRT (= 09:30 UTC) folga 3h30 do open. Skip weekend (sem dados novos).
-COINT_SCREEN_ENABLED = (
-    os.environ.get("SCHEDULER_COINT_SCREEN_ENABLED", "true").lower() == "true"
-)
+COINT_SCREEN_ENABLED = os.environ.get("SCHEDULER_COINT_SCREEN_ENABLED", "true").lower() == "true"
 COINT_SCREEN_HOUR = int(os.environ.get("SCHEDULER_COINT_SCREEN_HOUR", "6"))
 COINT_SCREEN_MIN = int(os.environ.get("SCHEDULER_COINT_SCREEN_MIN", "30"))
 COINT_SCREEN_LOOKBACK = int(os.environ.get("SCHEDULER_COINT_SCREEN_LOOKBACK", "504"))
@@ -179,9 +177,7 @@ def _record(job: str, status: str) -> None:
 # ── Helpers de tempo ──────────────────────────────────────────────────────────
 
 
-def _next_run_utc(
-    local_hour: int, tz_offset: int = TZ_OFFSET, minute: int = 0
-) -> datetime:
+def _next_run_utc(local_hour: int, tz_offset: int = TZ_OFFSET, minute: int = 0) -> datetime:
     """Calcula próxima execução em UTC dado um horário local (e.g. 06:00 BRT = 09:00 UTC).
 
     minute opcional p/ jobs que precisam slot fora de hora cheia (ex:

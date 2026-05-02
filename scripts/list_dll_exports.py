@@ -1,4 +1,5 @@
 """Lista exports da ProfitDLL filtrando por Subscribe/Trade/Quote/Tick/Callback."""
+
 import struct
 import sys
 
@@ -11,10 +12,10 @@ with open(DLL_PATH, "rb") as f:
 # DOS header → PE offset
 pe_offset = struct.unpack_from("<I", data, 0x3C)[0]
 # PE signature check
-assert data[pe_offset:pe_offset+4] == b"PE\x00\x00"
+assert data[pe_offset : pe_offset + 4] == b"PE\x00\x00"
 
 # COFF header
-machine = struct.unpack_from("<H", data, pe_offset+4)[0]
+machine = struct.unpack_from("<H", data, pe_offset + 4)[0]
 is_64 = machine == 0x8664
 
 # Optional header
@@ -32,15 +33,17 @@ num_sections = struct.unpack_from("<H", data, pe_offset + 6)[0]
 opt_size = struct.unpack_from("<H", data, pe_offset + 20)[0]
 sec_offset = pe_offset + 24 + opt_size
 
+
 def rva_to_offset(rva):
     for i in range(num_sections):
         s = sec_offset + i * 40
         vaddr = struct.unpack_from("<I", data, s + 12)[0]
         vsize = struct.unpack_from("<I", data, s + 16)[0]
-        raw   = struct.unpack_from("<I", data, s + 20)[0]
+        raw = struct.unpack_from("<I", data, s + 20)[0]
         if vaddr <= rva < vaddr + vsize:
             return raw + (rva - vaddr)
     return None
+
 
 exp_off = rva_to_offset(export_rva)
 if exp_off is None:
@@ -48,8 +51,8 @@ if exp_off is None:
     sys.exit(1)
 
 num_names = struct.unpack_from("<I", data, exp_off + 24)[0]
-names_rva  = struct.unpack_from("<I", data, exp_off + 32)[0]
-names_off  = rva_to_offset(names_rva)
+names_rva = struct.unpack_from("<I", data, exp_off + 32)[0]
+names_off = rva_to_offset(names_rva)
 
 all_exports = []
 for i in range(num_names):

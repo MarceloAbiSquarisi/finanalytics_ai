@@ -16,24 +16,28 @@ import structlog as _structlog_for_inline
 
 try:
     from finanalytics_ai.interfaces.api.routes import etf as etf_routes
+
     _ETF_AVAILABLE = True
 except ImportError:
     _ETF_AVAILABLE = False
 
 try:
     from finanalytics_ai.interfaces.api.routes import portfolio_optimizer as optimizer_routes
+
     _OPTIMIZER_AVAILABLE = True
 except ImportError:
     _OPTIMIZER_AVAILABLE = False
 
 try:
     from finanalytics_ai.interfaces.api.routes import fund_analysis as fund_analysis_routes
+
     _FUND_ANALYSIS_AVAILABLE = True
 except (ImportError, RuntimeError):
     _FUND_ANALYSIS_AVAILABLE = False
 
 try:
     from finanalytics_ai.interfaces.api.routes import patrimony as patrimony_routes
+
     _PATRIMONY_AVAILABLE = True
 except ImportError:
     _PATRIMONY_AVAILABLE = False
@@ -777,4 +781,3 @@ def register_routers(app: FastAPI, logger=None) -> None:
     @app.get("/profit-tickers", response_class=HTMLResponse, include_in_schema=False)
     async def serve_profit_tickers() -> HTMLResponse:
         return _html("tickers.html")
-

@@ -16,6 +16,7 @@ Uso:
     python scripts/mlstrategy_backtest.py --ticker PETR4 --no-rf  # baseline
     python scripts/mlstrategy_backtest.py --ticker PETR4 --horizon 21 --commission 0.001
 """
+
 from __future__ import annotations
 
 import argparse
@@ -36,20 +37,41 @@ DSN = os.environ.get(
 )
 
 FEATURES_EQUITY = [
-    "close", "r_1d", "r_5d", "r_21d",
-    "atr_14", "vol_21d", "vol_rel_20",
-    "sma_50", "sma_200", "rsi_14",
+    "close",
+    "r_1d",
+    "r_5d",
+    "r_21d",
+    "atr_14",
+    "vol_21d",
+    "vol_rel_20",
+    "sma_50",
+    "sma_200",
+    "rsi_14",
 ]
 
 FEATURES_RF = [
-    "slope_1y_5y", "slope_2y_10y", "curvatura_butterfly",
-    "tsmom_di1_1y_3m", "tsmom_di1_2y_3m", "tsmom_di1_5y_3m",
-    "tsmom_di1_1y_12m", "tsmom_di1_2y_12m", "tsmom_di1_5y_12m",
-    "carry_roll_di1_2y", "carry_roll_di1_5y",
-    "value_di1_1y_z", "value_di1_2y_z", "value_di1_5y_z",
-    "breakeven_1y", "breakeven_2y", "breakeven_5y",
-    "ns_level", "ns_slope", "ns_curvature",
-    "vm_combo_2y", "vm_combo_5y",
+    "slope_1y_5y",
+    "slope_2y_10y",
+    "curvatura_butterfly",
+    "tsmom_di1_1y_3m",
+    "tsmom_di1_2y_3m",
+    "tsmom_di1_5y_3m",
+    "tsmom_di1_1y_12m",
+    "tsmom_di1_2y_12m",
+    "tsmom_di1_5y_12m",
+    "carry_roll_di1_2y",
+    "carry_roll_di1_5y",
+    "value_di1_1y_z",
+    "value_di1_2y_z",
+    "value_di1_5y_z",
+    "breakeven_1y",
+    "breakeven_2y",
+    "breakeven_5y",
+    "ns_level",
+    "ns_slope",
+    "ns_curvature",
+    "vm_combo_2y",
+    "vm_combo_5y",
 ]
 
 QUANTILES = [0.10, 0.50, 0.90]
@@ -71,8 +93,7 @@ def load_rows(ticker: str, include_rf: bool, horizon: int) -> list[Row]:
     cols = ", ".join(features)
     with psycopg2.connect(DSN) as conn, conn.cursor() as cur:
         cur.execute(
-            f"SELECT dia, {cols} FROM features_daily_full "
-            f"WHERE ticker=%s ORDER BY dia ASC",
+            f"SELECT dia, {cols} FROM features_daily_full WHERE ticker=%s ORDER BY dia ASC",
             (ticker,),
         )
         raw = cur.fetchall()
@@ -81,12 +102,19 @@ def load_rows(ticker: str, include_rf: bool, horizon: int) -> list[Row]:
     for i, r in enumerate(raw):
         dia = r[0]
         close = closes[i]
-        feats = {f: float(r[j + 1]) if r[j + 1] is not None else None
-                 for j, f in enumerate(features)}
+        feats = {
+            f: float(r[j + 1]) if r[j + 1] is not None else None for j, f in enumerate(features)
+        }
         vol = feats.get("vol_21d")
         # Forward log-return
         tgt = None
-        if i + horizon < len(raw) and close is not None and closes[i + horizon] and closes[i + horizon] > 0 and close > 0:
+        if (
+            i + horizon < len(raw)
+            and close is not None
+            and closes[i + horizon]
+            and closes[i + horizon] > 0
+            and close > 0
+        ):
             tgt = float(np.log(closes[i + horizon] / close))
         out.append(Row(dia, close or 0.0, feats, vol, tgt))
     return out
@@ -94,6 +122,7 @@ def load_rows(ticker: str, include_rf: bool, horizon: int) -> list[Row]:
 
 def train_quantile_models(rows: list[Row], features: list[str], mask_train: np.ndarray) -> dict:
     import lightgbm as lgb
+
     X, y = [], []
     for i, r in enumerate(rows):
         if not mask_train[i] or r.target_forward is None:
@@ -110,11 +139,16 @@ def train_quantile_models(rows: list[Row], features: list[str], mask_train: np.n
     models: dict[float, Any] = {}
     for q in QUANTILES:
         m = lgb.LGBMRegressor(
-            objective="quantile", alpha=q,
-            n_estimators=400, learning_rate=0.03,
-            num_leaves=31, min_child_samples=20,
-            subsample=0.8, colsample_bytree=0.8,
-            random_state=42, verbose=-1,
+            objective="quantile",
+            alpha=q,
+            n_estimators=400,
+            learning_rate=0.03,
+            num_leaves=31,
+            min_child_samples=20,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            random_state=42,
+            verbose=-1,
         )
         m.fit(X, y)
         models[q] = m
@@ -146,17 +180,21 @@ def score_mlstrategy(prob_pos: float, p50: float, vol_21d: float) -> float:
 
 
 def classify(score: float, th_buy: float, th_sell: float) -> Signal:
-    if score >= th_buy:  return Signal.BUY
-    if score <= th_sell: return Signal.SELL
+    if score >= th_buy:
+        return Signal.BUY
+    if score <= th_sell:
+        return Signal.SELL
     return Signal.HOLD
 
 
 class MLBacktestStrategy:
     """Implementa Strategy Protocol de domain/backtesting/engine."""
+
     name = "MLQuantile_CrossAsset"
 
-    def __init__(self, models: dict, features: list[str], rows: list[Row],
-                 th_buy: float, th_sell: float):
+    def __init__(
+        self, models: dict, features: list[str], rows: list[Row], th_buy: float, th_sell: float
+    ):
         self.models = models
         self.features = features
         self.rows = rows
@@ -188,11 +226,16 @@ def rows_to_bars(rows: list[Row], mask_test: np.ndarray) -> tuple[list[dict[str,
         if not mask_test[i] or r.close <= 0:
             continue
         dt = datetime.combine(r.dia, datetime.min.time(), tzinfo=tz.utc)
-        bars.append({
-            "time":   int(dt.timestamp()),
-            "open":   r.close, "high": r.close, "low": r.close,
-            "close":  r.close, "volume": 0,
-        })
+        bars.append(
+            {
+                "time": int(dt.timestamp()),
+                "open": r.close,
+                "high": r.close,
+                "low": r.close,
+                "close": r.close,
+                "volume": 0,
+            }
+        )
         kept.append(r)
     return bars, kept
 
@@ -213,8 +256,10 @@ def main() -> int:
     args = parse_args()
     features = FEATURES_EQUITY + ([] if args.no_rf else FEATURES_RF)
 
-    print(f"MLStrategy backtest: ticker={args.ticker} features={len(features)} "
-          f"horizon={args.horizon}d include_rf={not args.no_rf}")
+    print(
+        f"MLStrategy backtest: ticker={args.ticker} features={len(features)} "
+        f"horizon={args.horizon}d include_rf={not args.no_rf}"
+    )
     rows = load_rows(args.ticker, include_rf=not args.no_rf, horizon=args.horizon)
     if not rows:
         print("Sem features — abort")
@@ -222,8 +267,9 @@ def main() -> int:
 
     dates = np.array([r.dia for r in rows])
     train_end = date.fromisoformat(args.train_end)
-    mask_train = np.array([d <= train_end and rows[i].target_forward is not None
-                           for i, d in enumerate(dates)])
+    mask_train = np.array(
+        [d <= train_end and rows[i].target_forward is not None for i, d in enumerate(dates)]
+    )
     mask_test = np.array([d > train_end for d in dates])
     print(f"  total rows={len(rows)} train_mask={mask_train.sum()} test_mask={mask_test.sum()}")
     if mask_train.sum() < 50:
@@ -239,12 +285,18 @@ def main() -> int:
         return 2
 
     strategy = MLBacktestStrategy(models, features, kept, args.th_buy, args.th_sell)
-    print(f"  rodando backtest (bars={len(bars)}, comissão={args.commission:.3%}, "
-          f"th_buy={args.th_buy} th_sell={args.th_sell})...")
+    print(
+        f"  rodando backtest (bars={len(bars)}, comissão={args.commission:.3%}, "
+        f"th_buy={args.th_buy} th_sell={args.th_sell})..."
+    )
     result = run_backtest(
-        bars=bars, strategy=strategy, ticker=args.ticker,
-        initial_capital=100_000.0, position_size=1.0,
-        commission_pct=args.commission, range_period="test",
+        bars=bars,
+        strategy=strategy,
+        ticker=args.ticker,
+        initial_capital=100_000.0,
+        position_size=1.0,
+        commission_pct=args.commission,
+        range_period="test",
     )
 
     print("\n=== Backtest Metrics ===")
@@ -254,14 +306,16 @@ def main() -> int:
     print(f"\nTrades: {len(result.trades)}")
     if result.trades:
         winners = sum(1 for t in result.trades if t.is_winner)
-        print(f"  winners={winners} losers={len(result.trades)-winners}")
-        print(f"  avg pnl_pct={sum(t.pnl_pct for t in result.trades)/len(result.trades):.3f}%")
+        print(f"  winners={winners} losers={len(result.trades) - winners}")
+        print(f"  avg pnl_pct={sum(t.pnl_pct for t in result.trades) / len(result.trades):.3f}%")
     if strategy.scores_log:
         arr = np.array(strategy.scores_log)
-        print(f"\nScore stats (N={len(arr)}): "
-              f"mean={arr.mean():.4f} std={arr.std():.4f} "
-              f"min={arr.min():.4f} max={arr.max():.4f} "
-              f"p5={np.percentile(arr, 5):.4f} p95={np.percentile(arr, 95):.4f}")
+        print(
+            f"\nScore stats (N={len(arr)}): "
+            f"mean={arr.mean():.4f} std={arr.std():.4f} "
+            f"min={arr.min():.4f} max={arr.max():.4f} "
+            f"p5={np.percentile(arr, 5):.4f} p95={np.percentile(arr, 95):.4f}"
+        )
     return 0
 
 

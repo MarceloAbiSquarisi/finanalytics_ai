@@ -106,7 +106,9 @@ def main() -> int:
         print(f"\n## {sector_name.upper()} — {len(tickers)} tickers, {len(pairs)} pares")
         for lb in args.lookbacks:
             print(f"\n### lookback={lb}d")
-            print(f"{'PAIR':<18} {'P-ADF':>8} {'BETA':>8} {'HL':>8} {'COINT@.05':>10} {'COINT@.10':>10}")
+            print(
+                f"{'PAIR':<18} {'P-ADF':>8} {'BETA':>8} {'HL':>8} {'COINT@.05':>10} {'COINT@.10':>10}"
+            )
             for a, b in pairs:
                 ca = closes_full.get(a, [])
                 cb = closes_full.get(b, [])
@@ -123,25 +125,18 @@ def main() -> int:
                 c05 = "YES" if r.p_value_adf < 0.05 else "no"
                 c10 = "YES" if r.p_value_adf < 0.10 else "no"
                 print(
-                    f"{a}-{b:<10} {r.p_value_adf:>8.4f} {r.beta:>8.3f} "
-                    f"{hl:>8} {c05:>10} {c10:>10}"
+                    f"{a}-{b:<10} {r.p_value_adf:>8.4f} {r.beta:>8.3f} {hl:>8} {c05:>10} {c10:>10}"
                 )
                 if r.p_value_adf < 0.05 and r.half_life is not None:
-                    cointegrated_05.append(
-                        (sector_name, a, b, lb, r.p_value_adf, r.half_life)
-                    )
+                    cointegrated_05.append((sector_name, a, b, lb, r.p_value_adf, r.half_life))
                 elif r.p_value_adf < 0.10 and r.half_life is not None:
-                    cointegrated_10_only.append(
-                        (sector_name, a, b, lb, r.p_value_adf, r.half_life)
-                    )
+                    cointegrated_10_only.append((sector_name, a, b, lb, r.p_value_adf, r.half_life))
 
     # Sumario tradeable (p<0.05 + half_life entre 5-50d = janela operacional)
     print("\n\n" + "=" * 90)
     print("SUMARIO — pares com p<0.05 + half_life em [5, 50] dias (faixa operacional R3.2.B)")
     print("=" * 90)
-    tradeable = [
-        x for x in cointegrated_05 if 5 <= x[5] <= 50
-    ]
+    tradeable = [x for x in cointegrated_05 if 5 <= x[5] <= 50]
     if tradeable:
         for sector_name, a, b, lb, p, hl in sorted(tradeable, key=lambda x: x[4]):
             print(f"  [{sector_name:>22}] {a}-{b} lb={lb}d p={p:.4f} hl={hl:.1f}d")
@@ -152,9 +147,7 @@ def main() -> int:
     if cointegrated_10_only:
         for sector_name, a, b, lb, p, hl in sorted(cointegrated_10_only, key=lambda x: x[4]):
             hl_ok = "OK" if 5 <= hl <= 50 else "FORA"
-            print(
-                f"  [{sector_name:>22}] {a}-{b} lb={lb}d p={p:.4f} hl={hl:.1f}d ({hl_ok})"
-            )
+            print(f"  [{sector_name:>22}] {a}-{b} lb={lb}d p={p:.4f} hl={hl:.1f}d ({hl_ok})")
     else:
         print("  (nenhum)")
 

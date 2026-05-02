@@ -4,6 +4,7 @@ Revision ID: 0011_event_records
 Revises: 0010_financial_agents
 Create Date: 2026-03-25 13:59:57
 """
+
 from __future__ import annotations
 
 from alembic import op
@@ -34,9 +35,7 @@ def upgrade() -> None:
     op.create_index("idx_event_records_status", "event_records", ["status"])
     op.create_index("idx_event_records_event_type", "event_records", ["event_type"])
     op.create_index("idx_event_records_created_at", "event_records", ["created_at"])
-    op.create_index(
-        "idx_event_records_source_type", "event_records", ["source", "event_type"]
-    )
+    op.create_index("idx_event_records_source_type", "event_records", ["source", "event_type"])
 
 
 def downgrade() -> None:

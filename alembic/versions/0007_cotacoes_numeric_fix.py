@@ -89,7 +89,7 @@ def upgrade() -> None:
         op.alter_column(
             "fintz_cotacoes",
             col,
-            type_=sa.Float(),          # SQLAlchemy Float = DOUBLE PRECISION
+            type_=sa.Float(),  # SQLAlchemy Float = DOUBLE PRECISION
             existing_type=sa.Numeric(18, 8),
             postgresql_using=f"{col}::DOUBLE PRECISION",
         )

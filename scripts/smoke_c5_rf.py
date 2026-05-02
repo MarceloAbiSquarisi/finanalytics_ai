@@ -1,4 +1,5 @@
 """Smoke test C5: aplicacao RF (debita D+0) + resgate RF (credita D+liquidity)."""
+
 from __future__ import annotations
 
 import asyncio
@@ -21,11 +22,20 @@ async def main() -> None:
     print(f"Cash antes: R$ {acc.get('cash_balance', 0)}\n")
 
     from sqlalchemy import text
+
     async with get_session() as s:
-        pfid = (await s.execute(text("SELECT id FROM portfolios WHERE user_id = :u LIMIT 1"), {"u": acc["user_id"]})).scalar()
+        pfid = (
+            await s.execute(
+                text("SELECT id FROM portfolios WHERE user_id = :u LIMIT 1"), {"u": acc["user_id"]}
+            )
+        ).scalar()
         # vincula portfolio a investment_account se nao estiver
-        await s.execute(text("UPDATE portfolios SET investment_account_id = :a WHERE id = :p AND investment_account_id IS NULL"),
-                        {"a": acc["id"], "p": pfid})
+        await s.execute(
+            text(
+                "UPDATE portfolios SET investment_account_id = :a WHERE id = :p AND investment_account_id IS NULL"
+            ),
+            {"a": acc["id"], "p": pfid},
+        )
         await s.commit()
     print(f"Portfolio: {pfid[:8]}\n")
 
@@ -58,7 +68,9 @@ async def main() -> None:
         repo2 = RFPortfolioRepository(s2)
         r = await repo2.redeem_holding(h.holding_id, pfid, 3000.0)
         await s2.commit()
-        print(f"Resgate 3000: status={r.get('status')} D+{r.get('liquidity_days')} settle={r.get('settlement_date')}")
+        print(
+            f"Resgate 3000: status={r.get('status')} D+{r.get('liquidity_days')} settle={r.get('settlement_date')}"
+        )
 
     summary = await w.get_cash_summary(acc["id"], acc["user_id"])
     print("\nResumo cash:")
@@ -69,6 +81,7 @@ async def main() -> None:
 
     # Simula o scheduler rodando em T+30 para liquidar
     from datetime import date as _date, timedelta as _td
+
     future = _date.today() + _td(days=31)
     print(f"\n== Simulando scheduler rodando em {future} ==")
     settled = await w.settle_due_transactions(future)

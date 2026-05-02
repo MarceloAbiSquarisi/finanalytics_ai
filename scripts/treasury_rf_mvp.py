@@ -21,6 +21,7 @@ Métricas: accuracy, AUC, hit rate por regime.
 Uso:
     python scripts/treasury_rf_mvp.py
 """
+
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -73,7 +74,9 @@ def load_series(conn) -> dict[str, dict[date, float]]:
     return out
 
 
-def build_dataset(series: dict[str, dict[date, float]]) -> tuple[list[date], np.ndarray, np.ndarray]:
+def build_dataset(
+    series: dict[str, dict[date, float]],
+) -> tuple[list[date], np.ndarray, np.ndarray]:
     """Constrói matriz de features + target direcional 21d."""
     dgs10 = series["DGS10"]
     dates = sorted(dgs10.keys())
@@ -150,7 +153,7 @@ def main() -> int:
         print(f"\nDataset: {len(X)} observações, {X.shape[1]} features")
 
         mask_train = np.array([d <= date(2023, 12, 31) for d in dates])
-        mask_test  = np.array([d >  date(2023, 12, 31) for d in dates])
+        mask_test = np.array([d > date(2023, 12, 31) for d in dates])
         print(f"  train={int(mask_train.sum())}  test={int(mask_test.sum())}")
 
         if mask_train.sum() < 50 or mask_test.sum() < 20:
@@ -158,15 +161,17 @@ def main() -> int:
             return 2
 
         model = RandomForestClassifier(
-            n_estimators=500, max_features="sqrt",
-            n_jobs=-1, random_state=42,
+            n_estimators=500,
+            max_features="sqrt",
+            n_jobs=-1,
+            random_state=42,
         )
         model.fit(X[mask_train], y[mask_train])
 
         p_train = model.predict_proba(X[mask_train])[:, 1]
-        p_test  = model.predict_proba(X[mask_test])[:, 1]
+        p_test = model.predict_proba(X[mask_test])[:, 1]
         y_pred_train = (p_train > 0.5).astype(int)
-        y_pred_test  = (p_test  > 0.5).astype(int)
+        y_pred_test = (p_test > 0.5).astype(int)
 
         print("\n=== Treasury RF direcional 21d ===")
         print(f"  train accuracy: {accuracy_score(y[mask_train], y_pred_train):.4f}")
@@ -174,9 +179,18 @@ def main() -> int:
         print(f"  test  accuracy: {accuracy_score(y[mask_test], y_pred_test):.4f}")
         print(f"  test  AUC:      {roc_auc_score(y[mask_test], p_test):.4f}")
 
-        feature_names = ["DFF", "CPI_yoy", "slope_3m_10y", "slope_2y_10y",
-                         "VIX", "HY_spread", "breakeven_5y", "breakeven_10y",
-                         "US10Y_ret_1m", "US10Y_vol_3m"]
+        feature_names = [
+            "DFF",
+            "CPI_yoy",
+            "slope_3m_10y",
+            "slope_2y_10y",
+            "VIX",
+            "HY_spread",
+            "breakeven_5y",
+            "breakeven_10y",
+            "US10Y_ret_1m",
+            "US10Y_vol_3m",
+        ]
         print("\nFeature importances:")
         for f, imp in sorted(zip(feature_names, model.feature_importances_), key=lambda x: -x[1]):
             print(f"  {f:<20} = {imp:.4f}")

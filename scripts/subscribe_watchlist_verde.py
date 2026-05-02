@@ -7,6 +7,7 @@ Uso:
     python scripts/subscribe_watchlist_verde.py --include-amarelo
     python scripts/subscribe_watchlist_verde.py --extra-futuros DI1F30,WDOFUT
 """
+
 from __future__ import annotations
 
 import argparse
@@ -52,8 +53,10 @@ def get_currently_subscribed() -> set[str]:
 def subscribe(ticker: str, exchange: str) -> tuple[bool, str]:
     body = json.dumps({"ticker": ticker, "exchange": exchange}).encode("utf-8")
     req = urllib.request.Request(
-        f"{AGENT_URL}/subscribe", data=body,
-        headers={"Content-Type": "application/json"}, method="POST",
+        f"{AGENT_URL}/subscribe",
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
     )
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
@@ -67,10 +70,12 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--include-amarelo", action="store_true")
-    p.add_argument("--extra-futuros", default="WINFUT,WDOFUT,DI1F27,DI1F28,DI1F29",
-                   help="CSV de futuros (exchange F)")
-    p.add_argument("--delay", type=float, default=0.3,
-                   help="Delay entre subscribes (rate-limit)")
+    p.add_argument(
+        "--extra-futuros",
+        default="WINFUT,WDOFUT,DI1F27,DI1F28,DI1F29",
+        help="CSV de futuros (exchange F)",
+    )
+    p.add_argument("--delay", type=float, default=0.3, help="Delay entre subscribes (rate-limit)")
     p.add_argument("--max", type=int, default=0, help="0 = sem limite")
     return p.parse_args()
 
@@ -80,7 +85,7 @@ def main() -> int:
 
     stocks = list_watchlist(args.include_amarelo)
     if args.max:
-        stocks = stocks[:args.max]
+        stocks = stocks[: args.max]
     futuros = [t.strip().upper() for t in args.extra_futuros.split(",") if t.strip()]
 
     plan = [(t, "B") for t in stocks] + [(t, "F") for t in futuros]

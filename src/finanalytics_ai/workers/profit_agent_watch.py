@@ -67,6 +67,7 @@ def load_pending_orders_from_db(agent) -> None:
     except Exception as exc:
         log.warning("watch_pending_orders.load_failed error=%s", exc)
 
+
 def watch_pending_orders_loop(agent) -> None:
     """Mitigação P9: detecta status final de ordens pendentes via DLL polling.
 
@@ -138,8 +139,7 @@ def watch_pending_orders_loop(agent) -> None:
                             (local_id,),
                         )
                         log.warning(
-                            "watch.order_orphaned local_id=%d age=%.1fs ticker=%s "
-                            "marked status=8",
+                            "watch.order_orphaned local_id=%d age=%.1fs ticker=%s marked status=8",
                             local_id,
                             age,
                             info["ticker"],
@@ -166,4 +166,3 @@ def watch_pending_orders_loop(agent) -> None:
         except Exception as exc:
             log.warning("watch_pending_orders error: %s", exc)
             time.sleep(10.0)
-

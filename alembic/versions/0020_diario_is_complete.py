@@ -26,6 +26,7 @@ Revision ID: 0020_diario_is_complete
 Revises: 0019_diario_trade_objective
 Create Date: 2026-04-27
 """
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -41,10 +42,7 @@ def upgrade() -> None:
         "ALTER TABLE trade_journal "
         "ADD COLUMN IF NOT EXISTS is_complete BOOLEAN NOT NULL DEFAULT FALSE"
     )
-    op.execute(
-        "ALTER TABLE trade_journal "
-        "ADD COLUMN IF NOT EXISTS external_order_id VARCHAR(64)"
-    )
+    op.execute("ALTER TABLE trade_journal ADD COLUMN IF NOT EXISTS external_order_id VARCHAR(64)")
     op.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS ux_trade_journal_external_order_id "
         "ON trade_journal(external_order_id) "

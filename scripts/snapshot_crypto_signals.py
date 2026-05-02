@@ -12,6 +12,7 @@ Uso:
     python scripts/snapshot_crypto_signals.py --symbols BTC,ETH
     python scripts/snapshot_crypto_signals.py --vs-currency brl
 """
+
 from __future__ import annotations
 
 import argparse
@@ -89,8 +90,12 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
     p.add_argument("--symbols", default=None, help="CSV (default = BTC,ETH,SOL,BNB,XRP,ADA)")
     p.add_argument("--vs-currency", default="usd", choices=["usd", "brl"])
-    p.add_argument("--rate-limit", type=float, default=2.0,
-                   help="Segundos entre requests (CoinGecko free=30 req/min)")
+    p.add_argument(
+        "--rate-limit",
+        type=float,
+        default=2.0,
+        help="Segundos entre requests (CoinGecko free=30 req/min)",
+    )
     p.add_argument("--dry-run", action="store_true")
     return p.parse_args()
 
@@ -103,7 +108,9 @@ def main() -> int:
         else DEFAULT_SYMBOLS
     )
 
-    print(f"[snapshot_crypto_signals] {len(symbols)} symbols vs {args.vs_currency} dry={args.dry_run}")
+    print(
+        f"[snapshot_crypto_signals] {len(symbols)} symbols vs {args.vs_currency} dry={args.dry_run}"
+    )
 
     conn = None if args.dry_run else psycopg2.connect(DSN)
     try:
@@ -118,7 +125,9 @@ def main() -> int:
             sig = data.get("signal")
             score = data.get("score")
             price = data.get("current_price")
-            print(f"  [{i}/{len(symbols)}] {sym}: sig={sig} score={score} price={price} ({time.time()-t0:.2f}s)")
+            print(
+                f"  [{i}/{len(symbols)}] {sym}: sig={sig} score={score} price={price} ({time.time() - t0:.2f}s)"
+            )
             if not args.dry_run:
                 upsert(conn, sym, args.vs_currency, data)
             ok += 1

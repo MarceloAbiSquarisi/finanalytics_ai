@@ -3,6 +3,7 @@
 Seleciona top-N por best_sharpe em ticker_ml_config e chama
 train_petr4_mvp_v2.py --horizon 21 para cada um. Imprime resumo.
 """
+
 from __future__ import annotations
 
 import argparse

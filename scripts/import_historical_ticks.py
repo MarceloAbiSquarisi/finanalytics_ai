@@ -36,6 +36,7 @@ Após importação, opcionalmente roda:
   - features_daily_builder.py --only <tickers>
   - pop_profit_daily_cov para refresh
 """
+
 from __future__ import annotations
 
 import argparse
@@ -57,8 +58,17 @@ DSN = os.environ.get(
     "postgresql://finanalytics:timescale_secret@localhost:5433/market_data",
 )
 
-COLUMNS_DB = ["ticker", "trade_date", "trade_number", "price", "quantity",
-              "volume", "trade_type", "buy_agent", "sell_agent"]
+COLUMNS_DB = [
+    "ticker",
+    "trade_date",
+    "trade_number",
+    "price",
+    "quantity",
+    "volume",
+    "trade_type",
+    "buy_agent",
+    "sell_agent",
+]
 
 REQUIRED = {"ticker", "trade_date", "price", "quantity"}
 
@@ -83,6 +93,7 @@ class ImportStats:
 
 # ─── Parsing ────────────────────────────────────────────────────────────────
 
+
 def parse_date(v: Any) -> datetime | None:
     if v is None or v == "":
         return None
@@ -90,9 +101,15 @@ def parse_date(v: Any) -> datetime | None:
         return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
     s = str(v).strip()
     # ISO 8601
-    for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S",
-                "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S",
-                "%Y-%m-%d", "%d/%m/%Y %H:%M:%S", "%d/%m/%Y"):
+    for fmt in (
+        "%Y-%m-%d %H:%M:%S.%f",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S.%f",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d",
+        "%d/%m/%Y %H:%M:%S",
+        "%d/%m/%Y",
+    ):
         try:
             d = datetime.strptime(s, fmt)
             return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
@@ -122,6 +139,7 @@ def to_int(v: Any) -> int | None:
 
 # ─── Readers ────────────────────────────────────────────────────────────────
 
+
 def read_csv(path: Path) -> Iterator[dict[str, Any]]:
     with path.open("r", encoding="utf-8", errors="replace") as f:
         reader = csv.DictReader(f)
@@ -145,8 +163,10 @@ def read_parquet(path: Path) -> Iterator[dict[str, Any]]:
     try:
         import pyarrow.parquet as pq
     except ImportError:
-        print("pyarrow não instalado — converta parquet para csv/jsonl ou rode: uv pip install pyarrow",
-              file=sys.stderr)
+        print(
+            "pyarrow não instalado — converta parquet para csv/jsonl ou rode: uv pip install pyarrow",
+            file=sys.stderr,
+        )
         raise
     tbl = pq.read_table(str(path))
     for batch in tbl.to_batches(max_chunksize=10000):
@@ -167,6 +187,7 @@ def auto_reader(path: Path) -> Iterator[dict[str, Any]]:
 
 # ─── Normalização ──────────────────────────────────────────────────────────
 
+
 def apply_column_map(row: dict[str, Any], col_map: dict[str, str]) -> dict[str, Any]:
     if not col_map:
         return row
@@ -176,7 +197,9 @@ def apply_column_map(row: dict[str, Any], col_map: dict[str, str]) -> dict[str, 
     return out
 
 
-def normalize_row(raw: dict[str, Any], min_price: float, auto_tn: int) -> tuple[dict[str, Any] | None, str]:
+def normalize_row(
+    raw: dict[str, Any], min_price: float, auto_tn: int
+) -> tuple[dict[str, Any] | None, str]:
     """Retorna (row_normalizado, err_msg). row=None se inválida."""
     ticker = str(raw.get("ticker", "")).strip().upper()
     if not ticker:
@@ -203,19 +226,20 @@ def normalize_row(raw: dict[str, Any], min_price: float, auto_tn: int) -> tuple[
         volume = price * quantity
 
     return {
-        "ticker":       ticker,
-        "trade_date":   td,
+        "ticker": ticker,
+        "trade_date": td,
         "trade_number": tn,
-        "price":        price,
-        "quantity":     quantity,
-        "volume":       volume,
-        "trade_type":   to_int(raw.get("trade_type")) or 0,
-        "buy_agent":    to_int(raw.get("buy_agent")) or 0,
-        "sell_agent":   to_int(raw.get("sell_agent")) or 0,
+        "price": price,
+        "quantity": quantity,
+        "volume": volume,
+        "trade_type": to_int(raw.get("trade_type")) or 0,
+        "buy_agent": to_int(raw.get("buy_agent")) or 0,
+        "sell_agent": to_int(raw.get("sell_agent")) or 0,
     }, ""
 
 
 # ─── DB ─────────────────────────────────────────────────────────────────────
+
 
 def upsert_batch(conn, rows: list[dict[str, Any]]) -> int:
     if not rows:
@@ -228,8 +252,17 @@ def upsert_batch(conn, rows: list[dict[str, Any]]) -> int:
         ON CONFLICT (ticker, trade_date, trade_number) DO NOTHING
     """
     values = [
-        (r["ticker"], r["trade_date"], r["trade_number"], r["price"],
-         r["quantity"], r["volume"], r["trade_type"], r["buy_agent"], r["sell_agent"])
+        (
+            r["ticker"],
+            r["trade_date"],
+            r["trade_number"],
+            r["price"],
+            r["quantity"],
+            r["volume"],
+            r["trade_type"],
+            r["buy_agent"],
+            r["sell_agent"],
+        )
         for r in rows
     ]
     with conn.cursor() as cur:
@@ -239,15 +272,18 @@ def upsert_batch(conn, rows: list[dict[str, Any]]) -> int:
 
 # ─── CLI ────────────────────────────────────────────────────────────────────
 
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Import de ticks históricos externos")
     p.add_argument("--file", required=True, help="CSV / Parquet / JSONL")
-    p.add_argument("--column-map", default="",
-                   help='CSV "src=dst,src2=dst2" para renomear colunas')
-    p.add_argument("--only-tickers", default="",
-                   help="CSV de tickers a importar; outros ignorados")
-    p.add_argument("--min-price", type=float, default=DEFAULT_MIN_PRICE,
-                   help="Rejeita rows com price < min (default 0.01; use 5 para blindar contra bug ÷100)")
+    p.add_argument("--column-map", default="", help='CSV "src=dst,src2=dst2" para renomear colunas')
+    p.add_argument("--only-tickers", default="", help="CSV de tickers a importar; outros ignorados")
+    p.add_argument(
+        "--min-price",
+        type=float,
+        default=DEFAULT_MIN_PRICE,
+        help="Rejeita rows com price < min (default 0.01; use 5 para blindar contra bug ÷100)",
+    )
     p.add_argument("--batch-size", type=int, default=5000)
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--max-rows", type=int, default=0, help="0 = sem limite")
@@ -268,11 +304,17 @@ def main() -> int:
             k, v = pair.split("=", 1)
             col_map[k.strip()] = v.strip()
 
-    only = {t.strip().upper() for t in args.only_tickers.split(",") if t.strip()} if args.only_tickers else None
+    only = (
+        {t.strip().upper() for t in args.only_tickers.split(",") if t.strip()}
+        if args.only_tickers
+        else None
+    )
 
-    print(f"import_historical_ticks: file={src.name} format={src.suffix} "
-          f"col_map={col_map} only={only} min_price={args.min_price} "
-          f"batch={args.batch_size} dry_run={args.dry_run}")
+    print(
+        f"import_historical_ticks: file={src.name} format={src.suffix} "
+        f"col_map={col_map} only={only} min_price={args.min_price} "
+        f"batch={args.batch_size} dry_run={args.dry_run}"
+    )
 
     stats = ImportStats()
     buffer: list[dict[str, Any]] = []
@@ -312,8 +354,10 @@ def main() -> int:
 
                 if stats.read_total % 50000 == 0:
                     elapsed = time.time() - t0
-                    print(f"  progresso: {stats.read_total} rows ({stats.read_total/max(elapsed,1):.0f}/s) "
-                          f"upserted={stats.upserted} rejected={stats.rejected_invalid}")
+                    print(
+                        f"  progresso: {stats.read_total} rows ({stats.read_total / max(elapsed, 1):.0f}/s) "
+                        f"upserted={stats.upserted} rejected={stats.rejected_invalid}"
+                    )
 
         if buffer:
             if not args.dry_run:
@@ -329,7 +373,9 @@ def main() -> int:
         print(f"  rejected_filtered  = {stats.rejected_dedup_filtered}")
         print(f"  upserted           = {stats.upserted}")
         print(f"  tickers_únicos     = {len(stats.tickers_seen)}")
-        print(f"  elapsed            = {elapsed:.1f}s ({stats.read_total/max(elapsed,1):.0f} rows/s)")
+        print(
+            f"  elapsed            = {elapsed:.1f}s ({stats.read_total / max(elapsed, 1):.0f} rows/s)"
+        )
         if stats.errors:
             print("\n  Primeiros erros:")
             for e in stats.errors[:10]:

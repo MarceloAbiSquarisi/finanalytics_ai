@@ -4,6 +4,7 @@ scripts/inspecionar_parquet_fintz.py
 Baixa uma amostra de cada tipo de parquet e imprime o schema real.
 Uso: uv run python scripts/inspecionar_parquet_fintz.py
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -13,21 +14,29 @@ import os
 import aiohttp
 import pandas as pd
 
-API_KEY  = os.environ.get("FINTZ_API_KEY", "")
+API_KEY = os.environ.get("FINTZ_API_KEY", "")
 BASE_URL = "https://api.fintz.com.br"
-HEADERS  = {"X-API-Key": API_KEY}
+HEADERS = {"X-API-Key": API_KEY}
 
 AMOSTRAS = [
-    ("cotacoes",      f"{BASE_URL}/bolsa/b3/avista/cotacoes/historico/arquivos",          {}),
-    ("item_EBIT_12M", f"{BASE_URL}/bolsa/b3/avista/itens-contabeis/point-in-time/arquivos", {"item": "EBIT", "tipoPeriodo": "12M"}),
-    ("indicador_ROE", f"{BASE_URL}/bolsa/b3/avista/indicadores/point-in-time/arquivos",   {"indicador": "ROE"}),
+    ("cotacoes", f"{BASE_URL}/bolsa/b3/avista/cotacoes/historico/arquivos", {}),
+    (
+        "item_EBIT_12M",
+        f"{BASE_URL}/bolsa/b3/avista/itens-contabeis/point-in-time/arquivos",
+        {"item": "EBIT", "tipoPeriodo": "12M"},
+    ),
+    (
+        "indicador_ROE",
+        f"{BASE_URL}/bolsa/b3/avista/indicadores/point-in-time/arquivos",
+        {"indicador": "ROE"},
+    ),
 ]
 
 
 async def inspecionar(nome: str, endpoint: str, params: dict) -> None:
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  {nome}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     async with aiohttp.ClientSession(headers=HEADERS) as s:
         r = await s.get(endpoint, params=params)

@@ -6,6 +6,7 @@ Revision ID: 0013_merge_heads
 Revises: 0011_event_records, 0011_fundos_cvm, 0012_ml_features, ts_0002
 Create Date: 2026-04-07
 """
+
 from alembic import op
 
 revision = "0013_merge_heads"

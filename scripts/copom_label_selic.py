@@ -13,6 +13,7 @@ isso e exatamente o que queremos.
 Uso:
     python scripts/copom_label_selic.py --export data/copom/labeled.csv
 """
+
 from __future__ import annotations
 
 import argparse
@@ -34,7 +35,7 @@ THRESHOLD = 0.125  # bps (12.5 bps)
 def label_from_change(change: float | None) -> str | None:
     if change is None:
         return None
-    if change >  THRESHOLD:
+    if change > THRESHOLD:
         return "hawkish"
     if change < -THRESHOLD:
         return "dovish"
@@ -73,7 +74,8 @@ def main() -> int:
             dd, dt, ttl, chg, txt = r
             lbl = label_from_change(float(chg))
             if lbl is None:
-                counts["skip"] += 1; continue
+                counts["skip"] += 1
+                continue
             counts[lbl] += 1
             w.writerow([dd, dt, lbl, chg, ttl, (txt or "")[:20000]])
 

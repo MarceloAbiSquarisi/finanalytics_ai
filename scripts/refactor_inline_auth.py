@@ -23,10 +23,10 @@ _IIFE_MIN = (
 # Pattern do replacement (matched validation in /watchlist/import.html)
 _NEW_BLOCK = (
     '<script src="/static/auth_guard.js"></script>\n'
-    '<script>\n'
-    '// G4 refactor 26/abr — usa FAAuth.requireAuth (silent refresh + lembre-me 7d).\n'
-    '(function(){function go(){if(window.FAAuth)FAAuth.requireAuth({});'
-    'else setTimeout(go,30);}'
+    "<script>\n"
+    "// G4 refactor 26/abr — usa FAAuth.requireAuth (silent refresh + lembre-me 7d).\n"
+    "(function(){function go(){if(window.FAAuth)FAAuth.requireAuth({});"
+    "else setTimeout(go,30);}"
     'if(document.readyState!=="loading")go();'
     'else document.addEventListener("DOMContentLoaded",go);})();'
 )
@@ -58,7 +58,7 @@ def migrate_file(path: Path) -> tuple[bool, str]:
             return False, "sem <script> antes do IIFE — pula manual"
         # Substitui:  <script>\nIIFE  →  NEW_BLOCK\nIIFE
         # Remove o IIFE e o `<script>` que o abria
-        old = content[before:idx + len(_IIFE_MIN)]
+        old = content[before : idx + len(_IIFE_MIN)]
         new = _NEW_BLOCK
         content_new = content.replace(old, new, 1)
         if content_new == content:

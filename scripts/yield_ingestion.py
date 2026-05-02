@@ -20,6 +20,7 @@ Uso:
     # dry-run
     python scripts/yield_ingestion.py --date 2026-04-16 --dry-run
 """
+
 from __future__ import annotations
 
 import argparse
@@ -79,10 +80,10 @@ def fetch_anbima_curves(data_ref: str) -> dict:
             df_ltn,
             {
                 "data_referencia": "data_ref",
-                "data_vencimento":  "vencimento",
-                "dias_uteis":       "dias_uteis",
-                "taxa_indicativa":  "taxa_aa",
-                "pu":               "pu",
+                "data_vencimento": "vencimento",
+                "dias_uteis": "dias_uteis",
+                "taxa_indicativa": "taxa_aa",
+                "pu": "pu",
             },
         )
         result["ltn"] = records
@@ -96,10 +97,10 @@ def fetch_anbima_curves(data_ref: str) -> dict:
             df_ntnb,
             {
                 "data_referencia": "data_ref",
-                "data_vencimento":  "vencimento",
-                "dias_uteis":       "dias_uteis",
-                "taxa_indicativa":  "taxa_real_aa",
-                "pu":               "pu",
+                "data_vencimento": "vencimento",
+                "dias_uteis": "dias_uteis",
+                "taxa_indicativa": "taxa_real_aa",
+                "pu": "pu",
             },
         )
         result["ntnb"] = records
@@ -110,7 +111,9 @@ def fetch_anbima_curves(data_ref: str) -> dict:
     try:
         if result["ltn"] and result["ntnb"]:
             pre_du = [r["dias_uteis"] for r in result["ltn"] if r.get("taxa_aa") is not None]
-            pre_tx = [float(r["taxa_aa"]) / 100.0 for r in result["ltn"] if r.get("taxa_aa") is not None]
+            pre_tx = [
+                float(r["taxa_aa"]) / 100.0 for r in result["ltn"] if r.get("taxa_aa") is not None
+            ]
             ntnb_pairs = [
                 (r["dias_uteis"], float(r["taxa_real_aa"]) / 100.0)
                 for r in result["ntnb"]
@@ -122,18 +125,22 @@ def fetch_anbima_curves(data_ref: str) -> dict:
                     pre_aqui = float(interp_pre(du))
                     if 1 + real > 0:
                         be = (1 + pre_aqui) / (1 + real) - 1
-                        result["breakeven"].append({
-                            "data_ref":     data_ref,
-                            "dias_uteis":   int(du),
-                            "breakeven_aa": be * 100.0,  # em %
-                        })
+                        result["breakeven"].append(
+                            {
+                                "data_ref": data_ref,
+                                "dias_uteis": int(du),
+                                "breakeven_aa": be * 100.0,  # em %
+                            }
+                        )
     except Exception as e:
         print(f"  breakeven {data_ref} falhou: {type(e).__name__}: {str(e)[:120]}", file=sys.stderr)
 
     return result
 
 
-def upsert_curves(conn, data_ref: date, recs_ltn: list[dict], recs_ntnb: list[dict]) -> tuple[int, int]:
+def upsert_curves(
+    conn, data_ref: date, recs_ltn: list[dict], recs_ntnb: list[dict]
+) -> tuple[int, int]:
     if not recs_ltn and not recs_ntnb:
         return 0, 0
     sql = """
@@ -148,19 +155,31 @@ def upsert_curves(conn, data_ref: date, recs_ltn: list[dict], recs_ntnb: list[di
     """
     rows = []
     for r in recs_ltn:
-        rows.append((data_ref, "br_pre", int(r["dias_uteis"]),
-                     float(r["taxa_aa"]) if r["taxa_aa"] is not None else None,
-                     None,
-                     float(r["pu"]) if r["pu"] is not None else None,
-                     "anbima",
-                     datetime.utcnow()))
+        rows.append(
+            (
+                data_ref,
+                "br_pre",
+                int(r["dias_uteis"]),
+                float(r["taxa_aa"]) if r["taxa_aa"] is not None else None,
+                None,
+                float(r["pu"]) if r["pu"] is not None else None,
+                "anbima",
+                datetime.utcnow(),
+            )
+        )
     for r in recs_ntnb:
-        rows.append((data_ref, "br_ipca", int(r["dias_uteis"]),
-                     None,
-                     float(r["taxa_real_aa"]) if r["taxa_real_aa"] is not None else None,
-                     float(r["pu"]) if r["pu"] is not None else None,
-                     "anbima",
-                     datetime.utcnow()))
+        rows.append(
+            (
+                data_ref,
+                "br_ipca",
+                int(r["dias_uteis"]),
+                None,
+                float(r["taxa_real_aa"]) if r["taxa_real_aa"] is not None else None,
+                float(r["pu"]) if r["pu"] is not None else None,
+                "anbima",
+                datetime.utcnow(),
+            )
+        )
     if not rows:
         return 0, 0
     with conn.cursor() as cur:
@@ -180,10 +199,15 @@ def upsert_breakeven(conn, data_ref: date, recs: list[dict]) -> int:
             atualizado_em = now()
     """
     rows = [
-        (data_ref, "br", int(r["dias_uteis"]),
-         float(r["breakeven_aa"]) if r["breakeven_aa"] is not None else None,
-         datetime.utcnow())
-        for r in recs if r.get("dias_uteis") is not None
+        (
+            data_ref,
+            "br",
+            int(r["dias_uteis"]),
+            float(r["breakeven_aa"]) if r["breakeven_aa"] is not None else None,
+            datetime.utcnow(),
+        )
+        for r in recs
+        if r.get("dias_uteis") is not None
     ]
     if not rows:
         return 0

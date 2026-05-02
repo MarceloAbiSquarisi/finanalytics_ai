@@ -1,4 +1,5 @@
 """Port: EventStore — persistência e consulta de eventos."""
+
 from __future__ import annotations
 from typing import Protocol
 from finanalytics_ai.domain.entities.event import MarketEvent, EventStatus
@@ -11,5 +12,6 @@ class EventStore(Protocol):
     async def exists(self, event_id: str) -> bool: ...
     async def update_status(self, event_id: str, status: EventStatus, error: str = "") -> None: ...
     async def find_pending(self, limit: int = 100) -> list[MarketEvent]: ...
+
 
 from typing import runtime_checkable  # noqa: E402 — já importado acima via Protocol

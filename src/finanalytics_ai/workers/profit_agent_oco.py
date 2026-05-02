@@ -96,6 +96,7 @@ def load_oco_legacy_pairs_from_db(agent) -> int:
         log.info("oco_legacy.loaded pairs=%d", loaded)
     return loaded
 
+
 def oco_monitor_loop(agent) -> None:
     """
     Background thread: monitora pares OCO via EnumerateAllOrders a cada 500ms.
@@ -140,12 +141,14 @@ def oco_monitor_loop(agent) -> None:
             log.warning("oco_monitor error: %s", e)
         time.sleep(0.5)
 
+
 # ──────────────────────────────────────────────────────────────────
 # OCO multi-level (Phase A 26/abr/2026) — Design_OCO_Trailing_Splits.md
 # Suporta: attach a parent pending, N levels, TP/SL individualmente
 # opcionais (Decisão 3), parent fill parcial → re-rateio (Decisão 2).
 # Trailing (Decisão 1) e UI splits são Phases B/C.
 # ──────────────────────────────────────────────────────────────────
+
 
 def attach_oco(self, params: dict) -> dict:
     """Cria group OCO anexado a uma ordem pending.
@@ -268,9 +271,7 @@ def attach_oco(self, params: dict) -> dict:
                     float(sl) if sl is not None else None,
                     float(slim) if slim is not None else None,
                     bool(lv.get("is_trailing", False)),
-                    float(lv["trail_distance"])
-                    if lv.get("trail_distance") is not None
-                    else None,
+                    float(lv["trail_distance"]) if lv.get("trail_distance") is not None else None,
                     float(lv["trail_pct"]) if lv.get("trail_pct") is not None else None,
                 ),
             )
@@ -337,6 +338,7 @@ def attach_oco(self, params: dict) -> dict:
     except Exception as exc:
         log.exception("attach_oco error: %s", exc)
         return {"ok": False, "error": str(exc)}
+
 
 def dispatch_oco_group(agent, group_id: str, filled_qty: int) -> None:
     """Dispara TPs e SLs dos levels após parent fill (total ou parcial).
@@ -461,6 +463,7 @@ def dispatch_oco_group(agent, group_id: str, filled_qty: int) -> None:
         )
     except Exception as exc:
         log.exception("dispatch_oco_group error group=%s: %s", group_id, exc)
+
 
 def load_oco_state_from_db(agent) -> int:
     """Phase D: recarrega groups awaiting/active/partial do DB para agent._oco_groups
@@ -598,6 +601,7 @@ def load_oco_state_from_db(agent) -> int:
         log.exception("load_oco_state_from_db error: %s", exc)
         return 0
 
+
 def oco_groups_monitor_loop(agent) -> None:
     """Background thread: monitora groups OCO multi-level a cada 500ms.
 
@@ -638,6 +642,7 @@ def oco_groups_monitor_loop(agent) -> None:
         except Exception as e:
             log.warning("oco_groups_monitor error: %s", e)
         time.sleep(0.5)
+
 
 def check_levels_fill(agent, group_id: str, grp: dict, orders_by_id: dict) -> None:
     """Verifica fills de TP/SL em cada level; cancela contraparte; fecha group quando tudo done."""
@@ -727,11 +732,13 @@ def check_levels_fill(agent, group_id: str, grp: dict, orders_by_id: dict) -> No
         )
         grp["status"] = "partial"
 
+
 # ──────────────────────────────────────────────────────────────────
 # OCO Phase C (26/abr) — Trailing stop
 # Decisão 1: aceita trail_distance (R$) XOR trail_pct (%)
 # Decisão 6: se mercado já além do trigger ao criar → dispara market imediato
 # ──────────────────────────────────────────────────────────────────
+
 
 def get_last_price(agent, ticker: str) -> float | None:
     """Última cotação com fallback ao DB.
@@ -770,6 +777,7 @@ def get_last_price(agent, ticker: str) -> float | None:
         pass
     return None
 
+
 def trail_compute_new_sl(agent, side: int, last_price: float, lv: dict) -> float | None:
     """Calcula novo SL baseado em high_water + distance/pct.
 
@@ -803,6 +811,7 @@ def trail_compute_new_sl(agent, side: int, last_price: float, lv: dict) -> float
             return hw * (1 + float(lv["trail_pct"]) / 100.0)
     return None
 
+
 def persist_trail_hw_if_moved(agent, lv: dict, moved: bool) -> None:
     """Persiste `trail_high_water` em DB quando mover. Resilience contra
     restart: sem isso, hw em memória resetava pra NULL após cada restart
@@ -813,22 +822,24 @@ def persist_trail_hw_if_moved(agent, lv: dict, moved: bool) -> None:
         return
     try:
         agent._db.execute(
-            "UPDATE profit_oco_levels SET trail_high_water=%s, updated_at=NOW() "
-            "WHERE level_id=%s",
+            "UPDATE profit_oco_levels SET trail_high_water=%s, updated_at=NOW() WHERE level_id=%s",
             (lv["trail_high_water"], lv["level_id"]),
         )
     except Exception:
         pass  # Best-effort; reconcile pegará
+
 
 def _load_pending_orders_from_db(self) -> None:
     from finanalytics_ai.workers.profit_agent_watch import load_pending_orders_from_db
 
     load_pending_orders_from_db(self)
 
+
 def _watch_pending_orders_loop(self) -> None:
     from finanalytics_ai.workers.profit_agent_watch import watch_pending_orders_loop
 
     watch_pending_orders_loop(self)
+
 
 def _trail_check_immediate_trigger(
     self, group_id: str, grp: dict, lv: dict, last_price: float
@@ -881,6 +892,7 @@ def _trail_check_immediate_trigger(
         )
         agent._order_to_group[market_res["local_order_id"]] = (group_id, lv["idx"], "sl")
     return True
+
 
 def trail_monitor_loop(agent) -> None:
     """Background thread: pra cada level com is_trailing=true e SL aberto,
@@ -980,9 +992,7 @@ def trail_monitor_loop(agent) -> None:
                         cd_ts = lv.get("_trail_fallback_cooldown_until", 0)
                         if time.time() < cd_ts:
                             continue
-                        agent._trail_fallback_count = (
-                            getattr(self, "_trail_fallback_count", 0) + 1
-                        )
+                        agent._trail_fallback_count = getattr(self, "_trail_fallback_count", 0) + 1
                         log.warning(
                             "trailing.change_failed_fallback_to_cancel_create "
                             "group=%s lv=%d new_sl=%.4f ret=%s",
@@ -1054,8 +1064,7 @@ def trail_monitor_loop(agent) -> None:
                                 )
                             else:
                                 log.warning(
-                                    "trailing.create_failed group=%s lv=%d err=%s "
-                                    "— cooldown 30s",
+                                    "trailing.create_failed group=%s lv=%d err=%s — cooldown 30s",
                                     group_id,
                                     lv["idx"],
                                     new_sl_res.get("error"),
@@ -1081,4 +1090,3 @@ def trail_monitor_loop(agent) -> None:
         except Exception as e:
             log.warning("trail_monitor error: %s", e)
         time.sleep(1.0)
-

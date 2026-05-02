@@ -18,6 +18,7 @@ Uso:
     python scripts/sgs_ingestion.py --start 2024-01-01
     python scripts/sgs_ingestion.py --only SELIC_OVER,IPCA
 """
+
 from __future__ import annotations
 
 import argparse
@@ -38,11 +39,11 @@ DSN = os.environ.get(
 
 # name -> (codigo_sgs, description)
 SERIES_MAP = {
-    "SELIC_OVER":  (11,   "SELIC over, % ao dia"),
-    "CDI_OVER":    (12,   "CDI over, % ao dia"),
-    "SELIC_META":  (432,  "SELIC Meta diária anualizada (% a.a.)"),
-    "IPCA":        (433,  "IPCA mensal"),
-    "PTAX_VENDA":  (1178, "PTAX venda BRL/USD"),
+    "SELIC_OVER": (11, "SELIC over, % ao dia"),
+    "CDI_OVER": (12, "CDI over, % ao dia"),
+    "SELIC_META": (432, "SELIC Meta diária anualizada (% a.a.)"),
+    "IPCA": (433, "IPCA mensal"),
+    "PTAX_VENDA": (1178, "PTAX venda BRL/USD"),
 }
 
 URL_TMPL = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{cod}/dados?formato=json&dataInicial={di}&dataFinal={df}"
@@ -138,7 +139,9 @@ def main() -> int:
                 continue
             print(f"[SGS] {name} (cod {cod}) — {desc}")
             data = fetch_sgs(cod, d_start, d_end)
-            print(f"  fetched {len(data)} pontos ({data[0][0] if data else '-'} -> {data[-1][0] if data else '-'})")
+            print(
+                f"  fetched {len(data)} pontos ({data[0][0] if data else '-'} -> {data[-1][0] if data else '-'})"
+            )
             n = upsert(conn, name, data)
             conn.commit()
             total += n

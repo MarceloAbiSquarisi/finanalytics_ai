@@ -19,6 +19,7 @@ Revision ID: 0017_user_is_admin_flag
 Revises: 0016_portfolio_name_history
 Create Date: 2026-04-24
 """
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -40,9 +41,7 @@ def upgrade() -> None:
         ),
     )
     # Data migration: admins antigos viram user + is_admin
-    op.execute(
-        "UPDATE users SET is_admin = TRUE, role = 'user' WHERE role = 'admin'"
-    )
+    op.execute("UPDATE users SET is_admin = TRUE, role = 'user' WHERE role = 'admin'")
     # Remove server_default apos migracao (queremos default no ORM, nao no DDL)
     op.alter_column("users", "is_admin", server_default=None)
 
@@ -50,7 +49,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     # Reverte admins: volta role='admin' para quem tinha is_admin=true
     # (perde-se a distincao para masters que tinham is_admin — ficam master)
-    op.execute(
-        "UPDATE users SET role = 'admin' WHERE is_admin = TRUE AND role = 'user'"
-    )
+    op.execute("UPDATE users SET role = 'admin' WHERE is_admin = TRUE AND role = 'user'")
     op.drop_column("users", "is_admin")

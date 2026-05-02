@@ -16,6 +16,7 @@ Implementada na camada de aplicação (portfolio_service.clear_default) e não
 como UNIQUE parcial porque nem todo banco suporta índice parcial via Alembic
 de forma portável. Documentado como trade-off consciente.
 """
+
 from __future__ import annotations
 
 from typing import Sequence, Union

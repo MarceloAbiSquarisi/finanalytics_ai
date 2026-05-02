@@ -4,6 +4,7 @@ Testes unitários para EventProcessorService.
 Usa mocks para EventStore e MarketDataProvider —
 nenhum I/O real é feito nestes testes.
 """
+
 from __future__ import annotations
 import pytest
 from unittest.mock import AsyncMock, patch
@@ -71,9 +72,9 @@ class TestEventProcessorService:
         """Mesmo event_id processado duas vezes deve retornar o mesmo resultado."""
         mock_event_store.exists.return_value = False
         first = await processor.process(price_update_command)
-        
+
         mock_event_store.exists.return_value = True
         mock_event_store.find_by_id.return_value = first
         second = await processor.process(price_update_command)
-        
+
         assert first.event_id == second.event_id

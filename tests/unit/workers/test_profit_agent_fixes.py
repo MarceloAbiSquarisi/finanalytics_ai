@@ -104,9 +104,7 @@ def test_p6_kill_zombie_detects_but_does_not_kill(pa_module):
         "  TCP    127.0.0.1:8002         0.0.0.0:0              LISTENING       12345\n"
         "  TCP    127.0.0.1:8002         0.0.0.0:0              LISTENING       99999\n"
     )
-    with patch.object(pa_module, "os") as mock_os, patch.object(
-        _sp, "run"
-    ) as mock_run:
+    with patch.object(pa_module, "os") as mock_os, patch.object(_sp, "run") as mock_run:
         mock_os.name = "nt"
         mock_run.return_value = MagicMock(stdout=fake_netstat)
         killed = pa_module._kill_zombie_agents(self_pid=12345, port=8002)

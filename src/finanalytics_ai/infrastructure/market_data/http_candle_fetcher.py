@@ -95,9 +95,7 @@ class HttpCandleFetcher:
         if not bars:
             return None
         closes = [
-            float(b["close"])
-            for b in bars
-            if b.get("close") is not None and float(b["close"]) > 0
+            float(b["close"]) for b in bars if b.get("close") is not None and float(b["close"]) > 0
         ]
         return closes if closes else None
 

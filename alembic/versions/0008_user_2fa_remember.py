@@ -7,6 +7,7 @@ Adiciona suporte a:
   - 2FA via TOTP (Google Authenticator, Authy)
   - remember_me: duração de sessão configurável
 """
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -17,12 +18,12 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("users", sa.Column(
-        "totp_secret", sa.String(64), nullable=True, server_default=None
-    ))
-    op.add_column("users", sa.Column(
-        "totp_enabled", sa.Boolean, nullable=False, server_default=sa.false()
-    ))
+    op.add_column(
+        "users", sa.Column("totp_secret", sa.String(64), nullable=True, server_default=None)
+    )
+    op.add_column(
+        "users", sa.Column("totp_enabled", sa.Boolean, nullable=False, server_default=sa.false())
+    )
 
 
 def downgrade() -> None:

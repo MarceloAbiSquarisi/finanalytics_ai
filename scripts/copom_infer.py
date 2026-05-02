@@ -5,6 +5,7 @@ Uso:
     python scripts/copom_infer.py --model-dir models/copom_bert_YYYYMMDD_HHMMSS
     python scripts/copom_infer.py --model-dir ... --only-date 2026-01-28
 """
+
 from __future__ import annotations
 
 import argparse
@@ -23,8 +24,10 @@ DSN = os.environ.get(
 
 
 def load_docs(conn, only_date: str | None) -> list[dict]:
-    sql = ("SELECT doc_date, doc_type, COALESCE(text_pt, text_en) AS text "
-           "FROM copom_documents WHERE (text_pt IS NOT NULL OR text_en IS NOT NULL)")
+    sql = (
+        "SELECT doc_date, doc_type, COALESCE(text_pt, text_en) AS text "
+        "FROM copom_documents WHERE (text_pt IS NOT NULL OR text_en IS NOT NULL)"
+    )
     params: tuple = ()
     if only_date:
         sql += " AND doc_date = %s"
@@ -36,8 +39,9 @@ def load_docs(conn, only_date: str | None) -> list[dict]:
     return [{"doc_date": r[0], "doc_type": r[1], "text": r[2]} for r in rows]
 
 
-def upsert_sentiment(conn, doc: dict, model_version: str,
-                     probs: list[float], labels: list[str]) -> None:
+def upsert_sentiment(
+    conn, doc: dict, model_version: str, probs: list[float], labels: list[str]
+) -> None:
     p = {l: float(probs[i]) for i, l in enumerate(labels)}
     hawkish_score = p.get("hawkish", 0.0) - p.get("dovish", 0.0)
     with conn.cursor() as cur:
@@ -54,9 +58,15 @@ def upsert_sentiment(conn, doc: dict, model_version: str,
                 hawkish_score=EXCLUDED.hawkish_score,
                 inferred_at=now()
             """,
-            (doc["doc_date"], doc["doc_type"], model_version,
-             p.get("dovish", 0.0), p.get("neutral", 0.0), p.get("hawkish", 0.0),
-             hawkish_score),
+            (
+                doc["doc_date"],
+                doc["doc_type"],
+                model_version,
+                p.get("dovish", 0.0),
+                p.get("neutral", 0.0),
+                p.get("hawkish", 0.0),
+                hawkish_score,
+            ),
         )
 
 
@@ -72,14 +82,16 @@ def main() -> int:
     args = parse_args()
     model_dir = Path(args.model_dir)
     if not model_dir.exists():
-        print(f"model dir nao existe: {model_dir}", file=sys.stderr); return 2
+        print(f"model dir nao existe: {model_dir}", file=sys.stderr)
+        return 2
 
     import torch
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
     meta_path = model_dir / "copom_meta.json"
     if not meta_path.exists():
-        print("copom_meta.json ausente no model_dir", file=sys.stderr); return 2
+        print("copom_meta.json ausente no model_dir", file=sys.stderr)
+        return 2
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
     labels: list[str] = meta["labels"]
     model_version = f"{model_dir.name}"
@@ -89,7 +101,8 @@ def main() -> int:
 
     tok = AutoTokenizer.from_pretrained(str(model_dir))
     model = AutoModelForSequenceClassification.from_pretrained(str(model_dir))
-    model = model.to(device); model.eval()
+    model = model.to(device)
+    model.eval()
 
     conn = psycopg2.connect(DSN)
     try:
@@ -98,8 +111,9 @@ def main() -> int:
 
         with torch.no_grad():
             for i, d in enumerate(docs, 1):
-                inp = tok(d["text"], return_tensors="pt", truncation=True,
-                          max_length=args.max_len).to(device)
+                inp = tok(
+                    d["text"], return_tensors="pt", truncation=True, max_length=args.max_len
+                ).to(device)
                 logits = model(**inp).logits[0]
                 probs = torch.softmax(logits, dim=-1).cpu().numpy().tolist()
                 upsert_sentiment(conn, d, model_version, probs, labels)

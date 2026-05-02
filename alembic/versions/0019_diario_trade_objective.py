@@ -22,6 +22,7 @@ Revision ID: 0019_diario_trade_objective
 Revises: 0018_portfolio_per_account
 Create Date: 2026-04-27
 """
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -34,10 +35,7 @@ depends_on = None
 
 def upgrade() -> None:
     # IF NOT EXISTS — idempotente para ambientes onde o ALTER manual ja rodou.
-    op.execute(
-        "ALTER TABLE trade_journal "
-        "ADD COLUMN IF NOT EXISTS trade_objective VARCHAR(20)"
-    )
+    op.execute("ALTER TABLE trade_journal ADD COLUMN IF NOT EXISTS trade_objective VARCHAR(20)")
 
 
 def downgrade() -> None:

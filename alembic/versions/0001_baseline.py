@@ -9,6 +9,7 @@ Esta migration usa CREATE TABLE IF NOT EXISTS para ser idempotente —
 pode ser aplicada mesmo que as tabelas já existam (ex: banco migrado
 de uma versão anterior sem alembic_version).
 """
+
 from __future__ import annotations
 
 from typing import Sequence, Union
@@ -27,13 +28,17 @@ def upgrade() -> None:
     # IF NOT EXISTS nunca falha — ideal para baseline migrations.
     conn = op.get_bind()
 
-    conn.execute(op.get_context().config.attributes.get(  # type: ignore[arg-type]
-        "__noop__",  # placeholder para satisfazer linter
-        None,
-    ) or __import__("sqlalchemy").text("SELECT 1"))  # noqa
+    conn.execute(
+        op.get_context().config.attributes.get(  # type: ignore[arg-type]
+            "__noop__",  # placeholder para satisfazer linter
+            None,
+        )
+        or __import__("sqlalchemy").text("SELECT 1")
+    )  # noqa
 
     # Executamos o DDL completo de uma vez como SQL puro
-    conn.execute(__import__("sqlalchemy").text("""
+    conn.execute(
+        __import__("sqlalchemy").text("""
         CREATE TABLE IF NOT EXISTS users (
             id VARCHAR(36) NOT NULL PRIMARY KEY,
             email VARCHAR(200) NOT NULL UNIQUE,
@@ -118,12 +123,14 @@ def upgrade() -> None:
             created_at TIMESTAMP WITHOUT TIME ZONE
         );
         CREATE INDEX IF NOT EXISTS ix_smart_alerts_user_id ON smart_alerts (user_id);
-    """))
+    """)
+    )
 
 
 def downgrade() -> None:
     conn = op.get_bind()
-    conn.execute(__import__("sqlalchemy").text("""
+    conn.execute(
+        __import__("sqlalchemy").text("""
         DROP TABLE IF EXISTS smart_alerts;
         DROP TABLE IF EXISTS watchlist_items;
         DROP TABLE IF EXISTS alerts;
@@ -131,4 +138,5 @@ def downgrade() -> None:
         DROP TABLE IF EXISTS positions;
         DROP TABLE IF EXISTS portfolios;
         DROP TABLE IF EXISTS users;
-    """))
+    """)
+    )

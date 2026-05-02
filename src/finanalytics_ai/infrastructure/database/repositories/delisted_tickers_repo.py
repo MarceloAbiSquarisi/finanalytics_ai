@@ -70,9 +70,7 @@ class DelistingInfo:
 # ── Repo ──────────────────────────────────────────────────────────────────────
 
 
-async def get_delisting_info(
-    session: AsyncSession, ticker: str
-) -> DelistingInfo | None:
+async def get_delisting_info(session: AsyncSession, ticker: str) -> DelistingInfo | None:
     """
     Lookup de info de delisting para 1 ticker.
 

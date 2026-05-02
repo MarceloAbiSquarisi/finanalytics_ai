@@ -8,6 +8,7 @@ Design decision: Protocol (structural subtyping) ao invés de ABC.
 Permite que qualquer classe que implemente os métodos seja aceita
 sem herança explícita — duck typing com checagem estática do mypy.
 """
+
 from __future__ import annotations
 from decimal import Decimal
 from typing import Protocol, runtime_checkable

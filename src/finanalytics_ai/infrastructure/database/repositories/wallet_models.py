@@ -187,5 +187,3 @@ def _model_to_dict(m: Any, *, include_sensitive: bool = False) -> dict:
             v = v.isoformat()
         d[c.name] = v
     return d
-
-

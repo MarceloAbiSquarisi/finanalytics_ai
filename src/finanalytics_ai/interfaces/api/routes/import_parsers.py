@@ -754,4 +754,3 @@ def _save_to_history(result: dict) -> None:
     )
     for pos in result.get("positions", []):
         _positions.append(pos)
-

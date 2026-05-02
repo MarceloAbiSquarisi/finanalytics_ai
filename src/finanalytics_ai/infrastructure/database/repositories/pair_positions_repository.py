@@ -73,9 +73,7 @@ class PsycopgPairPositionsRepository:
         existente via COALESCE.
         """
         if position == PairPosition.NONE:
-            raise ValueError(
-                "upsert com position=NONE invalido — use delete() pra remover"
-            )
+            raise ValueError("upsert com position=NONE invalido — use delete() pra remover")
 
         sql = """
             INSERT INTO robot_pair_positions

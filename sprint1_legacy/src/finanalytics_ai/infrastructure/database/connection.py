@@ -6,6 +6,7 @@ create_async_engine é lazy — não conecta até o primeiro uso.
 O session_factory usa AsyncSession com expire_on_commit=False para
 evitar lazy loading implícito em código async.
 """
+
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
@@ -31,6 +32,7 @@ _session_factory: async_sessionmaker[AsyncSession] | None = None
 
 class Base(DeclarativeBase):
     """Base declarativa para todos os modelos ORM."""
+
     pass
 
 
@@ -66,7 +68,7 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     """
     Context manager para sessions com rollback automático em erro.
-    
+
     Usage:
         async with get_session() as session:
             result = await session.execute(stmt)

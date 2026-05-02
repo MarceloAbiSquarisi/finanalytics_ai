@@ -6,6 +6,7 @@ Comandos representam a intenção do usuário/sistema — são validados
 antes de chegarem ao handler. Separar Command do Handler segue
 o padrão CQRS e facilita serialização/auditoria.
 """
+
 from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
@@ -16,6 +17,7 @@ from typing import Any
 @dataclass(frozen=True)
 class ProcessMarketEventCommand:
     """Comando para processar um evento de mercado."""
+
     event_id: str
     event_type: str
     ticker: str
@@ -27,6 +29,7 @@ class ProcessMarketEventCommand:
 @dataclass(frozen=True)
 class BuyAssetCommand:
     """Comando para registrar uma compra."""
+
     portfolio_id: str
     ticker: str
     quantity: Decimal
@@ -38,6 +41,7 @@ class BuyAssetCommand:
 @dataclass(frozen=True)
 class SellAssetCommand:
     """Comando para registrar uma venda."""
+
     portfolio_id: str
     ticker: str
     quantity: Decimal
@@ -49,6 +53,7 @@ class SellAssetCommand:
 @dataclass(frozen=True)
 class SetStopLossCommand:
     """Configura stop loss para uma posição."""
+
     portfolio_id: str
     ticker: str
     stop_percentage: Decimal

@@ -12,6 +12,7 @@ Objetivo: provar que o fluxo `fetch -> label -> finetune -> infer`
 funciona com o stack instalado (torch+transformers+CUDA) antes de
 operar com dados reais quando BCB voltar.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -64,15 +65,19 @@ def gen(n: int, fragments: list[str], label: str, seed: int) -> list[dict]:
     docs = []
     for i in range(n):
         picks = rng.sample(fragments, k=min(3, len(fragments)))
-        text = BASE_TEXT + " ".join(picks) + (
-            f" Observacao {i}: o Comite destaca que o cenario requer atencao continua."
+        text = (
+            BASE_TEXT
+            + " ".join(picks)
+            + (f" Observacao {i}: o Comite destaca que o cenario requer atencao continua.")
         )
-        docs.append({
-            "doc_date": f"2024-{1 + (i%12):02d}-15",
-            "doc_type": "minute" if i % 2 == 0 else "communique",
-            "label":    label,
-            "text":     text,
-        })
+        docs.append(
+            {
+                "doc_date": f"2024-{1 + (i % 12):02d}-15",
+                "doc_type": "minute" if i % 2 == 0 else "communique",
+                "label": label,
+                "text": text,
+            }
+        )
     return docs
 
 
@@ -84,17 +89,20 @@ def main() -> int:
     ap.add_argument("--skip-train", action="store_true")
     args = ap.parse_args()
 
-    rows = (gen(args.per_class, HAWKISH_FRAGMENTS, "hawkish", 1)
-            + gen(args.per_class, NEUTRAL_FRAGMENTS, "neutral", 2)
-            + gen(args.per_class, DOVISH_FRAGMENTS,  "dovish",  3))
+    rows = (
+        gen(args.per_class, HAWKISH_FRAGMENTS, "hawkish", 1)
+        + gen(args.per_class, NEUTRAL_FRAGMENTS, "neutral", 2)
+        + gen(args.per_class, DOVISH_FRAGMENTS, "dovish", 3)
+    )
     print(f"synthetic dataset: {len(rows)} rows, {args.per_class} per class")
 
     tmp = Path(tempfile.mkdtemp(prefix="copom_smoke_"))
     csv_path = tmp / "labeled.csv"
     with csv_path.open("w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=["doc_date","doc_type","label","text"])
+        w = csv.DictWriter(f, fieldnames=["doc_date", "doc_type", "label", "text"])
         w.writeheader()
-        for r in rows: w.writerow(r)
+        for r in rows:
+            w.writerow(r)
     print(f"csv: {csv_path}")
 
     if args.skip_train:
@@ -102,40 +110,62 @@ def main() -> int:
 
     # Invoca finetune como subprocess
     import subprocess
+
     root = Path(__file__).resolve().parent.parent
     python = Path(sys.executable)
-    cmd = [str(python), str(root / "scripts" / "copom_finetune.py"),
-           "--csv", str(csv_path),
-           "--epochs", str(args.epochs),
-           "--batch", str(args.batch),
-           "--max-len", "256",
-           "--out-name", f"copom_bert_smoke_{args.epochs}e"]
+    cmd = [
+        str(python),
+        str(root / "scripts" / "copom_finetune.py"),
+        "--csv",
+        str(csv_path),
+        "--epochs",
+        str(args.epochs),
+        "--batch",
+        str(args.batch),
+        "--max-len",
+        "256",
+        "--out-name",
+        f"copom_bert_smoke_{args.epochs}e",
+    ]
     print("\n=== FINETUNE ===")
     cp = subprocess.run(cmd, cwd=str(root), text=True)
     if cp.returncode != 0:
-        print("finetune FAIL"); return 2
+        print("finetune FAIL")
+        return 2
 
     # Inferencia em 3 textos novos (um por classe) para sanity
     import torch
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
     model_dir = root / "models" / f"copom_bert_smoke_{args.epochs}e"
     tok = AutoTokenizer.from_pretrained(str(model_dir))
     model = AutoModelForSequenceClassification.from_pretrained(str(model_dir))
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = model.to(device); model.eval()
+    model = model.to(device)
+    model.eval()
 
     # Sanity usa vocabulario proximo das training fragments (proposito: validar
     # que modelo aprendeu os padroes-chave, nao generalizar para paraphrases).
     samples = [
-        ("hawkish", "A inflacao segue pressionada e o Comite avalia que medidas adicionais "
-                    "de aperto podem ser necessarias, com postura mais restritiva."),
-        ("neutral", "O Comite decidiu manter a taxa basica inalterada e mantem acompanhamento "
-                    "dos dados; a trajetoria inflacionaria esta dentro do esperado."),
-        ("dovish",  "A desinflacao mais rapida que a esperada viabiliza um afrouxamento adicional; "
-                    "o Comite sinaliza novos cortes se o cenario desinflacionario persistir."),
+        (
+            "hawkish",
+            "A inflacao segue pressionada e o Comite avalia que medidas adicionais "
+            "de aperto podem ser necessarias, com postura mais restritiva.",
+        ),
+        (
+            "neutral",
+            "O Comite decidiu manter a taxa basica inalterada e mantem acompanhamento "
+            "dos dados; a trajetoria inflacionaria esta dentro do esperado.",
+        ),
+        (
+            "dovish",
+            "A desinflacao mais rapida que a esperada viabiliza um afrouxamento adicional; "
+            "o Comite sinaliza novos cortes se o cenario desinflacionario persistir.",
+        ),
     ]
     print("\n=== SANITY INFER ===")
     import json
+
     meta = json.loads((model_dir / "copom_meta.json").read_text(encoding="utf-8"))
     labels = meta["labels"]
     hits = 0
@@ -146,7 +176,9 @@ def main() -> int:
         top = labels[int(max(range(len(p)), key=lambda i: p[i]))]
         ok = top == expect
         hits += int(ok)
-        print(f"  exp={expect:8} got={top:8} probs={ {labels[i]:round(p[i],3) for i in range(len(p))} }  {'OK' if ok else 'MISS'}")
+        print(
+            f"  exp={expect:8} got={top:8} probs={ {labels[i]: round(p[i], 3) for i in range(len(p))} }  {'OK' if ok else 'MISS'}"
+        )
     print(f"\nsanity hits: {hits}/3")
     return 0 if hits >= 2 else 1
 

@@ -12,6 +12,7 @@ Uso:
     python scripts/fred_ingestion.py --start 2024-01-01
     python scripts/fred_ingestion.py --only DGS10,DFF
 """
+
 from __future__ import annotations
 
 import argparse
@@ -28,10 +29,12 @@ import psycopg2.extras
 import requests
 
 _SESSION = requests.Session()
-_SESSION.headers.update({
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) finanalytics-ai/1.0",
-    "Accept": "text/csv,text/plain,*/*",
-})
+_SESSION.headers.update(
+    {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) finanalytics-ai/1.0",
+        "Accept": "text/csv,text/plain,*/*",
+    }
+)
 
 
 DSN = os.environ.get(
@@ -42,16 +45,16 @@ DSN = os.environ.get(
 # Séries -> (destino, vertice_du or None)
 SERIES_MAP = {
     # Treasury yields → yield_curves
-    "DGS3MO":        ("yield_curves", 63),
-    "DGS2":          ("yield_curves", 504),
-    "DGS10":         ("yield_curves", 2520),
+    "DGS3MO": ("yield_curves", 63),
+    "DGS2": ("yield_curves", 504),
+    "DGS10": ("yield_curves", 2520),
     # Macro → us_macro_daily
-    "DFF":           ("us_macro_daily", None),
-    "CPIAUCSL":      ("us_macro_daily", None),
-    "VIXCLS":        ("us_macro_daily", None),
-    "T5YIE":         ("us_macro_daily", None),
-    "T10YIE":        ("us_macro_daily", None),
-    "BAMLH0A0HYM2":  ("us_macro_daily", None),
+    "DFF": ("us_macro_daily", None),
+    "CPIAUCSL": ("us_macro_daily", None),
+    "VIXCLS": ("us_macro_daily", None),
+    "T5YIE": ("us_macro_daily", None),
+    "T10YIE": ("us_macro_daily", None),
+    "BAMLH0A0HYM2": ("us_macro_daily", None),
 }
 
 URL_TMPL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={series}&cosd={start}"
@@ -67,8 +70,10 @@ def fetch_fred(series: str, start: date, max_retries: int = 4) -> list[tuple[dat
             raw = resp.text
             break
         except Exception as e:
-            print(f"  {series} attempt {attempt}/{max_retries}: {type(e).__name__}: {str(e)[:80]}",
-                  file=sys.stderr)
+            print(
+                f"  {series} attempt {attempt}/{max_retries}: {type(e).__name__}: {str(e)[:80]}",
+                file=sys.stderr,
+            )
             if attempt < max_retries:
                 time.sleep(5 * attempt)  # 5, 10, 15s
     if raw is None:
@@ -145,7 +150,9 @@ def main() -> int:
                 time.sleep(2)  # rate-limit gentle
             print(f"[FRED] {series} -> {table}{f'/du={du}' if du else ''}")
             data = fetch_fred(series, d_start)
-            print(f"  fetched {len(data)} pontos ({data[0][0] if data else '-'} -> {data[-1][0] if data else '-'})")
+            print(
+                f"  fetched {len(data)} pontos ({data[0][0] if data else '-'} -> {data[-1][0] if data else '-'})"
+            )
             if table == "yield_curves":
                 n = upsert_yield_curves(conn, series, du, data)
             else:

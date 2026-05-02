@@ -2,6 +2,7 @@
 scripts/inspecionar_schema_fintz.py
 Uso: uv run python scripts/inspecionar_schema_fintz.py
 """
+
 import asyncio
 import io
 import os
@@ -10,24 +11,26 @@ import aiohttp
 import pandas as pd
 
 API_KEY = os.environ.get("FINTZ_API_KEY", "")
-BASE    = "https://api.fintz.com.br"
+BASE = "https://api.fintz.com.br"
 HEADERS = {"X-API-Key": API_KEY}
 
 ENDPOINTS = [
-    ("cotacoes",
-     f"{BASE}/bolsa/b3/avista/cotacoes/historico/arquivos",
-     {}),
-    ("item_EBIT_12M",
-     f"{BASE}/bolsa/b3/avista/itens-contabeis/point-in-time/arquivos",
-     {"item": "EBIT", "tipoPeriodo": "12M"}),
-    ("indicador_ROE",
-     f"{BASE}/bolsa/b3/avista/indicadores/point-in-time/arquivos",
-     {"indicador": "ROE"}),
+    ("cotacoes", f"{BASE}/bolsa/b3/avista/cotacoes/historico/arquivos", {}),
+    (
+        "item_EBIT_12M",
+        f"{BASE}/bolsa/b3/avista/itens-contabeis/point-in-time/arquivos",
+        {"item": "EBIT", "tipoPeriodo": "12M"},
+    ),
+    (
+        "indicador_ROE",
+        f"{BASE}/bolsa/b3/avista/indicadores/point-in-time/arquivos",
+        {"indicador": "ROE"},
+    ),
 ]
 
 
 async def inspecionar(nome: str, url: str, params: dict) -> None:
-    print(f"\n{'='*60}\n  {nome}\n{'='*60}")
+    print(f"\n{'=' * 60}\n  {nome}\n{'=' * 60}")
 
     # 1. Pega o link
     async with aiohttp.ClientSession(headers=HEADERS) as s:
@@ -50,7 +53,7 @@ async def inspecionar(nome: str, url: str, params: dict) -> None:
         r = await s.get(link, timeout=aiohttp.ClientTimeout(total=300))
         raw = await r.read()
 
-    print(f"  Tamanho: {len(raw)/1_048_576:.1f} MB")
+    print(f"  Tamanho: {len(raw) / 1_048_576:.1f} MB")
 
     # 3. Lê só as primeiras 5 linhas para não carregar tudo na memória
     df = pd.read_parquet(io.BytesIO(raw))

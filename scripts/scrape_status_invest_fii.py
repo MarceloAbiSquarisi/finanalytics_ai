@@ -14,6 +14,7 @@ Uso:
 
 Rate limit: 1 req/s (cortesia ao Status Invest). 30 FIIs ~30s.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -38,12 +39,34 @@ DSN = (
 # Lista herdada do backfill_yahoo_fii.py para alinhamento. MALL11 e BCFF11
 # estavam delistados no Yahoo, mas Status Invest pode ter — nao filtra aqui.
 IFIX_TOP_30 = [
-    "HGLG11", "BTLG11", "VILG11", "XPLG11", "BRCO11",
-    "XPML11", "VISC11", "HGBS11", "MALL11", "VRTA11",
-    "KNRI11", "HGRE11", "PVBI11", "RCRB11", "BRCR11",
-    "HGRU11", "RECT11", "RBRR11",
-    "MXRF11", "BCFF11", "RBRF11", "HCTR11", "VGIR11",
-    "VGIP11", "RBRY11", "KNCR11", "KNHY11", "HFOF11",
+    "HGLG11",
+    "BTLG11",
+    "VILG11",
+    "XPLG11",
+    "BRCO11",
+    "XPML11",
+    "VISC11",
+    "HGBS11",
+    "MALL11",
+    "VRTA11",
+    "KNRI11",
+    "HGRE11",
+    "PVBI11",
+    "RCRB11",
+    "BRCR11",
+    "HGRU11",
+    "RECT11",
+    "RBRR11",
+    "MXRF11",
+    "BCFF11",
+    "RBRF11",
+    "HCTR11",
+    "VGIR11",
+    "VGIP11",
+    "RBRY11",
+    "KNCR11",
+    "KNHY11",
+    "HFOF11",
 ]
 
 USER_AGENT = "Mozilla/5.0 (compatible; FinAnalytics/1.0)"
@@ -188,7 +211,7 @@ def main() -> int:
                         f"  [{i:2d}/{len(tickers)}] {t}: "
                         f"DY={row['dy_ttm']!r}% PVP={row['p_vp']!r} "
                         f"div12m={row['div_12m']!r} mc={row['valor_mercado']!r} "
-                        f"({time.time()-t0:.2f}s)"
+                        f"({time.time() - t0:.2f}s)"
                     )
                     if not args.dry_run:
                         upsert(conn, row)

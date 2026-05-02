@@ -16,6 +16,7 @@ Uso:
     python scripts/hmm_monetary_cycle.py
     python scripts/hmm_monetary_cycle.py --dry-run
 """
+
 from __future__ import annotations
 
 import argparse
@@ -66,11 +67,15 @@ def load_features(conn) -> tuple[list[date], np.ndarray, dict]:
     """
     # SELIC over
     with conn.cursor() as cur:
-        cur.execute("SELECT time::date, value FROM br_macro_daily WHERE series='SELIC_OVER' AND value IS NOT NULL ORDER BY time")
+        cur.execute(
+            "SELECT time::date, value FROM br_macro_daily WHERE series='SELIC_OVER' AND value IS NOT NULL ORDER BY time"
+        )
         selic = dict(cur.fetchall())
     # IPCA mensal
     with conn.cursor() as cur:
-        cur.execute("SELECT time::date, value FROM br_macro_daily WHERE series='IPCA' AND value IS NOT NULL ORDER BY time")
+        cur.execute(
+            "SELECT time::date, value FROM br_macro_daily WHERE series='IPCA' AND value IS NOT NULL ORDER BY time"
+        )
         ipca_m = dict(cur.fetchall())
     # slope BR pre 2y-10y (via yield_curves interpolado — aqui uso ~504 e ~2520 direto)
     with conn.cursor() as cur:
@@ -91,9 +96,11 @@ def load_features(conn) -> tuple[list[date], np.ndarray, dict]:
         if not pairs or len(pairs) < 2:
             return None
         pairs = sorted(pairs)
+
         # taxa mais próxima de 504
         def nearest(target):
             return min(pairs, key=lambda p: abs(p[0] - target))
+
         _, tx_2y = nearest(504)
         _, tx_10y = nearest(2520)
         return tx_10y - tx_2y
@@ -106,7 +113,7 @@ def load_features(conn) -> tuple[list[date], np.ndarray, dict]:
         vals = [ipca_m[k] / 100.0 for k in keys[-12:]]  # % → decimal
         acc = 1.0
         for v in vals:
-            acc *= (1 + v)
+            acc *= 1 + v
         return (acc - 1) * 100  # volta para %
 
     all_dates = sorted(set(selic) & set(curves))
@@ -132,13 +139,16 @@ def load_features(conn) -> tuple[list[date], np.ndarray, dict]:
 
 def fit_and_label(X: np.ndarray) -> tuple[Any, list[int], np.ndarray, dict[int, str]]:
     from hmmlearn import hmm
+
     model = hmm.GaussianHMM(n_components=3, covariance_type="full", n_iter=300, random_state=42)
     model.fit(X)
     states = model.predict(X)
     proba = model.predict_proba(X)
 
     # Rotular: estado com maior média de delta_SELIC_21d = tightening
-    means_delta = [float(np.mean(X[states == i, 3])) if (states == i).any() else 0.0 for i in range(3)]
+    means_delta = [
+        float(np.mean(X[states == i, 3])) if (states == i).any() else 0.0 for i in range(3)
+    ]
     order = sorted(range(3), key=lambda i: means_delta[i])
     label_map = {
         order[0]: "easing",
@@ -148,8 +158,14 @@ def fit_and_label(X: np.ndarray) -> tuple[Any, list[int], np.ndarray, dict[int, 
     return model, states.tolist(), proba, label_map
 
 
-def upsert(conn, dates: list[date], states: list[int], proba: np.ndarray,
-           X: np.ndarray, label_map: dict[int, str]) -> int:
+def upsert(
+    conn,
+    dates: list[date],
+    states: list[int],
+    proba: np.ndarray,
+    X: np.ndarray,
+    label_map: dict[int, str],
+) -> int:
     if not dates:
         return 0
     sql = """
@@ -176,12 +192,21 @@ def upsert(conn, dates: list[date], states: list[int], proba: np.ndarray,
         by_name = {"easing": 0.0, "neutral": 0.0, "tightening": 0.0}
         for state_id, name in name_by_id.items():
             by_name[name] = float(proba_row[state_id])
-        rows.append((
-            d, rid, rname,
-            by_name["easing"], by_name["neutral"], by_name["tightening"],
-            float(X[i, 0]), float(X[i, 1]), float(X[i, 2]), float(X[i, 3]),
-            datetime.utcnow(),
-        ))
+        rows.append(
+            (
+                d,
+                rid,
+                rname,
+                by_name["easing"],
+                by_name["neutral"],
+                by_name["tightening"],
+                float(X[i, 0]),
+                float(X[i, 1]),
+                float(X[i, 2]),
+                float(X[i, 3]),
+                datetime.utcnow(),
+            )
+        )
     with conn.cursor() as cur:
         psycopg2.extras.execute_values(cur, sql, rows, page_size=200)
     return len(rows)
@@ -218,7 +243,9 @@ def main() -> int:
         # Últimas 10 classificações
         print("\nÚltimos 10 regimes:")
         for i in range(max(0, len(dates) - 10), len(dates)):
-            print(f"  {dates[i]}  {label_map[states[i]]:<12}  SELIC={X[i,0]:.3f}  slope={X[i,1]:.3f}  IPCA12m={X[i,2]:.2f}  ΔSELIC={X[i,3]:.3f}")
+            print(
+                f"  {dates[i]}  {label_map[states[i]]:<12}  SELIC={X[i, 0]:.3f}  slope={X[i, 1]:.3f}  IPCA12m={X[i, 2]:.2f}  ΔSELIC={X[i, 3]:.3f}"
+            )
 
         if not args.dry_run:
             n = upsert(conn, dates, states, proba, X, label_map)

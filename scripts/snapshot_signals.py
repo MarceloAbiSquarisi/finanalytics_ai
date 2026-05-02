@@ -13,6 +13,7 @@ Saida:
     [OK] inserted=N changed=M new=K (vs snapshot anterior)
     Lista de mudancas: ticker | prev -> curr | sharpe
 """
+
 from __future__ import annotations
 
 import argparse
@@ -69,13 +70,23 @@ def upsert_snapshot(conn, snap_date: date, items: list[dict]) -> int:
                     ref_date = date.fromisoformat(ref_date)
                 except ValueError:
                     ref_date = None
-            cur.execute(sql, (
-                snap_date, it["ticker"], it["signal"],
-                it.get("predicted_log_return"), it.get("predicted_return_pct"),
-                ref_date, it.get("th_buy"), it.get("th_sell"),
-                it.get("horizon_days"), it.get("best_sharpe"),
-                it.get("signal_method"), it.get("model_file"),
-            ))
+            cur.execute(
+                sql,
+                (
+                    snap_date,
+                    it["ticker"],
+                    it["signal"],
+                    it.get("predicted_log_return"),
+                    it.get("predicted_return_pct"),
+                    ref_date,
+                    it.get("th_buy"),
+                    it.get("th_sell"),
+                    it.get("horizon_days"),
+                    it.get("best_sharpe"),
+                    it.get("signal_method"),
+                    it.get("model_file"),
+                ),
+            )
             n += 1
     return n
 
@@ -103,9 +114,16 @@ def detect_changes(conn, snap_date: date) -> list[dict]:
     with conn.cursor() as cur:
         cur.execute(sql, (snap_date, snap_date))
         rows = cur.fetchall()
-    return [{"ticker": r[0], "prev": r[1], "curr": r[2],
-             "sharpe": float(r[3]) if r[3] is not None else None,
-             "prev_date": r[4]} for r in rows]
+    return [
+        {
+            "ticker": r[0],
+            "prev": r[1],
+            "curr": r[2],
+            "sharpe": float(r[3]) if r[3] is not None else None,
+            "prev_date": r[4],
+        }
+        for r in rows
+    ]
 
 
 def parse_args():
@@ -128,7 +146,7 @@ def main() -> int:
         print(f"FAIL fetch /signals: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
 
-    counts = {k: data.get(k) for k in ["count","buy","sell","hold","errors"]}
+    counts = {k: data.get(k) for k in ["count", "buy", "sell", "hold", "errors"]}
     print(f"  api: {counts}")
     items = [i for i in data.get("items", []) if i.get("signal")]
     print(f"  items com signal: {len(items)}")
@@ -154,7 +172,7 @@ def main() -> int:
                     s += f"  (anterior {c['prev_date']})"
                 print(s)
             if len(changes) > 30:
-                print(f"  ... +{len(changes)-30} mudancas")
+                print(f"  ... +{len(changes) - 30} mudancas")
     finally:
         conn.close()
     return 0

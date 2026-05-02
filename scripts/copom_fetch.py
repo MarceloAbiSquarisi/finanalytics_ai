@@ -9,6 +9,7 @@ Fontes:
 Armazena em copom_documents (ON CONFLICT UPDATE). Se a fonte primaria (API)
 falhar, tenta cache local em data/copom_index.json de execucao anterior.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -30,9 +31,9 @@ DSN = os.environ.get(
 )
 
 BCB_BASE = "https://www.bcb.gov.br"
-MINUTES_EP      = f"{BCB_BASE}/api/servico/sitebcb/copomminutes/ultimas"
-COMUNICADOS_EP  = f"{BCB_BASE}/api/servico/sitebcb/copomcomunicados/ultimas"
-SGS_SELIC       = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados?formato=json"
+MINUTES_EP = f"{BCB_BASE}/api/servico/sitebcb/copomminutes/ultimas"
+COMUNICADOS_EP = f"{BCB_BASE}/api/servico/sitebcb/copomcomunicados/ultimas"
+SGS_SELIC = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados?formato=json"
 
 CACHE_DIR = Path(__file__).resolve().parent.parent / "data" / "copom"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -44,11 +45,13 @@ def http_json_retry(url: str, params: dict | None = None, attempts: int = 5) -> 
     for i in range(attempts):
         try:
             r = requests.get(url, params=params, timeout=20, headers=HEADERS)
-            if r.status_code == 200 and r.headers.get("Content-Type", "").startswith("application/json"):
+            if r.status_code == 200 and r.headers.get("Content-Type", "").startswith(
+                "application/json"
+            ):
                 return r.json()
         except Exception as exc:
-            print(f"  http {url} attempt {i+1}: {type(exc).__name__}: {str(exc)[:80]}")
-        backoff = 2 ** i + (i * 2)
+            print(f"  http {url} attempt {i + 1}: {type(exc).__name__}: {str(exc)[:80]}")
+        backoff = 2**i + (i * 2)
         print(f"  retry in {backoff}s (status {r.status_code if 'r' in dir() else '?'})")
         time.sleep(backoff)
     return None
@@ -82,10 +85,12 @@ def fetch_pdf_text(url: str) -> str | None:
         ctype = r.headers.get("Content-Type", "").lower()
         if "pdf" in ctype or url.lower().endswith(".pdf"):
             from pypdf import PdfReader
+
             pdf = PdfReader(io.BytesIO(r.content))
             return "\n".join((p.extract_text() or "") for p in pdf.pages)
         # HTML fallback
         from bs4 import BeautifulSoup
+
         soup = BeautifulSoup(r.text, "html.parser")
         for s in soup(["script", "style", "nav", "footer", "header"]):
             s.decompose()
@@ -113,9 +118,14 @@ def upsert_doc(conn, doc: dict) -> None:
                 fetched_at=now()
             """,
             (
-                doc["doc_date"], doc["doc_type"], doc.get("title"),
-                doc.get("url"), doc.get("text_pt"), doc.get("text_en"),
-                doc.get("selic_target"), doc.get("selic_change"),
+                doc["doc_date"],
+                doc["doc_type"],
+                doc.get("title"),
+                doc.get("url"),
+                doc.get("text_pt"),
+                doc.get("text_en"),
+                doc.get("selic_target"),
+                doc.get("selic_change"),
             ),
         )
 
@@ -164,21 +174,21 @@ def parse_api_item(item: dict, doc_type: str, lang: str) -> dict | None:
     return {
         "doc_date": doc_date,
         "doc_type": doc_type,
-        "title":    item.get("Titulo"),
-        "url":      url,
-        "text_pt":  None,
-        "text_en":  None,
-        "_lang":    lang,  # para saber onde gravar o texto extraido
+        "title": item.get("Titulo"),
+        "url": url,
+        "text_pt": None,
+        "text_en": None,
+        "_lang": lang,  # para saber onde gravar o texto extraido
     }
 
 
 def parse_args():
     ap = argparse.ArgumentParser()
     ap.add_argument("--max-items", type=int, default=500)
-    ap.add_argument("--fetch-texts", action="store_true",
-                    help="Baixa PDFs/HTMLs (mais lento; idempotente)")
-    ap.add_argument("--since", default="2010-01-01",
-                    help="So processa docs com data >= esta")
+    ap.add_argument(
+        "--fetch-texts", action="store_true", help="Baixa PDFs/HTMLs (mais lento; idempotente)"
+    )
+    ap.add_argument("--since", default="2010-01-01", help="So processa docs com data >= esta")
     return ap.parse_args()
 
 
@@ -187,8 +197,8 @@ def main() -> int:
     since = date.fromisoformat(args.since)
 
     # 1. Indices
-    minutes   = fetch_index(MINUTES_EP,     args.max_items, "minutes_index.json")
-    comunic   = fetch_index(COMUNICADOS_EP, args.max_items, "comunicados_index.json")
+    minutes = fetch_index(MINUTES_EP, args.max_items, "minutes_index.json")
+    comunic = fetch_index(COMUNICADOS_EP, args.max_items, "comunicados_index.json")
     print(f"\nbrutos: minutes={len(minutes)}, comunicados={len(comunic)}")
 
     docs: list[dict] = []
@@ -242,7 +252,9 @@ def main() -> int:
         cur.execute("SELECT doc_type, count(*) FROM copom_documents GROUP BY doc_type")
         for row in cur.fetchall():
             print(f"  {row[0]}: {row[1]}")
-        cur.execute("SELECT count(*) FROM copom_documents WHERE text_pt IS NOT NULL OR text_en IS NOT NULL")
+        cur.execute(
+            "SELECT count(*) FROM copom_documents WHERE text_pt IS NOT NULL OR text_en IS NOT NULL"
+        )
         print(f"  com texto: {cur.fetchone()[0]}")
 
     return 0

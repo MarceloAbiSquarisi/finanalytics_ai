@@ -63,30 +63,34 @@ SSE_CODE = """
 // ── Fim SSE ──────────────────────────────────────────────────────────────────
 """
 
-with open(path, encoding='utf-8') as f:
+with open(path, encoding="utf-8") as f:
     content = f.read()
 
-if 'live-price-' in content or '_liveSSE' in content:
+if "live-price-" in content or "_liveSSE" in content:
     print("SSE ja injetado")
 else:
     # Injeta antes do </script> mais proximo do </body>
     # Estrategia: encontra o ultimo </script> antes de </body>
-    body_idx = content.rfind('</body>')
+    body_idx = content.rfind("</body>")
     if body_idx == -1:
         print("ERRO: </body> nao encontrado")
     else:
         # Encontra o </script> imediatamente antes de </body>
-        script_close = content.rfind('</script>', 0, body_idx)
+        script_close = content.rfind("</script>", 0, body_idx)
         if script_close == -1:
             # Sem </script> — injeta como novo bloco antes de </body>
             inject_at = body_idx
-            inject_block = '<script>' + SSE_CODE + '</script>\n'
+            inject_block = "<script>" + SSE_CODE + "</script>\n"
         else:
             # Injeta dentro do ultimo bloco script
             inject_at = script_close
             inject_block = SSE_CODE
 
         new_content = content[:inject_at] + inject_block + content[inject_at:]
-        with open(path, 'w', encoding='utf-8') as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write(new_content)
-        print("OK - SSE injetado no dashboard.html (linha ~" + str(content[:inject_at].count(chr(10))) + ")")
+        print(
+            "OK - SSE injetado no dashboard.html (linha ~"
+            + str(content[:inject_at].count(chr(10)))
+            + ")"
+        )

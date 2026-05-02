@@ -25,6 +25,7 @@ Uso:
   .venv\\Scripts\\python.exe scripts\\migration_unify_accounts.py
   .venv\\Scripts\\python.exe scripts\\migration_unify_accounts.py --drop
 """
+
 from __future__ import annotations
 
 import argparse
@@ -102,7 +103,9 @@ async def main(drop: bool) -> None:
                     SELECT DISTINCT user_id FROM investment_accounts
                 """)
                 if not users_with_accounts:
-                    print(f"    ! Nenhum user com investment_account — pulando trading_account {ta['uuid']}")
+                    print(
+                        f"    ! Nenhum user com investment_account — pulando trading_account {ta['uuid']}"
+                    )
                     continue
 
                 for u in users_with_accounts:
@@ -110,30 +113,43 @@ async def main(drop: bool) -> None:
                     # Cria stub se nao houver investment_account com label similar
                     label_hint = ta["label"] or f"Conta DLL {ta['broker_id']}/{ta['account_id']}"
                     # Procura conta que ja tenha as creds DLL dessa trading_account
-                    existing = await conn.fetchrow("""
+                    existing = await conn.fetchrow(
+                        """
                         SELECT id FROM investment_accounts
                         WHERE user_id = $1
                           AND dll_broker_id = $2
                           AND dll_account_id = $3
-                    """, user_id, ta["broker_id"], ta["account_id"])
+                    """,
+                        user_id,
+                        ta["broker_id"],
+                        ta["account_id"],
+                    )
 
                     if existing:
-                        print(f"    - user={user_id[:8]} ja tem conta DLL {ta['broker_id']}/{ta['account_id']} — skip")
+                        print(
+                            f"    - user={user_id[:8]} ja tem conta DLL {ta['broker_id']}/{ta['account_id']} — skip"
+                        )
                         continue
 
                     # Se o user tem uma unica investment_account e ela nao tem DLL ainda, anexa
-                    user_accounts = await conn.fetch("""
+                    user_accounts = await conn.fetch(
+                        """
                         SELECT id, apelido FROM investment_accounts
                         WHERE user_id = $1 AND dll_broker_id IS NULL
-                    """, user_id)
+                    """,
+                        user_id,
+                    )
 
                     if ta["account_type"] == "simulator":
                         # Conta simulador: cria uma stub dedicada (ou anexa se for unica)
                         if len(user_accounts) == 1:
                             target = user_accounts[0]
-                            print(f"    → anexando creds SIM em conta existente user={user_id[:8]} "
-                                  f"conta={target['apelido'] or target['id'][:8]}")
-                            await conn.execute("""
+                            print(
+                                f"    → anexando creds SIM em conta existente user={user_id[:8]} "
+                                f"conta={target['apelido'] or target['id'][:8]}"
+                            )
+                            await conn.execute(
+                                """
                                 UPDATE investment_accounts
                                 SET dll_broker_id = $1,
                                     dll_account_id = $2,
@@ -143,15 +159,22 @@ async def main(drop: bool) -> None:
                                     is_dll_active = $5,
                                     updated_at = NOW()
                                 WHERE id = $6
-                            """, ta["broker_id"], ta["account_id"],
-                                ta["sub_account_id"], ta["routing_password"],
-                                ta["status"] == "active", target["id"])
+                            """,
+                                ta["broker_id"],
+                                ta["account_id"],
+                                ta["sub_account_id"],
+                                ta["routing_password"],
+                                ta["status"] == "active",
+                                target["id"],
+                            )
                         else:
                             # Stub dedicada de simulador
                             import uuid
+
                             stub_id = str(uuid.uuid4())
                             print(f"    → criando stub SIM user={user_id[:8]} id={stub_id[:8]}")
-                            await conn.execute("""
+                            await conn.execute(
+                                """
                                 INSERT INTO investment_accounts (
                                     id, user_id, institution_name, institution_code,
                                     agency, account_number, account_type,
@@ -167,16 +190,26 @@ async def main(drop: bool) -> None:
                                     $7, 'simulator', $8,
                                     NOW(), NOW()
                                 )
-                            """, stub_id, user_id, ta["label"] or "Simulador",
-                                ta["broker_id"], ta["account_id"], ta["sub_account_id"],
-                                ta["routing_password"], ta["status"] == "active")
+                            """,
+                                stub_id,
+                                user_id,
+                                ta["label"] or "Simulador",
+                                ta["broker_id"],
+                                ta["account_id"],
+                                ta["sub_account_id"],
+                                ta["routing_password"],
+                                ta["status"] == "active",
+                            )
                     else:  # real
                         # Conta real: se houver unica investment_account sem DLL, anexa
                         if len(user_accounts) == 1:
                             target = user_accounts[0]
-                            print(f"    → anexando creds REAL em conta existente user={user_id[:8]} "
-                                  f"conta={target['apelido'] or target['id'][:8]}")
-                            await conn.execute("""
+                            print(
+                                f"    → anexando creds REAL em conta existente user={user_id[:8]} "
+                                f"conta={target['apelido'] or target['id'][:8]}"
+                            )
+                            await conn.execute(
+                                """
                                 UPDATE investment_accounts
                                 SET dll_broker_id = $1,
                                     dll_account_id = $2,
@@ -186,15 +219,22 @@ async def main(drop: bool) -> None:
                                     is_dll_active = $5,
                                     updated_at = NOW()
                                 WHERE id = $6
-                            """, ta["broker_id"], ta["account_id"],
-                                ta["sub_account_id"], ta["routing_password"],
-                                ta["status"] == "active", target["id"])
+                            """,
+                                ta["broker_id"],
+                                ta["account_id"],
+                                ta["sub_account_id"],
+                                ta["routing_password"],
+                                ta["status"] == "active",
+                                target["id"],
+                            )
                         else:
                             # Stub dedicada
                             import uuid
+
                             stub_id = str(uuid.uuid4())
                             print(f"    → criando stub REAL user={user_id[:8]} id={stub_id[:8]}")
-                            await conn.execute("""
+                            await conn.execute(
+                                """
                                 INSERT INTO investment_accounts (
                                     id, user_id, institution_name, institution_code,
                                     agency, account_number, account_type,
@@ -210,10 +250,18 @@ async def main(drop: bool) -> None:
                                     $9, 'real', $10,
                                     NOW(), NOW()
                                 )
-                            """, stub_id, user_id, f"Corretora {ta['broker_id']}", ta["broker_id"],
+                            """,
+                                stub_id,
+                                user_id,
+                                f"Corretora {ta['broker_id']}",
+                                ta["broker_id"],
                                 ta["label"] or f"Conta {ta['account_id']}",
-                                ta["broker_id"], ta["account_id"], ta["sub_account_id"],
-                                ta["routing_password"], ta["status"] == "active")
+                                ta["broker_id"],
+                                ta["account_id"],
+                                ta["sub_account_id"],
+                                ta["routing_password"],
+                                ta["status"] == "active",
+                            )
 
         # 4. DROP trading_accounts (se --drop)
         if drop:
@@ -238,11 +286,15 @@ async def main(drop: bool) -> None:
         for r in rows:
             dll_info = ""
             if r["dll_broker_id"]:
-                dll_info = f" DLL={r['dll_broker_id']}/{r['dll_account_id']} ({r['dll_account_type']})"
+                dll_info = (
+                    f" DLL={r['dll_broker_id']}/{r['dll_account_id']} ({r['dll_account_type']})"
+                )
                 if r["is_dll_active"]:
                     dll_info += " ★ ACTIVE"
-            print(f"  {r['id'][:8]} user={r['user_id'][:8]} {r['apelido'] or '(sem apelido)':<25} "
-                  f"{r['institution_name']:<20}{dll_info}")
+            print(
+                f"  {r['id'][:8]} user={r['user_id'][:8]} {r['apelido'] or '(sem apelido)':<25} "
+                f"{r['institution_name']:<20}{dll_info}"
+            )
 
     finally:
         await conn.close()

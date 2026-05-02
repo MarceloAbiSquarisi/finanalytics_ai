@@ -31,6 +31,7 @@ Revision ID: 0018_portfolio_per_account
 Revises: 0017_user_is_admin_flag
 Create Date: 2026-04-25
 """
+
 from alembic import op
 import sqlalchemy as sa
 
