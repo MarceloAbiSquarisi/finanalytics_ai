@@ -235,3 +235,97 @@ class TestFetchBars:
             f = HttpCandleFetcher("http://api:8000")
             out = f.fetch_bars("PETR4", n=1)
         assert out == [{"close": 50.0, "high": 51.0, "low": 49.0}]
+
+
+# ── fetch_daily_bars (R2 step pré-smoke 04/mai) ───────────────────────────────
+
+
+class TestFetchDailyBars:
+    def test_calls_candles_daily_endpoint(self) -> None:
+        captured: dict = {}
+
+        def handler(req: httpx.Request) -> httpx.Response:
+            captured["url"] = str(req.url)
+            return httpx.Response(
+                200,
+                json={
+                    "ticker": "PETR4",
+                    "resolution": "1d",
+                    "candles": [
+                        {"ts": "2025-01-01T00:00:00", "open": 30.0, "high": 30.5,
+                         "low": 29.5, "close": 30.0, "volume": 1000.0},
+                        {"ts": "2025-01-02T00:00:00", "open": 30.0, "high": 31.0,
+                         "low": 30.0, "close": 30.8, "volume": 1500.0},
+                    ],
+                },
+            )
+
+        with _patched_client(_mock_transport(handler)):
+            f = HttpCandleFetcher("http://api:8000")
+            out = f.fetch_daily_bars("PETR4", n=300)
+
+        assert "candles_daily/PETR4" in captured["url"]
+        assert "n=300" in captured["url"]
+        assert out is not None
+        assert len(out) == 2
+        # Normaliza ts -> time (compat com strategies que iteram bars[i]["time"])
+        assert out[0]["time"] == "2025-01-01T00:00:00"
+        assert out[0]["close"] == 30.0
+        assert out[1]["close"] == 30.8
+
+    def test_returns_only_last_n(self) -> None:
+        bars = [
+            {"ts": f"2025-01-{i:02d}T00:00:00", "close": float(i)} for i in range(1, 11)
+        ]
+
+        def handler(req):
+            return httpx.Response(200, json={"candles": bars})
+
+        with _patched_client(_mock_transport(handler)):
+            f = HttpCandleFetcher("http://api:8000")
+            out = f.fetch_daily_bars("PETR4", n=3)
+
+        assert out is not None
+        assert len(out) == 3
+        assert [b["close"] for b in out] == [8.0, 9.0, 10.0]
+
+    def test_empty_candles_returns_none(self) -> None:
+        def handler(req):
+            return httpx.Response(200, json={"candles": []})
+
+        with _patched_client(_mock_transport(handler)):
+            f = HttpCandleFetcher("http://api:8000")
+            assert f.fetch_daily_bars("XXXX", n=300) is None
+
+    def test_http_error_returns_none(self) -> None:
+        def handler(req):
+            return httpx.Response(503, json={"error": "db down"})
+
+        with _patched_client(_mock_transport(handler)):
+            f = HttpCandleFetcher("http://api:8000")
+            assert f.fetch_daily_bars("PETR4", n=300) is None
+
+    def test_network_exception_returns_none(self) -> None:
+        def handler(req):
+            raise httpx.ConnectError("conn refused")
+
+        with _patched_client(_mock_transport(handler)):
+            f = HttpCandleFetcher("http://api:8000")
+            assert f.fetch_daily_bars("PETR4", n=300) is None
+
+    def test_accepts_time_key_as_alternative_to_ts(self) -> None:
+        """Endpoint pode retornar 'time' em vez de 'ts' — fetcher deve aceitar."""
+
+        def handler(req):
+            return httpx.Response(
+                200,
+                json={"candles": [{"time": "2025-01-01", "close": 30.0}]},
+            )
+
+        with _patched_client(_mock_transport(handler)):
+            f = HttpCandleFetcher("http://api:8000")
+            out = f.fetch_daily_bars("PETR4", n=10)
+
+        assert out is not None
+        assert out[0]["ts"] == "2025-01-01"
+        assert out[0]["time"] == "2025-01-01"

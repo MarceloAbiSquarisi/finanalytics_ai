@@ -517,6 +517,95 @@ async def get_candles(
         return JSONResponse({"error": str(e)}, status_code=503)
 
 
+@router.get("/candles_daily/{ticker}")
+async def get_candles_daily(
+    ticker: str,
+    n: int = Query(300, ge=10, le=5000, description="Número máximo de daily bars retornados"),
+) -> Any:
+    """
+    Daily OHLC bars com UNION cross-source + dedup (R2 step pré-smoke 04/mai).
+
+    Distingue-se do `/candles` (que faz bucket por resolution sobre ohlc_1m+
+    ohlc_1m_from_ticks): aqui retornamos sempre DAILY, com fontes priorizadas
+    para máxima cobertura histórica:
+      1. profit_daily_bars (DLL pre-aggregated, ~mais recentes p/ tickers DLL)
+      2. ohlc_1m daily_agg (BRAPI ingestor, gap-fill recente)
+      3. fintz_cotacoes_ts (histórico longo 2010+, freezado 2025-11-03)
+
+    Dedup: COALESCE por data — primeira fonte ganha. Útil pra TSMOM 252d
+    e estratégias com lookback longo onde nenhuma fonte cobre sozinha.
+
+    Limit n é DEPOIS do dedup; por isso podemos puxar 13mo (390d) e dedup
+    pra ~252-300 bars sem cortar Fintz cedo.
+    """
+    t = _sanitize_ticker(ticker)
+    ticker_set = _resolve_futures_aliases(t)
+
+    sql = """
+        WITH daily_bars AS (
+            SELECT time::date AS dt, open::float, high::float, low::float, close::float,
+                   volume::float, 1 AS prio
+            FROM profit_daily_bars
+            WHERE ticker = ANY($1) AND time >= NOW() - INTERVAL '24 months'
+        ),
+        ohlc_1m_daily AS (
+            SELECT time::date AS dt,
+                   (array_agg(open  ORDER BY time ASC))[1]  AS open,
+                   MAX(high)::float                          AS high,
+                   MIN(low)::float                           AS low,
+                   (array_agg(close ORDER BY time DESC))[1] AS close,
+                   SUM(volume)::float                        AS volume,
+                   2 AS prio
+            FROM ohlc_1m
+            WHERE ticker = ANY($1) AND time >= NOW() - INTERVAL '24 months'
+            GROUP BY time::date
+        ),
+        fintz_daily AS (
+            SELECT time::date AS dt,
+                   preco_abertura::float AS open, preco_maximo::float AS high,
+                   preco_minimo::float AS low,
+                   preco_fechamento_ajustado::float AS close,
+                   COALESCE(volume_negociado, 0)::float AS volume,
+                   3 AS prio
+            FROM fintz_cotacoes_ts
+            WHERE ticker = ANY($1) AND time >= NOW() - INTERVAL '24 months'
+              AND preco_fechamento_ajustado IS NOT NULL
+        ),
+        combined AS (
+            SELECT * FROM daily_bars
+            UNION ALL
+            SELECT dt, open::float, high::float, low::float, close::float, volume, prio
+            FROM ohlc_1m_daily
+            UNION ALL
+            SELECT * FROM fintz_daily
+        ),
+        dedup AS (
+            SELECT DISTINCT ON (dt) dt, open, high, low, close, volume
+            FROM combined
+            ORDER BY dt ASC, prio ASC
+        )
+        SELECT dt::timestamp AS ts, open, high, low, close, volume
+        FROM dedup
+        ORDER BY ts DESC
+        LIMIT $2
+    """
+    try:
+        conn = await _conn()
+        try:
+            rows = await conn.fetch(sql, ticker_set, n)
+        finally:
+            await conn.close()
+        # Reverter pra ASC (mais antigo primeiro — convenção de strategies)
+        rows_asc = list(reversed(rows))
+        return {
+            "ticker": t,
+            "resolution": "1d",
+            "candles": [dict(r) for r in rows_asc],
+        }
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+
+
 @router.get("/volume/{ticker}")
 async def get_volume(ticker: str) -> Any:
     t = _sanitize_ticker(ticker)

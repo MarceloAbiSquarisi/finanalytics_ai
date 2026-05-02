@@ -270,8 +270,14 @@ class MLSignalsStrategy:
     def _fetch_bars(
         self, ticker: str, n: int, range_period: str = "3mo"
     ) -> list[dict[str, Any]] | None:
-        """Busca daily bars via HttpCandleFetcher (DRY com worker pairs flow)."""
-        return self._candle_fetcher.fetch_bars(ticker, n=n, range_period=range_period)
+        """Busca daily bars via HttpCandleFetcher (DRY com worker pairs flow).
+
+        Usa endpoint `/candles_daily` (UNION profit_daily_bars + ohlc_1m +
+        fintz_cotacoes_ts com dedup) para garantir cobertura de lookbacks
+        longos (>3mo). O parâmetro `range_period` é mantido para compat
+        retro mas não afeta a query (o endpoint daily ignora).
+        """
+        return self._candle_fetcher.fetch_daily_bars(ticker, n=n)
 
 
 # ── TSMOM ∩ ML Overlay (R2) ──────────────────────────────────────────────────
