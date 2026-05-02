@@ -3483,6 +3483,16 @@ class ProfitAgent:
             "stop_loss": sl_info,
         }
 
+    def _load_pending_orders_from_db(self, *args, **kwargs):
+        from finanalytics_ai.workers.profit_agent_watch import load_pending_orders_from_db
+
+        return load_pending_orders_from_db(self, *args, **kwargs)
+
+    def _watch_pending_orders_loop(self, *args, **kwargs):
+        from finanalytics_ai.workers.profit_agent_watch import watch_pending_orders_loop
+
+        return watch_pending_orders_loop(self, *args, **kwargs)
+
     def _load_oco_legacy_pairs_from_db(self, *args, **kwargs):
         from finanalytics_ai.workers.profit_agent_oco import load_oco_legacy_pairs_from_db
 

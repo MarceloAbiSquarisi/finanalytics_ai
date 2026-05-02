@@ -31,6 +31,10 @@ def start_http_server(agent, port: int) -> None:
     # Mata zombies de boots anteriores ANTES de tentar bind (P6/O1 fix 28/abr).
     # NSSM restart pode deixar processo velho ainda LISTENING mesmo com PID novo
     # subindo, criando dois listeners em :8002 e quebrando state in-memory.
+    # Import local porque _kill_zombie_agents vive em profit_agent.py e
+    # importar no topo causaria circular import (profit_agent.py importa este
+    # módulo). Regressão da cleanup 01/mai — fix 02/mai.
+    from finanalytics_ai.workers.profit_agent import _kill_zombie_agents
     _kill_zombie_agents(os.getpid(), port)
 
     # agent recebido como parametro

@@ -57,7 +57,7 @@ def load_oco_legacy_pairs_from_db(agent) -> int:
     except Exception as exc:
         log.warning("oco_legacy.load_failed err=%s", exc)
         return 0
-    if not hasattr(self, "_oco_pairs"):
+    if not hasattr(agent, "_oco_pairs"):
         agent._oco_pairs = {}
     loaded = 0
     for sl_row in rows:
@@ -105,7 +105,7 @@ def oco_monitor_loop(agent) -> None:
     log.info("oco_monitor.started")
     while not agent._stop_event.is_set():
         try:
-            if hasattr(self, "_oco_pairs") and agent._oco_pairs:
+            if hasattr(agent, "_oco_pairs") and agent._oco_pairs:
                 # Obtém status atual de todas as ordens
                 result = agent.get_positions_dll()
                 orders_by_id = {o["local_id"]: o for o in result.get("orders", [])}
@@ -278,7 +278,7 @@ def attach_oco(self, params: dict) -> dict:
             level_ids.append(lvl_row[0])
 
         # 4. State em memória
-        if not hasattr(self, "_oco_groups"):
+        if not hasattr(agent, "_oco_groups"):
             agent._oco_groups = {}
             agent._order_to_group = {}
         agent._oco_groups[group_id] = {
@@ -613,7 +613,7 @@ def oco_groups_monitor_loop(agent) -> None:
     log.info("oco_groups_monitor.started")
     while not agent._stop_event.is_set():
         try:
-            if hasattr(self, "_oco_groups") and agent._oco_groups:
+            if hasattr(agent, "_oco_groups") and agent._oco_groups:
                 result = agent.get_positions_dll()
                 orders_by_id = {o["local_id"]: o for o in result.get("orders", [])}
                 groups_snapshot = list(agent._oco_groups.items())
@@ -901,11 +901,11 @@ def trail_monitor_loop(agent) -> None:
     Roda a cada 1s — balance entre responsividade e overhead.
     """
     log.info("trail_monitor.started")
-    if not hasattr(self, "_trail_last_log_ts"):
+    if not hasattr(agent, "_trail_last_log_ts"):
         agent._trail_last_log_ts: dict[str, float] = {}
     while not agent._stop_event.is_set():
         try:
-            if not hasattr(self, "_oco_groups") or not agent._oco_groups:
+            if not hasattr(agent, "_oco_groups") or not agent._oco_groups:
                 time.sleep(1.0)
                 continue
             groups_snap = list(agent._oco_groups.items())
@@ -992,7 +992,9 @@ def trail_monitor_loop(agent) -> None:
                         cd_ts = lv.get("_trail_fallback_cooldown_until", 0)
                         if time.time() < cd_ts:
                             continue
-                        agent._trail_fallback_count = getattr(self, "_trail_fallback_count", 0) + 1
+                        agent._trail_fallback_count = (
+                            getattr(agent, "_trail_fallback_count", 0) + 1
+                        )
                         log.warning(
                             "trailing.change_failed_fallback_to_cancel_create "
                             "group=%s lv=%d new_sl=%.4f ret=%s",
@@ -1079,7 +1081,7 @@ def trail_monitor_loop(agent) -> None:
                             "trail_high_water=%s, updated_at=NOW() WHERE level_id=%s",
                             (new_sl, new_lim, lv["trail_high_water"], lv["level_id"]),
                         )
-                        agent._trail_adjust_count = getattr(self, "_trail_adjust_count", 0) + 1
+                        agent._trail_adjust_count = getattr(agent, "_trail_adjust_count", 0) + 1
                         log.info(
                             "trailing.adjusted group=%s lv=%d hw=%.4f new_sl=%.4f",
                             group_id,
