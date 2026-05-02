@@ -18,6 +18,7 @@ Design decisions:
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
 import structlog
@@ -28,6 +29,12 @@ from finanalytics_ai.domain.value_objects.money import Ticker
 
 if TYPE_CHECKING:
     from finanalytics_ai.domain.ports.market_data import MarketDataProvider
+    from finanalytics_ai.infrastructure.database.repositories.delisted_tickers_repo import (
+        DelistingInfo,
+    )
+
+# R5 step 2: resolver opcional de delisting info (survivorship bias)
+DelistingResolver = Callable[[str], Awaitable["DelistingInfo | None"]]
 
 logger = structlog.get_logger(__name__)
 
@@ -43,8 +50,15 @@ class BacktestService:
     Injeção de dependência explícita: recebe BrapiClient no construtor.
     """
 
-    def __init__(self, market_data: MarketDataProvider) -> None:
+    def __init__(
+        self,
+        market_data: MarketDataProvider,
+        delisting_resolver: DelistingResolver | None = None,
+    ) -> None:
         self._market = market_data
+        # R5 step 2: lookup opcional de delisting info por ticker. Se None,
+        # comportamento legacy (sem survivorship bias correction).
+        self._delisting_resolver = delisting_resolver
 
     async def run(
         self,
@@ -94,6 +108,25 @@ class BacktestService:
 
         log.info("backtest.data_loaded", bars=len(bars))
 
+        # 2.5. R5 step 2 — survivorship bias: se ticker e' delisted, resolver
+        # delisting_date + last_known_price p/ engine fazer force-close
+        delisting_date = None
+        last_known_price = None
+        if self._delisting_resolver is not None:
+            try:
+                info = await self._delisting_resolver(ticker)
+                if info is not None:
+                    delisting_date = info.delisting_date
+                    last_known_price = info.last_known_price
+                    log.info(
+                        "backtest.delisting_detected",
+                        delisting_date=delisting_date.isoformat(),
+                        last_known_price=last_known_price,
+                        source=info.source,
+                    )
+            except Exception as exc:
+                log.warning("backtest.delisting_resolver_failed", error=str(exc))
+
         # 3. Executa backtest
         result = run_backtest(
             bars=bars,
@@ -103,6 +136,8 @@ class BacktestService:
             position_size=position_size,
             commission_pct=commission_pct,
             range_period=range_period,
+            delisting_date=delisting_date,
+            last_known_price=last_known_price,
         )
 
         # Injeta params da estratégia no resultado

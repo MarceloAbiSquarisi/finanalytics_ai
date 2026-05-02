@@ -32,7 +32,7 @@ Design decisions:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 import math
 from typing import Any, Protocol, runtime_checkable
@@ -208,6 +208,8 @@ def run_backtest(
     apply_slippage_model: bool = True,  # R5: slippage por classe (futuros vs ações)
     slippage_model: str = "fixed",  # R5 follow-up: "fixed" | "adv"
     adv_lookback: int = 20,  # janela rolling p/ ADV-aware
+    delisting_date: date | None = None,  # R5 step 2: survivorship bias
+    last_known_price: float | None = None,  # close conhecido em delisting_date
 ) -> BacktestResult:
     """
     Engine de backtesting event-driven.
@@ -226,6 +228,15 @@ def run_backtest(
     Slippage details:
       - Aplicado SOBRE o close da barra antes de calcular qty/proceeds.
       - Trade.entry_price/exit_price registram o preço efetivo (com slippage).
+
+    Survivorship bias (R5 step 2):
+      Se `delisting_date` for passada:
+        - Bars com data >= delisting_date sao IGNORADAS (truncamento)
+        - Posicao aberta na delisting_date e' force-fechada com
+          last_known_price (ou bar.close se last_known_price=None)
+        - Slippage adicional NAO e' aplicado no force-close (delisting nao
+          permite negociacao normal).
+      Sem `delisting_date`: comportamento legacy (loop ate' fim das bars).
 
     Design: sem look-ahead bias — cada barra só vê dados até ela mesma.
     """
@@ -246,10 +257,51 @@ def run_backtest(
     signal_log: list[dict[str, Any]] = []
     peak_equity = initial_capital
 
+    delisted_force_close = False  # marca que ja fechamos via delisting (skip "fim do periodo")
     for i, (bar, signal) in enumerate(zip(bars, signals, strict=False)):
         price = float(bar["close"])
         ts = bar["time"]
-        date = datetime.fromtimestamp(ts) if isinstance(ts, (int, float)) else datetime.now(UTC)
+        bar_dt = datetime.fromtimestamp(ts) if isinstance(ts, (int, float)) else datetime.now(UTC)
+        date_var = bar_dt  # mantem nome legacy `date` no escopo abaixo
+
+        # R5 step 2: survivorship bias — trunca bars >= delisting_date
+        if delisting_date is not None and bar_dt.date() >= delisting_date:
+            if position > 0.0 and not delisted_force_close:
+                # Force-close com last_known_price (ou close da bar atual)
+                exit_px = (
+                    float(last_known_price) if last_known_price is not None else price
+                )
+                proceeds = position * exit_px
+                commission = proceeds * commission_pct
+                equity += proceeds - commission
+                trades.append(
+                    Trade(
+                        ticker=ticker,
+                        entry_date=entry_date,
+                        exit_date=bar_dt,
+                        entry_price=entry_price,
+                        exit_price=exit_px,
+                        quantity=position,
+                        entry_reason=entry_reason,
+                        exit_reason=f"DELISTED em {delisting_date.isoformat()}",
+                    )
+                )
+                position = 0.0
+                delisted_force_close = True
+                # Atualiza equity_curve com snapshot final + para o loop
+                equity_curve.append(
+                    {
+                        "time": ts,
+                        "equity": round(equity, 2),
+                        "drawdown": round(
+                            (peak_equity - equity) / peak_equity * 100 if peak_equity > 0 else 0.0,
+                            2,
+                        ),
+                    }
+                )
+            break  # bars posteriores ao delisting nao existem na realidade
+
+        date = date_var  # alias mantido para minimizar diff abaixo
 
         # Marca o sinal (loga o preço de mercado, não o efetivo — sinal é decisão)
         if signal != Signal.HOLD:
@@ -326,7 +378,8 @@ def run_backtest(
         )
 
     # Fecha posição aberta no último bar (força saída) — slippage aplicado igual SELL
-    if position > 0.0 and bars:
+    # Skip se ja' force-fechamos via delisting (R5 step 2)
+    if position > 0.0 and bars and not delisted_force_close:
         last_bar = bars[-1]
         last_price = float(last_bar["close"])
         last_idx = len(bars) - 1

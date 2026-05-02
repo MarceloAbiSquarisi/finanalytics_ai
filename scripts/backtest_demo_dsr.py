@@ -28,6 +28,7 @@ import json
 import os
 from pathlib import Path
 import sys
+from typing import Any
 
 # Garante import a partir da raiz do projeto
 ROOT = Path(__file__).resolve().parent.parent
@@ -105,6 +106,12 @@ def main() -> int:
         help="Persiste resultado em backtest_results (UPSERT por config_hash). "
         "Requer DATABASE_URL no .env e migration 0021 aplicada.",
     )
+    ap.add_argument(
+        "--respect-delisting",
+        action="store_true",
+        help="R5 step 2: consulta b3_delisted_tickers e passa delisting_date + "
+        "last_known_price ao engine p/ force-close (anti survivorship bias).",
+    )
     args = ap.parse_args()
 
     dsn = os.environ.get(
@@ -120,6 +127,19 @@ def main() -> int:
     print(f"   bars carregados: {len(bars)}")
     print(f"   slippage:        {'desativado (--no-slippage)' if args.no_slippage else 'ATIVO'}")
 
+    # R5 step 2 — survivorship bias
+    delisting_date = None
+    last_known_price = None
+    if args.respect_delisting:
+        delisting_date, last_known_price = _lookup_delisting(args.ticker)
+        if delisting_date:
+            print(
+                f"   delisting:       {args.ticker.upper()} delistou em "
+                f"{delisting_date} (last_close={last_known_price})"
+            )
+        else:
+            print(f"   delisting:       {args.ticker.upper()} nao consta como delisted")
+
     # Grid search com objetivo configuravel. valid_runs viraum N pra DSR.
     print("   rodando grid search...")
     result = grid_search(
@@ -130,6 +150,8 @@ def main() -> int:
         initial_capital=args.initial_capital,
         objective=OptimizationObjective(args.objective),
         top_n=10,
+        delisting_date=delisting_date,
+        last_known_price=last_known_price,
     )
 
     # Sumario humano
@@ -254,6 +276,41 @@ def _persist_to_db(args: argparse.Namespace, result: Any) -> None:
         asyncio.run(_do_save())
     except Exception as exc:
         print(f"!! Persistencia falhou: {exc}", file=sys.stderr)
+
+
+def _lookup_delisting(ticker: str) -> tuple[Any | None, float | None]:
+    """
+    Consulta b3_delisted_tickers (Postgres) p/ delisting_date + last_known_price.
+
+    Retorna (None, None) se ticker nao esta na tabela ou esta com delisting_date NULL.
+    Skip explicito para placeholders UNK_<cnpj>.
+    """
+    if ticker.upper().startswith("UNK_"):
+        return None, None
+    pg_dsn = os.environ.get(
+        "DATABASE_URL_SYNC",
+        "postgresql://finanalytics:secret@localhost:5432/finanalytics",
+    )
+    if "asyncpg" in pg_dsn:
+        pg_dsn = pg_dsn.replace("+asyncpg", "")
+    try:
+        with psycopg2.connect(pg_dsn) as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT delisting_date, last_known_price
+                FROM b3_delisted_tickers
+                WHERE ticker = %s AND delisting_date IS NOT NULL
+                LIMIT 1
+                """,
+                (ticker.upper(),),
+            )
+            row = cur.fetchone()
+        if not row:
+            return None, None
+        return row[0], float(row[1]) if row[1] is not None else None
+    except Exception as exc:
+        print(f"!! Lookup delisting falhou: {exc}", file=sys.stderr)
+        return None, None
 
 
 if __name__ == "__main__":

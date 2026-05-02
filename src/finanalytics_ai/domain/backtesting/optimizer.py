@@ -34,6 +34,7 @@ Design decisions:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from enum import StrEnum
 import itertools
 from typing import Any
@@ -197,6 +198,8 @@ def grid_search(
     objective: OptimizationObjective = OptimizationObjective.SHARPE,
     top_n: int = 10,
     custom_space: dict[str, list[Any]] | None = None,
+    delisting_date: date | None = None,
+    last_known_price: float | None = None,
 ) -> OptimizationResult:
     """
     Executa grid search sincronamente sobre os parametros da estrategia.
@@ -247,6 +250,8 @@ def grid_search(
                 position_size=position_size,
                 commission_pct=commission_pct,
                 range_period=range_period,
+                delisting_date=delisting_date,
+                last_known_price=last_known_price,
             )
             m = result.metrics
             is_valid = m.total_trades >= MIN_TRADES

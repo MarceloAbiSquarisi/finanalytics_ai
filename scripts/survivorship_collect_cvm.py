@@ -106,8 +106,11 @@ def upsert_delisted(dsn: str, rows: list[dict]) -> int:
     UPSERT em b3_delisted_tickers. ticker fica NULL no step 0.
 
     Como ticker e' PK, usamos um placeholder unique-per-cnpj enquanto nao
-    temos a bridge. Convenção: ticker = "UNK_<CNPJ_short>" — sera substituido
-    no step 1 quando bridge estiver pronta.
+    temos a bridge. Convenção: ticker = "UNK_<CNPJ_14digitos>" (18 chars
+    total) — sera substituido no step 1 quando bridge estiver pronta.
+
+    Usar 14 digitos completos (raiz+filial+verificador) garante unicidade
+    entre filiais que compartilham raiz CNPJ.
     """
     sql = """
         INSERT INTO b3_delisted_tickers
@@ -127,8 +130,10 @@ def upsert_delisted(dsn: str, rows: list[dict]) -> int:
     with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
         for r in rows:
             cnpj = r["cnpj"]
-            # ticker placeholder ate' step 1
-            ticker_placeholder = f"UNK_{cnpj.replace('/', '').replace('-', '').replace('.', '')[:8]}"
+            # ticker placeholder ate' step 1 — usa 14 digitos completos do
+            # cnpj (raiz+filial+verificador) p/ garantir unicidade
+            cnpj_clean = cnpj.replace("/", "").replace("-", "").replace(".", "")
+            ticker_placeholder = f"UNK_{cnpj_clean[:14]}"
             cur.execute(
                 sql,
                 (

@@ -13,7 +13,7 @@ Cobertura:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from unittest.mock import AsyncMock
 
 import pytest
@@ -401,6 +401,84 @@ class TestBacktestService:
         with pytest.raises(BacktestError, match="não encontrada"):
             await svc.run("PETR4", "invalid_strategy")
 
+    @pytest.mark.asyncio
+    async def test_delisting_resolver_passes_info_to_engine(self):
+        """R5 step 2: resolver retorna info -> engine recebe delisting_date."""
+        from finanalytics_ai.infrastructure.database.repositories.delisted_tickers_repo import (
+            DelistingInfo,
+        )
+
+        mock_brapi = AsyncMock()
+        # 60 bars com timestamps em 2024 cobrindo Jan-Mar
+        start_ts = int(datetime(2024, 1, 1).timestamp())
+        bars = [
+            {
+                "time": start_ts + i * 86400,
+                "open": 100.0,
+                "high": 101.0,
+                "low": 99.0,
+                "close": 100.0,
+                "volume": 1000,
+            }
+            for i in range(60)
+        ]
+        mock_brapi.get_ohlc_bars.return_value = bars
+
+        # Resolver retorna delisting em 2024-02-15 (~bar 45)
+        async def resolver(ticker: str):
+            return DelistingInfo(
+                ticker=ticker,
+                delisting_date=date(2024, 2, 15),
+                last_known_price=80.0,
+                source="FINTZ",
+            )
+
+        svc = BacktestService(mock_brapi, delisting_resolver=resolver)
+        result = await svc.run("DELISTED", "rsi", range_period="3mo")
+
+        # Equity curve foi truncado em torno do bar 45 (delisting_date)
+        assert result.bars_count == 60  # mantem original — informativo
+        assert len(result.equity_curve) <= 46  # truncado em delisting
+
+    @pytest.mark.asyncio
+    async def test_no_delisting_resolver_legacy_behavior(self):
+        """Sem resolver, behavior identico ao service legacy."""
+        mock_brapi = AsyncMock()
+        mock_brapi.get_ohlc_bars.return_value = _make_bars([100.0 + i * 0.5 for i in range(60)])
+
+        svc = BacktestService(mock_brapi)  # sem resolver
+        result = await svc.run("PETR4", "rsi")
+
+        assert len(result.equity_curve) == 60  # sem truncamento
+
+    @pytest.mark.asyncio
+    async def test_delisting_resolver_returns_none_no_truncation(self):
+        """Resolver retorna None (ticker nao delisted) -> behavior normal."""
+        mock_brapi = AsyncMock()
+        mock_brapi.get_ohlc_bars.return_value = _make_bars([100.0] * 60)
+
+        async def resolver_none(ticker: str):
+            return None
+
+        svc = BacktestService(mock_brapi, delisting_resolver=resolver_none)
+        result = await svc.run("PETR4", "rsi")
+
+        assert len(result.equity_curve) == 60
+
+    @pytest.mark.asyncio
+    async def test_delisting_resolver_exception_logged_not_raised(self):
+        """Resolver levanta exception -> service loga e continua sem truncar."""
+        mock_brapi = AsyncMock()
+        mock_brapi.get_ohlc_bars.return_value = _make_bars([100.0] * 60)
+
+        async def resolver_boom(ticker: str):
+            raise RuntimeError("DB offline")
+
+        svc = BacktestService(mock_brapi, delisting_resolver=resolver_boom)
+        # Nao deve raise — fail-open
+        result = await svc.run("PETR4", "rsi")
+        assert len(result.equity_curve) == 60
+
 
 # ── Engine ADV-aware slippage (R5 follow-up) ──────────────────────────────────
 
@@ -540,3 +618,136 @@ class TestEngineADVAwareSlippage:
         eq_fixed = result_fixed.equity_curve[-1]["equity"]
         eq_adv = result_adv.equity_curve[-1]["equity"]
         assert eq_fixed == pytest.approx(eq_adv)
+
+
+# ── Survivorship bias (R5 step 2) ─────────────────────────────────────────────
+
+
+def _bars_with_dates(prices: list[float], start: datetime) -> list[dict]:
+    """Bars com timestamps reais a partir de uma data inicial."""
+    return [
+        {
+            "time": int((start.replace(hour=0)).timestamp()) + i * 86400,
+            "open": p,
+            "high": p * 1.01,
+            "low": p * 0.99,
+            "close": p,
+            "volume": 1000,
+        }
+        for i, p in enumerate(prices)
+    ]
+
+
+class TestEngineSurvivorshipBias:
+    """Engine respeita delisting_date — force-close + truncamento de bars."""
+
+    def test_no_delisting_date_legacy_behavior(self):
+        """Sem delisting_date, comportamento original (compat retro)."""
+        bars = _make_bars([100.0] * 20)
+
+        class BuyHoldStrategy:
+            name = "buy_hold"
+
+            def generate_signals(self, b):
+                s = [Signal.HOLD] * len(b)
+                s[2] = Signal.BUY
+                return s
+
+        result = run_backtest(bars, BuyHoldStrategy(), "T", commission_pct=0.0)
+        assert len(result.trades) == 1
+        assert result.trades[0].exit_reason == "Fim do período"
+        assert result.bars_count == 20
+
+    def test_delisting_force_close_with_last_known_price(self):
+        """Posicao aberta na delisting_date fecha com last_known_price."""
+        # 20 bars, ticker "delista" no bar 10 (date depende de start)
+        start = datetime(2024, 1, 1)
+        bars = _bars_with_dates([100.0] * 20, start)
+        delisting = (start + (datetime(2024, 1, 11) - start)).date()  # bar 10 = 2024-01-11
+
+        class BuyEarlyStrategy:
+            name = "buy_early"
+
+            def generate_signals(self, b):
+                s = [Signal.HOLD] * len(b)
+                s[2] = Signal.BUY
+                return s
+
+        result = run_backtest(
+            bars,
+            BuyEarlyStrategy(),
+            "DELISTED",
+            commission_pct=0.0,
+            delisting_date=delisting,
+            last_known_price=85.0,
+        )
+        assert len(result.trades) == 1
+        t = result.trades[0]
+        assert t.exit_price == pytest.approx(85.0)
+        assert t.exit_reason == f"DELISTED em {delisting.isoformat()}"
+
+    def test_delisting_truncates_subsequent_bars(self):
+        """Bars >= delisting_date sao ignoradas no equity_curve."""
+        start = datetime(2024, 1, 1)
+        bars = _bars_with_dates([100.0] * 30, start)
+        delisting = date(2024, 1, 11)  # bar 10
+
+        class HoldStrategy:
+            name = "hold"
+
+            def generate_signals(self, b):
+                return [Signal.HOLD] * len(b)
+
+        result = run_backtest(
+            bars,
+            HoldStrategy(),
+            "DELISTED",
+            delisting_date=delisting,
+        )
+        # Equity curve nao inclui bars 10..29 (10 bars truncadas)
+        assert len(result.equity_curve) <= 10
+
+    def test_delisting_no_position_no_trade_force_close(self):
+        """Sem posicao aberta na delisting_date, nao gera trade."""
+        start = datetime(2024, 1, 1)
+        bars = _bars_with_dates([100.0] * 30, start)
+        delisting = date(2024, 1, 11)
+
+        class HoldStrategy:
+            name = "hold"
+
+            def generate_signals(self, b):
+                return [Signal.HOLD] * len(b)
+
+        result = run_backtest(
+            bars, HoldStrategy(), "T", delisting_date=delisting
+        )
+        assert result.trades == []
+
+    def test_delisting_without_last_known_price_uses_bar_close(self):
+        """Sem last_known_price, force-close usa close da barra de delisting."""
+        start = datetime(2024, 1, 1)
+        # Bar 10 tem close=120; antes disso preço estava em 100
+        prices = [100.0] * 10 + [120.0] * 10
+        bars = _bars_with_dates(prices, start)
+        delisting = date(2024, 1, 11)  # bar 10
+
+        class BuyEarlyStrategy:
+            name = "buy_early"
+
+            def generate_signals(self, b):
+                s = [Signal.HOLD] * len(b)
+                s[2] = Signal.BUY
+                return s
+
+        result = run_backtest(
+            bars,
+            BuyEarlyStrategy(),
+            "T",
+            commission_pct=0.0,
+            delisting_date=delisting,
+            last_known_price=None,
+        )
+        assert len(result.trades) == 1
+        # Exit price deve ser o close da bar 10 (120)
+        assert result.trades[0].exit_price == pytest.approx(120.0)

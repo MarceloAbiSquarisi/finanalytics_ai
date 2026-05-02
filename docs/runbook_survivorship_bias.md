@@ -1,6 +1,8 @@
-# Survivorship Bias — Runbook (R5 último item aberto)
+# Survivorship Bias — Runbook (R5 fechado)
 
-> Status (01/mai/2026): **Step 0 done**. Step 1 (CNPJ→ticker bridge) defer — bloqueado por dependência manual ou scraping B3.
+> Status (02/mai/2026): **Steps 0, 1 e 2 done**. R5 totalmente fechado.
+>
+> Histórico: Step 0 (01/mai) coletou 1863 candidatos CVM com placeholder `UNK_<cnpj>`. Step 1 (02/mai) pivotou de "PDFs IBOV" para **bridge via Fintz delta** — caminho mais barato e com cobertura superior (449 tickers reais vs ~150 estimados via PDF). Tickers com `last_date` Fintz < 2024-01-01 (404 high-conf) ou em 2024-01-01..2025-05-31 (45 borderline) e ausentes de `profit_subscribed_tickers` são candidatos legítimos a delisted. Validação manual: ENBR3, BRPR3, ALSO3, VIIA3, BOAS3, CIEL3, AESB3, RRRP3, TRPL4 — todos delistings/fusões/OPAs reais documentados.
 
 ## Por que importa
 
@@ -40,68 +42,100 @@ CSV CVM (`http://dados.cvm.gov.br/dados/CIA_ABERTA/CAD/DADOS/cad_cia_aberta.csv`
 - Inclui empresas conhecidas: ABRIL SA, AES ELPA, ABYARA PLANEJAMENTO IMOBILIÁRIO, AÇOS VILLARES, etc.
 - **Limitação CVM**: maioria das rows tem `DT_CANCEL_REG` vazio. CVM não preenche consistentemente — só temos a confirmação de cancelamento, não a data exata.
 
-## Step 1 — CNPJ→ticker bridge (DEFER)
+## Step 1 — Bridge via Fintz delta (DONE 02/mai)
 
-A CVM identifica companhias por CNPJ, **não por ticker B3**. Sem esse bridge, `b3_delisted_tickers.ticker` fica em placeholder `UNK_<cnpj_short>` e R5 não consegue cruzar com `fintz_cotacoes_ts`.
+### Caminho escolhido
 
-### Fontes possíveis (escolher uma)
+Em vez de scraping de PDFs B3 (caminho original do runbook, ~1d), pivotou-se para **cruzar `fintz_cotacoes_ts` com `profit_subscribed_tickers`**:
 
-1. **B3 RWS Service Center** (oficial)
-   - XML com cadastro completo de instrumentos vinculados por CNPJ.
-   - Requer scraping autenticado em https://www.b3.com.br/
-   - **Custo**: ~1-2d engineering pra montar scraper resiliente
+- Universo Fintz: 884 tickers únicos cobrindo 2010→2025-12-30
+- Filtro de confiança:
+  - HIGH (404 tickers): `MAX(time)` Fintz < 2024-01-01
+  - BORDERLINE (45 tickers): 2024-01-01 ≤ `MAX(time)` < 2025-06-01
+  - DESCARTAR: `MAX(time)` ≥ 2025-06-01 — artefato do dataset Fintz (cutoff de freeze ~03/11/2025; ITUB3, ELET3, CSNA3 estão nessa janela mas são vivos)
+- Anti-falso-positivo: `WHERE ticker NOT IN (SELECT ticker FROM profit_subscribed_tickers)` — descarta tickers que ainda têm subscribed ativo
 
-2. **Wikipedia + fundamentus.com.br** (manual-assistido)
-   - Wikipedia mantém tabela "Empresas com ações na B3" + alguns artigos com histórico.
-   - Fundamentus tem ticker → CNPJ pra ativos.
-   - **Custo**: ~3-5d trabalho semi-manual + dataset incompleto
+### Artefatos
 
-3. **Lista IBOV histórica B3** (parcial)
-   - B3 publica revisões trimestrais da carteira IBOV (PDFs em www.b3.com.br/lumis/portal/file/fileDownload).
-   - Cobre só o que entrou no IBOV — ações líquidas mas exclui small caps.
-   - **Custo**: ~1d parser PDF + cobertura ~150 tickers históricos
+| Arquivo | Conteúdo |
+|---------|----------|
+| `scripts/survivorship_collect_fintz_delta.py` | Coleta + UPSERT 449 tickers FINTZ com `(ticker, last_known_date, last_known_price, source='FINTZ', notes='high_confidence' \| 'borderline_validar')` |
 
-4. **dataset comercial** (Economatica, Refinitiv)
-   - Tem `ticker, cnpj, delisting_date, motivo` consolidado.
-   - **Custo**: licença R$ 5-10k/mês — fora do orçamento
+### Como rodar
 
-### Recomendação operacional
+```powershell
+$env:DATABASE_URL_SYNC = "postgresql://finanalytics:secret@localhost:5432/finanalytics"
+$env:TIMESCALE_DSN_SYNC = "postgresql://finanalytics:timescale_secret@localhost:5433/market_data"
+.venv\Scripts\python.exe scripts\survivorship_collect_fintz_delta.py --dry
+.venv\Scripts\python.exe scripts\survivorship_collect_fintz_delta.py --persist
+```
 
-**Híbrido**: começar com (3) parser PDF da carteira IBOV histórica (~150 tickers que entraram/saíram do IBOV desde 2010), depois enriquecer com (1) scraper B3 RWS pra small caps. Dataset comercial só se R5 mostrar valor mensurável e backer aceitar custo.
+### Resultado validado live
 
-## Step 2 — Integração com R5 (DEFER)
+449 tickers persistidos com source=FINTZ. Validação manual de 10 amostras (ENBR3, BRPR3, ALSO3, VIIA3, BOAS3, SLED3, CIEL3, AESB3, RRRP3, TRPL4) — todos delistings/fusões/OPAs reais documentados em fontes públicas.
 
-Após step 1 completo, modificar:
+### Cobertura complementar (defer)
 
-1. `src/finanalytics_ai/infrastructure/database/repositories/candle_repository.py`
-   ```python
-   def get_universe_for_backtest(self, date_inicial: date, date_final: date) -> list[str]:
-       # tickers ativos
-       active = self._fetch_active_tickers()
-       # tickers que delistaram NO INTERVALO do backtest (incluir!)
-       delisted_in_range = self._fetch_delisted_between(date_inicial, date_final)
-       return active + delisted_in_range
-   ```
+- **CVM placeholders (1863)** continuam no DB com `ticker LIKE 'UNK_%'`. Bridge CNPJ→ticker p/ resolvê-los seria útil mas baixa prioridade — Fintz já cobre o universo de interesse pro R5 (tickers que tinham OHLCV histórico).
+- **B3 RWS** (XML autenticado) ou **PDFs IBOV trimestrais** ficam como reservas se aparecer cobertura faltante (ex: ticker pre-2010 não em Fintz mas conhecido por outras fontes).
 
-2. `src/finanalytics_ai/domain/backtesting/engine.py`
-   ```python
-   def run_backtest(..., delisting_date: date | None = None):
-       # se posição aberta na delisting_date: force close at last_known_price
-       if delisting_date and current_bar_time.date() >= delisting_date:
-           if position.is_open:
-               position.close(last_known_price, reason="DELISTED")
-   ```
+## Step 2 — Integração com R5 (DONE 02/mai)
 
-3. `scripts/backtest_demo_dsr.py`
-   - Add flag `--include-delisted` (default `False` mantém compat).
-   - Quando `True`, gera DSR comparativo: com/sem survivorship bias.
+### Caminho efetivamente implementado
+
+O plano original previa um `get_universe_for_backtest` central — não existe esse helper na arquitetura real (tickers vêm de chamadores externos). Estrutura entregue:
+
+1. **Repo** `src/finanalytics_ai/infrastructure/database/repositories/delisted_tickers_repo.py`:
+   - `DelistedTickerModel` (SQLAlchemy)
+   - `DelistingInfo` DTO + `is_high_confidence` (`source='FINTZ'`)
+   - `get_delisting_info(session, ticker)` — lookup, skip placeholders `UNK_*`
+   - `list_delisted_in_range(session, start, end, only_high_confidence=False)` — universo expandido
+
+2. **Engine** `src/finanalytics_ai/domain/backtesting/engine.py:run_backtest`:
+   - Novos params `delisting_date: date | None`, `last_known_price: float | None`
+   - Lógica: bars com `bar_date >= delisting_date` truncam loop; posição aberta força fechamento com `last_known_price` (ou close da bar se None) e `exit_reason="DELISTED em <date>"`
+   - **Compat retro**: sem `delisting_date`, comportamento legacy preservado (validado por test).
+
+3. **Optimizer** `src/finanalytics_ai/domain/backtesting/optimizer.py:grid_search`:
+   - Aceita `delisting_date` + `last_known_price` e propaga ao `run_backtest`.
+
+4. **Service** `src/finanalytics_ai/application/services/backtest_service.py:BacktestService`:
+   - Construtor aceita `delisting_resolver: Callable[[str], Awaitable[DelistingInfo | None]] | None`
+   - Em `run()`, se resolver passado, busca info do ticker e propaga ao engine
+   - Fail-open: exception no resolver é logada, não interrompe execução
+
+5. **Demo** `scripts/backtest_demo_dsr.py`:
+   - Flag `--respect-delisting` consulta `b3_delisted_tickers` via psycopg2 sync e passa `(delisting_date, last_known_price)` ao `grid_search`.
+
+### Tests (19 novos)
+
+| Arquivo | Tests |
+|---------|-------|
+| `tests/unit/infrastructure/test_delisted_tickers_repo.py` | 10 (lookup, range, UNK skip, case insensitive, high-confidence filter) |
+| `tests/unit/domain/test_backtesting.py::TestEngineSurvivorshipBias` | 5 (legacy compat, force-close c/ last_known, truncamento, sem posição, sem last_known) |
+| `tests/unit/domain/test_backtesting.py::TestBacktestService` | 4 novos (resolver passa info, sem resolver, resolver=None, resolver raise) |
+
+Resultado: **1488 testes domain+infrastructure+application verdes**, 3 skipped. Sem regressão.
+
+### Smoke validado live
+
+```
+$env:DATABASE_URL_SYNC = "postgresql://finanalytics:secret@localhost:5432/finanalytics"
+.venv\Scripts\python.exe scripts\backtest_demo_dsr.py --ticker ENBR3 --strategy rsi `
+    --start 2018-01-01 --end 2023-12-31 --respect-delisting
+# → "delisting: ENBR3 delistou em 2023-08-21 (last_close=24.08)"
+# → grid search: 22 trials válidos / 1399 bars
+# → DSR z=0.09 prob=53.6% (SINAL FRACO esperado p/ RSI single-ticker)
+```
 
 ## Próximos passos imediatos
 
-- [ ] Ativar a migration 0025 em DB live (`alembic upgrade 0025_b3_delisted_tickers`) — bloqueado pela complexidade dos 2 heads do Alembic.
-- [ ] Rodar `survivorship_collect_cvm.py --persist` pra popular 1903 candidatos com placeholder.
-- [ ] Decidir caminho do step 1 (B3 RWS vs PDF IBOV vs híbrido).
-- [ ] Smoke depois da Segunda 04/mai — não bloquear pré-pregão.
+- [x] Migration 0025 ativa em DB live (criada manualmente em 02/mai porque `alembic_version` estava em 0025 mas tabela ausente — `stamp` sem `upgrade` anterior).
+- [x] `survivorship_collect_cvm.py --persist` rodado: 1863 CNPJs únicos com placeholder UNK_*.
+- [x] Step 1 Fintz delta done — 449 tickers reais persistidos.
+- [x] **Step 2** done — engine respeita delisting_date, BacktestService injeta resolver opcional, demo `--respect-delisting` validado live com ENBR3.
+- [ ] (defer) Bridge CNPJ→ticker p/ resolver os 1863 placeholders CVM. Não é caminho crítico — Fintz delta já cobre o universo de interesse para R5.
+- [ ] (defer) Validação anti-bias comparativa (Sharpe com/sem delistados em IBOV histórico). Útil pra quantificar o viés mas não bloqueia uso.
 
 ## Validação anti-bias (uma vez fechado step 2)
 

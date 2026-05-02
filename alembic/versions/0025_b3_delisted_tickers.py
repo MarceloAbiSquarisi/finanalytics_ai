@@ -12,7 +12,7 @@ Esta tabela arma a infraestrutura. Step 1 (defer): popular via CVM CSV +
 bridge CNPJ→ticker da B3.
 
 Estrutura:
-  - ticker VARCHAR(10) PK
+  - ticker VARCHAR(20) PK (acomoda placeholder UNK_<14 digitos cnpj> ate' step 1)
   - cnpj VARCHAR(18) — chave de cruzamento com CVM
   - razao_social VARCHAR(200)
   - delisting_date DATE — quando saiu da bolsa (NULL se nao temos data exata)
@@ -20,7 +20,7 @@ Estrutura:
                                     'CISAO' | 'FALENCIA' | 'OUTRO'
   - last_known_price DECIMAL(12,4) — ultimo close conhecido (informativo)
   - last_known_date DATE — data desse ultimo close
-  - source VARCHAR(20) — 'CVM' | 'B3' | 'MANUAL' | 'NEWS'
+  - source VARCHAR(20) — 'CVM' | 'B3' | 'MANUAL' | 'NEWS' | 'FINTZ'
   - notes TEXT — observacoes livres (ex.: ticker novo apos fusao)
   - created_at, updated_at TIMESTAMPTZ
 
@@ -54,7 +54,7 @@ def upgrade() -> None:
     op.execute(
         """
         CREATE TABLE IF NOT EXISTS b3_delisted_tickers (
-            ticker            VARCHAR(10) PRIMARY KEY,
+            ticker            VARCHAR(20) PRIMARY KEY,
             cnpj              VARCHAR(18),
             razao_social      VARCHAR(200),
             delisting_date    DATE,
@@ -72,7 +72,7 @@ def upgrade() -> None:
                 )
             ),
             CONSTRAINT b3_delisted_source_chk CHECK (
-                source IN ('CVM', 'B3', 'MANUAL', 'NEWS')
+                source IN ('CVM', 'B3', 'MANUAL', 'NEWS', 'FINTZ')
             )
         )
         """
