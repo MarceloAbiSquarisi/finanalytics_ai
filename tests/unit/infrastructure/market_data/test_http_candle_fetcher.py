@@ -252,10 +252,22 @@ class TestFetchDailyBars:
                     "ticker": "PETR4",
                     "resolution": "1d",
                     "candles": [
-                        {"ts": "2025-01-01T00:00:00", "open": 30.0, "high": 30.5,
-                         "low": 29.5, "close": 30.0, "volume": 1000.0},
-                        {"ts": "2025-01-02T00:00:00", "open": 30.0, "high": 31.0,
-                         "low": 30.0, "close": 30.8, "volume": 1500.0},
+                        {
+                            "ts": "2025-01-01T00:00:00",
+                            "open": 30.0,
+                            "high": 30.5,
+                            "low": 29.5,
+                            "close": 30.0,
+                            "volume": 1000.0,
+                        },
+                        {
+                            "ts": "2025-01-02T00:00:00",
+                            "open": 30.0,
+                            "high": 31.0,
+                            "low": 30.0,
+                            "close": 30.8,
+                            "volume": 1500.0,
+                        },
                     ],
                 },
             )
@@ -274,9 +286,7 @@ class TestFetchDailyBars:
         assert out[1]["close"] == 30.8
 
     def test_returns_only_last_n(self) -> None:
-        bars = [
-            {"ts": f"2025-01-{i:02d}T00:00:00", "close": float(i)} for i in range(1, 11)
-        ]
+        bars = [{"ts": f"2025-01-{i:02d}T00:00:00", "close": float(i)} for i in range(1, 11)]
 
         def handler(req):
             return httpx.Response(200, json={"candles": bars})
@@ -336,8 +346,14 @@ class TestFetchDailyCloses:
 
     def test_extracts_closes_only(self) -> None:
         candles = [
-            {"ts": f"2025-01-{i:02d}", "open": float(i), "high": float(i),
-             "low": float(i), "close": float(i * 10), "volume": 1000.0}
+            {
+                "ts": f"2025-01-{i:02d}",
+                "open": float(i),
+                "high": float(i),
+                "low": float(i),
+                "close": float(i * 10),
+                "volume": 1000.0,
+            }
             for i in range(1, 6)
         ]
 

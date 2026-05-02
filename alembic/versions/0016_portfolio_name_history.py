@@ -11,6 +11,7 @@ Revision ID: 0016_portfolio_name_history
 Revises: 0015_portfolio_soft_delete
 Create Date: 2026-04-21
 """
+
 from alembic import op
 import sqlalchemy as sa
 

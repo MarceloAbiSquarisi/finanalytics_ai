@@ -6,6 +6,7 @@ Revision ID: 0014_import_tables
 Revises: 0013_merge_heads
 Create Date: 2026-04-07
 """
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
@@ -76,9 +77,7 @@ def upgrade() -> None:
             nullable=False,
         ),
     )
-    op.create_index(
-        "ix_import_tx_user_date", "import_transactions", ["user_id", "trade_date"]
-    )
+    op.create_index("ix_import_tx_user_date", "import_transactions", ["user_id", "trade_date"])
     op.create_index("ix_import_tx_ticker", "import_transactions", ["ticker"])
 
 

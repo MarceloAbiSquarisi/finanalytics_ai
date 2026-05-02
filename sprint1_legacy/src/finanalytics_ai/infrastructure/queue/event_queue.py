@@ -4,6 +4,7 @@ Fila de eventos assíncrona.
 Design decision: abstração com Protocol permite trocar de in-memory (dev/test)
 para Redis/RabbitMQ em produção sem alterar o código da aplicação.
 """
+
 from __future__ import annotations
 import asyncio
 from typing import Protocol, runtime_checkable
@@ -21,7 +22,7 @@ class InMemoryEventQueue:
     """
     Fila in-memory baseada em asyncio.Queue.
     Ideal para desenvolvimento, testes e deploys single-process.
-    
+
     Trade-off: sem persistência — eventos perdidos em restart.
     Para produção, use RedisEventQueue ou RabbitMQEventQueue.
     """

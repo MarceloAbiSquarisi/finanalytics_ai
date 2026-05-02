@@ -9,6 +9,7 @@ liquidar resgate). Default por bond_type:
   - fundo_rf        : D+30
 Campo editavel ao cadastrar o titulo — esses sao apenas defaults.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -52,7 +53,8 @@ async def main() -> None:
         for bt, days in DEFAULTS.items():
             r = await conn.execute(
                 "UPDATE rf_holdings SET liquidity_days = $1 WHERE LOWER(bond_type) = $2 AND liquidity_days = 1 AND $1 <> 1",
-                days, bt,
+                days,
+                bt,
             )
             if r and r.split()[-1] != "0":
                 print(f"  {bt:<18} → D+{days} ({r})")

@@ -1,4 +1,5 @@
 """Alembic env.py — async engine com asyncpg."""
+
 from __future__ import annotations
 
 import asyncio
@@ -11,11 +12,11 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 # ── Importa Base e todos os models para autogenerate ────────────────────────
 from finanalytics_ai.infrastructure.database.connection import Base  # noqa: F401
-import finanalytics_ai.infrastructure.database.repositories.alert_repo        # noqa: F401
+import finanalytics_ai.infrastructure.database.repositories.alert_repo  # noqa: F401
 import finanalytics_ai.infrastructure.database.repositories.event_store_repo  # noqa: F401
-import finanalytics_ai.infrastructure.database.repositories.portfolio_repo    # noqa: F401
-import finanalytics_ai.infrastructure.database.repositories.user_repo         # noqa: F401
-import finanalytics_ai.infrastructure.database.repositories.watchlist_repo    # noqa: F401
+import finanalytics_ai.infrastructure.database.repositories.portfolio_repo  # noqa: F401
+import finanalytics_ai.infrastructure.database.repositories.user_repo  # noqa: F401
+import finanalytics_ai.infrastructure.database.repositories.watchlist_repo  # noqa: F401
 
 from finanalytics_ai.config import get_settings
 

@@ -69,7 +69,9 @@ ON CONFLICT (ticker, exchange) DO NOTHING
 async def main() -> None:
     conn = await asyncpg.connect(DSN)
     try:
-        print(f"Rankando top {TOP_N} tickers (mediana volume, janela {WINDOW_DAYS}d, min {MIN_DAYS} pregoes)...")
+        print(
+            f"Rankando top {TOP_N} tickers (mediana volume, janela {WINDOW_DAYS}d, min {MIN_DAYS} pregoes)..."
+        )
         rows = await conn.fetch(QUERY_TOP)
         print(f"  -> {len(rows)} tickers candidatos\n")
 
@@ -80,7 +82,9 @@ async def main() -> None:
         print("Top 10 por mediana de volume:")
         print(f"  {'TICKER':<8} {'MEDIAN_VOL':>15} {'DIAS':>5} {'PRECO_AVG':>10}")
         for r in rows[:10]:
-            print(f"  {r['ticker']:<8} {int(r['median_vol']):>15,} {r['days']:>5} {float(r['avg_price']):>10.2f}")
+            print(
+                f"  {r['ticker']:<8} {int(r['median_vol']):>15,} {r['days']:>5} {float(r['avg_price']):>10.2f}"
+            )
 
         note = f"top{TOP_N}_liquidez_{WINDOW_DAYS}d"
 
@@ -98,11 +102,17 @@ async def main() -> None:
         s_after = await conn.fetchval("SELECT COUNT(*) FROM profit_subscribed_tickers")
 
         print("\n--- RESULTADO ---")
-        print(f"  profit_history_tickers (active): {h_before} -> {h_after}  (delta +{h_after - h_before})")
-        print(f"  profit_subscribed_tickers:       {s_before} -> {s_after}  (delta +{s_after - s_before})")
+        print(
+            f"  profit_history_tickers (active): {h_before} -> {h_after}  (delta +{h_after - h_before})"
+        )
+        print(
+            f"  profit_subscribed_tickers:       {s_before} -> {s_after}  (delta +{s_after - s_before})"
+        )
         print(f"\nTodos os {len(rows)} tickers cadastrados em histórico (active=TRUE).")
         print("Para ativar realtime seletivamente (respeitando limite da licenca):")
-        print("  UPDATE profit_subscribed_tickers SET active=TRUE WHERE ticker IN ('PETR4','VALE3',...);")
+        print(
+            "  UPDATE profit_subscribed_tickers SET active=TRUE WHERE ticker IN ('PETR4','VALE3',...);"
+        )
 
     finally:
         await conn.close()

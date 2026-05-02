@@ -9,6 +9,7 @@ Design decision:
   - Nunca retorna dict raw — mapeia para tipos do domínio
   - Headers e auth centralizados no __init__
 """
+
 from __future__ import annotations
 
 import structlog

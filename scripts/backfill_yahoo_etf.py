@@ -16,6 +16,7 @@ Pós-backfill:
         --train-start 2024-01-01 --train-end 2025-04-30 \\
         --val-start 2025-05-01 --val-end 2025-08-31 --test-start 2025-09-01
 """
+
 from __future__ import annotations
 
 import argparse
@@ -47,15 +48,25 @@ DSN = os.environ.get(
 # ETFs B3 mais líquidos (verificar lista periodicamente em b3.com.br/listed/etfs)
 ETFS_BR_TOP = [
     # IBOV (cuidado: BOVA11 ≈ IBOV — sinal pode ser redundante com IBOV uptrend/downtrend)
-    "BOVA11", "BOVV11", "BOVB11",
+    "BOVA11",
+    "BOVV11",
+    "BOVB11",
     # Internacional
-    "IVVB11", "USPD11", "NASD11",
+    "IVVB11",
+    "USPD11",
+    "NASD11",
     # Setoriais
-    "SMAL11", "DIVO11", "FIND11", "MATB11", "GOVE11",
+    "SMAL11",
+    "DIVO11",
+    "FIND11",
+    "MATB11",
+    "GOVE11",
     # Commodities / Outros
-    "GOLD11", "ECOO11",
+    "GOLD11",
+    "ECOO11",
     # Renda Fixa (alguns)
-    "B5P211", "IMAB11",
+    "B5P211",
+    "IMAB11",
 ]
 # Dedup preservando ordem
 _seen: set[str] = set()
@@ -101,13 +112,15 @@ def main() -> int:
             for r in rows:
                 r["source"] = "yahoo_etf"
             if args.dry_run:
-                print(f"  [{i:2d}/{len(tickers)}] {t}: bars={len(bars)} feats={len(rows)} (dry-run)")
+                print(
+                    f"  [{i:2d}/{len(tickers)}] {t}: bars={len(bars)} feats={len(rows)} (dry-run)"
+                )
                 continue
             n = upsert_features(conn, t, rows)
             conn.commit()
             print(
                 f"  [{i:2d}/{len(tickers)}] {t}: bars={len(bars)} "
-                f"feats={n} ({time.time()-t0:.1f}s)"
+                f"feats={n} ({time.time() - t0:.1f}s)"
             )
     finally:
         conn.close()

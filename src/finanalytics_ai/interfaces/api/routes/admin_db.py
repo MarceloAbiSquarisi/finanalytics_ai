@@ -43,6 +43,7 @@ router = APIRouter(prefix="/api/v1/admin/db", tags=["Admin"])
 
 # ── DSN resolution ────────────────────────────────────────────────────────────
 
+
 def _normalize_dsn(raw: str) -> str:
     """asyncpg aceita 'postgres://' não 'postgresql+asyncpg://'."""
     return raw.replace("postgresql+asyncpg://", "postgres://").replace(
@@ -101,7 +102,9 @@ def _resolve_dsn(db: str) -> str:
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
 
-_OPS = Literal["eq", "neq", "like", "ilike", "gt", "gte", "lt", "lte", "in", "is_null", "is_not_null"]
+_OPS = Literal[
+    "eq", "neq", "like", "ilike", "gt", "gte", "lt", "lte", "in", "is_null", "is_not_null"
+]
 
 
 class FilterClause(BaseModel):
@@ -163,8 +166,14 @@ def _build_where(filters: list[FilterClause]) -> tuple[str, list[Any]]:
             parts.append(f'"{col}" = ANY(${len(params)})')
         else:
             sql_op = {
-                "eq": "=", "neq": "<>", "like": "LIKE", "ilike": "ILIKE",
-                "gt": ">", "gte": ">=", "lt": "<", "lte": "<=",
+                "eq": "=",
+                "neq": "<>",
+                "like": "LIKE",
+                "ilike": "ILIKE",
+                "gt": ">",
+                "gte": ">=",
+                "lt": "<",
+                "lte": "<=",
             }[f.op]
             params.append(f.value)
             if f.op in ("like", "ilike") and isinstance(f.value, str) and "%" not in f.value:
@@ -211,15 +220,16 @@ async def list_tables(db: str, _: User = Depends(require_master)) -> dict:
             ORDER BY table_name
             """
         )
-        return {"db": db, "items": [{"name": r["table_name"], "type": r["table_type"]} for r in rows]}
+        return {
+            "db": db,
+            "items": [{"name": r["table_name"], "type": r["table_type"]} for r in rows],
+        }
     finally:
         await conn.close()
 
 
 @router.get("/{db}/{table}/schema")
-async def table_schema(
-    db: str, table: str, _: User = Depends(require_master)
-) -> dict:
+async def table_schema(db: str, table: str, _: User = Depends(require_master)) -> dict:
     """Schema da tabela: colunas + tipos + nullable + default."""
     dsn = _resolve_dsn(db)
     _validate_ident(table, "table")
@@ -284,10 +294,7 @@ async def preview_table(
 
         rows = await conn.fetch(sql, *params)
         # Serialize: asyncpg Record → dict; converter datetimes/Decimal pra str
-        items = [
-            {k: _serialize_value(v) for k, v in dict(r).items()}
-            for r in rows
-        ]
+        items = [{k: _serialize_value(v) for k, v in dict(r).items()} for r in rows]
         return {
             "db": db,
             "table": table,
@@ -345,7 +352,11 @@ async def export_parquet(
 
     logger.info(
         "admin.db.exported",
-        db=db, table=table, rows=len(rows), bytes=len(payload), actor=actor.user_id,
+        db=db,
+        table=table,
+        rows=len(rows),
+        bytes=len(payload),
+        actor=actor.user_id,
     )
 
     fname = f"{db}_{table}_{len(rows)}rows.parquet"

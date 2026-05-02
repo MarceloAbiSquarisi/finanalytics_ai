@@ -6,6 +6,7 @@ Depois: UNIQUE (user_id, institution_code, agency, account_number) WHERE
 agency IS NOT NULL AND account_number IS NOT NULL — permite multiplas
 contas com mesmo CPF desde que (corretora, agencia, numero) seja unico.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -33,7 +34,9 @@ async def main() -> None:
         except Exception as e:
             print(f"  skip (index): {e}")
         try:
-            await conn.execute("ALTER TABLE investment_accounts DROP CONSTRAINT IF EXISTS uq_inv_accounts_user_cpf")
+            await conn.execute(
+                "ALTER TABLE investment_accounts DROP CONSTRAINT IF EXISTS uq_inv_accounts_user_cpf"
+            )
             print("  ✓ constraint uq_inv_accounts_user_cpf removido")
         except Exception as e:
             print(f"  skip (constraint): {e}")
@@ -55,8 +58,10 @@ async def main() -> None:
         """)
         print(f"\nEstado atual ({len(rows)} contas):")
         for r in rows:
-            print(f"  {r['titular'] or '—':<25} cpf={r['cpf'] or '—':<14} "
-                  f"{r['institution_name']:<20} ag={r['agency'] or '—'}/cc={r['account_number'] or '—'}")
+            print(
+                f"  {r['titular'] or '—':<25} cpf={r['cpf'] or '—':<14} "
+                f"{r['institution_name']:<20} ag={r['agency'] or '—'}/cc={r['account_number'] or '—'}"
+            )
     finally:
         await conn.close()
 

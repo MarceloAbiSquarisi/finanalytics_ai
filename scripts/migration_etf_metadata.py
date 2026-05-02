@@ -11,6 +11,7 @@ Seed: populamos com os ETFs brasileiros mais liquidos listados na B3.
 Uso:
   .venv\\Scripts\\python.exe scripts\\migration_etf_metadata.py
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -40,16 +41,16 @@ CREATE TABLE IF NOT EXISTS etf_metadata (
 
 # Seed com ETFs mais liquidos da B3 (taxas publicas, dados 2026)
 SEED = [
-    ("BOVA11", "iShares Ibovespa", "IBOVESPA",       0.10, 0.00, "BRBOVACTF007"),
-    ("SMAL11", "iShares Small Cap", "SMLL",          0.50, 0.00, "BRSMALCTF004"),
-    ("IVVB11", "iShares S&P 500",  "S&P 500 (BRL)",  0.23, 0.00, "BRIVVBCTF000"),
-    ("HASH11", "Hashdex Nasdaq Cryp","Nasdaq Crypto",1.30, 0.00, None),
-    ("BBSD11", "BB ETF S&P Div BR","S&P Dividendos", 0.50, 0.00, None),
-    ("DIVO11", "ETF Div BR",      "IDIV",            0.50, 0.00, None),
-    ("FIND11", "Itau Financ",     "IFNC",            0.50, 0.00, None),
-    ("MATB11", "Itau Materiais",  "IMAT",            0.50, 0.00, None),
-    ("SPXI11", "iShares S&P 500 Div","S&P 500 Div",  0.28, 0.00, None),
-    ("ECOO11", "iShares Carbono", "ICO2",            0.28, 0.00, None),
+    ("BOVA11", "iShares Ibovespa", "IBOVESPA", 0.10, 0.00, "BRBOVACTF007"),
+    ("SMAL11", "iShares Small Cap", "SMLL", 0.50, 0.00, "BRSMALCTF004"),
+    ("IVVB11", "iShares S&P 500", "S&P 500 (BRL)", 0.23, 0.00, "BRIVVBCTF000"),
+    ("HASH11", "Hashdex Nasdaq Cryp", "Nasdaq Crypto", 1.30, 0.00, None),
+    ("BBSD11", "BB ETF S&P Div BR", "S&P Dividendos", 0.50, 0.00, None),
+    ("DIVO11", "ETF Div BR", "IDIV", 0.50, 0.00, None),
+    ("FIND11", "Itau Financ", "IFNC", 0.50, 0.00, None),
+    ("MATB11", "Itau Materiais", "IMAT", 0.50, 0.00, None),
+    ("SPXI11", "iShares S&P 500 Div", "S&P 500 Div", 0.28, 0.00, None),
+    ("ECOO11", "iShares Carbono", "ICO2", 0.28, 0.00, None),
 ]
 
 
@@ -69,12 +70,21 @@ async def main() -> None:
                 VALUES ($1, $2, $3, $4, $5, $6, 'migration', NOW())
                 ON CONFLICT (ticker) DO NOTHING
                 """,
-                ticker, name, bench, mgmt, perf, isin,
+                ticker,
+                name,
+                bench,
+                mgmt,
+                perf,
+                isin,
             )
-        rows = await conn.fetch("SELECT ticker, name, benchmark, mgmt_fee FROM etf_metadata ORDER BY ticker")
+        rows = await conn.fetch(
+            "SELECT ticker, name, benchmark, mgmt_fee FROM etf_metadata ORDER BY ticker"
+        )
         print(f"  ✓ {len(rows)} ETFs na tabela:")
         for r in rows:
-            print(f"    {r['ticker']:<8} {r['name']:<30} benchmark={r['benchmark']:<16} adm={r['mgmt_fee']}%")
+            print(
+                f"    {r['ticker']:<8} {r['name']:<30} benchmark={r['benchmark']:<16} adm={r['mgmt_fee']}%"
+            )
     finally:
         await conn.close()
 

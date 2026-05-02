@@ -25,8 +25,6 @@ class CalibrationInfo(BaseModel):
     calibrated_at: str | None = None
 
 
-
-
 class PredictResponse(BaseModel):
     model_config = {"protected_namespaces": ()}
 
@@ -50,8 +48,6 @@ class PredictResponse(BaseModel):
     calibration: CalibrationInfo | None = None
 
 
-
-
 class SignalItem(BaseModel):
     ticker: str
     asset_class: str | None = None
@@ -71,8 +67,6 @@ class SignalItem(BaseModel):
     error: str | None = None
 
 
-
-
 class SignalsResponse(BaseModel):
     count: int
     buy: int
@@ -80,8 +74,6 @@ class SignalsResponse(BaseModel):
     hold: int
     errors: int
     items: list[SignalItem]
-
-
 
 
 class HistoryItem(BaseModel):
@@ -97,8 +89,6 @@ class HistoryItem(BaseModel):
     signal_method: str | None = None
 
 
-
-
 class ChangeItem(BaseModel):
     ticker: str
     snapshot_date: date
@@ -106,8 +96,6 @@ class ChangeItem(BaseModel):
     curr_signal: str
     prev_date: date | None = None
     best_sharpe: float | None = None
-
-
 
 
 class MLMetrics(BaseModel):
@@ -128,8 +116,6 @@ class MLMetrics(BaseModel):
     )
 
 
-
-
 class EnsembleHorizonItem(BaseModel):
     horizon_days: int
     model_file: str
@@ -137,8 +123,6 @@ class EnsembleHorizonItem(BaseModel):
     predicted_return_pct: float
     weight: float = Field(..., description="Peso usado no ensemble (sharpe-based ou uniform)")
     sharpe: float | None = None
-
-
 
 
 class EnsembleResponse(BaseModel):
@@ -153,5 +137,3 @@ class EnsembleResponse(BaseModel):
     signal: str | None = None
     signal_method: str | None = None
     calibration: CalibrationInfo | None = None
-
-

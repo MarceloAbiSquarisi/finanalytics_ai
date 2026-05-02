@@ -4,11 +4,12 @@ to `const X = await FAErr.fetchJson(...);` across static HTML.
 Sprint UI Q (21/abr/2026). Conservative — only migrates the simplest pattern,
 preserving fetch calls with custom 401/409/422/503 handling.
 """
+
 from pathlib import Path
 import re
 
-STATIC = Path('D:/Projetos/finanalytics_ai_fresh/src/finanalytics_ai/interfaces/api/static')
-SKIP = {'sidebar.html', 'login.html', 'reset_password.html'}
+STATIC = Path("D:/Projetos/finanalytics_ai_fresh/src/finanalytics_ai/interfaces/api/static")
+SKIP = {"sidebar.html", "login.html", "reset_password.html"}
 
 # Pattern: const r = await fetch(URL[, OPTS]); if (!r.ok) throw new Error('HTTP ' + r.status); const X = await r.json();
 # Multi-line, naive. Captures URL[+OPTS] as one group.
@@ -26,10 +27,10 @@ PATTERN_A = re.compile(
 
 def main():
     total = 0
-    for f in sorted(STATIC.glob('*.html')):
+    for f in sorted(STATIC.glob("*.html")):
         if f.name in SKIP:
             continue
-        txt = f.read_text(encoding='utf-8')
+        txt = f.read_text(encoding="utf-8")
         n = 0
 
         def repl(m):
@@ -37,15 +38,15 @@ def main():
             n += 1
             args = m.group(1).strip()
             var = m.group(2)
-            return f'const {var} = await FAErr.fetchJson({args});'
+            return f"const {var} = await FAErr.fetchJson({args});"
 
         new = PATTERN_A.sub(repl, txt)
         if new != txt:
-            f.write_text(new, encoding='utf-8')
+            f.write_text(new, encoding="utf-8")
             total += n
-            print(f'{f.name}: {n}')
-    print(f'\nTotal migrated: {total}')
+            print(f"{f.name}: {n}")
+    print(f"\nTotal migrated: {total}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

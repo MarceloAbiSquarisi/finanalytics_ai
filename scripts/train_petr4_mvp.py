@@ -17,6 +17,7 @@ Uso:
 Pos-Sprint 1 completo (6 anos de historico), re-executar para validar KPIs
 (IC > 0.05, Sharpe > 0 no teste OOS).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -38,20 +39,26 @@ DSN = os.environ.get(
 
 FEATURES = [
     "close",
-    "r_1d", "r_5d", "r_21d",
-    "atr_14", "vol_21d", "vol_rel_20",
-    "sma_50", "sma_200", "rsi_14",
+    "r_1d",
+    "r_5d",
+    "r_21d",
+    "atr_14",
+    "vol_21d",
+    "vol_rel_20",
+    "sma_50",
+    "sma_200",
+    "rsi_14",
 ]
 
 
 # ─── Data loading ──────────────────────────────────────────────────────────────
 
+
 def load_features(ticker: str) -> list[dict]:
     with psycopg2.connect(DSN) as conn, conn.cursor() as cur:
         cols = ", ".join(FEATURES)
         cur.execute(
-            f"SELECT dia, {cols} FROM features_daily "
-            f"WHERE ticker = %s ORDER BY dia ASC",
+            f"SELECT dia, {cols} FROM features_daily WHERE ticker = %s ORDER BY dia ASC",
             (ticker,),
         )
         rows = cur.fetchall()
@@ -77,7 +84,9 @@ def build_target_r1d_futuro(rows: list[dict]) -> list[float | None]:
     return out
 
 
-def to_xy(rows: list[dict], target: list[float | None]) -> tuple[np.ndarray, np.ndarray, list[date]]:
+def to_xy(
+    rows: list[dict], target: list[float | None]
+) -> tuple[np.ndarray, np.ndarray, list[date]]:
     X, y, dates = [], [], []
     for i, r in enumerate(rows):
         tgt = target[i]
@@ -94,20 +103,23 @@ def to_xy(rows: list[dict], target: list[float | None]) -> tuple[np.ndarray, np.
 
 # ─── Split ─────────────────────────────────────────────────────────────────────
 
+
 def split_dates(dates: list[date]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     mask_train = np.array([(date(2020, 1, 1) <= d <= date(2023, 12, 31)) for d in dates])
-    mask_val   = np.array([(date(2024, 1, 1) <= d <= date(2024, 12, 31)) for d in dates])
-    mask_test  = np.array([(date(2025, 1, 1) <= d) for d in dates])
+    mask_val = np.array([(date(2024, 1, 1) <= d <= date(2024, 12, 31)) for d in dates])
+    mask_test = np.array([(date(2025, 1, 1) <= d) for d in dates])
     return mask_train, mask_val, mask_test
 
 
 # ─── Metricas ──────────────────────────────────────────────────────────────────
+
 
 def ic_spearman(y_pred: np.ndarray, y_true: np.ndarray) -> float:
     """Information Coefficient (correlação de Spearman)."""
     if len(y_pred) < 5:
         return 0.0
     from scipy.stats import spearmanr  # type: ignore
+
     r, _ = spearmanr(y_pred, y_true)
     return float(r) if not np.isnan(r) else 0.0
 
@@ -130,6 +142,7 @@ def sharpe_long_short(y_pred: np.ndarray, y_true: np.ndarray) -> float:
 
 
 # ─── Train ─────────────────────────────────────────────────────────────────────
+
 
 def train_and_evaluate(X_tr, y_tr, X_val, y_val, X_te, y_te) -> tuple:
     import lightgbm as lgb  # type: ignore
@@ -158,17 +171,18 @@ def train_and_evaluate(X_tr, y_tr, X_val, y_val, X_te, y_te) -> tuple:
         "train_size": int(len(X_tr)),
         "val_size": int(len(X_val)),
         "test_size": int(len(X_te)),
-        "val_ic_spearman":  ic_spearman(p_val, y_val) if len(y_val) else None,
-        "val_hit_rate":     hit_rate(p_val, y_val) if len(y_val) else None,
-        "val_sharpe_ls":    sharpe_long_short(p_val, y_val) if len(y_val) else None,
+        "val_ic_spearman": ic_spearman(p_val, y_val) if len(y_val) else None,
+        "val_hit_rate": hit_rate(p_val, y_val) if len(y_val) else None,
+        "val_sharpe_ls": sharpe_long_short(p_val, y_val) if len(y_val) else None,
         "test_ic_spearman": ic_spearman(p_te, y_te) if len(y_te) else None,
-        "test_hit_rate":    hit_rate(p_te, y_te) if len(y_te) else None,
-        "test_sharpe_ls":   sharpe_long_short(p_te, y_te) if len(y_te) else None,
+        "test_hit_rate": hit_rate(p_te, y_te) if len(y_te) else None,
+        "test_sharpe_ls": sharpe_long_short(p_te, y_te) if len(y_te) else None,
     }
     return model, metrics, p_te
 
 
 # ─── Serialização ──────────────────────────────────────────────────────────────
+
 
 def serialize(model, ticker: str, metrics: dict, features: list[str]) -> Path:
     out_dir = Path(__file__).resolve().parent.parent / "models"
@@ -194,6 +208,7 @@ def serialize(model, ticker: str, metrics: dict, features: list[str]) -> Path:
 
 
 # ─── CLI ───────────────────────────────────────────────────────────────────────
+
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="MVP treino LightGBM para 1 ticker")
@@ -224,9 +239,7 @@ def main() -> int:
         print("ERRO: train set < 50 rows. Popule features_daily antes.")
         return 2
 
-    model, metrics, _ = train_and_evaluate(
-        X[m_tr], y[m_tr], X[m_val], y[m_val], X[m_te], y[m_te]
-    )
+    model, metrics, _ = train_and_evaluate(X[m_tr], y[m_tr], X[m_val], y[m_val], X[m_te], y[m_te])
     print("\nMétricas:")
     for k, v in metrics.items():
         if isinstance(v, float):

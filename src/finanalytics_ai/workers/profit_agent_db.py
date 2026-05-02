@@ -581,6 +581,4 @@ class DBWriter:
             updated_at          = NOW()
         WHERE ticker = %s AND exchange = %s
         """
-        return self.execute(
-            sql, (dt_start, dt_end, tick_count, ticker.upper(), exchange.upper())
-        )
+        return self.execute(sql, (dt_start, dt_end, tick_count, ticker.upper(), exchange.upper()))

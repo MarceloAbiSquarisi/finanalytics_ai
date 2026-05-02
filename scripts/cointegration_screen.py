@@ -51,11 +51,16 @@ from finanalytics_ai.domain.pairs.cointegration import (
 
 DEFAULT_WATCHLIST = [
     # Bancos (cointegracao classica B3)
-    "ITUB4", "BBDC4", "SANB11", "BBAS3",
+    "ITUB4",
+    "BBDC4",
+    "SANB11",
+    "BBAS3",
     # Petroleo (PETR3 vs PETR4 = mesmo ticker em classes diferentes — quase 1:1)
-    "PETR3", "PETR4",
+    "PETR3",
+    "PETR4",
     # Mineracao
-    "VALE3", "CMIN3",
+    "VALE3",
+    "CMIN3",
 ]
 
 
@@ -218,7 +223,9 @@ def main() -> int:
     print(f"Screening {len(pairs)} pares de {len(watchlist)} tickers, lookback={args.lookback}")
     print(f"Persist: {args.persist} | p_threshold: {args.p_threshold}")
     print("=" * 90)
-    print(f"{'PAIR':<20} {'BETA':>10} {'RHO':>8} {'P-ADF':>10} {'COINT':>8} {'HALF-LIFE':>12} {'N':>6}")
+    print(
+        f"{'PAIR':<20} {'BETA':>10} {'RHO':>8} {'P-ADF':>10} {'COINT':>8} {'HALF-LIFE':>12} {'N':>6}"
+    )
     print("-" * 90)
 
     # Carrega closes uma vez por ticker (otimiza I/O)

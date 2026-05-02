@@ -22,6 +22,7 @@ Após rodar:
     python scripts/calibrate_ml_thresholds.py --tickers KNRI11,...
     (calibrate já lê features_daily_full; vai pegar os FIIs novos)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -54,18 +55,41 @@ DSN = os.environ.get(
 # Top 30 FIIs IFIX (por liquidez histórica — verificar periodicamente em b3.com.br)
 IFIX_TOP_30 = [
     # Logística
-    "HGLG11", "BTLG11", "VILG11", "XPLG11", "BRCO11",
+    "HGLG11",
+    "BTLG11",
+    "VILG11",
+    "XPLG11",
+    "BRCO11",
     # Shoppings
-    "XPML11", "VISC11", "HGBS11", "MALL11", "VRTA11",
+    "XPML11",
+    "VISC11",
+    "HGBS11",
+    "MALL11",
+    "VRTA11",
     # Lajes / Corp
-    "KNRI11", "HGRE11", "PVBI11", "RCRB11", "BRCR11",
+    "KNRI11",
+    "HGRE11",
+    "PVBI11",
+    "RCRB11",
+    "BRCR11",
     # Híbridos / TIJOLO
-    "HGRU11", "RECT11", "RBRR11",
+    "HGRU11",
+    "RECT11",
+    "RBRR11",
     # Papel / CRI
-    "MXRF11", "BCFF11", "RBRF11", "HCTR11", "VGIR11",
-    "VGIP11", "RBRY11", "KNCR11", "KNHY11",
+    "MXRF11",
+    "BCFF11",
+    "RBRF11",
+    "HCTR11",
+    "VGIR11",
+    "VGIP11",
+    "RBRY11",
+    "KNCR11",
+    "KNHY11",
     # Fundos de fundos
-    "BCFF11", "RBRF11", "HFOF11",
+    "BCFF11",
+    "RBRF11",
+    "HFOF11",
 ]
 # remove duplicados preservando ordem
 _seen = set()
@@ -108,10 +132,12 @@ def fetch_yahoo_daily(ticker: str, start: date, end: date) -> list[Bar]:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
-    p.add_argument("--years", type=int, default=2,
-                   help="Histórico em anos (default 2). MVP-h21 precisa ≥1y.")
-    p.add_argument("--tickers", type=str, default=None,
-                   help="CSV de tickers (default = IFIX_TOP_30 inteiro)")
+    p.add_argument(
+        "--years", type=int, default=2, help="Histórico em anos (default 2). MVP-h21 precisa ≥1y."
+    )
+    p.add_argument(
+        "--tickers", type=str, default=None, help="CSV de tickers (default = IFIX_TOP_30 inteiro)"
+    )
     p.add_argument("--dry-run", action="store_true")
     return p.parse_args()
 
@@ -142,13 +168,15 @@ def main() -> int:
                 continue
             rows = compute_features_for_ticker(bars)
             if args.dry_run:
-                print(f"  [{i:2d}/{len(tickers)}] {t}: bars={len(bars)} feats={len(rows)} (dry-run)")
+                print(
+                    f"  [{i:2d}/{len(tickers)}] {t}: bars={len(bars)} feats={len(rows)} (dry-run)"
+                )
                 continue
             n = upsert_features(conn, t, rows)
             conn.commit()
             print(
                 f"  [{i:2d}/{len(tickers)}] {t}: bars={len(bars)} "
-                f"feats={n} ({time.time()-t0:.1f}s)"
+                f"feats={n} ({time.time() - t0:.1f}s)"
             )
     finally:
         conn.close()

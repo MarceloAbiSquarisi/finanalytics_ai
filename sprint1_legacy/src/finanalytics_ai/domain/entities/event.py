@@ -5,6 +5,7 @@ Design decision: Events são imutáveis após criação (frozen=True exceto
 processed_at que é setado uma vez). O event_id é a chave de idempotência —
 dois eventos com o mesmo ID nunca serão processados duas vezes.
 """
+
 from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
@@ -38,10 +39,11 @@ class EventStatus(StrEnum):
 class MarketEvent:
     """
     Evento de mercado. Imutável após criação — nunca altere campos.
-    
+
     event_id: chave de idempotência. Gere com uuid4 no produtor,
               preserve ao fazer retry para evitar duplicatas.
     """
+
     event_type: EventType
     ticker: str
     payload: dict[str, Any]
@@ -97,12 +99,13 @@ class MarketEvent:
 class OHLCBar:
     """
     Barra OHLC (Open/High/Low/Close) para armazenamento e backtesting.
-    
+
     Imutável por design — dados históricos nunca são alterados.
     """
+
     ticker: str
     timestamp: datetime
-    timeframe: str    # "1m", "5m", "15m", "1h", "1d", "1w"
+    timeframe: str  # "1m", "5m", "15m", "1h", "1d", "1w"
     open: Decimal
     high: Decimal
     low: Decimal

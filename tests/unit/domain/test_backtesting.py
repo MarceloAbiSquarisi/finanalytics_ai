@@ -719,9 +719,7 @@ class TestEngineSurvivorshipBias:
             def generate_signals(self, b):
                 return [Signal.HOLD] * len(b)
 
-        result = run_backtest(
-            bars, HoldStrategy(), "T", delisting_date=delisting
-        )
+        result = run_backtest(bars, HoldStrategy(), "T", delisting_date=delisting)
         assert result.trades == []
 
     def test_delisting_without_last_known_price_uses_bar_close(self):

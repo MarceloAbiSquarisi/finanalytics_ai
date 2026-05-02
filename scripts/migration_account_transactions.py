@@ -19,6 +19,7 @@ diario (C5 roda no open BRT). Manual via /settle-now (admin).
 Uso:
   .venv\\Scripts\\python.exe scripts\\migration_account_transactions.py
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -98,8 +99,10 @@ async def main() -> None:
         tx_count = await conn.fetchval("SELECT COUNT(*) FROM account_transactions")
         print(f"  investment_accounts: {len(accounts)} registros")
         for a in accounts:
-            print(f"    [{a['id'][:8]}] {a['apelido'] or '(sem apelido)':<25} "
-                  f"{a['institution_name']:<22} cash=R$ {a['cash_balance']}")
+            print(
+                f"    [{a['id'][:8]}] {a['apelido'] or '(sem apelido)':<25} "
+                f"{a['institution_name']:<22} cash=R$ {a['cash_balance']}"
+            )
         print(f"  account_transactions: {tx_count} registros")
     finally:
         await conn.close()

@@ -25,6 +25,7 @@ Uso:
     python scripts/audit_profit_price_scale.py --ticker PETR4
     python scripts/audit_profit_price_scale.py --start 2026-01-02 --end 2026-04-10
 """
+
 from __future__ import annotations
 
 import argparse

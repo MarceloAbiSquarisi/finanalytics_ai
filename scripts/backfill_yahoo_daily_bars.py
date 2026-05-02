@@ -15,6 +15,7 @@ Uso:
     python scripts/backfill_yahoo_daily_bars.py --asset-class fii
     python scripts/backfill_yahoo_daily_bars.py --dry-run
 """
+
 from __future__ import annotations
 
 import argparse
@@ -103,7 +104,12 @@ def upsert_bars(conn, ticker: str, bars: list[tuple]) -> int:
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
     p.add_argument("--years", type=int, default=2)
-    p.add_argument("--tickers", type=str, default=None, help="CSV (default = todos FII+ETF do ticker_ml_config)")
+    p.add_argument(
+        "--tickers",
+        type=str,
+        default=None,
+        help="CSV (default = todos FII+ETF do ticker_ml_config)",
+    )
     p.add_argument("--asset-class", choices=["fii", "etf"], default=None)
     p.add_argument("--dry-run", action="store_true")
     return p.parse_args()
@@ -121,7 +127,9 @@ def main() -> int:
         else:
             tickers = load_tickers(conn, args.asset_class)
 
-        print(f"[backfill_yahoo_daily_bars] {len(tickers)} tickers | {start} -> {end} | dry={args.dry_run}")
+        print(
+            f"[backfill_yahoo_daily_bars] {len(tickers)} tickers | {start} -> {end} | dry={args.dry_run}"
+        )
 
         ok = 0
         skip = 0
@@ -144,7 +152,7 @@ def main() -> int:
             else:
                 n = upsert_bars(conn, t, bars)
                 total += n
-                print(f"  [{i:3d}/{len(tickers)}] {t}({ac}): bars={n} ({time.time()-t0:.1f}s)")
+                print(f"  [{i:3d}/{len(tickers)}] {t}({ac}): bars={n} ({time.time() - t0:.1f}s)")
             ok += 1
     finally:
         conn.close()

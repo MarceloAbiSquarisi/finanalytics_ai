@@ -1,4 +1,5 @@
 """Testes unitários para Value Objects do domínio."""
+
 import pytest
 from decimal import Decimal
 from finanalytics_ai.domain.value_objects.money import Money, Ticker, Quantity, Percentage, Currency

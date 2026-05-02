@@ -243,9 +243,7 @@ async def get_zscore_history(
             if isinstance(ts, int | float):
                 date_iso = datetime.fromtimestamp(int(ts), UTC).date().isoformat()
             else:
-                date_iso = (
-                    datetime.fromisoformat(str(ts).replace("Z", "+00:00")).date().isoformat()
-                )
+                date_iso = datetime.fromisoformat(str(ts).replace("Z", "+00:00")).date().isoformat()
         except Exception:
             date_iso = "unknown"
         points.append(ZScorePoint(date=date_iso, spread=spread, z=z_val))
@@ -419,9 +417,7 @@ async def list_zscores(
 
         spread_mean = sum(spread_history) / len(spread_history)
         # variance estimator com ddof=1 (mesmo do compute_zscore)
-        var = sum((s - spread_mean) ** 2 for s in spread_history) / max(
-            1, len(spread_history) - 1
-        )
+        var = sum((s - spread_mean) ** 2 for s in spread_history) / max(1, len(spread_history) - 1)
         spread_std = var**0.5
 
         out.append(

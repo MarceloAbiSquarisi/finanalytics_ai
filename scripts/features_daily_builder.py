@@ -21,6 +21,7 @@ Uso:
     # Dry-run (não grava):
     python scripts/features_daily_builder.py --only PETR4 --dry-run
 """
+
 from __future__ import annotations
 
 import argparse
@@ -53,6 +54,7 @@ class Bar:
 
 
 # ─── Features (complementa feature_pipeline.py com ATR e SMAs) ─────────────────
+
 
 def _sma(values: list[float], window: int) -> list[float | None]:
     out: list[float | None] = []
@@ -164,6 +166,7 @@ def _volume_rel_20(volumes: list[float], window: int = 20) -> list[float | None]
 
 # ─── DB ────────────────────────────────────────────────────────────────────────
 
+
 def watchlist_ativa(conn) -> list[str]:
     with conn.cursor() as cur:
         cur.execute(
@@ -225,8 +228,12 @@ def load_bars(conn, ticker: str, d_start: date, d_end: date) -> list[Bar]:
         cur.execute(sql, (ticker, d_start, d_end, ticker, d_start, d_end, ticker, d_start, d_end))
         for dia, close, high, low, vol, src in cur.fetchall():
             bars[dia] = Bar(
-                dia, float(close), float(high or close), float(low or close),
-                float(vol or 0), src,
+                dia,
+                float(close),
+                float(high or close),
+                float(low or close),
+                float(vol or 0),
+                src,
             )
 
     return sorted(bars.values(), key=lambda b: b.dia)
@@ -280,6 +287,7 @@ def upsert_features(conn, ticker: str, rows: list[dict]) -> int:
 
 # ─── Pipeline ──────────────────────────────────────────────────────────────────
 
+
 def compute_features_for_ticker(bars: list[Bar]) -> list[dict]:
     if not bars:
         return []
@@ -320,6 +328,7 @@ def compute_features_for_ticker(bars: list[Bar]) -> list[dict]:
 
 
 # ─── CLI ───────────────────────────────────────────────────────────────────────
+
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Materializa features_daily")

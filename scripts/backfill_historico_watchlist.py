@@ -28,6 +28,7 @@ Uso:
   python backfill_historico_watchlist.py --no-futures --delay 1
   python backfill_historico_watchlist.py --only "PETR4,VALE3" --dry-run
 """
+
 from __future__ import annotations
 
 import argparse
@@ -52,6 +53,7 @@ if _env_file.exists():
             _k = _k.strip()
             _v = _v.strip().strip('"').strip("'")
             import os as _os2
+
             if _k not in _os2.environ:
                 _os2.environ[_k] = _v
 
@@ -60,12 +62,12 @@ import os as _os
 # ----------------------------------------------------------------------------
 # Config
 # ----------------------------------------------------------------------------
-AGENT_URL         = "http://localhost:8002"
-TIMEOUT_STOCK_S   = 300     # 5 min por probe de acao
-TIMEOUT_FUT_S     = 2400    # 40 min por probe de futuro (volume muito maior)
-DELAY_S           = 2
-RETRY_MAX         = 3
-RETRY_DELAY_BASE  = 10      # segundos, escala por tentativa
+AGENT_URL = "http://localhost:8002"
+TIMEOUT_STOCK_S = 300  # 5 min por probe de acao
+TIMEOUT_FUT_S = 2400  # 40 min por probe de futuro (volume muito maior)
+DELAY_S = 2
+RETRY_MAX = 3
+RETRY_DELAY_BASE = 10  # segundos, escala por tentativa
 
 DB_DSN = _os.getenv(
     "PROFIT_TIMESCALE_DSN",
@@ -79,48 +81,113 @@ DEFAULT_FUTURES = ["WINFUT", "WDOFUT"]
 # ----------------------------------------------------------------------------
 HOLIDAYS_BR: set[date] = {
     # 2020
-    date(2020, 1, 1), date(2020, 2, 24), date(2020, 2, 25),
-    date(2020, 4, 10), date(2020, 4, 21), date(2020, 5, 1),
-    date(2020, 6, 11), date(2020, 7, 9), date(2020, 9, 7),
-    date(2020, 10, 12), date(2020, 11, 2), date(2020, 11, 15),
-    date(2020, 12, 24), date(2020, 12, 25), date(2020, 12, 31),
+    date(2020, 1, 1),
+    date(2020, 2, 24),
+    date(2020, 2, 25),
+    date(2020, 4, 10),
+    date(2020, 4, 21),
+    date(2020, 5, 1),
+    date(2020, 6, 11),
+    date(2020, 7, 9),
+    date(2020, 9, 7),
+    date(2020, 10, 12),
+    date(2020, 11, 2),
+    date(2020, 11, 15),
+    date(2020, 12, 24),
+    date(2020, 12, 25),
+    date(2020, 12, 31),
     # 2021
-    date(2021, 1, 1), date(2021, 1, 25), date(2021, 2, 15),
-    date(2021, 2, 16), date(2021, 4, 2),  date(2021, 4, 21),
-    date(2021, 5, 1),  date(2021, 6, 3),  date(2021, 9, 7),
-    date(2021, 10, 12), date(2021, 11, 2), date(2021, 11, 15),
-    date(2021, 12, 24), date(2021, 12, 25), date(2021, 12, 31),
+    date(2021, 1, 1),
+    date(2021, 1, 25),
+    date(2021, 2, 15),
+    date(2021, 2, 16),
+    date(2021, 4, 2),
+    date(2021, 4, 21),
+    date(2021, 5, 1),
+    date(2021, 6, 3),
+    date(2021, 9, 7),
+    date(2021, 10, 12),
+    date(2021, 11, 2),
+    date(2021, 11, 15),
+    date(2021, 12, 24),
+    date(2021, 12, 25),
+    date(2021, 12, 31),
     # 2022
-    date(2022, 1, 1),  date(2022, 1, 25), date(2022, 2, 28),
-    date(2022, 3, 1),  date(2022, 4, 15), date(2022, 4, 21),
-    date(2022, 5, 1),  date(2022, 6, 16), date(2022, 9, 7),
-    date(2022, 10, 12), date(2022, 11, 2), date(2022, 11, 15),
+    date(2022, 1, 1),
+    date(2022, 1, 25),
+    date(2022, 2, 28),
+    date(2022, 3, 1),
+    date(2022, 4, 15),
+    date(2022, 4, 21),
+    date(2022, 5, 1),
+    date(2022, 6, 16),
+    date(2022, 9, 7),
+    date(2022, 10, 12),
+    date(2022, 11, 2),
+    date(2022, 11, 15),
     date(2022, 12, 25),
     # 2023
-    date(2023, 1, 1),  date(2023, 2, 20), date(2023, 2, 21),
-    date(2023, 4, 7),  date(2023, 4, 21), date(2023, 5, 1),
-    date(2023, 6, 8),  date(2023, 9, 7),  date(2023, 10, 12),
-    date(2023, 11, 2), date(2023, 11, 15), date(2023, 12, 25),
+    date(2023, 1, 1),
+    date(2023, 2, 20),
+    date(2023, 2, 21),
+    date(2023, 4, 7),
+    date(2023, 4, 21),
+    date(2023, 5, 1),
+    date(2023, 6, 8),
+    date(2023, 9, 7),
+    date(2023, 10, 12),
+    date(2023, 11, 2),
+    date(2023, 11, 15),
+    date(2023, 12, 25),
     # 2024
-    date(2024, 1, 1),  date(2024, 1, 25), date(2024, 2, 12),
-    date(2024, 2, 13), date(2024, 3, 29), date(2024, 4, 21),
-    date(2024, 5, 1),  date(2024, 5, 30), date(2024, 9, 7),
-    date(2024, 10, 12), date(2024, 11, 2), date(2024, 11, 15),
-    date(2024, 11, 20), date(2024, 12, 24), date(2024, 12, 25),
+    date(2024, 1, 1),
+    date(2024, 1, 25),
+    date(2024, 2, 12),
+    date(2024, 2, 13),
+    date(2024, 3, 29),
+    date(2024, 4, 21),
+    date(2024, 5, 1),
+    date(2024, 5, 30),
+    date(2024, 9, 7),
+    date(2024, 10, 12),
+    date(2024, 11, 2),
+    date(2024, 11, 15),
+    date(2024, 11, 20),
+    date(2024, 12, 24),
+    date(2024, 12, 25),
     date(2024, 12, 31),
     # 2025
-    date(2025, 1, 1),  date(2025, 3, 3),  date(2025, 3, 4),
-    date(2025, 3, 5),  date(2025, 4, 18), date(2025, 4, 21),
-    date(2025, 5, 1),  date(2025, 6, 19), date(2025, 9, 7),
-    date(2025, 10, 12), date(2025, 11, 2), date(2025, 11, 15),
-    date(2025, 11, 20), date(2025, 12, 24), date(2025, 12, 25),
+    date(2025, 1, 1),
+    date(2025, 3, 3),
+    date(2025, 3, 4),
+    date(2025, 3, 5),
+    date(2025, 4, 18),
+    date(2025, 4, 21),
+    date(2025, 5, 1),
+    date(2025, 6, 19),
+    date(2025, 9, 7),
+    date(2025, 10, 12),
+    date(2025, 11, 2),
+    date(2025, 11, 15),
+    date(2025, 11, 20),
+    date(2025, 12, 24),
+    date(2025, 12, 25),
     date(2025, 12, 31),
     # 2026
-    date(2026, 1, 1),  date(2026, 2, 16), date(2026, 2, 17),
-    date(2026, 2, 18), date(2026, 4, 3),  date(2026, 4, 21),
-    date(2026, 5, 1),  date(2026, 6, 4),  date(2026, 9, 7),
-    date(2026, 10, 12), date(2026, 11, 2), date(2026, 11, 15),
-    date(2026, 11, 20), date(2026, 12, 25),
+    date(2026, 1, 1),
+    date(2026, 2, 16),
+    date(2026, 2, 17),
+    date(2026, 2, 18),
+    date(2026, 4, 3),
+    date(2026, 4, 21),
+    date(2026, 5, 1),
+    date(2026, 6, 4),
+    date(2026, 9, 7),
+    date(2026, 10, 12),
+    date(2026, 11, 2),
+    date(2026, 11, 15),
+    date(2026, 11, 20),
+    date(2026, 12, 25),
 }
 
 
@@ -164,11 +231,11 @@ def format_dt(d: date, hour: str) -> str:
 def probe_with_retry(ticker: str, exchange: str, d: date, timeout: int):
     """Retorna (resp, err). Retenta em URLError/Timeout transitorios."""
     body = {
-        "ticker":   ticker,
+        "ticker": ticker,
         "exchange": exchange,
         "dt_start": format_dt(d, "09:00:00"),
-        "dt_end":   format_dt(d, "18:30:00"),
-        "timeout":  timeout,
+        "dt_end": format_dt(d, "18:30:00"),
+        "timeout": timeout,
     }
     last_err = None
     for attempt in range(RETRY_MAX):
@@ -184,7 +251,7 @@ def probe_with_retry(ticker: str, exchange: str, d: date, timeout: int):
             return None, f"{type(e).__name__}: {e}"
         if attempt < RETRY_MAX - 1:
             sleep_s = RETRY_DELAY_BASE * (attempt + 1)
-            print(f"         retry {attempt+1}/{RETRY_MAX-1} em {sleep_s}s ({last_err})")
+            print(f"         retry {attempt + 1}/{RETRY_MAX - 1} em {sleep_s}s ({last_err})")
             time.sleep(sleep_s)
     return None, last_err
 
@@ -195,9 +262,10 @@ def probe_with_retry(ticker: str, exchange: str, d: date, timeout: int):
 def get_watchlist_tickers() -> list[str]:
     """Carrega watchlist VERDE + AMARELO_* ordenada por liquidez DESC."""
     import psycopg2  # type: ignore
+
     try:
         conn = psycopg2.connect(DB_DSN)
-        cur  = conn.cursor()
+        cur = conn.cursor()
         cur.execute("""
             SELECT ticker
               FROM watchlist_tickers
@@ -205,7 +273,8 @@ def get_watchlist_tickers() -> list[str]:
              ORDER BY mediana_vol_brl DESC NULLS LAST
         """)
         rows = [r[0] for r in cur.fetchall()]
-        cur.close(); conn.close()
+        cur.close()
+        conn.close()
         return rows
     except Exception as e:
         print(f"[ERRO] Nao conseguiu ler watchlist_tickers: {e}")
@@ -216,16 +285,21 @@ def get_collected_dates(ticker: str, start: date, end: date) -> set[date]:
     """Datas que ja tem ticks no banco para o ticker no range."""
     try:
         import psycopg2  # type: ignore
+
         conn = psycopg2.connect(DB_DSN)
-        cur  = conn.cursor()
-        cur.execute("""
+        cur = conn.cursor()
+        cur.execute(
+            """
             SELECT DISTINCT trade_date::date
               FROM market_history_trades
              WHERE ticker = %s
                AND trade_date::date BETWEEN %s AND %s
-        """, (ticker, start.isoformat(), end.isoformat()))
+        """,
+            (ticker, start.isoformat(), end.isoformat()),
+        )
         rows = cur.fetchall()
-        cur.close(); conn.close()
+        cur.close()
+        conn.close()
         return {r[0] for r in rows}
     except Exception as e:
         print(f"  [AVISO] verificacao banco falhou para {ticker}: {e}")
@@ -274,14 +348,14 @@ def backfill(
     futures: list[str],
     only: list[str] | None,
 ) -> None:
-    print(f"\n{'='*72}")
+    print(f"\n{'=' * 72}")
     print("BACKFILL HISTORICO - watchlist completa + futuros")
     print(f"  Periodo  : {start.isoformat()} -> {end.isoformat()}")
     print(f"  Delay    : {delay}s")
     print(f"  Futuros  : {','.join(futures) if include_futures else '(desativados)'}")
     print(f"  Dry-run  : {dry_run}")
     print(f"  Agent    : {AGENT_URL}")
-    print(f"{'='*72}\n")
+    print(f"{'=' * 72}\n")
 
     # Health check
     try:
@@ -289,8 +363,10 @@ def backfill(
         if not status.get("market_connected"):
             print("[ERRO] Agent nao conectado ao mercado. Abortando.")
             sys.exit(1)
-        print(f"[OK] Agent online - market={status.get('market_connected')} "
-              f"db={status.get('db_connected')} assets={status.get('total_assets', '?')}")
+        print(
+            f"[OK] Agent online - market={status.get('market_connected')} "
+            f"db={status.get('db_connected')} assets={status.get('total_assets', '?')}"
+        )
     except Exception as e:
         print(f"[ERRO] Agent inacessivel em {AGENT_URL}: {e}")
         sys.exit(1)
@@ -338,7 +414,7 @@ def backfill(
             if ja:
                 before = len(days)
                 days = [d for d in days if d not in ja]
-                total_skip += (before - len(days))
+                total_skip += before - len(days)
         if not days:
             print(f"  [{ticker:10s}] em dia - 0 probes")
             continue
@@ -349,15 +425,19 @@ def backfill(
         return
 
     total_calls = sum(len(d) for _, _, _, d in plan)
-    print(f"\n[OK] Plano: {len(plan)}/{len(universe)} tickers ativos, "
-          f"{total_calls:,} probes (puladas {total_skip:,} ja no banco)")
+    print(
+        f"\n[OK] Plano: {len(plan)}/{len(universe)} tickers ativos, "
+        f"{total_calls:,} probes (puladas {total_skip:,} ja no banco)"
+    )
     eta_s = total_calls * (15 + delay)
-    print(f"     ETA estimada: {eta_s/3600:.1f}h = {eta_s/86400:.1f} dias "
-          f"(supondo ~15s/probe + {delay}s delay)\n")
+    print(
+        f"     ETA estimada: {eta_s / 3600:.1f}h = {eta_s / 86400:.1f} dias "
+        f"(supondo ~15s/probe + {delay}s delay)\n"
+    )
 
-    done_calls    = 0
-    total_ticks   = 0
-    total_ins     = 0
+    done_calls = 0
+    total_ticks = 0
+    total_ins = 0
     errors: list[tuple[str, date, str]] = []
     contaminacoes = 0
 
@@ -365,8 +445,10 @@ def backfill(
         if _shutdown:
             print(f"\n[INFO] Shutdown solicitado. Saindo antes de {ticker}.")
             break
-        print(f"\n[{datetime.now():%Y-%m-%d %H:%M:%S}] === {ticker} "
-              f"({exchange}, timeout={tmo}s, {len(days)} dias) ===")
+        print(
+            f"\n[{datetime.now():%Y-%m-%d %H:%M:%S}] === {ticker} "
+            f"({exchange}, timeout={tmo}s, {len(days)} dias) ==="
+        )
         ticker_ticks = 0
 
         for d in days:
@@ -376,8 +458,7 @@ def backfill(
             done_calls += 1
             pct = done_calls / total_calls * 100
             t0 = time.time()
-            print(f"  [{pct:5.1f}%] {ticker} {d.strftime('%Y-%m-%d')} ... ",
-                  end="", flush=True)
+            print(f"  [{pct:5.1f}%] {ticker} {d.strftime('%Y-%m-%d')} ... ", end="", flush=True)
 
             if dry_run:
                 print("(dry-run)")
@@ -392,35 +473,35 @@ def backfill(
                 time.sleep(delay)
                 continue
 
-            ticks    = resp.get("ticks", 0)
+            ticks = resp.get("ticks", 0)
             inserted = resp.get("inserted", 0)
-            v1       = resp.get("v1_count", 0)
-            v2       = resp.get("v2_count", 0)
+            v1 = resp.get("v1_count", 0)
+            v2 = resp.get("v2_count", 0)
 
             # Validacao anti-contaminacao
             first = resp.get("first") or {}
-            last  = resp.get("last")  or {}
+            last = resp.get("last") or {}
             flag = "OK"
             if ticks == 0:
                 flag = "ZERO"
             elif first.get("ticker") != ticker or last.get("ticker") != ticker:
                 flag = "CONT_ticker"
                 contaminacoes += 1
-                errors.append((ticker, d,
-                               f"CONT first={first.get('ticker')} last={last.get('ticker')}"))
+                errors.append(
+                    (ticker, d, f"CONT first={first.get('ticker')} last={last.get('ticker')}")
+                )
 
-            print(f"{ticks:>8}t {inserted:>8}i v1={v1:>3} v2={v2:>7} "
-                  f"{dt:>6.1f}s [{flag}]")
+            print(f"{ticks:>8}t {inserted:>8}i v1={v1:>3} v2={v2:>7} {dt:>6.1f}s [{flag}]")
 
             ticker_ticks += ticks
-            total_ticks  += ticks
-            total_ins    += inserted
+            total_ticks += ticks
+            total_ins += inserted
             time.sleep(delay)
 
         print(f"  [{ticker}] subtotal: {ticker_ticks:,} ticks")
 
     # Resumo final
-    print(f"\n{'='*72}")
+    print(f"\n{'=' * 72}")
     print("RESUMO")
     print(f"  Probes executados   : {done_calls:,}/{total_calls:,}")
     print(f"  Ticks coletados     : {total_ticks:,}")
@@ -432,8 +513,8 @@ def backfill(
         for tkr, d, err in errors[:30]:
             print(f"    {tkr:10s} {d.isoformat()}: {err}")
         if len(errors) > 30:
-            print(f"    ... +{len(errors)-30} omitidos")
-    print(f"{'='*72}\n")
+            print(f"    ... +{len(errors) - 30} omitidos")
+    print(f"{'=' * 72}\n")
 
 
 # ----------------------------------------------------------------------------
@@ -445,22 +526,33 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Backfill historico completo watchlist + futuros (2020-hoje)"
     )
-    parser.add_argument("--start", default="2020-01-02",
-                        help="Data inicial YYYY-MM-DD (default: 2020-01-02)")
-    parser.add_argument("--end", default=date.today().isoformat(),
-                        help="Data final YYYY-MM-DD (default: hoje)")
-    parser.add_argument("--delay", type=float, default=DELAY_S,
-                        help=f"Delay entre probes em segundos (default: {DELAY_S})")
-    parser.add_argument("--from-ticker", default="",
-                        help="Retoma a partir deste ticker (pula anteriores)")
-    parser.add_argument("--only", default="",
-                        help="CSV de tickers especificos (ignora watchlist do DB)")
-    parser.add_argument("--futures", default=",".join(DEFAULT_FUTURES),
-                        help=f"CSV de futuros (default: {','.join(DEFAULT_FUTURES)})")
-    parser.add_argument("--no-futures", action="store_true",
-                        help="Desativa backfill de futuros")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Simula sem chamadas reais (lista plano)")
+    parser.add_argument(
+        "--start", default="2020-01-02", help="Data inicial YYYY-MM-DD (default: 2020-01-02)"
+    )
+    parser.add_argument(
+        "--end", default=date.today().isoformat(), help="Data final YYYY-MM-DD (default: hoje)"
+    )
+    parser.add_argument(
+        "--delay",
+        type=float,
+        default=DELAY_S,
+        help=f"Delay entre probes em segundos (default: {DELAY_S})",
+    )
+    parser.add_argument(
+        "--from-ticker", default="", help="Retoma a partir deste ticker (pula anteriores)"
+    )
+    parser.add_argument(
+        "--only", default="", help="CSV de tickers especificos (ignora watchlist do DB)"
+    )
+    parser.add_argument(
+        "--futures",
+        default=",".join(DEFAULT_FUTURES),
+        help=f"CSV de futuros (default: {','.join(DEFAULT_FUTURES)})",
+    )
+    parser.add_argument("--no-futures", action="store_true", help="Desativa backfill de futuros")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Simula sem chamadas reais (lista plano)"
+    )
     args = parser.parse_args()
 
     futures = [f.strip().upper() for f in args.futures.split(",") if f.strip()]
@@ -469,12 +561,12 @@ if __name__ == "__main__":
         only_list = [t.strip().upper() for t in args.only.split(",") if t.strip()]
 
     backfill(
-        start           = date.fromisoformat(args.start),
-        end             = date.fromisoformat(args.end),
-        delay           = args.delay,
-        dry_run         = args.dry_run,
-        from_ticker     = args.from_ticker,
-        include_futures = not args.no_futures,
-        futures         = futures,
-        only            = only_list,
+        start=date.fromisoformat(args.start),
+        end=date.fromisoformat(args.end),
+        delay=args.delay,
+        dry_run=args.dry_run,
+        from_ticker=args.from_ticker,
+        include_futures=not args.no_futures,
+        futures=futures,
+        only=only_list,
     )

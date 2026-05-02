@@ -15,6 +15,7 @@ Uso:
     python scripts/calibrate_ml_thresholds.py --tickers PETR4,VALE3
     python scripts/calibrate_ml_thresholds.py --all        # watchlist VERDE
 """
+
 from __future__ import annotations
 
 import argparse
@@ -42,25 +43,46 @@ DSN = os.environ.get(
 )
 
 FEATURES_EQUITY = [
-    "close", "r_1d", "r_5d", "r_21d",
-    "atr_14", "vol_21d", "vol_rel_20",
-    "sma_50", "sma_200", "rsi_14",
+    "close",
+    "r_1d",
+    "r_5d",
+    "r_21d",
+    "atr_14",
+    "vol_21d",
+    "vol_rel_20",
+    "sma_50",
+    "sma_200",
+    "rsi_14",
 ]
 FEATURES_RF = [
-    "slope_1y_5y", "slope_2y_10y", "curvatura_butterfly",
-    "tsmom_di1_1y_3m", "tsmom_di1_2y_3m", "tsmom_di1_5y_3m",
-    "tsmom_di1_1y_12m", "tsmom_di1_2y_12m", "tsmom_di1_5y_12m",
-    "carry_roll_di1_2y", "carry_roll_di1_5y",
-    "value_di1_1y_z", "value_di1_2y_z", "value_di1_5y_z",
-    "breakeven_1y", "breakeven_2y", "breakeven_5y",
-    "ns_level", "ns_slope", "ns_curvature",
-    "vm_combo_2y", "vm_combo_5y",
+    "slope_1y_5y",
+    "slope_2y_10y",
+    "curvatura_butterfly",
+    "tsmom_di1_1y_3m",
+    "tsmom_di1_2y_3m",
+    "tsmom_di1_5y_3m",
+    "tsmom_di1_1y_12m",
+    "tsmom_di1_2y_12m",
+    "tsmom_di1_5y_12m",
+    "carry_roll_di1_2y",
+    "carry_roll_di1_5y",
+    "value_di1_1y_z",
+    "value_di1_2y_z",
+    "value_di1_5y_z",
+    "breakeven_1y",
+    "breakeven_2y",
+    "breakeven_5y",
+    "ns_level",
+    "ns_slope",
+    "ns_curvature",
+    "vm_combo_2y",
+    "vm_combo_5y",
 ]
 
 QUANTILES = [0.10, 0.50, 0.90]
 
 # Grid de thresholds (calibrado para scores em escala "Brasil 2020-2025")
-GRID_BUY  = [-0.5, -0.3, -0.1, 0.0, 0.1, 0.3]
+GRID_BUY = [-0.5, -0.3, -0.1, 0.0, 0.1, 0.3]
 GRID_SELL = [-0.5, -0.3, -0.1, 0.0]
 
 
@@ -69,31 +91,41 @@ def load_rows(conn, ticker: str, include_rf: bool, horizon: int):
     cols = ", ".join(features)
     with conn.cursor() as cur:
         cur.execute(
-            f"SELECT dia, {cols} FROM features_daily_full "
-            f"WHERE ticker=%s ORDER BY dia ASC",
+            f"SELECT dia, {cols} FROM features_daily_full WHERE ticker=%s ORDER BY dia ASC",
             (ticker,),
         )
         raw = cur.fetchall()
     closes = [float(r[1]) if r[1] is not None else None for r in raw]
     rows = []
     for i, r in enumerate(raw):
-        feats = {f: float(r[j + 1]) if r[j + 1] is not None else None
-                 for j, f in enumerate(features)}
+        feats = {
+            f: float(r[j + 1]) if r[j + 1] is not None else None for j, f in enumerate(features)
+        }
         close = closes[i]
         tgt = None
-        if (i + horizon < len(raw) and close and closes[i + horizon]
-                and close > 0 and closes[i + horizon] > 0):
+        if (
+            i + horizon < len(raw)
+            and close
+            and closes[i + horizon]
+            and close > 0
+            and closes[i + horizon] > 0
+        ):
             tgt = float(np.log(closes[i + horizon] / close))
-        rows.append({
-            "dia": r[0], "close": close or 0.0,
-            "features": feats, "vol_21d": feats.get("vol_21d"),
-            "target_forward": tgt,
-        })
+        rows.append(
+            {
+                "dia": r[0],
+                "close": close or 0.0,
+                "features": feats,
+                "vol_21d": feats.get("vol_21d"),
+                "target_forward": tgt,
+            }
+        )
     return rows, features
 
 
 def train_q(rows, features, mask):
     import lightgbm as lgb
+
     X, y = [], []
     for i, r in enumerate(rows):
         if not mask[i] or r["target_forward"] is None:
@@ -105,15 +137,21 @@ def train_q(rows, features, mask):
         y.append(r["target_forward"])
     if len(X) < 50:
         return {}
-    X = np.asarray(X, dtype=float); y = np.asarray(y, dtype=float)
+    X = np.asarray(X, dtype=float)
+    y = np.asarray(y, dtype=float)
     models = {}
     for q in QUANTILES:
         m = lgb.LGBMRegressor(
-            objective="quantile", alpha=q,
-            n_estimators=300, learning_rate=0.03,
-            num_leaves=31, min_child_samples=20,
-            subsample=0.8, colsample_bytree=0.8,
-            random_state=42, verbose=-1,
+            objective="quantile",
+            alpha=q,
+            n_estimators=300,
+            learning_rate=0.03,
+            num_leaves=31,
+            min_child_samples=20,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            random_state=42,
+            verbose=-1,
         )
         m.fit(X, y)
         models[q] = m
@@ -121,14 +159,18 @@ def train_q(rows, features, mask):
 
 
 def _prob_pos(p10, p50, p90):
-    if p10 >= 0: return 0.95
-    if p90 <= 0: return 0.05
+    if p10 >= 0:
+        return 0.95
+    if p90 <= 0:
+        return 0.05
     if p50 > 0:
         return max(0.01, min(0.99, 0.50 + 0.40 * (p50 / (p50 - p10 + 1e-9))))
     return max(0.01, min(0.99, 0.10 + 0.40 * (p90 / (p90 - p50 + 1e-9))))
 
 
-def compute_scores(rows, features, test_start_idx: int, retrain_days: int) -> tuple[list[float | None], list[int]]:
+def compute_scores(
+    rows, features, test_start_idx: int, retrain_days: int
+) -> tuple[list[float | None], list[int]]:
     """
     Walk-forward: retorna lista de scores alinhada com rows[test_start_idx:].
     None onde features insuficientes.
@@ -152,7 +194,8 @@ def compute_scores(rows, features, test_start_idx: int, retrain_days: int) -> tu
         r = rows[i]
         feats_vec = [r["features"].get(f) for f in features]
         if not models or any(v is None for v in feats_vec) or r["vol_21d"] is None:
-            scores.append(None); continue
+            scores.append(None)
+            continue
         x = np.asarray([feats_vec], dtype=float)
         p10 = float(models[0.10].predict(x)[0])
         p50 = float(models[0.50].predict(x)[0])
@@ -167,17 +210,30 @@ def rows_to_bars(rows, start_idx):
     bars = []
     for i in range(start_idx, len(rows)):
         r = rows[i]
-        if r["close"] <= 0: continue
+        if r["close"] <= 0:
+            continue
         dt = datetime.combine(r["dia"], datetime.min.time(), tzinfo=tz.utc)
-        bars.append({"time": int(dt.timestamp()), "open": r["close"], "high": r["close"],
-                     "low": r["close"], "close": r["close"], "volume": 0})
+        bars.append(
+            {
+                "time": int(dt.timestamp()),
+                "open": r["close"],
+                "high": r["close"],
+                "low": r["close"],
+                "close": r["close"],
+                "volume": 0,
+            }
+        )
     return bars
 
 
 class CachedStrategy:
     name = "Cached"
-    def __init__(self, signals: list[Signal]): self._signals = signals
-    def generate_signals(self, bars): return self._signals
+
+    def __init__(self, signals: list[Signal]):
+        self._signals = signals
+
+    def generate_signals(self, bars):
+        return self._signals
 
 
 def evaluate(scores, test_rows, bars, th_buy, th_sell, ticker, commission) -> dict:
@@ -186,23 +242,39 @@ def evaluate(scores, test_rows, bars, th_buy, th_sell, ticker, commission) -> di
         s = scores[j] if j < len(scores) else None
         if s is None or r["close"] <= 0:
             continue
-        if s >= th_buy:   signals.append(Signal.BUY)
-        elif s <= th_sell: signals.append(Signal.SELL)
-        else:              signals.append(Signal.HOLD)
+        if s >= th_buy:
+            signals.append(Signal.BUY)
+        elif s <= th_sell:
+            signals.append(Signal.SELL)
+        else:
+            signals.append(Signal.HOLD)
     if len(signals) != len(bars):
         return {}
     strat = CachedStrategy(signals)
-    r = run_backtest(bars=bars, strategy=strat, ticker=ticker,
-                     initial_capital=100_000.0, position_size=1.0,
-                     commission_pct=commission, range_period="cal")
+    r = run_backtest(
+        bars=bars,
+        strategy=strat,
+        ticker=ticker,
+        initial_capital=100_000.0,
+        position_size=1.0,
+        commission_pct=commission,
+        range_period="cal",
+    )
     m = r.metrics.to_dict()
     m["trades"] = len(r.trades)
     m["wins"] = sum(1 for t in r.trades if t.is_winner)
     return m
 
 
-def calibrate_one(conn, ticker: str, include_rf: bool, horizon: int,
-                  retrain_days: int, train_end: date, commission: float) -> dict | None:
+def calibrate_one(
+    conn,
+    ticker: str,
+    include_rf: bool,
+    horizon: int,
+    retrain_days: int,
+    train_end: date,
+    commission: float,
+) -> dict | None:
     t0 = time.time()
     rows, features = load_rows(conn, ticker, include_rf, horizon)
     if len(rows) < 100:
@@ -219,38 +291,60 @@ def calibrate_one(conn, ticker: str, include_rf: bool, horizon: int,
     for j, r in enumerate(test_rows):
         if r["close"] <= 0:
             continue
-        bars.append({"time": int(datetime.combine(r["dia"], datetime.min.time(), tzinfo=tz.utc).timestamp()),
-                     "open": r["close"], "high": r["close"], "low": r["close"],
-                     "close": r["close"], "volume": 0})
+        bars.append(
+            {
+                "time": int(
+                    datetime.combine(r["dia"], datetime.min.time(), tzinfo=tz.utc).timestamp()
+                ),
+                "open": r["close"],
+                "high": r["close"],
+                "low": r["close"],
+                "close": r["close"],
+                "volume": 0,
+            }
+        )
         score_aligned.append(scores[j] if j < len(scores) else None)
 
     best = None
     for tb in GRID_BUY:
         for ts in GRID_SELL:
-            if ts >= tb:   # sell precisa ser menor que buy
+            if ts >= tb:  # sell precisa ser menor que buy
                 continue
-            signals = [Signal.BUY if (sc is not None and sc >= tb) else
-                       (Signal.SELL if (sc is not None and sc <= ts) else Signal.HOLD)
-                       for sc in score_aligned]
+            signals = [
+                Signal.BUY
+                if (sc is not None and sc >= tb)
+                else (Signal.SELL if (sc is not None and sc <= ts) else Signal.HOLD)
+                for sc in score_aligned
+            ]
             strat = CachedStrategy(signals)
             try:
-                r = run_backtest(bars=bars, strategy=strat, ticker=ticker,
-                                 initial_capital=100_000.0, position_size=1.0,
-                                 commission_pct=commission, range_period="cal")
+                r = run_backtest(
+                    bars=bars,
+                    strategy=strat,
+                    ticker=ticker,
+                    initial_capital=100_000.0,
+                    position_size=1.0,
+                    commission_pct=commission,
+                    range_period="cal",
+                )
             except Exception:
                 continue
             m = r.metrics.to_dict()
             cand = {
-                "th_buy": tb, "th_sell": ts,
+                "th_buy": tb,
+                "th_sell": ts,
                 "sharpe": float(m.get("sharpe_ratio", 0) or 0),
                 "return_pct": float(m.get("total_return_pct", 0) or 0),
                 "max_dd": float(m.get("max_drawdown_pct", 0) or 0),
                 "trades": len(r.trades),
                 "win_rate": float(m.get("win_rate_pct", 0) or 0),
             }
-            if cand["trades"] < 3:   # filtro: precisa pelo menos 3 trades
+            if cand["trades"] < 3:  # filtro: precisa pelo menos 3 trades
                 continue
-            if best is None or (cand["sharpe"], cand["return_pct"]) > (best["sharpe"], best["return_pct"]):
+            if best is None or (cand["sharpe"], cand["return_pct"]) > (
+                best["sharpe"],
+                best["return_pct"],
+            ):
                 best = cand
 
     if best is None:
@@ -280,9 +374,19 @@ def upsert_config(conn, cfg: dict) -> None:
                 best_trades=EXCLUDED.best_trades, best_win_rate=EXCLUDED.best_win_rate,
                 best_max_dd=EXCLUDED.best_max_dd, calibrated_at=now()
             """,
-            (cfg["ticker"], cfg["include_rf"], cfg["horizon_days"], cfg["retrain_days"],
-             cfg["th_buy"], cfg["th_sell"], cfg["sharpe"], cfg["return_pct"],
-             cfg["trades"], cfg["win_rate"], cfg["max_dd"]),
+            (
+                cfg["ticker"],
+                cfg["include_rf"],
+                cfg["horizon_days"],
+                cfg["retrain_days"],
+                cfg["th_buy"],
+                cfg["th_sell"],
+                cfg["sharpe"],
+                cfg["return_pct"],
+                cfg["trades"],
+                cfg["win_rate"],
+                cfg["max_dd"],
+            ),
         )
 
 
@@ -291,9 +395,14 @@ def list_tickers(conn, args) -> list[str]:
         return [t.strip().upper() for t in args.tickers.split(",") if t.strip()]
     with conn.cursor() as cur:
         if args.all:
-            cur.execute("SELECT ticker FROM watchlist_tickers WHERE status='VERDE' ORDER BY mediana_vol_brl DESC")
+            cur.execute(
+                "SELECT ticker FROM watchlist_tickers WHERE status='VERDE' ORDER BY mediana_vol_brl DESC"
+            )
         else:
-            cur.execute("SELECT ticker FROM watchlist_tickers WHERE status='VERDE' ORDER BY mediana_vol_brl DESC LIMIT %s", (args.top,))
+            cur.execute(
+                "SELECT ticker FROM watchlist_tickers WHERE status='VERDE' ORDER BY mediana_vol_brl DESC LIMIT %s",
+                (args.top,),
+            )
         return [r[0] for r in cur.fetchall()]
 
 
@@ -318,18 +427,23 @@ def main():
     conn = psycopg2.connect(DSN)
     try:
         tickers = list_tickers(conn, args)
-        print(f"Calibrando {len(tickers)} tickers  rf={include_rf}  horizon={args.horizon}  retrain={args.retrain_days}  dry={args.dry_run}")
+        print(
+            f"Calibrando {len(tickers)} tickers  rf={include_rf}  horizon={args.horizon}  retrain={args.retrain_days}  dry={args.dry_run}"
+        )
         results = []
         for i, t in enumerate(tickers, 1):
-            cfg = calibrate_one(conn, t, include_rf, args.horizon, args.retrain_days,
-                                train_end, args.commission)
+            cfg = calibrate_one(
+                conn, t, include_rf, args.horizon, args.retrain_days, train_end, args.commission
+            )
             if cfg is None:
                 print(f"[{i}/{len(tickers)}] {t}: skip (insufficient data / no valid combo)")
                 continue
             results.append(cfg)
-            print(f"[{i}/{len(tickers)}] {t:<7} th=[{cfg['th_buy']:+.2f},{cfg['th_sell']:+.2f}] "
-                  f"sharpe={cfg['sharpe']:+.3f} ret={cfg['return_pct']:+.1f}% "
-                  f"trades={cfg['trades']} win={cfg['win_rate']:.0f}% dd={cfg['max_dd']:.1f}% ({cfg['elapsed']:.1f}s)")
+            print(
+                f"[{i}/{len(tickers)}] {t:<7} th=[{cfg['th_buy']:+.2f},{cfg['th_sell']:+.2f}] "
+                f"sharpe={cfg['sharpe']:+.3f} ret={cfg['return_pct']:+.1f}% "
+                f"trades={cfg['trades']} win={cfg['win_rate']:.0f}% dd={cfg['max_dd']:.1f}% ({cfg['elapsed']:.1f}s)"
+            )
             if not args.dry_run:
                 upsert_config(conn, cfg)
                 conn.commit()

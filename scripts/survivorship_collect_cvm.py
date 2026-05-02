@@ -52,9 +52,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import psycopg2
 
-CVM_CSV_URL = (
-    "http://dados.cvm.gov.br/dados/CIA_ABERTA/CAD/DADOS/cad_cia_aberta.csv"
-)
+CVM_CSV_URL = "http://dados.cvm.gov.br/dados/CIA_ABERTA/CAD/DADOS/cad_cia_aberta.csv"
 
 
 def fetch_cvm_csv(url: str = CVM_CSV_URL) -> str:

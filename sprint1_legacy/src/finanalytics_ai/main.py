@@ -6,6 +6,7 @@ Inicializa: logging → observabilidade → fila → worker de eventos.
 Design decision: startup/shutdown explícitos com lifespan async.
 Evita globals mutáveis — passa dependências construídas para baixo.
 """
+
 from __future__ import annotations
 
 import asyncio

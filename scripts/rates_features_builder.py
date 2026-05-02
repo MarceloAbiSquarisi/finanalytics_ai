@@ -17,6 +17,7 @@ Uso:
     python scripts/rates_features_builder.py --start 2024-01-01 # range
     python scripts/rates_features_builder.py --dry-run
 """
+
 from __future__ import annotations
 
 import argparse
@@ -71,7 +72,9 @@ def load_curves(conn) -> tuple[dict, dict, dict]:
             elif market == "br_ipca" and tx_real is not None:
                 curves_ipca[d].append({"dias_uteis": int(du), "taxa_aa": float(tx_real)})
 
-        cur.execute("SELECT time::date, vertice_du, breakeven_aa FROM breakeven_inflation ORDER BY time, vertice_du")
+        cur.execute(
+            "SELECT time::date, vertice_du, breakeven_aa FROM breakeven_inflation ORDER BY time, vertice_du"
+        )
         for d, du, be in cur.fetchall():
             if be is not None:
                 breakevens[d].append({"dias_uteis": int(du), "breakeven_aa": float(be)})
@@ -79,25 +82,27 @@ def load_curves(conn) -> tuple[dict, dict, dict]:
     return curves_pre, curves_ipca, breakevens
 
 
-def build_history_series(curves_pre: dict, curves_ipca: dict,
-                         dias_ord: list[date]) -> dict[str, list[float | None]]:
+def build_history_series(
+    curves_pre: dict, curves_ipca: dict, dias_ord: list[date]
+) -> dict[str, list[float | None]]:
     """
     Para cada vértice canônico, constrói série ordenada por dia com a taxa
     interpolada (flat-forward). Retorna dict "serie_pre_1y", "serie_real_5y", etc.
     """
-    vertices_pre  = {"3m": 63, "1y": 252, "2y": 504, "5y": 1260}
+    vertices_pre = {"3m": 63, "1y": 252, "2y": 504, "5y": 1260}
     vertices_real = {"1y": 252, "2y": 504, "5y": 1260}
 
     series: dict[str, list[float | None]] = {}
     for nome, du in vertices_pre.items():
-        series[f"pre_{nome}"]  = [taxa_em_vertice(curves_pre.get(d, []), du) for d in dias_ord]
+        series[f"pre_{nome}"] = [taxa_em_vertice(curves_pre.get(d, []), du) for d in dias_ord]
     for nome, du in vertices_real.items():
         series[f"real_{nome}"] = [taxa_em_vertice(curves_ipca.get(d, []), du) for d in dias_ord]
     return series
 
 
-def compute_row(dia: date, idx: int, curves_pre: dict, curves_ipca: dict,
-                breakevens: dict, series: dict) -> dict[str, Any]:
+def compute_row(
+    dia: date, idx: int, curves_pre: dict, curves_ipca: dict, breakevens: dict, series: dict
+) -> dict[str, Any]:
     """Computa todas as features RF para um único dia (dia = dias_ord[idx])."""
     curve_pre = curves_pre.get(dia, [])
     curve_ipca = curves_ipca.get(dia, [])
@@ -106,31 +111,32 @@ def compute_row(dia: date, idx: int, curves_pre: dict, curves_ipca: dict,
     row: dict[str, Any] = {"dia": dia}
 
     # Taxas nos vértices canônicos
-    row["taxa_pre_3m"]  = taxa_em_vertice(curve_pre, 63)
-    row["taxa_pre_1y"]  = taxa_em_vertice(curve_pre, 252)
-    row["taxa_pre_2y"]  = taxa_em_vertice(curve_pre, 504)
-    row["taxa_pre_5y"]  = taxa_em_vertice(curve_pre, 1260)
+    row["taxa_pre_3m"] = taxa_em_vertice(curve_pre, 63)
+    row["taxa_pre_1y"] = taxa_em_vertice(curve_pre, 252)
+    row["taxa_pre_2y"] = taxa_em_vertice(curve_pre, 504)
+    row["taxa_pre_5y"] = taxa_em_vertice(curve_pre, 1260)
     row["taxa_real_1y"] = taxa_em_vertice(curve_ipca, 252)
     row["taxa_real_2y"] = taxa_em_vertice(curve_ipca, 504)
     row["taxa_real_5y"] = taxa_em_vertice(curve_ipca, 1260)
 
     # Slope/butterfly/NS
-    row["slope_1y_5y"]   = calc_slope(curve_pre, 252, 1260)
-    row["slope_2y_10y"]  = calc_slope(curve_pre, 504, 2520)
+    row["slope_1y_5y"] = calc_slope(curve_pre, 252, 1260)
+    row["slope_2y_10y"] = calc_slope(curve_pre, 504, 2520)
     t1, t2, t5 = row["taxa_pre_1y"], row["taxa_pre_2y"], row["taxa_pre_5y"]
     row["curvatura_butterfly"] = (
         butterfly_duration_neutral(t1, t2, t5, 252, 504, 1260)
-        if all(x is not None for x in (t1, t2, t5)) else None
+        if all(x is not None for x in (t1, t2, t5))
+        else None
     )
     ns = nelson_siegel_fit(
         [r["dias_uteis"] for r in curve_pre],
         [r["taxa_aa"] for r in curve_pre],
     )
     if ns:
-        row["ns_level"]     = ns["beta0"]
-        row["ns_slope"]     = ns["beta1"]
+        row["ns_level"] = ns["beta0"]
+        row["ns_slope"] = ns["beta1"]
         row["ns_curvature"] = ns["beta2"]
-        row["ns_lambda"]    = ns["lambda"]
+        row["ns_lambda"] = ns["lambda"]
     else:
         row["ns_level"] = row["ns_slope"] = row["ns_curvature"] = row["ns_lambda"] = None
 
@@ -138,10 +144,12 @@ def compute_row(dia: date, idx: int, curves_pre: dict, curves_ipca: dict,
     be_at = {}
     for r in be_curve:
         be_at[r["dias_uteis"]] = r["breakeven_aa"]
+
     def _be_lookup(target_du: int) -> float | None:
         if not be_curve:
             return None
         return taxa_em_vertice(be_curve, target_du, key_du="dias_uteis", key_tx="breakeven_aa")
+
     row["breakeven_1y"] = _be_lookup(252)
     row["breakeven_2y"] = _be_lookup(504)
     row["breakeven_5y"] = _be_lookup(1260)
@@ -154,7 +162,7 @@ def compute_row(dia: date, idx: int, curves_pre: dict, curves_ipca: dict,
         return tsmom_signal(serie, lookback_dias=lookback, vol_target=0.10)
 
     for v in ("1y", "2y", "5y"):
-        row[f"tsmom_di1_{v}_3m"]  = _tsmom(f"pre_{v}", 63)
+        row[f"tsmom_di1_{v}_3m"] = _tsmom(f"pre_{v}", 63)
         row[f"tsmom_di1_{v}_12m"] = _tsmom(f"pre_{v}", 252)
 
     # Roll-down carry
@@ -163,7 +171,9 @@ def compute_row(dia: date, idx: int, curves_pre: dict, curves_ipca: dict,
     else:
         row["carry_roll_di1_2y"] = None
     if row["taxa_pre_2y"] is not None and row["taxa_pre_5y"] is not None:
-        row["carry_roll_di1_5y"] = carry_roll_down(row["taxa_pre_5y"], row["taxa_pre_2y"], 1260, 504)
+        row["carry_roll_di1_5y"] = carry_roll_down(
+            row["taxa_pre_5y"], row["taxa_pre_2y"], 1260, 504
+        )
     else:
         row["carry_roll_di1_5y"] = None
 
@@ -177,9 +187,9 @@ def compute_row(dia: date, idx: int, curves_pre: dict, curves_ipca: dict,
             return None
         return value_zscore(serie_full[-1], hist)
 
-    row["value_di1_1y_z"]  = _value_z("pre_1y")
-    row["value_di1_2y_z"]  = _value_z("pre_2y")
-    row["value_di1_5y_z"]  = _value_z("pre_5y")
+    row["value_di1_1y_z"] = _value_z("pre_1y")
+    row["value_di1_2y_z"] = _value_z("pre_2y")
+    row["value_di1_5y_z"] = _value_z("pre_5y")
     row["value_ntnb_2y_z"] = _value_z("real_2y")
     row["value_ntnb_5y_z"] = _value_z("real_5y")
 
@@ -203,18 +213,41 @@ def compute_row(dia: date, idx: int, curves_pre: dict, curves_ipca: dict,
 
 COLS_ORDER = [
     "dia",
-    "taxa_pre_3m", "taxa_pre_1y", "taxa_pre_2y", "taxa_pre_5y",
-    "taxa_real_1y", "taxa_real_2y", "taxa_real_5y",
-    "slope_1y_5y", "slope_2y_10y", "curvatura_butterfly",
-    "breakeven_1y", "breakeven_2y", "breakeven_5y",
-    "ns_level", "ns_slope", "ns_curvature", "ns_lambda",
-    "tsmom_di1_1y_3m", "tsmom_di1_2y_3m", "tsmom_di1_5y_3m",
-    "tsmom_di1_1y_12m", "tsmom_di1_2y_12m", "tsmom_di1_5y_12m",
-    "carry_roll_di1_2y", "carry_roll_di1_5y",
-    "value_di1_1y_z", "value_di1_2y_z", "value_di1_5y_z",
-    "value_ntnb_2y_z", "value_ntnb_5y_z",
-    "vm_combo_1y", "vm_combo_2y", "vm_combo_5y",
-    "fra_1y2y", "fra_2y5y",
+    "taxa_pre_3m",
+    "taxa_pre_1y",
+    "taxa_pre_2y",
+    "taxa_pre_5y",
+    "taxa_real_1y",
+    "taxa_real_2y",
+    "taxa_real_5y",
+    "slope_1y_5y",
+    "slope_2y_10y",
+    "curvatura_butterfly",
+    "breakeven_1y",
+    "breakeven_2y",
+    "breakeven_5y",
+    "ns_level",
+    "ns_slope",
+    "ns_curvature",
+    "ns_lambda",
+    "tsmom_di1_1y_3m",
+    "tsmom_di1_2y_3m",
+    "tsmom_di1_5y_3m",
+    "tsmom_di1_1y_12m",
+    "tsmom_di1_2y_12m",
+    "tsmom_di1_5y_12m",
+    "carry_roll_di1_2y",
+    "carry_roll_di1_5y",
+    "value_di1_1y_z",
+    "value_di1_2y_z",
+    "value_di1_5y_z",
+    "value_ntnb_2y_z",
+    "value_ntnb_5y_z",
+    "vm_combo_1y",
+    "vm_combo_2y",
+    "vm_combo_5y",
+    "fra_1y2y",
+    "fra_2y5y",
 ]
 
 
@@ -252,7 +285,9 @@ def main() -> int:
     try:
         print("rates_features_builder: carregando yield_curves + breakevens...")
         curves_pre, curves_ipca, breakevens = load_curves(conn)
-        print(f"  pre={len(curves_pre)} dias, ipca={len(curves_ipca)} dias, be={len(breakevens)} dias")
+        print(
+            f"  pre={len(curves_pre)} dias, ipca={len(curves_ipca)} dias, be={len(breakevens)} dias"
+        )
 
         # Ordem temporal: união completa pré ∪ ipca SEM filtro pelo range.
         # Necessário porque TSMOM (3m=63d, 12m=252d) e value_z (5y=1260d)
@@ -285,12 +320,12 @@ def main() -> int:
             batch.append(row)
             if len(batch) >= 200:
                 if args.dry_run:
-                    print(f"  [{i_out+1}/{len(dias_to_compute)}] batch de {len(batch)} (dry-run)")
+                    print(f"  [{i_out + 1}/{len(dias_to_compute)}] batch de {len(batch)} (dry-run)")
                 else:
                     n = upsert_rows(conn, batch)
                     conn.commit()
                     total += n
-                    print(f"  [{i_out+1}/{len(dias_to_compute)}] batch +{n} (total={total})")
+                    print(f"  [{i_out + 1}/{len(dias_to_compute)}] batch +{n} (total={total})")
                 batch.clear()
         if batch:
             if args.dry_run:

@@ -163,10 +163,7 @@ def main() -> int:
     print("-" * 50)
     for r in candidates[:25]:
         close_str = f"{float(r['last_close']):.2f}" if r["last_close"] else "-"
-        print(
-            f"{r['ticker']:<10} {str(r['last_date']):<12} "
-            f"{close_str:>10}  {r['confidence']:<10}"
-        )
+        print(f"{r['ticker']:<10} {str(r['last_date']):<12} {close_str:>10}  {r['confidence']:<10}")
     if len(candidates) > 25:
         print(f"... ({len(candidates) - 25} restantes ocultos)")
 

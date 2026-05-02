@@ -40,29 +40,41 @@ log = structlog.get_logger()
 # ── Configurações de referência ───────────────────────────────────────────────
 
 TICKERS_IBOV = [
-    "PETR4", "VALE3", "ITUB4", "BBDC4", "ABEV3",
-    "BBAS3", "WEGE3", "RENT3", "SUZB3", "RADL3",
-    "EQTL3", "VIVT3", "JBSS3", "RAIL3", "SBSP3",
+    "PETR4",
+    "VALE3",
+    "ITUB4",
+    "BBDC4",
+    "ABEV3",
+    "BBAS3",
+    "WEGE3",
+    "RENT3",
+    "SUZB3",
+    "RADL3",
+    "EQTL3",
+    "VIVT3",
+    "JBSS3",
+    "RAIL3",
+    "SBSP3",
 ]
 
 DATA_INICIO_ESPERADA = date(2010, 1, 1)
 TOTAL_DATASETS_ESPERADO = 80
 
 INDICADORES_FAIXAS = {
-    "P_L":           (-500,  500),
-    "P_VP":          (-100,  100),
-    "ROE":           (-5,    5),
-    "ROA":           (-2,    2),
-    "DividendYield": (0,     5),
-    "MargemLiquida": (-10,   10),
+    "P_L": (-500, 500),
+    "P_VP": (-100, 100),
+    "ROE": (-5, 5),
+    "ROA": (-2, 2),
+    "DividendYield": (0, 5),
+    "MargemLiquida": (-10, 10),
 }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-VERDE  = "\033[92m"
+VERDE = "\033[92m"
 AMARELO = "\033[93m"
 VERMELHO = "\033[91m"
-RESET  = "\033[0m"
+RESET = "\033[0m"
 NEGRITO = "\033[1m"
 
 passed = 0
@@ -92,9 +104,9 @@ def warn(msg: str, detalhe: str = "") -> None:
 
 
 def secao(titulo: str) -> None:
-    print(f"\n{NEGRITO}{'─'*60}{RESET}")
+    print(f"\n{NEGRITO}{'─' * 60}{RESET}")
     print(f"{NEGRITO}  {titulo}{RESET}")
-    print(f"{NEGRITO}{'─'*60}{RESET}")
+    print(f"{NEGRITO}{'─' * 60}{RESET}")
 
 
 async def q(sql: str, params: dict[str, Any] | None = None) -> list[Any]:
@@ -110,12 +122,13 @@ async def q1(sql: str, params: dict[str, Any] | None = None) -> Any:
 
 # ── Testes ────────────────────────────────────────────────────────────────────
 
+
 async def teste_sync_log() -> None:
     secao("1. Sync Log — cobertura dos datasets")
 
-    total_ok    = await q1("SELECT COUNT(*) FROM fintz_sync_log WHERE status = 'ok'")
+    total_ok = await q1("SELECT COUNT(*) FROM fintz_sync_log WHERE status = 'ok'")
     total_error = await q1("SELECT COUNT(*) FROM fintz_sync_log WHERE status = 'error'")
-    total       = await q1("SELECT COUNT(*) FROM fintz_sync_log")
+    total = await q1("SELECT COUNT(*) FROM fintz_sync_log")
 
     if total_ok == TOTAL_DATASETS_ESPERADO:
         ok(f"Todos os {TOTAL_DATASETS_ESPERADO} datasets importados com sucesso")
@@ -140,9 +153,9 @@ async def teste_volume_tabelas() -> None:
     secao("2. Volume — linhas por tabela")
 
     checks = [
-        ("fintz_cotacoes",       500_000,  "cotações OHLC (>500k esperado para B3 desde 2010)"),
-        ("fintz_itens_contabeis", 50_000,  "itens contábeis PIT"),
-        ("fintz_indicadores",     50_000,  "indicadores PIT"),
+        ("fintz_cotacoes", 500_000, "cotações OHLC (>500k esperado para B3 desde 2010)"),
+        ("fintz_itens_contabeis", 50_000, "itens contábeis PIT"),
+        ("fintz_indicadores", 50_000, "indicadores PIT"),
     ]
 
     for tabela, minimo, descricao in checks:
@@ -194,7 +207,7 @@ async def teste_tickers_ibov() -> None:
         {"tickers": TICKERS_IBOV},
     )
     presentes = {r[0] for r in tickers_presentes}
-    ausentes  = set(TICKERS_IBOV) - presentes
+    ausentes = set(TICKERS_IBOV) - presentes
 
     if not ausentes:
         ok(f"Todos os {len(TICKERS_IBOV)} tickers do Ibov presentes")
@@ -225,9 +238,7 @@ async def teste_integridade_cotacoes() -> None:
         warn(f"{nulos:,} linhas com ambos preços nulos")
 
     # Preços negativos
-    negativos = await q1(
-        "SELECT COUNT(*) FROM fintz_cotacoes WHERE preco_fechamento < 0"
-    )
+    negativos = await q1("SELECT COUNT(*) FROM fintz_cotacoes WHERE preco_fechamento < 0")
     if negativos == 0:
         ok("Sem preços negativos")
     else:
@@ -254,8 +265,11 @@ async def teste_integridade_cotacoes() -> None:
     if amostra:
         ok("Amostra PETR4 (últimos pregões):")
         for r in amostra:
-            print(f"       {r[0]}  fechamento={r[1]}  ajustado={r[2]}  volume={r[3]:,}" if r[3] else
-                  f"       {r[0]}  fechamento={r[1]}  ajustado={r[2]}")
+            print(
+                f"       {r[0]}  fechamento={r[1]}  ajustado={r[2]}  volume={r[3]:,}"
+                if r[3]
+                else f"       {r[0]}  fechamento={r[1]}  ajustado={r[2]}"
+            )
     else:
         fail("PETR4 não encontrado nas cotações")
 
@@ -324,11 +338,12 @@ async def teste_itens_contabeis() -> None:
 
 # ── Runner ─────────────────────────────────────────────────────────────────────
 
+
 async def main() -> None:
-    print(f"\n{NEGRITO}{'='*60}{RESET}")
+    print(f"\n{NEGRITO}{'=' * 60}{RESET}")
     print(f"{NEGRITO}  Validação da carga histórica Fintz{RESET}")
     print(f"{NEGRITO}  finanalytics_ai — {date.today()}{RESET}")
-    print(f"{NEGRITO}{'='*60}{RESET}")
+    print(f"{NEGRITO}{'=' * 60}{RESET}")
 
     await teste_sync_log()
     await teste_volume_tabelas()
@@ -339,9 +354,9 @@ async def main() -> None:
     await teste_itens_contabeis()
 
     # ── Resultado final ───────────────────────────────────────────────────────
-    print(f"\n{NEGRITO}{'='*60}{RESET}")
+    print(f"\n{NEGRITO}{'=' * 60}{RESET}")
     print(f"{NEGRITO}  Resultado final{RESET}")
-    print(f"{NEGRITO}{'='*60}{RESET}")
+    print(f"{NEGRITO}{'=' * 60}{RESET}")
     print(f"  {VERDE}✓ Passou:    {passed}{RESET}")
     print(f"  {AMARELO}⚠ Avisos:   {warnings}{RESET}")
     print(f"  {VERMELHO}✗ Falhou:   {failed}{RESET}")

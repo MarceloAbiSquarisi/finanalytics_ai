@@ -73,12 +73,12 @@ WS_CODE = (
     "        except: pass\n"
 )
 
-with open(path, encoding='utf-8') as f:
+with open(path, encoding="utf-8") as f:
     content = f.read()
 
-if 'ws_ticks' in content:
+if "ws_ticks" in content:
     print("JA EXISTE")
 else:
-    with open(path, 'a', encoding='utf-8') as f:
+    with open(path, "a", encoding="utf-8") as f:
         f.write(WS_CODE)
     print("OK - WebSocket endpoints adicionados")

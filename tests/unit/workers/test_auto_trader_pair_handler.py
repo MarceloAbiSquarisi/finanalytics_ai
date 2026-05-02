@@ -246,9 +246,7 @@ async def test_naked_leg_does_not_persist() -> None:
     from finanalytics_ai.workers.auto_trader_worker import _handle_pair_evaluation
 
     repo = MagicMock()
-    dispatch = AsyncMock(
-        return_value={"ok": False, "naked_leg": "a", "error": "leg_b_failed"}
-    )
+    dispatch = AsyncMock(return_value={"ok": False, "naked_leg": "a", "error": "leg_b_failed"})
     await _handle_pair_evaluation(
         _ev(action=PairAction.OPEN_SHORT_SPREAD, leg_a_side="sell", leg_b_side="buy"),
         **_make_kwargs(repo, _candles_with_prices(), dispatch),
@@ -289,9 +287,7 @@ async def test_naked_leg_pushover_failure_does_not_break() -> None:
     from finanalytics_ai.workers.auto_trader_worker import _handle_pair_evaluation
 
     repo = MagicMock()
-    dispatch = AsyncMock(
-        return_value={"ok": False, "naked_leg": "a", "error": "leg_b_failed"}
-    )
+    dispatch = AsyncMock(return_value={"ok": False, "naked_leg": "a", "error": "leg_b_failed"})
     notify = AsyncMock(side_effect=RuntimeError("pushover api 500"))
     kwargs = _make_kwargs(repo, _candles_with_prices(), dispatch)
     kwargs["notify_fn"] = notify
@@ -309,9 +305,7 @@ async def test_naked_leg_no_notify_fn_does_not_break() -> None:
     from finanalytics_ai.workers.auto_trader_worker import _handle_pair_evaluation
 
     repo = MagicMock()
-    dispatch = AsyncMock(
-        return_value={"ok": False, "naked_leg": "a", "error": "leg_b_failed"}
-    )
+    dispatch = AsyncMock(return_value={"ok": False, "naked_leg": "a", "error": "leg_b_failed"})
     # Sem passar notify_fn — default None
     await _handle_pair_evaluation(
         _ev(action=PairAction.OPEN_SHORT_SPREAD, leg_a_side="sell", leg_b_side="buy"),

@@ -25,6 +25,7 @@ import time
 
 log = logging.getLogger("profit_agent.http")
 
+
 def start_http_server(agent, port: int) -> None:
 
     # Mata zombies de boots anteriores ANTES de tentar bind (P6/O1 fix 28/abr).
@@ -265,9 +266,7 @@ def start_http_server(agent, port: int) -> None:
 
                 _ar = agent.query_assets(search=_at, limit=1)
 
-                self._send_json(
-                    _ar["assets"][0] if _ar["assets"] else {"error": "nao encontrado"}
-                )
+                self._send_json(_ar["assets"][0] if _ar["assets"] else {"error": "nao encontrado"})
 
             elif self.path.startswith("/assets"):
                 from urllib.parse import parse_qs as _pqs2, urlparse
@@ -570,4 +569,3 @@ def start_http_server(agent, port: int) -> None:
 
     log.info("http_server.bound host=%s port=%d", bind_host, port)
     server.serve_forever()
-

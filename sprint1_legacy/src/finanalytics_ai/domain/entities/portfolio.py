@@ -5,6 +5,7 @@ Design decision: Portfolio é a aggregate root. Position representa
 a posição do investidor em um ativo específico. O Portfolio é responsável
 por manter a consistência (invariantes) das posições.
 """
+
 from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
@@ -17,6 +18,7 @@ from finanalytics_ai.exceptions import InsufficientFundsError, PortfolioNotFound
 @dataclass
 class Position:
     """Posição em um ativo dentro de um portfólio."""
+
     ticker: Ticker
     quantity: Quantity
     average_price: Money
@@ -55,10 +57,11 @@ class Position:
 class Portfolio:
     """
     Aggregate Root: representa o portfólio de um investidor.
-    
+
     Todas as operações de compra/venda passam por aqui para
     manter os invariantes do domínio.
     """
+
     portfolio_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     user_id: str = ""
     name: str = "Portfólio Principal"
@@ -80,7 +83,9 @@ class Portfolio:
         if existing:
             self.positions[ticker.symbol] = existing.update_with_purchase(quantity, price)
         else:
-            self.positions[ticker.symbol] = Position(ticker=ticker, quantity=quantity, average_price=price)
+            self.positions[ticker.symbol] = Position(
+                ticker=ticker, quantity=quantity, average_price=price
+            )
         self.cash = self.cash - cost
         self.updated_at = datetime.utcnow()
 

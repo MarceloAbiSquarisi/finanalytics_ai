@@ -11,6 +11,7 @@ Uso:
 Requisitos: torch+CUDA, transformers, datasets. GPU recomendada
 (CPU treina, mas demora ~30min por epoch em 100 docs).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -23,8 +24,8 @@ import random
 import sys
 
 LABELS = ["dovish", "neutral", "hawkish"]
-L2I    = {l: i for i, l in enumerate(LABELS)}
-I2L    = {i: l for l, i in L2I.items()}
+L2I = {l: i for i, l in enumerate(LABELS)}
+I2L = {i: l for l, i in L2I.items()}
 MODEL_BASE = "neuralmind/bert-base-portuguese-cased"
 
 
@@ -39,24 +40,28 @@ def _load_model_with_layernorm_rename(model_base: str, n_labels: int):
     if not sd_path.exists():
         # safetensors ja tem naming correto; fallback padrao
         return AutoModelForSequenceClassification.from_pretrained(
-            model_base, num_labels=n_labels, id2label=I2L, label2id=L2I,
+            model_base,
+            num_labels=n_labels,
+            id2label=I2L,
+            label2id=L2I,
         )
 
     state_dict = torch.load(str(sd_path), map_location="cpu", weights_only=True)
     renamed = {}
     for k, v in state_dict.items():
-        nk = k.replace(".LayerNorm.gamma", ".LayerNorm.weight") \
-              .replace(".LayerNorm.beta", ".LayerNorm.bias")
+        nk = k.replace(".LayerNorm.gamma", ".LayerNorm.weight").replace(
+            ".LayerNorm.beta", ".LayerNorm.bias"
+        )
         renamed[nk] = v
 
-    cfg = AutoConfig.from_pretrained(model_base, num_labels=n_labels,
-                                     id2label=I2L, label2id=L2I)
+    cfg = AutoConfig.from_pretrained(model_base, num_labels=n_labels, id2label=I2L, label2id=L2I)
     model = AutoModelForSequenceClassification.from_config(cfg)
     missing, unexpected = model.load_state_dict(renamed, strict=False)
     # Missing: classifier weights (esperado). Unexpected deveria ser vazio.
     expected_missing_prefixes = ("classifier.", "bert.pooler.")
-    critical_missing = [k for k in missing
-                        if not any(k.startswith(p) for p in expected_missing_prefixes)]
+    critical_missing = [
+        k for k in missing if not any(k.startswith(p) for p in expected_missing_prefixes)
+    ]
     if critical_missing:
         print(f"WARN missing criticos: {critical_missing[:5]}...")
     if unexpected:
@@ -73,12 +78,14 @@ def read_csv(path: Path) -> list[dict]:
             txt = (r.get("text") or "").strip()
             if lbl not in L2I or not txt:
                 continue
-            rows.append({
-                "doc_date": r.get("doc_date"),
-                "doc_type": r.get("doc_type"),
-                "label":    L2I[lbl],
-                "text":     txt,
-            })
+            rows.append(
+                {
+                    "doc_date": r.get("doc_date"),
+                    "doc_type": r.get("doc_type"),
+                    "label": L2I[lbl],
+                    "text": txt,
+                }
+            )
     return rows
 
 
@@ -106,11 +113,13 @@ def main() -> int:
     args = parse_args()
     csv_path = Path(args.csv)
     if not csv_path.exists():
-        print(f"csv nao existe: {csv_path}", file=sys.stderr); return 2
+        print(f"csv nao existe: {csv_path}", file=sys.stderr)
+        return 2
 
     rows = read_csv(csv_path)
     if len(rows) < 10:
-        print(f"poucos rows validos: {len(rows)}"); return 2
+        print(f"poucos rows validos: {len(rows)}")
+        return 2
 
     random.seed(args.seed)
     train_rows, val_rows = split_rows(rows, args.val_pct, args.seed)
@@ -142,7 +151,7 @@ def main() -> int:
         return tok(ex["text"], truncation=True, max_length=args.max_len)
 
     ds_train = Dataset.from_list(train_rows).map(tokenize, batched=True)
-    ds_val   = Dataset.from_list(val_rows).map(tokenize, batched=True)
+    ds_val = Dataset.from_list(val_rows).map(tokenize, batched=True)
 
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     name = args.out_name or f"copom_bert_{ts}"
@@ -155,14 +164,15 @@ def main() -> int:
         acc = float((preds == labels).mean())
         # macro F1
         from collections import Counter
+
         per_class_f1 = []
         for c in range(len(LABELS)):
             tp = int(((preds == c) & (labels == c)).sum())
             fp = int(((preds == c) & (labels != c)).sum())
             fn = int(((preds != c) & (labels == c)).sum())
             prec = tp / (tp + fp) if (tp + fp) else 0.0
-            rec  = tp / (tp + fn) if (tp + fn) else 0.0
-            f1 = 2*prec*rec/(prec+rec) if (prec+rec) else 0.0
+            rec = tp / (tp + fn) if (tp + fn) else 0.0
+            f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
             per_class_f1.append(f1)
         return {"accuracy": acc, "macro_f1": float(np.mean(per_class_f1))}
 
@@ -184,9 +194,12 @@ def main() -> int:
     )
 
     trainer = Trainer(
-        model=model, args=args_tr,
-        train_dataset=ds_train, eval_dataset=ds_val,
-        processing_class=tok, data_collator=DataCollatorWithPadding(tok),
+        model=model,
+        args=args_tr,
+        train_dataset=ds_train,
+        eval_dataset=ds_val,
+        processing_class=tok,
+        data_collator=DataCollatorWithPadding(tok),
         compute_metrics=compute_metrics,
     )
     trainer.train()
@@ -197,15 +210,22 @@ def main() -> int:
     trainer.save_model(str(out_dir))
     tok.save_pretrained(str(out_dir))
     meta = {
-        "base": args.model_base, "trained_at": ts,
-        "num_samples": len(rows), "train_size": len(train_rows),
+        "base": args.model_base,
+        "trained_at": ts,
+        "num_samples": len(rows),
+        "train_size": len(train_rows),
         "val_size": len(val_rows),
-        "labels": LABELS, "label2id": L2I,
-        "epochs": args.epochs, "batch": args.batch, "lr": args.lr,
-        "max_len": args.max_len, "metrics": eval_m,
+        "labels": LABELS,
+        "label2id": L2I,
+        "epochs": args.epochs,
+        "batch": args.batch,
+        "lr": args.lr,
+        "max_len": args.max_len,
+        "metrics": eval_m,
     }
     (out_dir / "copom_meta.json").write_text(
-        json.dumps(meta, indent=2, default=str), encoding="utf-8",
+        json.dumps(meta, indent=2, default=str),
+        encoding="utf-8",
     )
     print(f"modelo salvo em: {out_dir}")
     return 0

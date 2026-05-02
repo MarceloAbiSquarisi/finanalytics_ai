@@ -1,4 +1,5 @@
 """Smoke test C3: cria um trade e valida que gerou account_transaction pending D+1."""
+
 from __future__ import annotations
 
 import asyncio
@@ -28,35 +29,48 @@ async def main() -> None:
     from sqlalchemy import select, text
 
     from finanalytics_ai.infrastructure.database.connection import get_session
+
     async with get_session() as s:
-        pfid = (await s.execute(text("SELECT id FROM portfolios WHERE user_id = :u LIMIT 1"), {"u": acc["user_id"]})).scalar()
+        pfid = (
+            await s.execute(
+                text("SELECT id FROM portfolios WHERE user_id = :u LIMIT 1"), {"u": acc["user_id"]}
+            )
+        ).scalar()
     print(f"Portfolio: {pfid[:8] if pfid else 'NONE'}")
 
     # Cria trade BUY
-    trade = await repo.create_trade({
-        "user_id": acc["user_id"],
-        "ticker": "PETR4",
-        "asset_class": "stock",
-        "operation": "buy",
-        "quantity": 100,
-        "unit_price": 30.00,
-        "fees": 5.00,
-        "trade_date": date.today(),
-        "investment_account_id": acc["id"],
-        "portfolio_id": pfid,
-    })
-    print(f"\nTrade criado: {trade['id'][:8]} {trade['ticker']} "
-          f"{trade['operation']} x{trade['quantity']} total=R$ {trade['total_cost']}")
+    trade = await repo.create_trade(
+        {
+            "user_id": acc["user_id"],
+            "ticker": "PETR4",
+            "asset_class": "stock",
+            "operation": "buy",
+            "quantity": 100,
+            "unit_price": 30.00,
+            "fees": 5.00,
+            "trade_date": date.today(),
+            "investment_account_id": acc["id"],
+            "portfolio_id": pfid,
+        }
+    )
+    print(
+        f"\nTrade criado: {trade['id'][:8]} {trade['ticker']} "
+        f"{trade['operation']} x{trade['quantity']} total=R$ {trade['total_cost']}"
+    )
     print(f"  cash_tx_created: {trade.get('cash_tx_created')}")
     print(f"  warning: {trade.get('warning') or 'nenhum'}")
 
     # Verifica tx pendente
-    txs = await repo.list_transactions(user_id=acc["user_id"], account_id=acc["id"], status="pending", limit=5)
+    txs = await repo.list_transactions(
+        user_id=acc["user_id"], account_id=acc["id"], status="pending", limit=5
+    )
     print(f"\nTransacoes pendentes da conta ({len(txs)}):")
     for tx in txs[:3]:
-        print(f"  [{tx['id'][:8]}] {tx['tx_type']} R$ {tx['amount']} "
-              f"ref={tx['reference_date']} settle={tx['settlement_date']} "
-              f"related={tx['related_type']}/{(tx.get('related_id') or '')[:8]}")
+        print(
+            f"  [{tx['id'][:8]}] {tx['tx_type']} R$ {tx['amount']} "
+            f"ref={tx['reference_date']} settle={tx['settlement_date']} "
+            f"related={tx['related_type']}/{(tx.get('related_id') or '')[:8]}"
+        )
         print(f"    note: {tx.get('note')}")
 
     # Resumo

@@ -8,6 +8,7 @@ com o método evaluate() seja usado como regra. Isso facilita composição
 Cada regra retorna RuleResult — nunca lança exceção por padrão.
 Quem decide o que fazer com uma violação é o serviço de aplicação.
 """
+
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
@@ -29,13 +30,16 @@ class RuleResult:
         return cls(is_valid=True, rule_name=rule_name)
 
     @classmethod
-    def violation(cls, rule_name: str, message: str, context: dict[str, Any] | None = None) -> "RuleResult":
+    def violation(
+        cls, rule_name: str, message: str, context: dict[str, Any] | None = None
+    ) -> "RuleResult":
         return cls(is_valid=False, rule_name=rule_name, message=message, context=context)
 
 
 @runtime_checkable
 class BusinessRule(Protocol):
     """Contrato para qualquer regra de negócio."""
+
     async def evaluate(self, context: dict[str, Any]) -> RuleResult: ...
 
 
@@ -45,6 +49,7 @@ class RuleChain:
     Encadeia múltiplas regras. Para na primeira violação (fail-fast)
     ou avalia todas conforme o modo.
     """
+
     rules: list[BusinessRule]
     fail_fast: bool = True
 

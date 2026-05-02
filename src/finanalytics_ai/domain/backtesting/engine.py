@@ -310,9 +310,7 @@ def run_backtest(
         if delisting_date is not None and bar_dt.date() >= delisting_date:
             if position > 0.0 and not delisted_force_close:
                 # Force-close com last_known_price (ou close da bar atual)
-                exit_px = (
-                    float(last_known_price) if last_known_price is not None else price
-                )
+                exit_px = float(last_known_price) if last_known_price is not None else price
                 proceeds = position * exit_px
                 commission = proceeds * commission_pct
                 equity += proceeds - commission

@@ -19,14 +19,17 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("users", sa.Column(
-        "reset_token", sa.String(64), nullable=True, server_default=None
-    ))
-    op.add_column("users", sa.Column(
-        "reset_token_exp", sa.DateTime(timezone=True), nullable=True
-    ))
-    op.create_index("ix_users_reset_token", "users", ["reset_token"], unique=True,
-                    postgresql_where=sa.text("reset_token IS NOT NULL"))
+    op.add_column(
+        "users", sa.Column("reset_token", sa.String(64), nullable=True, server_default=None)
+    )
+    op.add_column("users", sa.Column("reset_token_exp", sa.DateTime(timezone=True), nullable=True))
+    op.create_index(
+        "ix_users_reset_token",
+        "users",
+        ["reset_token"],
+        unique=True,
+        postgresql_where=sa.text("reset_token IS NOT NULL"),
+    )
 
 
 def downgrade() -> None:

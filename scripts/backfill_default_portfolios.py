@@ -4,6 +4,7 @@ conta de investimento ativa que ainda nao tem (modelo simplificado N->1).
 
 Idempotente: pula contas que ja tem portfolio ativo.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -35,18 +36,31 @@ async def main() -> None:
     from sqlalchemy import text
 
     from finanalytics_ai.infrastructure.database.connection import get_session
+
     async with get_session() as s:
-        rows = (await s.execute(text("""
+        rows = (
+            (
+                await s.execute(
+                    text("""
             SELECT p.id, p.name, p.investment_account_id, a.apelido, a.institution_name
             FROM portfolios p
             LEFT JOIN investment_accounts a ON a.id = p.investment_account_id
             WHERE p.is_active = true
             ORDER BY a.institution_name, p.name
-        """))).mappings().all()
+        """)
+                )
+            )
+            .mappings()
+            .all()
+        )
 
     print(f"\nEstado final — {len(rows)} portfolios ativos:")
     for r in rows:
-        acc_lbl = (r.get("apelido") or r.get("institution_name") or "(orfão)") if r["investment_account_id"] else "(sem conta)"
+        acc_lbl = (
+            (r.get("apelido") or r.get("institution_name") or "(orfão)")
+            if r["investment_account_id"]
+            else "(sem conta)"
+        )
         print(f"  {r['id'][:8]} {r['name']:<40} → {acc_lbl}")
 
 

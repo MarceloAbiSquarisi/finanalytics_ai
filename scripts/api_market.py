@@ -6,6 +6,7 @@ Endpoints:
   GET /api/v1/tickers                 — lista de tickers disponíveis
   GET /healthz                        — health check
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -21,8 +22,7 @@ from pydantic import BaseModel
 import uvicorn
 
 TIMESCALE_DSN = os.environ.get(
-    "TIMESCALE_DSN",
-    "postgresql://finanalytics:timescale_secret@localhost:5433/market_data"
+    "TIMESCALE_DSN", "postgresql://finanalytics:timescale_secret@localhost:5433/market_data"
 )
 
 app = FastAPI(title="finanalytics Market Data API", version="1.0.0")
@@ -51,6 +51,7 @@ def query(sql: str, params: tuple = ()) -> list[dict]:
 
 # ── Models ────────────────────────────────────────────────────────────────────
 
+
 class Tick(BaseModel):
     ticker: str
     exchange: str
@@ -60,6 +61,7 @@ class Tick(BaseModel):
     quantity: int
     volume: float
     trade_type: int
+
 
 class Bar(BaseModel):
     ticker: str
@@ -76,6 +78,7 @@ class Bar(BaseModel):
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+
 
 @app.get("/healthz")
 def health():
@@ -103,26 +106,34 @@ def list_tickers():
 def get_ticks(
     ticker: str,
     limit: int = Query(100, ge=1, le=10000),
-    since: Optional[datetime] = Query(None, description="ISO8601 — retorna ticks após esse timestamp"),
+    since: Optional[datetime] = Query(
+        None, description="ISO8601 — retorna ticks após esse timestamp"
+    ),
 ):
     """Últimos N ticks de um ticker, opcionalmente desde um timestamp."""
     ticker = ticker.upper()
     if since:
-        rows = query("""
+        rows = query(
+            """
             SELECT ticker, exchange, ts, trade_number, price, quantity, volume, trade_type
             FROM ticks
             WHERE ticker = %s AND ts >= %s
             ORDER BY ts DESC
             LIMIT %s
-        """, (ticker, since, limit))
+        """,
+            (ticker, since, limit),
+        )
     else:
-        rows = query("""
+        rows = query(
+            """
             SELECT ticker, exchange, ts, trade_number, price, quantity, volume, trade_type
             FROM ticks
             WHERE ticker = %s
             ORDER BY ts DESC
             LIMIT %s
-        """, (ticker, limit))
+        """,
+            (ticker, limit),
+        )
 
     if not rows:
         raise HTTPException(404, detail=f"Ticker '{ticker}' não encontrado")
@@ -143,23 +154,29 @@ def get_ohlc(
         raise HTTPException(400, detail=f"Resolução inválida. Use: {valid_resolutions}")
 
     if since:
-        rows = query("""
+        rows = query(
+            """
             SELECT ticker, exchange, ts, resolution, open, high, low, close,
                    volume, quantity, trade_count
             FROM ohlc
             WHERE ticker = %s AND resolution = %s AND ts >= %s
             ORDER BY ts DESC
             LIMIT %s
-        """, (ticker, resolution, since, limit))
+        """,
+            (ticker, resolution, since, limit),
+        )
     else:
-        rows = query("""
+        rows = query(
+            """
             SELECT ticker, exchange, ts, resolution, open, high, low, close,
                    volume, quantity, trade_count
             FROM ohlc
             WHERE ticker = %s AND resolution = %s
             ORDER BY ts DESC
             LIMIT %s
-        """, (ticker, resolution, limit))
+        """,
+            (ticker, resolution, limit),
+        )
 
     if not rows:
         raise HTTPException(404, detail=f"Sem dados OHLC para '{ticker}' resolução {resolution}m")
@@ -173,14 +190,17 @@ def get_ohlc_latest(
 ):
     """Última barra OHLC — útil para preço atual com contexto."""
     ticker = ticker.upper()
-    rows = query("""
+    rows = query(
+        """
         SELECT ticker, exchange, ts, resolution, open, high, low, close,
                volume, quantity, trade_count
         FROM ohlc
         WHERE ticker = %s AND resolution = %s
         ORDER BY ts DESC
         LIMIT 1
-    """, (ticker, resolution))
+    """,
+        (ticker, resolution),
+    )
     if not rows:
         raise HTTPException(404, detail=f"Sem dados para '{ticker}'")
     return rows[0]

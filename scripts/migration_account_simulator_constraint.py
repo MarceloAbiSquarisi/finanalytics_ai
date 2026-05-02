@@ -14,6 +14,7 @@ O que faz (idempotente):
 Uso:
   .venv\\Scripts\\python.exe scripts\\migration_account_simulator_constraint.py
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -36,16 +37,26 @@ async def main() -> None:
         print("=== Migration: consolidar conta Simulador ===\n")
 
         # 1. Lista contas simulator existentes
-        sims = await conn.fetch("""
+        sims = await conn.fetch(
+            """
             SELECT uuid, broker_id, account_id, label, status
             FROM trading_accounts
             WHERE account_type = 'simulator'
             ORDER BY (broker_id = $1 AND account_id = $2) DESC, created_at
-        """, SIM_BROKER_ID, SIM_ACCOUNT_ID)
+        """,
+            SIM_BROKER_ID,
+            SIM_ACCOUNT_ID,
+        )
         print(f"Contas 'simulator' encontradas: {len(sims)}")
         for s in sims:
-            tag = "  KEEPING " if s["broker_id"] == SIM_BROKER_ID and s["account_id"] == SIM_ACCOUNT_ID else "  REMOVE  "
-            print(f"  {tag} {s['uuid']} broker={s['broker_id']} acc={s['account_id']} label='{s['label']}' status={s['status']}")
+            tag = (
+                "  KEEPING "
+                if s["broker_id"] == SIM_BROKER_ID and s["account_id"] == SIM_ACCOUNT_ID
+                else "  REMOVE  "
+            )
+            print(
+                f"  {tag} {s['uuid']} broker={s['broker_id']} acc={s['account_id']} label='{s['label']}' status={s['status']}"
+            )
 
         # 2. Deleta todas exceto a que bate com PROFIT_SIM_*
         keep_uuid = None
@@ -55,15 +66,20 @@ async def main() -> None:
                 break
 
         if not keep_uuid and sims:
-            print(f"\nATENÇÃO: nenhuma conta bate com PROFIT_SIM_* ({SIM_BROKER_ID}/{SIM_ACCOUNT_ID}).")
+            print(
+                f"\nATENÇÃO: nenhuma conta bate com PROFIT_SIM_* ({SIM_BROKER_ID}/{SIM_ACCOUNT_ID})."
+            )
             print("Mantendo a primeira encontrada. Ajuste manualmente depois se necessário.")
             keep_uuid = sims[0]["uuid"]
 
         if keep_uuid:
-            deleted = await conn.execute("""
+            deleted = await conn.execute(
+                """
                 DELETE FROM trading_accounts
                 WHERE account_type = 'simulator' AND uuid <> $1
-            """, keep_uuid)
+            """,
+                keep_uuid,
+            )
             print(f"\nDeletadas (simulator duplicadas): {deleted}")
 
         # 3. Cria unique partial index (idempotente)
@@ -82,7 +98,9 @@ async def main() -> None:
         """)
         print(f"\nEstado final ({len(final)} contas):")
         for r in final:
-            print(f"  [{r['account_type']:10s}] {r['label']:30s} {r['broker_id']:>6}/{r['account_id']:<18} {r['status']}")
+            print(
+                f"  [{r['account_type']:10s}] {r['label']:30s} {r['broker_id']:>6}/{r['account_id']:<18} {r['status']}"
+            )
 
     finally:
         await conn.close()
