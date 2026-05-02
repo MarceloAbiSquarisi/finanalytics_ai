@@ -24,6 +24,7 @@
 
   var SIDEBAR_URL = '/static/sidebar.html';
   var STORAGE_KEY = 'fa_sidebar_open';
+  var GROUPS_KEY = 'fa_sb_groups_collapsed';
   var STYLE_ID = 'fa-sidebar-injected-styles';
 
   function ensureStyles() {
@@ -34,11 +35,22 @@
     //   - Sprint UI C: section headers (.fa-sb-section)
     //   - Sprint UI E: mobile responsive (sidebar overlay <768px,
     //     topbar compacto, modal fullscreen, tabela scroll)
+    //   - Sessao 01/mai/2026: collapse/expand groups + font reduzida
     s.textContent = [
-      // Section headers (Sprint UI C)
-      '.fa-sb-section{font-size:10px;font-weight:700;color:#3a5570;text-transform:uppercase;letter-spacing:.12em;padding:14px 14px 4px;white-space:nowrap;overflow:hidden;opacity:0;transition:opacity .15s}',
+      // Font reduzida + padding compacto (override do CSS inline per-page;
+      // .fa-sidebar .fa-sb-link tem specificity > .fa-sb-link sozinho).
+      '.fa-sidebar .fa-sb-link{font-size:13px;padding:5px 12px;gap:9px}',
+      '.fa-sidebar .fa-sidebar-toggle{font-size:14px;padding:8px 12px;gap:9px}',
+      // Section headers (Sprint UI C) — cursor:pointer + chevron pra collapse
+      '.fa-sb-section{font-size:10px;font-weight:700;color:#3a5570;text-transform:uppercase;letter-spacing:.11em;padding:11px 12px 3px;white-space:nowrap;overflow:hidden;opacity:0;transition:opacity .15s;cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px;justify-content:space-between}',
       '.fa-sidebar.open .fa-sb-section{opacity:1}',
-      '.fa-sb-section:first-of-type{padding-top:10px}',
+      '.fa-sb-section:first-of-type{padding-top:8px}',
+      '.fa-sb-section:hover{color:var(--gold,#f0b429)}',
+      // Chevron via pseudo (preserva data-i18n no proprio header)
+      '.fa-sb-section::after{content:"\\25BE";font-size:10px;opacity:.55;transition:transform .15s;flex-shrink:0}',
+      '.fa-sb-section.fa-sb-collapsed::after{transform:rotate(-90deg)}',
+      // Links escondidos quando o grupo esta colapsado
+      '.fa-sb-link.fa-sb-hidden{display:none}',
       // Backdrop overlay (Sprint UI E mobile)
       '.fa-sb-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:150;display:none;animation:fa-fade-in .2s ease-out}',
       '@keyframes fa-fade-in{from{opacity:0}to{opacity:1}}',
@@ -126,6 +138,66 @@
     if (bestMatch) bestMatch.classList.add('active');
   }
 
+  // ── Group collapse/expand (sessao 01/mai) ───────────────────────────────
+  // Estado em localStorage: array JSON com keys das secoes colapsadas.
+  // Click no .fa-sb-section toggla; hidden links viram display:none via classe.
+
+  function loadCollapsedGroups() {
+    try {
+      var raw = localStorage.getItem(GROUPS_KEY);
+      if (!raw) return new Set();
+      var arr = JSON.parse(raw);
+      return new Set(Array.isArray(arr) ? arr : []);
+    } catch (e) {
+      return new Set();
+    }
+  }
+
+  function saveCollapsedGroups(set) {
+    try {
+      localStorage.setItem(GROUPS_KEY, JSON.stringify(Array.from(set)));
+    } catch (e) { /* localStorage cheio ou bloqueado — silencia */ }
+  }
+
+  function applyGroupState(sb) {
+    if (!sb) return;
+    var collapsed = loadCollapsedGroups();
+    var sections = sb.querySelectorAll('.fa-sb-section[data-group]');
+    sections.forEach(function (h) {
+      var key = h.getAttribute('data-group');
+      var isCollapsed = collapsed.has(key);
+      h.classList.toggle('fa-sb-collapsed', isCollapsed);
+      var links = sb.querySelectorAll('a.fa-sb-link[data-group="' + key + '"]');
+      links.forEach(function (a) {
+        a.classList.toggle('fa-sb-hidden', isCollapsed);
+      });
+    });
+  }
+
+  function wireGroupToggles(sb) {
+    if (!sb) return;
+    var sections = sb.querySelectorAll('.fa-sb-section[data-group]');
+    sections.forEach(function (h) {
+      // Evita double-bind se inject() roda 2x
+      if (h.dataset.faSbWired === '1') return;
+      h.dataset.faSbWired = '1';
+      h.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        var key = h.getAttribute('data-group');
+        if (!key) return;
+        var collapsed = loadCollapsedGroups();
+        if (collapsed.has(key)) {
+          collapsed.delete(key);
+        } else {
+          collapsed.add(key);
+        }
+        saveCollapsedGroups(collapsed);
+        applyGroupState(sb);
+      });
+    });
+  }
+
   async function inject() {
     var sb = document.querySelector('.fa-sidebar');
     if (!sb) {
@@ -140,6 +212,9 @@
       sb.innerHTML = await r.text();
       markActive();
       applyToggleState();
+      // Sessao 01/mai: groups collapse/expand persistido por section
+      wireGroupToggles(sb);
+      applyGroupState(sb);
       // Sprint UI S (21/abr): aplica i18n nos labels recem-injetados
       if (window.FAI18n && window.FAI18n.applyDOM) {
         window.FAI18n.applyDOM(sb);
