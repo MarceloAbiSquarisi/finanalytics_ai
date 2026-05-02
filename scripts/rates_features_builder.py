@@ -254,27 +254,43 @@ def main() -> int:
         curves_pre, curves_ipca, breakevens = load_curves(conn)
         print(f"  pre={len(curves_pre)} dias, ipca={len(curves_ipca)} dias, be={len(breakevens)} dias")
 
-        # Ordem temporal: união de pre ∪ ipca, limitada pelo range
-        dias_ord = sorted(set(curves_pre) | set(curves_ipca))
-        dias_ord = [d for d in dias_ord if d_start <= d <= d_end]
-        print(f"  processando {len(dias_ord)} dias: {dias_ord[0] if dias_ord else None} -> {dias_ord[-1] if dias_ord else None}")
+        # Ordem temporal: união completa pré ∪ ipca SEM filtro pelo range.
+        # Necessário porque TSMOM (3m=63d, 12m=252d) e value_z (5y=1260d)
+        # precisam de séries históricas longas computadas a partir do início.
+        # Bug pre-existente (descoberto 02/mai): se filtrávamos dias_ord pelo
+        # range antes de build_history_series, séries ficavam curtas demais
+        # quando --start era recente, e tsmom/value retornavam NULL silently.
+        dias_ord_full = sorted(set(curves_pre) | set(curves_ipca))
+        # Idx no array completo é necessário p/ compute_row acessar series[:idx+1]
+        idx_by_day = {d: i for i, d in enumerate(dias_ord_full)}
 
-        print("  construindo séries históricas por vértice...")
-        series = build_history_series(curves_pre, curves_ipca, dias_ord)
+        # Range de OUTPUT (dias que vão pro upsert) — separado do range de
+        # series. start_lookback ~= d_start, end ~= d_end.
+        dias_to_compute = [d for d in dias_ord_full if d_start <= d <= d_end]
+        print(
+            f"  series totais: {len(dias_ord_full)} dias; "
+            f"processando {len(dias_to_compute)} dias: "
+            f"{dias_to_compute[0] if dias_to_compute else None} -> "
+            f"{dias_to_compute[-1] if dias_to_compute else None}"
+        )
+
+        print("  construindo séries históricas por vértice (range completo)...")
+        series = build_history_series(curves_pre, curves_ipca, dias_ord_full)
 
         batch: list[dict] = []
         total = 0
-        for i, d in enumerate(dias_ord):
-            row = compute_row(d, i, curves_pre, curves_ipca, breakevens, series)
+        for i_out, d in enumerate(dias_to_compute):
+            idx_full = idx_by_day[d]  # idx no series histórico completo
+            row = compute_row(d, idx_full, curves_pre, curves_ipca, breakevens, series)
             batch.append(row)
             if len(batch) >= 200:
                 if args.dry_run:
-                    print(f"  [{i+1}/{len(dias_ord)}] batch de {len(batch)} (dry-run)")
+                    print(f"  [{i_out+1}/{len(dias_to_compute)}] batch de {len(batch)} (dry-run)")
                 else:
                     n = upsert_rows(conn, batch)
                     conn.commit()
                     total += n
-                    print(f"  [{i+1}/{len(dias_ord)}] batch +{n} (total={total})")
+                    print(f"  [{i_out+1}/{len(dias_to_compute)}] batch +{n} (total={total})")
                 batch.clear()
         if batch:
             if args.dry_run:
