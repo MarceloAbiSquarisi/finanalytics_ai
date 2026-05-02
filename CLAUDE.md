@@ -381,6 +381,17 @@ Origem: ticks em `market_history_trades` mostram escala /100 intermitente. `ohlc
 
 Runbook detalhado: `docs/runbook_profit_daily_bars_scale.md`.
 
+### Decisão 23 — Alembic + Timescale: ts_* são registry-only
+Origem: audit 02/mai descobriu que `ts_0004_robot_trade.py` criou tabelas zumbi em Postgres porque `env.py` aponta apenas pra `settings.database_url` (Postgres). Tabelas Timescale reais vêm de `init_timescale/*.sql`.
+
+**Regras vinculantes:**
+1. Migrations `0xxx_*.py` (ramo Postgres principal) — DDL real contra Postgres `finanalytics` DB. Aplicar via `alembic upgrade <revision>`.
+2. Migrations `ts_xxxx_*.py` (ramo Timescale) — **registry-only**: o `upgrade()` deveria ser `pass` ou comentado (DDL escrita ali roda contra Postgres por bug arquitetural). Schema real Timescale vai em `init_timescale/00X_*.sql` aplicado manualmente.
+3. Após criar nova migration `0xxx_*`, **sempre validar tabela física existe pós-upgrade**: `docker exec finanalytics_postgres psql -c "\dt <table>"`. Detecta caso `alembic stamp` em vez de `upgrade` (precedente real em 02/mai com 0025).
+4. Timescale **não tem `alembic_version`** — controle de versão é só no Postgres. Aceitável até ramo `ts_*` exigir 2-context env.py (defer enquanto < 5 migrations Timescale).
+
+Runbook completo: `docs/runbook_alembic_audit.md`.
+
 ### Decisão 22 — Docker runtime: Engine direto em WSL2 (não Docker Desktop)
 Origem: Docker Desktop morre quando user faz logoff Windows; setup precisa rodar 24/7. Engine WSL2 com systemd é independente de sessão.
 

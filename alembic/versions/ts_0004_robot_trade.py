@@ -19,6 +19,19 @@ Notas:
   - Idempotencia: CREATE TABLE IF NOT EXISTS + CREATE INDEX IF NOT EXISTS.
     Re-rodar e seguro.
 
+  ⚠️  AVISO ARQUITETURAL (audit 02/mai — Decisao 23 em CLAUDE.md):
+  alembic/env.py aponta `sqlalchemy.url` apenas para o Postgres principal.
+  Esta migration ts_0004 — quando rodada via `alembic upgrade` — executa o
+  CREATE TABLE *contra Postgres*, gerando tabelas robot_* zumbi vazias em
+  Postgres. As tabelas Timescale reais sao criadas pelo
+  init_timescale/006_robot_trade.sql no boot do container.
+
+  Em 02/mai o cleanup das zumbi em Postgres foi feito (DROP). Se essa
+  migration rodar de novo num Postgres limpo (re-stamp + upgrade), volta a
+  criar zumbi. Para futuras migrations do ramo ts_*, prefira `pass` no
+  upgrade() e mantenha apenas registry-only — DDL fica em
+  init_timescale/00X_*.sql.
+
 Revision ID: ts_0004
 Revises: ts_0003
 Create Date: 2026-05-01
