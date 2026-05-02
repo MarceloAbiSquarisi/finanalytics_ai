@@ -176,37 +176,58 @@ def watchlist_ativa(conn) -> list[str]:
 
 def load_bars(conn, ticker: str, d_start: date, d_end: date) -> list[Bar]:
     """
-    Une fintz_cotacoes_ts (primária, 2010-2025-12-30) + profit_daily_bars (2026+).
-    Ordena por dia ASC. Desambigua por source quando há overlap (preferência fintz).
+    UNION cross-source p/ daily bars (mesmo pattern do /candles_daily endpoint
+    e do cointegration_screen.load_closes). Necessário porque Fintz freezou em
+    2025-11-03 — sem UNION, features ML ficam stale 6+ meses.
+
+    Ordem de prioridade no dedup: profit_daily_bars > ohlc_1m daily_agg >
+    fintz. Validado live (02/mai): quirk de escala DLL antigo (valores
+    ~0.49 vs ~49 oscilando — comentário 19/abr) não existe mais em
+    profit_daily_bars; PETR4 mostra escala consistente 47-50 BRL.
     """
     bars: dict[date, Bar] = {}
-
-    with conn.cursor() as cur:
-        cur.execute(
-            """
+    sql = """
+        WITH daily_bars AS (
+            SELECT time::date AS dia, close::float AS close, high::float AS high,
+                   low::float AS low, volume::float AS volume, 'daily_bars' AS src, 1 AS prio
+            FROM profit_daily_bars
+            WHERE ticker = %s AND time::date BETWEEN %s AND %s
+        ),
+        ohlc_1m_daily AS (
             SELECT time::date AS dia,
-                   preco_fechamento::float AS close,
-                   preco_maximo::float     AS high,
-                   preco_minimo::float     AS low,
-                   volume_negociado::float AS volume
-              FROM fintz_cotacoes_ts
-             WHERE ticker = %s AND time::date BETWEEN %s AND %s
-             ORDER BY time ASC
-            """,
-            (ticker, d_start, d_end),
+                   ((array_agg(close ORDER BY time DESC))[1])::float AS close,
+                   MAX(high)::float AS high,
+                   MIN(low)::float  AS low,
+                   SUM(volume)::float AS volume,
+                   'ohlc_1m' AS src, 2 AS prio
+            FROM ohlc_1m
+            WHERE ticker = %s AND time::date BETWEEN %s AND %s
+            GROUP BY time::date
+        ),
+        fintz_daily AS (
+            SELECT time::date AS dia, preco_fechamento::float AS close,
+                   preco_maximo::float AS high, preco_minimo::float AS low,
+                   volume_negociado::float AS volume, 'fintz' AS src, 3 AS prio
+            FROM fintz_cotacoes_ts
+            WHERE ticker = %s AND time::date BETWEEN %s AND %s
+        ),
+        combined AS (
+            SELECT * FROM daily_bars
+            UNION ALL SELECT * FROM ohlc_1m_daily
+            UNION ALL SELECT * FROM fintz_daily
         )
-        for dia, close, high, low, vol in cur.fetchall():
-            if close is None:
-                continue
-            bars[dia] = Bar(dia, float(close), float(high or close), float(low or close), float(vol or 0), "fintz")
-
-    # profit_daily_bars: DESABILITADO no MVP (19/abr/2026).
-    # Observação: valores em profit_daily_bars para PETR4 oscilam entre ~0.49 e
-    # ~49 entre dias consecutivos — quirk de escala da DLL ProfitDLL (possível
-    # confusão close/close_ajustado ou split factor dinâmico). Causa
-    # `r_1d > 300%` e RSI saturado. Investigar em Sprint 10.1 antes de religar.
-    # Para 2026+, usar agregação diária de `ohlc_1m tick_agg_v1` OU esperar S1
-    # completar e regenerar profit_daily_bars via populate_daily_bars.py.
+        SELECT DISTINCT ON (dia) dia, close, high, low, volume, src
+        FROM combined
+        WHERE close IS NOT NULL
+        ORDER BY dia ASC, prio ASC
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (ticker, d_start, d_end, ticker, d_start, d_end, ticker, d_start, d_end))
+        for dia, close, high, low, vol, src in cur.fetchall():
+            bars[dia] = Bar(
+                dia, float(close), float(high or close), float(low or close),
+                float(vol or 0), src,
+            )
 
     return sorted(bars.values(), key=lambda b: b.dia)
 
