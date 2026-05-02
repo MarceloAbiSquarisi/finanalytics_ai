@@ -73,6 +73,22 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 #bt-detail-modal.show{display:flex}
 .modal-card{background:var(--card);border:1px solid var(--border);border-radius:12px;max-width:900px;width:100%;max-height:90vh;overflow-y:auto;padding:24px}
 .modal-close{float:right;background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer}
+.strat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
+.strat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.strat-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.strat-name{font-size:17px;font-weight:800;color:var(--gold);font-family:'DM Mono',monospace}
+.strat-tf{background:rgba(58,191,248,.12);color:var(--blue);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;font-family:'DM Mono',monospace}
+.strat-desc{color:var(--muted);font-size:12px;line-height:1.45;white-space:pre-wrap;max-height:6.5em;overflow:hidden;position:relative}
+.strat-desc.expanded{max-height:none}
+.strat-toggle{font-size:11px;color:var(--blue);cursor:pointer;background:transparent;border:none;padding:0;font-family:'DM Mono',monospace;align-self:flex-start}
+.strat-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 12px;font-size:12px;font-family:'DM Mono',monospace}
+.strat-stats div{display:flex;justify-content:space-between;border-bottom:1px dashed #1c2535;padding:3px 0}
+.strat-stats span:first-child{color:var(--muted)}
+.strat-params{font-family:'DM Mono',monospace;font-size:11px;background:#0a1220;border-radius:6px;padding:8px 10px;max-height:160px;overflow-y:auto}
+.strat-params .p-row{display:flex;justify-content:space-between;padding:2px 0}
+.strat-params .p-key{color:var(--muted)}
+.strat-params .p-val{color:var(--white)}
+.strat-foot{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);font-family:'DM Mono',monospace}
 </style>
 </head>
 <body>
@@ -107,6 +123,7 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
     <button class="tab" data-panel="journal">Trade Journal</button>
     <button class="tab" data-panel="events">Engine Events</button>
     <button class="tab" data-panel="backtests">Backtests</button>
+    <button class="tab" data-panel="strategies">Estratégias</button>
   </div>
 
   <!-- ORDERS -->
@@ -153,6 +170,16 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
       <thead><tr><th>TS</th><th>Type</th><th>Key</th><th>Payload</th></tr></thead>
       <tbody></tbody>
     </table></div>
+  </div>
+
+  <!-- STRATEGIES -->
+  <div class="panel" id="panel-strategies">
+    <div class="controls">
+      <button class="btn" onclick="loadStrategies()">Atualizar</button>
+      <span style="font-size:12px;color:var(--muted)" id="strat-count"></span>
+      <span style="font-size:11px;color:var(--muted);margin-left:auto">Catálogo populado por <code>tools/dump_strategies_catalog.py</code> no trading-engine</span>
+    </div>
+    <div class="strat-grid" id="strat-grid"></div>
   </div>
 
   <!-- BACKTESTS -->
@@ -216,8 +243,43 @@ document.querySelectorAll('.tab').forEach(function(t){
     if(p==='journal')loadJournal();
     if(p==='events')loadEvents();
     if(p==='backtests')loadBacktests();
+    if(p==='strategies')loadStrategies();
   });
 });
+
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]});}
+
+async function loadStrategies(){
+  try{
+    var data=await authFetch('/api/v1/trading-engine/strategies');
+    document.getElementById('strat-count').textContent=data.count+' estratégias';
+    var grid=document.getElementById('strat-grid');
+    if(!data.strategies.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1">Catálogo vazio. No trading-engine: <code>uv run python tools/dump_strategies_catalog.py</code></div>';return;}
+    grid.innerHTML=data.strategies.map(function(s){
+      var params=s.params_json||{};
+      var pRows=Object.keys(params).sort().map(function(k){
+        return '<div class="p-row"><span class="p-key">'+escapeHtml(k)+'</span><span class="p-val">'+escapeHtml(params[k])+'</span></div>';
+      }).join('');
+      var nRuns=s.n_runs||0;
+      var statsHtml='<div class="strat-stats">'+
+        '<div><span>Backtests</span><span class="kv-blue">'+nRuns+'</span></div>'+
+        '<div><span>Trades total</span><span>'+(s.total_trades||0)+'</span></div>'+
+        '<div><span>PnL médio</span><span class="'+((Number(s.avg_pnl)||0)>=0?'kv-pos':'kv-neg')+'">'+(s.avg_pnl!=null?fmtNum(s.avg_pnl,2):'—')+'</span></div>'+
+        '<div><span>Hit rate médio</span><span class="kv-gold">'+(s.avg_hit_rate!=null?fmtNum(s.avg_hit_rate*100,1)+'%':'—')+'</span></div>'+
+        '<div><span>Sharpe médio</span><span>'+(s.avg_sharpe!=null?fmtNum(s.avg_sharpe,2):'—')+'</span></div>'+
+        '<div><span>Último run</span><span>'+(s.last_run_at?fmtTs(s.last_run_at).split(',')[0]:'—')+'</span></div>'+
+      '</div>';
+      var descId='desc-'+s.name;
+      return '<div class="strat-card">'+
+        '<div class="strat-head"><div class="strat-name">'+escapeHtml(s.name)+'</div><div class="strat-tf">'+escapeHtml(s.timeframe||'')+'</div></div>'+
+        (s.description?'<div class="strat-desc" id="'+descId+'">'+escapeHtml(s.description)+'</div><button class="strat-toggle" onclick="document.getElementById(\''+descId+'\').classList.toggle(\'expanded\');this.textContent=this.textContent==\'expandir\'?\'recolher\':\'expandir\'">expandir</button>':'')+
+        statsHtml+
+        '<div><div style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace;margin-bottom:4px">PARAMS</div><div class="strat-params">'+(pRows||'<div class="p-row"><span class="p-key">(sem params)</span></div>')+'</div></div>'+
+        '<div class="strat-foot"><span>'+escapeHtml(s.source_file||'')+'</span><span>git: '+(s.git_sha?escapeHtml(s.git_sha.substring(0,7)):'dirty')+'</span></div>'+
+      '</div>';
+    }).join('');
+  }catch(e){}
+}
 
 async function loadOrders(){
   var h=document.getElementById('orders-hours').value;
