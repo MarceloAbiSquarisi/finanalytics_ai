@@ -1005,6 +1005,96 @@ async def snapshot_signals_job() -> dict[str, Any]:
         return {"status": "error", "error": str(exc)}
 
 
+async def yield_curves_refresh_job() -> dict[str, Any]:
+    """Pipeline ANBIMA → rates_features (descoberto 02/mai durante audit).
+
+    Sem este job, yield_curves + breakeven_inflation + rates_features_daily
+    ficam stale (último run manual em 2026-04-17, ML signals retornavam
+    feature_nulls:23 com features defasadas 6 meses pré-fix #5).
+
+    Pipeline:
+      1. yield_ingestion.py --date today  -> popula yield_curves +
+         breakeven_inflation (ANBIMA via pyield).
+      2. rates_features_builder.py --start (today-365d) --end today ->
+         re-popula rates_features_daily (TSMOM/value precisam lookback
+         12mo+20d). Bug pre-existente do builder: filtra series pelo
+         range, daí lookback curto = NULLs. Workaround: passar --start
+         antigo o suficiente.
+
+    Skip weekend (ANBIMA não publica). Schedule 21h BRT (após publicação
+    ANBIMA típica 20:30 BRT).
+    """
+    if not _is_weekday():
+        _record("yield_curves", "skip")
+        return {"status": "skip", "reason": "weekend"}
+
+    from datetime import date as _d, timedelta as _td
+
+    today = _d.today()
+    start_lookback = (today - _td(days=400)).isoformat()
+    end_today = today.isoformat()
+
+    ts_dsn = os.environ.get("TIMESCALE_URL", "").replace(
+        "postgresql+asyncpg://", "postgresql://"
+    ) or os.environ.get("PROFIT_TIMESCALE_DSN", "")
+    env_subprocess = {**os.environ, "PROFIT_TIMESCALE_DSN": ts_dsn}
+
+    logger.info("scheduler.yield_curves.start", date=end_today)
+    # Step 1: ingestão ANBIMA
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "python",
+            "/app/scripts/yield_ingestion.py",
+            "--date",
+            end_today,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            env=env_subprocess,
+        )
+        stdout1, _ = await asyncio.wait_for(proc.communicate(), timeout=180)
+        rc1 = proc.returncode
+        if rc1 != 0:
+            logger.warning(
+                "scheduler.yield_curves.ingestion_bad_rc",
+                rc=rc1,
+                tail=stdout1.decode("utf-8", errors="replace").splitlines()[-5:],
+            )
+            _record("yield_curves", "error")
+            return {"status": "error", "step": "ingestion", "rc": rc1}
+    except (asyncio.TimeoutError, Exception) as exc:
+        logger.error("scheduler.yield_curves.ingestion_failed", error=str(exc))
+        _record("yield_curves", "error")
+        return {"status": "error", "step": "ingestion", "error": str(exc)}
+
+    # Step 2: rebuild rates_features (lookback longo p/ TSMOM/value)
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "python",
+            "/app/scripts/rates_features_builder.py",
+            "--start",
+            start_lookback,
+            "--end",
+            end_today,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            env=env_subprocess,
+        )
+        stdout2, _ = await asyncio.wait_for(proc.communicate(), timeout=300)
+        rc2 = proc.returncode
+        last_lines = stdout2.decode("utf-8", errors="replace").splitlines()[-3:]
+        if rc2 == 0:
+            logger.info("scheduler.yield_curves.done", tail=last_lines)
+            _record("yield_curves", "ok")
+            return {"status": "ok", "tail": last_lines}
+        logger.warning("scheduler.yield_curves.builder_bad_rc", rc=rc2, tail=last_lines)
+        _record("yield_curves", "error")
+        return {"status": "error", "step": "builder", "rc": rc2, "tail": last_lines}
+    except (asyncio.TimeoutError, Exception) as exc:
+        logger.error("scheduler.yield_curves.builder_failed", error=str(exc))
+        _record("yield_curves", "error")
+        return {"status": "error", "step": "builder", "error": str(exc)}
+
+
 async def yahoo_daily_bars_refresh_job() -> dict[str, Any]:
     """N11b (28/abr): refresh diario de profit_daily_bars com Yahoo OHLCV
     para FIIs+ETFs (asset_class IN ('fii','etf') no ticker_ml_config).
@@ -1434,6 +1524,26 @@ async def schedule_loop() -> None:
 
     if COINT_SCREEN_ENABLED:
         tasks.append(asyncio.create_task(coint_screen_loop()))
+
+    async def yield_curves_loop() -> None:
+        # Pipeline ANBIMA → rates_features (criado 02/mai pós-audit). Schedule
+        # 21h BRT (00h UTC) — após publicação ANBIMA típica 20:30 BRT. Skip
+        # weekend dentro do job.
+        hour_brt = int(os.environ.get("YIELD_CURVES_HOUR_BRT", "21"))
+        logger.info("scheduler.yield_curves.start_loop", hour_brt=hour_brt)
+        while True:
+            next_run = _next_run_utc(hour_brt)
+            wait = _seconds_until(next_run)
+            logger.info(
+                "scheduler.yield_curves.next",
+                next_utc=next_run.isoformat(),
+                wait_min=round(wait / 60),
+            )
+            await asyncio.sleep(wait)
+            await yield_curves_refresh_job()
+
+    if os.environ.get("YIELD_CURVES_ENABLED", "true").lower() == "true":
+        tasks.append(asyncio.create_task(yield_curves_loop()))
 
     async def tick_to_ohlc_backfill_loop() -> None:
         # Backfill diario profit_ticks -> ohlc_1m via continuous aggregate.
