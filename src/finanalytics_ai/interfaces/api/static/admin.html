@@ -216,6 +216,7 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
     <div class="tab active" onclick="switchTab('users',this)">👥 Usuários</div>
     <div class="tab" onclick="switchTab('agents',this)">🏦 Agentes Financeiros</div>
     <div class="tab" onclick="switchTab('system',this)">🛠️ Sistema</div>
+    <div class="tab" onclick="switchTab('db',this)">🗃️ Banco de Dados</div>
   </div>
 
   <!-- TAB USUÁRIOS -->
@@ -296,6 +297,78 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
       </div>
       <div id="ohlcMsg" class="msg"></div>
       <div id="ohlcResult" style="margin-top:14px;font-family:monospace;font-size:13px;color:var(--text);display:none;padding:12px;background:var(--s1);border-radius:6px;border:1px solid var(--border)"></div>
+    </div>
+  </div>
+
+  <!-- TAB BANCO DE DADOS -->
+  <div class="tab-panel" id="tab-db">
+    <div class="sec-header">
+      <span class="sec-title">Explorador de Banco — preview, filtros e export Parquet</span>
+    </div>
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:18px">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5">
+        Acesso read-only aos bancos do projeto. Filtros aplicados em SQL parametrizado (defesa contra injection).
+        Preview limitado a 1000 rows. Export limitado a 10M rows.
+      </p>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group">
+          <label>Banco</label>
+          <select id="db-select" onchange="dbOnChangeDb()">
+            <option value="">Carregando...</option>
+          </select>
+          <small id="db-desc" style="color:var(--muted);font-size:12px;margin-top:4px;display:block"></small>
+        </div>
+        <div class="form-group">
+          <label>Tabela</label>
+          <select id="db-table-select" onchange="dbOnChangeTable()" disabled>
+            <option value="">Selecione um banco primeiro</option>
+          </select>
+          <small id="db-table-info" style="color:var(--muted);font-size:12px;margin-top:4px;display:block"></small>
+        </div>
+      </div>
+    </div>
+
+    <div id="db-filters-section" style="display:none;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:18px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <span class="sec-title" style="font-size:14px">Filtros por coluna</span>
+        <div style="display:flex;gap:8px">
+          <button class="btn" onclick="dbAddFilter()" style="font-size:12px;padding:6px 10px">+ Filtro</button>
+          <button class="btn" onclick="dbClearFilters()" style="font-size:12px;padding:6px 10px">Limpar</button>
+        </div>
+      </div>
+      <div id="db-filters-list"></div>
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+        <div class="form-group" style="flex:0 0 180px">
+          <label style="font-size:11px">Ordenar por</label>
+          <select id="db-order-by"><option value="">— sem ordem —</option></select>
+        </div>
+        <div class="form-group" style="flex:0 0 100px">
+          <label style="font-size:11px">Direção</label>
+          <select id="db-order-dir"><option value="asc">ASC</option><option value="desc">DESC</option></select>
+        </div>
+        <div class="form-group" style="flex:0 0 100px">
+          <label style="font-size:11px">Limit</label>
+          <input id="db-limit" type="number" value="100" min="1" max="1000">
+        </div>
+        <div style="flex:1;display:flex;gap:8px;align-items:flex-end">
+          <button class="btn btn-primary" onclick="dbPreview()">▶ Preview</button>
+          <button class="btn btn-warn" onclick="dbExport()" id="db-export-btn">⬇ Export Parquet</button>
+        </div>
+      </div>
+      <div id="db-msg" class="msg"></div>
+    </div>
+
+    <div id="db-result-section" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <small style="color:var(--muted)" id="db-result-info"></small>
+        <small style="color:var(--muted)" id="db-result-pagination"></small>
+      </div>
+      <div class="tbl-wrap" style="max-height:520px;overflow:auto">
+        <table data-fa-table id="db-result-table" style="font-size:12px;font-family:monospace">
+          <thead><tr id="db-result-head"></tr></thead>
+          <tbody id="db-result-body"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -734,6 +807,220 @@ async function deleteAgent(id, name) {
 
 // botão "Novo Agente" aponta para a função correta
 document.querySelector('[onclick="openModal(\'modalCreateAgent\')"]').onclick = openCreateAgent;
+
+// ── DB Explorer (aba "Banco de Dados") ───────────────────────────────────────
+let dbState = { db: null, table: null, schema: null, filters: [] };
+
+async function dbLoadBancos() {
+  try {
+    const r = await fetch(`${API}/db/list`, { headers: H() });
+    if (!r.ok) throw new Error('Falha ao listar bancos');
+    const data = await r.json();
+    const sel = document.getElementById('db-select');
+    sel.innerHTML = '<option value="">Selecione…</option>' +
+      data.items.map(d => `<option value="${d.name}" data-desc="${d.description||''}">${d.label}</option>`).join('');
+  } catch (e) {
+    document.getElementById('db-select').innerHTML = '<option>Erro: ' + e.message + '</option>';
+  }
+}
+
+async function dbOnChangeDb() {
+  const sel = document.getElementById('db-select');
+  const db = sel.value;
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('db-desc').textContent = opt.getAttribute('data-desc') || '';
+  dbState.db = db;
+  dbState.table = null;
+  dbState.schema = null;
+  dbState.filters = [];
+  document.getElementById('db-filters-section').style.display = 'none';
+  document.getElementById('db-result-section').style.display = 'none';
+  const tsel = document.getElementById('db-table-select');
+  if (!db) { tsel.disabled = true; tsel.innerHTML = '<option>Selecione um banco</option>'; return; }
+  tsel.disabled = false;
+  tsel.innerHTML = '<option>Carregando…</option>';
+  try {
+    const r = await fetch(`${API}/db/${db}/tables`, { headers: H() });
+    const data = await r.json();
+    tsel.innerHTML = '<option value="">Selecione…</option>' +
+      data.items.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
+    document.getElementById('db-table-info').textContent = `${data.items.length} tabelas disponíveis`;
+  } catch (e) {
+    tsel.innerHTML = '<option>Erro</option>';
+  }
+}
+
+async function dbOnChangeTable() {
+  const table = document.getElementById('db-table-select').value;
+  if (!table) return;
+  dbState.table = table;
+  dbState.filters = [];
+  try {
+    const r = await fetch(`${API}/db/${dbState.db}/${table}/schema`, { headers: H() });
+    if (!r.ok) throw new Error('Falha ao carregar schema');
+    dbState.schema = await r.json();
+    document.getElementById('db-table-info').textContent =
+      `${dbState.schema.columns.length} colunas | ~${dbState.schema.approx_rows.toLocaleString('pt-BR')} rows`;
+    document.getElementById('db-filters-section').style.display = 'block';
+    dbRenderFilters();
+    dbPopulateOrderBy();
+  } catch (e) {
+    showMsg('db-msg', e.message, 'error');
+  }
+}
+
+function dbPopulateOrderBy() {
+  const sel = document.getElementById('db-order-by');
+  sel.innerHTML = '<option value="">— sem ordem —</option>' +
+    dbState.schema.columns.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+}
+
+function dbAddFilter() {
+  if (!dbState.schema) return;
+  dbState.filters.push({ column: dbState.schema.columns[0].name, op: 'eq', value: '' });
+  dbRenderFilters();
+}
+
+function dbClearFilters() {
+  dbState.filters = [];
+  dbRenderFilters();
+}
+
+function dbRemoveFilter(i) {
+  dbState.filters.splice(i, 1);
+  dbRenderFilters();
+}
+
+function dbRenderFilters() {
+  const list = document.getElementById('db-filters-list');
+  if (!dbState.filters.length) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px 0">Nenhum filtro. Clique em "+ Filtro" para adicionar.</div>';
+    return;
+  }
+  const ops = [
+    {v:'eq', l:'='}, {v:'neq', l:'≠'}, {v:'ilike', l:'contém'},
+    {v:'gt', l:'>'}, {v:'gte', l:'≥'}, {v:'lt', l:'<'}, {v:'lte', l:'≤'},
+    {v:'in', l:'in (CSV)'}, {v:'is_null', l:'é nulo'}, {v:'is_not_null', l:'não é nulo'},
+  ];
+  list.innerHTML = dbState.filters.map((f, i) => {
+    const colOpts = dbState.schema.columns.map(c =>
+      `<option value="${c.name}" ${c.name===f.column?'selected':''}>${c.name} (${c.type})</option>`).join('');
+    const opOpts = ops.map(o => `<option value="${o.v}" ${o.v===f.op?'selected':''}>${o.l}</option>`).join('');
+    const noValue = (f.op === 'is_null' || f.op === 'is_not_null');
+    return `<div style="display:flex;gap:8px;margin-bottom:6px;align-items:center">
+      <select onchange="dbState.filters[${i}].column=this.value" style="flex:0 0 220px">${colOpts}</select>
+      <select onchange="dbState.filters[${i}].op=this.value;dbRenderFilters()" style="flex:0 0 110px">${opOpts}</select>
+      <input type="text" placeholder="${noValue?'(sem valor)':'valor'}" value="${noValue?'':(f.value??'')}"
+             ${noValue?'disabled':''}
+             oninput="dbState.filters[${i}].value=this.value" style="flex:1">
+      <button class="btn" onclick="dbRemoveFilter(${i})" style="padding:4px 10px;color:var(--red)" title="Remover">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function dbBuildPayload(extra) {
+  const orderBy = document.getElementById('db-order-by').value;
+  const orderDesc = document.getElementById('db-order-dir').value === 'desc';
+  // Coerção: 'in' espera array CSV; números ficam como string e backend Postgres coage
+  const filters = dbState.filters.map(f => {
+    if (f.op === 'is_null' || f.op === 'is_not_null') return { column: f.column, op: f.op };
+    let v = f.value;
+    if (f.op === 'in' && typeof v === 'string') v = v.split(',').map(x => x.trim()).filter(Boolean);
+    return { column: f.column, op: f.op, value: v };
+  });
+  return Object.assign({ filters, order_by: orderBy || null, order_desc: orderDesc }, extra || {});
+}
+
+async function dbPreview() {
+  if (!dbState.db || !dbState.table) return;
+  const limit = Math.min(1000, Math.max(1, parseInt(document.getElementById('db-limit').value, 10) || 100));
+  const payload = dbBuildPayload({ limit, offset: 0 });
+  const btn = event ? event.target : null;
+  if (btn) btn.disabled = true;
+  try {
+    const r = await fetch(`${API}/db/${dbState.db}/${dbState.table}/preview`,
+      { method: 'POST', headers: Object.assign({'Content-Type':'application/json'}, H()), body: JSON.stringify(payload) });
+    if (!r.ok) {
+      const err = await r.json().catch(()=>({detail:'Erro'}));
+      throw new Error(err.detail || 'Erro');
+    }
+    const data = await r.json();
+    dbRenderResult(data);
+  } catch (e) {
+    showMsg('db-msg', e.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function dbRenderResult(data) {
+  document.getElementById('db-result-section').style.display = 'block';
+  document.getElementById('db-result-info').textContent =
+    `${data.count} rows retornados${data.total!=null ? ' / ' + data.total.toLocaleString('pt-BR') + ' total' : ' (count timeout)'}`;
+  document.getElementById('db-result-pagination').textContent =
+    `offset ${data.offset} · limit ${data.limit}`;
+  if (!data.items.length) {
+    document.getElementById('db-result-head').innerHTML = '';
+    document.getElementById('db-result-body').innerHTML = '<tr><td class="empty">Sem rows pra exibir.</td></tr>';
+    return;
+  }
+  const cols = Object.keys(data.items[0]);
+  document.getElementById('db-result-head').innerHTML = cols.map(c => `<th>${c}</th>`).join('');
+  document.getElementById('db-result-body').innerHTML = data.items.map(row =>
+    '<tr>' + cols.map(c => {
+      const v = row[c];
+      const s = v === null ? '<span style="color:var(--muted)">NULL</span>' : String(v);
+      return `<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(v??'').toString().replace(/"/g,'&quot;')}">${s}</td>`;
+    }).join('') + '</tr>'
+  ).join('');
+}
+
+async function dbExport() {
+  if (!dbState.db || !dbState.table) return;
+  const payload = dbBuildPayload({ limit: 1000000 });
+  const btn = document.getElementById('db-export-btn');
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = '⏳ Exportando…';
+  try {
+    const r = await fetch(`${API}/db/${dbState.db}/${dbState.table}/export`,
+      { method: 'POST', headers: Object.assign({'Content-Type':'application/json'}, H()), body: JSON.stringify(payload) });
+    if (r.status === 204) {
+      showMsg('db-msg', 'Resultado vazio — nada a exportar.', 'warn');
+      return;
+    }
+    if (!r.ok) {
+      const err = await r.json().catch(()=>({detail:'Erro'}));
+      throw new Error(err.detail || 'Erro');
+    }
+    const rowCount = r.headers.get('X-Row-Count') || '?';
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${dbState.db}_${dbState.table}_${rowCount}rows.parquet`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+    showMsg('db-msg', `Exportadas ${rowCount} rows · ${(blob.size/1024).toFixed(1)} KB`, 'ok');
+  } catch (e) {
+    showMsg('db-msg', e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+// Carrega bancos quando a aba Banco for selecionada pela primeira vez
+let dbInitialized = false;
+const _origSwitchTab = switchTab;
+switchTab = function(name, el) {
+  _origSwitchTab(name, el);
+  if (name === 'db' && !dbInitialized) {
+    dbInitialized = true;
+    dbLoadBancos();
+  }
+};
 
 init();
 </script>

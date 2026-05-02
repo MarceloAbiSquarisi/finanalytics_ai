@@ -41,6 +41,7 @@ except ImportError:
 from finanalytics_ai.interfaces.api.routes import (
     accounts as accounts_routes,
     admin as admin_routes,
+    admin_db as admin_db_routes,
     alerts,
     anomaly,
     backtest,
@@ -94,6 +95,7 @@ def register_routers(app: FastAPI, logger=None) -> None:
 
     app.include_router(auth_routes.router, tags=["Autenticação"])
     app.include_router(admin_routes.router, tags=["Admin"])
+    app.include_router(admin_db_routes.router, tags=["Admin DB Explorer"])
     try:
         from finanalytics_ai.interfaces.api.routes import import_route
 
