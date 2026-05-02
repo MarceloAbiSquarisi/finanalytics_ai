@@ -301,8 +301,9 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 - **C5 Passos 2-6** (VIEW unified + UI pill manual/engine) bloqueados pela migration do trading-engine R-06; agente `trig_01VDzH3xriAC777KZku42SbK` p/ 21/mai abre PR pareado.
 - **E1 fetcher concreto** — classifier `ResearchClassifier` + worker scaffold prontos; aguardando definição da fonte de dados p/ implementar `ResearchFetcher`.
 
-**Done recentes (28/abr → 02/mai)** — detalhe em `docs/historico/sessoes_29abr_01mai.md` + `docs/runbook_survivorship_bias.md`:
-- ✅ R5 **survivorship bias fechado** (02/mai) — tabela `b3_delisted_tickers` populada (1863 CVM placeholders + 449 FINTZ tickers reais), `DelistedTickerRepo` + `DelistingInfo`, engine `run_backtest` aceita `delisting_date`/`last_known_price` (force-close + truncamento), `BacktestService` aceita `delisting_resolver` opcional, demo `--respect-delisting`. 19 tests novos, 1488 verdes total. Caminho via Fintz delta (884 tickers histórico Fintz cruzados com `profit_subscribed_tickers`) substituiu plano original PDF IBOV — mais barato, cobertura superior.
+**Done recentes (28/abr → 02/mai)** — detalhe em `docs/historico/sessoes_29abr_01mai.md` + `docs/runbook_survivorship_bias.md` + `docs/runbook_alembic_audit.md`:
+- ✅ **Sessão 02/mai — 12 commits, 6 bugs latentes críticos pré-smoke**: TSMOM bars 5m→daily (`/candles_daily` UNION endpoint); pairs z-score 5m→daily (`fetch_daily_closes`); Postgres robot_* zumbi DROP (alembic ts_* registry-only — Decisão 23); cointegration_screen Fintz-only stale 6mo → UNION cross-source (PETR3-PETR4 visível); features_daily stale 6mo → UNION cross-source (PETR4 SELL falso → real); ANBIMA pipeline stale → novo `yield_curves_refresh_job` 21h BRT + bug raiz builder fixed (separar range output do range séries). ML signals: 14 BUY / 1 SELL / 26 HOLD com features de 2026-04-30. 1499 tests verdes.
+- ✅ R5 **survivorship bias fechado** (02/mai) — tabela `b3_delisted_tickers` populada (1863 CVM placeholders + 449 FINTZ tickers reais), `DelistedTickerRepo` + `DelistingInfo`, engine `run_backtest` aceita `delisting_date`/`last_known_price` (force-close + truncamento), `BacktestService` aceita `delisting_resolver` opcional, demo `--respect-delisting`. 19 tests novos. Caminho via Fintz delta (884 tickers histórico Fintz cruzados com `profit_subscribed_tickers`) substituiu plano original PDF IBOV — mais barato, cobertura superior.
 - ✅ Robô R1.1→R3.3 (TSMOM ∩ ML overlay + pairs cointegrados B3) — 01/mai
 - ✅ E1.1 Research classifier (Anthropic SDK + Haiku 4.5 + prompt caching) — source-agnostic, fetcher pendente — 01/mai
 - ✅ I1 Fases A+B.1+B.2 — Engine WSL2 + volumes ext4 nativo — 01/mai
@@ -380,6 +381,22 @@ Origem: ticks em `market_history_trades` mostram escala /100 intermitente. `ohlc
 4. Se voltar a aparecer escala mista, regenerar via `populate_daily_bars.py --ticker $T --source 1m` após `DELETE FROM profit_daily_bars WHERE ticker=$T`. Não tentar "patch in place".
 
 Runbook detalhado: `docs/runbook_profit_daily_bars_scale.md`.
+
+### Decisão 24 — UNION cross-source p/ daily bars (Fintz freeze defense)
+Origem: 02/mai descoberto que múltiplos pipelines liam apenas `fintz_cotacoes_ts` (freezou 2025-11-03). Pipelines que precisavam de daily bars **recentes** (TSMOM 252d, pair z-score 60d, ML features, cointegração 504d) processavam dados de 6 meses atrás silenciosamente. 4 fixes em série na sessão de 02/mai (commits cd83254, 63d5fee, 1cef31a, 855b88d) — cada um aplicou o mesmo pattern.
+
+**Regras vinculantes:**
+1. Pipelines que precisam de daily bars **recentes** (qualquer lookback que ultrapasse 2025-11-03) DEVEM fazer UNION ALL com prio:
+   - `prio=1`: `profit_daily_bars` (DLL pre-aggregated, mais recentes)
+   - `prio=2`: `ohlc_1m` daily aggregate (BRAPI ingestor + tick agg)
+   - `prio=3`: `fintz_cotacoes_ts` (histórico longo 2010 → 2025-11-03)
+   Dedup via `DISTINCT ON (date) ORDER BY date ASC, prio ASC` — primeira fonte ganha por data.
+2. Endpoint canônico: `/api/v1/marketdata/candles_daily/{ticker}?n=N` (`marketdata.py:get_candles_daily`). Frontend e workers consomem este, NÃO `/candles` (que é 5m default p/ chart UI).
+3. Strategies/services que precisam closes daily usam `HttpCandleFetcher.fetch_daily_closes(ticker, n)` (wrapper de `fetch_daily_bars`). NUNCA usar `fetch_closes` (5m intraday) p/ z-score history ou lookback longo — só pra "preço current" (n=1).
+4. Scripts/jobs que leem fintz direto (cointegration_screen, features_daily_builder) DEVEM aplicar o mesmo SQL UNION (CTE pattern com prio + DISTINCT ON). Lookback 24-36mo na cláusula WHERE de cada source.
+5. **Anti-trap**: bug original do `range_period` no `/candles` ignorava o param silenciosamente (sem 422 ou warning). Sempre validar empiricamente: `curl /endpoint?param=x | jq '.candles[0].ts'` confere se time é daily ou intraday. Test de integração que verifica `ts` do primeiro/último bar contra range esperado pega esse tipo de regressão.
+
+Runbook: docs/runbook_survivorship_bias.md (R5 também usou esse pattern via candle_repository fallback chain).
 
 ### Decisão 23 — Alembic + Timescale: ts_* são registry-only
 Origem: audit 02/mai descobriu que `ts_0004_robot_trade.py` criou tabelas zumbi em Postgres porque `env.py` aponta apenas pra `settings.database_url` (Postgres). Tabelas Timescale reais vêm de `init_timescale/*.sql`.
