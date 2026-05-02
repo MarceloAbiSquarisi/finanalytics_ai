@@ -61,20 +61,58 @@ DEFAULT_WATCHLIST = [
 
 def load_closes(dsn: str, ticker: str, lookback_days: int) -> list[float]:
     """
-    Carrega ate `lookback_days` closes mais recentes de fintz_cotacoes_ts.
+    Carrega ate `lookback_days` closes daily mais recentes via UNION
+    cross-source (mesmo pattern do `/api/v1/marketdata/candles_daily`).
+
+    Ordem de prioridade no dedup (igual ao endpoint daily): profit_daily_bars
+    > ohlc_1m daily_agg > fintz_cotacoes_ts. Necessario porque Fintz freezou
+    em 2025-11-03 — sem UNION, screening rodando 2026 testaria cointegracao
+    sobre janela 2024-04 .. 2025-11 (5+ meses defasados, pares podem ter
+    quebrado correlacao desde entao).
+
     Retorna list em ordem cronologica (antiga -> nova). Vazio se ticker
-    nao existe na tabela.
+    nao existe em nenhuma fonte.
     """
     sql = """
-        SELECT preco_fechamento_ajustado::float AS close
-        FROM fintz_cotacoes_ts
-        WHERE ticker = %s
-          AND preco_fechamento_ajustado IS NOT NULL
-        ORDER BY time DESC
+        WITH daily_bars AS (
+            SELECT time::date AS dt, close::float, 1 AS prio
+            FROM profit_daily_bars
+            WHERE ticker = %s AND time >= NOW() - INTERVAL '36 months'
+        ),
+        ohlc_1m_daily AS (
+            SELECT time::date AS dt,
+                   ((array_agg(close ORDER BY time DESC))[1])::float AS close,
+                   2 AS prio
+            FROM ohlc_1m
+            WHERE ticker = %s AND time >= NOW() - INTERVAL '36 months'
+            GROUP BY time::date
+        ),
+        fintz_daily AS (
+            SELECT time::date AS dt,
+                   preco_fechamento_ajustado::float AS close,
+                   3 AS prio
+            FROM fintz_cotacoes_ts
+            WHERE ticker = %s
+              AND time >= NOW() - INTERVAL '36 months'
+              AND preco_fechamento_ajustado IS NOT NULL
+        ),
+        combined AS (
+            SELECT * FROM daily_bars
+            UNION ALL SELECT * FROM ohlc_1m_daily
+            UNION ALL SELECT * FROM fintz_daily
+        ),
+        dedup AS (
+            SELECT DISTINCT ON (dt) dt, close
+            FROM combined
+            ORDER BY dt ASC, prio ASC
+        )
+        SELECT close FROM dedup
+        ORDER BY dt DESC
         LIMIT %s
     """
+    t = ticker.upper()
     with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
-        cur.execute(sql, (ticker.upper(), lookback_days))
+        cur.execute(sql, (t, t, t, lookback_days))
         rows = cur.fetchall()
     # Retorno ordem antiga -> nova
     return [float(r[0]) for r in reversed(rows)]
