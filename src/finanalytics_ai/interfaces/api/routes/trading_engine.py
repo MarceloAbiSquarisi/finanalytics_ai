@@ -9,6 +9,7 @@ GET /api/v1/trading-engine/trade-journal   — trades fechados + agregados
 GET /api/v1/trading-engine/engine-events   — audit feed (filtrável por tipo)
 GET /api/v1/trading-engine/backtests       — runs persistidas
 GET /api/v1/trading-engine/backtests/{id}  — detalhe + equity curve
+GET /api/v1/trading-engine/strategies      — catálogo + agregados de uso
 """
 
 from __future__ import annotations
@@ -169,6 +170,48 @@ async def list_backtests(
     )
     rows = [_row_to_dict(r) for r in await session.execute(query, params)]
     return {"count": len(rows), "backtests": rows}
+
+
+@router.get("/strategies")
+async def list_strategies(
+    session: AsyncSession = Depends(get_trading_engine_db_session),
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Catálogo de estratégias do engine + agregados de backtests."""
+    query = text(
+        """
+        SELECT
+            sc.name,
+            sc.timeframe,
+            sc.description,
+            sc.params_json,
+            sc.source_file,
+            sc.git_sha,
+            sc.updated_at,
+            COALESCE(b.n_runs, 0) AS n_runs,
+            b.last_run_at,
+            b.avg_pnl,
+            b.avg_hit_rate,
+            b.avg_sharpe,
+            b.total_trades
+        FROM trading_engine_orders.strategies_catalog sc
+        LEFT JOIN (
+            SELECT
+                strategy,
+                COUNT(*)              AS n_runs,
+                MAX(created_at)       AS last_run_at,
+                AVG(pnl_total)        AS avg_pnl,
+                AVG(hit_rate)         AS avg_hit_rate,
+                AVG(sharpe)           AS avg_sharpe,
+                SUM(n_trades)         AS total_trades
+            FROM trading_engine_orders.backtest_runs
+            GROUP BY strategy
+        ) b ON b.strategy = sc.name
+        ORDER BY sc.name
+        """
+    )
+    rows = [_row_to_dict(r) for r in await session.execute(query)]
+    return {"count": len(rows), "strategies": rows}
 
 
 @router.get("/backtests/{run_id}")
