@@ -492,6 +492,15 @@ docker compose up -d api worker worker_v2
 ## Notas
 
 - **Próxima sprint sugerida** (02/mai+): smoke live R1.5+R2+R3.2 no pregão de 04/mai (segunda) — routine `trig_013JvZLcbANEuRf8rSYiFhK5` agendada 11h BRT roda re-screening cointegração + tail dos logs do auto_trader. Depois: E1 fetcher (quando fonte de dados definida) ou R4 (ORB WINFUT, ~7-10d).
+
+### Sessão 02/mai sábado pré-smoke — 12 commits, 6 bugs latentes corrigidos
+Detalhamento em `memory/project_session_02mai_full.md` + `docs/runbook_alembic_audit.md`. Pontos vinculantes:
+- **Padrão UNION cross-source** (Decisão 24): apareceu 4x na sessão. Pipelines lendo `fintz_cotacoes_ts` direto ficaram stale 6mo após Fintz freeze (2025-11-03). Fix em série: `/candles_daily` endpoint + `cointegration_screen.load_closes` + `features_daily_builder.load_bars` + `yield_curves_refresh_job` (novo). Ver Decisão 24 em CLAUDE.md.
+- **PETR3-PETR4 emergiu como par real** após cointegração rodar com dados atuais (p=0.0002 << α/28). Antes do fix, robô estava cego ao par real — testava SANB11/VALE3 + CMIN3/VALE3 (falso-positivos).
+- **Decisão 23 — alembic ts_*** registry-only**: 4 tabelas robot_* zumbi DROPped em Postgres. ts_* migrations rodam DDL contra Postgres por design quebrado; tabelas Timescale reais vêm de `init_timescale/*.sql`.
+- **Bug raiz `rates_features_builder`**: filtrava series histórica pelo --start/--end → range curto = TSMOM/value NULL silently. Fix em commit `208650d`.
+- **Pipeline ANBIMA automatizado**: `yield_curves_refresh_job` 21h BRT diário (yield_ingestion + rates_features_builder com lookback 400d). Antes era manual; última execução manual 17/abr → ML signals retornavam feature_nulls 15 dias depois.
+- **ML signals counts pós-fix**: 14 BUY / 1 SELL / 26 HOLD / 116 errors. PETR4 SELL agora real (predicted=-0.60% < th_sell=0.0, ref 2026-04-30) — antes era falso (features de nov/2025).
 - **Dependência crítica**: Z5 (treinar pickles h3/h5) bloqueado em dados Nelogica.
 - **Operação atual**: estável em Docker Engine WSL2 (Decisão 22). Volumes Postgres/Timescale em ext4 nativo (Fase B.2 done 01/mai). Backups originais `/mnt/e/finanalytics_data/docker/{postgres,timescale}` ficam até ~08/mai antes de delete.
 
