@@ -37,6 +37,7 @@ from enum import StrEnum
 import math
 from typing import Any, Protocol, runtime_checkable
 
+from finanalytics_ai.domain.backtesting.metrics import roc_auc
 from finanalytics_ai.domain.backtesting.slippage import apply_slippage, compute_adv
 
 # ── Sinais ────────────────────────────────────────────────────────────────────
@@ -120,9 +121,12 @@ class BacktestMetrics:
     avg_duration_days: float
     initial_capital: float
     final_equity: float
+    # R5 follow-up — AUC sob ROC. None se strategy não emite scores ou trades
+    # insuficientes (precisa ≥1 winner E ≥1 loser).
+    auc_score: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d: dict[str, Any] = {
             "total_return_pct": round(self.total_return_pct, 2),
             "sharpe_ratio": round(self.sharpe_ratio, 3),
             "max_drawdown_pct": round(self.max_drawdown_pct, 2),
@@ -138,6 +142,9 @@ class BacktestMetrics:
             "initial_capital": self.initial_capital,
             "final_equity": round(self.final_equity, 2),
         }
+        if self.auc_score is not None:
+            d["auc_score"] = round(self.auc_score, 4)
+        return d
 
 
 # ── BacktestResult ────────────────────────────────────────────────────────────
@@ -157,9 +164,13 @@ class BacktestResult:
     metrics: BacktestMetrics
     bars_count: int
     params: dict[str, Any] = field(default_factory=dict)
+    # R5 follow-up — curva ROC pra rendering UI. None se AUC indisponível.
+    # Formato: [{"fpr": float, "tpr": float}, ...] (ASC por threshold).
+    roc_curve: list[dict[str, float]] | None = None
+    roc_meta: dict[str, Any] | None = None  # {"n_positive", "n_negative", "n_total"}
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d: dict[str, Any] = {
             "ticker": self.ticker,
             "strategy": self.strategy_name,
             "range": self.range_period,
@@ -170,6 +181,11 @@ class BacktestResult:
             "equity_curve": self.equity_curve,
             "signals": self.signals,
         }
+        if self.roc_curve is not None:
+            d["roc_curve"] = self.roc_curve
+        if self.roc_meta is not None:
+            d["roc_meta"] = self.roc_meta
+        return d
 
 
 # ── Strategy Protocol ─────────────────────────────────────────────────────────
@@ -182,6 +198,13 @@ class Strategy(Protocol):
 
     generate_signals recebe as barras OHLC e retorna um sinal por barra.
     O backtest engine não sabe nada sobre a estratégia — só consome sinais.
+
+    Método opcional `generate_scores` (R5 follow-up — ROC/AUC): retorna um
+    score numérico contínuo por barra (não None) para ROC/AUC computação.
+    Se ausente ou todos None, AUC fica None no resultado. Convenção: score
+    maior = mais convicção de "trade vai ser rentável" (winner). RSI, por
+    ex, retorna `(rsi-50)/50` nas barras de BUY (alta convicção quando
+    profundamente oversold) e o oposto nas SELL.
     """
 
     name: str
@@ -246,11 +269,30 @@ def run_backtest(
     signals = strategy.generate_signals(bars)
     assert len(signals) == len(bars), "signals deve ter mesmo tamanho que bars"
 
+    # R5 follow-up — captura scores opcionais p/ ROC/AUC. Strategy implementa
+    # generate_scores opcional; se ausente ou erro, scores=None silenciosamente
+    # (AUC fica None no resultado).
+    scores: list[float | None] | None = None
+    if hasattr(strategy, "generate_scores"):
+        try:
+            raw = strategy.generate_scores(bars)
+            if raw and len(raw) == len(bars):
+                scores = list(raw)
+        except Exception:  # noqa: BLE001 — strategy mal-implementada não quebra backtest
+            scores = None
+
+    # Score por trade (pareado com cada Trade gerado abaixo). Capturado na
+    # barra de SAÍDA do trade — score mais relevante é a convicção do BUY,
+    # mas sem look-ahead, registramos no fechamento. Para consumir, basta
+    # alinhar com `trades` por ordem.
+    trade_scores: list[float] = []
+
     equity = initial_capital
     position = 0.0  # quantidade de ações
     entry_price = 0.0
     entry_date = datetime.now(UTC)
     entry_reason = ""
+    entry_score: float | None = None  # score capturado na barra de BUY
 
     trades: list[Trade] = []
     equity_curve: list[dict[str, Any]] = []
@@ -286,7 +328,10 @@ def run_backtest(
                         exit_reason=f"DELISTED em {delisting_date.isoformat()}",
                     )
                 )
+                if entry_score is not None and not math.isnan(entry_score):
+                    trade_scores.append(entry_score)
                 position = 0.0
+                entry_score = None
                 delisted_force_close = True
                 # Atualiza equity_curve com snapshot final + para o loop
                 equity_curve.append(
@@ -328,6 +373,8 @@ def run_backtest(
             entry_price = exec_price
             entry_date = date
             entry_reason = f"Sinal BUY barra {i}"
+            # Captura score do BUY p/ pareamento com trade no SELL
+            entry_score = scores[i] if scores else None
             equity -= capital_to_invest  # desconta capital investido do caixa comissão de entrada
 
         # Fecha posição
@@ -360,7 +407,10 @@ def run_backtest(
                 exit_reason=f"Sinal SELL barra {i}",
             )
             trades.append(trade)
+            if entry_score is not None and not math.isnan(entry_score):
+                trade_scores.append(entry_score)
             position = 0.0
+            entry_score = None
 
         # Equity mark-to-market (inclui posição aberta — preço de mercado, sem slippage)
         current_equity = equity + (position * price if position > 0 else 0.0)
@@ -416,6 +466,8 @@ def run_backtest(
                 exit_reason="Fim do período",
             )
         )
+        if entry_score is not None and not math.isnan(entry_score):
+            trade_scores.append(entry_score)
 
     metrics = _calc_metrics(
         trades=trades,
@@ -423,6 +475,26 @@ def run_backtest(
         initial_capital=initial_capital,
         final_equity=equity,
     )
+
+    # R5 follow-up — AUC/ROC se scores coletados pareiam 1:1 com trades
+    roc_curve_out: list[dict[str, float]] | None = None
+    roc_meta_out: dict[str, Any] | None = None
+    if trade_scores and len(trade_scores) == len(trades) and len(trades) >= 2:
+        try:
+            y_true = [t.is_winner for t in trades]
+            auc_result = roc_auc(y_true=y_true, y_score=trade_scores)
+            if auc_result is not None and not math.isnan(auc_result.auc):
+                metrics.auc_score = auc_result.auc
+                roc_curve_out = [
+                    {"fpr": round(f, 4), "tpr": round(t, 4)} for f, t in auc_result.curve
+                ]
+                roc_meta_out = {
+                    "n_positive": auc_result.n_positive,
+                    "n_negative": auc_result.n_negative,
+                    "n_total": auc_result.n_total,
+                }
+        except Exception:  # noqa: BLE001 — falha silente, AUC fica None
+            pass
 
     return BacktestResult(
         ticker=ticker,
@@ -434,6 +506,8 @@ def run_backtest(
         signals=signal_log,
         metrics=metrics,
         bars_count=len(bars),
+        roc_curve=roc_curve_out,
+        roc_meta=roc_meta_out,
     )
 
 

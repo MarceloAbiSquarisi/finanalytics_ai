@@ -253,3 +253,121 @@ def sample_skew_kurtosis(returns: list[float]) -> tuple[float, float]:
     skew = sum((r - mu) ** 3 for r in returns) / (n * sigma**3)
     kurt = sum((r - mu) ** 4 for r in returns) / (n * sigma**4)
     return skew, kurt
+
+
+# ── ROC / AUC para backtests com signal score ─────────────────────────────────
+#
+# Trata o backtest como classificador binário: trade rentável (pnl > 0) é a
+# classe positiva. Strategy precisa expor `generate_scores(bars)` retornando
+# um score numérico contínuo por trade — quanto maior o score, mais convicção
+# de "esse trade vai ser rentável".
+#
+# AUC mede capacidade DISCRIMINATIVA (ordenação correta), independente do
+# threshold escolhido. AUC=1.0 → strategy ordena perfeitamente (todos os
+# winners têm score > todos os losers). AUC=0.5 → aleatório. AUC=0 →
+# anti-perfeita (sinal invertido — strategy é boa mas com threshold trocado).
+#
+# Quando faz sentido aplicar:
+#   - Strategies com score contínuo (RSI distância-do-50, MACD histogram,
+#     ML predicted_log_return). Strategies binárias (RSI cross threshold)
+#     dão AUC degenerada (~0.5 ou 1.0 trivialmente).
+#   - Comparar duas estrategias com mesmo número de trades mas qualidade
+#     diferente — Sharpe pode ser alto por sorte, AUC mostra se há habilidade.
+#   - Detectar dumb luck: Sharpe alto + AUC ~0.5 = retorno por coincidência.
+#
+# Limitações:
+#   - Não substitui Sharpe/DSR — é métrica complementar.
+#   - Pra N pequeno (<20 trades), AUC tem variância alta; interpretar c/ cautela.
+
+
+@dataclass(frozen=True)
+class RocAucResult:
+    """Resultado de cálculo ROC/AUC — pra exposição via to_dict()."""
+
+    auc: float  # área sob curva, ∈ [0, 1]
+    n_positive: int  # trades winners (y_true=1)
+    n_negative: int  # trades losers (y_true=0)
+    n_total: int
+    curve: list[tuple[float, float]]  # [(fpr, tpr), ...] para plotar
+
+    def to_dict(self) -> dict[str, "object"]:
+        return {
+            "auc": round(self.auc, 4),
+            "n_positive": self.n_positive,
+            "n_negative": self.n_negative,
+            "n_total": self.n_total,
+            "curve": [[round(f, 4), round(t, 4)] for f, t in self.curve],
+        }
+
+
+def roc_auc(y_true: list[bool], y_score: list[float]) -> RocAucResult | None:
+    """
+    Calcula AUC e curva ROC manualmente (sem sklearn — segue padrão zero-deps
+    de domain/, igual ao DSR neste módulo).
+
+    Algoritmo:
+      1. Ordena pares (score, label) por score DESC.
+      2. Varre os pontos atualizando TP e FP cumulativos.
+      3. Em cada threshold único, registra (FPR, TPR).
+      4. AUC via regra do trapézio sobre a curva.
+      5. Empates de score: agrupa todos antes de gerar ponto da curva
+         (anti-bias contra strategies determinísticas).
+
+    Retorna None se inputs degenerados (vazio, todos winners ou todos losers
+    — AUC indefinida nesses casos).
+
+    Edge cases:
+      - Score com NaN: levanta ValueError (caller deve filtrar).
+      - len(y_true) != len(y_score): ValueError.
+    """
+    if len(y_true) != len(y_score):
+        raise ValueError(f"y_true ({len(y_true)}) != y_score ({len(y_score)})")
+    n = len(y_true)
+    if n == 0:
+        return None
+    if any(math.isnan(s) for s in y_score):
+        raise ValueError("y_score contém NaN")
+
+    n_pos = sum(1 for y in y_true if y)
+    n_neg = n - n_pos
+    if n_pos == 0 or n_neg == 0:
+        # Strategy só ganhou ou só perdeu — AUC degenerada
+        return RocAucResult(
+            auc=float("nan"), n_positive=n_pos, n_negative=n_neg, n_total=n, curve=[]
+        )
+
+    # Pares (score, label) ordenados por score DESC; em empate, label DESC
+    # (winners antes — anti-bias estável)
+    pairs = sorted(zip(y_score, y_true, strict=True), key=lambda p: (-p[0], -int(p[1])))
+
+    curve: list[tuple[float, float]] = [(0.0, 0.0)]
+    tp = 0
+    fp = 0
+    auc_val = 0.0
+    prev_score = None
+    prev_fpr = 0.0
+    prev_tpr = 0.0
+
+    for score, label in pairs:
+        if prev_score is not None and score != prev_score:
+            # Mudou threshold — registra ponto da curva + soma trapézio
+            fpr = fp / n_neg
+            tpr = tp / n_pos
+            curve.append((fpr, tpr))
+            auc_val += (fpr - prev_fpr) * (tpr + prev_tpr) / 2.0
+            prev_fpr, prev_tpr = fpr, tpr
+        if label:
+            tp += 1
+        else:
+            fp += 1
+        prev_score = score
+
+    # Ponto final (todos os scores varridos)
+    fpr = fp / n_neg
+    tpr = tp / n_pos
+    curve.append((fpr, tpr))
+    auc_val += (fpr - prev_fpr) * (tpr + prev_tpr) / 2.0
+
+    return RocAucResult(
+        auc=auc_val, n_positive=n_pos, n_negative=n_neg, n_total=n, curve=curve
+    )

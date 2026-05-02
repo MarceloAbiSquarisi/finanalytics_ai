@@ -125,6 +125,23 @@ class RSIStrategy:
     def params(self) -> dict[str, Any]:
         return {"period": self.period, "oversold": self.oversold, "overbought": self.overbought}
 
+    def generate_scores(self, bars: list[dict[str, Any]]) -> list[float | None]:
+        """Score de convicção p/ ROC/AUC — distância do RSI ao 50 normalizada
+        ao intervalo de threshold. Quanto mais profundo o oversold, mais alto
+        o score (mais convicção de reversão alta = trade rentável)."""
+        closes = [float(b["close"]) for b in bars]
+        rsi = compute_rsi(closes, self.period)["values"]
+        scores: list[float | None] = []
+        for v in rsi:
+            if v is None:
+                scores.append(None)
+            else:
+                # Score positivo = oversold profundo (BUY de convicção)
+                # Score negativo = overbought (SELL ou contra-sinal)
+                # Normaliza pelo range do threshold (default 0..30 = 30 pontos)
+                scores.append((self.oversold - float(v)) / max(self.oversold, 1.0))
+        return scores
+
 
 @dataclass
 class MACDCrossStrategy:
@@ -159,6 +176,20 @@ class MACDCrossStrategy:
     @property
     def params(self) -> dict[str, Any]:
         return {"fast": self.fast, "slow": self.slow, "signal_period": self.signal_period}
+
+    def generate_scores(self, bars: list[dict[str, Any]]) -> list[float | None]:
+        """Score = MACD histogram (macd - signal). Quanto maior, mais
+        bullish; convicção de trade rentável proporcional à magnitude."""
+        closes = [float(b["close"]) for b in bars]
+        result = compute_macd(closes, self.fast, self.slow, self.signal_period)
+        macd, sig = result["macd"], result["signal"]
+        scores: list[float | None] = []
+        for m, s in zip(macd, sig, strict=False):
+            if m is None or s is None:
+                scores.append(None)
+            else:
+                scores.append(float(m) - float(s))
+        return scores
 
 
 @dataclass

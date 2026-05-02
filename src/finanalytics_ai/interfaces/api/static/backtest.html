@@ -1094,6 +1094,13 @@ function faSidebarToggle(){var sb=document.getElementById("fa-sidebar");sb.class
         <div class="chart-wrap"><canvas id="dd-chart"></canvas>
 </div>
 </div>
+      <!-- R5 follow-up: ROC card (só visível se strategy emite scores) -->
+      <div class="chart-card" id="roc-card" style="display:none">
+        <div class="chart-title">ROC Curve <span style="font-size:11px;color:var(--muted);font-weight:400">— discriminação binária (winner vs loser)</span>
+</div>
+        <div class="chart-wrap" style="position:relative"><canvas id="roc-chart"></canvas>
+</div>
+</div>
 </div>
 
     <!-- ADX PANEL -->
@@ -1623,6 +1630,7 @@ var STRATEGY_COLORS = {rsi: '#3ABFF8', macd: '#F0B429', combined: '#2ED47A', bol
 var lastResult = null;
 var equityChart = null;
 var ddChart = null;
+var rocChart = null;
 var compareChart = null;
 
 // UTILS ----
@@ -1828,6 +1836,20 @@ function renderResult(d) {
     {label:'Duracao Media', value:m.avg_duration_days.toFixed(1)+' dias',
      cls:'blue', sub:'por trade'},
   ];
+  // R5 follow-up: AUC card (so' aparece se strategy emite scores e ha trades suficientes)
+  if (typeof m.auc_score === 'number') {
+    var aucCls = m.auc_score >= 0.7 ? 'green' : m.auc_score >= 0.55 ? 'gold' : m.auc_score >= 0.45 ? 'blue' : 'red';
+    var aucSub = 'discriminação trade rentável; 0.5=random';
+    if (d.roc_meta) {
+      aucSub = d.roc_meta.n_positive + 'W / ' + d.roc_meta.n_negative + 'L · 0.5=random';
+    }
+    items.push({
+      label: 'AUC (ROC)',
+      value: m.auc_score.toFixed(3),
+      cls: aucCls,
+      sub: aucSub,
+    });
+  }
   grid.innerHTML = items.map(function(it) {
     return '<div class="metric-card">' +
       '<div class="metric-label">'+it.label+'</div>' +
@@ -1841,6 +1863,9 @@ function renderResult(d) {
 
   // Drawdown chart
   renderDdChart(d);
+
+  // R5 follow-up — ROC chart (só renderiza se houver curva)
+  renderRocChart(d);
 
   // Trades
   renderTrades(d);
@@ -1925,6 +1950,73 @@ function renderDdChart(d) {
       }]
     },
     options: chartOpts('%')
+  });
+}
+
+// R5 follow-up — ROC curve (TPR x FPR). Só renderiza se backend retornou roc_curve.
+function renderRocChart(d) {
+  var card = document.getElementById('roc-card');
+  if (!card) return;
+  if (!d.roc_curve || !d.roc_curve.length || typeof d.metrics.auc_score !== 'number') {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = '';
+  if (rocChart) rocChart.destroy();
+  var ctx = document.getElementById('roc-chart').getContext('2d');
+  var pts = d.roc_curve.map(function(p) { return {x: p.fpr, y: p.tpr}; });
+  var diagonal = [{x:0,y:0},{x:1,y:1}];
+  rocChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: 'ROC (AUC=' + d.metrics.auc_score.toFixed(3) + ')',
+          data: pts,
+          borderColor: '#3ABFF8',
+          backgroundColor: 'rgba(58,191,248,0.12)',
+          borderWidth: 2,
+          pointRadius: 2,
+          fill: true,
+          tension: 0,
+          showLine: true,
+        },
+        {
+          label: 'Random (AUC=0.5)',
+          data: diagonal,
+          borderColor: 'rgba(180,180,200,0.5)',
+          borderDash: [4, 4],
+          borderWidth: 1,
+          pointRadius: 0,
+          fill: false,
+          showLine: true,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { type: 'linear', min: 0, max: 1, title: {display: true, text: 'FPR', color: '#6A9EBF'},
+             grid: {color: 'rgba(58,191,248,0.06)'}, ticks: {color: '#6A9EBF'} },
+        y: { type: 'linear', min: 0, max: 1, title: {display: true, text: 'TPR', color: '#6A9EBF'},
+             grid: {color: 'rgba(58,191,248,0.06)'}, ticks: {color: '#6A9EBF'} },
+      },
+      plugins: {
+        legend: {display: true, labels: {color: '#E8F4FD', font: {size: 11}}},
+        tooltip: {
+          backgroundColor: 'rgba(10,22,40,0.95)',
+          borderColor: 'rgba(58,191,248,0.2)',
+          borderWidth: 1,
+          titleColor: '#6A9EBF', bodyColor: '#E8F4FD',
+          callbacks: {
+            label: function(ctx) {
+              return 'FPR=' + ctx.parsed.x.toFixed(3) + '  TPR=' + ctx.parsed.y.toFixed(3);
+            }
+          }
+        }
+      }
+    }
   });
 }
 
