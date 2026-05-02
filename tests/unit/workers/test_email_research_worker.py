@@ -8,7 +8,7 @@ Cobertura — foco em process_once orchestration:
   - classifier raise -> log + continue (nao quebra ciclo)
   - fetcher raise -> log + retorna stats zerados (loop continua no main)
 
-Mocks: GmailFetcher in-memory (lista predefinida), classifier.classify
+Mocks: ResearchFetcher in-memory (lista predefinida), classifier.classify
 substituido, _get_conn substituido p/ controle das queries.
 """
 
@@ -33,7 +33,7 @@ from finanalytics_ai.workers.email_research_worker import (
 
 
 class _StubFetcher:
-    """In-memory GmailFetcher pra tests."""
+    """In-memory ResearchFetcher pra tests."""
 
     def __init__(self, emails: list[RawEmail]) -> None:
         self._emails = emails
@@ -182,7 +182,7 @@ async def test_classifier_error_continues_to_next_email() -> None:
 
 class _BoomFetcher:
     def fetch_unprocessed(self, limit: int = 50) -> list[RawEmail]:
-        raise RuntimeError("gmail offline")
+        raise RuntimeError("fetcher offline")
 
 
 @pytest.mark.asyncio

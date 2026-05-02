@@ -203,14 +203,16 @@ Checklist obrigatório para qualquer strategy nova:
 
 ---
 
-## 📧 Leitura de Gmail (E1-E3)
+## 📧 Pipeline de research / notas (E1-E3)
 
-> Stack disponível: MCP `claude_ai_Gmail` (OAuth pronto), pdfplumber já no projeto, Anthropic SDK (Claude Haiku 4.5), Pushover.
+> Stack disponível: pdfplumber já no projeto, Anthropic SDK (Claude Haiku 4.5), Pushover. Fonte de dados a ser definida (abordagem Gmail descartada).
 
 #### E1 — Research bulletins → tags por ticker → enrich signals ⭐⭐⭐ alpha real
-**Custo**: ~5d MVP. **Payoff**: alto (research institucional dirige preço em ações líquidas; event study 1-3d pós-publicação).
+**Status**: classifier pronto (`ResearchClassifier`, Haiku 4.5 + prompt caching) + worker scaffold (`email_research_worker`) com `ResearchFetcher` Protocol. Aguardando fonte de dados p/ implementar fetcher concreto.
 
-Polling 5min com query Gmail `(from:research@btg OR from:reports@xp OR from:morningnotes@genial)`. Parse HTML/PDF → texto limpo. LLM (Haiku 4.5) classifica:
+**Custo restante**: ~2-3d (fetcher + parsing + smoke). **Payoff**: alto (research institucional dirige preço em ações líquidas; event study 1-3d pós-publicação).
+
+LLM (Haiku 4.5) classifica corpo da mensagem:
 ```json
 {ticker_mentions: [...], sentiment: BULLISH|NEUTRAL|BEARISH,
  action_if_any: BUY|HOLD|SELL, target_price: 52.0,
@@ -224,12 +226,12 @@ Polling 5min com query Gmail `(from:research@btg OR from:reports@xp OR from:morn
 - `/dashboard` card mostra badge "📰 BTG: BUY @52" abaixo do badge ML
 - Painel novo "Research Recente" lista últimos 50 com filtro por ticker
 
-**Custo LLM**: Haiku 4.5 $0.80/M input. ~50 emails/dia × 2k tokens × 30d = **~$2.40/mês por user**. Cache de PDFs + summary se escalar.
+**Custo LLM**: Haiku 4.5 $0.80/M input. ~50 mensagens/dia × 2k tokens × 30d = **~$2.40/mês por user**. Cache aggressive (msg_id hash → resultado).
 
 #### E2 — Notas de corretagem → reconciliation automática ⭐⭐ compliance
 **Custo**: ~3d MVP por corretora. **Payoff**: médio (IR + confiança em fills + auditoria).
 
-Polling 30min: query `from:noreply@btgpactual.com after:N` (ou XP/Genial/Clear). Parse PDF anexo (pdfplumber):
+Parse PDF (pdfplumber) das notas das corretoras:
 - Extrai `(ticker, side, qty, preco_medio, taxa_corretagem, taxa_emolumentos, irrf, data_pregao)`
 - Match com `profit_orders` por `(ticker, side, qty, ±5min, ±0.5%)`
 - Se não conciliado: alert "❌ ordem em PDF da corretora sem match no DB" → revisão manual
@@ -238,27 +240,27 @@ Polling 30min: query `from:noreply@btgpactual.com after:N` (ou XP/Genial/Clear).
 
 **UI**: aba "Notas" em `/movimentacoes` lista + filtro por status. **Valor secundário**: cálculo automático de IR + DARF mensal.
 
-#### E3 — Pipeline genérico email (fundação multi-uso) ⭐ infra
+#### E3 — Pipeline genérico de mensagens (fundação multi-uso) ⭐ infra
 **Custo**: ~7d. **Payoff**: alto SE tiver 3+ casos de uso futuros.
 
-Schema base (`email_messages` + `email_attachments`), worker `gmail_sync_worker` configurável, parsers plugáveis (PDF/HTML/LLM), API `/api/v1/email/messages` paginada + busca full-text, UI `/email`. Habilita E1+E2+casos futuros.
+Schema base (`messages` + `message_attachments`), worker de sync configurável, parsers plugáveis (PDF/HTML/LLM), API `/api/v1/messages` paginada + busca full-text, UI dedicada. Habilita E1+E2+casos futuros.
 
 **Quando atacar**: depois que E1 estiver maduro e aparecer 3º caso de uso (ex: alertas de margin call ou tag de eventos corporativos).
 
 ### Riscos a documentar antes de começar (E1/E2/E3)
-1. **Privacidade/LGPD**: emails têm dados sensíveis (saldos, CPF, posições). Storage criptografado em rest. Acesso restrito ao próprio `user_id`. Retenção config (deletar > 6 meses).
-2. **Quota Gmail API**: 1B units/dia free tier. Polling 5min em 1 user = ~300 calls/dia, OK. Multi-tenant precisa rate limit no worker.
-3. **OAuth refresh**: token expira em 1h; refresh_token vale 6 meses se app não recebe atividade. Fluxo de re-auth com push (Pushover).
-4. **LLM cost runaway**: cache aggressive (msg_id hash → resultado), só re-classify quando body muda. Skip emails já parseados.
+1. **Privacidade/LGPD**: mensagens podem ter dados sensíveis (saldos, CPF, posições). Storage criptografado em rest. Acesso restrito ao próprio `user_id`. Retenção config (deletar > 6 meses).
+2. **Rate limits da fonte**: depende da API/protocolo. Worker precisa rate limit configurável.
+3. **Auth refresh**: tokens normalmente expiram; planejar fluxo de re-auth com notificação (Pushover).
+4. **LLM cost runaway**: cache aggressive (msg_id hash → resultado), só re-classify quando body muda. Skip mensagens já parseadas.
 5. **False positives no parser**: validar com sample manual antes de gravar `email_research` automatic. Threshold de confiança (LLM retorna `confidence: 0-1`).
 
-### Recomendação de ordem (Gmail)
+### Recomendação de ordem
 
 | # | Item | Custo | Quando |
 |---|---|---|---|
-| 1 | E1 MVP (BTG only) | 3-5d | Primeiro — alpha visível |
-| 2 | E1 expansão (XP, Genial) | +2d cada | Depois de E1 BTG validado |
-| 3 | E2 (BTG notes) | 3d | Quando IR/compliance virar prioridade |
+| 1 | E1 fetcher (1ª fonte) | 2-3d | Quando fonte definida — alpha visível |
+| 2 | E1 expansão (fontes adicionais) | +2d cada | Depois da 1ª fonte validada |
+| 3 | E2 (notas corretagem) | 3d | Quando IR/compliance virar prioridade |
 | 4 | E3 fundação | 5-7d | Só se aparecer 3º caso de uso |
 
 ---
@@ -489,7 +491,7 @@ docker compose up -d api worker worker_v2
 
 ## Notas
 
-- **Próxima sprint sugerida** (02/mai+): smoke live R1.5+R2+R3.2 no pregão de 04/mai (segunda) — routine `trig_013JvZLcbANEuRf8rSYiFhK5` agendada 11h BRT roda re-screening cointegração + tail dos logs do auto_trader. Depois: E1.2 (Gmail OAuth + integração ao classifier) ou R4 (ORB WINFUT, ~7-10d).
+- **Próxima sprint sugerida** (02/mai+): smoke live R1.5+R2+R3.2 no pregão de 04/mai (segunda) — routine `trig_013JvZLcbANEuRf8rSYiFhK5` agendada 11h BRT roda re-screening cointegração + tail dos logs do auto_trader. Depois: E1 fetcher (quando fonte de dados definida) ou R4 (ORB WINFUT, ~7-10d).
 - **Dependência crítica**: Z5 (treinar pickles h3/h5) bloqueado em dados Nelogica.
 - **Operação atual**: estável em Docker Engine WSL2 (Decisão 22). Volumes Postgres/Timescale em ext4 nativo (Fase B.2 done 01/mai). Backups originais `/mnt/e/finanalytics_data/docker/{postgres,timescale}` ficam até ~08/mai antes de delete.
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-email_research_worker — Pipeline E1.1 (Gmail research bulletins).
+email_research_worker — Pipeline E1.1 (research bulletins → tags por ticker).
 
-Estado atual: SCAFFOLD. Polling 5min com GmailFetcher Protocol abstrato —
-implementacao real (OAuth + google-api-python-client) fica pra E1.2.
+Estado atual: SCAFFOLD. Polling com ResearchFetcher Protocol abstrato —
+implementacao concreta depende da fonte de dados a ser definida.
 Por agora, o worker roda contra um fetcher injetado (mockado em tests).
 
 Pipeline por ciclo:
@@ -20,8 +20,8 @@ Config env:
   EMAIL_RESEARCH_DSN       postgresql DSN p/ tabela email_research
   ANTHROPIC_API_KEY        injetado via Settings global do projeto
 
-Observabilidade: logs estruturados em pontos chave; metrica Prometheus
-fica como follow-up (E1.2).
+Observabilidade: logs estruturados em pontos chave; metrica Prometheus fica
+como follow-up.
 """
 
 from __future__ import annotations
@@ -67,11 +67,12 @@ class RawEmail:
     received_at: datetime  # tz-aware UTC
 
 
-class GmailFetcher(Protocol):
-    """Adapter que retorna emails pendentes. Impl real defer pra E1.2."""
+class ResearchFetcher(Protocol):
+    """Adapter que retorna mensagens de research pendentes. Impl concreta
+    depende da fonte de dados a ser definida."""
 
     def fetch_unprocessed(self, limit: int = 50) -> list[RawEmail]:
-        """Retorna emails ainda nao classificados (filtro do lado do impl)."""
+        """Retorna mensagens ainda nao classificadas (filtro do lado do impl)."""
         ...
 
 
@@ -159,7 +160,7 @@ def _handle_signal(signum: int, frame: Any) -> None:
 
 async def process_once(
     *,
-    fetcher: GmailFetcher,
+    fetcher: ResearchFetcher,
     classifier: ResearchClassifier,
     dsn: str = DSN,
 ) -> dict[str, int]:
@@ -212,7 +213,7 @@ async def process_once(
     return stats
 
 
-async def main(*, fetcher: GmailFetcher, classifier: ResearchClassifier) -> int:
+async def main(*, fetcher: ResearchFetcher, classifier: ResearchClassifier) -> int:
     if not ENABLED:
         logger.info("email_research.disabled_via_env")
         while not _shutdown:
@@ -241,9 +242,9 @@ async def main(*, fetcher: GmailFetcher, classifier: ResearchClassifier) -> int:
 
 
 if __name__ == "__main__":
-    # Entrypoint real fica em E1.2 — precisa carregar Settings + GmailFetcher
-    # OAuth real. Por enquanto, este branch nao inicia (roda como modulo).
+    # Entrypoint real depende da fonte de dados (ResearchFetcher concreto).
+    # Por enquanto, este branch nao inicia (roda como modulo).
     _signal_mod.signal(_signal_mod.SIGTERM, _handle_signal)
     _signal_mod.signal(_signal_mod.SIGINT, _handle_signal)
-    logger.error("email_research.entrypoint_pending_e1_2")
+    logger.error("email_research.entrypoint_pending_fetcher_impl")
     sys.exit(1)

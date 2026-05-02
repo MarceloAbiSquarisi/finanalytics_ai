@@ -1,6 +1,6 @@
 """0022_email_research
 
-Tabela email_research para pipeline E1 (Gmail research bulletins -> tags por
+Tabela email_research para pipeline E1 (research bulletins -> tags por
 ticker -> enrich /signals).
 
 Motivacao: research institucional (BTG, XP, Genial) move preco em B3 com
@@ -9,24 +9,24 @@ e action recomendada permite enriquecer ML signals com sinal de mercado
 real (analyst consensus / dispersao de targets).
 
 Estrutura:
-  - Identidade: id (uuid), msg_id (Gmail message ID — UNIQUE p/ idempotencia),
-    broker_source (btg|xp|genial|...)
+  - Identidade: id (uuid), msg_id (ID unico da mensagem na fonte — UNIQUE
+    p/ idempotencia), broker_source (btg|xp|genial|...)
   - Classificacao: ticker, sentiment (BULLISH|NEUTRAL|BEARISH), action
     (BUY|HOLD|SELL|null), target_price, time_horizon
   - Confidence LLM: confidence (0-1) p/ filtro qualitativo no consumer
-  - Conteudo bruto: raw_text_excerpt (primeiros ~500 chars do email apos
-    parse) p/ debug e auditoria
-  - Auditoria: received_at (timestamp do email), classified_at (quando rodou
-    o LLM), created_at (insert)
+  - Conteudo bruto: raw_text_excerpt (primeiros ~500 chars do conteudo
+    apos parse) p/ debug e auditoria
+  - Auditoria: received_at (timestamp da mensagem), classified_at (quando
+    rodou o LLM), created_at (insert)
 
 Indice: msg_id UNIQUE (idempotencia worker); ticker+received_at btree
 (query "research recente por ticker"); broker_source+received_at p/
 filtro UI por fonte.
 
-Nota: 1 email pode mencionar N tickers — geramos N rows com mesmo msg_id
-quebrando UNIQUE. Solucao: PRIMARY KEY composto (msg_id, ticker) em vez
-de id+msg_id_unique. Worker faz INSERT ... ON CONFLICT (msg_id, ticker)
-DO NOTHING.
+Nota: 1 mensagem pode mencionar N tickers — geramos N rows com mesmo
+msg_id quebrando UNIQUE. Solucao: PRIMARY KEY composto (msg_id, ticker)
+em vez de id+msg_id_unique. Worker faz INSERT ... ON CONFLICT
+(msg_id, ticker) DO NOTHING.
 
 Revision ID: 0022_email_research
 Revises: 0021_backtest_results
