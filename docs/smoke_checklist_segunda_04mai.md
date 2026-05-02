@@ -6,6 +6,31 @@
 >
 > **Pregão B3**: 10:00-18:00 BRT.
 
+## 📋 Pré-validações já executadas (02/mai sábado)
+
+✅ **Saúde da stack**: 12 containers up + healthy, API `/health` OK, profit_agent `:8002` + proxy OK, WSL gateway `172.17.80.1` estável.
+
+✅ **Strategies seedadas em `robot_strategies`**:
+- `ml_signals` (id=2, enabled): tickers `[PETR4, VALE3, ITUB4, BBDC4]`
+- `tsmom_ml_overlay` (id=3, enabled): tickers `[PETR4, VALE3]`, momentum_lookback_days=252
+- `dummy_heartbeat` (id=1, disabled)
+- `n_strategies_enabled=2` confirmado via `/robot/status`
+
+✅ **Pause/resume cycle**: PUT /pause + /resume com `X-Sudo-Token` funciona end-to-end.
+
+✅ **Auto-trader dry-run end-to-end** (subido com `AUTO_TRADER_ENABLED=true DRY_RUN=true INTERVAL=30`):
+- 2 ciclos completos sem crash
+- log_signal grava em `robot_signals_log`
+- DRY_RUN respeitado (PETR4 SELL bloqueado com `reason_skipped=dry_run_mode`)
+- Risk Engine aplicado (`tsmom_ml_overlay` PETR4 SKIP `insufficient_bars_for_momentum (250 < 253)` — Fintz freezou 30/dez/2025; Segunda terá bars suficientes)
+- Container revertido pra `ENABLED=false` ao final (estado idle pré-smoke)
+
+⚠️ **Pendências bloqueadas por mercado fechado** (Segunda 04/mai 10h+):
+- Cancel order pendente (seção 1)
+- Drag-to-modify TP/SL (seção 2)
+- Despacho real de ordens via robô (seção 3.4-3.5)
+- R3 pair dispatch live (seção 4)
+
 ---
 
 ## 0. Saúde da stack (09:30 BRT)
@@ -16,11 +41,12 @@ docker context show
 # Esperado: wsl-engine
 
 # Containers up?
-docker ps --format "{{.Names}}: {{.Status}}" | Select-String -Pattern "(api|timescale|postgres|scheduler|worker|profit|kafka|grafana)"
+docker ps --format "{{.Names}}: {{.Status}}" | Select-String -Pattern "(api|timescale|postgres|scheduler|worker|profit|kafka|grafana|auto_trader)"
 # Esperado: todos "Up" (healthy onde aplicável)
 
-# API alive?
-Invoke-RestMethod "http://localhost:8000/api/v1/health"
+# API alive? (endpoint correto é /health, NÃO /api/v1/health)
+Invoke-RestMethod "http://localhost:8000/health"
+# Esperado: {status: ok, env: production, version: 0.1.0}
 
 # profit_agent alive?
 Invoke-RestMethod "http://localhost:8002/health"
@@ -32,7 +58,7 @@ wsl -d Ubuntu-22.04 -- ip route show default
 # Esperado: default via 172.17.80.1 (mesmo de antes)
 ```
 
-**Pass**: tudo verde + WSL gateway = 172.17.80.1.
+**Pass**: tudo verde + WSL gateway = 172.17.80.1. ✅ Validado em 02/mai 10:00 BRT.
 **Fail**: rodar `wsl --shutdown` + reiniciar containers + re-checar.
 
 ---
@@ -81,17 +107,29 @@ wsl -d Ubuntu-22.04 -- ip route show default
 
 > 38 unit tests verde mas smoke live nunca rodou. Routine `trig_013JvZLcbANEuRf8rSYiFhK5` automática 11h BRT — este é o playbook manual paralelo.
 
-**Pré-req** (rodar antes de Segunda, ou logo após 0):
-```powershell
-# Seed strategy de teste em robot_strategies (1 strategy MLSignals + 1 TsmomMlOverlay):
-docker exec -i finanalytics_timescale psql -U finanalytics -d market_data <<EOF
-INSERT INTO robot_strategies (id, name, strategy_type, enabled, account_id, config_json, created_at)
-VALUES
-  ('smoke_ml', 'Smoke ML signals', 'ml_signals', TRUE, 1, '{"tickers":["PETR4","VALE3"],"capital_per_strategy":10000}', now()),
-  ('smoke_tsmom', 'Smoke TSMOM overlay', 'tsmom_ml_overlay', TRUE, 1, '{"tickers":["PETR4","VALE3"],"capital_per_strategy":10000,"momentum_lookback_days":252}', now())
-ON CONFLICT (id) DO UPDATE SET enabled = TRUE, config_json = EXCLUDED.config_json;
-EOF
+**Pré-req** (✅ DONE 02/mai pré-smoke):
+
+Schema real: `robot_strategies (id INT autoincrement, name UNIQUE, enabled, config_json JSONB, account_id NULLABLE)`. Não tem `strategy_type` — o registry no worker (`auto_trader_worker.py:STRATEGY_REGISTRY`) usa `name` como chave (`ml_signals`, `tsmom_ml_overlay`, `dummy_heartbeat`). Como `name` é UNIQUE, só pode ter 1 instance de cada tipo.
+
+```sql
+-- Strategies seedadas (rodado 02/mai 10:14 BRT):
+UPDATE robot_strategies
+   SET config_json = '{"tickers":["PETR4","VALE3","ITUB4","BBDC4"],"is_daytrade":false,"kelly_fraction":0.25,"max_position_pct":0.10,"target_vol_annual":0.15,"capital_per_strategy":10000}'::jsonb
+ WHERE name = 'ml_signals';
+
+INSERT INTO robot_strategies (name, enabled, config_json, account_id, description)
+VALUES (
+  'tsmom_ml_overlay', TRUE,
+  '{"tickers":["PETR4","VALE3"],"is_daytrade":false,"momentum_lookback_days":252,...}'::jsonb,
+  NULL, 'Smoke 04/mai — TSMOM ∩ ML overlay'
+)
+ON CONFLICT (name) DO UPDATE SET enabled=EXCLUDED.enabled, config_json=EXCLUDED.config_json;
 ```
+
+Estado pós-seed:
+- 2 strategies enabled (`ml_signals` em 4 blue chips calibrados + `tsmom_ml_overlay` em PETR4/VALE3)
+- account_id NULL → fallback `PROFIT_SIM_*` envvars (`trading_accounts` está vazio)
+- Validado em dry-run 02/mai 10:20 BRT: 2 ciclos completos, log_signal grava OK, DRY_RUN respeitado (PETR4 SELL bloqueado em iteration 2 com reason `dry_run_mode`).
 
 **Setup** (10:30 BRT — após mercado estabilizar):
 1. Conferir kill switch off:
@@ -103,14 +141,20 @@ EOF
    ```bash
    # Dentro do WSL Ubuntu:
    cd /mnt/d/Projetos/finanalytics_ai_fresh
-   AUTO_TRADER_ENABLED=true AUTO_TRADER_DRY_RUN=true \
-     docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.wsl.yml up -d auto_trader
+   AUTO_TRADER_ENABLED=true AUTO_TRADER_DRY_RUN=true AUTO_TRADER_INTERVAL=30 \
+   DATA_DIR_HOST=/mnt/e/finanalytics_data \
+     docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.wsl.yml up -d --force-recreate auto_trader
    docker logs -f finanalytics_auto_trader
    ```
-3. Validar logs em ≤2min:
-   - `auto_trader.tick.start`
-   - `auto_trader.signal.computed` ou `auto_trader.signal.skipped` por ticker
-   - `auto_trader.dispatch.dry_run` (não envia ao DLL)
+3. Validar — **NÃO usar docker logs apenas**: o worker chama `log_signal()` que escreve direto em `robot_signals_log` no DB. O único log via stdout no path normal é `auto_trader.starting` no boot. Conferir via API:
+   ```powershell
+   $login = Invoke-RestMethod -Method POST "http://localhost:8000/api/v1/auth/login" `
+     -ContentType "application/json" `
+     -Body '{"email":"marceloabisquarisi@gmail.com","password":"admin123"}'
+   $h = @{Authorization="Bearer $($login.access_token)"}
+   Invoke-RestMethod "http://localhost:8000/api/v1/robot/signals_log?limit=20" -Headers $h
+   ```
+   Esperado: rows com `action=BUY|SELL|HOLD|SKIP`, `reason_skipped=dry_run_mode` para BUY/SELL.
 
 **Execução** (10:45 BRT — desligar dry-run):
 4. Recriar service com `DRY_RUN=false`:
@@ -122,14 +166,28 @@ EOF
    - `robot_orders_intent` com `local_order_id` populado
    - `profit_orders` com `source='auto_trader'` + `cl_ord_id='robot:smoke_ml:PETR4:...'`
    - OCO atrelado se TP+SL configurados
-6. Testar kill switch:
+6. Testar kill switch — **/pause e /resume requerem sudo_token** (header `X-Sudo-Token`):
    ```powershell
+   # Login + sudo (uma única call, vars não persistem entre PS calls)
+   $login = Invoke-RestMethod -Method POST "http://localhost:8000/api/v1/auth/login" `
+     -ContentType "application/json" -Body '{"email":"marceloabisquarisi@gmail.com","password":"admin123"}'
+   $h = @{Authorization="Bearer $($login.access_token)"}
+   $sudo = Invoke-RestMethod -Method POST "http://localhost:8000/api/v1/auth/sudo" `
+     -Headers $h -ContentType "application/json" -Body '{"password":"admin123"}'
+   $hSudo = @{Authorization="Bearer $($login.access_token)"; "X-Sudo-Token"=$sudo.sudo_token}
+
+   # PAUSE (PUT, sudo_token obrigatório)
    Invoke-RestMethod -Method PUT "http://localhost:8000/api/v1/robot/pause" `
-     -ContentType "application/json" -Body '{"reason":"smoke test"}'
-   # Logs do worker: "auto_trader.paused" — não despacha mais
-   Invoke-RestMethod -Method PUT "http://localhost:8000/api/v1/robot/resume"
-   # Volta a despachar
+     -Headers $hSudo -ContentType "application/json" -Body '{"reason":"smoke test"}'
+   # → {paused: true, reason: smoke test, by: marceloabisquarisi@gmail.com}
+
+   # Worker no próximo ciclo: log_signal HEARTBEAT com reason_skipped="paused: smoke test"
+
+   # RESUME
+   Invoke-RestMethod -Method PUT "http://localhost:8000/api/v1/robot/resume" -Headers $hSudo
+   # → {paused: false}
    ```
+   ✅ Pause/resume cycle validado em 02/mai 10:18 BRT.
 
 **Pass**: 1+ ordem real enviada com handshake C5 correto + kill switch interrompe entradas em ≤1 ciclo.
 **Fail**: signal computado mas `sent_to_dll=false` com reason desconhecido → checar `robot_signals_log.reason_skipped` + Pushover (naked_leg deve ter alertado).
