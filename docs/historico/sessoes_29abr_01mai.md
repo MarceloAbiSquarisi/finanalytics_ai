@@ -78,3 +78,23 @@ Detalhamento em `memory/project_session_01mai_cleanup_deep.md`. Pontos vinculant
 - **Bug regressão crítica fixado** (`d364655`): `_static = pathlib.Path(__file__).parent / "static"` em `startup/routers.py` apontava pra `startup/static/` (não existe) após o move. **Todas as 39 páginas servidas via `_html()`** retornaram 404 com `<h1>X.html não encontrado</h1>`. Fix: `parent.parent`. Lição: refator que move `__file__`-dependent paths exige smoke navigation (não pega via unit test). Memória `feedback_file_path_refactor_smoke.md`.
 - **Routine `sidebar-pattern-audit`** (`trig_012VG1XwoP392yy1JCehuEpQ`) Seg 09h BRT semanal — varre páginas privadas faltando pattern Decisão 16, abre PR auto se achar match.
 - **1697 testes verdes** em todas etapas. Smoke `create_app()` validado via Playwright (428 routes registradas).
+
+## Done recentes (28/abr → 02/mai) — apêndice movido de CLAUDE.md em 03/mai
+
+Detalhe completo em `memory/project_*.md` + `git log`. Lista canônica:
+
+- ✅ **Sessão 02/mai — 12 commits, 6 bugs latentes críticos pré-smoke**: TSMOM bars 5m→daily (`/candles_daily` UNION endpoint); pairs z-score 5m→daily (`fetch_daily_closes`); Postgres robot_* zumbi DROP (alembic ts_* registry-only — Decisão 23); cointegration_screen Fintz-only stale 6mo → UNION cross-source (PETR3-PETR4 visível); features_daily stale 6mo → UNION cross-source (PETR4 SELL falso → real); ANBIMA pipeline stale → novo `yield_curves_refresh_job` 21h BRT + bug raiz builder fixed (separar range output do range séries). ML signals: 14 BUY / 1 SELL / 26 HOLD com features de 2026-04-30. 1499 tests verdes.
+- ✅ R5 **survivorship bias fechado** (02/mai) — tabela `b3_delisted_tickers` populada (1863 CVM placeholders + 449 FINTZ tickers reais), `DelistedTickerRepo` + `DelistingInfo`, engine `run_backtest` aceita `delisting_date`/`last_known_price` (force-close + truncamento), `BacktestService` aceita `delisting_resolver` opcional, demo `--respect-delisting`. 19 tests novos. Caminho via Fintz delta (884 tickers histórico Fintz cruzados com `profit_subscribed_tickers`) substituiu plano original PDF IBOV — mais barato, cobertura superior.
+- ✅ Robô R1.1→R3.3 (TSMOM ∩ ML overlay + pairs cointegrados B3) — 01/mai
+- ✅ E1.1 Research classifier (Anthropic SDK + Haiku 4.5 + prompt caching) — source-agnostic, fetcher pendente — 01/mai
+- ✅ I1 Fases A+B.1+B.2 — Engine WSL2 + volumes ext4 nativo — 01/mai
+- ✅ C1 producer Kafka `market_data.ticks.v1` (Avro) — 01/mai
+- ✅ R5 backtest harness (slippage + DSR + walk-forward + history endpoint) — 30/abr
+- ✅ C5 handshake `_source` + `_client_order_id` (Passo 7) — 30/abr
+- ✅ Limpeza profunda: profit_agent 7058→4426l, app.py 1427→681l, ruff 227→0 — 01/mai noite
+- ✅ Bugs fechados: P1-P11 + P2-futuros + I4 (NSSM AppExit=Restart)
+- ✅ R4 ORB WINFUT scaffold (03/mai) — `ORBStrategy` em `domain/robot/strategies.py` + registry + 5 unit tests; SKIP até implementação real (defer 7-10d)
+
+## Decisão 22 — histórico de fases (movido de CLAUDE.md)
+
+I1 Fase A done 01/mai (commit `ab0ea8b`). Fase B.1 cutover live 01/mai (commit `950ac35`). Fase B.2 done 01/mai (commit `ffcd06c`) — volumes Postgres+Timescale em ext4 nativo. Runbook: `docs/runbook_wsl2_engine_setup.md`.

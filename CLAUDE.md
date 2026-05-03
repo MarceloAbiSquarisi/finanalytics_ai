@@ -301,20 +301,10 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 - **C5 Passos 2-6** (VIEW unified + UI pill manual/engine) bloqueados pela migration do trading-engine R-06; agente `trig_01VDzH3xriAC777KZku42SbK` p/ 21/mai abre PR pareado.
 - **E1 fetcher concreto** — classifier `ResearchClassifier` + worker scaffold prontos; aguardando definição da fonte de dados p/ implementar `ResearchFetcher`.
 
-**Done recentes (28/abr → 02/mai)** — detalhe em `docs/historico/sessoes_29abr_01mai.md` + `docs/runbook_survivorship_bias.md` + `docs/runbook_alembic_audit.md`:
-- ✅ **Sessão 02/mai — 12 commits, 6 bugs latentes críticos pré-smoke**: TSMOM bars 5m→daily (`/candles_daily` UNION endpoint); pairs z-score 5m→daily (`fetch_daily_closes`); Postgres robot_* zumbi DROP (alembic ts_* registry-only — Decisão 23); cointegration_screen Fintz-only stale 6mo → UNION cross-source (PETR3-PETR4 visível); features_daily stale 6mo → UNION cross-source (PETR4 SELL falso → real); ANBIMA pipeline stale → novo `yield_curves_refresh_job` 21h BRT + bug raiz builder fixed (separar range output do range séries). ML signals: 14 BUY / 1 SELL / 26 HOLD com features de 2026-04-30. 1499 tests verdes.
-- ✅ R5 **survivorship bias fechado** (02/mai) — tabela `b3_delisted_tickers` populada (1863 CVM placeholders + 449 FINTZ tickers reais), `DelistedTickerRepo` + `DelistingInfo`, engine `run_backtest` aceita `delisting_date`/`last_known_price` (force-close + truncamento), `BacktestService` aceita `delisting_resolver` opcional, demo `--respect-delisting`. 19 tests novos. Caminho via Fintz delta (884 tickers histórico Fintz cruzados com `profit_subscribed_tickers`) substituiu plano original PDF IBOV — mais barato, cobertura superior.
-- ✅ Robô R1.1→R3.3 (TSMOM ∩ ML overlay + pairs cointegrados B3) — 01/mai
-- ✅ E1.1 Research classifier (Anthropic SDK + Haiku 4.5 + prompt caching) — source-agnostic, fetcher pendente — 01/mai
-- ✅ I1 Fases A+B.1+B.2 — Engine WSL2 + volumes ext4 nativo — 01/mai
-- ✅ C1 producer Kafka `market_data.ticks.v1` (Avro) — 01/mai
-- ✅ R5 backtest harness (slippage + DSR + walk-forward + history endpoint) — 30/abr
-- ✅ C5 handshake `_source` + `_client_order_id` (Passo 7) — 30/abr
-- ✅ Limpeza profunda: profit_agent 7058→4426l, app.py 1427→681l, ruff 227→0 — 01/mai noite
-- ✅ Bugs fechados: P1-P11 + P2-futuros + I4 (NSSM AppExit=Restart) — ver histórico
+**Done recente** — lista canônica de sprints/fixes 28/abr → 03/mai vive em `docs/historico/sessoes_29abr_01mai.md`. Não duplicar aqui.
 
 **Roadmap futuro** (em `Melhorias.md`):
-- **R4** ORB WINFUT + filtro DI1 — defer ~7-10d
+- **R4** ORB WINFUT + filtro DI1 — scaffold pronto (`ORBStrategy` registrado, retorna SKIP); implementação real defer ~7-10d
 - **E2-E3** Pipeline de research/notas (notas corretagem reconciliation E2 | pipeline genérico E3) — aguardando fonte de dados
 
 ## Decisões Arquiteturais (Imutáveis)
@@ -426,7 +416,7 @@ Origem: Docker Desktop morre quando user faz logoff Windows; setup precisa rodar
    ```
 7. **Imagens stale**: rebuilds via `docker compose build api worker` (~5min com cache). NÃO usar `--no-cache` casual — pode falhar transient em pip install torch+prophet (2GB re-download).
 
-Histórico: I1 Fase A done 01/mai (commit `ab0ea8b`). Fase B.1 cutover live 01/mai (commit `950ac35`). Fase B.2 done 01/mai (commit `ffcd06c`) — volumes Postgres+Timescale em ext4 nativo. Runbook completo: `docs/runbook_wsl2_engine_setup.md`.
+Runbook completo: `docs/runbook_wsl2_engine_setup.md`. Histórico de fases I1 em `docs/historico/sessoes_29abr_01mai.md`.
 
 ## Observabilidade
 
