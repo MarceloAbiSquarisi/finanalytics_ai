@@ -98,6 +98,7 @@ FROM market_history_trades
 WHERE trade_date >= %s
   AND trade_date <  %s
   AND EXTRACT(hour FROM trade_date) BETWEEN 13 AND 20
+  AND EXTRACT(dow  FROM trade_date) BETWEEN 1 AND 5
   {ticker_filter}
 GROUP BY time_bucket('1 minute', trade_date), ticker
 ON CONFLICT (time, ticker) DO NOTHING
