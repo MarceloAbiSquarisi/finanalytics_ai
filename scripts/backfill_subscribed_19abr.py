@@ -88,17 +88,23 @@ def http_get(path: str, timeout: int = 10) -> dict:
         return json.loads(r.read())
 
 
+# Tickers a pular (DLL não processa em <20min — backfill separado depois)
+EXCLUDE = {"WINFUT", "WINM26", "WINK26"}
+
+
 def get_subscribed_tickers() -> list[dict]:
-    """376 tickers ativos de profit_subscribed_tickers."""
+    """376 tickers ativos de profit_subscribed_tickers (menos EXCLUDE)."""
     import psycopg2
 
     with psycopg2.connect(DB_DSN) as conn, conn.cursor() as cur:
+        excl = list(EXCLUDE) + ["XPTO"]
         cur.execute(
             """
             SELECT ticker, exchange FROM profit_subscribed_tickers
-            WHERE active = TRUE AND ticker != 'XPTO'
+            WHERE active = TRUE AND ticker != ALL(%s)
             ORDER BY exchange DESC, ticker  -- futuros primeiro (timeout maior)
-            """
+            """,
+            (excl,),
         )
         return [{"ticker": r[0], "exchange": r[1]} for r in cur.fetchall()]
 
