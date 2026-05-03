@@ -98,3 +98,32 @@ Detalhe completo em `memory/project_*.md` + `git log`. Lista canônica:
 ## Decisão 22 — histórico de fases (movido de CLAUDE.md)
 
 I1 Fase A done 01/mai (commit `ab0ea8b`). Fase B.1 cutover live 01/mai (commit `950ac35`). Fase B.2 done 01/mai (commit `ffcd06c`) — volumes Postgres+Timescale em ext4 nativo. Runbook: `docs/runbook_wsl2_engine_setup.md`.
+
+## Resilience patterns profit_agent (movido de CLAUDE.md em 03/mai noite)
+
+> Operam em condições de simulator/broker real degradado: callback final falha, ordens stuck, sessão piscando.
+
+- **`_get_last_price`** — cache `_last_prices` + fallback `profit_ticks` (last 5min). Trail funciona pós-restart NSSM/callback inativo. Resolve alias futuros.
+- **`_watch_pending_orders_loop`** (P9) — registra `local_id` em `_pending_orders`; loop @5s polla DLL `EnumerateAllOrders`, detecta status final em ~10s (vs 5min reconcile). Marca `status=8 error='watch_orphan_no_dll_record'` se DLL+DB divergem após 60s.
+- **`_persist_trail_hw_if_moved`** — `trail_high_water` persistido a cada movimento favorável; sobrevive restart via `_load_oco_state_from_db`.
+- **P7 cooldown 30s** — falha em `cancel_order`/`_send_order_legacy` no fallback do trail → suprime tentativas por 30s (anti log spam).
+- **`_kill_zombie_agents` conservativo** — só detecta + log, não mata. Port bind decide; ops desabilita NSSM duplicado.
+- **`_load_oco_legacy_pairs_from_db`** (P10) — strategy_id `oco_legacy_pair_<tp_id>_sl` permite reload `_oco_pairs` no boot.
+- **`_resolve_active_contract`** ubíquo — `get_position_v2`/`flatten_ticker`/`_send_order_legacy`/`_subscribe` aceitam alias `WDOFUT/WINFUT` → resolvem contrato vigente (`WDOK26/WINM26`) com `exchange="F"`.
+
+## Origem das Decisões 15, 21, 22, 23, 24 (movido de CLAUDE.md)
+
+- **Decisão 15** — incidentes de reboot ao usar 2 GPUs em compute simultâneo (transientes de potência → OCP da PSU).
+- **Decisão 21** — ticks em `market_history_trades` mostram escala /100 intermitente. `ohlc_1m source=tick_agg_v1` está limpo.
+- **Decisão 22** — Docker Desktop morre quando user faz logoff Windows; setup precisa rodar 24/7. Engine WSL2 com systemd é independente de sessão.
+- **Decisão 23** — audit 02/mai descobriu que `ts_0004_robot_trade.py` criou tabelas zumbi em Postgres porque `env.py` aponta apenas pra `settings.database_url` (Postgres). Tabelas Timescale reais vêm de `init_timescale/*.sql`.
+- **Decisão 24** — 02/mai descoberto que múltiplos pipelines liam apenas `fintz_cotacoes_ts` (freezou 2025-11-03). Pipelines que precisavam de daily bars **recentes** (TSMOM 252d, pair z-score 60d, ML features, cointegração 504d) processavam dados de 6 meses atrás silenciosamente. 4 fixes em série na sessão de 02/mai (commits cd83254, 63d5fee, 1cef31a, 855b88d) aplicaram o mesmo pattern UNION cross-source.
+
+## Comandos exóticos (movido de CLAUDE.md em 03/mai noite)
+
+```powershell
+# Validação do mapeamento GPU após remanejar cabos:
+docker run --rm --gpus all nvidia/cuda:12.1.0-base-ubuntu22.04 \
+  nvidia-smi --query-gpu=index,pci.bus_id,name --format=csv
+# Esperado GPU 0 em 01:00.0
+```

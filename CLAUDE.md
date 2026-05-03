@@ -18,9 +18,7 @@ Stack: FastAPI :8000 (Docker) + profit_agent :8002 (Windows host) + TimescaleDB 
 | Storage | E:\ 2 TB NVMe (bind mounts dos containers) |
 | PSU | **Corsair HX1500i** — 1500W, 80+ Platinum, ATX 3.1, fully modular, 2× 12V-2×6 nativos |
 
-**Validação do mapeamento GPU** (após remanejar cabos): `docker run --rm --gpus all nvidia/cuda:12.1.0-base-ubuntu22.04 nvidia-smi --query-gpu=index,pci.bus_id,name --format=csv` — esperado GPU 0 em `01:00.0`.
-
-**Isolamento CUDA**: `--gpus device=0` e `NVIDIA_VISIBLE_DEVICES` **não filtram** `nvidia-smi`. Use `CUDA_VISIBLE_DEVICES=0` no env (configurado em api/worker/scheduler/event_worker_v2). Ver Decisão 15.
+**Isolamento CUDA**: `--gpus device=0` e `NVIDIA_VISIBLE_DEVICES` **não filtram** `nvidia-smi`. Use `CUDA_VISIBLE_DEVICES=0` no env (configurado em api/worker/scheduler/event_worker_v2). Ver Decisão 15. Comando de validação após remanejar cabos: ver `docs/historico/sessoes_29abr_01mai.md`.
 
 ## Estrutura Principal
 ```
@@ -207,15 +205,7 @@ agent._kill_zombie_agents(...)     # netstat scan + taskkill no boot
 
 ### Resilience patterns para broker degradado
 
-> Operam em condições de simulator/broker real degradado: callback final falha, ordens stuck, sessão piscando.
-
-- **`_get_last_price`** — cache `_last_prices` + fallback `profit_ticks` (last 5min). Trail funciona pós-restart NSSM/callback inativo. Resolve alias futuros.
-- **`_watch_pending_orders_loop`** (P9) — registra `local_id` em `_pending_orders`; loop @5s polla DLL `EnumerateAllOrders`, detecta status final em ~10s (vs 5min reconcile). Marca `status=8 error='watch_orphan_no_dll_record'` se DLL+DB divergem após 60s.
-- **`_persist_trail_hw_if_moved`** — `trail_high_water` persistido a cada movimento favorável; sobrevive restart via `_load_oco_state_from_db`.
-- **P7 cooldown 30s** — falha em `cancel_order`/`_send_order_legacy` no fallback do trail → suprime tentativas por 30s (anti log spam).
-- **`_kill_zombie_agents` conservativo** — só detecta + log, não mata. Port bind decide; ops desabilita NSSM duplicado.
-- **`_load_oco_legacy_pairs_from_db`** (P10) — strategy_id `oco_legacy_pair_<tp_id>_sl` permite reload `_oco_pairs` no boot.
-- **`_resolve_active_contract`** ubíquo — `get_position_v2`/`flatten_ticker`/`_send_order_legacy`/`_subscribe` aceitam alias `WDOFUT/WINFUT` → resolvem contrato vigente (`WDOK26/WINM26`) com `exchange="F"`.
+Operam em condições de simulator/broker real degradado (callback final falha, ordens stuck, sessão piscando). Patterns ativos: `_get_last_price` (cache + fallback profit_ticks), `_watch_pending_orders_loop` (5s polling DLL), `_persist_trail_hw_if_moved` (trail HW survives restart), `_kill_zombie_agents` (detect-only, não mata), `_resolve_active_contract` (alias WDOFUT/WINFUT → contrato vigente). Detalhe + ids dos bugs (P7/P9/P10) em `docs/historico/sessoes_29abr_01mai.md`.
 
 ## UI compartilhada
 
@@ -312,7 +302,6 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 > Não revogar sem evidência empírica nova. Detalhamento histórico de cada decisão (origem, justificativa, aplicação) em `git log` dos commits que as introduziram.
 
 ### Decisão 15 — Dual-GPU: separação estrita
-Origem: incidentes de reboot ao usar 2 GPUs em compute simultâneo (transientes de potência → OCP da PSU).
 
 **Regras vinculantes:**
 1. Compute ML executa **exclusivamente na GPU 0** (bus `01:00.0`, headless).
@@ -362,7 +351,6 @@ Ordem em `get_quote` (live): profit_agent `:8002` → Yahoo → BRAPI.
 5. **Ingestor `ohlc_1m_ingestor` continua usando BRAPI** para alimentar DB. Não viola a Decisão.
 
 ### Decisão 21 — `populate_daily_bars` default `1m` (ticks tem bug de escala)
-Origem: ticks em `market_history_trades` mostram escala /100 intermitente. `ohlc_1m source=tick_agg_v1` está limpo.
 
 **Regras vinculantes:**
 1. `populate_daily_bars.py` default `auto` tenta `ohlc_1m` primeiro, fallback para ticks.
@@ -373,7 +361,6 @@ Origem: ticks em `market_history_trades` mostram escala /100 intermitente. `ohlc
 Runbook detalhado: `docs/runbook_profit_daily_bars_scale.md`.
 
 ### Decisão 24 — UNION cross-source p/ daily bars (Fintz freeze defense)
-Origem: 02/mai descoberto que múltiplos pipelines liam apenas `fintz_cotacoes_ts` (freezou 2025-11-03). Pipelines que precisavam de daily bars **recentes** (TSMOM 252d, pair z-score 60d, ML features, cointegração 504d) processavam dados de 6 meses atrás silenciosamente. 4 fixes em série na sessão de 02/mai (commits cd83254, 63d5fee, 1cef31a, 855b88d) — cada um aplicou o mesmo pattern.
 
 **Regras vinculantes:**
 1. Pipelines que precisam de daily bars **recentes** (qualquer lookback que ultrapasse 2025-11-03) DEVEM fazer UNION ALL com prio:
@@ -389,7 +376,6 @@ Origem: 02/mai descoberto que múltiplos pipelines liam apenas `fintz_cotacoes_t
 Runbook: docs/runbook_survivorship_bias.md (R5 também usou esse pattern via candle_repository fallback chain).
 
 ### Decisão 23 — Alembic + Timescale: ts_* são registry-only
-Origem: audit 02/mai descobriu que `ts_0004_robot_trade.py` criou tabelas zumbi em Postgres porque `env.py` aponta apenas pra `settings.database_url` (Postgres). Tabelas Timescale reais vêm de `init_timescale/*.sql`.
 
 **Regras vinculantes:**
 1. Migrations `0xxx_*.py` (ramo Postgres principal) — DDL real contra Postgres `finanalytics` DB. Aplicar via `alembic upgrade <revision>`.
@@ -400,7 +386,6 @@ Origem: audit 02/mai descobriu que `ts_0004_robot_trade.py` criou tabelas zumbi 
 Runbook completo: `docs/runbook_alembic_audit.md`.
 
 ### Decisão 22 — Docker runtime: Engine direto em WSL2 (não Docker Desktop)
-Origem: Docker Desktop morre quando user faz logoff Windows; setup precisa rodar 24/7. Engine WSL2 com systemd é independente de sessão.
 
 **Regras vinculantes:**
 1. **Runtime canônico**: Docker Engine 29.4.2 dentro de Ubuntu-22.04 WSL2 (`systemctl is-active docker` = active). Volumes Postgres+Timescale em **ext4 nativo** (`/home/abi/finanalytics/data/{postgres,timescale}/`, 10-50x perf vs NTFS+9P, Fase B.2 done 01/mai). Demais volumes (`prometheus`, `grafana`, `pgadmin`, etc.) ainda em `/mnt/e/finanalytics_data/` — não foram migrados pq não são caminho crítico de IO.
