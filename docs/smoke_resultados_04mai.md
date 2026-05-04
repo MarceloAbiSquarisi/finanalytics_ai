@@ -119,6 +119,31 @@ Validado live 15:43: ordem `392124` disparou 5 retries em 62s. Quando broker est
 - [ ] Escapar `$$` no `.env` PROFIT_SIM_ROUTING_PASSWORD (cosmético)
 - [x] ~~Limpar ordens fantasma~~ — feito 15:55 (UPDATE error_msg)
 
+## SUCESSO FINAL (16:49 BRT)
+
+Após fix de `lot_size=100` em `MLSignalsStrategy` + rebuild da imagem `finanalytics-worker:latest` + recreate do container, robô executou trade completo end-to-end:
+
+| Hora | Evento |
+|---|---|
+| 16:47:43 | ml_signals → PETR4 SELL qty=**100** (correto, era qty=20 antes) |
+| 16:47:44 | dispatcher → /agent/order/send → broker accepted |
+| 16:47:46 | callback fired: `order_status=2` (FILLED) @ R$49,4533 |
+| 16:49:05 | ml_signals → 2º PETR4 SELL qty=100 (filled) |
+| 16:49:50 | PAUSE robot + manual BUY 200 PETR4 close → posição zerada |
+
+**P&L bruto: +R$6,99** (300 PETR4 buy @49,43 vs 300 sell @49,4533).
+
+`robot_signals_log.sent_to_dll` = TRUE para os 2 trades reais. Pipeline:
+- Strategy retorna qty correta (lote 100 respeitado)
+- Dispatcher persiste intent + POST /api/v1/agent/order/send
+- Proxy injeta env=simulation
+- Agent envia via DLL → broker accepted instantaneamente
+- order_cb recebe TConnectorOrderIdentifier
+- Agent chama GetOrderDetails → status=2 + traded_qty=100 → DB updated
+- watch_loop limpa _pending_orders
+
+Round-trip completo validado em produção real durante pregão B3.
+
 ## Lições suplementares (16:35)
 
 1. **NUNCA assumir error message de outra sessão** — log Delphi pasted pelo user mostrava "Cliente não está logado" mas era timestamp de teste antigo deles. Sempre exigir log da sessão CORRENTE quando diagnosticando.
