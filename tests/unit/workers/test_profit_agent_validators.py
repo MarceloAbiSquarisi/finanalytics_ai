@@ -5,8 +5,14 @@ Não depende de ctypes — roda em CI Linux normalmente.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from finanalytics_ai.workers.profit_agent_validators import (
     compute_trading_result_match,
+    message_has_blip_pattern,
+    parse_order_details,
+    resolve_subscribe_list,
+    should_retry_rejection,
     trail_should_immediate_trigger,
     validate_attach_oco_params,
 )
@@ -257,3 +263,393 @@ class TestTradingResultMatch:
     def test_negative_message_id_treated_as_empty(self) -> None:
         match = compute_trading_result_match(0, None, -1)
         assert match is None
+
+
+# ── should_retry_rejection (P1 04/mai) ────────────────────────────────────────
+
+
+class TestShouldRetryRejection:
+    """Decisao do trading_msg_cb: rejeicao broker-blip vs erro de regra.
+
+    True so quando code rejection-like (1,3,5,7,9,24) + msg contem
+    blip pattern (Cliente nao logado, timeout, subconex etc).
+    """
+
+    def test_rejected_mercury_with_logado_pattern(self) -> None:
+        # code=3 RejectedMercury + "Cliente nao esta logado" — caso
+        # canonico do log Delphi smoke 04/mai.
+        assert should_retry_rejection(3, "Cliente não está logado") is True
+        assert should_retry_rejection(3, "Cliente nao esta logado") is True
+
+    def test_rejected_broker_with_timeout_pattern(self) -> None:
+        # code=7 RejectedBroker + timeout — outra variante de blip
+        assert should_retry_rejection(7, "Timeout aguardando resposta") is True
+
+    def test_not_connected_with_subconex_pattern(self) -> None:
+        # code=1 NotConnected + subconex
+        assert should_retry_rejection(1, "Subconexao perdida") is True
+
+    def test_rejected_market_with_logado(self) -> None:
+        # code=9 RejectedMarket — menos comum mas valido
+        assert should_retry_rejection(9, "logado.") is True
+
+    def test_blocked_by_risk_with_blip(self) -> None:
+        # code=24 BlockedByRisk + blip — improvavel mas valido
+        assert should_retry_rejection(24, "cliente nao conectado") is True
+
+    def test_rejected_hades_invalid_order_no_retry(self) -> None:
+        # code=5 RejectedHades + "Ordem invalida" — NAO e' blip,
+        # NAO deve retry (qty errada, price fora de circuito etc)
+        assert should_retry_rejection(5, "Ordem invalida") is False
+
+    def test_rejected_broker_with_lot_size_no_retry(self) -> None:
+        # Bug 04/mai: "multiplo do lote" NAO deve trigger retry —
+        # qty errada nao corrige sozinha. Strategy precisa fix.
+        assert (
+            should_retry_rejection(
+                7, "Risco Simulador: Quantidade da ordem deve ser multiplo do lote"
+            )
+            is False
+        )
+
+    def test_starting_code_not_retryable(self) -> None:
+        # code=0 Starting — nao e' rejection-like
+        assert should_retry_rejection(0, "Cliente nao logado") is False
+
+    def test_sent_to_hades_proxy_not_retryable(self) -> None:
+        # code=2 SentToHadesProxy — sucesso, nao e' rejection
+        assert should_retry_rejection(2, "Enviando ordem") is False
+
+    def test_sent_to_hades_not_retryable(self) -> None:
+        # code=4 SentToHades — sucesso
+        assert should_retry_rejection(4, "Enviado ao servidor de ordens") is False
+
+    def test_sent_to_market_not_retryable(self) -> None:
+        # code=8 SentToMarket — sucesso
+        assert should_retry_rejection(8, "Enviado ao mercado") is False
+
+    def test_accepted_not_retryable(self) -> None:
+        # code=10 Accepted (pendente no book) — nao e' rejection
+        assert should_retry_rejection(10, "logado") is False
+
+    def test_empty_message_no_retry_even_with_rejection_code(self) -> None:
+        # Sem msg, nao da pra distinguir blip de erro real — NAO retry.
+        assert should_retry_rejection(3, "") is False
+        assert should_retry_rejection(3, None) is False
+
+    def test_case_insensitive_match(self) -> None:
+        # Pattern matching deve ser case-insensitive
+        assert should_retry_rejection(3, "CLIENTE NAO ESTA LOGADO") is True
+        assert should_retry_rejection(3, "TimeOut") is True
+
+    def test_unknown_message_no_retry(self) -> None:
+        # code rejection-like mas msg sem blip pattern -> NAO retry
+        assert should_retry_rejection(3, "Saldo insuficiente para a operacao") is False
+        assert should_retry_rejection(7, "Fora de horario de pregao") is False
+
+
+# ── message_has_blip_pattern (variante so-msg) ────────────────────────────────
+
+
+class TestMessageHasBlipPattern:
+    """Variante usada em order_cb: status=8 ja confirmado via DLL,
+    so precisa decidir se msg indica blip (retry vale) vs regra (nao)."""
+
+    def test_logado_pattern(self) -> None:
+        assert message_has_blip_pattern("Cliente nao esta logado") is True
+
+    def test_timeout_pattern(self) -> None:
+        assert message_has_blip_pattern("Timeout") is True
+
+    def test_subconex_pattern(self) -> None:
+        assert message_has_blip_pattern("Subconexao perdida") is True
+
+    def test_lot_size_msg_not_blip(self) -> None:
+        # Bug 04/mai: lot size NAO e' blip
+        assert (
+            message_has_blip_pattern(
+                "Risco Simulador: Quantidade deve ser multiplo do lote"
+            )
+            is False
+        )
+
+    def test_empty_string_not_blip(self) -> None:
+        assert message_has_blip_pattern("") is False
+
+    def test_none_not_blip(self) -> None:
+        assert message_has_blip_pattern(None) is False
+
+    def test_case_insensitive(self) -> None:
+        assert message_has_blip_pattern("LOGADO") is True
+        assert message_has_blip_pattern("timeout aguardando") is True
+
+
+# ── resolve_subscribe_list (P1 04/mai — fix P0 #4 subscribe race) ─────────────
+
+
+class TestResolveSubscribeList:
+    """Resolve final list of (ticker, exchange) to subscribe at boot.
+
+    Bug raiz (smoke 04/mai): logica original `if db: use DB else env`
+    deixava 0 subscriptions quando DB conectado mas vazio. Fix: union
+    sempre, env como seed garantido.
+    """
+
+    def test_empty_db_uses_env(self) -> None:
+        """Bug raiz 04/mai: DB conectado mas vazio → fallback pra env."""
+        result = resolve_subscribe_list(
+            db_tickers=[],
+            env_tickers=["PETR4", "VALE3"],
+            db_connected=True,
+        )
+        assert result == [("PETR4", "B"), ("VALE3", "B")]
+
+    def test_db_only_when_env_empty(self) -> None:
+        result = resolve_subscribe_list(
+            db_tickers=[("WINFUT", "F"), ("PETR4", "B")],
+            env_tickers=[],
+            db_connected=True,
+        )
+        assert ("WINFUT", "F") in result
+        assert ("PETR4", "B") in result
+        assert len(result) == 2
+
+    def test_union_env_and_db(self) -> None:
+        """Env primeiro, DB adiciona extras."""
+        result = resolve_subscribe_list(
+            db_tickers=[("WINFUT", "F"), ("PETR4", "B")],
+            env_tickers=["PETR4", "VALE3"],
+            db_connected=True,
+        )
+        # env first: PETR4, VALE3 (deduplica PETR4 do DB)
+        # db extra: WINFUT
+        assert result[0] == ("PETR4", "B")  # env primeiro
+        assert result[1] == ("VALE3", "B")
+        assert ("WINFUT", "F") in result
+        assert len(result) == 3, f"Esperava 3, got {result}"
+
+    def test_dedup_same_ticker_exchange(self) -> None:
+        """PETR4:B em ambos → aparece 1 vez."""
+        result = resolve_subscribe_list(
+            db_tickers=[("PETR4", "B")],
+            env_tickers=["PETR4"],
+            db_connected=True,
+        )
+        assert result == [("PETR4", "B")]
+
+    def test_db_disconnected_uses_env_only(self) -> None:
+        """DB indisponivel → ignora db_tickers (mesmo se passado)."""
+        result = resolve_subscribe_list(
+            db_tickers=[("WINFUT", "F")],  # ignored
+            env_tickers=["PETR4", "VALE3"],
+            db_connected=False,
+        )
+        assert result == [("PETR4", "B"), ("VALE3", "B")]
+        assert ("WINFUT", "F") not in result
+
+    def test_both_empty_returns_empty(self) -> None:
+        result = resolve_subscribe_list(
+            db_tickers=[],
+            env_tickers=[],
+            db_connected=True,
+        )
+        assert result == []
+
+    def test_uppercase_normalization(self) -> None:
+        """Tickers e exchanges sao uppercased."""
+        result = resolve_subscribe_list(
+            db_tickers=[("petr4", "b"), ("winfut", "f")],
+            env_tickers=["vale3"],
+            db_connected=True,
+        )
+        assert ("PETR4", "B") in result
+        assert ("WINFUT", "F") in result
+        assert ("VALE3", "B") in result
+
+    def test_skip_empty_tickers(self) -> None:
+        """Empty/whitespace tickers no env sao ignorados."""
+        result = resolve_subscribe_list(
+            db_tickers=[],
+            env_tickers=["", "PETR4", "  ", "VALE3"],
+            db_connected=True,
+        )
+        assert result == [("PETR4", "B"), ("VALE3", "B")]
+
+    def test_different_exchange_kept_separate(self) -> None:
+        """PETR4:B vs PETR4:F sao subscriptions distintas."""
+        result = resolve_subscribe_list(
+            db_tickers=[("PETR4", "F")],  # imaginario PETR4 em F
+            env_tickers=["PETR4"],
+            db_connected=True,
+        )
+        # PETR4:B do env + PETR4:F do DB = 2 entries
+        assert len(result) == 2
+        assert ("PETR4", "B") in result
+        assert ("PETR4", "F") in result
+
+    def test_default_exchange_override(self) -> None:
+        """Permite default_exchange custom (ex: F para futures-only seed)."""
+        result = resolve_subscribe_list(
+            db_tickers=[],
+            env_tickers=["WINFUT", "WDOFUT"],
+            db_connected=True,
+            default_exchange="F",
+        )
+        assert result == [("WINFUT", "F"), ("WDOFUT", "F")]
+
+
+# ── parse_order_details (P1 04/mai refactor 3/3) ──────────────────────────────
+
+
+def _make_mock_order_struct(
+    *,
+    local_order_id: int = 100,
+    cl_ord_id: str = "robot:1:PETR4:BUY:2026-05-04T16:30",
+    ticker: str = "PETR4    ",
+    exchange: str = "B    ",
+    quantity: int = 100,
+    traded_qty: int = 100,
+    leaves_qty: int = 0,
+    price: float = -1.0,
+    stop_price: float = -1.0,
+    avg_price: float = 49.45,
+    order_side: int = 1,
+    order_type: int = 1,
+    order_status: int = 2,
+    validity_type: int = 0,
+    text_message: str = "Enviado ao servidor de ordens.    ",
+):
+    """Constroi mock duck-typed de TConnectorOrderOut.
+
+    SimpleNamespace evita necessidade de ctypes — testavel em CI Linux.
+    """
+    return SimpleNamespace(
+        OrderID=SimpleNamespace(
+            LocalOrderID=local_order_id,
+            ClOrderID=cl_ord_id,
+        ),
+        AssetID=SimpleNamespace(
+            Ticker=ticker,
+            Exchange=exchange,
+        ),
+        Quantity=quantity,
+        TradedQuantity=traded_qty,
+        LeavesQuantity=leaves_qty,
+        Price=price,
+        StopPrice=stop_price,
+        AveragePrice=avg_price,
+        OrderSide=order_side,
+        OrderType=order_type,
+        OrderStatus=order_status,
+        ValidityType=validity_type,
+        TextMessage=text_message,
+    )
+
+
+class TestParseOrderDetails:
+    """Pure parsing de TConnectorOrderOut populated → dict.
+
+    Cenarios: filled (status=2), rejected with msg (status=8), null
+    string fields (DLL pode retornar NULL), padding strip.
+    """
+
+    def test_filled_order(self) -> None:
+        struct = _make_mock_order_struct(order_status=2)
+        d = parse_order_details(struct)
+        assert d["order_status"] == 2
+        assert d["local_order_id"] == 100
+        assert d["traded_qty"] == 100
+        assert d["leaves_qty"] == 0
+        assert d["avg_price"] == 49.45
+
+    def test_rejected_order_text_message(self) -> None:
+        """Smoke 04/mai canonico: status=8 + msg lot_size."""
+        struct = _make_mock_order_struct(
+            order_status=8,
+            traded_qty=0,
+            leaves_qty=10,
+            text_message="Risco Simulador: Quantidade da ordem deve ser multiplo do lote",
+        )
+        d = parse_order_details(struct)
+        assert d["order_status"] == 8
+        assert d["traded_qty"] == 0
+        assert d["leaves_qty"] == 10
+        assert "multiplo do lote" in d["text_message"]
+
+    def test_strip_string_padding(self) -> None:
+        """Strings vem padded (`' ' * length` antes do 2nd GetOrderDetails)."""
+        struct = _make_mock_order_struct(
+            ticker="PETR4               ",
+            exchange="B    ",
+            text_message="Enviando ordem ao HadesProxy        ",
+        )
+        d = parse_order_details(struct)
+        assert d["ticker"] == "PETR4"
+        assert d["exchange"] == "B"
+        assert d["text_message"] == "Enviando ordem ao HadesProxy"
+
+    def test_null_strings_handled(self) -> None:
+        """DLL pode retornar None em c_wchar_p — defensivo."""
+        struct = _make_mock_order_struct(
+            cl_ord_id=None,
+            ticker=None,
+            exchange=None,
+            text_message=None,
+        )
+        d = parse_order_details(struct)
+        assert d["cl_ord_id"] == ""
+        assert d["ticker"] == ""
+        assert d["exchange"] == ""
+        assert d["text_message"] == ""
+
+    def test_all_required_keys_present(self) -> None:
+        """Sentinel: dict tem todas as keys que callers consomem."""
+        struct = _make_mock_order_struct()
+        d = parse_order_details(struct)
+        required = {
+            "local_order_id",
+            "cl_ord_id",
+            "ticker",
+            "exchange",
+            "quantity",
+            "traded_qty",
+            "leaves_qty",
+            "price",
+            "stop_price",
+            "avg_price",
+            "order_side",
+            "order_type",
+            "order_status",
+            "validity_type",
+            "text_message",
+        }
+        assert set(d.keys()) == required
+
+    def test_market_order_price_minus_one(self) -> None:
+        """Market order: price=-1 (sentinel da DLL)."""
+        struct = _make_mock_order_struct(order_type=1, price=-1.0)
+        d = parse_order_details(struct)
+        assert d["order_type"] == 1
+        assert d["price"] == -1.0
+
+    def test_limit_order_with_price(self) -> None:
+        struct = _make_mock_order_struct(order_type=2, price=49.50)
+        d = parse_order_details(struct)
+        assert d["order_type"] == 2
+        assert d["price"] == 49.50
+
+    def test_stop_order_with_stop_price(self) -> None:
+        struct = _make_mock_order_struct(order_type=4, stop_price=48.00)
+        d = parse_order_details(struct)
+        assert d["order_type"] == 4
+        assert d["stop_price"] == 48.00
+
+    def test_partial_fill(self) -> None:
+        """status=1 PartialFilled: traded < quantity, leaves > 0."""
+        struct = _make_mock_order_struct(
+            order_status=1, quantity=200, traded_qty=80, leaves_qty=120
+        )
+        d = parse_order_details(struct)
+        assert d["order_status"] == 1
+        assert d["traded_qty"] == 80
+        assert d["leaves_qty"] == 120

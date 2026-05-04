@@ -322,6 +322,10 @@ from finanalytics_ai.workers.profit_agent_types import (  # noqa: E402, F401
 )
 from finanalytics_ai.workers.profit_agent_validators import (  # noqa: E402
     compute_trading_result_match,
+    message_has_blip_pattern,
+    parse_order_details,
+    resolve_subscribe_list,
+    should_retry_rejection,
     trail_should_immediate_trigger,
     validate_attach_oco_params as _validate_attach_oco_params,
 )
@@ -929,18 +933,30 @@ class ProfitAgent:
         except Exception as e:
             log.warning("profit_agent.get_account_count_error e=%s", e)
 
-        # 8. Subscreve tickers - le do banco; fallback para .env se DB indisponivel
-
+        # 8. Subscreve tickers — UNION (env ∪ DB) com dedup.
+        # Fix P0 04/mai: era `if db: DB else env` — quando DB conectava
+        # mas vazio (post-restart sem seed), terminava com 0 subscriptions.
+        # Nova semantica (resolve_subscribe_list, validators.py testavel):
+        # env como seed sempre presente; DB adiciona extras. Smoke 04/mai
+        # validou: 8 tickers do env + extras do DB = 10 finais.
+        db_tickers: list[tuple[str, str]] = []
         if self._db:
-            tickers_to_subscribe = self._db.get_subscribed_tickers()
-
-            log.info("profit_agent.subscribing_from_db count=%d", len(tickers_to_subscribe))
-
-        else:
-            tickers_to_subscribe = [(t, "B") for t in self._subscribe_tickers]
-
-            log.info("profit_agent.subscribing_from_env count=%d", len(tickers_to_subscribe))
-
+            try:
+                db_tickers = list(self._db.get_subscribed_tickers() or [])
+            except Exception as exc:
+                log.warning("profit_agent.db_get_tickers_failed e=%s", exc)
+        tickers_to_subscribe = resolve_subscribe_list(
+            db_tickers=db_tickers,
+            env_tickers=self._subscribe_tickers,
+            db_connected=bool(self._db),
+        )
+        log.info(
+            "profit_agent.subscribing union=%d (env=%d db=%d connected=%s)",
+            len(tickers_to_subscribe),
+            len(self._subscribe_tickers),
+            len(db_tickers),
+            bool(self._db),
+        )
         for ticker, exchange in tickers_to_subscribe:
             self._subscribe(ticker, exchange)
 
@@ -1928,22 +1944,9 @@ class ProfitAgent:
 
                 # Trigger retry IMMEDIATE quando rejeitada por blip (sem Timer
                 # de 1.5s — order_cb dispara no momento exato da rejeicao).
-                # Pattern matching mesmo do trading_msg_cb (codes
-                # rejection-like + text "Cliente nao logado" etc).
-                if status == 8 and msg:
-                    msg_lower = msg.lower()
-                    blip = any(
-                        p in msg_lower
-                        for p in (
-                            "cliente n",
-                            "logado",
-                            "nao conectado",
-                            "não conectado",
-                            "timeout",
-                            "subconex",
-                        )
-                    )
-                    if blip:
+                # Pattern matching unificado em validators.message_has_blip_pattern
+                # (trading_msg_cb usa should_retry_rejection que tambem filtra code).
+                if status == 8 and message_has_blip_pattern(msg):
                         with agent._retry_lock:
                             entry = agent._retry_params.get(local_id)
                             already = bool(
@@ -2024,21 +2027,10 @@ class ProfitAgent:
             #
             # 04/mai: SIM 32003 mostrou que rejeicao "Cliente nao esta logado"
             # pode chegar em qualquer code mapeado para status=8 (ex.:
-            # RejectedMercury=3, RejectedBroker=7, RejectedMercuryLegacy etc),
-            # nao so code=3. Expandido para cobrir todos os codes de rejeicao
-            # com pattern de blip na msg.
-            _RETRY_REJ_CODES = (1, 3, 5, 7, 9, 24)
-            _RETRY_BLIP_PATTERNS = (
-                "cliente n",
-                "logado",
-                "nao conectado",
-                "não conectado",
-                "timeout",
-                "subconex",
-            )
-            if code in _RETRY_REJ_CODES and any(
-                p in msg_text.lower() for p in _RETRY_BLIP_PATTERNS
-            ):
+            # RejectedMercury=3, RejectedBroker=7, RejectedMercuryLegacy etc).
+            # Decisao em should_retry_rejection (validators.py, testavel
+            # isoladamente sem ctypes).
+            if should_retry_rejection(code, msg_text):
                 rejected_id = r.OrderID.LocalOrderID
                 if rejected_id <= 0:
                     rejected_id = agent._msg_id_to_local.get(r.MessageID, 0)
@@ -2784,23 +2776,9 @@ class ProfitAgent:
             ret = self._dll.GetOrderDetails(byref(order))
             if ret != 0:
                 return None
-            return {
-                "local_order_id": order.OrderID.LocalOrderID,
-                "cl_ord_id": (order.OrderID.ClOrderID or "").strip(),
-                "ticker": (order.AssetID.Ticker or "").strip(),
-                "exchange": (order.AssetID.Exchange or "").strip(),
-                "quantity": order.Quantity,
-                "traded_qty": order.TradedQuantity,
-                "leaves_qty": order.LeavesQuantity,
-                "price": order.Price,
-                "stop_price": order.StopPrice,
-                "avg_price": order.AveragePrice,
-                "order_side": order.OrderSide,
-                "order_type": order.OrderType,
-                "order_status": order.OrderStatus,
-                "validity_type": order.ValidityType,
-                "text_message": (order.TextMessage or "").strip(),
-            }
+            # Parsing extraido para parse_order_details (validators.py,
+            # testavel sem ctypes/DLL). 04/mai P1 refactor 3/3.
+            return parse_order_details(order)
         except Exception:
             return None
 
