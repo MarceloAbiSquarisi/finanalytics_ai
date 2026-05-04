@@ -62,6 +62,62 @@ class TestClOrdId:
         assert len(s) <= 64
         assert s.startswith("robot:")
 
+    def test_hash_fallback_is_deterministic(self) -> None:
+        """Mesmo input longo deve produzir mesmo hash (idempotencia).
+
+        Sentinel: se hashlib mudar ou implementacao mudar pra incluir
+        timestamp/UUID, idempotencia quebra e o proxy passa a ver
+        pares duplicados em vez do mesmo cl_ord_id reutilizado.
+        """
+        long_ticker = "X" * 80
+        a = make_cl_ord_id(
+            strategy_id=999, ticker=long_ticker, action="BUY", computed_at=_utc()
+        )
+        b = make_cl_ord_id(
+            strategy_id=999, ticker=long_ticker, action="BUY", computed_at=_utc()
+        )
+        assert a == b
+
+    def test_different_strategy_id_different_id(self) -> None:
+        """strategy_id e' parte da chave — ml_signals (id=2) vs
+        tsmom_ml_overlay (id=3) NUNCA podem colidir."""
+        a = make_cl_ord_id(strategy_id=2, ticker="PETR4", action="BUY", computed_at=_utc())
+        b = make_cl_ord_id(strategy_id=3, ticker="PETR4", action="BUY", computed_at=_utc())
+        assert a != b
+
+    def test_seconds_dropped_from_minute(self) -> None:
+        """Ordens disparadas em segundos diferentes do MESMO minuto compartilham
+        cl_ord_id (idempotencia explicita do C5 handshake)."""
+        a = make_cl_ord_id(
+            strategy_id=1,
+            ticker="PETR4",
+            action="BUY",
+            computed_at=datetime(2026, 5, 1, 12, 35, 0, tzinfo=UTC),
+        )
+        b = make_cl_ord_id(
+            strategy_id=1,
+            ticker="PETR4",
+            action="BUY",
+            computed_at=datetime(2026, 5, 1, 12, 35, 59, tzinfo=UTC),
+        )
+        assert a == b, "Segundos no mesmo minuto deveriam produzir mesmo cl_ord_id"
+
+    def test_microseconds_dropped(self) -> None:
+        """Microsegundos sao descartados pelo replace(second=0, microsecond=0)."""
+        a = make_cl_ord_id(
+            strategy_id=1,
+            ticker="PETR4",
+            action="BUY",
+            computed_at=datetime(2026, 5, 1, 12, 35, 0, 123456, tzinfo=UTC),
+        )
+        b = make_cl_ord_id(
+            strategy_id=1,
+            ticker="PETR4",
+            action="BUY",
+            computed_at=datetime(2026, 5, 1, 12, 35, 0, 999999, tzinfo=UTC),
+        )
+        assert a == b
+
 
 # ── post_order ────────────────────────────────────────────────────────────────
 
