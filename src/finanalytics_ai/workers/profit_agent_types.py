@@ -132,6 +132,53 @@ class TConnectorOrder(Structure):
     ]
 
 
+class TConnectorAssetIdentifierOut(Structure):
+    """Asset identifier de retorno (Ticker/Exchange como `c_wchar_p`
+    pre-alocados pelo caller; DLL preenche). Usado por `GetOrderDetails`
+    no fluxo 2-pass: 1ª chamada -> obter `*Length`, 2ª chamada com
+    buffers do tamanho retornado."""
+
+    _fields_ = [
+        ("Version", c_ubyte),
+        ("Ticker", c_wchar_p),
+        ("TickerLength", c_int),
+        ("Exchange", c_wchar_p),
+        ("ExchangeLength", c_int),
+        ("FeedType", c_ubyte),
+    ]
+
+
+class TConnectorOrderOut(Structure):
+    """Order full details — retornado por `GetOrderDetails`. Inclui
+    OrderStatus, AveragePrice, TextMessage etc, alem dos campos do
+    TConnectorOrderIdentifier passado de input. Layout match Delphi
+    (Exemplo Python da Nelogica)."""
+
+    _fields_ = [
+        ("Version", c_ubyte),
+        ("OrderID", TConnectorOrderIdentifier),
+        ("AccountID", TConnectorAccountIdentifierOut),
+        ("AssetID", TConnectorAssetIdentifierOut),
+        ("Quantity", c_int64),
+        ("TradedQuantity", c_int64),
+        ("LeavesQuantity", c_int64),
+        ("Price", c_double),
+        ("StopPrice", c_double),
+        ("AveragePrice", c_double),
+        ("OrderSide", c_ubyte),
+        ("OrderType", c_ubyte),
+        ("OrderStatus", c_ubyte),
+        ("ValidityType", c_ubyte),
+        ("Date", SystemTime),
+        ("LastUpdate", SystemTime),
+        ("CloseDate", SystemTime),
+        ("ValidityDate", SystemTime),
+        ("TextMessage", c_wchar_p),
+        ("TextMessageLength", c_int),
+        ("EventID", c_int64),
+    ]
+
+
 class TConnectorTradingAccountPosition(Structure):
     """Posição consolidada por ativo — populada via callback de posição."""
 
@@ -296,8 +343,10 @@ __all__ = [
     "TConnectorAccountIdentifier",
     "TConnectorAccountIdentifierOut",
     "TConnectorAssetIdentifier",
+    "TConnectorAssetIdentifierOut",
     "TConnectorOrderIdentifier",
     "TConnectorOrder",
+    "TConnectorOrderOut",
     "TConnectorTradingAccountPosition",
     "TConnectorEnumerateOrdersProc",
     "TConnectorSendOrder",

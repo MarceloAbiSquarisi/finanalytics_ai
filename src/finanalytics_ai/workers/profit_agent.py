@@ -305,12 +305,14 @@ from finanalytics_ai.workers.profit_agent_types import (  # noqa: E402, F401
     TConnectorAccountIdentifier,
     TConnectorAccountIdentifierOut,
     TConnectorAssetIdentifier,
+    TConnectorAssetIdentifierOut,
     TConnectorCancelAllOrders,
     TConnectorCancelOrder,
     TConnectorChangeOrder,
     TConnectorEnumerateOrdersProc,
     TConnectorOrder,
     TConnectorOrderIdentifier,
+    TConnectorOrderOut,
     TConnectorPriceGroup,
     TConnectorSendOrder,
     TConnectorTrade,
@@ -468,6 +470,11 @@ class ProfitAgent:
         # (message_id é confiavelmente populado).
         self._msg_id_to_local: dict[int, int] = {}
         self._retry_lock = threading.Lock()
+        # 04/mai (broker_blip refactor): tracker de status do ultimo
+        # GetOrderDetails dispatch via order_cb. Evita re-fetch redundante
+        # quando callback dispara multiplas vezes para a mesma ordem em
+        # estado terminal. Bounded — limpa em watch_loop drop.
+        self._order_cb_last_status: dict[int, int] = {}
 
         # Contadores
 
@@ -1245,6 +1252,13 @@ class ProfitAgent:
 
         dll.SendZeroPositionV2.restype = c_int64
 
+        # GetOrderDetails: usado em order_cb para obter status+message rico
+        # quando a DLL fire callback com OrderIdentifier (24B). 2-pass pattern:
+        # 1ª chamada -> Lengths, 2ª chamada com buffers preenchidos. Ver
+        # _get_order_details(). Padrao oficial do Exemplo Python (Nelogica).
+        dll.GetOrderDetails.argtypes = [POINTER(TConnectorOrderOut)]
+        dll.GetOrderDetails.restype = c_int
+
         # ------------------------------------------------------------------
 
         # Callbacks
@@ -1825,14 +1839,23 @@ class ProfitAgent:
         # EnumerateAllOrders no scheduler a cada 5min, ou imediato via _check_levels_fill).
         #
         # Sessão 30/abr — P9 fix definitivo NÃO viável via callback:
-        # tentamos avaliar redução de latência abaixo dos 5s do _watch_pending_orders_loop
-        # mas a DLL não fornece status final via callback (order_cb só dá identifier;
-        # trading_msg_cb só dá estágios de roteamento — Accepted/Rejected, nunca
-        # FILLED/CANCELED). O teto técnico é polling. A combinação:
-        #   - _watch_pending_orders_loop @5s (resolve em 10-20s)
-        #   - _load_pending_orders_from_db no boot (cobre restart)
-        #   - cleanup_stale_pending_orders_job @23h BRT (sweep 24h+)
-        # é o estado-da-arte que a DLL permite. Não tentar callback-based fix.
+        # 04/mai (broker_blip refactor): order_cb agora chama GetOrderDetails
+        # (2-pass pattern do Exemplo Python Nelogica) para extrair status +
+        # text_message ricos. Isso resolve 3 problemas observados em smoke
+        # 04/mai:
+        #
+        # (a) trading_msg_cb nao recebia callback de rejeicao "Cliente nao
+        #     esta logado" sob flapping — order_cb sim, mas so com
+        #     OrderIdentifier (24B). Agora extraimos o motivo via DLL.
+        # (b) error_message ficava NULL no DB — agora populamos imediato.
+        # (c) detectar status=8 via callback elimina a latencia de polling
+        #     (era 1-5s no _watch_pending_orders_loop).
+        #
+        # Comentario velho dizia "O teto tecnico e polling — nao tentar
+        # callback-based fix". Estava errado: o Exemplo Python da Nelogica
+        # faz exatamente isso em printOrder() (main.py:164-192), e o Exemplo
+        # Delphi tambem (CallbackHandlerU.pas:366-401). GetOrderDetails e'
+        # read-only e thread-safe, conforme padrao oficial.
 
         @WINFUNCTYPE(None, POINTER(TConnectorOrderIdentifier))
         def order_cb(oid_ptr) -> None:
@@ -1856,7 +1879,6 @@ class ProfitAgent:
                     )
 
                 # Update incremental no DB: cl_ord_id (caso ainda NULL — bug P2 mitigation).
-                # Status/qty serão atualizados pelo reconcile_loop via EnumerateAllOrders.
                 if local_id > 0 and cl_ord:
                     agent._db_queue.put_nowait(
                         {
@@ -1865,6 +1887,80 @@ class ProfitAgent:
                             "cl_ord_id": cl_ord,
                         }
                     )
+
+                # Fetch full details (status + message + qty rich). Skip se
+                # local_id <= 0 (order ainda nao firmado) ou se ja resolvemos
+                # esta ordem em estado terminal recentemente.
+                if local_id <= 0:
+                    return
+                last_status = agent._order_cb_last_status.get(local_id)
+                if last_status in (2, 4, 8):
+                    # Estado terminal ja registrado — segundo callback redundante
+                    return
+                details = agent._get_order_details(oid)
+                if details is None:
+                    return
+                status = int(details.get("order_status", 0))
+                msg = details.get("text_message", "") or ""
+                # Persist no DB queue: status + message + qty atualizados
+                agent._db_queue.put_nowait(
+                    {
+                        "_type": "order_status_update",
+                        "local_order_id": local_id,
+                        "order_status": status,
+                        "error_message": msg if msg else None,
+                        "traded_qty": details.get("traded_qty", 0),
+                        "leaves_qty": details.get("leaves_qty", 0),
+                        "avg_price": details.get("avg_price"),
+                    }
+                )
+                agent._order_cb_last_status[local_id] = status
+
+                # Log transicao (status mudou)
+                if last_status != status:
+                    log.info(
+                        "order_status local_id=%d cl_ord=%s status=%d msg=%s",
+                        local_id,
+                        cl_ord,
+                        status,
+                        msg[:80] if msg else "-",
+                    )
+
+                # Trigger retry IMMEDIATE quando rejeitada por blip (sem Timer
+                # de 1.5s — order_cb dispara no momento exato da rejeicao).
+                # Pattern matching mesmo do trading_msg_cb (codes
+                # rejection-like + text "Cliente nao logado" etc).
+                if status == 8 and msg:
+                    msg_lower = msg.lower()
+                    blip = any(
+                        p in msg_lower
+                        for p in (
+                            "cliente n",
+                            "logado",
+                            "nao conectado",
+                            "não conectado",
+                            "timeout",
+                            "subconex",
+                        )
+                    )
+                    if blip:
+                        with agent._retry_lock:
+                            entry = agent._retry_params.get(local_id)
+                            already = bool(
+                                entry and entry.get("retry_started")
+                            )
+                        if entry and not already:
+                            log.info(
+                                "order_cb.retry_immediate local_id=%d msg=%s",
+                                local_id,
+                                msg[:60],
+                            )
+                            t = threading.Thread(
+                                target=agent._retry_rejected_order,
+                                args=(local_id,),
+                                daemon=True,
+                            )
+                            t.start()
 
             except queue.Full:
                 pass
@@ -2235,6 +2331,34 @@ class ProfitAgent:
                         "UPDATE profit_orders SET cl_ord_id = %s, updated_at = NOW() "
                         "WHERE local_order_id = %s AND cl_ord_id IS NULL",
                         (item["cl_ord_id"], item["local_order_id"]),
+                    )
+
+                elif t == "order_status_update":
+                    # 04/mai (broker_blip refactor): order_cb agora chama
+                    # GetOrderDetails e dispatch este update com status +
+                    # message + qty rich. Substitui parcialmente o
+                    # reconcile_loop (que continua rodando como defesa em
+                    # profundidade). UPDATE so aplicado se status atual nao
+                    # for terminal (evita rebobinar Filled→Rejected).
+                    error_msg = item.get("error_message")
+                    self._db.execute(
+                        "UPDATE profit_orders SET "
+                        "  order_status = %s,"
+                        "  error_message = COALESCE(NULLIF(%s, ''), error_message),"
+                        "  traded_qty = %s,"
+                        "  leaves_qty = %s,"
+                        "  avg_price = COALESCE(%s, avg_price),"
+                        "  updated_at = NOW() "
+                        "WHERE local_order_id = %s "
+                        "  AND order_status NOT IN (2, 4, 8)",
+                        (
+                            item["order_status"],
+                            error_msg,
+                            item.get("traded_qty", 0),
+                            item.get("leaves_qty", 0),
+                            item.get("avg_price"),
+                            item["local_order_id"],
+                        ),
                     )
 
             except Exception as e:
@@ -2627,6 +2751,58 @@ class ProfitAgent:
         if cl_ord_echo:
             resp["cl_ord_id"] = cl_ord_echo
         return resp
+
+    def _get_order_details(
+        self, order_identifier: TConnectorOrderIdentifier
+    ) -> dict | None:
+        """Fetch full order details via DLL.GetOrderDetails (2-pass).
+
+        Pattern oficial Exemplo Python Nelogica:
+          1. 1ª chamada: DLL preenche TickerLength/ExchangeLength/TextMessageLength.
+          2. Pre-aloca buffers (`' ' * length`) em Ticker/Exchange/TextMessage.
+          3. 2ª chamada: DLL preenche os buffers com strings reais.
+
+        Retorna dict com campos relevantes (ticker, status, message, prices...) ou
+        None se DLL retornar erro. Ignora silenciosamente erros (chamado de dentro
+        de callback — nao quer levantar exception).
+
+        Thread-safety: GetOrderDetails e read-only no estado da DLL; pode ser
+        chamado de OrderCallback ConnectorThread. Padrao validado pelo
+        Exemplo Python da Nelogica que faz exatamente isso em printOrder().
+        """
+        if not self._dll:
+            return None
+        try:
+            order = TConnectorOrderOut(Version=0)
+            order.OrderID = order_identifier
+            ret = self._dll.GetOrderDetails(byref(order))
+            if ret != 0:
+                return None
+            order.AssetID.Ticker = " " * max(1, order.AssetID.TickerLength)
+            order.AssetID.Exchange = " " * max(1, order.AssetID.ExchangeLength)
+            order.TextMessage = " " * max(1, order.TextMessageLength)
+            ret = self._dll.GetOrderDetails(byref(order))
+            if ret != 0:
+                return None
+            return {
+                "local_order_id": order.OrderID.LocalOrderID,
+                "cl_ord_id": (order.OrderID.ClOrderID or "").strip(),
+                "ticker": (order.AssetID.Ticker or "").strip(),
+                "exchange": (order.AssetID.Exchange or "").strip(),
+                "quantity": order.Quantity,
+                "traded_qty": order.TradedQuantity,
+                "leaves_qty": order.LeavesQuantity,
+                "price": order.Price,
+                "stop_price": order.StopPrice,
+                "avg_price": order.AveragePrice,
+                "order_side": order.OrderSide,
+                "order_type": order.OrderType,
+                "order_status": order.OrderStatus,
+                "validity_type": order.ValidityType,
+                "text_message": (order.TextMessage or "").strip(),
+            }
+        except Exception:
+            return None
 
     def _retry_rejected_order(self, old_local_id: int) -> None:
         """P1 (28/abr, expandido 04/mai): re-envia ordem rejeitada pelo broker

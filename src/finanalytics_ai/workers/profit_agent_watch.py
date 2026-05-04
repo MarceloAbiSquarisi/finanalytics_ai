@@ -216,6 +216,11 @@ def watch_pending_orders_loop(agent) -> None:
                 with agent._pending_lock:
                     for lid in to_drop:
                         agent._pending_orders.pop(lid, None)
+                # Limpa tambem o cache de last_status do order_cb
+                # (refactor 04/mai — evita memory leak em sessoes longas).
+                if hasattr(agent, "_order_cb_last_status"):
+                    for lid in to_drop:
+                        agent._order_cb_last_status.pop(lid, None)
 
             # Sleep adaptativo: fast poll quando ha order fresh (< fresh_age)
             # ainda pendente, slow poll caso contrario. Permite detectar
