@@ -11,7 +11,7 @@
 - [ ] **Validação local `qty % lot_size == 0` no agent antes de `SendOrder`** — defesa em profundidade. Hoje (04/mai) strategies retornavam qty=20 (lote PETR4=100), broker rejeitou silenciosamente, agent tentava 5 retries inúteis em loop. Strategy fix já aplicado mas validação no agent previne classes inteiras de regressão futura. Local: `_send_order_legacy` linha ~2469 (após valida ticker/qty>0).
 - [ ] **Persistir `local_order_id` no `robot_orders_intent` após dispatch** — bug menor: intents 11/12 do smoke 16:47 ficaram com `local_order_id=NULL` apesar das ordens DLL fillarem com sucesso (status=2). Dispatcher.dispatch_order não está fazendo o UPDATE final. Quebra reconcile/audit.
 - [ ] **Stop loss / trailing automático nas posições** — hoje sem proteção pós-entry. Hoje no smoke fechei manualmente; em produção real, ml_signals SELL → posição short sem SL = exposure ilimitada. Strategy retorna `take_profit`+`stop_loss` no payload mas dispatcher só cria `/order/oco` se ambos vierem; verificar se ATR levels chegam de fato.
-- [ ] **Subscribe race no boot do `profit_agent` (task #6)** — `subscribing_from_db count=0` quando DB conectado mas vazio NÃO faz fallback pra env. Mitigado via `POST /subscribe` manual; fix definitivo: alterar lógica em `profit_agent.py` linha ~928 pra OR(env ∪ DB) ou tratar vazio como invalid.
+- [x] ~~Subscribe race no boot do `profit_agent`~~ — **DONE 04/mai noite** via refactor P1: `resolve_subscribe_list` em `profit_agent_validators.py` agora SEMPRE union(env, DB). 10 testes cobrindo o caso canonico. Commit `82e935d`.
 
 ### P1 — qualidade/robustez
 
@@ -34,6 +34,13 @@
 - [ ] **E2-E3** Pipeline de research/notas (notas corretagem reconciliation E2 | pipeline genérico E3) — aguardando fonte de dados.
 
 ## Done recente (mover para histórico após 1 semana)
+
+### 2026-05-04 noite (P1 refactors + P0 testes)
+- ✅ P0 testes 1-5 do audit (16 testes novos em `test_ml_signals_strategy.py`, `test_profit_agent_http.py`, `test_auto_trader_dispatcher::TestClOrdId`) — `3275c8b`
+- ✅ **P1 refactor 1/3**: `should_retry_rejection` + `message_has_blip_pattern` em validators.py (22 testes cobrindo 6 codes × 3 patterns) — `82e935d`
+- ✅ **P1 refactor 2/3**: `resolve_subscribe_list` em validators.py (10 testes; **fecha P0 #4 subscribe race**) — `82e935d`
+- ✅ **P1 refactor 3/3**: `parse_order_details` em validators.py (9 testes; testavel via SimpleNamespace mock sem ctypes) — `82e935d`
+- ✅ Suite: 1810 → 1851 testes passando
 
 ### 2026-05-04 (smoke success day)
 - ✅ `/agent/restart` NameError silencioso fix (handler movido 01/mai sem `_hard_exit` import) — `172dbdc`
