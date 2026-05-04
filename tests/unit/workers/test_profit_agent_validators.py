@@ -9,12 +9,14 @@ from types import SimpleNamespace
 
 from finanalytics_ai.workers.profit_agent_validators import (
     compute_trading_result_match,
+    infer_lot_size,
     message_has_blip_pattern,
     parse_order_details,
     resolve_subscribe_list,
     should_retry_rejection,
     trail_should_immediate_trigger,
     validate_attach_oco_params,
+    validate_order_quantity,
 )
 
 # ── parent_order_id ──────────────────────────────────────────────────────────
@@ -653,3 +655,126 @@ class TestParseOrderDetails:
         assert d["order_status"] == 1
         assert d["traded_qty"] == 80
         assert d["leaves_qty"] == 120
+
+
+# ── infer_lot_size (P0 #1 04/mai — defesa em profundidade pre-SendOrder) ─────
+
+
+class TestInferLotSize:
+    """Heuristica B3 conservadora: so retorna inteiro com confianca alta.
+    Casos ambiguos retornam None (caller pula validacao, nao bloqueia)."""
+
+    def test_b3_stocks_ordinaria(self) -> None:
+        # ON termina em 3
+        assert infer_lot_size("PETR3", "B") == 100
+        assert infer_lot_size("VALE3", "B") == 100
+        assert infer_lot_size("ITUB3", "B") == 100
+
+    def test_b3_stocks_preferencial(self) -> None:
+        # PN termina em 4
+        assert infer_lot_size("PETR4", "B") == 100
+        assert infer_lot_size("ITUB4", "B") == 100
+        assert infer_lot_size("BBDC4", "B") == 100
+
+    def test_b3_stocks_pna_pnb(self) -> None:
+        # PNA=5, PNB=6
+        assert infer_lot_size("USIM5", "B") == 100
+        assert infer_lot_size("BRKM5", "B") == 100
+        assert infer_lot_size("BRSR6", "B") == 100
+
+    def test_b3_units_eleven_returns_none(self) -> None:
+        # Units/BDRs ambiguos (alguns 1, outros 10, outros 100)
+        assert infer_lot_size("BPAC11", "B") is None
+        assert infer_lot_size("KLBN11", "B") is None
+        assert infer_lot_size("ALUP11", "B") is None
+
+    def test_b3_futures_exchange_f(self) -> None:
+        # Futuros B3 sao unitarios
+        assert infer_lot_size("WINFUT", "F") == 1
+        assert infer_lot_size("WDOFUT", "F") == 1
+        assert infer_lot_size("WINM26", "F") == 1
+        assert infer_lot_size("DOLM26", "F") == 1
+
+    def test_case_insensitive_inputs(self) -> None:
+        assert infer_lot_size("petr4", "b") == 100
+        assert infer_lot_size("winfut", "f") == 1
+
+    def test_unknown_exchange_returns_none(self) -> None:
+        assert infer_lot_size("PETR4", "X") is None
+        assert infer_lot_size("PETR4", "") is None
+        assert infer_lot_size("PETR4", None) is None
+
+    def test_empty_ticker_returns_none(self) -> None:
+        assert infer_lot_size("", "B") is None
+        assert infer_lot_size(None, "B") is None
+
+    def test_ticker_ending_in_letter_returns_none(self) -> None:
+        # Estrutura nao-canonica — nao infere
+        assert infer_lot_size("ABCDEF", "B") is None
+        assert infer_lot_size("XPTO", "B") is None
+
+    def test_ticker_too_short_returns_none(self) -> None:
+        # Defensivo contra strings curtas
+        assert infer_lot_size("3", "B") is None
+        assert infer_lot_size("X", "B") is None
+
+
+# ── validate_order_quantity (P0 #1 04/mai) ────────────────────────────────────
+
+
+class TestValidateOrderQuantity:
+    """Bloqueia qty fora do lote pre-SendOrder. Retorna None se OK,
+    string com msg de erro se invalido. lot_size None ou <=0 = skip."""
+
+    def test_valid_multiple(self) -> None:
+        assert validate_order_quantity(100, 100) is None
+        assert validate_order_quantity(200, 100) is None
+        assert validate_order_quantity(1000, 100) is None
+        assert validate_order_quantity(5, 1) is None
+
+    def test_invalid_qty_below_lot(self) -> None:
+        # Caso canonico do smoke 04/mai
+        err = validate_order_quantity(20, 100)
+        assert err is not None
+        assert "qty=20" in err
+        assert "lote=100" in err
+
+    def test_invalid_qty_not_multiple(self) -> None:
+        err = validate_order_quantity(150, 100)
+        assert err is not None
+        assert "150" in err
+
+    def test_error_includes_suggestion(self) -> None:
+        # Sugestao deve ser o multiplo inferior (ou lot_size se zero)
+        err = validate_order_quantity(250, 100)
+        assert err is not None
+        assert "200" in err
+        # qty < lot: sugestao = lot_size (nao zero)
+        err2 = validate_order_quantity(20, 100)
+        assert err2 is not None
+        assert "100" in err2
+
+    def test_skip_when_lot_size_none(self) -> None:
+        # Heuristica nao inferiu — caller skip valida
+        assert validate_order_quantity(20, None) is None
+        assert validate_order_quantity(123, None) is None
+
+    def test_skip_when_lot_size_zero_or_negative(self) -> None:
+        # Defensivo: lot_size invalido = skip (nao bloqueia)
+        assert validate_order_quantity(20, 0) is None
+        assert validate_order_quantity(20, -1) is None
+
+    def test_qty_zero_or_negative_with_lot(self) -> None:
+        # Defensivo: caller normalmente ja bloqueia qty<=0 antes,
+        # mas se chegar aqui retorna erro explicito
+        err = validate_order_quantity(0, 100)
+        assert err is not None
+        assert "invalida" in err
+        err2 = validate_order_quantity(-10, 100)
+        assert err2 is not None
+
+    def test_futures_lot_one_always_valid(self) -> None:
+        # WINFUT lot=1: qualquer qty positiva passa
+        assert validate_order_quantity(1, 1) is None
+        assert validate_order_quantity(5, 1) is None
+        assert validate_order_quantity(100, 1) is None

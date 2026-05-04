@@ -322,12 +322,14 @@ from finanalytics_ai.workers.profit_agent_types import (  # noqa: E402, F401
 )
 from finanalytics_ai.workers.profit_agent_validators import (  # noqa: E402
     compute_trading_result_match,
+    infer_lot_size,
     message_has_blip_pattern,
     parse_order_details,
     resolve_subscribe_list,
     should_retry_rejection,
     trail_should_immediate_trigger,
     validate_attach_oco_params as _validate_attach_oco_params,
+    validate_order_quantity,
 )
 
 # ---------------------------------------------------------------------------
@@ -2597,6 +2599,30 @@ class ProfitAgent:
 
         if not ticker or qty <= 0:
             return {"ok": False, "error": "ticker e quantity sao obrigatorios"}
+
+        # Defesa em profundidade: bloqueia qty fora do lote ANTES do SendOrder.
+        # Smoke 04/mai: strategy mandou PETR4 qty=20 (lote=100), broker
+        # rejeitou silenciosamente, agent ficou em loop de 5 retries inuteis.
+        # Aceita lot_size explicito do payload (caminho do dispatcher) ou
+        # infere por heuristica B3 conservadora. Sem confianca = passa.
+        lot_size_in = params.get("lot_size")
+        try:
+            lot_size = int(lot_size_in) if lot_size_in is not None else None
+        except (TypeError, ValueError):
+            lot_size = None
+        if lot_size is None or lot_size <= 0:
+            lot_size = infer_lot_size(ticker, exchange)
+        qty_err = validate_order_quantity(qty, lot_size)
+        if qty_err:
+            log.warning(
+                "order.rejected_lot_size ticker=%s exchange=%s qty=%d lot=%s err=%s",
+                ticker,
+                exchange,
+                qty,
+                lot_size,
+                qty_err,
+            )
+            return {"ok": False, "error": qty_err}
 
         # Resolve alias de futuros (WDOFUT/WINFUT → contrato vigente).
         # DLL aceita o alias para market data mas rejeita ("Ordem inválida")

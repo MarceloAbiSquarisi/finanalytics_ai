@@ -244,6 +244,72 @@ def message_has_blip_pattern(message: str | None) -> bool:
     return any(p in msg_lower for p in _RETRY_BLIP_PATTERNS)
 
 
+def infer_lot_size(ticker: str | None, exchange: str | None) -> int | None:
+    """Inferir lot_size B3 por heuristica simples.
+
+    Defesa em profundidade contra strategies retornando qty fora do lote
+    (smoke 04/mai: PETR4 qty=20 com lote=100, broker rejeitou silenciosamente
+    e agent ficou em loop de 5 retries inuteis).
+
+    Heuristica conservadora — so retorna inteiro quando confianca e' alta:
+      - exchange F (futuros B3): lote=1 (WINFUT, WDOFUT, BGIFUT, contratos)
+      - exchange B + ticker terminando em 3,4,5,6 (ON/PN/PNA/PNB) e nao
+        terminando em "11": lote=100 (cobre 95% das stocks B3)
+
+    Casos retornando None (caller deve seguir sem validar):
+      - ticker terminado em "11" — units/BDRs variam (1, 10, 100)
+      - ticker terminado em letra (ETF? warrant?)
+      - exchange ausente ou nao-reconhecido
+
+    Args:
+      ticker: codigo do ativo (PETR4, WINFUT, IBOV11)
+      exchange: "B" stocks B3, "F" futuros B3
+
+    Returns:
+      int positivo (1, 100) ou None se nao infere com confianca.
+    """
+    if not ticker:
+        return None
+    t = ticker.strip().upper()
+    e = (exchange or "").strip().upper()
+    if e == "F":
+        return 1
+    if e == "B":
+        if t.endswith("11"):
+            return None  # units/BDRs ambiguos
+        if len(t) >= 2 and t[-1] in ("3", "4", "5", "6") and t[-2].isalpha():
+            return 100
+    return None
+
+
+def validate_order_quantity(qty: int, lot_size: int | None) -> str | None:
+    """Valida qty contra lot_size. Retorna None se OK, msg de erro se invalido.
+
+    Defesa em profundidade pre-SendOrder. Bloqueia ordens que o broker B3
+    rejeitaria silenciosamente (sem callback util) — strategy bugada manda
+    qty=20 em PETR4 (lote=100), broker descarta sem dizer nada, agent
+    fica em loop de retry de mensagem que nunca vira fill.
+
+    Args:
+      qty: quantidade da ordem (>0).
+      lot_size: tamanho do lote ou None (skip se nao da pra inferir).
+
+    Returns:
+      None se valida (qty multiplo de lot_size, ou lot_size None=skip).
+      String com msg de erro se qty nao e' multiplo positivo de lot_size.
+    """
+    if lot_size is None or lot_size <= 0:
+        return None
+    if qty <= 0:
+        return f"qty={qty} invalida (deve ser > 0)"
+    if qty % lot_size != 0:
+        return (
+            f"qty={qty} nao e' multiplo do lote={lot_size}; "
+            f"sugestao: {(qty // lot_size) * lot_size or lot_size}"
+        )
+    return None
+
+
 def should_retry_rejection(code: int, message: str | None) -> bool:
     """Decide se uma rejeicao do trading_msg_cb deve disparar retry P1.
 
