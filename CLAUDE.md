@@ -1,5 +1,7 @@
 # FinAnalytics AI — Contexto para Claude Code
 
+> **🔴 PRIMEIRO PASSO em qualquer sessão**: ler `docs/PENDENCIAS.md`. É a fonte canônica de bugs ativos, P0/P1, e lições de sessões anteriores. Atualizar ao final de cada sessão.
+
 ## Visão Geral
 Sistema de análise financeira com DayTrade via ProfitDLL (Nelogica).
 Stack: FastAPI :8000 (Docker) + profit_agent :8002 (Windows host) + TimescaleDB :5433 + Redis.
@@ -285,17 +287,15 @@ Hierarquia `User → InvestmentAccount → Portfolio → Investment`:
 
 ## Pendências Técnicas
 
-**Ativas**:
-- Aguardando arquivo Nelogica 1m → rodar `runbook_import_dados_historicos.md`. Inclui treinar pickles h3/h5 para `predict_ensemble` multi-horizon real (hoje só h21 existe).
-- **Smoke live robô R1.5+R2+R3** Segunda 04/mai 11h BRT — routine `trig_013JvZLcbANEuRf8rSYiFhK5` agendada. Pré-req: seed `robot_strategies` com config_json + `AUTO_TRADER_ENABLED=true` + `AUTO_TRADER_DRY_RUN=false`.
-- **C5 Passos 2-6** (VIEW unified + UI pill manual/engine) bloqueados pela migration do trading-engine R-06; agente `trig_01VDzH3xriAC777KZku42SbK` p/ 21/mai abre PR pareado.
-- **E1 fetcher concreto** — classifier `ResearchClassifier` + worker scaffold prontos; aguardando definição da fonte de dados p/ implementar `ResearchFetcher`.
+> **Fonte canônica**: `docs/PENDENCIAS.md`. Consultar primeiro em qualquer sessão. Esta seção do CLAUDE.md serve apenas como índice resumido — não duplicar conteúdo.
 
-**Done recente** — lista canônica de sprints/fixes 28/abr → 03/mai vive em `docs/historico/sessoes_29abr_01mai.md`. Não duplicar aqui.
+Resumo (para detalhes ver `docs/PENDENCIAS.md`):
+- **P0** — fixes que evitam regressão imediata no robô (qty/lot validação local, `local_order_id` em intents, stop loss automático, subscribe race fix definitivo).
+- **P1** — qualidade/robustez (escape `$$` no `.env`, lookup automático de `lot_size`, alerta Grafana stderr, merge PR #8).
+- **Ativas** — Nelogica 1m, C5 Passos 2-6, E1 fetcher concreto.
+- **Roadmap** — R4 ORB WINFUT + filtro DI1, E2-E3 research/notas.
 
-**Roadmap futuro** (em `Melhorias.md`):
-- **R4** ORB WINFUT + filtro DI1 — scaffold pronto (`ORBStrategy` registrado, retorna SKIP); implementação real defer ~7-10d
-- **E2-E3** Pipeline de research/notas (notas corretagem reconciliation E2 | pipeline genérico E3) — aguardando fonte de dados
+**Done recente** — `docs/PENDENCIAS.md` seção "Done recente" (atualiza por sessão); histórico > 1 semana migra pra `docs/historico/`.
 
 ## Decisões Arquiteturais (Imutáveis)
 
