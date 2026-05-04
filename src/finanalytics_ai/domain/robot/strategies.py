@@ -99,8 +99,13 @@ class MLSignalsStrategy:
         "atr_sl_mult": 2.0,
         "atr_tp_mult": 3.0,
         "vol_lookback_days": 20,
-        "min_sharpe_filter": 0.0
+        "min_sharpe_filter": 0.0,
+        "lot_size": 100   # B3 stocks default (futures unitarios usam 1)
       }
+    Smoke 04/mai descobriu: sem lot_size correto, broker B3 rejeita
+    silenciosamente "Risco Simulador: Quantidade da ordem deve ser
+    multiplo do lote" (PETR4 lote=100). position_size_vol_target ja
+    arredonda; passar lot_size=100 garante qty correta.
     """
 
     name = "ml_signals"
@@ -198,7 +203,7 @@ class MLSignalsStrategy:
             kelly_fraction=kelly,
             max_position_pct=max_pct,
             sl_distance=sl_distance,
-            lot_size=1,
+            lot_size=int(context.get("lot_size", 100)),
         )
 
         if sizing.blocked:
@@ -420,7 +425,7 @@ class TsmomMlOverlayStrategy(MLSignalsStrategy):
             kelly_fraction=kelly,
             max_position_pct=max_pct,
             sl_distance=sl_distance,
-            lot_size=1,
+            lot_size=int(context.get("lot_size", 100)),
         )
 
         if sizing.blocked:
