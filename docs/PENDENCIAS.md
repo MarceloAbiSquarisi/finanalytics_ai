@@ -2,19 +2,20 @@
 
 > **Para Claude/agente:** este é o primeiro arquivo a consultar em qualquer sessão. Contém pendências priorizadas + carryover de sessões anteriores. Atualizar ao fim de cada sessão (mover concluídas pra `## Done recente` e depois pra `docs/historico/`).
 
-Última atualização: **2026-05-04 17:00 BRT** (após smoke success)
+Última atualização: **2026-05-04 19:30 BRT** (após P0 #1/2/3 fechados)
 
 ## Top priority — pegar antes do próximo smoke real
 
 ### P0 — fixes que evitam regressão imediata
 
-- [ ] **Validação local `qty % lot_size == 0` no agent antes de `SendOrder`** — defesa em profundidade. Hoje (04/mai) strategies retornavam qty=20 (lote PETR4=100), broker rejeitou silenciosamente, agent tentava 5 retries inúteis em loop. Strategy fix já aplicado mas validação no agent previne classes inteiras de regressão futura. Local: `_send_order_legacy` linha ~2469 (após valida ticker/qty>0).
-- [ ] **Persistir `local_order_id` no `robot_orders_intent` após dispatch** — bug menor: intents 11/12 do smoke 16:47 ficaram com `local_order_id=NULL` apesar das ordens DLL fillarem com sucesso (status=2). Dispatcher.dispatch_order não está fazendo o UPDATE final. Quebra reconcile/audit.
-- [ ] **Stop loss / trailing automático nas posições** — hoje sem proteção pós-entry. Hoje no smoke fechei manualmente; em produção real, ml_signals SELL → posição short sem SL = exposure ilimitada. Strategy retorna `take_profit`+`stop_loss` no payload mas dispatcher só cria `/order/oco` se ambos vierem; verificar se ATR levels chegam de fato.
+- [x] ~~Validação local `qty % lot_size == 0` no agent antes de `SendOrder`~~ — **DONE 04/mai noite** via `infer_lot_size` + `validate_order_quantity` em `profit_agent_validators.py` (20 testes) + plumbing em `_send_order_legacy`. Heuristica B3: stocks (B/3,4,5,6) → 100, futuros (F) → 1, ambíguos (units, BDR) → skip. Aceita `lot_size` do payload como override.
+- [x] ~~Persistir `local_order_id` no `robot_orders_intent` após dispatch~~ — **DONE 04/mai noite**. 3 fixes: (a) `post_order` valida `body.ok` (agent retorna HTTP 200 mesmo em rejeição lógica); (b) `update_intent_sent` retorna bool com warning quando rowcount=0; (c) dispatcher trata `local_order_id is None` como erro explícito em vez de NULL silencioso. Bug latente do `or` também fechado — agora usa `is None` check (preservava local_id=0 que era falsy). 6 testes novos.
+- [x] ~~Stop loss / trailing automático nas posições~~ — **DONE 04/mai noite** (escopo "stop loss"). Dispatcher agora anexa OCO bilateral: BUY entry → SELL OCO; SELL entry → BUY OCO. Antes só BUY tinha proteção. ATR levels já chegam corretos do `compute_atr_levels` (BUY: SL abaixo, TP acima; SELL: SL acima, TP abaixo). 3 testes novos. **Trailing automático defer P1** (componente separado, não bloqueante).
 - [x] ~~Subscribe race no boot do `profit_agent`~~ — **DONE 04/mai noite** via refactor P1: `resolve_subscribe_list` em `profit_agent_validators.py` agora SEMPRE union(env, DB). 10 testes cobrindo o caso canonico. Commit `82e935d`.
 
 ### P1 — qualidade/robustez
 
+- [ ] **Trailing stop automático nas posições** — fix 04/mai cobriu OCO estático bilateral; trailing dinâmico (atualizar SL conforme preço caminha a favor) ainda pendente. `validate_attach_oco_params` já aceita `is_trailing/trail_distance/trail_pct` per-level mas dispatcher só passa SL fixo. Defer pra sessão dedicada.
 - [ ] **Escapar `$$` no `.env PROFIT_SIM_ROUTING_PASSWORD`** — compose interpreta `$utD_$` como var → senha truncada para `wB#.&5hd!8$`. Irrelevante em sim path (não injeta senha) mas precisa correto antes de production. Trocar pra `wB#.&5hd!8$$utD_$$`.
 - [ ] **Lookup automático de `lot_size` por ticker** — hoje hardcoded `100` no config_json. Para futuros (WINFUT/WDOFUT) lote é 1; para BDR alguns são 1, outros 10. Adicionar coluna `tickers.standard_lot` ou tabela de referência. Substitui o context.get("lot_size", 100).
 - [ ] **Alerta Grafana se `profit_agent.stderr.log` cresce** — bug `/agent/restart` NameError ficou silencioso 3+ dias porque ninguém olhava stderr. Adicionar regra: stderr > N bytes/hour = critical alert.

@@ -116,8 +116,14 @@ def update_intent_sent(
     intent_id: int,
     local_order_id: int | None,
     error_msg: str | None,
-) -> None:
-    """UPDATE robot_orders_intent.sent_at + local_order_id ou error_msg."""
+) -> bool:
+    """UPDATE robot_orders_intent.sent_at + local_order_id ou error_msg.
+
+    Retorna True se o UPDATE persistiu, False em qualquer falha (DB drop,
+    intent_id inexistente, etc). Smoke 04/mai 16:47: intents 11/12 ficaram
+    com local_order_id=NULL apesar das ordens DLL fillarem — bug raiz era
+    silent failure aqui combinado com post_order nao validando body.ok.
+    """
     try:
         with _get_conn(dsn) as conn, conn.cursor() as cur:
             cur.execute(
@@ -128,9 +134,19 @@ def update_intent_sent(
                 """,
                 (local_order_id, error_msg, intent_id),
             )
+            updated = cur.rowcount
             conn.commit()
+            if updated == 0:
+                logger.warning(
+                    "dispatcher.update_intent_no_rows",
+                    intent_id=intent_id,
+                    local_order_id=local_order_id,
+                )
+                return False
+            return True
     except Exception as exc:
-        logger.error("dispatcher.update_intent_failed", error=str(exc))
+        logger.error("dispatcher.update_intent_failed", intent_id=intent_id, error=str(exc))
+        return False
 
 
 def update_signal_log_sent(
@@ -192,7 +208,13 @@ async def post_order(
     async with httpx.AsyncClient(timeout=timeout_sec) as client:
         r = await client.post(url, json=body)
         r.raise_for_status()
-        return r.json()
+        data = r.json()
+    # Agent retorna HTTP 200 mesmo em rejeicao logica ({"ok": False, "error": ...}).
+    # Sem checar body.ok aqui, dispatch_order tratava como sucesso e setava
+    # local_order_id=NULL silenciosamente (smoke 04/mai 16:47, intents 11/12).
+    if not data.get("ok"):
+        raise RuntimeError(f"agent_send_rejected: {data.get('error') or data}")
+    return data
 
 
 async def post_oco(
@@ -299,17 +321,39 @@ async def dispatch_order(
         )
         return {"ok": False, "error": str(exc), "intent_id": intent_id, "cl_ord_id": cl_ord_id}
 
-    local_order_id = send_resp.get("local_order_id") or send_resp.get("local_id")
+    # `or` falha pra local_order_id == 0 — usa get com fallback explicito.
+    local_order_id = send_resp.get("local_order_id")
+    if local_order_id is None:
+        local_order_id = send_resp.get("local_id")
     log.info("dispatcher.sent", local_order_id=local_order_id)
 
-    update_intent_sent(dsn=dsn, intent_id=intent_id, local_order_id=local_order_id, error_msg=None)
+    # Defesa: agent disse ok=True mas sem local_order_id. Marca erro explicito
+    # em vez de NULL silencioso. Causa potencial: bug agent/proxy nao previsto.
+    if local_order_id is None:
+        err = "send_response_missing_local_order_id"
+        log.error("dispatcher.local_order_id_missing", send_resp=send_resp)
+        update_intent_sent(dsn=dsn, intent_id=intent_id, local_order_id=None, error_msg=err)
+        update_signal_log_sent(
+            dsn=dsn, signal_log_id=signal_log_id, local_order_id=None, sent=False
+        )
+        return {"ok": False, "error": err, "intent_id": intent_id, "cl_ord_id": cl_ord_id}
+
+    intent_updated = update_intent_sent(
+        dsn=dsn, intent_id=intent_id, local_order_id=local_order_id, error_msg=None
+    )
+    if not intent_updated:
+        log.warning("dispatcher.intent_update_skipped", local_order_id=local_order_id)
     update_signal_log_sent(
         dsn=dsn, signal_log_id=signal_log_id, local_order_id=local_order_id, sent=True
     )
 
-    # 2. Anexar OCO se TP + SL fornecidos (somente p/ entry BUY long; SHORT
-    #    futuro vai precisar logica reversa — defer R1.P3).
-    if take_profit and stop_loss and side.lower() == "buy":
+    # 2. Anexar OCO se TP + SL fornecidos. Cobre BUY (saida via SELL OCO) e
+    #    SELL (saida via BUY OCO). Antes do fix 04/mai, SELL com TP/SL nao
+    #    criava OCO — posicao short ficava nua, ml_signals SELL = exposure
+    #    ilimitada se preco subir.
+    if take_profit is not None and stop_loss is not None:
+        # OCO side e' o inverso da entry: BUY long -> SELL OCO; SELL short -> BUY OCO.
+        oco_side = "sell" if side.lower() == "buy" else "buy"
         try:
             await post_oco(
                 base_url=base_url,
@@ -317,14 +361,21 @@ async def dispatch_order(
                 quantity=quantity,
                 take_profit=take_profit,
                 stop_loss=stop_loss,
-                side="sell",  # OCO atrela um SELL TP/SL para fechar a posicao long
+                side=oco_side,
                 is_daytrade=is_daytrade,
                 env=env,
             )
-            log.info("dispatcher.oco_attached", tp=take_profit, sl=stop_loss)
+            log.info(
+                "dispatcher.oco_attached",
+                entry_side=side,
+                oco_side=oco_side,
+                tp=take_profit,
+                sl=stop_loss,
+            )
         except Exception as exc:  # noqa: BLE001
-            # OCO falhar nao zera a entry — apenas log + alert
-            log.warning("dispatcher.oco_failed", error=str(exc))
+            # OCO falhar nao zera a entry — apenas log. Posicao fica nua;
+            # caller deve agir (kill switch / alert manual).
+            log.warning("dispatcher.oco_failed", entry_side=side, error=str(exc))
 
     return {
         "ok": True,
