@@ -1,6 +1,19 @@
 # Smoke 04/mai/2026 — Resultados
 
-**Outcome**: smoke **bloqueado por instabilidade do broker SIM 32003** (não por bug do robô). Infra do robô validada end-to-end. 3 bugs do `profit_agent` descobertos e corrigidos durante o debug. Refactor de retry/watch loop pra próximas tentativas.
+**Outcome (atualizado 16:35)**: smoke **bloqueado por bug de lot_size nas strategies** (não broker). Round-trip end-to-end VALIDADO com qty correto às 16:30 (BUY+SELL 100 PETR4 a R$49,45). 4 bugs do `profit_agent` descobertos e corrigidos. Pattern `GetOrderDetails` expôs root cause real após 6h de diagnóstico desencontrado.
+
+## CORREÇÃO PÓS-SESSÃO
+
+A sessão anterior diagnosticou erradamente "Cliente não está logado" como root cause baseado num log Delphi pasted pelo user de OUTRA sessão. O **erro REAL** (descoberto às 16:30 após implementar `GetOrderDetails` no `order_cb`):
+
+> **"Risco Simulador: Quantidade da ordem deve ser múltiplo do lote (Quantidade da ordem: 10 : Lote: 100)"**
+
+PETR4 tem lote padrão 100 ações. Strategy `ml_signals` retornou `qty=20`. Broker B3 rejeita imediatamente. Esse erro estava INVISÍVEL porque `order_cb` no agent não chamava `GetOrderDetails` — só recebia `OrderIdentifier` 24B sem text_message.
+
+Validação live 16:30:
+- BUY qty=100 PETR4 → `order_status=2 (FILLED)` @ R$49,45 em <1s
+- SELL qty=100 PETR4 → idem
+- Position zerada, P&L 0
 
 ## Cronologia
 
@@ -99,11 +112,19 @@ Validado live 15:43: ordem `392124` disparou 5 retries em 62s. Quando broker est
 
 ## Pendências
 
-- [ ] **Verificar com Nelogica** se SIM 32003/1000498192 está ok / ativa / sem bloqueio
-- [ ] **Smoke retomável** — basta `PUT /api/v1/robot/resume` quando broker estabilizar; retry P1 + watch fallback fará up to 5 tentativas por ordem
+- [x] ~~Verificar com Nelogica se SIM 32003 ok~~ — SIM era OK o tempo todo, problema era qty
+- [ ] **Strategies devem respeitar lot_size do ticker** — `ml_signals` retornou qty=20, deve ser múltiplo de 100 para PETR4. Adicionar tabela `tickers.standard_lot` ou hardcoded fallback no dispatcher (B3: stocks geralmente 100, alguns BDR são 1, futures unitários).
+- [ ] **Validação local no agent** — antes de `SendOrder`, validar `qty % lot_size == 0` (rejeitar localmente, sem retry, evita 5 tentativas inúteis em loop). Defer pós-fix das strategies.
 - [ ] Task #6 (subscribe race fix definitivo no boot)
-- [ ] Limpar 5+ ordens fantasma em `robot_orders_intent` (não bloqueia)
 - [ ] Escapar `$$` no `.env` PROFIT_SIM_ROUTING_PASSWORD (cosmético)
+- [x] ~~Limpar ordens fantasma~~ — feito 15:55 (UPDATE error_msg)
+
+## Lições suplementares (16:35)
+
+1. **NUNCA assumir error message de outra sessão** — log Delphi pasted pelo user mostrava "Cliente não está logado" mas era timestamp de teste antigo deles. Sempre exigir log da sessão CORRENTE quando diagnosticando.
+2. **`GetOrderDetails` é OBRIGATÓRIO** no `order_cb` — sem ele, error_message fica NULL no DB. Comentário antigo "callback only gives identifier — polling is the ceiling" era incorreto. Pattern oficial Nelogica (Python sample main.py:164 + Delphi CallbackHandlerU.pas:366) é exatamente isso.
+3. **Broker B3 lot_size** — stocks default 100. Validar via `GetAssetData` (campo MinTrade) ou hardcoded por classe. Strategies devem retornar qty no múltiplo correto.
+4. **Validação local antes de DLL** — toda regra que o broker rejeita silenciosamente (lot_size, tick_size, valid hours, max position) deve ser checada antes de chamar `SendOrder`. Evita poluir DB com dezenas de ordens rejeitadas + spam de retry.
 
 ## Métricas finais
 
