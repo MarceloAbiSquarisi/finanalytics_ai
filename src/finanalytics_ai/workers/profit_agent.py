@@ -1920,28 +1920,60 @@ class ProfitAgent:
             except queue.Full:
                 pass
 
-            # P1 (28/abr): trigger retry quando broker rejeita por blip de auth.
-            # OrderCallback recebe dados corrompidos (struct layout); TradingMessage
-            # é mais confiavel mas r.OrderID.LocalOrderID as vezes vem 0 — usamos
-            # fallback via _msg_id_to_local mapeado em _send_order_legacy.
-            # Match: code=3 (rejeicao) AND msg contem "Cliente n"/"logado".
-            if code == 3 and ("Cliente n" in msg_text or "logado" in msg_text.lower()):
+            # P1 (28/abr, expandido 04/mai): trigger retry quando broker rejeita
+            # por blip de auth. OrderCallback recebe dados corrompidos (struct
+            # layout); TradingMessage é mais confiavel mas r.OrderID.LocalOrderID
+            # as vezes vem 0 — usamos fallback via _msg_id_to_local mapeado em
+            # _send_order_legacy.
+            #
+            # 04/mai: SIM 32003 mostrou que rejeicao "Cliente nao esta logado"
+            # pode chegar em qualquer code mapeado para status=8 (ex.:
+            # RejectedMercury=3, RejectedBroker=7, RejectedMercuryLegacy etc),
+            # nao so code=3. Expandido para cobrir todos os codes de rejeicao
+            # com pattern de blip na msg.
+            _RETRY_REJ_CODES = (1, 3, 5, 7, 9, 24)
+            _RETRY_BLIP_PATTERNS = (
+                "cliente n",
+                "logado",
+                "nao conectado",
+                "não conectado",
+                "timeout",
+                "subconex",
+            )
+            if code in _RETRY_REJ_CODES and any(
+                p in msg_text.lower() for p in _RETRY_BLIP_PATTERNS
+            ):
                 rejected_id = r.OrderID.LocalOrderID
                 if rejected_id <= 0:
                     rejected_id = agent._msg_id_to_local.get(r.MessageID, 0)
                 if rejected_id > 0:
-                    t = threading.Timer(5.0, agent._retry_rejected_order, args=(rejected_id,))
+                    # Refactor 04/mai: delay tunavel via env para reagir
+                    # rapido a flapping tipico (1-2s por ciclo crDisconnected).
+                    try:
+                        retry_delay = float(
+                            os.environ.get("PROFIT_RETRY_DELAY_SEC", "1.5")
+                        )
+                    except (TypeError, ValueError):
+                        retry_delay = 1.5
+                    t = threading.Timer(
+                        retry_delay,
+                        agent._retry_rejected_order,
+                        args=(rejected_id,),
+                    )
                     t.daemon = True
                     t.start()
                     log.info(
-                        "retry_scheduled local_id=%d msg_id=%d delay=5s reason=broker_auth_blip",
+                        "retry_scheduled local_id=%d msg_id=%d code=%d delay=%.1fs reason=broker_auth_blip",
                         rejected_id,
                         r.MessageID,
+                        code,
+                        retry_delay,
                     )
                 else:
                     log.warning(
-                        "retry_skipped no_local_id msg_id=%d (struct: %d, fallback miss)",
+                        "retry_skipped no_local_id msg_id=%d code=%d (struct: %d, fallback miss)",
                         r.MessageID,
+                        code,
                         r.OrderID.LocalOrderID,
                     )
 
@@ -2597,29 +2629,54 @@ class ProfitAgent:
         return resp
 
     def _retry_rejected_order(self, old_local_id: int) -> None:
-        """P1 (28/abr): re-envia ordem rejeitada pelo broker com 'Cliente não logado'
-        (OrderStatus=204). Padrão validado no log Delphi: broker derruba subconnection,
-        reconecta, ordem é reenviada com novo local_id e fillou normalmente.
+        """P1 (28/abr, expandido 04/mai): re-envia ordem rejeitada pelo broker
+        com 'Cliente nao logado' (OrderStatus=204). Padrao validado no log Delphi:
+        broker derruba subconnection, reconecta, ordem e' reenviada com novo
+        local_id e fillou normalmente.
 
-        Aguarda routing reconectar (até 30s) antes de re-enviar. Max 3 attempts total.
+        Aguarda routing reconectar antes de re-enviar. Tunable via env:
+          PROFIT_RETRY_MAX_ATTEMPTS (default 5)
+          PROFIT_RETRY_ROUTING_WAIT_SEC (default 10) — antes era 30 (sessao
+            limpeza profunda) — flapping tipico recupera em 1-3s
+          PROFIT_RETRY_ROUTING_POLL_SEC (default 0.25) — granularidade do wait
         """
+        try:
+            max_attempts = int(os.environ.get("PROFIT_RETRY_MAX_ATTEMPTS", "5"))
+        except (TypeError, ValueError):
+            max_attempts = 5
+        try:
+            routing_wait = float(os.environ.get("PROFIT_RETRY_ROUTING_WAIT_SEC", "10"))
+        except (TypeError, ValueError):
+            routing_wait = 10.0
+        try:
+            routing_poll = float(os.environ.get("PROFIT_RETRY_ROUTING_POLL_SEC", "0.25"))
+        except (TypeError, ValueError):
+            routing_poll = 0.25
+
         with self._retry_lock:
             entry = self._retry_params.get(old_local_id)
             if entry and not entry.get("retry_started"):
                 entry["retry_started"] = True
             else:
-                # Sem entry OU já em retry — skip (idempotente: trading_msg pode disparar 2x)
+                # Sem entry OU ja em retry — skip (idempotente: trading_msg pode disparar 2x)
                 return
         attempts = entry.get("attempts", 1)
-        if attempts >= 3:
-            log.warning("retry_aborted local_id=%d max_attempts=%d", old_local_id, attempts)
+        if attempts >= max_attempts:
+            log.warning(
+                "retry_aborted local_id=%d max_attempts=%d", old_local_id, attempts
+            )
             return
-        # Aguarda routing reconectar (até 30s — pattern Delphi: ~5-10s tipico)
-        deadline = time.time() + 30.0
+        # Aguarda routing reconectar (poll mais granular para responder rapido
+        # apos reconexao). Pattern Delphi: 1-3s tipico em pregao normal.
+        deadline = time.time() + routing_wait
         while time.time() < deadline and not self._routing_ok:
-            time.sleep(1.0)
+            time.sleep(routing_poll)
         if not self._routing_ok:
-            log.warning("retry_aborted local_id=%d routing_offline_30s", old_local_id)
+            log.warning(
+                "retry_aborted local_id=%d routing_offline_%.0fs",
+                old_local_id,
+                routing_wait,
+            )
             return
         # Re-enviar — _send_order_legacy criará novo entry em _retry_params com attempts=1
         # então sobrescrevemos para acumular o counter herdado.

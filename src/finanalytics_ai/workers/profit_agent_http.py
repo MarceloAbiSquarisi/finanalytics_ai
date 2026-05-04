@@ -362,6 +362,13 @@ def start_http_server(agent, port: int) -> None:
                 self._send_json({"ok": True, "message": "restarting"})
                 log.warning("profit_agent.restart_requested via_http")
 
+                # Sessao limpeza profunda 01/mai moveu este handler para modulo
+                # proprio mas sem mover _hard_exit junto — NameError silencioso
+                # caia em stderr enquanto stdout reportava 'restarting' e
+                # processo seguia vivo. Fix 04/mai (smoke broker_blip): import
+                # explicito do _hard_exit antes de schedular o exit thread.
+                from finanalytics_ai.workers.profit_agent import _hard_exit
+
                 def _exit_soon():
                     import time as _tm_r
 
