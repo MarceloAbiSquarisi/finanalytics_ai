@@ -3045,6 +3045,31 @@ class ProfitAgent:
 
         exchange = params.get("exchange", "B")
 
+        # Bug #3 (smoke 05/mai 11h): zero_position em ticker SEM POSICAO retorna
+        # ret=-2147483645 (NL_INVALID_ARGS). flatten_ticker chamado 2x viu o
+        # primeiro zerar com sucesso e o segundo falhar — comportamento DLL e'
+        # rejeitar zerar quando ja' esta' zerado.
+        # Pre-check: se DB nao mostra posicao aberta pra esse ticker/env,
+        # skip DLL call e retorna noop sucesso.
+        if ticker:
+            try:
+                positions = self.get_positions(env).get("positions", [])
+                ticker_upper = ticker.strip().upper()
+                pos = next(
+                    (p for p in positions if p.get("ticker", "").upper() == ticker_upper),
+                    None,
+                )
+                if pos is None or float(pos.get("net_qty") or 0) == 0:
+                    log.info(
+                        "zero_position.noop ticker=%s env=%s reason=no_open_position",
+                        ticker_upper,
+                        env,
+                    )
+                    return {"ok": True, "local_order_id": 0, "noop": True, "reason": "no_open_position"}
+            except Exception as exc:
+                # DB inacessivel: prossegue pra DLL e deixa ela rejeitar se for o caso
+                log.warning("zero_position.precheck_failed err=%s", exc)
+
         pos_type = POSITION_TYPE_DAYTRADE if params.get("daytrade") else POSITION_TYPE_CONSOLIDATED
 
         zero = TConnectorZeroPosition(Version=2, PositionType=pos_type, MessageID=-1)
@@ -3069,6 +3094,17 @@ class ProfitAgent:
         zero.Price = float(params.get("price", -1))  # -1 = mercado
 
         ret = self._dll.SendZeroPositionV2(byref(zero))
+
+        # Post-check defesa em profundidade: se DLL retornou NL_INVALID_ARGS,
+        # provavelmente posicao ja foi zerada entre o pre-check e a DLL call
+        # (race com fills concomitantes). Trata como noop.
+        if ret == -2147483645:
+            log.info(
+                "zero_position.noop ticker=%s env=%s reason=dll_invalid_args_race",
+                ticker,
+                env,
+            )
+            return {"ok": True, "local_order_id": 0, "noop": True, "reason": "dll_invalid_args_race"}
 
         return {"ok": ret >= 0, "local_order_id": ret}
 
