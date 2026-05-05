@@ -315,7 +315,7 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
   <div class="panel" id="panel-backtests">
     <div class="controls">
       <label>Strategy:</label>
-      <input type="text" id="bt-strategy" placeholder="opcional" style="width:160px">
+      <select id="bt-strategy" style="width:240px;font-family:'DM Mono',monospace;font-size:12px"></select>
       <label>Symbol:</label>
       <input type="text" id="bt-symbol" placeholder="opcional" style="width:120px">
       <button class="btn" onclick="loadBacktests()">Atualizar</button>
@@ -873,10 +873,11 @@ var GROUP_ORDER=[
 
 var STRATEGY_NAMES=[];
 
-function renderStrategyOptions(selectId,countId,filter){
+function renderStrategyOptions(selectId,countId,filter,opts){
   var sel=document.getElementById(selectId);
   var countEl=document.getElementById(countId);
   if(!sel) return;
+  opts=opts||{};
   var q=(filter||'').trim().toLowerCase();
   var prevValue=sel.value;
   var groups={};
@@ -887,7 +888,7 @@ function renderStrategyOptions(selectId,countId,filter){
     (groups[g]=groups[g]||[]).push(n);
     total++;
   });
-  var html='';
+  var html=opts.includeAll?'<option value="">(todas)</option>':'';
   GROUP_ORDER.forEach(function(g){
     if(!groups[g]) return;
     groups[g].sort();
@@ -910,6 +911,7 @@ async function populateStrategyDropdowns(){
     STRATEGY_NAMES=((data&&data.strategies)||[]).map(function(s){return s.name;});
     renderStrategyOptions('val-strategy','val-strategy-count','');
     renderStrategyOptions('exec-strategy','exec-strategy-count','');
+    renderStrategyOptions('bt-strategy',null,'',{includeAll:true});
     var bind=function(searchId,selectId,countId){
       var inp=document.getElementById(searchId);
       if(!inp) return;
