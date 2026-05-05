@@ -268,7 +268,10 @@ class MLSignalsStrategy:
         )
         if cache_stale:
             try:
-                with httpx.Client(timeout=5.0) as client:
+                # Smoke 05/mai: 5s era marginal (API ~4.5s p99). Bump pra 15s
+                # pra dar margem na primeira chamada (cold cache). Cache TTL 60s
+                # significa que so' a 1a request por minuto paga esse tempo.
+                with httpx.Client(timeout=15.0) as client:
                     r = client.get(f"{self._base_url}/api/v1/ml/signals?limit=500")
                     r.raise_for_status()
                     data = r.json()
