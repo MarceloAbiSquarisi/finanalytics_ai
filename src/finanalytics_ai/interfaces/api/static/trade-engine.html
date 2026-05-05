@@ -288,8 +288,9 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
     </div>
 
     <div class="kpi-row" id="exec-kpis"></div>
+    <div id="exec-sigma"></div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;margin-top:14px">
       <div>
         <div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-family:'DM Mono',monospace">ROLLING SHARPE 60d</div>
         <canvas id="exec-rolling-sharpe" height="160"></canvas>
@@ -972,15 +973,49 @@ async function loadExecution(){
     // KPIs row (último snapshot + agg latency)
     var last=items[items.length-1]||{};
     var lat=agg.latency||{};
+    // §5.1 slippage real/modelado: 1.0 = parity, >1.5 = backtest otimista
+    var slipR=last.slippage_realized_vs_modeled_ratio;
+    var slipClass=slipR==null?'':(slipR<=1.2?'kv-pos':slipR<=1.5?'kv-gold':'kv-neg');
+    // §5.2 fill_ratio ∈ [0,1], <0.85 problemático
+    var fillR=last.fill_ratio;
+    var fillClass=fillR==null?'':(fillR>=0.95?'kv-pos':fillR>=0.85?'kv-gold':'kv-neg');
+    // §5.4 adverse selection ratio: >0.6 = sendo "pego" por ordens informadas
+    var advS=last.adverse_selection_ratio;
+    var advClass=advS==null?'':(advS<=0.5?'kv-pos':advS<=0.6?'kv-gold':'kv-neg');
     var kpiHtml=
-      '<div class="kpi-card"><div class="kpi-label">Rolling Sharpe 60d</div><div class="kpi-value '+(last.rolling_sharpe_60d>=1.5?'kv-pos':last.rolling_sharpe_60d>=0?'kv-gold':'kv-neg')+'">'+fmtNum(last.rolling_sharpe_60d,3)+'</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Rolling Sharpe 60d §6.1</div><div class="kpi-value '+(last.rolling_sharpe_60d>=1.5?'kv-pos':last.rolling_sharpe_60d>=0?'kv-gold':'kv-neg')+'">'+fmtNum(last.rolling_sharpe_60d,3)+'</div></div>'+
       '<div class="kpi-card"><div class="kpi-label">Rolling PF 60d</div><div class="kpi-value">'+fmtNum(last.rolling_pf_60d,2)+'</div></div>'+
-      '<div class="kpi-card"><div class="kpi-label">Drawdown atual</div><div class="kpi-value kv-neg">'+fmtPctSafe(last.current_drawdown_pct,2)+'</div></div>'+
-      '<div class="kpi-card"><div class="kpi-label">Drift p-value</div><div class="kpi-value '+(last.distribution_drift_p_value!=null&&last.distribution_drift_p_value<0.01?'kv-neg':'')+'">'+fmtNum(last.distribution_drift_p_value,4)+'</div></div>'+
-      '<div class="kpi-card"><div class="kpi-label">Latency p50</div><div class="kpi-value kv-blue">'+fmtNum(lat.p50,1)+' ms</div></div>'+
-      '<div class="kpi-card"><div class="kpi-label">Latency p95</div><div class="kpi-value '+(lat.p95>250?'kv-neg':'kv-blue')+'">'+fmtNum(lat.p95,1)+' ms</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">DD atual §6.2</div><div class="kpi-value kv-neg">'+fmtPctSafe(last.current_drawdown_pct,2)+'</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Drift p-value §6.3</div><div class="kpi-value '+(last.distribution_drift_p_value!=null&&last.distribution_drift_p_value<0.01?'kv-neg':'')+'">'+fmtNum(last.distribution_drift_p_value,4)+'</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Slippage real/modelado §5.1</div><div class="kpi-value '+slipClass+'">'+(slipR!=null?fmtNum(slipR,2)+'×':'—')+'</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Fill ratio §5.2</div><div class="kpi-value '+fillClass+'">'+(fillR!=null?fmtNum(fillR*100,1)+'%':'—')+'</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Latency p50 §5.3</div><div class="kpi-value kv-blue">'+fmtNum(lat.p50,1)+' ms</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Latency p95 §5.3</div><div class="kpi-value '+(lat.p95>250?'kv-neg':'kv-blue')+'">'+fmtNum(lat.p95,1)+' ms</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Latency p99 §5.3</div><div class="kpi-value '+(lat.p99>500?'kv-neg':'kv-blue')+'">'+(lat.p99!=null?fmtNum(lat.p99,1)+' ms':'—')+'</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Adverse selection §5.4</div><div class="kpi-value '+advClass+'">'+(advS!=null?fmtNum(advS*100,1)+'%':'—')+'</div></div>'+
       '<div class="kpi-card"><div class="kpi-label">Samples (n)</div><div class="kpi-value">'+(lat.n||0)+'</div></div>';
     document.getElementById('exec-kpis').innerHTML=kpiHtml;
+
+    // §6.5 Régua 2σ — live_pnl_60d vs (backtest_mean − 2σ). Box dedicado.
+    var lp=last.live_pnl_60d, bm=last.backtest_pnl_60d_mean, bs=last.backtest_pnl_60d_std;
+    var sigmaBox=document.getElementById('exec-sigma');
+    if(lp!=null && bm!=null && bs!=null){
+      var threshold=bm-2*bs;
+      var breached=lp<threshold;
+      var z=bs>0?(lp-bm)/bs:0;
+      sigmaBox.innerHTML=
+        '<div style="font-size:11px;color:var(--muted);margin:14px 0 6px;font-family:DM Mono,monospace;letter-spacing:.06em">RÉGUA 2σ §6.5 — live 60d vs janela equivalente do backtest</div>'+
+        '<div class="kpi-row">'+
+          '<div class="kpi-card"><div class="kpi-label">PnL live 60d</div><div class="kpi-value '+(lp>=0?'kv-pos':'kv-neg')+'">'+fmtNum(lp,2)+'</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">Backtest mean</div><div class="kpi-value">'+fmtNum(bm,2)+'</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">σ backtest</div><div class="kpi-value">'+fmtNum(bs,2)+'</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">Threshold (mean − 2σ)</div><div class="kpi-value">'+fmtNum(threshold,2)+'</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">Z-score live</div><div class="kpi-value '+(z<=-2?'kv-neg':z<=-1?'kv-gold':'kv-pos')+'">'+fmtNum(z,2)+'σ</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">Status</div><div class="kpi-value '+(breached?'kv-neg':'kv-pos')+'">'+(breached?'PAUSE §6.5':'OK')+'</div></div>'+
+        '</div>';
+    } else {
+      sigmaBox.innerHTML='<div style="font-size:11px;color:var(--muted);margin:14px 0 0;font-family:DM Mono,monospace">§6.5 régua 2σ — sem dados ainda (live_pnl_60d / backtest_mean / σ não populados pelo monitoring_worker).</div>';
+    }
 
     // Rolling Sharpe timeline
     var labels=items.map(function(r){return (r.snapshot_date||'').slice(0,10)});
