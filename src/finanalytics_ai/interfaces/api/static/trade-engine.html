@@ -178,6 +178,12 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
   <div class="panel" id="panel-strategies">
     <div class="controls">
       <button class="btn" onclick="loadStrategies()">Atualizar</button>
+      <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px">
+        Timeframe
+        <select id="strat-tf-filter" onchange="renderStrategies()" style="font-family:'DM Mono',monospace;font-size:12px;padding:3px 6px">
+          <option value="">todos</option>
+        </select>
+      </label>
       <span style="font-size:12px;color:var(--muted)" id="strat-count"></span>
       <span style="font-size:11px;color:var(--muted);margin-left:auto">Catálogo populado por <code>tools/dump_strategies_catalog.py</code> no trading-engine</span>
     </div>
@@ -378,36 +384,54 @@ document.querySelectorAll('.tab').forEach(function(t){
 
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]});}
 
+var STRATEGIES_CACHE=[];
+
 async function loadStrategies(){
   try{
     var data=await authFetch('/api/v1/trading-engine/strategies');
-    document.getElementById('strat-count').textContent=data.count+' estratégias';
-    var grid=document.getElementById('strat-grid');
-    if(!data.strategies.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1">Catálogo vazio. No trading-engine: <code>uv run python tools/dump_strategies_catalog.py</code></div>';return;}
-    grid.innerHTML=data.strategies.map(function(s){
-      var params=s.params_json||{};
-      var pRows=Object.keys(params).sort().map(function(k){
-        return '<div class="p-row"><span class="p-key">'+escapeHtml(k)+'</span><span class="p-val">'+escapeHtml(params[k])+'</span></div>';
-      }).join('');
-      var nRuns=s.n_runs||0;
-      var statsHtml='<div class="strat-stats">'+
-        '<div><span>Backtests</span><span class="kv-blue">'+nRuns+'</span></div>'+
-        '<div><span>Trades total</span><span>'+(s.total_trades||0)+'</span></div>'+
-        '<div><span>PnL médio</span><span class="'+((Number(s.avg_pnl)||0)>=0?'kv-pos':'kv-neg')+'">'+(s.avg_pnl!=null?fmtNum(s.avg_pnl,2):'—')+'</span></div>'+
-        '<div><span>Hit rate médio</span><span class="kv-gold">'+(s.avg_hit_rate!=null?fmtNum(s.avg_hit_rate*100,1)+'%':'—')+'</span></div>'+
-        '<div><span>Sharpe médio</span><span>'+(s.avg_sharpe!=null?fmtNum(s.avg_sharpe,2):'—')+'</span></div>'+
-        '<div><span>Último run</span><span>'+(s.last_run_at?fmtTs(s.last_run_at).split(',')[0]:'—')+'</span></div>'+
-      '</div>';
-      var descId='desc-'+s.name;
-      return '<div class="strat-card">'+
-        '<div class="strat-head"><div class="strat-name">'+escapeHtml(s.name)+'</div><div class="strat-tf">'+escapeHtml(s.timeframe||'')+'</div></div>'+
-        (s.description?'<div class="strat-desc" id="'+descId+'">'+escapeHtml(s.description)+'</div><button class="strat-toggle" onclick="document.getElementById(\''+descId+'\').classList.toggle(\'expanded\');this.textContent=this.textContent==\'expandir\'?\'recolher\':\'expandir\'">expandir</button>':'')+
-        statsHtml+
-        '<div><div style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace;margin-bottom:4px">PARAMS</div><div class="strat-params">'+(pRows||'<div class="p-row"><span class="p-key">(sem params)</span></div>')+'</div></div>'+
-        '<div class="strat-foot"><span>'+escapeHtml(s.source_file||'')+'</span><span>git: '+(s.git_sha?escapeHtml(s.git_sha.substring(0,7)):'dirty')+'</span></div>'+
-      '</div>';
+    STRATEGIES_CACHE=data.strategies||[];
+    var tfs={};
+    STRATEGIES_CACHE.forEach(function(s){if(s.timeframe)tfs[s.timeframe]=true;});
+    var sel=document.getElementById('strat-tf-filter');
+    var current=sel.value;
+    sel.innerHTML='<option value="">todos</option>'+Object.keys(tfs).sort().map(function(tf){
+      return '<option value="'+escapeHtml(tf)+'"'+(tf===current?' selected':'')+'>'+escapeHtml(tf)+'</option>';
     }).join('');
+    renderStrategies();
   }catch(e){}
+}
+
+function renderStrategies(){
+  var tfFilter=document.getElementById('strat-tf-filter').value;
+  var rows=tfFilter?STRATEGIES_CACHE.filter(function(s){return s.timeframe===tfFilter;}):STRATEGIES_CACHE;
+  document.getElementById('strat-count').textContent=rows.length+' estratégias'+(tfFilter?' ('+tfFilter+')':'');
+  var grid=document.getElementById('strat-grid');
+  if(!rows.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1">'+(STRATEGIES_CACHE.length?'Nenhuma estratégia para o timeframe selecionado.':'Catálogo vazio. No trading-engine: <code>uv run python tools/dump_strategies_catalog.py</code>')+'</div>';return;}
+  grid.innerHTML=rows.map(function(s){
+    var params=s.params_json||{};
+    var pRows=Object.keys(params).sort().map(function(k){
+      return '<div class="p-row"><span class="p-key">'+escapeHtml(k)+'</span><span class="p-val">'+escapeHtml(params[k])+'</span></div>';
+    }).join('');
+    var nRuns=s.n_runs||0;
+    var statsHtml='<div class="strat-stats">'+
+      '<div><span>Backtests</span><span class="kv-blue">'+nRuns+'</span></div>'+
+      '<div><span>Trades total</span><span>'+(s.total_trades||0)+'</span></div>'+
+      '<div><span>PnL médio</span><span class="'+((Number(s.avg_pnl)||0)>=0?'kv-pos':'kv-neg')+'">'+(s.avg_pnl!=null?fmtNum(s.avg_pnl,2):'—')+'</span></div>'+
+      '<div><span>Hit rate médio</span><span class="kv-gold">'+(s.avg_hit_rate!=null?fmtNum(s.avg_hit_rate*100,1)+'%':'—')+'</span></div>'+
+      '<div><span>Sharpe médio</span><span>'+(s.avg_sharpe!=null?fmtNum(s.avg_sharpe,2):'—')+'</span></div>'+
+      '<div><span>Último run</span><span>'+(s.last_run_at?fmtTs(s.last_run_at).split(',')[0]:'—')+'</span></div>'+
+    '</div>';
+    var descId='desc-'+s.name;
+    var label=s.display_name||s.name;
+    var idHint=(s.display_name&&s.display_name!==s.name)?'<div style="font-size:10px;color:var(--muted);font-family:DM Mono,monospace;margin-top:2px">'+escapeHtml(s.name)+'</div>':'';
+    return '<div class="strat-card">'+
+      '<div class="strat-head"><div class="strat-name">'+escapeHtml(label)+idHint+'</div><div class="strat-tf">'+escapeHtml(s.timeframe||'')+'</div></div>'+
+      (s.description?'<div class="strat-desc" id="'+descId+'">'+escapeHtml(s.description)+'</div><button class="strat-toggle" onclick="document.getElementById(\''+descId+'\').classList.toggle(\'expanded\');this.textContent=this.textContent==\'expandir\'?\'recolher\':\'expandir\'">expandir</button>':'')+
+      statsHtml+
+      '<div><div style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace;margin-bottom:4px">PARAMS</div><div class="strat-params">'+(pRows||'<div class="p-row"><span class="p-key">(sem params)</span></div>')+'</div></div>'+
+      '<div class="strat-foot"><span>'+escapeHtml(s.source_file||'')+'</span><span>git: '+(s.git_sha?escapeHtml(s.git_sha.substring(0,7)):'dirty')+'</span></div>'+
+    '</div>';
+  }).join('');
 }
 
 async function loadOrders(){
@@ -494,9 +518,11 @@ async function loadBacktests(){
     var tbody=document.querySelector('#bt-tbl tbody');
     tbody.innerHTML=data.backtests.length?data.backtests.map(function(b){
       var win=fmtTs(b.from_ts).split(',')[0]+' → '+fmtTs(b.to_ts).split(',')[0];
+      var stratLabel=b.strategy_display_name||b.strategy||'';
+      var stratHint=(b.strategy_display_name&&b.strategy_display_name!==b.strategy)?'<div style="font-size:10px;color:var(--muted);font-family:DM Mono,monospace">'+escapeHtml(b.strategy)+'</div>':'';
       return '<tr class="clickable" onclick="openBacktestDetail(\''+b.run_id+'\')">'+
         '<td>'+fmtTs(b.created_at)+'</td>'+
-        '<td>'+(b.strategy||'')+'</td>'+
+        '<td>'+escapeHtml(stratLabel)+stratHint+'</td>'+
         '<td>'+(b.symbol||'')+'</td>'+
         '<td>'+(b.timeframe||'')+'</td>'+
         '<td>'+win+'</td>'+
@@ -515,7 +541,7 @@ var btChart=null;
 async function openBacktestDetail(runId){
   try{
     var data=await authFetch('/api/v1/trading-engine/backtests/'+encodeURIComponent(runId));
-    document.getElementById('bt-detail-title').textContent=data.strategy+' / '+data.symbol+' ('+(data.timeframe||'')+')';
+    document.getElementById('bt-detail-title').textContent=(data.strategy_display_name||data.strategy)+' / '+data.symbol+' ('+(data.timeframe||'')+')';
     var win=fmtTs(data.from_ts)+' → '+fmtTs(data.to_ts);
     var advHtml='';
     if(data.advanced){
