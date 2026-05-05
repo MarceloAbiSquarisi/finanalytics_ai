@@ -193,11 +193,9 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
     </div>
     <div class="controls" style="flex-wrap:wrap;align-items:flex-end">
       <div><div style="font-size:11px;color:var(--muted);margin-bottom:3px">Strategy</div>
-        <select id="val-strategy" style="width:200px">
-          <option value="linha_dagua">linha_dagua</option>
-          <option value="gap_classico">gap_classico</option>
-          <option value="inside_bar_pullback">inside_bar_pullback</option>
-        </select>
+        <input type="text" id="val-strategy-search" placeholder="filtrar..." style="width:240px;margin-bottom:4px;padding:4px 6px;font-family:'DM Mono',monospace;font-size:12px;display:block">
+        <select id="val-strategy" size="8" style="width:240px;font-family:'DM Mono',monospace;font-size:12px"></select>
+        <div id="val-strategy-count" style="font-size:10px;color:var(--muted);margin-top:2px"></div>
       </div>
       <div><div style="font-size:11px;color:var(--muted);margin-bottom:3px">Symbol</div>
         <select id="val-symbol" style="width:120px">
@@ -267,11 +265,9 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
     </div>
     <div class="controls" style="flex-wrap:wrap;align-items:flex-end">
       <div><div style="font-size:11px;color:var(--muted);margin-bottom:3px">Strategy</div>
-        <select id="exec-strategy" style="width:200px">
-          <option value="linha_dagua">linha_dagua</option>
-          <option value="gap_classico">gap_classico</option>
-          <option value="inside_bar_pullback">inside_bar_pullback</option>
-        </select>
+        <input type="text" id="exec-strategy-search" placeholder="filtrar..." style="width:240px;margin-bottom:4px;padding:4px 6px;font-family:'DM Mono',monospace;font-size:12px;display:block">
+        <select id="exec-strategy" size="8" style="width:240px;font-family:'DM Mono',monospace;font-size:12px"></select>
+        <div id="exec-strategy-count" style="font-size:10px;color:var(--muted);margin-top:2px"></div>
       </div>
       <div><div style="font-size:11px;color:var(--muted);margin-bottom:3px">Janela</div>
         <select id="exec-days" style="width:100px">
@@ -854,6 +850,80 @@ async function loadExecution(){
   }
 }
 
+// Classifica strategy pelo name (CLAUDE.md mapeia setup_NN → Vol N do Stormer)
+function classifyStrategy(name){
+  if(name.indexOf('stormer_inspired_')===0) return 'Stormer Inspired (Vols 4-8 fictícios)';
+  var m=name.match(/^setup_(\d+)/);
+  if(!m) return 'Originais';
+  var n=parseInt(m[1],10);
+  if(n>=1 && n<=26)  return 'Stormer Vol 1 — Setups Puros (1-26)';
+  if(n>=27 && n<=50) return 'Stormer Vol 2 — Médias Móveis (27-50)';
+  if(n>=51 && n<=99) return 'Stormer Vol 3 — Osciladores (51-99)';
+  return 'Outros';
+}
+
+var GROUP_ORDER=[
+  'Originais',
+  'Stormer Vol 1 — Setups Puros (1-26)',
+  'Stormer Vol 2 — Médias Móveis (27-50)',
+  'Stormer Vol 3 — Osciladores (51-99)',
+  'Stormer Inspired (Vols 4-8 fictícios)',
+  'Outros',
+];
+
+var STRATEGY_NAMES=[];
+
+function renderStrategyOptions(selectId,countId,filter){
+  var sel=document.getElementById(selectId);
+  var countEl=document.getElementById(countId);
+  if(!sel) return;
+  var q=(filter||'').trim().toLowerCase();
+  var prevValue=sel.value;
+  var groups={};
+  var total=0;
+  STRATEGY_NAMES.forEach(function(n){
+    if(q && n.toLowerCase().indexOf(q)===-1) return;
+    var g=classifyStrategy(n);
+    (groups[g]=groups[g]||[]).push(n);
+    total++;
+  });
+  var html='';
+  GROUP_ORDER.forEach(function(g){
+    if(!groups[g]) return;
+    groups[g].sort();
+    html+='<optgroup label="'+g+' ('+groups[g].length+')">';
+    groups[g].forEach(function(n){html+='<option value="'+n+'">'+n+'</option>';});
+    html+='</optgroup>';
+  });
+  sel.innerHTML=html;
+  if(prevValue && Array.prototype.some.call(sel.options,function(o){return o.value===prevValue;})){
+    sel.value=prevValue;
+  }else if(sel.options.length>0){
+    sel.selectedIndex=0;
+  }
+  if(countEl) countEl.textContent=total+' / '+STRATEGY_NAMES.length+(q?' (filtro: "'+q+'")':'');
+}
+
+async function populateStrategyDropdowns(){
+  try{
+    var data=await authFetch('/api/v1/trading-engine/strategies');
+    STRATEGY_NAMES=((data&&data.strategies)||[]).map(function(s){return s.name;});
+    renderStrategyOptions('val-strategy','val-strategy-count','');
+    renderStrategyOptions('exec-strategy','exec-strategy-count','');
+    var bind=function(searchId,selectId,countId){
+      var inp=document.getElementById(searchId);
+      if(!inp) return;
+      inp.addEventListener('input',function(){
+        renderStrategyOptions(selectId,countId,inp.value);
+      });
+    };
+    bind('val-strategy-search','val-strategy','val-strategy-count');
+    bind('exec-strategy-search','exec-strategy','exec-strategy-count');
+  }catch(e){
+    console.warn('populateStrategyDropdowns failed:',e);
+  }
+}
+
 // Carrega lista quando tab "validate" é ativada; idem pra "execution"
 document.querySelectorAll('.tab').forEach(function(t){
   t.addEventListener('click',function(){
@@ -864,6 +934,7 @@ document.querySelectorAll('.tab').forEach(function(t){
 
 // Bootstrap
 loadOrders();
+populateStrategyDropdowns();
 </script>
 </body>
 </html>

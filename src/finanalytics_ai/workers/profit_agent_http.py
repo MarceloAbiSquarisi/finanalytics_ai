@@ -178,8 +178,15 @@ def start_http_server(agent, port: int) -> None:
                 from urllib.parse import parse_qs as _pqs_dll, urlparse
 
                 _qs_dll = _pqs_dll(urlparse(self.path).query)
-
-                self._send_json(agent.get_positions_dll(_qs_dll.get("env", ["simulation"])[0]))
+                # Bug #2 fix (smoke 05/mai): handler HTTP nao deve fazer
+                # reconcile UPDATEs (lock contention com db_writer batch).
+                # Caller pode passar ?reconcile=true se quiser explicit.
+                _reconcile = _qs_dll.get("reconcile", ["false"])[0].lower() == "true"
+                self._send_json(
+                    agent.get_positions_dll(
+                        _qs_dll.get("env", ["simulation"])[0], reconcile=_reconcile
+                    )
+                )
 
             elif self.path.startswith("/positions/assets"):
                 from urllib.parse import parse_qs as _pqs_a, urlparse

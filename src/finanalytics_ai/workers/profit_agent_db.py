@@ -219,6 +219,72 @@ class DBWriter:
             ),
         )
 
+    def insert_ticks_batch(self, ticks: list[dict]) -> int:
+        """Insert batch via psycopg2.execute_values — 5-10x mais rapido que
+        insert_tick row-by-row.
+
+        Smoke 05/mai descobriu gargalo: db_writer fazia INSERT por tick
+        (1ms/insert via TCP/WAL/index) -> ~50k ticks/min de throughput, vs
+        ~1500 ticks/sec da DLL. backfill 1 dia WINFUT (~5M ticks) levava
+        ~80min wallclock so flushing.
+
+        execute_values agrupa N rows num unico INSERT statement com VALUES
+        composto, reduzindo overhead drastico. Com batch=1000:
+          - 1 round-trip TCP em vez de 1000
+          - 1 begin/commit em vez de 1000 (autocommit on, mas WAL ainda
+            flush por statement)
+          - Index update bulk
+
+        Args:
+          ticks: lista de dicts com campos do insert_tick.
+
+        Returns:
+          N de linhas inseridas (0 se falha ou lista vazia).
+        """
+        if not ticks:
+            return 0
+        if not self._ensure_connected():
+            return 0
+        try:
+            from psycopg2.extras import execute_values  # type: ignore
+
+            rows = [
+                (
+                    t["time"],
+                    t["ticker"],
+                    t.get("exchange", "B"),
+                    t["price"],
+                    t["quantity"],
+                    t.get("volume"),
+                    t.get("buy_agent"),
+                    t.get("sell_agent"),
+                    t.get("trade_number"),
+                    t.get("trade_type"),
+                    t.get("is_edit", False),
+                )
+                for t in ticks
+            ]
+            with self._lock:
+                cur = self._conn.cursor()
+                execute_values(
+                    cur,
+                    """INSERT INTO profit_ticks
+                       (time, ticker, exchange, price, quantity, volume,
+                        buy_agent, sell_agent, trade_number, trade_type, is_edit)
+                       VALUES %s""",
+                    rows,
+                    page_size=1000,
+                )
+                cur.close()
+            return len(rows)
+        except Exception as exc:
+            log.warning("db.insert_ticks_batch_failed n=%d error=%s", len(ticks), exc)
+            try:
+                self._conn.rollback()
+            except Exception:
+                self._conn = None
+            return 0
+
     def upsert_daily_bar(self, data: dict) -> None:
         sql = """
         INSERT INTO profit_daily_bars
