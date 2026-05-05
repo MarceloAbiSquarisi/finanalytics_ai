@@ -585,31 +585,36 @@ function runMonteCarlo(){
   // setTimeout pra dar repaint do status antes do compute pesado
   setTimeout(function(){
     var t0=performance.now();
-    var ddDist=new Array(nSims), finalDist=new Array(nSims), ruinCount=0;
+    var ddDist=new Array(nSims), peakDist=new Array(nSims), troughDist=new Array(nSims), ruinCount=0;
     var arr=pnls.slice();
     var n=arr.length;
+    var netPnl=0; for(var z=0;z<n;z++) netPnl+=arr[z];
     for(var s=0;s<nSims;s++){
       // Fisher-Yates
       for(var i=n-1;i>0;i--){
         var j=Math.floor(rng()*(i+1));
         var tmp=arr[i]; arr[i]=arr[j]; arr[j]=tmp;
       }
-      var running=0, peak=0, worst=0;
+      var running=0, peak=0, trough=0, worst=0;
       for(var k=0;k<n;k++){
         running+=arr[k];
         if(running>peak) peak=running;
+        if(running<trough) trough=running;
         var dd=running-peak;
         if(dd<worst) worst=dd;
       }
       ddDist[s]=worst;
-      finalDist[s]=running;
+      peakDist[s]=peak;
+      troughDist[s]=trough;
       if(worst<=ruin) ruinCount++;
     }
     ddDist.sort(function(a,b){return a-b});
-    finalDist.sort(function(a,b){return a-b});
+    peakDist.sort(function(a,b){return a-b});
+    troughDist.sort(function(a,b){return a-b});
     var ddP5=_percentile(ddDist,0.05), ddP50=_percentile(ddDist,0.50), ddP95=_percentile(ddDist,0.95);
     var ddWorst=ddDist[0];
-    var fP5=_percentile(finalDist,0.05), fP50=_percentile(finalDist,0.50), fP95=_percentile(finalDist,0.95);
+    var pkP50=_percentile(peakDist,0.50), pkP95=_percentile(peakDist,0.95);
+    var trP5=_percentile(troughDist,0.05), trP50=_percentile(troughDist,0.50);
     var probRuin=ruinCount/nSims;
     var elapsed=Math.round(performance.now()-t0);
     status.textContent=nSims+' sims · '+n+' trades · '+elapsed+'ms';
@@ -620,13 +625,14 @@ function runMonteCarlo(){
         '<div class="kpi-card"><div class="kpi-label">DD mediana</div><div class="kpi-value">'+fmtNum(ddP50,2)+'</div></div>'+
         '<div class="kpi-card"><div class="kpi-label">DD p95</div><div class="kpi-value">'+fmtNum(ddP95,2)+'</div></div>'+
         '<div class="kpi-card"><div class="kpi-label">DD pior</div><div class="kpi-value kv-neg">'+fmtNum(ddWorst,2)+'</div></div>'+
-        '<div class="kpi-card"><div class="kpi-label">PnL final p5</div><div class="kpi-value '+(fP5>=0?'kv-pos':'kv-neg')+'">'+fmtNum(fP5,2)+'</div></div>'+
-        '<div class="kpi-card"><div class="kpi-label">PnL final mediana</div><div class="kpi-value '+(fP50>=0?'kv-pos':'kv-neg')+'">'+fmtNum(fP50,2)+'</div></div>'+
-        '<div class="kpi-card"><div class="kpi-label">PnL final p95</div><div class="kpi-value '+(fP95>=0?'kv-pos':'kv-neg')+'">'+fmtNum(fP95,2)+'</div></div>'+
+        '<div class="kpi-card"><div class="kpi-label">Equity peak p50</div><div class="kpi-value kv-pos">'+fmtNum(pkP50,2)+'</div></div>'+
+        '<div class="kpi-card"><div class="kpi-label">Equity peak p95</div><div class="kpi-value kv-pos">'+fmtNum(pkP95,2)+'</div></div>'+
+        '<div class="kpi-card"><div class="kpi-label">Equity trough p5</div><div class="kpi-value kv-neg">'+fmtNum(trP5,2)+'</div></div>'+
         '<div class="kpi-card"><div class="kpi-label">P(ruína ≤ '+fmtNum(ruin,0)+')</div><div class="kpi-value '+probClass+'">'+fmtNum(probRuin*100,2)+'%</div></div>'+
       '</div>'+
       '<div style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace;margin-bottom:6px">'+
-        'Histograma do max drawdown (BRL) — '+nSims+' permutações da ordem dos '+n+' trades.'+
+        'Histograma do max drawdown (BRL) — '+nSims+' permutações da ordem dos '+n+' trades. '+
+        'PnL final invariante sob shuffle ('+fmtNum(netPnl,2)+' BRL).'+
       '</div>'+
       '<canvas id="mc-hist" height="120"></canvas>';
     // Histograma: 30 bins entre ddWorst e 0
