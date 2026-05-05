@@ -44,7 +44,9 @@ CREATE TABLE IF NOT EXISTS robot_signals_log (
     computed_at         TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     -- Quando enviado: liga ao callback DLL via local_order_id
     sent_to_dll         BOOLEAN         NOT NULL DEFAULT FALSE,
-    local_order_id      INTEGER,         -- preenche apos POST /agent/order/send retornar
+    -- BIGINT: agent retorna IDs ate ~10^14 (formato yymmdd+ms+counter); INT4
+    -- overflowa em local_order_id > 2.1B (smoke 05/mai 10:37 quebrou aqui).
+    local_order_id      BIGINT,         -- preenche apos POST /agent/order/send retornar
     -- Quando NAO enviado: motivo (kill switch, risk reject, no signal, etc.)
     reason_skipped      TEXT,
     -- Snapshot do contexto p/ debug (preco, sinal_ml, regimen, position size)
@@ -77,8 +79,9 @@ CREATE TABLE IF NOT EXISTS robot_orders_intent (
     -- OCO attached (TP + SL): NULL se ordem solta
     take_profit         DOUBLE PRECISION,
     stop_loss           DOUBLE PRECISION,
-    -- Liga ao callback DLL (preenchido apos resposta /order/send)
-    local_order_id      INTEGER,
+    -- Liga ao callback DLL (preenchido apos resposta /order/send).
+    -- BIGINT: ver nota em robot_signals_log.local_order_id acima.
+    local_order_id      BIGINT,
     cl_ord_id           TEXT,            -- idempotencia no proxy
     -- Status interno (sucesso/erro envio, NAO o status DLL final)
     sent_at             TIMESTAMPTZ,
