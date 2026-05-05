@@ -274,19 +274,16 @@ async def list_backtests(
     if symbol:
         filters.append("symbol = :symbol")
         params["symbol"] = symbol
-    where = ("WHERE " + " AND ".join("br." + f for f in filters)) if filters else ""
+    where = ("WHERE " + " AND ".join(filters)) if filters else ""
     query = text(
         f"""
-        SELECT br.run_id, br.strategy, sc.display_name AS strategy_display_name,
-               br.symbol, br.timeframe, br.from_ts, br.to_ts,
-               br.git_sha, br.pnl_total, br.sharpe, br.calmar, br.max_drawdown,
-               br.hit_rate, br.profit_factor, br.payoff, br.n_trades,
-               br.duration_ms, br.created_at
-        FROM trading_engine_orders.backtest_runs br
-        LEFT JOIN trading_engine_orders.strategies_catalog sc
-               ON sc.name = br.strategy
+        SELECT run_id, strategy, symbol, timeframe, from_ts, to_ts,
+               git_sha, pnl_total, sharpe, calmar, max_drawdown,
+               hit_rate, profit_factor, payoff, n_trades,
+               duration_ms, created_at
+        FROM trading_engine_orders.backtest_runs
         {where}
-        ORDER BY br.created_at DESC
+        ORDER BY created_at DESC
         LIMIT :limit
         """
     )
@@ -304,7 +301,6 @@ async def list_strategies(
         """
         SELECT
             sc.name,
-            sc.display_name,
             sc.timeframe,
             sc.description,
             sc.params_json,
@@ -353,11 +349,9 @@ async def get_backtest(
 
     query = text(
         """
-        SELECT br.*, sc.display_name AS strategy_display_name
-        FROM trading_engine_orders.backtest_runs br
-        LEFT JOIN trading_engine_orders.strategies_catalog sc
-               ON sc.name = br.strategy
-        WHERE br.run_id = :run_id
+        SELECT *
+        FROM trading_engine_orders.backtest_runs
+        WHERE run_id = :run_id
         """
     )
     row = (await session.execute(query, {"run_id": run_id})).first()
@@ -525,7 +519,9 @@ async def list_execution_quality_snapshots(
             consecutive_days_negative_sharpe, consecutive_days_below_cdi,
             distribution_drift_p_value, slippage_realized_vs_modeled_ratio,
             fill_ratio, p50_latency_ms, p95_latency_ms,
-            adverse_selection_ratio, alerts, created_at
+            adverse_selection_ratio,
+            live_pnl_60d, backtest_pnl_60d_mean, backtest_pnl_60d_std,
+            alerts, created_at
         FROM trading_engine_orders.engine_metrics_daily
         WHERE strategy = :strategy
         ORDER BY snapshot_date DESC
