@@ -120,3 +120,16 @@ services:
       # de uma sessao WSL mas pode mudar apos `wsl --shutdown` ou reboot
       # Windows. Verifique com: wsl -d Ubuntu-22.04 -- ip route show default
       - "host.docker.internal:172.17.80.1"
+
+  # Prometheus scrapeia profit_agent na host:8002 (Windows NSSM). O override
+  # do docker-compose.observability.yml usa "host-gateway" que em Engine WSL2
+  # puro resolve pra docker bridge — mesma armadilha dos services acima.
+  # Smoke 05/mai descobriu profit_agent target down 8h+ por essa causa.
+  # !override em volumes substitui (vs merge default) o path relativo do
+  # compose.yml que vira D:\... e quebra Engine WSL2.
+  prometheus:
+    volumes: !override
+      - /mnt/d/Projetos/finanalytics_ai_fresh/docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    extra_hosts:
+      - "host.docker.internal:172.17.80.1"
