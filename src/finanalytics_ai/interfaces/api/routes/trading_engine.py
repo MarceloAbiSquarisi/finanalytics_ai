@@ -339,7 +339,14 @@ async def get_backtest(
     session: AsyncSession = Depends(get_trading_engine_db_session),
     _user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """Detalhe completo de um backtest (inclui equity_curve + params)."""
+    """Detalhe completo de um backtest (inclui equity_curve + params).
+
+    Extrai `metrics_advanced` do `params_json` e expõe top-level — o engine
+    persiste `advanced` (DAYTRADE §3-4), `roc_auc` e `deflated_sharpe` lá
+    como bucket interno (sem migration). UI plota direto.
+    """
+    import json
+
     query = text(
         """
         SELECT *
@@ -353,4 +360,258 @@ async def get_backtest(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"backtest run_id={run_id} não encontrado",
         )
-    return _row_to_dict(row)
+    out = _row_to_dict(row)
+    # asyncpg/sqlalchemy podem retornar JSONB como str OU dict — normaliza.
+    params = out.get("params_json")
+    if isinstance(params, str):
+        try:
+            params = json.loads(params)
+        except (json.JSONDecodeError, TypeError):
+            params = {}
+    if isinstance(params, dict):
+        metrics_adv = params.pop("metrics_advanced", None)
+        out["params"] = params
+        if isinstance(metrics_adv, dict):
+            out["advanced"] = metrics_adv.get("advanced")
+            out["roc_auc"] = metrics_adv.get("roc_auc")
+            out["deflated_sharpe"] = metrics_adv.get("deflated_sharpe")
+        else:
+            out["advanced"] = None
+            out["roc_auc"] = None
+            out["deflated_sharpe"] = None
+        out.pop("params_json", None)
+    return out
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Validation runs (DAYTRADE_EVALUATION §2.1) — Etapa B do plano UI
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@router.get("/validation-runs")
+async def list_validation_runs(
+    strategy: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    session: AsyncSession = Depends(get_trading_engine_db_session),
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Lista validation runs (read-only via DB)."""
+    where_clauses = []
+    bind: dict[str, Any] = {"limit": limit}
+    if strategy:
+        where_clauses.append("strategy = :strategy")
+        bind["strategy"] = strategy
+    where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+    query = text(f"""
+        SELECT run_id, strategy, symbol, timeframe, status,
+               overall_passes, promotion_target, duration_ms,
+               created_at, completed_at, error_msg
+        FROM trading_engine_orders.validation_runs
+        {where_sql}
+        ORDER BY created_at DESC
+        LIMIT :limit
+    """)  # noqa: S608 — placeholders nomeados
+    rows = (await session.execute(query, bind)).fetchall()
+    return {"items": [_row_to_dict(r) for r in rows]}
+
+
+@router.get("/validation-runs/{run_id}")
+async def get_validation_run(
+    run_id: str,
+    session: AsyncSession = Depends(get_trading_engine_db_session),
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Detalhe de validation run + verdict_json + markdown."""
+    import json
+
+    query = text("""
+        SELECT *
+        FROM trading_engine_orders.validation_runs
+        WHERE run_id = :run_id
+    """)
+    row = (await session.execute(query, {"run_id": run_id})).first()
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"validation run_id={run_id} não encontrado",
+        )
+    out = _row_to_dict(row)
+    # JSONB normalize
+    for key in ("sweep_factors", "verdict_json"):
+        v = out.get(key)
+        if isinstance(v, str):
+            try:
+                out[key] = json.loads(v)
+            except (json.JSONDecodeError, TypeError):
+                out[key] = None
+    return out
+
+
+@router.post("/validation-runs", status_code=status.HTTP_201_CREATED)
+async def post_validation_run(
+    payload: dict[str, Any],
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Proxy HTTP pro engine UI (que roda o pipeline inline + persiste).
+
+    Este endpoint NÃO toca o DB diretamente — encaminha pro trading-engine
+    que tem o orquestrador (`run_validation_async`) e devolve verdict +
+    markdown. UI consome a resposta direto.
+
+    Requer settings.trading_engine_url + trading_engine_auth_token.
+    """
+    import httpx
+
+    from finanalytics_ai.config import get_settings
+
+    settings = get_settings()
+    if not settings.trading_engine_url or not settings.trading_engine_auth_token:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "trading_engine_url ou trading_engine_auth_token não configurados — "
+                "set TRADING_ENGINE_URL + TRADING_ENGINE_AUTH_TOKEN no .env"
+            ),
+        )
+    target = f"{settings.trading_engine_url.rstrip('/')}/api/v1/validation-runs"
+    headers = {"Authorization": f"Bearer {settings.trading_engine_auth_token}"}
+
+    # Timeout generoso — pipeline pode levar minutos (WFA + sweep)
+    async with httpx.AsyncClient(timeout=httpx.Timeout(900.0, connect=5.0)) as client:
+        try:
+            resp = await client.post(target, json=payload, headers=headers)
+        except httpx.RequestError as exc:
+            logger.error("validation_proxy.network_error", target=target, err=str(exc))
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"engine inacessível: {exc}",
+            ) from exc
+
+    if resp.status_code >= 400:
+        logger.warning(
+            "validation_proxy.upstream_error",
+            status=resp.status_code, body=resp.text[:500],
+        )
+        raise HTTPException(status_code=resp.status_code, detail=resp.text)
+    return resp.json()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Execution quality (S3 do roadmap DAYTRADE) — read-only via DB
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@router.get("/execution-quality/{strategy}/snapshots")
+async def list_execution_quality_snapshots(
+    strategy: str,
+    days: int = Query(60, ge=1, le=365),
+    session: AsyncSession = Depends(get_trading_engine_db_session),
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Snapshots de monitoring (rolling Sharpe/PF/DD/drift) populados pelo
+    monitoring_worker (cron diário) em engine_metrics_daily."""
+    import json
+    query = text("""
+        SELECT
+            snapshot_date, strategy,
+            rolling_sharpe_60d, rolling_pf_60d,
+            current_drawdown_pct, historical_max_drawdown_pct,
+            consecutive_days_negative_sharpe, consecutive_days_below_cdi,
+            distribution_drift_p_value, slippage_realized_vs_modeled_ratio,
+            fill_ratio, p50_latency_ms, p95_latency_ms,
+            adverse_selection_ratio, alerts, created_at
+        FROM trading_engine_orders.engine_metrics_daily
+        WHERE strategy = :strategy
+        ORDER BY snapshot_date DESC
+        LIMIT :limit
+    """)
+    rows = (await session.execute(query, {"strategy": strategy, "limit": days})).fetchall()
+    items = []
+    for r in rows:
+        d = _row_to_dict(r)
+        # alerts vem JSONB → str ou list dependendo do driver
+        if isinstance(d.get("alerts"), str):
+            try:
+                d["alerts"] = json.loads(d["alerts"])
+            except (json.JSONDecodeError, TypeError):
+                d["alerts"] = []
+        items.append(d)
+    return {"strategy": strategy, "n": len(items), "items": items}
+
+
+@router.get("/execution-quality/{strategy}/recent-samples")
+async def list_execution_quality_samples(
+    strategy: str,
+    limit: int = Query(500, ge=1, le=5000),
+    days: int = Query(30, ge=1, le=365),
+    session: AsyncSession = Depends(get_trading_engine_db_session),
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Samples raw de execution_latency_samples pra timeline de latência/slippage."""
+    query = text("""
+        SELECT order_id, strategy, symbol, side,
+               tick_observed_at, signal_generated_at, order_submitted_at,
+               order_filled_at, decision_latency_ms, submission_latency_ms,
+               confirmation_latency_ms, total_latency_ms,
+               slippage_target_to_filled, created_at
+        FROM trading_engine_orders.execution_latency_samples
+        WHERE strategy = :strategy
+          AND order_filled_at >= NOW() - (:days || ' days')::INTERVAL
+        ORDER BY order_filled_at DESC NULLS LAST
+        LIMIT :limit
+    """)
+    rows = (await session.execute(
+        query, {"strategy": strategy, "days": days, "limit": limit},
+    )).fetchall()
+    return {
+        "strategy": strategy,
+        "days": days,
+        "n": len(rows),
+        "items": [_row_to_dict(r) for r in rows],
+    }
+
+
+@router.get("/execution-quality/{strategy}/aggregate")
+async def get_execution_quality_aggregate(
+    strategy: str,
+    days: int = Query(60, ge=1, le=365),
+    session: AsyncSession = Depends(get_trading_engine_db_session),
+    _user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Aggregate p50/p95/p99 latência + slippage by hour. Calculado via SQL
+    pra evitar pull de samples × N pro Python."""
+    latency_q = text("""
+        SELECT
+            COUNT(*) AS n,
+            percentile_cont(0.50) WITHIN GROUP (ORDER BY total_latency_ms) AS p50,
+            percentile_cont(0.95) WITHIN GROUP (ORDER BY total_latency_ms) AS p95,
+            percentile_cont(0.99) WITHIN GROUP (ORDER BY total_latency_ms) AS p99,
+            MAX(total_latency_ms) AS max_ms,
+            AVG(total_latency_ms) AS mean_ms
+        FROM trading_engine_orders.execution_latency_samples
+        WHERE strategy = :strategy
+          AND order_filled_at >= NOW() - (:days || ' days')::INTERVAL
+          AND total_latency_ms IS NOT NULL
+    """)
+    by_hour_q = text("""
+        SELECT
+            EXTRACT(HOUR FROM order_filled_at AT TIME ZONE 'America/Sao_Paulo')::int AS hour,
+            COUNT(*) AS n,
+            AVG(slippage_target_to_filled) AS mean_signed,
+            percentile_cont(0.95) WITHIN GROUP (ORDER BY slippage_target_to_filled) AS p95,
+            MAX(slippage_target_to_filled) AS max_signed
+        FROM trading_engine_orders.execution_latency_samples
+        WHERE strategy = :strategy
+          AND order_filled_at >= NOW() - (:days || ' days')::INTERVAL
+          AND slippage_target_to_filled IS NOT NULL
+        GROUP BY hour
+        ORDER BY hour
+    """)
+    lat = (await session.execute(latency_q, {"strategy": strategy, "days": days})).first()
+    by_hour = (await session.execute(by_hour_q, {"strategy": strategy, "days": days})).fetchall()
+    return {
+        "strategy": strategy,
+        "days": days,
+        "latency": _row_to_dict(lat) if lat else None,
+        "slippage_by_hour": [_row_to_dict(r) for r in by_hour],
+    }
