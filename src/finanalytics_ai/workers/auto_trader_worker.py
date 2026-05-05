@@ -685,6 +685,10 @@ async def main() -> int:
     iteration = 0
     while not _shutdown:
         iteration += 1
+        # Bug #1 (smoke 05/mai): heartbeat era a cada 10 iters = 10min de
+        # silencio aparente quando ml/signals timeout. Log iter_start em
+        # cada ciclo dá visibility imediata pro operador.
+        logger.info("auto_trader.iter_start", iteration=iteration, dry_run=DRY_RUN)
         try:
             await _evaluate_strategies(iteration)
         except Exception as exc:

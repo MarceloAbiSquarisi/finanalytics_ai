@@ -29,7 +29,7 @@ domain/robot/cache.py se necessidade.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import os
 from typing import Any
 
@@ -253,14 +253,22 @@ class MLSignalsStrategy:
     # ── Helpers privados ─────────────────────────────────────────────────────
 
     def _fetch_signal(self, ticker: str) -> dict[str, Any] | None:
-        """Busca sinal ML; cache TTL 60s. Retorna SignalItem ou None."""
+        """Busca sinal ML; cache TTL 60s. Retorna SignalItem ou None.
+
+        Bug #1 (smoke 05/mai): httpx.Client SYNC bloqueando event loop async
+        do auto_trader. Timeout original 10s × N tickers × M strategies =
+        ciclo aparentemente travado por minutos. Reduzido pra 5s + retry
+        anti-loop: se cache_refresh_failed, marca _cache_ts pra evitar tentar
+        de novo nos proximos N tickers da mesma iteracao (cache stale window
+        ainda continua 60s; logica de retry preservada).
+        """
         now = datetime.now(UTC)
         cache_stale = (
             self._cache_ts is None or (now - self._cache_ts).total_seconds() > self._cache_ttl_sec
         )
         if cache_stale:
             try:
-                with httpx.Client(timeout=10.0) as client:
+                with httpx.Client(timeout=5.0) as client:
                     r = client.get(f"{self._base_url}/api/v1/ml/signals?limit=500")
                     r.raise_for_status()
                     data = r.json()
@@ -268,6 +276,11 @@ class MLSignalsStrategy:
                 self._cache_ts = now
             except Exception as exc:
                 logger.warning("ml_signals.cache_refresh_failed", error=str(exc))
+                # Mesmo em failure, atualizar _cache_ts pra evitar bombardear
+                # o endpoint nos proximos tickers da iter atual (cooldown 30s).
+                # Sem isso, 1 timeout 5s vira 30s × N_tickers × M_strategies
+                # de slow path quase invisivel ate proximo heartbeat (10 iters).
+                self._cache_ts = now - timedelta(seconds=self._cache_ttl_sec - 30)
                 if not self._signals_cache:
                     return None  # sem cache stale tambem
         return self._signals_cache.get(ticker)
