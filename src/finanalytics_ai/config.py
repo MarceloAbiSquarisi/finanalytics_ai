@@ -69,6 +69,21 @@ class Settings(BaseSettings):
     trading_engine_pool_size: int = Field(default=5, ge=1, le=20)
     trading_engine_max_overflow: int = Field(default=10, ge=0)
 
+    # URL HTTP do engine UI/API — usado pra POST /validation-runs (proxy)
+    # quando endpoint precisa disparar processamento (não só ler DB).
+    # None = features de POST desabilitadas (GET continua via DB).
+    trading_engine_url: str | None = Field(
+        default=None,
+        description=(
+            "URL HTTP do engine UI (ex: http://trading_engine_ui:8003). "
+            "Necessária pra POST /validation-runs. Read-only via DB ainda funciona."
+        ),
+    )
+    trading_engine_auth_token: str | None = Field(
+        default=None,
+        description="Bearer token pro engine UI (UI_AUTH_TOKEN do .env do engine).",
+    )
+
     # ── Segurança ───────────────────────────────────────────────────────────
     app_secret_key: str = Field(default=..., min_length=16)
 

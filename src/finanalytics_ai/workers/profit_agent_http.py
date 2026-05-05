@@ -31,6 +31,10 @@ def start_http_server(agent, port: int) -> None:
     # Mata zombies de boots anteriores ANTES de tentar bind (P6/O1 fix 28/abr).
     # NSSM restart pode deixar processo velho ainda LISTENING mesmo com PID novo
     # subindo, criando dois listeners em :8002 e quebrando state in-memory.
+    # Import local porque _kill_zombie_agents vive em profit_agent.py e
+    # importar no topo causaria circular import (profit_agent.py importa este
+    # módulo). Regressão da cleanup 01/mai — fix 02/mai.
+    from finanalytics_ai.workers.profit_agent import _kill_zombie_agents
     _kill_zombie_agents(os.getpid(), port)
 
     # agent recebido como parametro
@@ -70,6 +74,21 @@ def start_http_server(agent, port: int) -> None:
                 return {}
 
         def do_GET(self):
+            # Hardening (incidente 04-05/mai): wrap top-level p/ que qualquer
+            # exception em handler nao escape pra BaseHTTPRequestHandler.handle()
+            # que faria traceback.print_exc() em stderr — antes do fix UTF-8 do
+            # logging, isso disparava UnicodeEncodeError em cascata. Com fix,
+            # ainda evita response pendurada (cliente espera ate timeout).
+            try:
+                self._do_get_impl()
+            except Exception:
+                log.exception("http.handler_crash method=GET path=%s", self.path)
+                try:
+                    self._send_json({"error": "internal_error"}, 500)
+                except Exception:
+                    pass
+
+        def _do_get_impl(self):
 
             if self.path == "/status":
                 self._send_json(agent.get_status())
@@ -342,6 +361,17 @@ def start_http_server(agent, port: int) -> None:
                 self._send_json({"error": "not found"}, 404)
 
         def do_POST(self):
+            # Hardening: ver comentario em do_GET acima.
+            try:
+                self._do_post_impl()
+            except Exception:
+                log.exception("http.handler_crash method=POST path=%s", self.path)
+                try:
+                    self._send_json({"error": "internal_error"}, 500)
+                except Exception:
+                    pass
+
+        def _do_post_impl(self):
 
             body = self._read_body()
 
@@ -357,6 +387,13 @@ def start_http_server(agent, port: int) -> None:
 
                 self._send_json({"ok": True, "message": "restarting"})
                 log.warning("profit_agent.restart_requested via_http")
+
+                # Sessao limpeza profunda 01/mai moveu este handler para modulo
+                # proprio mas sem mover _hard_exit junto — NameError silencioso
+                # caia em stderr enquanto stdout reportava 'restarting' e
+                # processo seguia vivo. Fix 04/mai (smoke broker_blip): import
+                # explicito do _hard_exit antes de schedular o exit thread.
+                from finanalytics_ai.workers.profit_agent import _hard_exit
 
                 def _exit_soon():
                     import time as _tm_r

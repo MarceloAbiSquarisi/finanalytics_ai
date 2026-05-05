@@ -78,3 +78,52 @@ Detalhamento em `memory/project_session_01mai_cleanup_deep.md`. Pontos vinculant
 - **Bug regressão crítica fixado** (`d364655`): `_static = pathlib.Path(__file__).parent / "static"` em `startup/routers.py` apontava pra `startup/static/` (não existe) após o move. **Todas as 39 páginas servidas via `_html()`** retornaram 404 com `<h1>X.html não encontrado</h1>`. Fix: `parent.parent`. Lição: refator que move `__file__`-dependent paths exige smoke navigation (não pega via unit test). Memória `feedback_file_path_refactor_smoke.md`.
 - **Routine `sidebar-pattern-audit`** (`trig_012VG1XwoP392yy1JCehuEpQ`) Seg 09h BRT semanal — varre páginas privadas faltando pattern Decisão 16, abre PR auto se achar match.
 - **1697 testes verdes** em todas etapas. Smoke `create_app()` validado via Playwright (428 routes registradas).
+
+## Done recentes (28/abr → 02/mai) — apêndice movido de CLAUDE.md em 03/mai
+
+Detalhe completo em `memory/project_*.md` + `git log`. Lista canônica:
+
+- ✅ **Sessão 02/mai — 12 commits, 6 bugs latentes críticos pré-smoke**: TSMOM bars 5m→daily (`/candles_daily` UNION endpoint); pairs z-score 5m→daily (`fetch_daily_closes`); Postgres robot_* zumbi DROP (alembic ts_* registry-only — Decisão 23); cointegration_screen Fintz-only stale 6mo → UNION cross-source (PETR3-PETR4 visível); features_daily stale 6mo → UNION cross-source (PETR4 SELL falso → real); ANBIMA pipeline stale → novo `yield_curves_refresh_job` 21h BRT + bug raiz builder fixed (separar range output do range séries). ML signals: 14 BUY / 1 SELL / 26 HOLD com features de 2026-04-30. 1499 tests verdes.
+- ✅ R5 **survivorship bias fechado** (02/mai) — tabela `b3_delisted_tickers` populada (1863 CVM placeholders + 449 FINTZ tickers reais), `DelistedTickerRepo` + `DelistingInfo`, engine `run_backtest` aceita `delisting_date`/`last_known_price` (force-close + truncamento), `BacktestService` aceita `delisting_resolver` opcional, demo `--respect-delisting`. 19 tests novos. Caminho via Fintz delta (884 tickers histórico Fintz cruzados com `profit_subscribed_tickers`) substituiu plano original PDF IBOV — mais barato, cobertura superior.
+- ✅ Robô R1.1→R3.3 (TSMOM ∩ ML overlay + pairs cointegrados B3) — 01/mai
+- ✅ E1.1 Research classifier (Anthropic SDK + Haiku 4.5 + prompt caching) — source-agnostic, fetcher pendente — 01/mai
+- ✅ I1 Fases A+B.1+B.2 — Engine WSL2 + volumes ext4 nativo — 01/mai
+- ✅ C1 producer Kafka `market_data.ticks.v1` (Avro) — 01/mai
+- ✅ R5 backtest harness (slippage + DSR + walk-forward + history endpoint) — 30/abr
+- ✅ C5 handshake `_source` + `_client_order_id` (Passo 7) — 30/abr
+- ✅ Limpeza profunda: profit_agent 7058→4426l, app.py 1427→681l, ruff 227→0 — 01/mai noite
+- ✅ Bugs fechados: P1-P11 + P2-futuros + I4 (NSSM AppExit=Restart)
+- ✅ R4 ORB WINFUT scaffold (03/mai) — `ORBStrategy` em `domain/robot/strategies.py` + registry + 5 unit tests; SKIP até implementação real (defer 7-10d)
+
+## Decisão 22 — histórico de fases (movido de CLAUDE.md)
+
+I1 Fase A done 01/mai (commit `ab0ea8b`). Fase B.1 cutover live 01/mai (commit `950ac35`). Fase B.2 done 01/mai (commit `ffcd06c`) — volumes Postgres+Timescale em ext4 nativo. Runbook: `docs/runbook_wsl2_engine_setup.md`.
+
+## Resilience patterns profit_agent (movido de CLAUDE.md em 03/mai noite)
+
+> Operam em condições de simulator/broker real degradado: callback final falha, ordens stuck, sessão piscando.
+
+- **`_get_last_price`** — cache `_last_prices` + fallback `profit_ticks` (last 5min). Trail funciona pós-restart NSSM/callback inativo. Resolve alias futuros.
+- **`_watch_pending_orders_loop`** (P9) — registra `local_id` em `_pending_orders`; loop @5s polla DLL `EnumerateAllOrders`, detecta status final em ~10s (vs 5min reconcile). Marca `status=8 error='watch_orphan_no_dll_record'` se DLL+DB divergem após 60s.
+- **`_persist_trail_hw_if_moved`** — `trail_high_water` persistido a cada movimento favorável; sobrevive restart via `_load_oco_state_from_db`.
+- **P7 cooldown 30s** — falha em `cancel_order`/`_send_order_legacy` no fallback do trail → suprime tentativas por 30s (anti log spam).
+- **`_kill_zombie_agents` conservativo** — só detecta + log, não mata. Port bind decide; ops desabilita NSSM duplicado.
+- **`_load_oco_legacy_pairs_from_db`** (P10) — strategy_id `oco_legacy_pair_<tp_id>_sl` permite reload `_oco_pairs` no boot.
+- **`_resolve_active_contract`** ubíquo — `get_position_v2`/`flatten_ticker`/`_send_order_legacy`/`_subscribe` aceitam alias `WDOFUT/WINFUT` → resolvem contrato vigente (`WDOK26/WINM26`) com `exchange="F"`.
+
+## Origem das Decisões 15, 21, 22, 23, 24 (movido de CLAUDE.md)
+
+- **Decisão 15** — incidentes de reboot ao usar 2 GPUs em compute simultâneo (transientes de potência → OCP da PSU).
+- **Decisão 21** — ticks em `market_history_trades` mostram escala /100 intermitente. `ohlc_1m source=tick_agg_v1` está limpo.
+- **Decisão 22** — Docker Desktop morre quando user faz logoff Windows; setup precisa rodar 24/7. Engine WSL2 com systemd é independente de sessão.
+- **Decisão 23** — audit 02/mai descobriu que `ts_0004_robot_trade.py` criou tabelas zumbi em Postgres porque `env.py` aponta apenas pra `settings.database_url` (Postgres). Tabelas Timescale reais vêm de `init_timescale/*.sql`.
+- **Decisão 24** — 02/mai descoberto que múltiplos pipelines liam apenas `fintz_cotacoes_ts` (freezou 2025-11-03). Pipelines que precisavam de daily bars **recentes** (TSMOM 252d, pair z-score 60d, ML features, cointegração 504d) processavam dados de 6 meses atrás silenciosamente. 4 fixes em série na sessão de 02/mai (commits cd83254, 63d5fee, 1cef31a, 855b88d) aplicaram o mesmo pattern UNION cross-source.
+
+## Comandos exóticos (movido de CLAUDE.md em 03/mai noite)
+
+```powershell
+# Validação do mapeamento GPU após remanejar cabos:
+docker run --rm --gpus all nvidia/cuda:12.1.0-base-ubuntu22.04 \
+  nvidia-smi --query-gpu=index,pci.bus_id,name --format=csv
+# Esperado GPU 0 em 01:00.0
+```

@@ -48,6 +48,7 @@ SELECT
     COUNT(*)      AS trades
 FROM market_history_trades
 WHERE ticker = %s
+  AND EXTRACT(dow FROM trade_date) BETWEEN 1 AND 5
 GROUP BY trade_date::date
 ORDER BY date
 """
@@ -66,6 +67,7 @@ SELECT
     CAST(COALESCE(SUM(trades), 0) AS INTEGER) AS trades
 FROM ohlc_1m
 WHERE ticker = %s
+  AND EXTRACT(dow FROM time) BETWEEN 1 AND 5
 GROUP BY time::date
 ORDER BY date
 """

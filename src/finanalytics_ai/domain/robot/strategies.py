@@ -99,8 +99,13 @@ class MLSignalsStrategy:
         "atr_sl_mult": 2.0,
         "atr_tp_mult": 3.0,
         "vol_lookback_days": 20,
-        "min_sharpe_filter": 0.0
+        "min_sharpe_filter": 0.0,
+        "lot_size": 100   # B3 stocks default (futures unitarios usam 1)
       }
+    Smoke 04/mai descobriu: sem lot_size correto, broker B3 rejeita
+    silenciosamente "Risco Simulador: Quantidade da ordem deve ser
+    multiplo do lote" (PETR4 lote=100). position_size_vol_target ja
+    arredonda; passar lot_size=100 garante qty correta.
     """
 
     name = "ml_signals"
@@ -198,7 +203,7 @@ class MLSignalsStrategy:
             kelly_fraction=kelly,
             max_position_pct=max_pct,
             sl_distance=sl_distance,
-            lot_size=1,
+            lot_size=int(context.get("lot_size", 100)),
         )
 
         if sizing.blocked:
@@ -420,7 +425,7 @@ class TsmomMlOverlayStrategy(MLSignalsStrategy):
             kelly_fraction=kelly,
             max_position_pct=max_pct,
             sl_distance=sl_distance,
-            lot_size=1,
+            lot_size=int(context.get("lot_size", 100)),
         )
 
         if sizing.blocked:
@@ -467,6 +472,90 @@ class TsmomMlOverlayStrategy(MLSignalsStrategy):
                     "capital_at_risk": sizing.capital_at_risk,
                     "tp": tp,
                     "sl": sl,
+                },
+            },
+        }
+
+
+# ── R4 ORB WINFUT + filtro DI1 (fundação 03/mai) ──────────────────────────────
+#
+# Opening Range Breakout em mini-índice (WINFUT). Defer 7-10d na primeira
+# proposta; scaffold criado pra ser preenchido com lógica completa quando
+# user destravar a sprint R4. Hoje serve como esqueleto testável.
+#
+# Plano de implementação (não-MVP):
+#   1. Define janela "open range" (default: 1ª 30min do pregão B3, 10:00-10:30 BRT).
+#      Computa OR_high = max(high de bars 1m em [open, open+30min]) e
+#      OR_low = min(low). Tipicamente 1m bars de WINFUT.
+#   2. Após open+30min, monitor próximo break:
+#        BUY se close 1m > OR_high (com filtro)
+#        SELL se close 1m < OR_low (com filtro)
+#   3. Filtro DI1 (trade só quando regime macro consistente):
+#        Long ONLY se DI1 1y/5y slope positivo (curva em steepening = expansão
+#        macroeconômica → favoráveis pra ações/equities futuros).
+#        Short ONLY se slope negativo (curva em flattening/inversion → contração).
+#        Source: rates_features_daily.slope_1y_5y do dia anterior.
+#   4. Stops: ATR-based (ex: 1.5×ATR_14 1m); TP 2×ATR ou trailing.
+#   5. Close mandatório no end-of-day (16:30 BRT) — DayTrade pure.
+#
+# Pré-requisitos pra implementação completa:
+#   - Bars 1m WINFUT dispoíveis em ohlc_1m (já temos via tick_to_ohlc backfill).
+#   - rates_features_daily.slope_1y_5y populado (já automatizado via
+#     yield_curves_refresh_job).
+#   - Ciclo do auto_trader_worker rodando intraday (hoje roda 60s default; pode
+#     baixar pra 30s pra reagir mais rápido a breakouts).
+
+
+class ORBStrategy:
+    """Opening Range Breakout em WINFUT com filtro DI1.
+
+    SCAFFOLD — lógica completa defer 7-10d. Hoje retorna SKIP com reason
+    indicando que strategy ainda não foi implementada. Estrutura pronta pra
+    ser preenchida quando R4 for ativado.
+
+    Config esperado em robot_strategies.config_json:
+        {
+          "ticker": "WINFUT",                    # alias resolvido pra contrato vigente
+          "or_window_minutes": 30,               # janela do opening range
+          "session_start_brt": "10:00",          # abertura B3
+          "session_end_brt": "16:30",            # close mandatório DayTrade
+          "atr_period": 14,                      # ATR pra stops
+          "atr_stop_mult": 1.5,                  # stop = entry +/- mult*ATR
+          "atr_tp_mult": 2.0,                    # take_profit
+          "di1_filter": true,                    # exige slope 1y_5y consistente
+          "di1_slope_threshold": 0.001,          # |slope| min pra trade
+          "max_position_pct": 0.10,              # do capital_per_strategy
+          "capital_per_strategy": 50000          # WINFUT margem inicial ~R$50k/contrato
+        }
+    """
+
+    name = "orb_winfut_di1"
+
+    def __init__(self) -> None:
+        # Reusa fetcher daily pra rates_features_daily (R4 vai precisar bars 1m
+        # de outro endpoint quando lógica entrar)
+        self._candle_fetcher: HttpCandleFetcher | None = None
+        self._base_url = API_BASE_URL
+
+    def evaluate(self, ticker: str, context: dict[str, Any]) -> dict[str, Any]:
+        """SCAFFOLD — retorna SKIP. Implementação completa defer.
+
+        Quando ativado, vai computar:
+          1. OR_high/low dos primeiros 30min
+          2. Aguardar close 1m fora do range
+          3. Validar filtro DI1 (slope 1y_5y consistente com direção)
+          4. Computar size via Risk Engine (Kelly + vol target)
+          5. Retornar BUY/SELL com TP+SL ATR-based + is_daytrade=True
+        """
+        ticker_u = ticker.upper()
+        return {
+            "action": "SKIP",
+            "payload": {
+                "reason": "orb_strategy_not_implemented_yet (R4 defer 7-10d)",
+                "snapshot": {
+                    "ticker": ticker_u,
+                    "config": context,
+                    "scaffold_status": "ready_for_implementation",
                 },
             },
         }

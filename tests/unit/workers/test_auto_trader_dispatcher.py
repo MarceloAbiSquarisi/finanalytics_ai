@@ -25,6 +25,7 @@ from finanalytics_ai.workers.auto_trader_dispatcher import (
     make_cl_ord_id,
     post_oco,
     post_order,
+    update_intent_sent,
 )
 
 
@@ -61,6 +62,62 @@ class TestClOrdId:
         s = make_cl_ord_id(strategy_id=999, ticker=long_ticker, action="BUY", computed_at=_utc())
         assert len(s) <= 64
         assert s.startswith("robot:")
+
+    def test_hash_fallback_is_deterministic(self) -> None:
+        """Mesmo input longo deve produzir mesmo hash (idempotencia).
+
+        Sentinel: se hashlib mudar ou implementacao mudar pra incluir
+        timestamp/UUID, idempotencia quebra e o proxy passa a ver
+        pares duplicados em vez do mesmo cl_ord_id reutilizado.
+        """
+        long_ticker = "X" * 80
+        a = make_cl_ord_id(
+            strategy_id=999, ticker=long_ticker, action="BUY", computed_at=_utc()
+        )
+        b = make_cl_ord_id(
+            strategy_id=999, ticker=long_ticker, action="BUY", computed_at=_utc()
+        )
+        assert a == b
+
+    def test_different_strategy_id_different_id(self) -> None:
+        """strategy_id e' parte da chave — ml_signals (id=2) vs
+        tsmom_ml_overlay (id=3) NUNCA podem colidir."""
+        a = make_cl_ord_id(strategy_id=2, ticker="PETR4", action="BUY", computed_at=_utc())
+        b = make_cl_ord_id(strategy_id=3, ticker="PETR4", action="BUY", computed_at=_utc())
+        assert a != b
+
+    def test_seconds_dropped_from_minute(self) -> None:
+        """Ordens disparadas em segundos diferentes do MESMO minuto compartilham
+        cl_ord_id (idempotencia explicita do C5 handshake)."""
+        a = make_cl_ord_id(
+            strategy_id=1,
+            ticker="PETR4",
+            action="BUY",
+            computed_at=datetime(2026, 5, 1, 12, 35, 0, tzinfo=UTC),
+        )
+        b = make_cl_ord_id(
+            strategy_id=1,
+            ticker="PETR4",
+            action="BUY",
+            computed_at=datetime(2026, 5, 1, 12, 35, 59, tzinfo=UTC),
+        )
+        assert a == b, "Segundos no mesmo minuto deveriam produzir mesmo cl_ord_id"
+
+    def test_microseconds_dropped(self) -> None:
+        """Microsegundos sao descartados pelo replace(second=0, microsecond=0)."""
+        a = make_cl_ord_id(
+            strategy_id=1,
+            ticker="PETR4",
+            action="BUY",
+            computed_at=datetime(2026, 5, 1, 12, 35, 0, 123456, tzinfo=UTC),
+        )
+        b = make_cl_ord_id(
+            strategy_id=1,
+            ticker="PETR4",
+            action="BUY",
+            computed_at=datetime(2026, 5, 1, 12, 35, 0, 999999, tzinfo=UTC),
+        )
+        assert a == b
 
 
 # ── post_order ────────────────────────────────────────────────────────────────
@@ -179,7 +236,9 @@ class TestDispatchOrder:
         original = httpx.AsyncClient
 
         def responder(url, body):
-            return {"local_order_id": 5555} if "send" in url else {"oco_id": "xyz"}
+            if "send" in url:
+                return {"ok": True, "local_order_id": 5555}
+            return {"oco_id": "xyz"}
 
         def make_client(*args, **kwargs):
             kwargs["transport"] = _mock_transport(captured, responder=responder)
@@ -286,7 +345,7 @@ class TestDispatchOrder:
 
         def make_client(*args, **kwargs):
             kwargs["transport"] = _mock_transport(
-                captured, responder=lambda u, b: {"local_order_id": 1}
+                captured, responder=lambda u, b: {"ok": True, "local_order_id": 1}
             )
             return original(*args, **kwargs)
 
@@ -308,3 +367,334 @@ class TestDispatchOrder:
         urls = [c["url"] for c in captured["calls"]]
         assert len(urls) == 1
         assert "/order/send" in urls[0]
+
+
+# ── P0 #2 (smoke 04/mai 16:47): persistencia de local_order_id ────────────────
+
+
+@pytest.mark.asyncio
+class TestLocalOrderIdPersistence:
+    """Bug raiz: agent retorna HTTP 200 mas body com ok=False (rejeicao
+    logica), ou body com ok=True mas sem local_order_id. Antes do fix,
+    dispatcher tratava como sucesso e setava intent.local_order_id=NULL
+    silenciosamente. Agora propaga erro explicito para error_msg."""
+
+    @patch("finanalytics_ai.workers.auto_trader_dispatcher.update_signal_log_sent")
+    @patch("finanalytics_ai.workers.auto_trader_dispatcher.update_intent_sent")
+    @patch("finanalytics_ai.workers.auto_trader_dispatcher.insert_intent")
+    async def test_agent_ok_false_treated_as_send_failure(
+        self, m_insert, m_update_intent, m_update_signal
+    ) -> None:
+        m_insert.return_value = 11
+        original = httpx.AsyncClient
+
+        def responder(url, body):
+            # Cenario do bug: agent rejeita logicamente (qty fora do lote, etc)
+            return {"ok": False, "error": "qty=20 nao e' multiplo do lote=100"}
+
+        captured: dict[str, Any] = {}
+
+        def make_client(*args, **kwargs):
+            kwargs["transport"] = _mock_transport(captured, responder=responder)
+            return original(*args, **kwargs)
+
+        with patch(
+            "finanalytics_ai.workers.auto_trader_dispatcher.httpx.AsyncClient",
+            side_effect=make_client,
+        ):
+            result = await dispatch_order(
+                dsn="postgres://stub",
+                base_url="http://api:8000",
+                signal_log_id=11,
+                strategy_id=1,
+                ticker="PETR4",
+                side="buy",
+                quantity=20,
+            )
+
+        assert result["ok"] is False
+        # Erro do agent deve aparecer em result["error"] e em error_msg do intent
+        assert "agent_send_rejected" in result["error"]
+        assert "lote=100" in result["error"]
+        kwargs = m_update_intent.call_args.kwargs
+        assert kwargs["local_order_id"] is None
+        assert "agent_send_rejected" in kwargs["error_msg"]
+        m_update_signal.assert_called_once_with(
+            dsn="postgres://stub", signal_log_id=11, local_order_id=None, sent=False
+        )
+
+    @patch("finanalytics_ai.workers.auto_trader_dispatcher.update_signal_log_sent")
+    @patch("finanalytics_ai.workers.auto_trader_dispatcher.update_intent_sent")
+    @patch("finanalytics_ai.workers.auto_trader_dispatcher.insert_intent")
+    async def test_agent_ok_true_without_local_order_id_marks_error(
+        self, m_insert, m_update_intent, m_update_signal
+    ) -> None:
+        # Bug defensivo: agent diz ok=True mas esquece local_order_id.
+        # Antes setava NULL silencioso; agora marca error_msg explicito.
+        m_insert.return_value = 12
+        original = httpx.AsyncClient
+        captured: dict[str, Any] = {}
+
+        def make_client(*args, **kwargs):
+            kwargs["transport"] = _mock_transport(
+                captured, responder=lambda u, b: {"ok": True}  # sem local_order_id
+            )
+            return original(*args, **kwargs)
+
+        with patch(
+            "finanalytics_ai.workers.auto_trader_dispatcher.httpx.AsyncClient",
+            side_effect=make_client,
+        ):
+            result = await dispatch_order(
+                dsn="postgres://stub",
+                base_url="http://api:8000",
+                signal_log_id=12,
+                strategy_id=1,
+                ticker="PETR4",
+                side="buy",
+                quantity=100,
+            )
+
+        assert result["ok"] is False
+        assert result["error"] == "send_response_missing_local_order_id"
+        kwargs = m_update_intent.call_args.kwargs
+        assert kwargs["local_order_id"] is None
+        assert kwargs["error_msg"] == "send_response_missing_local_order_id"
+        m_update_signal.assert_called_once_with(
+            dsn="postgres://stub", signal_log_id=12, local_order_id=None, sent=False
+        )
+
+    @patch("finanalytics_ai.workers.auto_trader_dispatcher.update_signal_log_sent")
+    @patch("finanalytics_ai.workers.auto_trader_dispatcher.update_intent_sent")
+    @patch("finanalytics_ai.workers.auto_trader_dispatcher.insert_intent")
+    async def test_local_order_id_zero_not_treated_as_falsy(
+        self, m_insert, m_update_intent, m_update_signal
+    ) -> None:
+        # Bug latente: codigo antigo `local_order_id or local_id` perdia
+        # o valor 0 (Python falsy). Agora usa `is None` check explicito.
+        m_insert.return_value = 13
+        original = httpx.AsyncClient
+        captured: dict[str, Any] = {}
+
+        def make_client(*args, **kwargs):
+            kwargs["transport"] = _mock_transport(
+                captured, responder=lambda u, b: {"ok": True, "local_order_id": 0}
+            )
+            return original(*args, **kwargs)
+
+        with patch(
+            "finanalytics_ai.workers.auto_trader_dispatcher.httpx.AsyncClient",
+            side_effect=make_client,
+        ):
+            result = await dispatch_order(
+                dsn="postgres://stub",
+                base_url="http://api:8000",
+                signal_log_id=13,
+                strategy_id=1,
+                ticker="PETR4",
+                side="buy",
+                quantity=100,
+            )
+
+        # local_order_id=0 e' valido — deve persistir, nao virar None
+        assert result["ok"] is True
+        assert result["local_order_id"] == 0
+        kwargs = m_update_intent.call_args.kwargs
+        assert kwargs["local_order_id"] == 0
+        assert kwargs["error_msg"] is None
+
+
+# ── update_intent_sent: retorna bool indicando sucesso ────────────────────────
+
+
+class TestUpdateIntentSent:
+    """update_intent_sent agora retorna bool. False = warning para caller
+    detectar intent_id inexistente ou DB drop."""
+
+    def test_returns_true_when_row_updated(self) -> None:
+        from unittest.mock import MagicMock
+
+        mock_cur = MagicMock()
+        mock_cur.rowcount = 1
+        mock_conn = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+
+        with patch(
+            "finanalytics_ai.workers.auto_trader_dispatcher._get_conn",
+            return_value=mock_conn,
+        ):
+            mock_conn.__enter__.return_value = mock_conn
+            ok = update_intent_sent(
+                dsn="stub", intent_id=999, local_order_id=12345, error_msg=None
+            )
+
+        assert ok is True
+
+    def test_returns_false_when_no_rows_updated(self) -> None:
+        from unittest.mock import MagicMock
+
+        mock_cur = MagicMock()
+        mock_cur.rowcount = 0  # intent_id inexistente
+        mock_conn = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cur
+
+        with patch(
+            "finanalytics_ai.workers.auto_trader_dispatcher._get_conn",
+            return_value=mock_conn,
+        ):
+            mock_conn.__enter__.return_value = mock_conn
+            ok = update_intent_sent(
+                dsn="stub", intent_id=99999, local_order_id=12345, error_msg=None
+            )
+
+        assert ok is False
+
+    def test_returns_false_on_db_exception(self) -> None:
+        with patch(
+            "finanalytics_ai.workers.auto_trader_dispatcher._get_conn",
+            side_effect=ConnectionError("DB drop"),
+        ):
+            ok = update_intent_sent(
+                dsn="stub", intent_id=1, local_order_id=12345, error_msg=None
+            )
+
+        assert ok is False
+
+
+# ── P0 #3 (smoke 04/mai): OCO bilateral (BUY+SELL) ────────────────────────────
+
+
+@pytest.mark.asyncio
+class TestOcoBilateral:
+    """Bug raiz: dispatcher so anexava OCO quando entry side=='buy'.
+    SELL (short entry) ficava nu; ml_signals SELL = exposure ilimitada
+    se preco subir. Fix: anexar OCO para ambos os sides com lado inverso."""
+
+    @patch("finanalytics_ai.workers.auto_trader_dispatcher.update_signal_log_sent")
+    @patch("finanalytics_ai.workers.auto_trader_dispatcher.update_intent_sent")
+    @patch("finanalytics_ai.workers.auto_trader_dispatcher.insert_intent")
+    async def test_sell_entry_attaches_buy_oco(
+        self, m_insert, m_update_intent, m_update_signal
+    ) -> None:
+        m_insert.return_value = 21
+        original = httpx.AsyncClient
+        captured: dict[str, Any] = {}
+
+        def responder(url, body):
+            return {"ok": True, "local_order_id": 6001} if "send" in url else {"oco_id": "z1"}
+
+        def make_client(*args, **kwargs):
+            kwargs["transport"] = _mock_transport(captured, responder=responder)
+            return original(*args, **kwargs)
+
+        with patch(
+            "finanalytics_ai.workers.auto_trader_dispatcher.httpx.AsyncClient",
+            side_effect=make_client,
+        ):
+            result = await dispatch_order(
+                dsn="postgres://stub",
+                base_url="http://api:8000",
+                signal_log_id=21,
+                strategy_id=1,
+                ticker="PETR4",
+                side="sell",
+                quantity=100,
+                # ATR levels para SELL: TP abaixo entry, SL acima entry
+                take_profit=27.0,
+                stop_loss=33.0,
+                computed_at=_utc(),
+            )
+
+        assert result["ok"] is True
+        # Deve ter chamado /order/send + /order/oco
+        urls = [c["url"] for c in captured["calls"]]
+        assert any("/order/send" in u for u in urls)
+        assert any("/order/oco" in u for u in urls)
+        # OCO deve ser BUY (lado inverso do SELL)
+        oco_call = next(c for c in captured["calls"] if "/order/oco" in c["url"])
+        assert oco_call["body"]["order_side"] == "buy"
+        assert oco_call["body"]["take_profit"] == 27.0
+        assert oco_call["body"]["stop_loss"] == 33.0
+        # stop_limit em BUY OCO = stop_loss * 1.01 (compra acima do trigger)
+        assert oco_call["body"]["stop_limit"] == pytest.approx(33.0 * 1.01)
+
+    @patch("finanalytics_ai.workers.auto_trader_dispatcher.update_signal_log_sent")
+    @patch("finanalytics_ai.workers.auto_trader_dispatcher.update_intent_sent")
+    @patch("finanalytics_ai.workers.auto_trader_dispatcher.insert_intent")
+    async def test_oco_skipped_when_only_tp_no_sl(
+        self, m_insert, m_update_intent, m_update_signal
+    ) -> None:
+        # Estrategia retornou tp mas nao sl (ATR=0 caso degenerado).
+        # Sem SL, OCO nao tem como proteger — caller decide nao criar.
+        m_insert.return_value = 22
+        original = httpx.AsyncClient
+        captured: dict[str, Any] = {}
+
+        def make_client(*args, **kwargs):
+            kwargs["transport"] = _mock_transport(
+                captured, responder=lambda u, b: {"ok": True, "local_order_id": 6002}
+            )
+            return original(*args, **kwargs)
+
+        with patch(
+            "finanalytics_ai.workers.auto_trader_dispatcher.httpx.AsyncClient",
+            side_effect=make_client,
+        ):
+            await dispatch_order(
+                dsn="postgres://stub",
+                base_url="http://api:8000",
+                signal_log_id=22,
+                strategy_id=1,
+                ticker="PETR4",
+                side="sell",
+                quantity=100,
+                take_profit=27.0,
+                stop_loss=None,
+            )
+
+        urls = [c["url"] for c in captured["calls"]]
+        assert any("/order/send" in u for u in urls)
+        assert not any("/order/oco" in u for u in urls)
+
+    @patch("finanalytics_ai.workers.auto_trader_dispatcher.update_signal_log_sent")
+    @patch("finanalytics_ai.workers.auto_trader_dispatcher.update_intent_sent")
+    @patch("finanalytics_ai.workers.auto_trader_dispatcher.insert_intent")
+    async def test_oco_failure_does_not_zero_entry(
+        self, m_insert, m_update_intent, m_update_signal
+    ) -> None:
+        # Bug regress: OCO falhar NAO deve voltar ok=False — entry ja
+        # executou. Caller deve receber alert mas worker continua.
+        m_insert.return_value = 23
+        original = httpx.AsyncClient
+
+        def responder(url, body):
+            if "/order/send" in url:
+                return {"ok": True, "local_order_id": 6003}
+            # OCO endpoint fails
+            raise httpx.ConnectError("oco endpoint down", request=None)
+
+        captured: dict[str, Any] = {}
+
+        def make_client(*args, **kwargs):
+            kwargs["transport"] = _mock_transport(captured, responder=responder)
+            return original(*args, **kwargs)
+
+        with patch(
+            "finanalytics_ai.workers.auto_trader_dispatcher.httpx.AsyncClient",
+            side_effect=make_client,
+        ):
+            result = await dispatch_order(
+                dsn="postgres://stub",
+                base_url="http://api:8000",
+                signal_log_id=23,
+                strategy_id=1,
+                ticker="PETR4",
+                side="sell",
+                quantity=100,
+                take_profit=27.0,
+                stop_loss=33.0,
+            )
+
+        # Entry sucesso, OCO falhou — result.ok=True (entry e' o que importa)
+        assert result["ok"] is True
+        assert result["local_order_id"] == 6003

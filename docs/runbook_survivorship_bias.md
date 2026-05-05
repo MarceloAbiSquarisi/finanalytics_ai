@@ -134,8 +134,9 @@ $env:DATABASE_URL_SYNC = "postgresql://finanalytics:secret@localhost:5432/finana
 - [x] `survivorship_collect_cvm.py --persist` rodado: 1863 CNPJs únicos com placeholder UNK_*.
 - [x] Step 1 Fintz delta done — 449 tickers reais persistidos.
 - [x] **Step 2** done — engine respeita delisting_date, BacktestService injeta resolver opcional, demo `--respect-delisting` validado live com ENBR3.
+- [x] **Validação anti-bias** rodada 03/mai (`backtest_runs/bias_validation/REPORT.md`). 6 tickers delisted × 2 variantes (com/sem fix) → diferença ≤ 0.001 em DSR (ruído numérico). **Achado**: bars Fintz cessam naturalmente na delisting_date, então force-close é defensivo (correto conceitualmente, no-op funcional com infra atual). **Survivorship bias real do projeto está no universo de seleção** (delisted ausentes da watchlist), não na granularidade do close. Mitigação completa requer backtest multi-ticker em 2 universos (sobreviventes vs sobreviventes+delisted) — defer.
 - [ ] (defer) Bridge CNPJ→ticker p/ resolver os 1863 placeholders CVM. Não é caminho crítico — Fintz delta já cobre o universo de interesse para R5.
-- [ ] (defer) Validação anti-bias comparativa (Sharpe com/sem delistados em IBOV histórico). Útil pra quantificar o viés mas não bloqueia uso.
+- [ ] (defer) Multi-ticker grid search universe-comparison (a) só ativos hoje vs (b) ativos + 449 delistados. Custo ~3-5h. Quantifica bias real do projeto.
 
 ## Validação anti-bias (uma vez fechado step 2)
 

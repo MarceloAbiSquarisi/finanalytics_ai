@@ -108,3 +108,234 @@ def compute_trading_result_match(
         params.append(message_id)
 
     return (" OR ".join(parts), tuple(params))
+
+
+# ── P1 (28/abr, expandido 04/mai): retry de rejeicao broker-blip ──────────────
+
+# Codes rejection-like do TConnectorTradingMessageResultCode (manual Nelogica).
+# Usados em conjunto com pattern matching de msg para distinguir blip do broker
+# (transient, retry vale a pena) de rejeicao por regra de negocio (qty invalida,
+# saldo insuficiente, fora de horario — retry NAO ajuda).
+_RETRY_REJECTION_CODES: tuple[int, ...] = (1, 3, 5, 7, 9, 24)
+# Substrings minusculas que indicam blip do broker / subconnection.
+# Smoke 04/mai validou em log Delphi: "Cliente nao esta logado" e variantes.
+_RETRY_BLIP_PATTERNS: tuple[str, ...] = (
+    "cliente n",
+    "logado",
+    "nao conectado",
+    "não conectado",
+    "timeout",
+    "subconex",
+)
+
+
+def resolve_subscribe_list(
+    db_tickers: list[tuple[str, str]],
+    env_tickers: list[str],
+    db_connected: bool,
+    default_exchange: str = "B",
+) -> list[tuple[str, str]]:
+    """Resolve a lista final de (ticker, exchange) para subscribe no boot.
+
+    Smoke 04/mai (bug raiz P0 #4): logica original era `if db_connected:
+    use DB else use env`. Quando DB estava reachable mas vazio (apos
+    restart, profit_history_tickers nao seedada), agent terminava com 0
+    subscriptions — falha silenciosa que so era notada via /status mostrar
+    `subscribed_tickers: []` apesar de market_connected=true.
+
+    Nova semantica (fix): SEMPRE union de DB + env. Env serve como seed
+    (defaults sempre presentes); DB adiciona extras (ex: manualmente
+    subscritos via POST /subscribe). Dedup por (ticker, exchange) tupla.
+
+    Args:
+      db_tickers: lista de (ticker, exchange) do DB (vazia se nao conectado).
+      env_tickers: lista de ticker strings do .env (default exchange "B").
+      db_connected: se False, db_tickers e' ignorada (caller geralmente
+        passa lista vazia ja).
+      default_exchange: exchange para tickers do env (default "B" stocks B3).
+
+    Returns:
+      Lista de (ticker_upper, exchange_upper) deduplicada, ordem preservada
+      (env primeiro, DB depois p/ extras).
+    """
+    seen: set[tuple[str, str]] = set()
+    result: list[tuple[str, str]] = []
+    # Env primeiro — defaults sempre presentes
+    for raw in env_tickers:
+        if not raw:
+            continue
+        t = raw.strip().upper()
+        if not t:
+            continue
+        key = (t, default_exchange.upper())
+        if key not in seen:
+            seen.add(key)
+            result.append(key)
+    # DB additions (so se conectado)
+    if db_connected:
+        for ticker, exchange in db_tickers:
+            t = (ticker or "").strip().upper()
+            if not t:
+                continue
+            e = (exchange or default_exchange).strip().upper() or default_exchange.upper()
+            key = (t, e)
+            if key not in seen:
+                seen.add(key)
+                result.append(key)
+    return result
+
+
+def parse_order_details(order: object) -> dict:
+    """Converte um TConnectorOrderOut populado em dict para uso interno.
+
+    Funcao pura — nao acessa DLL. `order` e' esperado ter todos os campos
+    preenchidos (depois do 2-pass GetOrderDetails). Usa duck typing para
+    funcionar tanto com struct ctypes real quanto com mocks de teste
+    (qualquer objeto com `.OrderID`, `.AssetID`, etc.).
+
+    Extraido de profit_agent._get_order_details (04/mai) — antes a logica
+    de mapping ficava acoplada com a chamada DLL, dificultando teste sem
+    Windows. Agora _get_order_details so faz o 2-pass call e delega aqui.
+
+    Strings vem do DLL como `c_wchar_p` apontando pra buffers pre-alocados;
+    `.strip()` remove padding (`' ' * length`). None handling defensivo
+    em todos os campos string (DLL pode retornar NULL).
+
+    Args:
+      order: struct TConnectorOrderOut populado (ou mock equivalente).
+
+    Returns:
+      Dict com keys: local_order_id, cl_ord_id, ticker, exchange,
+      quantity, traded_qty, leaves_qty, price, stop_price, avg_price,
+      order_side, order_type, order_status, validity_type, text_message.
+    """
+    return {
+        "local_order_id": order.OrderID.LocalOrderID,
+        "cl_ord_id": (order.OrderID.ClOrderID or "").strip(),
+        "ticker": (order.AssetID.Ticker or "").strip(),
+        "exchange": (order.AssetID.Exchange or "").strip(),
+        "quantity": order.Quantity,
+        "traded_qty": order.TradedQuantity,
+        "leaves_qty": order.LeavesQuantity,
+        "price": order.Price,
+        "stop_price": order.StopPrice,
+        "avg_price": order.AveragePrice,
+        "order_side": order.OrderSide,
+        "order_type": order.OrderType,
+        "order_status": order.OrderStatus,
+        "validity_type": order.ValidityType,
+        "text_message": (order.TextMessage or "").strip(),
+    }
+
+
+def message_has_blip_pattern(message: str | None) -> bool:
+    """True se `message` contem ao menos uma substring de blip pattern.
+
+    Variante so-msg (sem code check) usada em `order_cb` quando o status
+    final ja foi extraido via `GetOrderDetails` — order_cb sabe que status=8
+    via DLL, so precisa decidir se vale retry baseado na msg.
+
+    Em `trading_msg_cb`, usar `should_retry_rejection(code, msg)` que tambem
+    filtra por code rejection-like.
+    """
+    if not message:
+        return False
+    msg_lower = message.lower()
+    return any(p in msg_lower for p in _RETRY_BLIP_PATTERNS)
+
+
+def infer_lot_size(ticker: str | None, exchange: str | None) -> int | None:
+    """Inferir lot_size B3 por heuristica simples.
+
+    Defesa em profundidade contra strategies retornando qty fora do lote
+    (smoke 04/mai: PETR4 qty=20 com lote=100, broker rejeitou silenciosamente
+    e agent ficou em loop de 5 retries inuteis).
+
+    Heuristica conservadora — so retorna inteiro quando confianca e' alta:
+      - exchange F (futuros B3): lote=1 (WINFUT, WDOFUT, BGIFUT, contratos)
+      - exchange B + ticker terminando em 3,4,5,6 (ON/PN/PNA/PNB) e nao
+        terminando em "11": lote=100 (cobre 95% das stocks B3)
+
+    Casos retornando None (caller deve seguir sem validar):
+      - ticker terminado em "11" — units/BDRs variam (1, 10, 100)
+      - ticker terminado em letra (ETF? warrant?)
+      - exchange ausente ou nao-reconhecido
+
+    Args:
+      ticker: codigo do ativo (PETR4, WINFUT, IBOV11)
+      exchange: "B" stocks B3, "F" futuros B3
+
+    Returns:
+      int positivo (1, 100) ou None se nao infere com confianca.
+    """
+    if not ticker:
+        return None
+    t = ticker.strip().upper()
+    e = (exchange or "").strip().upper()
+    if e == "F":
+        return 1
+    if e == "B":
+        if t.endswith("11"):
+            return None  # units/BDRs ambiguos
+        if len(t) >= 2 and t[-1] in ("3", "4", "5", "6") and t[-2].isalpha():
+            return 100
+    return None
+
+
+def validate_order_quantity(qty: int, lot_size: int | None) -> str | None:
+    """Valida qty contra lot_size. Retorna None se OK, msg de erro se invalido.
+
+    Defesa em profundidade pre-SendOrder. Bloqueia ordens que o broker B3
+    rejeitaria silenciosamente (sem callback util) — strategy bugada manda
+    qty=20 em PETR4 (lote=100), broker descarta sem dizer nada, agent
+    fica em loop de retry de mensagem que nunca vira fill.
+
+    Args:
+      qty: quantidade da ordem (>0).
+      lot_size: tamanho do lote ou None (skip se nao da pra inferir).
+
+    Returns:
+      None se valida (qty multiplo de lot_size, ou lot_size None=skip).
+      String com msg de erro se qty nao e' multiplo positivo de lot_size.
+    """
+    if lot_size is None or lot_size <= 0:
+        return None
+    if qty <= 0:
+        return f"qty={qty} invalida (deve ser > 0)"
+    if qty % lot_size != 0:
+        return (
+            f"qty={qty} nao e' multiplo do lote={lot_size}; "
+            f"sugestao: {(qty // lot_size) * lot_size or lot_size}"
+        )
+    return None
+
+
+def should_retry_rejection(code: int, message: str | None) -> bool:
+    """Decide se uma rejeicao do trading_msg_cb deve disparar retry P1.
+
+    True quando:
+      - `code` esta em `_RETRY_REJECTION_CODES` (1,3,5,7,9,24 = NotConnected,
+        RejectedMercury, RejectedHades, RejectedBroker, RejectedMarket,
+        BlockedByRisk).
+      - `message` (case-insensitive) contem ao menos uma substring de
+        `_RETRY_BLIP_PATTERNS`.
+
+    False caso contrario (codes nao rejection-like ou message vazia/sem blip).
+
+    Smoke 04/mai descobriu o expand: pattern original era hardcoded code==3
+    + 'logado'. Broker SIM 32003 mostrou variantes (RejectedMercuryLegacy
+    code=3 mas tambem combinacoes via OrderCallback).
+
+    Args:
+      code: ResultCode do callback (TConnectorTradingMessageResultCode).
+      message: r.Message strip; pode ser None ou vazio.
+
+    Returns:
+      True se vale retry; False caso contrario.
+    """
+    if code not in _RETRY_REJECTION_CODES:
+        return False
+    if not message:
+        return False
+    msg_lower = message.lower()
+    return any(p in msg_lower for p in _RETRY_BLIP_PATTERNS)

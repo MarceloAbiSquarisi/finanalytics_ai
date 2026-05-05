@@ -161,6 +161,22 @@ def _load_env(path: str) -> None:
 
 def _setup_logging() -> None:
 
+    # Incidente 04-05/mai: chars Unicode (->, acentos) em log.* causam
+    # UnicodeEncodeError no Windows cp1252 quando StreamHandler escreve
+    # em sys.stdout/stderr capturados pelo NSSM (sem TTY). O erro cascateava
+    # via handleError -> stderr (tambem cp1252) -> derrubava threads alheias
+    # (callbacks DLL, watchdog) pois todas usam o mesmo log global.
+    # Reconfigure pra UTF-8 com errors=replace garante que NENHUM char
+    # vira exception, qualquer que seja o conteudo logado.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            # Fallback defensivo: stream pode ja estar fechado ou nao
+            # suportar reconfigure (raro em Python 3.7+ stdlib, mas
+            # NSSM em alguns ambientes redireciona via pipe customizado).
+            pass
+
     log_file = os.getenv(
         "PROFIT_LOG_FILE", r"D:\Projetos\finanalytics_ai_fresh\logs\profit_agent.log"
     )
@@ -305,12 +321,14 @@ from finanalytics_ai.workers.profit_agent_types import (  # noqa: E402, F401
     TConnectorAccountIdentifier,
     TConnectorAccountIdentifierOut,
     TConnectorAssetIdentifier,
+    TConnectorAssetIdentifierOut,
     TConnectorCancelAllOrders,
     TConnectorCancelOrder,
     TConnectorChangeOrder,
     TConnectorEnumerateOrdersProc,
     TConnectorOrder,
     TConnectorOrderIdentifier,
+    TConnectorOrderOut,
     TConnectorPriceGroup,
     TConnectorSendOrder,
     TConnectorTrade,
@@ -320,8 +338,14 @@ from finanalytics_ai.workers.profit_agent_types import (  # noqa: E402, F401
 )
 from finanalytics_ai.workers.profit_agent_validators import (  # noqa: E402
     compute_trading_result_match,
+    infer_lot_size,
+    message_has_blip_pattern,
+    parse_order_details,
+    resolve_subscribe_list,
+    should_retry_rejection,
     trail_should_immediate_trigger,
     validate_attach_oco_params as _validate_attach_oco_params,
+    validate_order_quantity,
 )
 
 # ---------------------------------------------------------------------------
@@ -468,6 +492,11 @@ class ProfitAgent:
         # (message_id é confiavelmente populado).
         self._msg_id_to_local: dict[int, int] = {}
         self._retry_lock = threading.Lock()
+        # 04/mai (broker_blip refactor): tracker de status do ultimo
+        # GetOrderDetails dispatch via order_cb. Evita re-fetch redundante
+        # quando callback dispara multiplas vezes para a mesma ordem em
+        # estado terminal. Bounded — limpa em watch_loop drop.
+        self._order_cb_last_status: dict[int, int] = {}
 
         # Contadores
 
@@ -922,18 +951,30 @@ class ProfitAgent:
         except Exception as e:
             log.warning("profit_agent.get_account_count_error e=%s", e)
 
-        # 8. Subscreve tickers - le do banco; fallback para .env se DB indisponivel
-
+        # 8. Subscreve tickers — UNION (env ∪ DB) com dedup.
+        # Fix P0 04/mai: era `if db: DB else env` — quando DB conectava
+        # mas vazio (post-restart sem seed), terminava com 0 subscriptions.
+        # Nova semantica (resolve_subscribe_list, validators.py testavel):
+        # env como seed sempre presente; DB adiciona extras. Smoke 04/mai
+        # validou: 8 tickers do env + extras do DB = 10 finais.
+        db_tickers: list[tuple[str, str]] = []
         if self._db:
-            tickers_to_subscribe = self._db.get_subscribed_tickers()
-
-            log.info("profit_agent.subscribing_from_db count=%d", len(tickers_to_subscribe))
-
-        else:
-            tickers_to_subscribe = [(t, "B") for t in self._subscribe_tickers]
-
-            log.info("profit_agent.subscribing_from_env count=%d", len(tickers_to_subscribe))
-
+            try:
+                db_tickers = list(self._db.get_subscribed_tickers() or [])
+            except Exception as exc:
+                log.warning("profit_agent.db_get_tickers_failed e=%s", exc)
+        tickers_to_subscribe = resolve_subscribe_list(
+            db_tickers=db_tickers,
+            env_tickers=self._subscribe_tickers,
+            db_connected=bool(self._db),
+        )
+        log.info(
+            "profit_agent.subscribing union=%d (env=%d db=%d connected=%s)",
+            len(tickers_to_subscribe),
+            len(self._subscribe_tickers),
+            len(db_tickers),
+            bool(self._db),
+        )
         for ticker, exchange in tickers_to_subscribe:
             self._subscribe(ticker, exchange)
 
@@ -1244,6 +1285,13 @@ class ProfitAgent:
         dll.SendZeroPositionV2.argtypes = [POINTER(TConnectorZeroPosition)]
 
         dll.SendZeroPositionV2.restype = c_int64
+
+        # GetOrderDetails: usado em order_cb para obter status+message rico
+        # quando a DLL fire callback com OrderIdentifier (24B). 2-pass pattern:
+        # 1ª chamada -> Lengths, 2ª chamada com buffers preenchidos. Ver
+        # _get_order_details(). Padrao oficial do Exemplo Python (Nelogica).
+        dll.GetOrderDetails.argtypes = [POINTER(TConnectorOrderOut)]
+        dll.GetOrderDetails.restype = c_int
 
         # ------------------------------------------------------------------
 
@@ -1825,14 +1873,23 @@ class ProfitAgent:
         # EnumerateAllOrders no scheduler a cada 5min, ou imediato via _check_levels_fill).
         #
         # Sessão 30/abr — P9 fix definitivo NÃO viável via callback:
-        # tentamos avaliar redução de latência abaixo dos 5s do _watch_pending_orders_loop
-        # mas a DLL não fornece status final via callback (order_cb só dá identifier;
-        # trading_msg_cb só dá estágios de roteamento — Accepted/Rejected, nunca
-        # FILLED/CANCELED). O teto técnico é polling. A combinação:
-        #   - _watch_pending_orders_loop @5s (resolve em 10-20s)
-        #   - _load_pending_orders_from_db no boot (cobre restart)
-        #   - cleanup_stale_pending_orders_job @23h BRT (sweep 24h+)
-        # é o estado-da-arte que a DLL permite. Não tentar callback-based fix.
+        # 04/mai (broker_blip refactor): order_cb agora chama GetOrderDetails
+        # (2-pass pattern do Exemplo Python Nelogica) para extrair status +
+        # text_message ricos. Isso resolve 3 problemas observados em smoke
+        # 04/mai:
+        #
+        # (a) trading_msg_cb nao recebia callback de rejeicao "Cliente nao
+        #     esta logado" sob flapping — order_cb sim, mas so com
+        #     OrderIdentifier (24B). Agora extraimos o motivo via DLL.
+        # (b) error_message ficava NULL no DB — agora populamos imediato.
+        # (c) detectar status=8 via callback elimina a latencia de polling
+        #     (era 1-5s no _watch_pending_orders_loop).
+        #
+        # Comentario velho dizia "O teto tecnico e polling — nao tentar
+        # callback-based fix". Estava errado: o Exemplo Python da Nelogica
+        # faz exatamente isso em printOrder() (main.py:164-192), e o Exemplo
+        # Delphi tambem (CallbackHandlerU.pas:366-401). GetOrderDetails e'
+        # read-only e thread-safe, conforme padrao oficial.
 
         @WINFUNCTYPE(None, POINTER(TConnectorOrderIdentifier))
         def order_cb(oid_ptr) -> None:
@@ -1856,7 +1913,6 @@ class ProfitAgent:
                     )
 
                 # Update incremental no DB: cl_ord_id (caso ainda NULL — bug P2 mitigation).
-                # Status/qty serão atualizados pelo reconcile_loop via EnumerateAllOrders.
                 if local_id > 0 and cl_ord:
                     agent._db_queue.put_nowait(
                         {
@@ -1865,6 +1921,67 @@ class ProfitAgent:
                             "cl_ord_id": cl_ord,
                         }
                     )
+
+                # Fetch full details (status + message + qty rich). Skip se
+                # local_id <= 0 (order ainda nao firmado) ou se ja resolvemos
+                # esta ordem em estado terminal recentemente.
+                if local_id <= 0:
+                    return
+                last_status = agent._order_cb_last_status.get(local_id)
+                if last_status in (2, 4, 8):
+                    # Estado terminal ja registrado — segundo callback redundante
+                    return
+                details = agent._get_order_details(oid)
+                if details is None:
+                    return
+                status = int(details.get("order_status", 0))
+                msg = details.get("text_message", "") or ""
+                # Persist no DB queue: status + message + qty atualizados
+                agent._db_queue.put_nowait(
+                    {
+                        "_type": "order_status_update",
+                        "local_order_id": local_id,
+                        "order_status": status,
+                        "error_message": msg if msg else None,
+                        "traded_qty": details.get("traded_qty", 0),
+                        "leaves_qty": details.get("leaves_qty", 0),
+                        "avg_price": details.get("avg_price"),
+                    }
+                )
+                agent._order_cb_last_status[local_id] = status
+
+                # Log transicao (status mudou)
+                if last_status != status:
+                    log.info(
+                        "order_status local_id=%d cl_ord=%s status=%d msg=%s",
+                        local_id,
+                        cl_ord,
+                        status,
+                        msg[:80] if msg else "-",
+                    )
+
+                # Trigger retry IMMEDIATE quando rejeitada por blip (sem Timer
+                # de 1.5s — order_cb dispara no momento exato da rejeicao).
+                # Pattern matching unificado em validators.message_has_blip_pattern
+                # (trading_msg_cb usa should_retry_rejection que tambem filtra code).
+                if status == 8 and message_has_blip_pattern(msg):
+                        with agent._retry_lock:
+                            entry = agent._retry_params.get(local_id)
+                            already = bool(
+                                entry and entry.get("retry_started")
+                            )
+                        if entry and not already:
+                            log.info(
+                                "order_cb.retry_immediate local_id=%d msg=%s",
+                                local_id,
+                                msg[:60],
+                            )
+                            t = threading.Thread(
+                                target=agent._retry_rejected_order,
+                                args=(local_id,),
+                                daemon=True,
+                            )
+                            t.start()
 
             except queue.Full:
                 pass
@@ -1920,28 +2037,49 @@ class ProfitAgent:
             except queue.Full:
                 pass
 
-            # P1 (28/abr): trigger retry quando broker rejeita por blip de auth.
-            # OrderCallback recebe dados corrompidos (struct layout); TradingMessage
-            # é mais confiavel mas r.OrderID.LocalOrderID as vezes vem 0 — usamos
-            # fallback via _msg_id_to_local mapeado em _send_order_legacy.
-            # Match: code=3 (rejeicao) AND msg contem "Cliente n"/"logado".
-            if code == 3 and ("Cliente n" in msg_text or "logado" in msg_text.lower()):
+            # P1 (28/abr, expandido 04/mai): trigger retry quando broker rejeita
+            # por blip de auth. OrderCallback recebe dados corrompidos (struct
+            # layout); TradingMessage é mais confiavel mas r.OrderID.LocalOrderID
+            # as vezes vem 0 — usamos fallback via _msg_id_to_local mapeado em
+            # _send_order_legacy.
+            #
+            # 04/mai: SIM 32003 mostrou que rejeicao "Cliente nao esta logado"
+            # pode chegar em qualquer code mapeado para status=8 (ex.:
+            # RejectedMercury=3, RejectedBroker=7, RejectedMercuryLegacy etc).
+            # Decisao em should_retry_rejection (validators.py, testavel
+            # isoladamente sem ctypes).
+            if should_retry_rejection(code, msg_text):
                 rejected_id = r.OrderID.LocalOrderID
                 if rejected_id <= 0:
                     rejected_id = agent._msg_id_to_local.get(r.MessageID, 0)
                 if rejected_id > 0:
-                    t = threading.Timer(5.0, agent._retry_rejected_order, args=(rejected_id,))
+                    # Refactor 04/mai: delay tunavel via env para reagir
+                    # rapido a flapping tipico (1-2s por ciclo crDisconnected).
+                    try:
+                        retry_delay = float(
+                            os.environ.get("PROFIT_RETRY_DELAY_SEC", "1.5")
+                        )
+                    except (TypeError, ValueError):
+                        retry_delay = 1.5
+                    t = threading.Timer(
+                        retry_delay,
+                        agent._retry_rejected_order,
+                        args=(rejected_id,),
+                    )
                     t.daemon = True
                     t.start()
                     log.info(
-                        "retry_scheduled local_id=%d msg_id=%d delay=5s reason=broker_auth_blip",
+                        "retry_scheduled local_id=%d msg_id=%d code=%d delay=%.1fs reason=broker_auth_blip",
                         rejected_id,
                         r.MessageID,
+                        code,
+                        retry_delay,
                     )
                 else:
                     log.warning(
-                        "retry_skipped no_local_id msg_id=%d (struct: %d, fallback miss)",
+                        "retry_skipped no_local_id msg_id=%d code=%d (struct: %d, fallback miss)",
                         r.MessageID,
+                        code,
                         r.OrderID.LocalOrderID,
                     )
 
@@ -2205,6 +2343,34 @@ class ProfitAgent:
                         (item["cl_ord_id"], item["local_order_id"]),
                     )
 
+                elif t == "order_status_update":
+                    # 04/mai (broker_blip refactor): order_cb agora chama
+                    # GetOrderDetails e dispatch este update com status +
+                    # message + qty rich. Substitui parcialmente o
+                    # reconcile_loop (que continua rodando como defesa em
+                    # profundidade). UPDATE so aplicado se status atual nao
+                    # for terminal (evita rebobinar Filled→Rejected).
+                    error_msg = item.get("error_message")
+                    self._db.execute(
+                        "UPDATE profit_orders SET "
+                        "  order_status = %s,"
+                        "  error_message = COALESCE(NULLIF(%s, ''), error_message),"
+                        "  traded_qty = %s,"
+                        "  leaves_qty = %s,"
+                        "  avg_price = COALESCE(%s, avg_price),"
+                        "  updated_at = NOW() "
+                        "WHERE local_order_id = %s "
+                        "  AND order_status NOT IN (2, 4, 8)",
+                        (
+                            item["order_status"],
+                            error_msg,
+                            item.get("traded_qty", 0),
+                            item.get("leaves_qty", 0),
+                            item.get("avg_price"),
+                            item["local_order_id"],
+                        ),
+                    )
+
             except Exception as e:
                 log.warning("db_worker.error type=%s error=%s", item.get("_type"), e)
 
@@ -2450,6 +2616,30 @@ class ProfitAgent:
         if not ticker or qty <= 0:
             return {"ok": False, "error": "ticker e quantity sao obrigatorios"}
 
+        # Defesa em profundidade: bloqueia qty fora do lote ANTES do SendOrder.
+        # Smoke 04/mai: strategy mandou PETR4 qty=20 (lote=100), broker
+        # rejeitou silenciosamente, agent ficou em loop de 5 retries inuteis.
+        # Aceita lot_size explicito do payload (caminho do dispatcher) ou
+        # infere por heuristica B3 conservadora. Sem confianca = passa.
+        lot_size_in = params.get("lot_size")
+        try:
+            lot_size = int(lot_size_in) if lot_size_in is not None else None
+        except (TypeError, ValueError):
+            lot_size = None
+        if lot_size is None or lot_size <= 0:
+            lot_size = infer_lot_size(ticker, exchange)
+        qty_err = validate_order_quantity(qty, lot_size)
+        if qty_err:
+            log.warning(
+                "order.rejected_lot_size ticker=%s exchange=%s qty=%d lot=%s err=%s",
+                ticker,
+                exchange,
+                qty,
+                lot_size,
+                qty_err,
+            )
+            return {"ok": False, "error": qty_err}
+
         # Resolve alias de futuros (WDOFUT/WINFUT → contrato vigente).
         # DLL aceita o alias para market data mas rejeita ("Ordem inválida")
         # quando usado em SendOrder — broker exige o código mensal específico.
@@ -2596,30 +2786,93 @@ class ProfitAgent:
             resp["cl_ord_id"] = cl_ord_echo
         return resp
 
-    def _retry_rejected_order(self, old_local_id: int) -> None:
-        """P1 (28/abr): re-envia ordem rejeitada pelo broker com 'Cliente não logado'
-        (OrderStatus=204). Padrão validado no log Delphi: broker derruba subconnection,
-        reconecta, ordem é reenviada com novo local_id e fillou normalmente.
+    def _get_order_details(
+        self, order_identifier: TConnectorOrderIdentifier
+    ) -> dict | None:
+        """Fetch full order details via DLL.GetOrderDetails (2-pass).
 
-        Aguarda routing reconectar (até 30s) antes de re-enviar. Max 3 attempts total.
+        Pattern oficial Exemplo Python Nelogica:
+          1. 1ª chamada: DLL preenche TickerLength/ExchangeLength/TextMessageLength.
+          2. Pre-aloca buffers (`' ' * length`) em Ticker/Exchange/TextMessage.
+          3. 2ª chamada: DLL preenche os buffers com strings reais.
+
+        Retorna dict com campos relevantes (ticker, status, message, prices...) ou
+        None se DLL retornar erro. Ignora silenciosamente erros (chamado de dentro
+        de callback — nao quer levantar exception).
+
+        Thread-safety: GetOrderDetails e read-only no estado da DLL; pode ser
+        chamado de OrderCallback ConnectorThread. Padrao validado pelo
+        Exemplo Python da Nelogica que faz exatamente isso em printOrder().
         """
+        if not self._dll:
+            return None
+        try:
+            order = TConnectorOrderOut(Version=0)
+            order.OrderID = order_identifier
+            ret = self._dll.GetOrderDetails(byref(order))
+            if ret != 0:
+                return None
+            order.AssetID.Ticker = " " * max(1, order.AssetID.TickerLength)
+            order.AssetID.Exchange = " " * max(1, order.AssetID.ExchangeLength)
+            order.TextMessage = " " * max(1, order.TextMessageLength)
+            ret = self._dll.GetOrderDetails(byref(order))
+            if ret != 0:
+                return None
+            # Parsing extraido para parse_order_details (validators.py,
+            # testavel sem ctypes/DLL). 04/mai P1 refactor 3/3.
+            return parse_order_details(order)
+        except Exception:
+            return None
+
+    def _retry_rejected_order(self, old_local_id: int) -> None:
+        """P1 (28/abr, expandido 04/mai): re-envia ordem rejeitada pelo broker
+        com 'Cliente nao logado' (OrderStatus=204). Padrao validado no log Delphi:
+        broker derruba subconnection, reconecta, ordem e' reenviada com novo
+        local_id e fillou normalmente.
+
+        Aguarda routing reconectar antes de re-enviar. Tunable via env:
+          PROFIT_RETRY_MAX_ATTEMPTS (default 5)
+          PROFIT_RETRY_ROUTING_WAIT_SEC (default 10) — antes era 30 (sessao
+            limpeza profunda) — flapping tipico recupera em 1-3s
+          PROFIT_RETRY_ROUTING_POLL_SEC (default 0.25) — granularidade do wait
+        """
+        try:
+            max_attempts = int(os.environ.get("PROFIT_RETRY_MAX_ATTEMPTS", "5"))
+        except (TypeError, ValueError):
+            max_attempts = 5
+        try:
+            routing_wait = float(os.environ.get("PROFIT_RETRY_ROUTING_WAIT_SEC", "10"))
+        except (TypeError, ValueError):
+            routing_wait = 10.0
+        try:
+            routing_poll = float(os.environ.get("PROFIT_RETRY_ROUTING_POLL_SEC", "0.25"))
+        except (TypeError, ValueError):
+            routing_poll = 0.25
+
         with self._retry_lock:
             entry = self._retry_params.get(old_local_id)
             if entry and not entry.get("retry_started"):
                 entry["retry_started"] = True
             else:
-                # Sem entry OU já em retry — skip (idempotente: trading_msg pode disparar 2x)
+                # Sem entry OU ja em retry — skip (idempotente: trading_msg pode disparar 2x)
                 return
         attempts = entry.get("attempts", 1)
-        if attempts >= 3:
-            log.warning("retry_aborted local_id=%d max_attempts=%d", old_local_id, attempts)
+        if attempts >= max_attempts:
+            log.warning(
+                "retry_aborted local_id=%d max_attempts=%d", old_local_id, attempts
+            )
             return
-        # Aguarda routing reconectar (até 30s — pattern Delphi: ~5-10s tipico)
-        deadline = time.time() + 30.0
+        # Aguarda routing reconectar (poll mais granular para responder rapido
+        # apos reconexao). Pattern Delphi: 1-3s tipico em pregao normal.
+        deadline = time.time() + routing_wait
         while time.time() < deadline and not self._routing_ok:
-            time.sleep(1.0)
+            time.sleep(routing_poll)
         if not self._routing_ok:
-            log.warning("retry_aborted local_id=%d routing_offline_30s", old_local_id)
+            log.warning(
+                "retry_aborted local_id=%d routing_offline_%.0fs",
+                old_local_id,
+                routing_wait,
+            )
             return
         # Re-enviar — _send_order_legacy criará novo entry em _retry_params com attempts=1
         # então sobrescrevemos para acumular o counter herdado.
@@ -3483,6 +3736,16 @@ class ProfitAgent:
             "stop_loss": sl_info,
         }
 
+    def _load_pending_orders_from_db(self, *args, **kwargs):
+        from finanalytics_ai.workers.profit_agent_watch import load_pending_orders_from_db
+
+        return load_pending_orders_from_db(self, *args, **kwargs)
+
+    def _watch_pending_orders_loop(self, *args, **kwargs):
+        from finanalytics_ai.workers.profit_agent_watch import watch_pending_orders_loop
+
+        return watch_pending_orders_loop(self, *args, **kwargs)
+
     def _load_oco_legacy_pairs_from_db(self, *args, **kwargs):
         from finanalytics_ai.workers.profit_agent_oco import load_oco_legacy_pairs_from_db
 
@@ -4048,7 +4311,7 @@ class ProfitAgent:
             )
 
             if progress >= 100:
-                log.info("collect_history progress=100 → done total=%d", len(ticks))
+                log.info("collect_history progress=100 done total=%d", len(ticks))
 
                 done.set()
 
@@ -4098,13 +4361,13 @@ class ProfitAgent:
         if orig_trade_v2:
             self._dll.SetTradeCallbackV2(_cb_v2)
 
-            log.info("collect_history SetTradeCallbackV2 substituído")
+            log.info("collect_history SetTradeCallbackV2 replaced")
 
         # V1 — intercepta pos 8 (KEY: é aqui que o DLL entrega histórico)
 
         self._dll.SetTradeCallback(_cb_v1)
 
-        log.info("collect_history SetTradeCallback(V1) substituído")
+        log.info("collect_history SetTradeCallback(V1) replaced")
 
         # Progress — detecta fim do histórico V1
 
@@ -4114,7 +4377,7 @@ class ProfitAgent:
 
         # ── GetHistoryTrades ──────────────────────────────────────────────────
 
-        log.info("collect_history GetHistoryTrades ticker=%s %s→%s", ticker, dt_start, dt_end)
+        log.info("collect_history GetHistoryTrades ticker=%s %s->%s", ticker, dt_start, dt_end)
 
         ret = self._dll.GetHistoryTrades(
             c_wchar_p(ticker),

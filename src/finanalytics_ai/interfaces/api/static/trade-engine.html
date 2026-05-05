@@ -124,6 +124,8 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
     <button class="tab" data-panel="events">Engine Events</button>
     <button class="tab" data-panel="backtests">Backtests</button>
     <button class="tab" data-panel="strategies">Estratégias</button>
+    <button class="tab" data-panel="validate">Validate</button>
+    <button class="tab" data-panel="execution">Execution</button>
   </div>
 
   <!-- ORDERS -->
@@ -180,6 +182,137 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
       <span style="font-size:11px;color:var(--muted);margin-left:auto">Catálogo populado por <code>tools/dump_strategies_catalog.py</code> no trading-engine</span>
     </div>
     <div class="strat-grid" id="strat-grid"></div>
+  </div>
+
+  <!-- VALIDATE (DAYTRADE_EVALUATION §2.1) -->
+  <div class="panel" id="panel-validate">
+    <div style="background:rgba(58,191,248,.06);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;font-size:13px;color:var(--white);font-family:'DM Mono',monospace">
+      Pipeline §2.1: Backtest IS + Walk-Forward + Robustez paramétrica.
+      Critérios em <code>DAYTRADE_EVALUATION.md §2.1</code>. Verdict: REJECT |
+      WFA | Paper. <strong>Pode levar minutos</strong> (WFA + sweep paramétrico).
+    </div>
+    <div class="controls" style="flex-wrap:wrap;align-items:flex-end">
+      <div><div style="font-size:11px;color:var(--muted);margin-bottom:3px">Strategy</div>
+        <select id="val-strategy" style="width:200px">
+          <option value="linha_dagua">linha_dagua</option>
+          <option value="gap_classico">gap_classico</option>
+          <option value="inside_bar_pullback">inside_bar_pullback</option>
+        </select>
+      </div>
+      <div><div style="font-size:11px;color:var(--muted);margin-bottom:3px">Symbol</div>
+        <select id="val-symbol" style="width:120px">
+          <option value="WINFUT">WINFUT</option>
+          <option value="WDOFUT">WDOFUT</option>
+        </select>
+      </div>
+      <div><div style="font-size:11px;color:var(--muted);margin-bottom:3px">Timeframe</div>
+        <select id="val-tf" style="width:80px">
+          <option value="10m" selected>10m</option>
+          <option value="1m">1m</option>
+          <option value="5m">5m</option>
+          <option value="15m">15m</option>
+          <option value="60m">60m</option>
+        </select>
+      </div>
+      <div><div style="font-size:11px;color:var(--muted);margin-bottom:3px">IS from</div>
+        <input type="datetime-local" id="val-is-from" style="width:170px">
+      </div>
+      <div><div style="font-size:11px;color:var(--muted);margin-bottom:3px">IS to</div>
+        <input type="datetime-local" id="val-is-to" style="width:170px">
+      </div>
+      <div><div style="font-size:11px;color:var(--muted);margin-bottom:3px">N folds WFA</div>
+        <select id="val-nfolds" style="width:70px">
+          <option value="0">0</option>
+          <option value="3" selected>3</option>
+          <option value="6">6</option>
+        </select>
+      </div>
+      <div><div style="font-size:11px;color:var(--muted);margin-bottom:3px">Heatmap A (opcional)</div>
+        <input type="text" id="val-heatmap-a" placeholder="ex: ema_period" style="width:140px">
+      </div>
+      <div><div style="font-size:11px;color:var(--muted);margin-bottom:3px">Heatmap B (opcional)</div>
+        <input type="text" id="val-heatmap-b" placeholder="ex: target_rr" style="width:140px">
+      </div>
+      <button class="btn" onclick="submitValidation()">Validar</button>
+      <span id="val-progress" style="font-size:12px;color:var(--gold);font-family:'DM Mono',monospace"></span>
+    </div>
+
+    <div id="val-verdict" style="display:none;margin-bottom:14px"></div>
+    <div id="val-heatmap-wrap" style="display:none;margin-bottom:14px">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-family:'DM Mono',monospace">HEATMAP 2D (Sharpe por factor a × b — buscar platôs)</div>
+      <canvas id="val-heatmap-chart" height="180"></canvas>
+    </div>
+
+    <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:14px;margin-bottom:14px">
+      <div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-family:'DM Mono',monospace">VERDICT MARKDOWN</div>
+        <div id="val-markdown" style="background:#0a1220;border:1px solid var(--border);border-radius:8px;padding:14px;font-family:'DM Mono',monospace;font-size:12px;color:var(--white);min-height:240px;max-height:600px;overflow-y:auto;white-space:pre-wrap"></div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-family:'DM Mono',monospace">RUNS RECENTES</div>
+        <div class="tbl-wrap"><table class="tbl" id="val-recent-tbl">
+          <thead><tr><th>Created</th><th>Strategy</th><th>Status</th><th>Verdict</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXECUTION QUALITY (S3 do roadmap DAYTRADE) -->
+  <div class="panel" id="panel-execution">
+    <div style="background:rgba(58,191,248,.06);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;font-size:13px;color:var(--white);font-family:'DM Mono',monospace">
+      Latência de execução, slippage realizado e snapshots rolling do
+      <code>monitoring_worker</code> (cron diário). Critérios em
+      <code>DAYTRADE_EVALUATION.md §5.6 + §7</code>.
+    </div>
+    <div class="controls" style="flex-wrap:wrap;align-items:flex-end">
+      <div><div style="font-size:11px;color:var(--muted);margin-bottom:3px">Strategy</div>
+        <select id="exec-strategy" style="width:200px">
+          <option value="linha_dagua">linha_dagua</option>
+          <option value="gap_classico">gap_classico</option>
+          <option value="inside_bar_pullback">inside_bar_pullback</option>
+        </select>
+      </div>
+      <div><div style="font-size:11px;color:var(--muted);margin-bottom:3px">Janela</div>
+        <select id="exec-days" style="width:100px">
+          <option value="7">7d</option>
+          <option value="30">30d</option>
+          <option value="60" selected>60d</option>
+          <option value="180">180d</option>
+        </select>
+      </div>
+      <button class="btn" onclick="loadExecution()">Atualizar</button>
+      <span id="exec-empty" style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace"></span>
+    </div>
+
+    <div class="kpi-row" id="exec-kpis"></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+      <div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-family:'DM Mono',monospace">ROLLING SHARPE 60d</div>
+        <canvas id="exec-rolling-sharpe" height="160"></canvas>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-family:'DM Mono',monospace">DRAWDOWN ATUAL × HISTÓRICO (%)</div>
+        <canvas id="exec-drawdown" height="160"></canvas>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+      <div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-family:'DM Mono',monospace">SLIPPAGE MÉDIO POR HORA (BRT)</div>
+        <canvas id="exec-slippage-by-hour" height="160"></canvas>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-family:'DM Mono',monospace">DISTRIBUTION DRIFT P-VALUE</div>
+        <canvas id="exec-drift" height="160"></canvas>
+      </div>
+    </div>
+
+    <div style="font-size:12px;color:var(--muted);margin:8px 0 6px;font-family:'DM Mono',monospace">ALERTS RECENTES</div>
+    <div class="tbl-wrap"><table class="tbl" id="exec-alerts-tbl">
+      <thead><tr><th>Date</th><th>Severity</th><th>Name</th><th>Message</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
   </div>
 
   <!-- BACKTESTS -->
@@ -388,6 +521,39 @@ async function openBacktestDetail(runId){
     var data=await authFetch('/api/v1/trading-engine/backtests/'+encodeURIComponent(runId));
     document.getElementById('bt-detail-title').textContent=data.strategy+' / '+data.symbol+' ('+(data.timeframe||'')+')';
     var win=fmtTs(data.from_ts)+' → '+fmtTs(data.to_ts);
+    var advHtml='';
+    if(data.advanced){
+      var a=data.advanced;
+      advHtml='<div style="font-size:11px;color:var(--muted);margin:14px 0 6px;font-family:DM Mono,monospace;letter-spacing:.06em">DAYTRADE_EVALUATION §3-4</div>'+
+        '<div class="kpi-row">'+
+          '<div class="kpi-card"><div class="kpi-label">Expectancy R$</div><div class="kpi-value '+((a.expectancy_brl||0)>=0?'kv-pos':'kv-neg')+'">'+fmtNum(a.expectancy_brl,2)+'</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">Sortino</div><div class="kpi-value kv-blue">'+fmtNum(a.sortino,3)+'</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">Ulcer Index</div><div class="kpi-value kv-neg">'+fmtNum(a.ulcer_index,3)+'</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">UPI</div><div class="kpi-value kv-blue">'+fmtNum(a.ulcer_performance_index,3)+'</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">SQN</div><div class="kpi-value kv-gold">'+fmtNum(a.sqn,3)+'</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">K-Ratio</div><div class="kpi-value kv-gold">'+fmtNum(a.k_ratio,2)+'</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">Tail Ratio</div><div class="kpi-value">'+fmtNum(a.tail_ratio,3)+'</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">PRR</div><div class="kpi-value">'+fmtNum(a.pessimistic_return_ratio,3)+'</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">Top10 PnL %</div><div class="kpi-value '+((a.pnl_concentration_top10||0)>0.6?'kv-neg':'')+'">'+fmtNum((a.pnl_concentration_top10||0)*100,1)+'%</div></div>'+
+        '</div>';
+    }
+    var dsr=data.deflated_sharpe;
+    var roc=data.roc_auc;
+    var statHtml='';
+    if(dsr||roc){
+      statHtml='<div style="font-size:11px;color:var(--muted);margin:8px 0 6px;font-family:DM Mono,monospace;letter-spacing:.06em">DSR + ROC/AUC</div>'+
+        '<div class="kpi-row">';
+      if(dsr){
+        var pr=Number(dsr.prob_real||0);
+        var prClr=pr>=0.95?'kv-pos':(pr>=0.5?'kv-gold':'kv-neg');
+        statHtml+='<div class="kpi-card"><div class="kpi-label">DSR prob_real</div><div class="kpi-value '+prClr+'">'+fmtNum(pr*100,1)+'%</div></div>';
+        statHtml+='<div class="kpi-card"><div class="kpi-label">DSR Sharpe</div><div class="kpi-value">'+fmtNum(dsr.deflated_sharpe,3)+'</div></div>';
+      }
+      if(roc&&roc.auc!==null){
+        statHtml+='<div class="kpi-card"><div class="kpi-label">ROC AUC</div><div class="kpi-value kv-blue">'+fmtNum(roc.auc,3)+'</div></div>';
+      }
+      statHtml+='</div>';
+    }
     document.getElementById('bt-detail-content').innerHTML=
       '<div class="kpi-row">'+
         '<div class="kpi-card"><div class="kpi-label">PnL</div><div class="kpi-value '+((Number(data.pnl_total)||0)>=0?'kv-pos':'kv-neg')+'">'+fmtNum(data.pnl_total,2)+'</div></div>'+
@@ -399,9 +565,11 @@ async function openBacktestDetail(runId){
         '<div class="kpi-card"><div class="kpi-label">Trades</div><div class="kpi-value">'+(data.n_trades||0)+'</div></div>'+
         '<div class="kpi-card"><div class="kpi-label">Hit Rate</div><div class="kpi-value">'+fmtNum((data.hit_rate||0)*100,1)+'%</div></div>'+
       '</div>'+
+      advHtml+
+      statHtml+
       '<div style="font-family:DM Mono,monospace;font-size:12px;color:var(--muted);margin-bottom:8px">window: '+win+'</div>'+
       '<div style="font-family:DM Mono,monospace;font-size:12px;color:var(--muted);margin-bottom:14px">git: '+(data.git_sha||'dirty')+' · run_id: '+data.run_id+' · '+(data.duration_ms||0)+'ms</div>'+
-      '<details style="font-family:DM Mono,monospace;font-size:12px"><summary style="cursor:pointer;color:var(--blue)">Params</summary><pre style="background:#0a1220;padding:10px;border-radius:6px;overflow-x:auto;margin-top:6px">'+JSON.stringify(data.params_json,null,2)+'</pre></details>';
+      '<details style="font-family:DM Mono,monospace;font-size:12px"><summary style="cursor:pointer;color:var(--blue)">Params</summary><pre style="background:#0a1220;padding:10px;border-radius:6px;overflow-x:auto;margin-top:6px">'+JSON.stringify(data.params||data.params_json,null,2)+'</pre></details>';
     var curve=data.equity_curve||[];
     var labels=curve.map(function(p){return p[0].split('T')[0]});
     var values=curve.map(function(p){return Number(p[1])});
@@ -411,6 +579,288 @@ async function openBacktestDetail(runId){
   }catch(e){}
 }
 function closeBacktestDetail(){document.getElementById('bt-detail-modal').classList.remove('show');}
+
+// ─── Validate (DAYTRADE_EVALUATION §2.1) ─────────────────────────────────
+function buildWfaWindows(isFromIso, isToIso, nFolds){
+  if(nFolds<=0) return [];
+  var fromMs=Date.parse(isFromIso);
+  var toMs=Date.parse(isToIso);
+  var totalMs=toMs-fromMs;
+  if(totalMs<=0||!isFinite(totalMs)) return [];
+  // Folds são train (75%) + test (25%) deslizando 25% cada step
+  var trainMs=totalMs*0.75;
+  var testMs=totalMs*0.25;
+  var stepMs=testMs;
+  var out=[];
+  for(var i=0;i<nFolds;i++){
+    var trainFrom=fromMs+i*stepMs;
+    var trainTo=trainFrom+trainMs;
+    var testFrom=trainTo;
+    var testTo=testFrom+testMs;
+    if(testTo>fromMs+totalMs+stepMs) break;
+    out.push([
+      new Date(trainFrom).toISOString(),
+      new Date(trainTo).toISOString(),
+      new Date(testFrom).toISOString(),
+      new Date(testTo).toISOString(),
+    ]);
+  }
+  return out;
+}
+
+function renderVerdict(verdictResp){
+  var ok=verdictResp.overall_passes;
+  var target=verdictResp.promotion_target;
+  var icon=ok?'✅':'❌';
+  var color=ok?'var(--green)':(target==='REJECT'?'var(--red)':'var(--gold)');
+  var bgRgb=ok?'0,230,118':(target==='REJECT'?'255,61,90':'240,180,41');
+  var html=
+    '<div style="background:rgba('+bgRgb+',.08);border:1px solid '+color+';border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">'+
+      '<div style="font-size:18px;font-weight:800;font-family:DM Mono,monospace">'+
+        icon+' overall_passes: <span style="color:'+color+'">'+(ok?'true':'false')+'</span>'+
+      '</div>'+
+      '<div style="font-size:13px;font-family:DM Mono,monospace;color:'+color+'">'+
+        'próximo destino: <strong>'+target+'</strong>'+
+      '</div>'+
+      '<div style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace">'+
+        'duração: '+(verdictResp.duration_ms||0)+'ms'+
+      '</div>'+
+    '</div>';
+  document.getElementById('val-verdict').innerHTML=html;
+  document.getElementById('val-verdict').style.display='block';
+  document.getElementById('val-markdown').textContent=verdictResp.markdown||'(sem markdown)';
+}
+
+async function submitValidation(){
+  var btn=document.querySelector('#panel-validate .btn');
+  var prog=document.getElementById('val-progress');
+  var strategy=document.getElementById('val-strategy').value;
+  var symbol=document.getElementById('val-symbol').value;
+  var tf=document.getElementById('val-tf').value;
+  var isFrom=document.getElementById('val-is-from').value;
+  var isTo=document.getElementById('val-is-to').value;
+  var nFolds=parseInt(document.getElementById('val-nfolds').value,10);
+  if(!isFrom||!isTo){alert('Preencha IS from + IS to');return;}
+  // datetime-local não inclui TZ; assume local → ISO
+  var isFromIso=new Date(isFrom).toISOString();
+  var isToIso=new Date(isTo).toISOString();
+  var wfaWindows=buildWfaWindows(isFromIso,isToIso,nFolds);
+  var heatA=document.getElementById('val-heatmap-a').value.trim();
+  var heatB=document.getElementById('val-heatmap-b').value.trim();
+  var payload={
+    strategy:strategy, symbol:symbol, timeframe:tf,
+    is_from:isFromIso, is_to:isToIso,
+    wfa_windows:wfaWindows,
+    sweep_factors:[0.8,0.9,1.1,1.2],
+  };
+  if(heatA && heatB){
+    payload.heatmap_field_a=heatA;
+    payload.heatmap_field_b=heatB;
+  }
+  btn.disabled=true;
+  prog.textContent='rodando pipeline (pode levar minutos)...';
+  document.getElementById('val-verdict').style.display='none';
+  document.getElementById('val-markdown').textContent='';
+  try{
+    var token=localStorage.getItem('access_token');
+    var headers={'Content-Type':'application/json'};
+    if(token) headers['Authorization']='Bearer '+token;
+    var resp=await fetch('/api/v1/trading-engine/validation-runs',{
+      method:'POST', headers:headers, body:JSON.stringify(payload),
+    });
+    if(!resp.ok){
+      var errTxt=await resp.text();
+      throw new Error('HTTP '+resp.status+': '+errTxt);
+    }
+    var data=await resp.json();
+    renderVerdict(data);
+    if(data.verdict&&data.verdict.heatmap){renderHeatmap(data.verdict.heatmap);}
+    loadValidationRecent();
+  }catch(e){
+    document.getElementById('val-verdict').innerHTML=
+      '<div style="background:rgba(255,61,90,.1);border:1px solid var(--red);color:var(--red);padding:10px 14px;border-radius:8px;font-family:DM Mono,monospace;font-size:13px">erro: '+(e.message||e)+'</div>';
+    document.getElementById('val-verdict').style.display='block';
+  }finally{
+    btn.disabled=false;
+    prog.textContent='';
+  }
+}
+
+async function loadValidationRecent(){
+  try{
+    var data=await authFetch('/api/v1/trading-engine/validation-runs?limit=20');
+    var rows=(data.items||[]).map(function(r){
+      var ok=r.overall_passes;
+      var statusClr=ok===true?'kv-pos':(ok===false?'kv-neg':'kv-blue');
+      return '<tr class="clickable" onclick="loadValidationDetail(\''+r.run_id+'\')">'+
+        '<td>'+(r.created_at||'').slice(0,19).replace('T',' ')+'</td>'+
+        '<td>'+(r.strategy||'')+'</td>'+
+        '<td><span class="status-'+(r.status||'')+'">'+(r.status||'')+'</span></td>'+
+        '<td class="'+statusClr+'">'+(r.promotion_target||'-')+'</td>'+
+      '</tr>';
+    }).join('');
+    document.querySelector('#val-recent-tbl tbody').innerHTML=rows||'<tr><td colspan="4" class="empty">Sem runs</td></tr>';
+  }catch(e){}
+}
+
+async function loadValidationDetail(runId){
+  try{
+    var data=await authFetch('/api/v1/trading-engine/validation-runs/'+encodeURIComponent(runId));
+    if(data.status==='COMPLETED'&&data.verdict_json){
+      renderVerdict({
+        overall_passes:data.overall_passes,
+        promotion_target:data.promotion_target,
+        duration_ms:data.duration_ms,
+        markdown:data.markdown_text||'',
+      });
+    }else if(data.status==='FAILED'){
+      document.getElementById('val-verdict').innerHTML=
+        '<div style="background:rgba(255,61,90,.1);border:1px solid var(--red);color:var(--red);padding:10px 14px;border-radius:8px;font-family:DM Mono,monospace;font-size:13px">FAILED: '+(data.error_msg||'')+'</div>';
+      document.getElementById('val-verdict').style.display='block';
+      document.getElementById('val-markdown').textContent='';
+    }else{
+      document.getElementById('val-markdown').textContent='Status: '+data.status;
+    }
+  }catch(e){}
+}
+
+// ─── Heatmap render (Chart.js bubble — tamanho ∝ |Sharpe|, cor ∝ sinal) ──
+var valHeatChart=null;
+function renderHeatmap(h){
+  var wrap=document.getElementById('val-heatmap-wrap');
+  var canvas=document.getElementById('val-heatmap-chart');
+  if(!h || !h.cells || !h.cells.length){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  // Mapeia cells em bubble dataset; cor verde p/ Sharpe positivo, vermelho negativo, cinza p/ NaN
+  var data=h.cells.map(function(c){
+    var s=c.sharpe;
+    var color=(s==null||isNaN(s))?'rgba(120,120,120,.5)':
+              (s>=1.0?'rgba(0,230,118,.7)':(s>=0?'rgba(240,180,41,.7)':'rgba(255,61,90,.7)'));
+    var radius=Math.min(28, Math.max(6, Math.abs(s||0)*8+4));
+    return {x:c.factor_a, y:c.factor_b, r:radius, sharpe:s, n:c.n_trades,
+            backgroundColor:color, borderColor:color};
+  });
+  if(valHeatChart) valHeatChart.destroy();
+  valHeatChart=new Chart(canvas,{
+    type:'bubble',
+    data:{datasets:[{label:'Sharpe(factor_a × factor_b)', data:data,
+                     parsing:false, backgroundColor:data.map(function(d){return d.backgroundColor})}]},
+    options:{
+      responsive:true, plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:function(ctx){
+          var d=ctx.raw; return 'fa='+d.x+' fb='+d.y+' Sharpe='+(d.sharpe==null?'NaN':d.sharpe.toFixed(3))+' n='+d.n;
+        }}},
+        title:{display:true,text:h.field_a+' (x) × '+h.field_b+' (y)',color:'#7a95b0',font:{size:12}}
+      },
+      scales:{
+        x:{title:{display:true,text:'factor_a',color:'#4a6a8a'},ticks:{color:'#4a6a8a'}},
+        y:{title:{display:true,text:'factor_b',color:'#4a6a8a'},ticks:{color:'#4a6a8a'}}
+      }
+    }
+  });
+}
+
+// ─── Execution Quality tab (S3) ─────────────────────────────────────────
+var execCharts={};
+function fmtPctSafe(n,d){return (n==null||isNaN(n))?'—':(Number(n)*100).toFixed(d||1)+'%';}
+async function loadExecution(){
+  var strategy=document.getElementById('exec-strategy').value;
+  var days=parseInt(document.getElementById('exec-days').value,10);
+  var emptyEl=document.getElementById('exec-empty');
+  emptyEl.textContent='carregando...';
+  try{
+    var snaps=await authFetch('/api/v1/trading-engine/execution-quality/'+strategy+'/snapshots?days='+days);
+    var agg=await authFetch('/api/v1/trading-engine/execution-quality/'+strategy+'/aggregate?days='+days);
+    var items=(snaps.items||[]).slice().reverse();  // ASC pra timeline
+    if(items.length===0 && (!agg.latency || !agg.latency.n)){
+      emptyEl.textContent='sem dados — confira se monitoring_worker está rodando.';
+      return;
+    }
+    emptyEl.textContent='';
+
+    // KPIs row (último snapshot + agg latency)
+    var last=items[items.length-1]||{};
+    var lat=agg.latency||{};
+    var kpiHtml=
+      '<div class="kpi-card"><div class="kpi-label">Rolling Sharpe 60d</div><div class="kpi-value '+(last.rolling_sharpe_60d>=1.5?'kv-pos':last.rolling_sharpe_60d>=0?'kv-gold':'kv-neg')+'">'+fmtNum(last.rolling_sharpe_60d,3)+'</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Rolling PF 60d</div><div class="kpi-value">'+fmtNum(last.rolling_pf_60d,2)+'</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Drawdown atual</div><div class="kpi-value kv-neg">'+fmtPctSafe(last.current_drawdown_pct,2)+'</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Drift p-value</div><div class="kpi-value '+(last.distribution_drift_p_value!=null&&last.distribution_drift_p_value<0.01?'kv-neg':'')+'">'+fmtNum(last.distribution_drift_p_value,4)+'</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Latency p50</div><div class="kpi-value kv-blue">'+fmtNum(lat.p50,1)+' ms</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Latency p95</div><div class="kpi-value '+(lat.p95>250?'kv-neg':'kv-blue')+'">'+fmtNum(lat.p95,1)+' ms</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Samples (n)</div><div class="kpi-value">'+(lat.n||0)+'</div></div>';
+    document.getElementById('exec-kpis').innerHTML=kpiHtml;
+
+    // Rolling Sharpe timeline
+    var labels=items.map(function(r){return (r.snapshot_date||'').slice(0,10)});
+    if(execCharts.rolling) execCharts.rolling.destroy();
+    execCharts.rolling=new Chart(document.getElementById('exec-rolling-sharpe'),{
+      type:'line', data:{labels:labels, datasets:[
+        {label:'Sharpe 60d', data:items.map(function(r){return r.rolling_sharpe_60d}),
+         borderColor:'#3ABFF8', backgroundColor:'rgba(58,191,248,.1)', tension:.1, pointRadius:1}
+      ]},
+      options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4a6a8a',maxTicksLimit:10}},y:{ticks:{color:'#4a6a8a'}}}}
+    });
+
+    // Drawdown current vs hist
+    if(execCharts.dd) execCharts.dd.destroy();
+    execCharts.dd=new Chart(document.getElementById('exec-drawdown'),{
+      type:'line', data:{labels:labels, datasets:[
+        {label:'DD atual', data:items.map(function(r){return (r.current_drawdown_pct||0)*100}),
+         borderColor:'#ff3d5a', tension:.1, pointRadius:1},
+        {label:'MDD histórico', data:items.map(function(r){return (r.historical_max_drawdown_pct||0)*100}),
+         borderColor:'#7a95b0', borderDash:[4,3], tension:.1, pointRadius:0}
+      ]},
+      options:{responsive:true,plugins:{legend:{labels:{color:'#7a95b0'}}},scales:{x:{ticks:{color:'#4a6a8a',maxTicksLimit:10}},y:{ticks:{color:'#4a6a8a'}}}}
+    });
+
+    // Slippage by hour
+    var byHour=agg.slippage_by_hour||[];
+    if(execCharts.slip) execCharts.slip.destroy();
+    execCharts.slip=new Chart(document.getElementById('exec-slippage-by-hour'),{
+      type:'bar', data:{labels:byHour.map(function(r){return String(r.hour).padStart(2,'0')+'h'}),
+        datasets:[{label:'Slippage médio', data:byHour.map(function(r){return r.mean_signed}),
+                   backgroundColor:'rgba(240,180,41,.5)',borderColor:'#F0B429'}]},
+      options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4a6a8a'}},y:{ticks:{color:'#4a6a8a'}}}}
+    });
+
+    // Drift p-value timeline
+    if(execCharts.drift) execCharts.drift.destroy();
+    execCharts.drift=new Chart(document.getElementById('exec-drift'),{
+      type:'line', data:{labels:labels, datasets:[
+        {label:'p-value KS', data:items.map(function(r){return r.distribution_drift_p_value}),
+         borderColor:'#F0B429', tension:.1, pointRadius:1},
+        {label:'threshold 0.01', data:items.map(function(){return 0.01}),
+         borderColor:'#ff3d5a', borderDash:[4,3], pointRadius:0}
+      ]},
+      options:{responsive:true,plugins:{legend:{labels:{color:'#7a95b0'}}},scales:{x:{ticks:{color:'#4a6a8a',maxTicksLimit:10}},y:{ticks:{color:'#4a6a8a'},type:'logarithmic'}}}
+    });
+
+    // Alerts table — flat dos últimos snapshots
+    var alertRows=[];
+    items.slice().reverse().forEach(function(r){
+      (r.alerts||[]).forEach(function(a){
+        alertRows.push({date:r.snapshot_date, severity:a.severity, name:a.name, message:a.message});
+      });
+    });
+    var rowsHtml=alertRows.slice(0,30).map(function(a){
+      var clr=a.severity==='kill'?'kv-neg':(a.severity==='pause'?'kv-gold':'kv-blue');
+      return '<tr><td>'+(a.date||'').slice(0,10)+'</td><td class="'+clr+'">'+a.severity+'</td><td>'+a.name+'</td><td>'+a.message+'</td></tr>';
+    }).join('');
+    document.querySelector('#exec-alerts-tbl tbody').innerHTML=rowsHtml||'<tr><td colspan="4" class="empty">Sem alerts</td></tr>';
+  }catch(e){
+    emptyEl.textContent='erro: '+(e.message||e);
+  }
+}
+
+// Carrega lista quando tab "validate" é ativada; idem pra "execution"
+document.querySelectorAll('.tab').forEach(function(t){
+  t.addEventListener('click',function(){
+    if(t.dataset.panel==='validate') loadValidationRecent();
+    if(t.dataset.panel==='execution') loadExecution();
+  });
+});
 
 // Bootstrap
 loadOrders();

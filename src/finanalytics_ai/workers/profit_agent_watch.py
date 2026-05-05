@@ -19,9 +19,28 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 import time
 
 log = logging.getLogger("profit_agent.watch")
+
+
+def _f(env: str, default: float) -> float:
+    """Le env var como float com fallback."""
+    try:
+        v = os.environ.get(env)
+        return float(v) if v else default
+    except (TypeError, ValueError):
+        return default
+
+
+# Tunables — refactor 04/mai (broker_blip): ciclo mais rapido para
+# orders fresh, retry mais agressivo. Defaults projetados para flapping
+# tipico (1-2s por crDisconnected→crBrokerConnected ciclo).
+_WATCH_FAST_POLL_SEC = _f("PROFIT_WATCH_FAST_POLL_SEC", 1.0)
+_WATCH_SLOW_POLL_SEC = _f("PROFIT_WATCH_SLOW_POLL_SEC", 5.0)
+_WATCH_FRESH_AGE_SEC = _f("PROFIT_WATCH_FRESH_AGE_SEC", 30.0)
+_FALLBACK_RETRY_DELAY_SEC = _f("PROFIT_FALLBACK_RETRY_DELAY_SEC", 1.5)
 
 
 def load_pending_orders_from_db(agent) -> None:
@@ -86,12 +105,17 @@ def watch_pending_orders_loop(agent) -> None:
            marca como `status=8` (Rejected) com `error_message='watch_orphan_no_dll_record'`.
          - Após 5min, remove do registry mesmo se ainda pending (não vai resolver).
     """
-    log.info("watch_pending_orders.started")
+    log.info(
+        "watch_pending_orders.started fast=%.1fs slow=%.1fs fresh_age=%.1fs",
+        _WATCH_FAST_POLL_SEC,
+        _WATCH_SLOW_POLL_SEC,
+        _WATCH_FRESH_AGE_SEC,
+    )
     while not agent._stop_event.is_set():
         try:
             with agent._pending_lock:
                 if not agent._pending_orders:
-                    time.sleep(5.0)
+                    time.sleep(_WATCH_SLOW_POLL_SEC)
                     continue
                 snap = dict(agent._pending_orders)
 
@@ -125,6 +149,37 @@ def watch_pending_orders_loop(agent) -> None:
                         cur_status,
                         age,
                     )
+                    # P1 fallback (04/mai): se status=8 (Rejected) detectado via
+                    # polling em < 30s e _retry_params nao iniciou retry, schedule
+                    # um. Cobre o caso onde trading_msg_cb nao recebeu callback de
+                    # rejeicao (ex.: broker subconnection blip drop callback).
+                    # Idempotente: _retry_rejected_order trata retry_started=True
+                    # como no-op. Max attempts=3 ja garantido la.
+                    if cur_status == 8 and age < _WATCH_FRESH_AGE_SEC:
+                        retry_entry = None
+                        already_started = False
+                        if hasattr(agent, "_retry_lock") and hasattr(
+                            agent, "_retry_params"
+                        ):
+                            with agent._retry_lock:
+                                retry_entry = agent._retry_params.get(local_id)
+                                already_started = bool(
+                                    retry_entry and retry_entry.get("retry_started")
+                                )
+                        if retry_entry and not already_started:
+                            log.info(
+                                "watch.fallback_retry_scheduled local_id=%d age=%.1fs delay=%.1fs reason=silent_status8",
+                                local_id,
+                                age,
+                                _FALLBACK_RETRY_DELAY_SEC,
+                            )
+                            t = threading.Timer(
+                                _FALLBACK_RETRY_DELAY_SEC,
+                                agent._retry_rejected_order,
+                                args=(local_id,),
+                            )
+                            t.daemon = True
+                            t.start()
                     to_drop.append(local_id)
                     continue
                 # Stuck pending no DB
@@ -161,8 +216,21 @@ def watch_pending_orders_loop(agent) -> None:
                 with agent._pending_lock:
                     for lid in to_drop:
                         agent._pending_orders.pop(lid, None)
+                # Limpa tambem o cache de last_status do order_cb
+                # (refactor 04/mai — evita memory leak em sessoes longas).
+                if hasattr(agent, "_order_cb_last_status"):
+                    for lid in to_drop:
+                        agent._order_cb_last_status.pop(lid, None)
 
-            time.sleep(5.0)
+            # Sleep adaptativo: fast poll quando ha order fresh (< fresh_age)
+            # ainda pendente, slow poll caso contrario. Permite detectar
+            # rejection silencioso de status=8 dentro de 1s ao inves de 5s.
+            with agent._pending_lock:
+                has_fresh = any(
+                    (now - i["ts_sent"]) < _WATCH_FRESH_AGE_SEC
+                    for i in agent._pending_orders.values()
+                )
+            time.sleep(_WATCH_FAST_POLL_SEC if has_fresh else _WATCH_SLOW_POLL_SEC)
         except Exception as exc:
             log.warning("watch_pending_orders error: %s", exc)
-            time.sleep(10.0)
+            time.sleep(_WATCH_SLOW_POLL_SEC * 2)

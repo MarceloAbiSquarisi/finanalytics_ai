@@ -130,8 +130,8 @@ class TestDispatchPairOrder:
         captured: dict[str, Any] = {}
         transport, captured = _mock_transport_router(
             response_map={
-                "CMIN3": {"local_order_id": 111},
-                "VALE3": {"local_order_id": 222},
+                "CMIN3": {"ok": True, "local_order_id": 111},
+                "VALE3": {"ok": True, "local_order_id": 222},
             },
             captured=captured,
         )
@@ -209,7 +209,7 @@ class TestDispatchPairOrder:
         """Caso CRITICO: leg A executou, leg B falhou -> naked leg risk."""
         captured: dict[str, Any] = {}
         transport, captured = _mock_transport_router(
-            response_map={"CMIN3": {"local_order_id": 111}},
+            response_map={"CMIN3": {"ok": True, "local_order_id": 111}},
             fail_tickers={"VALE3"},
             captured=captured,
         )
