@@ -3395,8 +3395,18 @@ class ProfitAgent:
 
             return {"positions": [], "error": str(exc)}
 
-    def get_positions_dll(self, env: str = "simulation") -> dict:
-        """Consulta ordens via EnumerateAllOrders (assinatura correta manual pág.46)."""
+    def get_positions_dll(self, env: str = "simulation", reconcile: bool = True) -> dict:
+        """Consulta ordens via EnumerateAllOrders (assinatura correta manual pág.46).
+
+        reconcile=True (default) faz UPDATEs em profit_orders sincronizando
+        status/traded/leaves/price/stop_price com a verdade da DLL — usado
+        pelo reconcile_loop background que pode esperar lock do db_writer.
+
+        reconcile=False skip os UPDATEs — usado por handlers HTTP (/positions/dll)
+        que querem leitura rapida sem competir pelo lock do db_writer durante
+        backfill ou carga pesada (smoke 05/mai 11h: GetPositionV2 trava 90s+
+        quando db_writer segura lock pra batch INSERT).
+        """
         if not self._dll:
             return {"orders": [], "positions": [], "error": "DLL nao inicializada"}
         broker_id, account_id, sub_id, _ = self._get_account(env)
@@ -3473,7 +3483,7 @@ class ProfitAgent:
         except Exception as e:
             log.warning("get_positions_dll error: %s", e)
             return {"orders": [], "positions": [], "error": str(e)}
-        if orders_found and self._db:
+        if reconcile and orders_found and self._db:
             for o in orders_found:
                 # P2 fix (28/abr): match por local_order_id OU cl_ord_id.
                 # Antes filtrava por cl_ord_id apenas, mas envio inicial grava NULL
