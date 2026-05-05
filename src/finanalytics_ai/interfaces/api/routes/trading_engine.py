@@ -521,6 +521,7 @@ async def list_execution_quality_snapshots(
             fill_ratio, p50_latency_ms, p95_latency_ms,
             adverse_selection_ratio,
             live_pnl_60d, backtest_pnl_60d_mean, backtest_pnl_60d_std,
+            rolling_pf_180d, structural_change_active,
             alerts, created_at
         FROM trading_engine_orders.engine_metrics_daily
         WHERE strategy = :strategy
