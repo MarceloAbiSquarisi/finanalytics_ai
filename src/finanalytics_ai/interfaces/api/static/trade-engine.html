@@ -908,18 +908,25 @@ function renderStrategyOptions(selectId,countId,filter,opts){
   var prevValue=sel.value;
   var groups={};
   var total=0;
-  STRATEGY_NAMES.forEach(function(n){
-    if(q && n.toLowerCase().indexOf(q)===-1) return;
-    var g=classifyStrategy(n);
-    (groups[g]=groups[g]||[]).push(n);
+  STRATEGY_NAMES.forEach(function(s){
+    var label=s.display_name||s.name;
+    if(q && s.name.toLowerCase().indexOf(q)===-1 && label.toLowerCase().indexOf(q)===-1) return;
+    var g=classifyStrategy(s.name);
+    (groups[g]=groups[g]||[]).push(s);
     total++;
   });
   var html=opts.includeAll?'<option value="">(todas)</option>':'';
   GROUP_ORDER.forEach(function(g){
     if(!groups[g]) return;
-    groups[g].sort();
+    groups[g].sort(function(a,b){
+      var la=(a.display_name||a.name), lb=(b.display_name||b.name);
+      return la<lb?-1:la>lb?1:0;
+    });
     html+='<optgroup label="'+g+' ('+groups[g].length+')">';
-    groups[g].forEach(function(n){html+='<option value="'+n+'">'+n+'</option>';});
+    groups[g].forEach(function(s){
+      var label=s.display_name||s.name;
+      html+='<option value="'+escapeHtml(s.name)+'">'+escapeHtml(label)+'</option>';
+    });
     html+='</optgroup>';
   });
   sel.innerHTML=html;
@@ -934,7 +941,7 @@ function renderStrategyOptions(selectId,countId,filter,opts){
 async function populateStrategyDropdowns(){
   try{
     var data=await authFetch('/api/v1/trading-engine/strategies');
-    STRATEGY_NAMES=((data&&data.strategies)||[]).map(function(s){return s.name;});
+    STRATEGY_NAMES=((data&&data.strategies)||[]).map(function(s){return {name:s.name,display_name:s.display_name||s.name};});
     renderStrategyOptions('val-strategy','val-strategy-count','');
     renderStrategyOptions('exec-strategy','exec-strategy-count','');
     renderStrategyOptions('bt-strategy',null,'',{includeAll:true});
