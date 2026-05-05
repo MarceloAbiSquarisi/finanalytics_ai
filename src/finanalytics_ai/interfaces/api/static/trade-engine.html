@@ -677,6 +677,25 @@ async function openBacktestDetail(runId){
           '<div class="kpi-card"><div class="kpi-label">Tail Ratio</div><div class="kpi-value">'+fmtNum(a.tail_ratio,3)+'</div></div>'+
           '<div class="kpi-card"><div class="kpi-label">PRR</div><div class="kpi-value">'+fmtNum(a.pessimistic_return_ratio,3)+'</div></div>'+
           '<div class="kpi-card"><div class="kpi-label">Top10 PnL %</div><div class="kpi-value '+((a.pnl_concentration_top10||0)>0.6?'kv-neg':'')+'">'+fmtNum((a.pnl_concentration_top10||0)*100,1)+'%</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">Stability R² §3.3</div><div class="kpi-value '+((a.stability_r2||0)>=0.9?'kv-pos':((a.stability_r2||0)>=0.7?'kv-gold':''))+'">'+fmtNum(a.stability_r2,3)+'</div></div>'+
+        '</div>';
+      // §4.1 + §4.2 — comportamento
+      var awd=a.avg_winner_duration_min, ald=a.avg_loser_duration_min;
+      var rmd=a.r_multiples_distribution||{};
+      var disp=(awd!=null&&ald!=null)?(awd>ald?'kv-pos':'kv-neg'):'';
+      var blowOut=(rmd.below_minus_one_pct||0)>0.05?'kv-neg':((rmd.below_minus_one_pct||0)>0.01?'kv-gold':'kv-pos');
+      advHtml+='<div style="font-size:11px;color:var(--muted);margin:14px 0 6px;font-family:DM Mono,monospace;letter-spacing:.06em">Comportamentais §4.1-4.2</div>'+
+        '<div class="kpi-row">'+
+          '<div class="kpi-card"><div class="kpi-label">Dur. winner (min)</div><div class="kpi-value '+disp+'">'+(awd!=null?fmtNum(awd,1):'—')+'</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">Dur. loser (min)</div><div class="kpi-value">'+(ald!=null?fmtNum(ald,1):'—')+'</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">R-mult p5</div><div class="kpi-value kv-neg">'+fmtNum(rmd.p5,2)+'R</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">R-mult mediana</div><div class="kpi-value">'+fmtNum(rmd.p50,2)+'R</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">R-mult p95</div><div class="kpi-value kv-pos">'+fmtNum(rmd.p95,2)+'R</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">R &lt; -1 (slippage)</div><div class="kpi-value '+blowOut+'">'+fmtNum((rmd.below_minus_one_pct||0)*100,1)+'%</div></div>'+
+        '</div>'+
+        '<div style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace;margin-top:-4px;margin-bottom:6px">'+
+          (awd!=null&&ald!=null?(awd>ald?'✓ winners > losers (deixa correr, corta perda).':'⚠ losers ≥ winners — possível disposition effect na lógica.'):'(sem dados de duração)')+' '+
+          (rmd.below_minus_one_pct>0.01?('⚠ '+fmtNum((rmd.below_minus_one_pct||0)*100,1)+'% dos trades com R < −1 indicam slippage/gap.'):'')+
         '</div>';
       var mc=a.monte_carlo_dd;
       if(mc&&mc.n_sims>0){
