@@ -2170,14 +2170,38 @@ class ProfitAgent:
     # ------------------------------------------------------------------
 
     def _db_worker(self) -> None:
-
         log.info("db_worker.started")
+
+        # Bug #5 (smoke 05/mai): INSERT por tick saturava db_queue em backfill
+        # (50k ticks/min vs 1.5k/s da DLL). Refactor batch via execute_values:
+        # acumula buffer local de ticks, flush quando atinge BATCH_SIZE OU N
+        # segundos sem novo tick. Outros tipos (daily/asset/order_*) seguem
+        # imediato — frequencia baixa, batch nao adiciona valor.
+        BATCH_SIZE = 1000
+        BATCH_FLUSH_INTERVAL = 2.0  # seg sem tick novo -> flush
+        tick_buffer: list[dict] = []
+        last_flush = time.time()
+
+        def flush_ticks() -> None:
+            nonlocal tick_buffer, last_flush
+            if not tick_buffer:
+                return
+            n = self._db.insert_ticks_batch(tick_buffer)
+            # Kafka publish post-flush (DB confirmado primeiro)
+            for t_item in tick_buffer:
+                self._publish_tick_kafka(t_item)
+            tick_buffer = []
+            last_flush = time.time()
+            return n
 
         while not self._stop_event.is_set():
             try:
-                item = self._db_queue.get(timeout=1.0)
-
+                item = self._db_queue.get(timeout=0.5)
             except queue.Empty:
+                # Sem novo tick por 0.5s — flush buffer pra nao deixar dados
+                # parados em memoria quando pregão estiver lento.
+                if tick_buffer and (time.time() - last_flush) >= BATCH_FLUSH_INTERVAL:
+                    flush_ticks()
                 continue
 
             if self._db is None:
@@ -2187,10 +2211,10 @@ class ProfitAgent:
                 t = item.get("_type")
 
                 if t == "tick":
-                    self._db.insert_tick(item)
-                    # C1: publica em Kafka topic market_data.ticks.v1 paralelo
-                    # ao insert TimescaleDB. Noop quando producer desabilitado.
-                    self._publish_tick_kafka(item)
+                    tick_buffer.append(item)
+                    if len(tick_buffer) >= BATCH_SIZE:
+                        flush_ticks()
+                    continue  # nao cai no fluxo dos outros tipos abaixo
 
                 elif t == "daily":
                     self._db.upsert_daily_bar(item)
@@ -2374,6 +2398,13 @@ class ProfitAgent:
             except Exception as e:
                 log.warning("db_worker.error type=%s error=%s", item.get("_type"), e)
 
+        # Shutdown: flush ticks pendentes pra evitar perda em memoria.
+        if tick_buffer:
+            log.info("db_worker.flush_pending_ticks n=%d", len(tick_buffer))
+            try:
+                flush_ticks()
+            except Exception as exc:
+                log.warning("db_worker.shutdown_flush_failed error=%s", exc)
         log.info("db_worker.stopped")
 
     # ------------------------------------------------------------------
