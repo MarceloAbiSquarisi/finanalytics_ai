@@ -7,8 +7,10 @@ $RefreshSec = 10
 
 $root = Split-Path -Parent $PSScriptRoot
 $pidFile      = Join-Path $root 'logs\backfill\current.pid'
-$logPathFile  = Join-Path $root 'logs\backfill\current.log_path'
-$progressFile = Join-Path $root 'logs\backfill\progress_2y.json'
+# Log do backfill: roda no container API com output em /data -> E:\finanalytics_data
+$bfLog        = 'E:\finanalytics_data\backfill_2y.log'
+$progressFile = 'E:\finanalytics_data\progress_2y.json'  # se script salvar la
+$progressFileAlt = Join-Path $root 'logs\backfill\progress_2y.json'
 $agentLog     = Join-Path $root 'logs\profit_agent.stdout.log'
 $totalDays    = 519
 $totalTickers = 2
@@ -21,15 +23,11 @@ while ($true) {
     Write-Host ("===== BACKFILL 2Y FUTURES - {0} =====" -f $now.ToString('HH:mm:ss')) -ForegroundColor Cyan
     Write-Host ""
 
-    # 1. Script + agent status (cabecalho)
-    $scriptPid = Get-Content $pidFile
+    # 1. Script (rodando dentro do container API) + agent status
     $procInfo = "MORTO"
-    if ($scriptPid) {
-        $proc = Get-Process -Id $scriptPid -ErrorAction SilentlyContinue
-        if ($proc) {
-            $elapsed = [math]::Round(((Get-Date) - $proc.StartTime).TotalMinutes, 1)
-            $procInfo = "PID $scriptPid ha ${elapsed}min"
-        }
+    $py = docker exec finanalytics_api sh -c "ps -ef | grep 'python /tmp/bf2y' | grep -v grep | awk '{print `$2}'" 2>$null | Select-Object -First 1
+    if ($py) {
+        $procInfo = "container PID $py"
     }
     try {
         $r = Invoke-RestMethod 'http://localhost:8002/status' -TimeoutSec 3
@@ -44,18 +42,23 @@ while ($true) {
     # Header
     $rows = @()
 
-    # Ler eventos PROGRESS do backfill log (ja concluidos)
-    $logPath = Get-Content $logPathFile
-    if ($logPath -and (Test-Path $logPath)) {
-        $progressLines = Get-Content $logPath | Where-Object { $_ -like 'PROGRESS *' }
+    # Ler eventos PROGRESS/SKIP do backfill log
+    if (Test-Path $bfLog) {
+        $progressLines = Get-Content $bfLog | Where-Object { $_ -like 'PROGRESS *' -or $_ -like 'SKIP *' }
         foreach ($line in $progressLines) {
-            # Formato: PROGRESS ticker=X day=Y ticks=N inserted=M status=ok elapsed_s=T
+            # PROGRESS ticker=X day=Y ticks=N inserted=M status=ok elapsed_s=T
+            # SKIP ticker=X day=Y reason=...
             $tk='?'; $dy='?'; $tk_n=0; $st='?'; $els=0
+            $isSkip = $line -like 'SKIP *'
             if ($line -match 'ticker=(\w+)') { $tk = $Matches[1] }
             if ($line -match 'day=(\S+)')    { $dy = $Matches[1] }
             if ($line -match 'ticks=(\d+)')  { $tk_n = [int64]$Matches[1] }
             if ($line -match 'status=(\w+)') { $st = $Matches[1] }
             if ($line -match 'elapsed_s=([\d.]+)') { $els = [double]$Matches[1] }
+            if ($isSkip) {
+                $reason = if ($line -match 'reason=(\S+)') { $Matches[1] } else { '?' }
+                $st = "SKIP:$reason"
+            }
             $rows += [PSCustomObject]@{
                 Day=$dy; Ticker=$tk; Ticks=$tk_n; Status=$st; ElapsedS=$els; Pct=100
             }

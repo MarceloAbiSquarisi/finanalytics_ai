@@ -87,14 +87,30 @@ def http_post(path: str, body: dict, timeout: int) -> dict:
 
 
 def already_in_db(ticker: str, day: date) -> bool:
-    """Skip se progress file local marca dia como concluido.
+    """Skip se DB ja' tem ticks pra (ticker, day). Conecta direto via psycopg2.
 
-    Antes usava psycopg2 direto -> Timescale, mas conexao do host Windows
-    travava (firewall/encoding). Pragmatico: rastrear progresso em arquivo
-    JSON local; agent ja' faz INSERT ON CONFLICT, idempotencia preservada
-    mesmo sem skip perfeito.
+    Re-adicionado 05/mai apos discussao com user: backfill 20-30/abr ja'
+    foi feito em sessoes anteriores; pular esses dias economiza tempo wall-
+    clock significativo (~80min/dia WINFUT).
+
+    DSN preferencial via env (config compativel com container e host). Em
+    host Windows com firewall problematico, conexao pode travar — usamos
+    connect_timeout=5s + tratar excecao como "nao consigo verificar, segue
+    pra DLL" (ON CONFLICT do agent garante idempotencia mesmo sem skip).
     """
-    return False  # delegado ao progress file, ver loop principal
+    try:
+        import psycopg2
+
+        with psycopg2.connect(DB_DSN, connect_timeout=5) as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM market_history_trades "
+                "WHERE ticker = %s AND trade_date::date = %s LIMIT 1",
+                (ticker, day),
+            )
+            return cur.fetchone() is not None
+    except Exception as exc:
+        emit("DB_CHECK_ERR", ticker=ticker, day=day.isoformat(), err=str(exc)[:80])
+        return False
 
 
 def collect_one_day(ticker: str, day: date, timeout: int) -> tuple[int, int, str, float]:
@@ -192,6 +208,14 @@ def main() -> int:
             if key in progress:
                 stats[ticker]["skip"] += 1
                 emit("SKIP", ticker=ticker, day=d.isoformat(), reason="progress_file")
+                continue
+            # Skip secundario: DB ja tem dados (ex: backfill 20-30/abr previo).
+            # Mais lento que progress_file mas pega dias coletados em sessoes
+            # anteriores que nao chegaram a marcar progress.
+            if already_in_db(ticker, d):
+                stats[ticker]["skip"] += 1
+                mark_done(ticker, d)
+                emit("SKIP", ticker=ticker, day=d.isoformat(), reason="db_has_data")
                 continue
 
             ticks, inserted, status, elapsed = collect_one_day(ticker, d, args.timeout)
