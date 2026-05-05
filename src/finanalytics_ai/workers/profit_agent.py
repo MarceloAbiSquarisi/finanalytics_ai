@@ -4295,7 +4295,7 @@ class ProfitAgent:
             )
 
             if progress >= 100:
-                log.info("collect_history progress=100 → done total=%d", len(ticks))
+                log.info("collect_history progress=100 done total=%d", len(ticks))
 
                 done.set()
 
@@ -4345,13 +4345,13 @@ class ProfitAgent:
         if orig_trade_v2:
             self._dll.SetTradeCallbackV2(_cb_v2)
 
-            log.info("collect_history SetTradeCallbackV2 substituído")
+            log.info("collect_history SetTradeCallbackV2 replaced")
 
         # V1 — intercepta pos 8 (KEY: é aqui que o DLL entrega histórico)
 
         self._dll.SetTradeCallback(_cb_v1)
 
-        log.info("collect_history SetTradeCallback(V1) substituído")
+        log.info("collect_history SetTradeCallback(V1) replaced")
 
         # Progress — detecta fim do histórico V1
 
@@ -4361,7 +4361,7 @@ class ProfitAgent:
 
         # ── GetHistoryTrades ──────────────────────────────────────────────────
 
-        log.info("collect_history GetHistoryTrades ticker=%s %s→%s", ticker, dt_start, dt_end)
+        log.info("collect_history GetHistoryTrades ticker=%s %s->%s", ticker, dt_start, dt_end)
 
         ret = self._dll.GetHistoryTrades(
             c_wchar_p(ticker),
