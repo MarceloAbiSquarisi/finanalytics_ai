@@ -74,6 +74,21 @@ def start_http_server(agent, port: int) -> None:
                 return {}
 
         def do_GET(self):
+            # Hardening (incidente 04-05/mai): wrap top-level p/ que qualquer
+            # exception em handler nao escape pra BaseHTTPRequestHandler.handle()
+            # que faria traceback.print_exc() em stderr — antes do fix UTF-8 do
+            # logging, isso disparava UnicodeEncodeError em cascata. Com fix,
+            # ainda evita response pendurada (cliente espera ate timeout).
+            try:
+                self._do_get_impl()
+            except Exception:
+                log.exception("http.handler_crash method=GET path=%s", self.path)
+                try:
+                    self._send_json({"error": "internal_error"}, 500)
+                except Exception:
+                    pass
+
+        def _do_get_impl(self):
 
             if self.path == "/status":
                 self._send_json(agent.get_status())
@@ -346,6 +361,17 @@ def start_http_server(agent, port: int) -> None:
                 self._send_json({"error": "not found"}, 404)
 
         def do_POST(self):
+            # Hardening: ver comentario em do_GET acima.
+            try:
+                self._do_post_impl()
+            except Exception:
+                log.exception("http.handler_crash method=POST path=%s", self.path)
+                try:
+                    self._send_json({"error": "internal_error"}, 500)
+                except Exception:
+                    pass
+
+        def _do_post_impl(self):
 
             body = self._read_body()
 

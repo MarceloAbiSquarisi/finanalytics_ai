@@ -161,6 +161,22 @@ def _load_env(path: str) -> None:
 
 def _setup_logging() -> None:
 
+    # Incidente 04-05/mai: chars Unicode (->, acentos) em log.* causam
+    # UnicodeEncodeError no Windows cp1252 quando StreamHandler escreve
+    # em sys.stdout/stderr capturados pelo NSSM (sem TTY). O erro cascateava
+    # via handleError -> stderr (tambem cp1252) -> derrubava threads alheias
+    # (callbacks DLL, watchdog) pois todas usam o mesmo log global.
+    # Reconfigure pra UTF-8 com errors=replace garante que NENHUM char
+    # vira exception, qualquer que seja o conteudo logado.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            # Fallback defensivo: stream pode ja estar fechado ou nao
+            # suportar reconfigure (raro em Python 3.7+ stdlib, mas
+            # NSSM em alguns ambientes redireciona via pipe customizado).
+            pass
+
     log_file = os.getenv(
         "PROFIT_LOG_FILE", r"D:\Projetos\finanalytics_ai_fresh\logs\profit_agent.log"
     )
