@@ -20,6 +20,7 @@
 
 ### P1 — qualidade/robustez
 
+- [ ] **Pairs sizing não respeita lot_size** — descoberto smoke 05/mai 17:28: `evaluate_active_pairs` calcula qty=`beta×capital/price` direto, sem arredondar pro lote do ticker. Resultado: P0 #1 (validate_order_quantity no agent) bloqueou pair_dispatch com `qty=93 nao e' multiplo do lote=100; sugestao: 100`. **Defesa em profundidade do P0 #1 funcionou** (trade não foi enviado naked), mas pairs nunca consegue tradar enquanto sizing não arredondar. Fix: aplicar `(qty // lot_size) * lot_size` em `_handle_pair_evaluation` antes de chamar `dispatch_pair_order`. Local provável: `auto_trader_worker.py:_handle_pair_evaluation` ou similar — onde calcula leg_a_qty/leg_b_qty.
 - [ ] **Trailing stop automático nas posições** — fix 04/mai cobriu OCO estático bilateral; trailing dinâmico (atualizar SL conforme preço caminha a favor) ainda pendente. `validate_attach_oco_params` já aceita `is_trailing/trail_distance/trail_pct` per-level mas dispatcher só passa SL fixo. Defer pra sessão dedicada.
 - [ ] **Escapar `$$` no `.env PROFIT_SIM_ROUTING_PASSWORD`** — compose interpreta `$utD_$` como var → senha truncada para `wB#.&5hd!8$`. Irrelevante em sim path (não injeta senha) mas precisa correto antes de production. Trocar pra `wB#.&5hd!8$$utD_$$`.
 - [ ] **Lookup automático de `lot_size` por ticker** — hoje hardcoded `100` no config_json. Para futuros (WINFUT/WDOFUT) lote é 1; para BDR alguns são 1, outros 10. Adicionar coluna `tickers.standard_lot` ou tabela de referência. Substitui o context.get("lot_size", 100).
