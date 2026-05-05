@@ -15,8 +15,8 @@
 
 ### P0 — pendentes pra próximo smoke
 
-- [ ] **Confirmar posição PETR4 broker = 0** — smoke 05/mai disparou ~10 SELLs + flatten + manual SELL 1600. /positions/dll agora responde rápido (fix #2), mas última leitura foi `net_qty=1600 LONG cached`. Validar via /positions/dll fresh ao retomar.
-- [ ] **Resume kill switch** (`paused=False`) antes do smoke real — está OFF agora pra evitar dispatches acidentais.
+- [x] ~~Confirmar posição PETR4 broker = 0~~ — **DONE 05/mai 16h** via /positions/dll fresh (2.3s response, fix #2 confirmado). Smoke validacao pos-fixes: 3 SELLs disparadas com OCOs bilaterais (#3) preenchendo automaticamente, posição final = 0 sem intervencao manual. Cached DB ainda mostra net_qty=-700 stale (callbacks dropped durante bug #2 ativo); não reverte sem reconcile profundo.
+- [x] ~~Resume kill switch antes do smoke~~ — **DONE 05/mai**: ciclo paused→active→3 dispatches→paused completo executado. Kill switch volta pra `paused=True smoke_validacao_fixes_done_05mai` ao fim.
 
 ### P1 — qualidade/robustez
 
