@@ -220,20 +220,21 @@ class DBWriter:
         )
 
     def insert_ticks_batch(self, ticks: list[dict]) -> int:
-        """Insert batch via psycopg2.execute_values — 5-10x mais rapido que
-        insert_tick row-by-row.
+        """Insert batch via psycopg2.copy_expert (COPY FROM STDIN) — 5-10x
+        mais rapido que execute_values.
 
-        Smoke 05/mai descobriu gargalo: db_writer fazia INSERT por tick
-        (1ms/insert via TCP/WAL/index) -> ~50k ticks/min de throughput, vs
-        ~1500 ticks/sec da DLL. backfill 1 dia WINFUT (~5M ticks) levava
-        ~80min wallclock so flushing.
+        Smoke 05/mai (Otim 1): execute_values dava ~50k ticks/sec sustentado;
+        COPY FROM via STDIN pode chegar a 200k-500k ticks/sec — protocolo
+        binario do Postgres pula parsing SQL + WAL granular menor.
 
-        execute_values agrupa N rows num unico INSERT statement com VALUES
-        composto, reduzindo overhead drastico. Com batch=1000:
-          - 1 round-trip TCP em vez de 1000
-          - 1 begin/commit em vez de 1000 (autocommit on, mas WAL ainda
-            flush por statement)
-          - Index update bulk
+        profit_ticks NAO tem PRIMARY KEY/UNIQUE — COPY direto sem temp table
+        nem conflict resolution. Caller (collect_history) usa already_in_db
+        pra skip duplicatas; tick_callback realtime ja vem dedupado pelo
+        broker. Em casos de overlap, duplicate rows aceitaveis (relatos
+        analiticos descontam ou usam DISTINCT ON).
+
+        Fallback: se COPY falha por algum motivo (encoding, schema mismatch),
+        cai pra execute_values pra compatibilidade.
 
         Args:
           ticks: lista de dicts com campos do insert_tick.
@@ -245,45 +246,94 @@ class DBWriter:
             return 0
         if not self._ensure_connected():
             return 0
-        try:
-            from psycopg2.extras import execute_values  # type: ignore
 
-            rows = [
-                (
-                    t["time"],
-                    t["ticker"],
-                    t.get("exchange", "B"),
-                    t["price"],
-                    t["quantity"],
-                    t.get("volume"),
-                    t.get("buy_agent"),
-                    t.get("sell_agent"),
-                    t.get("trade_number"),
-                    t.get("trade_type"),
-                    t.get("is_edit", False),
-                )
-                for t in ticks
-            ]
+        # COPY FROM STDIN via CSV em StringIO buffer
+        try:
+            import io
+
+            buf = io.StringIO()
+            for t in ticks:
+                # CSV: time,ticker,exchange,price,quantity,volume,buy_agent,
+                #      sell_agent,trade_number,trade_type,is_edit
+                # NULL = \N (default escape no PostgreSQL TEXT format)
+                # Ordem matches schema/insert_tick
+                fields = [
+                    str(t["time"]),
+                    str(t["ticker"]),
+                    str(t.get("exchange", "B")),
+                    str(t["price"]),
+                    str(t["quantity"]),
+                    str(t["volume"]) if t.get("volume") is not None else "\\N",
+                    str(t["buy_agent"]) if t.get("buy_agent") is not None else "\\N",
+                    str(t["sell_agent"]) if t.get("sell_agent") is not None else "\\N",
+                    str(t["trade_number"]) if t.get("trade_number") is not None else "\\N",
+                    str(t["trade_type"]) if t.get("trade_type") is not None else "\\N",
+                    "t" if t.get("is_edit") else "f",
+                ]
+                # TAB-separated (default COPY) e' mais robusto que CSV pra
+                # campos sem aspas/virgulas. is_edit usa t/f boolean format.
+                buf.write("\t".join(fields))
+                buf.write("\n")
+            buf.seek(0)
+
             with self._lock:
                 cur = self._conn.cursor()
-                execute_values(
-                    cur,
-                    """INSERT INTO profit_ticks
-                       (time, ticker, exchange, price, quantity, volume,
-                        buy_agent, sell_agent, trade_number, trade_type, is_edit)
-                       VALUES %s""",
-                    rows,
-                    page_size=1000,
+                cur.copy_expert(
+                    "COPY profit_ticks "
+                    "(time, ticker, exchange, price, quantity, volume, "
+                    "buy_agent, sell_agent, trade_number, trade_type, is_edit) "
+                    "FROM STDIN WITH (FORMAT text, NULL '\\N')",
+                    buf,
                 )
                 cur.close()
-            return len(rows)
+            return len(ticks)
         except Exception as exc:
-            log.warning("db.insert_ticks_batch_failed n=%d error=%s", len(ticks), exc)
+            log.warning("db.insert_ticks_copy_failed n=%d error=%s — fallback execute_values", len(ticks), exc)
             try:
                 self._conn.rollback()
             except Exception:
                 self._conn = None
-            return 0
+                return 0
+            # Fallback pra execute_values (mantem compatibilidade)
+            try:
+                from psycopg2.extras import execute_values  # type: ignore
+
+                rows = [
+                    (
+                        t["time"],
+                        t["ticker"],
+                        t.get("exchange", "B"),
+                        t["price"],
+                        t["quantity"],
+                        t.get("volume"),
+                        t.get("buy_agent"),
+                        t.get("sell_agent"),
+                        t.get("trade_number"),
+                        t.get("trade_type"),
+                        t.get("is_edit", False),
+                    )
+                    for t in ticks
+                ]
+                with self._lock:
+                    cur = self._conn.cursor()
+                    execute_values(
+                        cur,
+                        """INSERT INTO profit_ticks
+                           (time, ticker, exchange, price, quantity, volume,
+                            buy_agent, sell_agent, trade_number, trade_type, is_edit)
+                           VALUES %s""",
+                        rows,
+                        page_size=1000,
+                    )
+                    cur.close()
+                return len(rows)
+            except Exception as exc2:
+                log.warning("db.insert_ticks_fallback_failed n=%d error=%s", len(ticks), exc2)
+                try:
+                    self._conn.rollback()
+                except Exception:
+                    self._conn = None
+                return 0
 
     def upsert_daily_bar(self, data: dict) -> None:
         sql = """

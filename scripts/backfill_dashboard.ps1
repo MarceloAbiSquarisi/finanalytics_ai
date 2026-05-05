@@ -106,13 +106,17 @@ while ($true) {
             @{L='Tempo(s)';E={$_.ElapsedS}; W=10; A='right'}
     }
 
-    # 3. Stats agregados
+    # 3. Stats agregados — % preenchido = (PROGRESS + SKIP) / total
     Write-Host ""
     $okCount = ($rows | Where-Object { $_.Status -eq 'ok' }).Count
+    $skipCount = ($rows | Where-Object { $_.Status -like 'SKIP:*' }).Count
+    $errCount = ($rows | Where-Object { $_.Status -like 'err*' -or $_.Status -like 'http_*' }).Count
+    $doneCount = $okCount + $skipCount
     $sumTicks = ($rows | Where-Object { $_.Status -eq 'ok' } | Measure-Object Ticks -Sum).Sum
-    $pctTotal = if ($totalCalls) { [math]::Round(100 * $okCount / $totalCalls, 2) } else { 0 }
-    Write-Host ("RESUMO: {0}/{1} dias-ticker concluidos ({2}%)  Ticks coletados: {3:N0}" -f `
-        $okCount, $totalCalls, $pctTotal, $sumTicks) -ForegroundColor Yellow
+    $pctTotal = if ($totalCalls) { [math]::Round(100 * $doneCount / $totalCalls, 2) } else { 0 }
+    Write-Host ("RESUMO: {0}/{1} processados ({2}%)  PROGRESS={3}  SKIP={4}  ERROR={5}" -f `
+        $doneCount, $totalCalls, $pctTotal, $okCount, $skipCount, $errCount) -ForegroundColor Yellow
+    Write-Host ("        Ticks coletados (PROGRESS): {0:N0}" -f $sumTicks) -ForegroundColor Yellow
 
     Write-Host ""
     Write-Host ("(refresh em {0}s - Ctrl+C pra sair)" -f $RefreshSec) -ForegroundColor DarkGray

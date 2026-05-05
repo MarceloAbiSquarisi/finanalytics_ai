@@ -451,7 +451,11 @@ class ProfitAgent:
 
         self._db: DBWriter | None = None
 
-        self._db_queue: queue.Queue = queue.Queue(maxsize=50_000)
+        # Otim 3 (smoke 05/mai): cap tunable via env. Default 50k OK pra
+        # operacao normal pos-fix #5 (queue=0 sustentado). Subir pra 500k+
+        # se for rodar backfill paralelo + realtime simultaneamente.
+        _queue_cap = int(os.environ.get("PROFIT_DB_QUEUE_SIZE", "50000"))
+        self._db_queue: queue.Queue = queue.Queue(maxsize=_queue_cap)
 
         # Diário hook: timeframe enviado pelo dashboard por local_order_id +
         # set de IDs já notificados (idempotência local; backend tem UNIQUE)
@@ -2177,8 +2181,9 @@ class ProfitAgent:
         # acumula buffer local de ticks, flush quando atinge BATCH_SIZE OU N
         # segundos sem novo tick. Outros tipos (daily/asset/order_*) seguem
         # imediato — frequencia baixa, batch nao adiciona valor.
-        BATCH_SIZE = 1000
-        BATCH_FLUSH_INTERVAL = 2.0  # seg sem tick novo -> flush
+        # Otim 3: tunables via env (PROFIT_DB_BATCH_SIZE / FLUSH_INTERVAL).
+        BATCH_SIZE = int(os.environ.get("PROFIT_DB_BATCH_SIZE", "1000"))
+        BATCH_FLUSH_INTERVAL = float(os.environ.get("PROFIT_DB_FLUSH_INTERVAL_S", "2.0"))
         tick_buffer: list[dict] = []
         last_flush = time.time()
 
@@ -2187,9 +2192,14 @@ class ProfitAgent:
             if not tick_buffer:
                 return
             n = self._db.insert_ticks_batch(tick_buffer)
-            # Kafka publish post-flush (DB confirmado primeiro)
-            for t_item in tick_buffer:
-                self._publish_tick_kafka(t_item)
+            # Otim 2 (smoke 05/mai): skip Kafka publish durante history backfill
+            # — millions de ticks × overhead per-call de Kafka producer
+            # adiciona segundos por flush. Realtime ticks ainda publicam
+            # normal. Detecta via flag self._collecting_history_ticker.
+            if not self._collecting_history_ticker:
+                # Kafka publish post-flush (DB confirmado primeiro)
+                for t_item in tick_buffer:
+                    self._publish_tick_kafka(t_item)
             tick_buffer = []
             last_flush = time.time()
             return n
