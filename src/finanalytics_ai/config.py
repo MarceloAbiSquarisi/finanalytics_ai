@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     http_timeout_seconds: float = Field(default=30.0)
     http_retry_max_attempts: int = Field(default=3)
     reset_token_expire_minutes: int = Field(default=30)
+    # Access JWT TTL — folder-import grande pode rodar varias horas; default
+    # 8h cobre import overnight de milhares de arquivos sem 401 mid-flight.
+    # Ajustar via env JWT_ACCESS_EXPIRE_MINUTES se quiser mais curto.
+    jwt_access_expire_minutes: int = Field(default=480)
+    jwt_refresh_expire_days: int = Field(default=7)
     fintz_download_timeout_s: float = Field(default=300.0)
     env: str = Field(default="production")
 
