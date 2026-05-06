@@ -27,6 +27,7 @@ from pathlib import Path
 import re
 import shutil
 import tempfile
+import time as _time
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
@@ -320,29 +321,122 @@ async def list_inbox(
     }
 
 
+# Estado in-memory dos folder-imports em andamento. Polling do front
+# atualiza UI a cada ~500ms via /folder/status/{run_id}. Limpa entradas
+# antigas (>1h apos finished_at) na proxima chamada de start.
+_IMPORT_JOBS: dict[str, dict[str, Any]] = {}
+
+
+def _gc_old_import_jobs(ttl_s: int = 3600) -> None:
+    now = _time.time()
+    stale = [
+        rid for rid, j in _IMPORT_JOBS.items()
+        if j.get("finished_at") and now - j["finished_at"] > ttl_s
+    ]
+    for rid in stale:
+        _IMPORT_JOBS.pop(rid, None)
+
+
 @router.post("/ohlc-1m/folder")
-async def import_ohlc_folder(
+async def start_ohlc_folder_import(
     body: FolderImportRequest,
     actor: User = Depends(require_master),
 ) -> dict[str, Any]:
+    """Dispara folder-import em background e devolve run_id imediatamente.
+
+    Cliente deve fazer polling em GET /ohlc-1m/folder/status/{run_id} pra
+    acompanhar progresso (current_file, files_done, eta_s).
+    """
+    _gc_old_import_jobs()
     base = _resolve_folder(body.folder)
     files = _list_inbox(base)
     if not files:
         return {
-            "status": "ok",
-            "dry_run": body.dry_run,
+            "status": "empty",
+            "run_id": None,
             "folder": str(base),
+            "files_total": 0,
             "summary": {
                 "files": 0, "read_total": 0, "upserted": 0, "rejected_invalid": 0,
                 "rejected_ohlc": 0, "rejected_dedup_filtered": 0, "tickers_seen": [],
                 "tickers_count": 0, "errors": 0, "moved_ok": 0, "moved_err": 0,
             },
             "per_file": [],
-            "run_id": None,
         }
     if len(files) > body.max_files:
         files = files[: body.max_files]
 
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%SZ")
+    _IMPORT_JOBS[run_id] = {
+        "run_id": run_id,
+        "status": "running",
+        "folder": str(base),
+        "dry_run": body.dry_run,
+        "files_total": len(files),
+        "files_done": 0,
+        "current_file": None,
+        "current_file_idx": 0,
+        "started_at": _time.time(),
+        "finished_at": None,
+        "summary": None,
+        "per_file": [],
+        "historico_dir": str(base / "historico" / run_id),
+        "erros_dir": str(base / "erros" / run_id),
+    }
+    asyncio.create_task(_do_folder_import(run_id, body, files, base, actor))
+    logger.info(
+        "admin.import.folder.start",
+        run_id=run_id, folder=str(base), files=len(files),
+        dry_run=body.dry_run, actor=getattr(actor, "user_id", None),
+    )
+    return {
+        "status": "started",
+        "run_id": run_id,
+        "folder": str(base),
+        "dry_run": body.dry_run,
+        "files_total": len(files),
+    }
+
+
+@router.get("/ohlc-1m/folder/status/{run_id}")
+async def get_folder_import_status(
+    run_id: str, _: User = Depends(require_master)
+) -> dict[str, Any]:
+    job = _IMPORT_JOBS.get(run_id)
+    if not job:
+        raise HTTPException(404, f"run_id desconhecido: {run_id}")
+
+    out = dict(job)
+    started = job.get("started_at") or _time.time()
+    finished = job.get("finished_at")
+    if job["status"] == "running":
+        elapsed = _time.time() - started
+        done = int(job["files_done"])
+        total = int(job["files_total"]) or 1
+        if done > 0 and done < total:
+            avg = elapsed / done
+            eta = max(0.0, (total - done) * avg)
+        else:
+            eta = None
+        out["elapsed_s"] = round(elapsed, 1)
+        out["eta_s"] = round(eta, 1) if eta is not None else None
+        out["progress_pct"] = round(100.0 * done / total, 1)
+    else:
+        elapsed = (finished or _time.time()) - started
+        out["elapsed_s"] = round(elapsed, 1)
+        out["eta_s"] = 0.0
+        out["progress_pct"] = 100.0
+    return out
+
+
+async def _do_folder_import(
+    run_id: str,
+    body: FolderImportRequest,
+    files: list[Path],
+    base: Path,
+    actor: User,
+) -> None:
+    job = _IMPORT_JOBS[run_id]
     col_map = parse_column_map_str(body.column_map)
     only = (
         {t.strip().upper() for t in body.only_tickers.split(",") if t.strip()}
@@ -350,11 +444,8 @@ async def import_ohlc_folder(
         else None
     )
 
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%SZ")
-    # Subpastas DENTRO da pasta de origem (auditoria local).
     historico_dir = base / "historico" / run_id
     erros_dir = base / "erros" / run_id
-
     per_file: list[dict[str, Any]] = []
     agg = {
         "files": 0, "read_total": 0, "upserted": 0,
@@ -363,89 +454,94 @@ async def import_ohlc_folder(
         "moved_ok": 0, "moved_err": 0,
     }
 
-    for path in files:
-        try:
-            stats = await asyncio.to_thread(
-                import_file,
-                path,
-                column_map=col_map,
-                only_tickers=only,
-                min_price=body.min_price,
-                source=body.source,
-                dry_run=body.dry_run,
-            )
-            stats.file = path.name
-            file_ok = stats.upserted > 0 or stats.read_total > 0 and stats.rejected_invalid + stats.rejected_ohlc < stats.read_total
-            entry = {"ok": True, **stats.as_dict()}
+    try:
+        for i, path in enumerate(files):
+            job["current_file"] = path.name
+            job["current_file_idx"] = i + 1
+            try:
+                stats = await asyncio.to_thread(
+                    import_file,
+                    path,
+                    column_map=col_map,
+                    only_tickers=only,
+                    min_price=body.min_price,
+                    source=body.source,
+                    dry_run=body.dry_run,
+                )
+                stats.file = path.name
+                file_ok = stats.upserted > 0 or (
+                    stats.read_total > 0
+                    and stats.rejected_invalid + stats.rejected_ohlc < stats.read_total
+                )
+                entry = {"ok": True, **stats.as_dict()}
 
-            agg["files"] += 1
-            agg["read_total"] += stats.read_total
-            agg["upserted"] += stats.upserted
-            agg["rejected_invalid"] += stats.rejected_invalid
-            agg["rejected_ohlc"] += stats.rejected_ohlc
-            agg["rejected_dedup_filtered"] += stats.rejected_dedup_filtered
-            agg["tickers_seen"] |= stats.tickers_seen
-            agg["errors"] += len(stats.errors)
+                agg["files"] += 1
+                agg["read_total"] += stats.read_total
+                agg["upserted"] += stats.upserted
+                agg["rejected_invalid"] += stats.rejected_invalid
+                agg["rejected_ohlc"] += stats.rejected_ohlc
+                agg["rejected_dedup_filtered"] += stats.rejected_dedup_filtered
+                agg["tickers_seen"] |= stats.tickers_seen
+                agg["errors"] += len(stats.errors)
 
-            # move (apenas se NAO dry_run; em dry_run preserva pra rerun)
-            if not body.dry_run:
-                target_dir = historico_dir if file_ok else erros_dir
-                target_dir.mkdir(parents=True, exist_ok=True)
-                dest = target_dir / path.name
-                try:
-                    shutil.move(str(path), str(dest))
-                    entry["moved_to"] = str(dest)
-                    if file_ok:
-                        agg["moved_ok"] += 1
-                    else:
+                if not body.dry_run:
+                    target_dir = historico_dir if file_ok else erros_dir
+                    target_dir.mkdir(parents=True, exist_ok=True)
+                    dest = target_dir / path.name
+                    try:
+                        shutil.move(str(path), str(dest))
+                        entry["moved_to"] = str(dest)
+                        if file_ok:
+                            agg["moved_ok"] += 1
+                        else:
+                            agg["moved_err"] += 1
+                    except Exception as mv_exc:
+                        entry["moved_to"] = None
+                        entry["move_error"] = f"{type(mv_exc).__name__}: {mv_exc}"
+                        logger.warning(
+                            "admin.import.folder.move_failed",
+                            file=path.name, error=str(mv_exc),
+                        )
+                per_file.append(entry)
+            except Exception as exc:
+                logger.exception(
+                    "admin.import.folder.import_failed", file=path.name, error=str(exc)
+                )
+                entry = {
+                    "file": path.name, "ok": False,
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+                if not body.dry_run:
+                    erros_dir.mkdir(parents=True, exist_ok=True)
+                    dest = erros_dir / path.name
+                    try:
+                        shutil.move(str(path), str(dest))
+                        entry["moved_to"] = str(dest)
                         agg["moved_err"] += 1
-                except Exception as mv_exc:
-                    entry["moved_to"] = None
-                    entry["move_error"] = f"{type(mv_exc).__name__}: {mv_exc}"
-                    logger.warning(
-                        "admin.import.folder.move_failed",
-                        file=path.name, error=str(mv_exc),
-                    )
-            per_file.append(entry)
-        except Exception as exc:
-            logger.exception(
-                "admin.import.folder.import_failed", file=path.name, error=str(exc)
-            )
-            entry = {
-                "file": path.name, "ok": False,
-                "error": f"{type(exc).__name__}: {exc}",
-            }
-            if not body.dry_run:
-                erros_dir.mkdir(parents=True, exist_ok=True)
-                dest = erros_dir / path.name
-                try:
-                    shutil.move(str(path), str(dest))
-                    entry["moved_to"] = str(dest)
-                    agg["moved_err"] += 1
-                except Exception:
-                    pass
-            per_file.append(entry)
+                    except Exception:
+                        pass
+                per_file.append(entry)
 
-    summary = {**agg, "tickers_seen": sorted(agg["tickers_seen"])}
-    summary["tickers_count"] = len(summary["tickers_seen"])
+            job["files_done"] = i + 1
+            job["per_file"] = per_file
 
-    logger.info(
-        "admin.import.folder.done",
-        folder=str(base), run_id=run_id, files=summary["files"],
-        upserted=summary["upserted"], moved_ok=summary["moved_ok"],
-        moved_err=summary["moved_err"], dry_run=body.dry_run,
-        actor=getattr(actor, "user_id", None),
-    )
-    return {
-        "status": "ok",
-        "dry_run": body.dry_run,
-        "folder": str(base),
-        "run_id": run_id,
-        "historico_dir": str(historico_dir),
-        "erros_dir": str(erros_dir),
-        "summary": summary,
-        "per_file": per_file,
-    }
+        summary = {**agg, "tickers_seen": sorted(agg["tickers_seen"])}
+        summary["tickers_count"] = len(summary["tickers_seen"])
+        job["status"] = "done"
+        job["summary"] = summary
+        job["finished_at"] = _time.time()
+        logger.info(
+            "admin.import.folder.done",
+            run_id=run_id, files=summary["files"], upserted=summary["upserted"],
+            moved_ok=summary["moved_ok"], moved_err=summary["moved_err"],
+            dry_run=body.dry_run, elapsed_s=round(job["finished_at"] - job["started_at"], 1),
+            actor=getattr(actor, "user_id", None),
+        )
+    except Exception as exc:
+        logger.exception("admin.import.folder.crash", run_id=run_id, error=str(exc))
+        job["status"] = "failed"
+        job["error"] = f"{type(exc).__name__}: {exc}"
+        job["finished_at"] = _time.time()
 
 
 @router.post("/ticks", status_code=status.HTTP_501_NOT_IMPLEMENTED)

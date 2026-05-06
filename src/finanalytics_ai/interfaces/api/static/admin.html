@@ -572,8 +572,15 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
         </label>
         <button class="btn btn-primary" onclick="bfDoImport()" id="bf-btn-import" style="margin-left:auto">⬆ Importar</button>
       </div>
-      <div id="bf-import-progress" style="margin-top:10px;height:6px;background:var(--s1);border-radius:3px;overflow:hidden;display:none">
-        <div id="bf-import-progress-bar" style="height:100%;width:30%;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:bfProgressSlide 1.4s linear infinite"></div>
+      <div id="bf-import-progress" style="margin-top:10px;display:none">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:4px;font-family:monospace;font-size:12px">
+          <span id="bf-import-progress-pct" style="color:var(--accent);font-weight:600">0%</span>
+          <span id="bf-import-progress-current" style="color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">aguardando…</span>
+          <span id="bf-import-progress-times" style="color:var(--muted)"></span>
+        </div>
+        <div style="height:8px;background:var(--s1);border-radius:4px;overflow:hidden">
+          <div id="bf-import-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--green));transition:width .3s ease"></div>
+        </div>
       </div>
       <div id="bfImportMsg" class="msg"></div>
       <div id="bf-import-result" style="margin-top:14px;display:none"></div>
@@ -1380,8 +1387,52 @@ function bfToggleColmapAdvanced() {
   btn.textContent = open ? '✕ texto' : '{ } texto';
 }
 
-function bfShowImportProgress(on) {
-  document.getElementById('bf-import-progress').style.display = on ? 'block' : 'none';
+function bfShowImportProgress(on, mode) {
+  // mode: 'indeterminate' (upload) | 'determinate' (folder polling)
+  const box = document.getElementById('bf-import-progress');
+  box.style.display = on ? 'block' : 'none';
+  if (!on) return;
+  const bar = document.getElementById('bf-import-progress-bar');
+  if (mode === 'indeterminate') {
+    bar.style.width = '40%';
+    bar.style.animation = 'bfProgressSlide 1.4s linear infinite';
+    bar.style.background = 'linear-gradient(90deg,transparent,var(--accent),transparent)';
+    document.getElementById('bf-import-progress-pct').textContent = '…';
+    document.getElementById('bf-import-progress-current').textContent = 'enviando arquivos…';
+    document.getElementById('bf-import-progress-times').textContent = '';
+  } else {
+    bar.style.animation = 'none';
+    bar.style.width = '0%';
+    bar.style.background = 'linear-gradient(90deg,var(--accent),var(--green))';
+    document.getElementById('bf-import-progress-pct').textContent = '0%';
+    document.getElementById('bf-import-progress-current').textContent = 'iniciando…';
+    document.getElementById('bf-import-progress-times').textContent = '';
+  }
+}
+
+function bfFmtTime(s) {
+  if (s == null || isNaN(s)) return '—';
+  s = Math.max(0, Math.round(s));
+  if (s < 60) return s + 's';
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  if (m < 60) return m + 'm' + (sec ? sec + 's' : '');
+  const h = Math.floor(m / 60);
+  return h + 'h' + (m % 60 ? (m % 60) + 'm' : '');
+}
+
+function bfUpdateImportProgress(data) {
+  const pct = data.progress_pct ?? 0;
+  document.getElementById('bf-import-progress-bar').style.width = `${pct}%`;
+  document.getElementById('bf-import-progress-pct').textContent = `${Math.round(pct)}%`;
+  const cur = data.current_file || '...';
+  const idx = data.current_file_idx ?? 0;
+  const total = data.files_total ?? '?';
+  document.getElementById('bf-import-progress-current').textContent =
+    `[${idx}/${total}] ${cur}`;
+  const elapsed = data.elapsed_s != null ? `decorrido ${bfFmtTime(data.elapsed_s)}` : '';
+  const eta = data.eta_s != null ? ` · ETA ${bfFmtTime(data.eta_s)}` : '';
+  document.getElementById('bf-import-progress-times').textContent = elapsed + eta;
 }
 
 // Preview client-side ao escolher arquivos no modo Upload
@@ -1433,7 +1484,7 @@ async function bfDoImportUpload() {
   btn.disabled = true; btn.textContent = '⌛ Importando…';
   const result = document.getElementById('bf-import-result');
   result.style.display = 'none';
-  bfShowImportProgress(true);
+  bfShowImportProgress(true, 'indeterminate');
   try {
     const res = await fetch(`${IMPORT_API}/ohlc-1m`, {
       method: 'POST',
@@ -1473,7 +1524,7 @@ async function bfDoImportFolder() {
   btn.disabled = true; btn.textContent = '⌛ Processando pasta…';
   const result = document.getElementById('bf-import-result');
   result.style.display = 'none';
-  bfShowImportProgress(true);
+  bfShowImportProgress(true, 'determinate');
   try {
     const res = await fetch(`${IMPORT_API}/ohlc-1m/folder`, {
       method: 'POST',
@@ -1483,20 +1534,59 @@ async function bfDoImportFolder() {
     const data = await res.json();
     if (!res.ok) {
       showMsg('bfImportMsg', `Erro: ${data.detail || res.status}`, 'error');
-    } else {
-      const s = data.summary;
+      bfShowImportProgress(false);
+      btn.disabled = false; btn.textContent = '⬆ Importar';
+      return;
+    }
+    if (data.status === 'empty' || !data.run_id) {
+      showMsg('bfImportMsg', `Pasta ${data.folder} está vazia.`, 'error');
+      bfShowImportProgress(false);
+      btn.disabled = false; btn.textContent = '⬆ Importar';
+      return;
+    }
+    await bfPollImportStatus(data.run_id);
+  } catch (err) {
+    showMsg('bfImportMsg', `Falha de rede: ${err.message}`, 'error');
+    bfShowImportProgress(false);
+    btn.disabled = false; btn.textContent = '⬆ Importar';
+  }
+}
+
+async function bfPollImportStatus(runId) {
+  const btn = document.getElementById('bf-btn-import');
+  const result = document.getElementById('bf-import-result');
+  while (true) {
+    let data;
+    try {
+      const res = await fetch(`${IMPORT_API}/ohlc-1m/folder/status/${runId}`, { headers: H() });
+      data = await res.json();
+      if (!res.ok) throw new Error(data.detail || res.status);
+    } catch (err) {
+      showMsg('bfImportMsg', `Falha de polling: ${err.message}`, 'error');
+      bfShowImportProgress(false);
+      btn.disabled = false; btn.textContent = '⬆ Importar';
+      return;
+    }
+    bfUpdateImportProgress(data);
+    if (data.status === 'done') {
+      const s = data.summary || {};
       const moveTxt = data.dry_run ? '(dry-run, nada movido)' : `${s.moved_ok} OK · ${s.moved_err} err`;
-      const msg = `${data.dry_run ? '[DRY-RUN] ' : ''}${s.files} arquivo(s), ${s.upserted} upserted, run_id=${data.run_id || '-'}, ${moveTxt}.`;
+      const msg = `${data.dry_run ? '[DRY-RUN] ' : ''}${s.files} arquivo(s), ${s.upserted} upserted em ${bfFmtTime(data.elapsed_s)} · ${moveTxt}.`;
       showMsg('bfImportMsg', msg, 'success');
       result.style.display = 'block';
       result.innerHTML = bfRenderFolderResult(data);
-      bfRefreshInbox();  // atualiza listagem (arquivos sumiram da inbox)
+      bfShowImportProgress(false);
+      bfRefreshInbox();
+      btn.disabled = false; btn.textContent = '⬆ Importar';
+      return;
     }
-  } catch (err) {
-    showMsg('bfImportMsg', `Falha de rede: ${err.message}`, 'error');
-  } finally {
-    btn.disabled = false; btn.textContent = '⬆ Importar';
-    bfShowImportProgress(false);
+    if (data.status === 'failed') {
+      showMsg('bfImportMsg', `Falhou: ${data.error || 'erro desconhecido'}`, 'error');
+      bfShowImportProgress(false);
+      btn.disabled = false; btn.textContent = '⬆ Importar';
+      return;
+    }
+    await new Promise(r => setTimeout(r, 500));
   }
 }
 
