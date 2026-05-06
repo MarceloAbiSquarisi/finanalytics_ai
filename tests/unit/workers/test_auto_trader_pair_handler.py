@@ -86,7 +86,7 @@ def _make_kwargs(positions_repo, candles_fetcher, dispatch_fn, *, dry_run: bool 
         "positions_repo": positions_repo,
         "candles_fetcher": candles_fetcher,
         "dispatch_fn": dispatch_fn,
-        "capital_per_pair": 10000.0,
+        "capital_per_pair": 30000.0,
         "base_url": "http://api:8000",
         "trade_env": "simulation",
         "dry_run": dry_run,
@@ -411,3 +411,83 @@ async def test_persist_failure_does_not_raise() -> None:
     # dispatch foi chamado, persist falhou silenciosamente
     dispatch.assert_called_once()
     repo.upsert.assert_called_once()
+
+
+# ── _compute_leg_quantities lot_size rounding ──────────────────────────────
+
+
+def test_compute_leg_quantities_no_lot_size_floor_only() -> None:
+    """Sem lot_size: comportamento original (floor)."""
+    from finanalytics_ai.workers.auto_trader_worker import _compute_leg_quantities
+
+    qty_a, qty_b = _compute_leg_quantities(
+        capital=10000, price_a=30, price_b=100,
+    )
+    assert qty_a == 166  # floor(5000/30)
+    assert qty_b == 50   # floor(5000/100)
+
+
+def test_compute_leg_quantities_lot_size_rounds_down() -> None:
+    """Com lot_size=100: arredonda pra baixo no multiplo de 100."""
+    from finanalytics_ai.workers.auto_trader_worker import _compute_leg_quantities
+
+    qty_a, qty_b = _compute_leg_quantities(
+        capital=30000, price_a=30, price_b=100,
+        lot_size_a=100, lot_size_b=100,
+    )
+    assert qty_a == 500  # floor(15000/30)=500, ja multiplo
+    assert qty_b == 100  # floor(15000/100)=150, arred 100
+
+
+def test_compute_leg_quantities_qty_below_lot_returns_zero() -> None:
+    """Capital insuficiente pro lote minimo: 0 (smoke 05/mai pair_dispatch reject)."""
+    from finanalytics_ai.workers.auto_trader_worker import _compute_leg_quantities
+
+    qty_a, qty_b = _compute_leg_quantities(
+        capital=10000, price_a=30, price_b=100,
+        lot_size_a=100, lot_size_b=100,
+    )
+    assert qty_a == 100  # floor(5000/30)=166 -> 100
+    assert qty_b == 0    # floor(5000/100)=50 -> 0 (abaixo do lote)
+
+
+def test_compute_leg_quantities_smoke_05mai_scenario() -> None:
+    """Reproduz o caso real: qty=93 nao multiplo de 100 -> arredonda pra 0
+    quando capital nao da pra lote (se desse pra >=100, vai pra multiplo OK).
+    """
+    from finanalytics_ai.workers.auto_trader_worker import _compute_leg_quantities
+
+    # Cenario observado smoke 05/mai 17:28: pair com qty=93 rejeitado
+    # Calculo aproximado: capital baixo + price ~50 -> qty=93
+    qty_a, qty_b = _compute_leg_quantities(
+        capital=9300, price_a=50, price_b=50,
+        lot_size_a=100, lot_size_b=100,
+    )
+    # Antes do fix: 93/93 -> reject upstream
+    # Depois: arredonda pra 0/0 -> handler skip dispatch (correto)
+    assert qty_a == 0
+    assert qty_b == 0
+
+
+def test_compute_leg_quantities_lot_size_none_skips_rounding() -> None:
+    """lot_size None (units terminados em 11): skip arredondamento."""
+    from finanalytics_ai.workers.auto_trader_worker import _compute_leg_quantities
+
+    qty_a, qty_b = _compute_leg_quantities(
+        capital=10000, price_a=30, price_b=100,
+        lot_size_a=None, lot_size_b=None,
+    )
+    assert qty_a == 166
+    assert qty_b == 50
+
+
+def test_compute_leg_quantities_futures_lot_1() -> None:
+    """Futuros (WINFUT/WDOFUT) tem lot_size=1, arredondamento e' no-op."""
+    from finanalytics_ai.workers.auto_trader_worker import _compute_leg_quantities
+
+    qty_a, qty_b = _compute_leg_quantities(
+        capital=50000, price_a=130000, price_b=5000,
+        lot_size_a=1, lot_size_b=1,
+    )
+    assert qty_a == 0  # floor(25000/130000)=0
+    assert qty_b == 5  # floor(25000/5000)=5

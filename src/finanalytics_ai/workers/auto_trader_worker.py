@@ -421,17 +421,33 @@ from finanalytics_ai.infrastructure.market_data.http_candle_fetcher import (
 )
 
 
-def _compute_leg_quantities(*, capital: float, price_a: float, price_b: float) -> tuple[int, int]:
+def _compute_leg_quantities(
+    *,
+    capital: float,
+    price_a: float,
+    price_b: float,
+    lot_size_a: int | None = None,
+    lot_size_b: int | None = None,
+) -> tuple[int, int]:
     """
     Aloca metade do capital em cada leg (dollar-neutral approx).
-    qty_a = floor((capital/2) / price_a). Mesma logica p/ B.
-    Retorna (0, 0) se inputs invalidos.
+    qty_a = floor((capital/2) / price_a), arredondado pra baixo no lot_size.
+    Retorna (0, 0) se inputs invalidos OU se lot_size > qty (capital insuficiente
+    pro lote minimo).
+
+    lot_size None = pula arredondamento (ticker ambiguo, ex. units terminados em 11).
+    Smoke 05/mai 17:28: P0 #1 (validate_order_quantity) bloqueou pair com qty=93
+    nao-multiplo de 100 — arredondar aqui evita o reject upstream.
     """
     if capital <= 0 or price_a <= 0 or price_b <= 0:
         return (0, 0)
     half = capital / 2.0
     qty_a = int(half // price_a)
     qty_b = int(half // price_b)
+    if lot_size_a and lot_size_a > 0:
+        qty_a = (qty_a // lot_size_a) * lot_size_a
+    if lot_size_b and lot_size_b > 0:
+        qty_b = (qty_b // lot_size_b) * lot_size_b
     return (qty_a, qty_b)
 
 
@@ -508,8 +524,15 @@ async def _handle_pair_evaluation(
         logger.error("pairs.dispatch_skip_missing_price", pair_key=pair_key)
         return
     price_a, price_b = closes_a[-1], closes_b[-1]
+    from finanalytics_ai.workers.profit_agent_validators import infer_lot_size
+    lot_a = infer_lot_size(ev.pair.ticker_a, "B")
+    lot_b = infer_lot_size(ev.pair.ticker_b, "B")
     qty_a, qty_b = _compute_leg_quantities(
-        capital=capital_per_pair, price_a=price_a, price_b=price_b
+        capital=capital_per_pair,
+        price_a=price_a,
+        price_b=price_b,
+        lot_size_a=lot_a,
+        lot_size_b=lot_b,
     )
     if qty_a == 0 or qty_b == 0:
         logger.warning(
@@ -517,6 +540,11 @@ async def _handle_pair_evaluation(
             pair_key=pair_key,
             qty_a=qty_a,
             qty_b=qty_b,
+            lot_a=lot_a,
+            lot_b=lot_b,
+            price_a=price_a,
+            price_b=price_b,
+            capital=capital_per_pair,
         )
         return
 
