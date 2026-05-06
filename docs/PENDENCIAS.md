@@ -2,16 +2,18 @@
 
 > **Para Claude/agente:** este é o primeiro arquivo a consultar em qualquer sessão. Contém pendências priorizadas + carryover de sessões anteriores. Atualizar ao fim de cada sessão (mover concluídas pra `## Done recente` e depois pra `docs/historico/`).
 
-Última atualização: **2026-05-05 12:40 BRT** (após smoke 05/mai + 5 bugs operacionais fixados)
+Última atualização: **2026-05-06 09:50 BRT** (após sessão noite 05/mai → manhã 06/mai: refactor init pattern Delphi + watchdog + backfill resilient)
 
 ## Top priority — pegar antes do próximo smoke real
 
-### Estado atual do sistema (overnight)
+### Estado atual do sistema (manhã 06/mai, pregão aberto)
 
-- 🟢 **profit_agent** UP, batch INSERT ativo (queue=0 sustentado vs 50k cap antes)
+- 🟢 **profit_agent** UP com **NOVO init pattern Delphi** (callbacks pre-wait), 387 subscribed, watchdog ativo
 - 🟢 **auto_trader** Up mas paused via kill switch DB
 - 🔴 **kill switch ON**: `robot_risk_state.paused=True reason=end_of_smoke_05mai_pause_overnight`
-- ✅ Branch `feat/trade-engine-validate-execution-tabs` synced com origin (13 commits hoje)
+- ✅ 2 commits feat/trade-engine-validate-execution-tabs sincados origin: `be82bdd` (profit-agent refactor) + `bf30bbf` (backfill resilient)
+- ⏸️ **Backfill 2026-05-05 PAUSED** — state preservado em `E:\finanalytics_data\backfill_resilient_state.json` (ok=2 skip=27 err=0 de 373 tickers, retomar via `pwsh scripts/backfill_supervisor.ps1`)
+- ⚠️ **Smoke do refactor pendente**: validações live (ticks flowing, watchdog, InvalidTickerCallback) ainda não feitas com mercado aberto. Disponível no momento (10h BRT).
 
 ### P0 — pendentes pra próximo smoke
 
@@ -42,6 +44,39 @@
 - [ ] **E2-E3** Pipeline de research/notas (notas corretagem reconciliation E2 | pipeline genérico E3) — aguardando fonte de dados.
 
 ## Done recente (mover para histórico após 1 semana)
+
+### 2026-05-06 (sessão noite 05→06/mai: refactor Delphi-aligned + backfill resilient)
+
+**Root cause de instabilidade DLL identificado** (via Erro.log nativo `C:\Nelogica\Erro.log` + comparacao com `Nelogica/Exemplo Delphi/`):
+- 4 crashes consecutivos em `ConnectorMarketDataLibraryU.SubscribePriceDepth+0xD1` com `Read of address 0x270` = struct interno NULL
+- Causa: nosso Python registrava `Set*Callback` APOS `_market_connected.wait()`, deixando janela onde DLL recebia eventos sem handler → state corrupt
+- Cliente Delphi (estável) registra TODOS callbacks IMEDIATAMENTE após `DLLInitializeLogin` retornar `NL_OK`
+
+**Refactor profit_agent.py (commit `be82bdd`):**
+- ✅ `_post_connect_setup()` movido pra ANTES do wait (match Delphi `frmClientU.pas:380-407`)
+- ✅ Slot 8 (new_trade) e 13 (progress) do `DLLInitializeLogin` = `None` como Delphi
+- ✅ `SetInvalidTickerCallback` adicionado — alimenta `self._invalid_tickers` set; `_subscribe()` pula tickers já rejeitados
+- ✅ `SetChangeStateTickerCallback` adicionado — log de frozen/auctioned/halted (visto funcionando no boot 06/mai 09:29)
+- ✅ `SetEnabledHistOrder(1)` chamado FIRST como Delphi
+- ✅ `_subscribe()` try/except `OSError` (AV nativo → mark invalid; agente não morre)
+- ✅ Constants renomeadas (`CONN_STATE_INFO`/`CONN_STATE_ACTIVATION`) com alias backwards-compat
+- ✅ TConnInfo decoder no state_cb: `result=1` agora aparece como `ciArLoginInvalid` com mensagem actionable
+- ✅ Boot diagnostics: identidade processo + comprimentos credenciais
+- ✅ `_dll_watchdog_loop` thread: detecta reconnect storms (≥6 transições/2min × 3 episódios) E no-ticks em mercado aberto (>5min) → `_self_heal_restart` via `_hard_exit` pra NSSM restart
+
+**Backfill resilient infrastructure (commit `bf30bbf`):**
+- ✅ `scripts/backfill_resilient.py` — state checkpoint persistente, max 3 attempts/ticker, exit_code=2 quando 5 erros consecutivos, atomic state save, heartbeat 30s, SIGINT graceful
+- ✅ `scripts/backfill_supervisor.ps1` — supervisor com Wait-AgentReady 240s + loop max 12 iter; exit 2 → Stop+Start FinAnalyticsAgent + re-run
+- ✅ `scripts/backfill_resilient_dashboard.ps1` — dashboard refresh 10s
+- ✅ `scripts/backfill_today_subscribed.py` — TIMEOUT_S 300→60, MAX_CONSECUTIVE_ERRORS=5, ABORT event
+- ✅ `.gitignore`: Nelogica/ (110MB) + robot_status_*.png
+
+**Bugs descobertos + corrigidos durante a sessão:**
+- ✅ `.env PROFIT_PASSWORD` tinha `$$` dobrado errado → server retornava `ciArLoginInvalid` (code 1) — descoberto via novo state_cb decoder. User corrigiu.
+- ✅ Cascade de timeouts no backfill (DLL Nelogica não tem `CancelHistoryTrade` — quando server não responde 1 ticker, DLL stuck emitindo `progress=0` indefinidamente, bloqueando próximas chamadas). Solução: timeouts curtos + early-exit + supervisor restart.
+- 🔍 **Warsaw Banking Protection ativo** detectado no header do Erro.log — pode estar hookando ProfitDLL em python.exe (Delphi é trusted/whitelisted). Não fixável do nosso lado.
+
+**Sessão pendente smoke do refactor**: validar live com pregão aberto (1) ticks flowing, (2) watchdog effectiveness, (3) InvalidTickerCallback firing, (4) state callback transitions estáveis. User quer disparar separadamente.
 
 ### 2026-05-05 (smoke + bugs operacionais descobertos durante load)
 
