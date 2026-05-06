@@ -101,6 +101,20 @@ def register_routers(app: FastAPI, logger=None) -> None:
     app.include_router(admin_routes.router, tags=["Admin"])
     app.include_router(admin_db_routes.router, tags=["Admin DB Explorer"])
     try:
+        from finanalytics_ai.interfaces.api.routes import admin_backfill
+
+        app.include_router(admin_backfill.router, tags=["Admin Backfill"])
+        logger.info("admin_backfill.router.ok")
+    except Exception as _e:
+        logger.warning("admin_backfill.router.SKIP", error=str(_e))
+    try:
+        from finanalytics_ai.interfaces.api.routes import admin_import
+
+        app.include_router(admin_import.router, tags=["Admin Import"])
+        logger.info("admin_import.router.ok")
+    except Exception as _e:
+        logger.warning("admin_import.router.SKIP", error=str(_e))
+    try:
         from finanalytics_ai.interfaces.api.routes import import_route
 
         app.include_router(import_route.router, tags=["Import"])

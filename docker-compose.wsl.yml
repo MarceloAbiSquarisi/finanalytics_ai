@@ -75,6 +75,16 @@ services:
       # de uma sessao WSL mas pode mudar apos `wsl --shutdown` ou reboot
       # Windows. Verifique com: wsl -d Ubuntu-22.04 -- ip route show default
       - "host.docker.internal:172.17.80.1"
+    # Drive E: inteiro montado em /host_e (RW) para que a aba
+    # /admin → Backfill → "Importar pasta" possa apontar pra qualquer
+    # subpasta de E: (Nelogica exports, etc). Operador escolhe a pasta
+    # no momento da importacao; subpastas historico/<run_id>/ e
+    # erros/<run_id>/ sao criadas DENTRO da pasta de origem (auditoria
+    # local, sem misturar com outros exports).
+    volumes:
+      - /mnt/e:/host_e
+    environment:
+      HOST_E_MOUNT: /host_e
 
   worker:
     extra_hosts:

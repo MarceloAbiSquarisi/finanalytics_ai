@@ -97,6 +97,7 @@ tr:hover td{background:rgba(0,212,255,.02)}
 .msg.success{background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.3);color:var(--green);display:block}
 .empty{text-align:center;padding:40px;color:var(--muted);font-size:16px}
 .actions-cell{display:flex;gap:6px;flex-wrap:wrap}
+@keyframes bfProgressSlide{0%{margin-left:-30%}100%{margin-left:100%}}
 select.role-sel{background:var(--s2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:14px;padding:3px 7px;cursor:pointer}
 .search-bar{background:var(--s2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:16px;padding:7px 12px;outline:none;width:260px;font-family:monospace}
 .search-bar:focus{border-color:var(--accent)}
@@ -217,6 +218,7 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
     <div class="tab" onclick="switchTab('agents',this)">🏦 Agentes Financeiros</div>
     <div class="tab" onclick="switchTab('system',this)">🛠️ Sistema</div>
     <div class="tab" onclick="switchTab('db',this)">🗃️ Banco de Dados</div>
+    <div class="tab" onclick="switchTab('backfill',this);bfOnTabOpen()">📦 Backfill</div>
   </div>
 
   <!-- TAB USUÁRIOS -->
@@ -369,6 +371,212 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
           <tbody id="db-result-body"></tbody>
         </table>
       </div>
+    </div>
+  </div>
+
+  <!-- TAB BACKFILL -->
+  <div class="tab-panel" id="tab-backfill">
+    <!-- Box 1: Iniciar Backfill -->
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:18px">
+      <div class="sec-header" style="margin-bottom:10px">
+        <span class="sec-title">Iniciar Backfill</span>
+        <small style="color:var(--muted)" id="bf-tickers-count">0 tickers</small>
+      </div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5">
+        Dispara coleta de histórico via <code style="color:var(--accent)">profit_agent /collect_history</code>
+        para os tickers e dias úteis selecionados. <strong style="color:var(--gold)">DLL serializa</strong> —
+        ~60–300s por par ticker×dia. Skip automático se <code style="color:var(--accent)">market_history_trades</code>
+        já tem dado naquele dia (use "Forçar refetch" para ignorar).
+      </p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div>
+          <div class="form-group">
+            <label>Tickers <span style="color:var(--red)">*</span></label>
+            <input id="bf-search" type="text" placeholder="filtrar..." oninput="bfFilter(this.value)" style="margin-bottom:6px">
+          </div>
+          <select id="bf-tickers-select" multiple size="10"
+                  style="background:var(--s1);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:monospace;font-size:13px;padding:4px;width:100%;outline:none"
+                  onchange="bfOnSelectChange()">
+            <option disabled>Carregando…</option>
+          </select>
+          <small style="color:var(--muted);font-size:12px;display:block;margin-top:4px">
+            Ctrl+click pra alternar · Shift+click pra range · ou use os botões abaixo.
+          </small>
+          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+            <button class="btn btn-sm btn-ghost" onclick="bfSelectAll(true)">Selecionar todos (filtrados)</button>
+            <button class="btn btn-sm btn-ghost" onclick="bfSelectAll(false)">Limpar</button>
+            <button class="btn btn-sm btn-ghost" onclick="bfReloadTickers()" title="Recarregar do agent">↻</button>
+            <small id="bf-selected-count" style="color:var(--muted);margin-left:auto;align-self:center">0 selecionados</small>
+          </div>
+          <div id="bf-selected-pills" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;max-height:90px;overflow:auto"></div>
+        </div>
+        <div>
+          <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group">
+              <label>Data inicial <span style="color:var(--red)">*</span></label>
+              <input id="bf-date-start" type="date" required>
+            </div>
+            <div class="form-group">
+              <label>Data final <span style="color:var(--red)">*</span></label>
+              <input id="bf-date-end" type="date" required>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:14px;color:var(--text)">
+              <input type="checkbox" id="bf-force-refetch">
+              Forçar refetch (ignora skip se já existe)
+            </label>
+          </div>
+          <div class="form-actions" style="margin-top:14px;justify-content:flex-start">
+            <button class="btn btn-primary" onclick="bfStart()" id="bf-btn-start">▶ Iniciar Backfill</button>
+          </div>
+          <div id="bfStartMsg" class="msg"></div>
+          <div id="bf-est" style="margin-top:10px;font-size:13px;color:var(--muted);font-family:monospace"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Box 2: Jobs em andamento -->
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:18px">
+      <div class="sec-header" style="margin-bottom:10px">
+        <span class="sec-title">Jobs (auto-refresh 2s enquanto running)</span>
+        <button class="btn btn-sm btn-ghost" onclick="bfLoadJobs()">↻ Refresh</button>
+      </div>
+      <div class="tbl-wrap">
+        <table style="font-size:13px">
+          <thead>
+            <tr><th>#</th><th>Criado</th><th>Tickers</th><th>Range</th><th style="min-width:200px">Progresso</th><th>Status</th><th>Ações</th></tr>
+          </thead>
+          <tbody id="bf-jobs-tbody">
+            <tr><td colspan="7" class="empty">Carregando…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Box 3: Falhas -->
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:18px">
+      <div class="sec-header" style="margin-bottom:10px">
+        <span class="sec-title">Falhas de Coleta</span>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
+        <div class="form-group" style="flex:0 0 160px">
+          <label>De</label>
+          <input id="bf-fail-start" type="date">
+        </div>
+        <div class="form-group" style="flex:0 0 160px">
+          <label>Até</label>
+          <input id="bf-fail-end" type="date">
+        </div>
+        <div class="form-group" style="flex:0 0 160px">
+          <label>Ticker</label>
+          <input id="bf-fail-ticker" type="text" placeholder="(opcional)" style="text-transform:uppercase">
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="bfLoadFailures()">🔍 Buscar</button>
+        <button class="btn btn-warn btn-sm" onclick="bfRetryFailures()" id="bf-btn-retry" disabled title="Cria novo job só com as falhas listadas">↻ Reagendar resultados</button>
+      </div>
+      <div class="tbl-wrap">
+        <table style="font-size:13px">
+          <thead>
+            <tr><th>Job</th><th>Ticker</th><th>Data</th><th>Erro</th><th>Tent.</th><th>Finalizado</th></tr>
+          </thead>
+          <tbody id="bf-failures-tbody">
+            <tr><td colspan="6" class="empty">Defina filtro e clique em Buscar.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Box 4: Importar Arquivo -->
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:18px">
+      <div class="sec-header" style="margin-bottom:10px">
+        <span class="sec-title">Importar Arquivo Histórico</span>
+      </div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5">
+        Importa CSV / Parquet / JSONL para <code style="color:var(--accent)">ohlc_1m</code>
+        (idempotente via <code>ON CONFLICT</code>). Para Nelogica 1m: deixe column-map vazio se as colunas
+        já forem <code>ticker,time,open,high,low,close,volume</code>; caso contrário use o mapping abaixo.
+      </p>
+      <div style="display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:10px">
+        <button class="btn btn-sm" id="bf-mode-folder" onclick="bfImportSetMode('folder')" style="background:var(--accent);color:#0a1628">📂 Pasta no servidor</button>
+        <button class="btn btn-sm btn-ghost" id="bf-mode-upload" onclick="bfImportSetMode('upload')">⬆ Upload manual</button>
+      </div>
+      <div id="bf-folder-section" style="background:var(--s1);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:14px">
+        <p style="font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.4">
+          Aponte para qualquer pasta sob o drive <strong style="color:var(--gold)">E:</strong>
+          (montado em <code>/host_e/</code> no container). Aceita Windows-path
+          <code>E:\sua\pasta</code> ou container-path <code>/host_e/sua/pasta</code>.
+          Após processar (não em dry-run): <strong style="color:var(--green)">OK</strong> →
+          <code>&lt;pasta&gt;/historico/&lt;run_id&gt;/</code> ·
+          <strong style="color:var(--red)">erro</strong> →
+          <code>&lt;pasta&gt;/erros/&lt;run_id&gt;/</code>.
+        </p>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+          <div class="form-group" style="flex:1;min-width:260px">
+            <label>Pasta <span style="color:var(--red)">*</span></label>
+            <input id="bf-folder-path" type="text" placeholder="E:\nelogica\export_2026-04-30">
+          </div>
+          <button class="btn btn-sm btn-ghost" onclick="bfRefreshInbox()">↻ Listar arquivos</button>
+        </div>
+        <div id="bf-folder-files" style="margin-top:10px;font-family:monospace;font-size:12px;color:var(--muted);background:var(--s2);border:1px solid var(--border);border-radius:5px;padding:8px;max-height:160px;overflow:auto">
+          Informe a pasta e clique em "Listar arquivos" para inspecionar.
+        </div>
+      </div>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group">
+          <label>Tipo</label>
+          <select id="bf-import-type">
+            <option value="ohlc-1m">OHLC 1m</option>
+            <option value="ticks">Tickers (Histórico) — em breve</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Source tag</label>
+          <input id="bf-import-source" type="text" value="nelogica_1m" placeholder="nelogica_1m">
+        </div>
+        <div class="form-group" style="grid-column:1/-1" id="bf-upload-files-row">
+          <label>Arquivos (selecione múltiplos) — modo upload</label>
+          <input id="bf-import-files" type="file" multiple accept=".csv,.parquet,.pq,.jsonl,.json,.txt" onchange="bfOnUploadFilesChange()">
+          <small style="color:var(--muted);font-size:12px;margin-top:4px">CSV detecta separador (vírgula/ponto-e-vírgula/tab) automaticamente. Limite 50 arquivos por chamada — para volumes grandes use modo Pasta.</small>
+        </div>
+        <div class="form-group" style="grid-column:1/-1;display:none" id="bf-colmap-advanced-row">
+          <label>Column map textual (avançado)</label>
+          <input id="bf-import-colmap" type="text" placeholder='ex: Ativo=ticker,Data=time,Abertura=open' style="font-family:monospace;font-size:12px">
+          <small style="color:var(--muted);font-size:11px;margin-top:4px">Gerado automaticamente da tabela de mapeamento abaixo.</small>
+        </div>
+        <div class="form-group">
+          <label>Only tickers (opcional)</label>
+          <input id="bf-import-only" type="text" placeholder="PETR4,VALE3">
+        </div>
+        <div class="form-group">
+          <label>Min price</label>
+          <input id="bf-import-minprice" type="number" step="0.01" value="0.01">
+        </div>
+      </div>
+      <div id="bf-import-preview" style="margin-top:12px;padding:8px 10px;background:var(--s1);border:1px solid var(--border);border-radius:5px;font-family:monospace;font-size:12px;color:var(--muted);display:none"></div>
+      <div id="bf-import-mapping" style="margin-top:12px;display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:13px;color:var(--muted)">🔗 Mapeamento <strong style="color:var(--text)">arquivo → banco</strong></span>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm btn-ghost" onclick="bfAutoDetectMapping()" title="Auto-detectar de novo">↻ Auto-detectar</button>
+            <button class="btn btn-sm btn-ghost" onclick="bfToggleColmapAdvanced()" id="bf-toggle-colmap-adv">{ } texto</button>
+          </div>
+        </div>
+        <div id="bf-mapping-rows" style="background:var(--s1);border:1px solid var(--border);border-radius:5px;padding:6px;display:flex;flex-direction:column;gap:4px"></div>
+        <small style="color:var(--muted);font-size:11px;display:block;margin-top:4px">Selecione "(ignorar)" para colunas que não devem ir pro banco.</small>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:14px;align-items:center">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;color:var(--text)">
+          <input type="checkbox" id="bf-import-dryrun" checked>
+          Dry-run (não escreve no DB)
+        </label>
+        <button class="btn btn-primary" onclick="bfDoImport()" id="bf-btn-import" style="margin-left:auto">⬆ Importar</button>
+      </div>
+      <div id="bf-import-progress" style="margin-top:10px;height:6px;background:var(--s1);border-radius:3px;overflow:hidden;display:none">
+        <div id="bf-import-progress-bar" style="height:100%;width:30%;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:bfProgressSlide 1.4s linear infinite"></div>
+      </div>
+      <div id="bfImportMsg" class="msg"></div>
+      <div id="bf-import-result" style="margin-top:14px;display:none"></div>
     </div>
   </div>
 </div>
@@ -557,6 +765,808 @@ async function rebuildOhlc() {
     btn.disabled = false;
     btn.textContent = '↻ Reconstruir bars 1m';
   }
+}
+
+// ── Backfill ──────────────────────────────────────────────────────────────────
+const BF_API = '/api/v1/admin/backfill';
+const IMPORT_API = '/api/v1/admin/import';
+let bfTickers = [];           // [{ticker, exchange}]
+let bfTickerFilter = '';
+let bfSelected = new Set();
+let bfJobsPollTimer = null;
+let bfFailuresCache = [];
+
+function bfOnTabOpen() {
+  if (!bfTickers.length) bfReloadTickers();
+  bfLoadJobs();
+  // default: últimos 30 dias para falhas
+  const fs = document.getElementById('bf-fail-start');
+  const fe = document.getElementById('bf-fail-end');
+  if (fs && !fs.value) {
+    const d = new Date(); d.setDate(d.getDate() - 30);
+    fs.value = d.toISOString().slice(0, 10);
+  }
+  if (fe && !fe.value) fe.value = new Date().toISOString().slice(0, 10);
+  // default: ontem para start/end do form
+  const ds = document.getElementById('bf-date-start');
+  const de = document.getElementById('bf-date-end');
+  if (ds && !ds.value) {
+    const d = new Date(); d.setDate(d.getDate() - 1);
+    ds.value = d.toISOString().slice(0, 10);
+  }
+  if (de && !de.value) {
+    const d = new Date(); d.setDate(d.getDate() - 1);
+    de.value = d.toISOString().slice(0, 10);
+  }
+  bfUpdateEstimate();
+}
+
+async function bfReloadTickers() {
+  const sel = document.getElementById('bf-tickers-select');
+  sel.innerHTML = '<option disabled>Carregando…</option>';
+  try {
+    const res = await fetch(`${BF_API}/tickers`, { headers: H() });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      sel.innerHTML = `<option disabled>Erro: ${err.detail || res.status}</option>`;
+      return;
+    }
+    const data = await res.json();
+    bfTickers = data.tickers || [];
+    document.getElementById('bf-tickers-count').textContent = `${bfTickers.length} tickers`;
+    bfRenderTickers();
+  } catch (err) {
+    sel.innerHTML = `<option disabled>Falha de rede: ${err.message}</option>`;
+  }
+}
+
+function bfFilter(q) {
+  bfTickerFilter = (q || '').trim().toUpperCase();
+  bfRenderTickers();
+}
+
+function bfRenderTickers() {
+  const sel = document.getElementById('bf-tickers-select');
+  const f = bfTickerFilter;
+  const items = bfTickers.filter(t => !f || t.ticker.includes(f));
+  if (!items.length) {
+    sel.innerHTML = '<option disabled>Nenhum ticker.</option>';
+    return;
+  }
+  sel.innerHTML = items.map(t => {
+    const sel_ = bfSelected.has(t.ticker) ? 'selected' : '';
+    const fut = t.exchange === 'F' ? ' [FUT]' : '';
+    return `<option value="${t.ticker}" ${sel_}>${t.ticker}${fut}</option>`;
+  }).join('');
+}
+
+function bfOnSelectChange() {
+  // Sync seleção visível -> bfSelected Set, preservando seleções de tickers
+  // filtrados-fora (que continuam no Set mas não aparecem em <option>).
+  const sel = document.getElementById('bf-tickers-select');
+  const visible = new Set();
+  for (const opt of sel.options) {
+    if (opt.value) visible.add(opt.value);
+  }
+  // Remove do Set todos os visíveis não-selecionados
+  for (const t of Array.from(bfSelected)) {
+    if (visible.has(t) && !isOptionSelected(sel, t)) bfSelected.delete(t);
+  }
+  // Adiciona todos selecionados
+  for (const opt of sel.selectedOptions) {
+    if (opt.value) bfSelected.add(opt.value);
+  }
+  bfUpdateSelectedCount();
+  bfRenderSelectedPills();
+}
+
+function isOptionSelected(sel, value) {
+  for (const opt of sel.selectedOptions) if (opt.value === value) return true;
+  return false;
+}
+
+function bfSelectAll(on) {
+  if (on) {
+    const f = bfTickerFilter;
+    bfTickers.filter(t => !f || t.ticker.includes(f)).forEach(t => bfSelected.add(t.ticker));
+  } else {
+    bfSelected.clear();
+  }
+  bfRenderTickers();
+  bfUpdateSelectedCount();
+  bfRenderSelectedPills();
+}
+
+function bfRemovePill(ticker) {
+  bfSelected.delete(ticker);
+  bfRenderTickers();
+  bfUpdateSelectedCount();
+  bfRenderSelectedPills();
+}
+
+function bfRenderSelectedPills() {
+  const box = document.getElementById('bf-selected-pills');
+  if (!bfSelected.size) { box.innerHTML = ''; return; }
+  const pills = Array.from(bfSelected).sort().map(t =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(0,212,255,.12);border:1px solid rgba(0,212,255,.3);color:var(--accent);padding:2px 6px;border-radius:4px;font-size:12px;font-family:monospace">
+      ${t}
+      <button onclick="bfRemovePill('${t}')" style="background:none;border:none;color:var(--accent);cursor:pointer;padding:0;font-size:14px;line-height:1" title="Remover">×</button>
+    </span>`
+  ).join('');
+  box.innerHTML = pills;
+}
+
+function bfUpdateSelectedCount() {
+  document.getElementById('bf-selected-count').textContent = `${bfSelected.size} selecionados`;
+  bfUpdateEstimate();
+}
+
+function bfTradingDaysBetween(startStr, endStr) {
+  if (!startStr || !endStr) return 0;
+  const s = new Date(startStr + 'T00:00:00');
+  const e = new Date(endStr + 'T00:00:00');
+  if (e < s) return 0;
+  let n = 0;
+  for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+    const w = d.getDay();
+    if (w !== 0 && w !== 6) n++;
+  }
+  return n;
+}
+
+function bfUpdateEstimate() {
+  const days = bfTradingDaysBetween(
+    document.getElementById('bf-date-start').value,
+    document.getElementById('bf-date-end').value
+  );
+  const total = bfSelected.size * days;
+  const est = document.getElementById('bf-est');
+  if (!total) { est.textContent = ''; return; }
+  // Estimativa pessimista: 90s/item (alguns ações ficam ~5s, futuros 60s+).
+  const minutes = Math.round(total * 90 / 60);
+  est.textContent = `Estimativa: ${total} items (${bfSelected.size} tickers × ${days} dias úteis) — ~${minutes} min se nada estiver em cache`;
+}
+
+['bf-date-start', 'bf-date-end'].forEach(id => {
+  document.addEventListener('change', e => {
+    if (e.target && e.target.id === id) bfUpdateEstimate();
+  });
+});
+
+async function bfStart() {
+  const tickers = Array.from(bfSelected);
+  const dateStart = document.getElementById('bf-date-start').value;
+  const dateEnd = document.getElementById('bf-date-end').value;
+  const force = document.getElementById('bf-force-refetch').checked;
+  if (!tickers.length) { showMsg('bfStartMsg', 'Selecione ao menos 1 ticker.', 'error'); return; }
+  if (!dateStart || !dateEnd) { showMsg('bfStartMsg', 'Defina o range de datas.', 'error'); return; }
+  const days = bfTradingDaysBetween(dateStart, dateEnd);
+  const total = tickers.length * days;
+  if (!confirm(`Iniciar backfill de ${tickers.length} ticker(s) × ${days} dia(s) útil(eis) = ${total} items?\n\nDLL serializa — pode levar horas para jobs grandes.`)) return;
+  const btn = document.getElementById('bf-btn-start');
+  btn.disabled = true; btn.textContent = '⌛ Criando…';
+  try {
+    const res = await fetch(`${BF_API}/jobs`, {
+      method: 'POST',
+      headers: H(),
+      body: JSON.stringify({ tickers, date_start: dateStart, date_end: dateEnd, force_refetch: force }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showMsg('bfStartMsg', `Erro: ${data.detail || res.status}`, 'error');
+    } else {
+      showMsg('bfStartMsg', `Job #${data.id} criado (${data.total_items} items).`, 'success');
+      bfLoadJobs();
+    }
+  } catch (err) {
+    showMsg('bfStartMsg', `Falha de rede: ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '▶ Iniciar Backfill';
+  }
+}
+
+async function bfLoadJobs() {
+  try {
+    const res = await fetch(`${BF_API}/jobs?limit=20`, { headers: H() });
+    if (!res.ok) return;
+    const data = await res.json();
+    bfRenderJobs(data.jobs || []);
+    const anyRunning = (data.jobs || []).some(j => j.status === 'running' || j.status === 'queued');
+    if (anyRunning && !bfJobsPollTimer) {
+      bfJobsPollTimer = setInterval(bfLoadJobs, 2000);
+    } else if (!anyRunning && bfJobsPollTimer) {
+      clearInterval(bfJobsPollTimer); bfJobsPollTimer = null;
+    }
+  } catch {}
+}
+
+function bfRenderJobs(jobs) {
+  const tb = document.getElementById('bf-jobs-tbody');
+  if (!jobs.length) {
+    tb.innerHTML = '<tr><td colspan="7" class="empty">Nenhum job ainda.</td></tr>';
+    return;
+  }
+  tb.innerHTML = jobs.map(j => {
+    const pct = j.total_items ? Math.floor(100 * j.done_items / j.total_items) : 0;
+    const bar = `<div style="background:var(--s1);border-radius:3px;height:8px;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--accent),var(--green));transition:.3s"></div>
+    </div>
+    <small style="color:var(--muted);font-size:11px">${j.done_items}/${j.total_items} · ok=${j.ok_items} skip=${j.skip_items} err=${j.err_items}</small>`;
+    const created = j.created_at ? new Date(j.created_at).toLocaleString('pt-BR') : '—';
+    const range = `${j.date_start} → ${j.date_end}`;
+    const tickersTxt = j.tickers.length > 4
+      ? `${j.tickers.slice(0,3).join(',')}… (+${j.tickers.length - 3})`
+      : j.tickers.join(',');
+    const statusBadge = bfStatusBadge(j.status, j.cancel_requested);
+    const canCancel = (j.status === 'queued' || j.status === 'running') && !j.cancel_requested;
+    const actions = `
+      <button class="btn btn-sm btn-ghost" onclick="bfShowJobItems(${j.id})" title="Ver items">👁</button>
+      ${canCancel ? `<button class="btn btn-sm btn-danger" onclick="bfCancelJob(${j.id})" title="Cancelar">⏹</button>` : ''}`;
+    return `<tr>
+      <td style="font-family:monospace">#${j.id}</td>
+      <td style="font-size:12px;color:var(--muted)">${created}</td>
+      <td style="font-size:12px;font-family:monospace">${tickersTxt}</td>
+      <td style="font-size:12px;font-family:monospace">${range}</td>
+      <td>${bar}</td>
+      <td>${statusBadge}</td>
+      <td><div class="actions-cell">${actions}</div></td>
+    </tr>`;
+  }).join('');
+}
+
+function bfStatusBadge(s, cancel) {
+  const map = {
+    queued: ['rgba(168,85,247,.15)','var(--purple)','rgba(168,85,247,.3)','queued'],
+    running: ['rgba(0,212,255,.12)','var(--accent)','rgba(0,212,255,.3)','running'],
+    done: ['rgba(0,230,118,.1)','var(--green)','rgba(0,230,118,.3)','done'],
+    cancelled: ['rgba(255,61,90,.08)','var(--red)','rgba(255,61,90,.3)','cancelled'],
+    failed: ['rgba(255,61,90,.15)','var(--red)','rgba(255,61,90,.4)','failed'],
+  };
+  const c = map[s] || map.queued;
+  const suffix = cancel && s !== 'cancelled' ? ' (cancel...)' : '';
+  return `<span class="badge" style="background:${c[0]};color:${c[1]};border:1px solid ${c[2]}">${c[3]}${suffix}</span>`;
+}
+
+async function bfCancelJob(id) {
+  if (!confirm(`Cancelar job #${id}?\n\nO worker para no próximo item.`)) return;
+  try {
+    const res = await fetch(`${BF_API}/jobs/${id}/cancel`, { method: 'POST', headers: H() });
+    if (!res.ok) { const e = await res.json(); alert(`Erro: ${e.detail||res.status}`); return; }
+    bfLoadJobs();
+  } catch (err) { alert(`Falha de rede: ${err.message}`); }
+}
+
+async function bfShowJobItems(id) {
+  const res = await fetch(`${BF_API}/jobs/${id}/items?limit=2000`, { headers: H() });
+  if (!res.ok) { alert('Erro ao carregar items'); return; }
+  const data = await res.json();
+  const items = data.items || [];
+  const w = window.open('', '_blank');
+  if (!w) { alert('Permita pop-ups para ver detalhes'); return; }
+  const rows = items.map(it => `<tr>
+    <td>${it.ticker}</td><td>${it.target_date}</td><td>${it.status}</td>
+    <td>${it.ticks_returned ?? ''}</td><td>${it.inserted ?? ''}</td>
+    <td>${it.elapsed_s ?? ''}</td><td>${it.attempts}</td>
+    <td style="font-family:monospace;font-size:11px;color:#c66">${(it.error_msg||'').replace(/</g,'&lt;')}</td>
+  </tr>`).join('');
+  w.document.write(`<!doctype html><html><head><title>Job #${id} — items</title>
+    <style>body{font-family:monospace;background:#0d1117;color:#cdd6e0;padding:20px}
+    table{border-collapse:collapse;width:100%}th,td{padding:6px 10px;border-bottom:1px solid #1c2535;text-align:left;font-size:13px}
+    th{background:#111822;color:#8090a0}</style></head><body>
+    <h2>Job #${id} — ${items.length} items</h2>
+    <table><thead><tr><th>Ticker</th><th>Data</th><th>Status</th><th>Ticks</th><th>Inserted</th><th>Elapsed(s)</th><th>Tent.</th><th>Erro</th></tr></thead>
+    <tbody>${rows}</tbody></table></body></html>`);
+}
+
+async function bfLoadFailures() {
+  const start = document.getElementById('bf-fail-start').value;
+  const end = document.getElementById('bf-fail-end').value;
+  const ticker = document.getElementById('bf-fail-ticker').value.trim().toUpperCase();
+  if (!start || !end) { alert('Defina o range de datas.'); return; }
+  const tb = document.getElementById('bf-failures-tbody');
+  tb.innerHTML = '<tr><td colspan="6" class="empty">Carregando…</td></tr>';
+  const qs = new URLSearchParams({ date_start: start, date_end: end, limit: '1000' });
+  if (ticker) qs.set('ticker', ticker);
+  try {
+    const res = await fetch(`${BF_API}/failures?${qs.toString()}`, { headers: H() });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      tb.innerHTML = `<tr><td colspan="6" class="empty" style="color:var(--red)">Erro: ${e.detail||res.status}</td></tr>`;
+      return;
+    }
+    const data = await res.json();
+    bfFailuresCache = data.failures || [];
+    document.getElementById('bf-btn-retry').disabled = bfFailuresCache.length === 0;
+    if (!bfFailuresCache.length) {
+      tb.innerHTML = '<tr><td colspan="6" class="empty">Nenhuma falha no período.</td></tr>';
+      return;
+    }
+    tb.innerHTML = bfFailuresCache.map(f => `<tr>
+      <td style="font-family:monospace">#${f.job_id}</td>
+      <td style="font-family:monospace">${f.ticker}</td>
+      <td>${f.target_date}</td>
+      <td style="font-family:monospace;font-size:12px;color:#c66;max-width:380px;word-break:break-word">${(f.error_msg||'').replace(/</g,'&lt;')}</td>
+      <td style="text-align:center">${f.attempts}</td>
+      <td style="font-size:12px;color:var(--muted)">${f.finished_at ? new Date(f.finished_at).toLocaleString('pt-BR') : '—'}</td>
+    </tr>`).join('');
+  } catch (err) {
+    tb.innerHTML = `<tr><td colspan="6" class="empty" style="color:var(--red)">Falha de rede: ${err.message}</td></tr>`;
+  }
+}
+
+async function bfRetryFailures() {
+  if (!bfFailuresCache.length) return;
+  const tickers = Array.from(new Set(bfFailuresCache.map(f => f.ticker)));
+  const dates = bfFailuresCache.map(f => f.target_date).sort();
+  const dateStart = dates[0];
+  const dateEnd = dates[dates.length - 1];
+  if (!confirm(`Criar novo job com ${tickers.length} ticker(s) único(s), ${dateStart} → ${dateEnd}?\n\nForce-refetch ATIVO (re-executa mesmo se já tiver dado).`)) return;
+  try {
+    const res = await fetch(`${BF_API}/jobs`, {
+      method: 'POST',
+      headers: H(),
+      body: JSON.stringify({ tickers, date_start: dateStart, date_end: dateEnd, force_refetch: true }),
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(`Erro: ${data.detail||res.status}`); return; }
+    showMsg('bfStartMsg', `Job #${data.id} criado (${data.total_items} items).`, 'success');
+    bfLoadJobs();
+  } catch (err) { alert(`Falha de rede: ${err.message}`); }
+}
+
+let bfImportMode = 'folder';  // 'folder' | 'upload'
+
+function bfImportSetMode(mode) {
+  bfImportMode = mode;
+  const btnFolder = document.getElementById('bf-mode-folder');
+  const btnUpload = document.getElementById('bf-mode-upload');
+  const folderSec = document.getElementById('bf-folder-section');
+  const uploadRow = document.getElementById('bf-upload-files-row');
+  if (mode === 'folder') {
+    btnFolder.classList.remove('btn-ghost'); btnFolder.style.background='var(--accent)'; btnFolder.style.color='#0a1628';
+    btnUpload.classList.add('btn-ghost'); btnUpload.style.background=''; btnUpload.style.color='';
+    folderSec.style.display = 'block';
+    uploadRow.style.display = 'none';
+  } else {
+    btnUpload.classList.remove('btn-ghost'); btnUpload.style.background='var(--accent)'; btnUpload.style.color='#0a1628';
+    btnFolder.classList.add('btn-ghost'); btnFolder.style.background=''; btnFolder.style.color='';
+    folderSec.style.display = 'none';
+    uploadRow.style.display = 'block';
+  }
+}
+
+async function bfRefreshInbox() {
+  const folder = document.getElementById('bf-folder-path').value.trim();
+  const box = document.getElementById('bf-folder-files');
+  if (!folder) { box.innerHTML = '<span style="color:var(--red)">Informe a pasta primeiro.</span>'; bfClearImportPreview(); return; }
+  box.textContent = 'Carregando…';
+  try {
+    const res = await fetch(`${IMPORT_API}/inbox?folder=${encodeURIComponent(folder)}`, { headers: H() });
+    const data = await res.json();
+    if (!res.ok) { box.innerHTML = `<span style="color:var(--red)">Erro: ${data.detail || res.status}</span>`; bfClearImportPreview(); return; }
+    if (!data.count) { box.innerHTML = `<span style="color:var(--muted)">Pasta vazia: ${data.folder}</span>`; bfClearImportPreview(); return; }
+    const fmt = (n) => n < 1024 ? `${n}B` : n < 1024*1024 ? `${(n/1024).toFixed(1)}KB` : `${(n/1024/1024).toFixed(1)}MB`;
+    const totalKB = data.files.reduce((s, f) => s + f.size_bytes, 0);
+    box.innerHTML = `<div style="margin-bottom:6px;color:var(--gold)">📂 ${data.folder} — ${data.count} arquivo(s) · ${fmt(totalKB)}</div>` +
+      data.files.slice(0, 200).map(f =>
+        `<div>${f.name} <span style="color:var(--muted)">(${fmt(f.size_bytes)})</span></div>`
+      ).join('') +
+      (data.files.length > 200 ? `<div style="color:var(--muted);margin-top:4px">…e mais ${data.files.length - 200}</div>` : '');
+    bfShowImportPreview(data.preview, data.preview_filename);
+  } catch (err) {
+    box.innerHTML = `<span style="color:var(--red)">Falha de rede: ${err.message}</span>`;
+    bfClearImportPreview();
+  }
+}
+
+function bfShowImportPreview(preview, filename) {
+  const el = document.getElementById('bf-import-preview');
+  if (!preview) { bfClearImportPreview(); return; }
+  if (preview.error) {
+    el.style.display = 'block';
+    el.innerHTML = `<span style="color:var(--red)">⚠ Preview de <strong>${filename||'arquivo'}</strong>: ${preview.error}</span>`;
+    return;
+  }
+  const cols = preview.columns || [];
+  const sample = preview.sample_first_row || [];
+  const sep = preview.separator || '?';
+  const fname = filename || 'preview';
+  const allEmpty = cols.length > 0 && cols.every(c => !c || !String(c).trim());
+  if (allEmpty) {
+    el.style.display = 'block';
+    el.innerHTML = `<span style="color:var(--gold)">📋 <strong>${fname}</strong> · separador <code style="color:var(--accent)">${sep}</code> · ${cols.length} colunas detectadas, mas <strong style="color:var(--red)">todas vazias</strong> — separador pode estar incorreto. Verifique o arquivo.</span>`;
+    return;
+  }
+  if (!cols.length) {
+    el.style.display = 'block';
+    el.innerHTML = `<span style="color:var(--muted)">📋 <strong>${fname}</strong>: nenhuma coluna detectada.</span>`;
+    return;
+  }
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const headerCells = cols.map(c =>
+    `<th style="padding:4px 10px;text-align:left;font-size:11px;color:var(--gold);font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--s2)">${esc(c) || '<span style="color:var(--muted)">∅</span>'}</th>`
+  ).join('');
+  const sampleCells = sample.length
+    ? cols.map((_, i) =>
+        `<td style="padding:4px 10px;font-size:12px;color:var(--text);white-space:nowrap;border-bottom:1px solid var(--s2)">${esc(sample[i] ?? '')}</td>`
+      ).join('')
+    : '';
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="margin-bottom:6px;color:var(--muted)">📋 <strong style="color:var(--gold)">${fname}</strong> · separador <code style="color:var(--accent)">${sep}</code> · ${cols.length} colunas</div>
+    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:4px;background:var(--s1)">
+      <table style="border-collapse:collapse;min-width:100%;font-family:monospace">
+        <thead><tr>${headerCells}</tr></thead>
+        ${sampleCells ? `<tbody><tr>${sampleCells}</tr></tbody>` : ''}
+      </table>
+    </div>`;
+  bfRenderMapping(cols);
+}
+
+function bfClearImportPreview() {
+  const el = document.getElementById('bf-import-preview');
+  el.style.display = 'none'; el.innerHTML = '';
+  bfClearMapping();
+}
+
+// ─── column mapping (file column → DB column) ────────────────────────────────
+
+const BF_DB_COLUMNS = [
+  { key: '', label: '(ignorar)' },
+  { key: 'ticker', label: 'ticker' },
+  { key: 'time', label: 'time (data+hora completas)' },
+  { key: 'time_date', label: 'time › parte data' },
+  { key: 'time_time', label: 'time › parte hora' },
+  { key: 'open', label: 'open' },
+  { key: 'high', label: 'high' },
+  { key: 'low', label: 'low' },
+  { key: 'close', label: 'close' },
+  { key: 'volume', label: 'volume (R$/financeiro)' },
+  { key: 'quantidade', label: 'quantidade (#)' },
+  { key: 'trades', label: 'trades (negócios)' },
+  { key: 'vwap', label: 'vwap' },
+  { key: 'aftermarket', label: 'aftermarket (bool)' },
+];
+
+const BF_DATE_KEYS = ['data', 'date'];
+const BF_TIME_KEYS = ['hora', 'time', 'hour'];
+
+const BF_HEURISTICS = {
+  ticker: ['ativo', 'ticker', 'symbol', 'papel', 'codigo', 'código'],
+  time: ['data', 'datahora', 'datetime', 'date', 'timestamp', 'time', 'hora'],
+  open: ['abertura', 'open', 'abert', 'preco_abertura'],
+  high: ['maxima', 'máxima', 'maximo', 'máximo', 'high', 'max'],
+  low: ['minima', 'mínima', 'minimo', 'mínimo', 'low', 'min'],
+  close: ['fechamento', 'fech', 'close', 'preco_fechamento', 'ultimo'],
+  volume: ['volume', 'vol', 'volume_financeiro', 'financeiro', 'valor'],
+  quantidade: ['quantidade', 'qtd', 'qty', 'quantity', 'quant', 'qtde'],
+  trades: ['negocios', 'negócios', 'trades', 'trade_count', 'negociacoes', 'negociações', 'neg'],
+  vwap: ['vwap', 'preco_medio', 'preço_médio', 'media', 'média'],
+  aftermarket: ['aftermarket', 'after', 'aft', 'after_market', 'apos_pregao', 'após_pregão', 'pos_pregao', 'am'],
+};
+
+let bfMapping = {};      // {fileCol: dbCol}
+let bfFileCols = [];     // ordered list of file columns
+
+function bfClearMapping() {
+  bfMapping = {};
+  bfFileCols = [];
+  const el = document.getElementById('bf-import-mapping');
+  if (el) el.style.display = 'none';
+  document.getElementById('bf-import-colmap').value = '';
+}
+
+function bfNormalizeForMatch(s) {
+  return String(s || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')  // strip diacritics
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function bfHasSplitDateTime(allCols) {
+  if (!allCols || !allCols.length) return false;
+  const norms = allCols.map(c => bfNormalizeForMatch(c));
+  const hasDate = norms.some(c => BF_DATE_KEYS.includes(c));
+  const hasTime = norms.some(c => BF_TIME_KEYS.includes(c));
+  return hasDate && hasTime;
+}
+
+function bfGuessDbColumn(fileCol, allCols) {
+  const norm = bfNormalizeForMatch(fileCol);
+  if (!norm) return '';
+  // Override: arquivo com Data + Hora em colunas separadas
+  if (bfHasSplitDateTime(allCols)) {
+    if (BF_DATE_KEYS.includes(norm)) return 'time_date';
+    if (BF_TIME_KEYS.includes(norm)) return 'time_time';
+  }
+  // exact match
+  for (const [dbCol, names] of Object.entries(BF_HEURISTICS)) {
+    if (names.some(n => bfNormalizeForMatch(n) === norm)) return dbCol;
+  }
+  // contains match
+  for (const [dbCol, names] of Object.entries(BF_HEURISTICS)) {
+    if (names.some(n => norm.includes(bfNormalizeForMatch(n)) || bfNormalizeForMatch(n).includes(norm))) return dbCol;
+  }
+  return '';
+}
+
+function bfRenderMapping(cols) {
+  bfFileCols = cols.filter(c => c && c.trim()).map(c => c.trim());
+  if (!bfFileCols.length) {
+    document.getElementById('bf-import-mapping').style.display = 'none';
+    return;
+  }
+  // auto-detect (preserva mappings que já existem)
+  bfFileCols.forEach(c => {
+    if (bfMapping[c] === undefined) bfMapping[c] = bfGuessDbColumn(c, bfFileCols);
+  });
+  // remove mappings de colunas que não existem mais
+  Object.keys(bfMapping).forEach(c => {
+    if (!bfFileCols.includes(c)) delete bfMapping[c];
+  });
+  bfRedrawMappingRows();
+  document.getElementById('bf-import-mapping').style.display = 'block';
+  bfSyncColmapText();
+}
+
+function bfRedrawMappingRows() {
+  const box = document.getElementById('bf-mapping-rows');
+  // detecta DB cols já usadas (pra alertar duplicatas exceto split-time válido)
+  const usedCounts = {};
+  Object.values(bfMapping).forEach(v => { if (v) usedCounts[v] = (usedCounts[v]||0) + 1; });
+  // duplicata em time_date/time_time é OK (só 1 esperado de cada), mas time
+  // ao lado de time_date/time_time é ambíguo
+  const usedTimeFull = !!Object.values(bfMapping).find(v => v === 'time');
+  const usedTimeDate = !!Object.values(bfMapping).find(v => v === 'time_date');
+  const usedTimeTime = !!Object.values(bfMapping).find(v => v === 'time_time');
+  const splitConflict = usedTimeFull && (usedTimeDate || usedTimeTime);
+  const splitHalfMissing = (usedTimeDate && !usedTimeTime) || (!usedTimeDate && usedTimeTime);
+
+  let hintHtml = '';
+  if (splitConflict) {
+    hintHtml = `<div style="padding:4px 8px;margin-bottom:4px;background:rgba(255,61,90,.08);border-left:3px solid var(--red);font-size:12px;color:var(--red)">⚠ Conflito: <code>time</code> e <code>time › parte data/hora</code> selecionados juntos. Use só <code>time</code> (datetime completo) OU os dois <code>time › parte ...</code>.</div>`;
+  } else if (splitHalfMissing) {
+    hintHtml = `<div style="padding:4px 8px;margin-bottom:4px;background:rgba(240,180,41,.08);border-left:3px solid var(--gold);font-size:12px;color:var(--gold)">⚠ Falta a outra metade: <code>time › parte data</code> e <code>time › parte hora</code> precisam estar ambos mapeados.</div>`;
+  } else if (usedTimeDate && usedTimeTime) {
+    hintHtml = `<div style="padding:4px 8px;margin-bottom:4px;background:rgba(0,212,255,.06);border-left:3px solid var(--accent);font-size:12px;color:var(--accent)">💡 Data + Hora em colunas separadas — concatenadas em <code>time</code> no momento do import.</div>`;
+  }
+
+  const rowsHtml = bfFileCols.map(c => {
+    const current = bfMapping[c] ?? '';
+    // duplicata só conta pra DB cols únicas — time_date/time_time têm cardinalidade 1, demais idem
+    const dup = current && usedCounts[current] > 1;
+    const options = BF_DB_COLUMNS.map(opt =>
+      `<option value="${opt.key}" ${opt.key === current ? 'selected' : ''}>${opt.label}</option>`
+    ).join('');
+    return `<div style="display:flex;align-items:center;gap:8px;padding:3px 4px">
+      <span style="flex:0 0 200px;font-family:monospace;font-size:12px;color:${current ? 'var(--text)' : 'var(--muted)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${c.replace(/"/g,'&quot;')}">${c}</span>
+      <span style="color:var(--muted);font-size:14px">→</span>
+      <select onchange="bfSetMapping('${c.replace(/'/g,"\\'")}', this.value)" style="flex:1;background:var(--s2);border:1px solid ${dup ? 'var(--red)' : 'var(--border)'};border-radius:4px;color:var(--text);font-size:13px;padding:3px 6px;font-family:monospace">${options}</select>
+      ${dup ? '<span style="color:var(--red);font-size:11px" title="duplicado">⚠</span>' : ''}
+    </div>`;
+  }).join('');
+  box.innerHTML = hintHtml + rowsHtml;
+}
+
+function bfSetMapping(fileCol, dbCol) {
+  bfMapping[fileCol] = dbCol;
+  bfRedrawMappingRows();
+  bfSyncColmapText();
+}
+
+function bfAutoDetectMapping() {
+  bfMapping = {};
+  bfFileCols.forEach(c => { bfMapping[c] = bfGuessDbColumn(c, bfFileCols); });
+  bfRedrawMappingRows();
+  bfSyncColmapText();
+}
+
+function bfBuildColmapString() {
+  const parts = [];
+  for (const [fileCol, dbCol] of Object.entries(bfMapping)) {
+    if (dbCol && fileCol) parts.push(`${fileCol}=${dbCol}`);
+  }
+  return parts.join(',');
+}
+
+function bfSyncColmapText() {
+  document.getElementById('bf-import-colmap').value = bfBuildColmapString();
+}
+
+function bfToggleColmapAdvanced() {
+  const row = document.getElementById('bf-colmap-advanced-row');
+  const btn = document.getElementById('bf-toggle-colmap-adv');
+  const open = row.style.display === 'none' || !row.style.display;
+  row.style.display = open ? 'block' : 'none';
+  btn.textContent = open ? '✕ texto' : '{ } texto';
+}
+
+function bfShowImportProgress(on) {
+  document.getElementById('bf-import-progress').style.display = on ? 'block' : 'none';
+}
+
+// Preview client-side ao escolher arquivos no modo Upload
+function bfOnUploadFilesChange() {
+  const inp = document.getElementById('bf-import-files');
+  if (!inp.files || !inp.files.length) { bfClearImportPreview(); return; }
+  const f = inp.files[0];
+  if (!/\.(csv|txt)$/i.test(f.name)) {
+    // parquet/jsonl não dá pra preview client-side facilmente
+    bfShowImportPreview({ error: `preview client-side só suporta CSV (recebido ${f.name})` }, f.name);
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = (e.target.result || '').slice(0, 8192);
+    const firstLine = (text.split(/\r?\n/)[0] || '').trim();
+    const secondLine = (text.split(/\r?\n/)[1] || '').trim();
+    if (!firstLine) { bfShowImportPreview({ error: 'arquivo vazio' }, f.name); return; }
+    let sep = ',';
+    for (const s of [';', '\t', '|', ',']) {
+      if (firstLine.includes(s)) { sep = s; break; }
+    }
+    const cols = firstLine.split(sep).map(c => c.trim());
+    const sample = secondLine ? secondLine.split(sep).map(c => c.trim()) : null;
+    bfShowImportPreview({ separator: sep === '\t' ? '\\t' : sep, columns: cols, sample_first_row: sample }, f.name);
+  };
+  reader.readAsText(f.slice(0, 8192));
+}
+
+async function bfDoImport() {
+  const type = document.getElementById('bf-import-type').value;
+  if (type === 'ticks') { showMsg('bfImportMsg', 'Tickers ainda não implementado — apenas OHLC 1m por enquanto.', 'error'); return; }
+  if (bfImportMode === 'folder') return bfDoImportFolder();
+  return bfDoImportUpload();
+}
+
+async function bfDoImportUpload() {
+  const filesInput = document.getElementById('bf-import-files');
+  const files = filesInput.files;
+  if (!files || !files.length) { showMsg('bfImportMsg', 'Selecione pelo menos 1 arquivo.', 'error'); return; }
+  const fd = new FormData();
+  for (const f of files) fd.append('files', f);
+  fd.append('column_map', document.getElementById('bf-import-colmap').value);
+  fd.append('only_tickers', document.getElementById('bf-import-only').value);
+  fd.append('source', document.getElementById('bf-import-source').value || 'nelogica_1m');
+  fd.append('min_price', document.getElementById('bf-import-minprice').value || '0.01');
+  fd.append('dry_run', document.getElementById('bf-import-dryrun').checked ? 'true' : 'false');
+  const btn = document.getElementById('bf-btn-import');
+  btn.disabled = true; btn.textContent = '⌛ Importando…';
+  const result = document.getElementById('bf-import-result');
+  result.style.display = 'none';
+  bfShowImportProgress(true);
+  try {
+    const res = await fetch(`${IMPORT_API}/ohlc-1m`, {
+      method: 'POST',
+      headers: { 'Authorization': H().Authorization || '' },
+      body: fd,
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showMsg('bfImportMsg', `Erro: ${data.detail || res.status}`, 'error');
+    } else {
+      const s = data.summary;
+      const msg = `${data.dry_run ? '[DRY-RUN] ' : ''}${s.files} arquivo(s), ${s.read_total} linha(s), ${s.upserted} upserted, ${s.tickers_count} ticker(s).`;
+      showMsg('bfImportMsg', msg, 'success');
+      result.style.display = 'block';
+      result.innerHTML = bfRenderImportResult(data);
+    }
+  } catch (err) {
+    showMsg('bfImportMsg', `Falha de rede: ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '⬆ Importar';
+    bfShowImportProgress(false);
+  }
+}
+
+async function bfDoImportFolder() {
+  const folderRaw = document.getElementById('bf-folder-path').value.trim();
+  if (!folderRaw) { showMsg('bfImportMsg', 'Informe a pasta a importar.', 'error'); return; }
+  const body = {
+    folder: folderRaw,
+    column_map: document.getElementById('bf-import-colmap').value,
+    only_tickers: document.getElementById('bf-import-only').value,
+    source: document.getElementById('bf-import-source').value || 'nelogica_1m',
+    min_price: parseFloat(document.getElementById('bf-import-minprice').value || '0.01'),
+    dry_run: document.getElementById('bf-import-dryrun').checked,
+  };
+  const btn = document.getElementById('bf-btn-import');
+  btn.disabled = true; btn.textContent = '⌛ Processando pasta…';
+  const result = document.getElementById('bf-import-result');
+  result.style.display = 'none';
+  bfShowImportProgress(true);
+  try {
+    const res = await fetch(`${IMPORT_API}/ohlc-1m/folder`, {
+      method: 'POST',
+      headers: H(),
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showMsg('bfImportMsg', `Erro: ${data.detail || res.status}`, 'error');
+    } else {
+      const s = data.summary;
+      const moveTxt = data.dry_run ? '(dry-run, nada movido)' : `${s.moved_ok} OK · ${s.moved_err} err`;
+      const msg = `${data.dry_run ? '[DRY-RUN] ' : ''}${s.files} arquivo(s), ${s.upserted} upserted, run_id=${data.run_id || '-'}, ${moveTxt}.`;
+      showMsg('bfImportMsg', msg, 'success');
+      result.style.display = 'block';
+      result.innerHTML = bfRenderFolderResult(data);
+      bfRefreshInbox();  // atualiza listagem (arquivos sumiram da inbox)
+    }
+  } catch (err) {
+    showMsg('bfImportMsg', `Falha de rede: ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '⬆ Importar';
+    bfShowImportProgress(false);
+  }
+}
+
+function bfRenderFolderResult(data) {
+  const s = data.summary;
+  const filesRows = (data.per_file || []).map(f => {
+    if (!f.ok) {
+      return `<tr><td style="font-family:monospace">${f.file}</td><td colspan="6" style="color:var(--red);font-family:monospace;font-size:11px">${f.error}</td><td style="font-size:11px">${f.moved_to ? f.moved_to.split('/').slice(-3).join('/') : '—'}</td></tr>`;
+    }
+    return `<tr>
+      <td style="font-family:monospace">${f.file}</td>
+      <td style="text-align:right">${f.read_total}</td>
+      <td style="text-align:right;color:var(--green)">${f.upserted}</td>
+      <td style="text-align:right">${f.rejected_invalid}</td>
+      <td style="text-align:right">${f.rejected_ohlc}</td>
+      <td style="text-align:right">${f.tickers_count}</td>
+      <td style="text-align:right">${f.elapsed_s}s</td>
+      <td style="font-size:11px;color:var(--muted)">${f.moved_to ? f.moved_to.split('/').slice(-3).join('/') : '—'}</td>
+    </tr>`;
+  }).join('');
+  return `
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:10px;font-family:monospace;font-size:13px">
+      <div><strong>Pasta:</strong> ${data.folder}</div>
+      <div><strong>run_id:</strong> ${data.run_id || '(dry-run)'}</div>
+      <div><strong>Total:</strong> ${s.files} arquivos · ${s.read_total} linhas · upserted=${s.upserted}</div>
+      <div style="color:var(--muted);font-size:12px;margin-top:4px">
+        rejeitados: invalid=${s.rejected_invalid} ohlc_bad=${s.rejected_ohlc} filtered=${s.rejected_dedup_filtered}
+        · tickers únicos: ${s.tickers_count}
+        ${data.dry_run ? '' : `· movidos: <strong style="color:var(--green)">${s.moved_ok} OK</strong> / <strong style="color:var(--red)">${s.moved_err} err</strong>`}
+      </div>
+      ${s.tickers_seen.length ? `<div style="color:var(--muted);font-size:12px;margin-top:4px">tickers: ${s.tickers_seen.slice(0,15).join(', ')}${s.tickers_seen.length>15?'...':''}</div>` : ''}
+    </div>
+    <div class="tbl-wrap">
+      <table style="font-size:12px">
+        <thead><tr><th>Arquivo</th><th>Linhas</th><th>Upserted</th><th>Inválidos</th><th>OHLC ruim</th><th>Tickers</th><th>Elapsed</th><th>Movido para</th></tr></thead>
+        <tbody>${filesRows}</tbody>
+      </table>
+    </div>`;
+}
+
+function bfRenderImportResult(data) {
+  const s = data.summary;
+  const filesRows = (data.per_file || []).map(f => {
+    if (!f.ok) {
+      return `<tr><td>${f.file}</td><td colspan="6" style="color:var(--red);font-family:monospace">${f.error}</td></tr>`;
+    }
+    return `<tr>
+      <td>${f.file}</td>
+      <td style="text-align:right">${f.read_total}</td>
+      <td style="text-align:right;color:var(--green)">${f.upserted}</td>
+      <td style="text-align:right">${f.rejected_invalid}</td>
+      <td style="text-align:right">${f.rejected_ohlc}</td>
+      <td style="text-align:right">${f.tickers_count}</td>
+      <td style="text-align:right">${f.elapsed_s}s</td>
+    </tr>`;
+  }).join('');
+  return `
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:10px;font-family:monospace;font-size:13px">
+      <div><strong>Total:</strong> ${s.files} arquivos · ${s.read_total} linhas · upserted=${s.upserted}</div>
+      <div style="color:var(--muted);font-size:12px;margin-top:4px">
+        rejeitados: invalid=${s.rejected_invalid} ohlc_bad=${s.rejected_ohlc} filtered=${s.rejected_dedup_filtered}
+        · tickers únicos: ${s.tickers_count}${s.tickers_seen.length ? ' (' + s.tickers_seen.slice(0,8).join(',') + (s.tickers_seen.length>8?'...':'') + ')' : ''}
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table style="font-size:12px">
+        <thead><tr><th>Arquivo</th><th>Linhas</th><th>Upserted</th><th>Inválidos</th><th>OHLC ruim</th><th>Tickers</th><th>Elapsed</th></tr></thead>
+        <tbody>${filesRows}</tbody>
+      </table>
+    </div>`;
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────

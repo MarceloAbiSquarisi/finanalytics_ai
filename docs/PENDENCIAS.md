@@ -2,7 +2,47 @@
 
 > **Para Claude/agente:** este é o primeiro arquivo a consultar em qualquer sessão. Contém pendências priorizadas + carryover de sessões anteriores. Atualizar ao fim de cada sessão (mover concluídas pra `## Done recente` e depois pra `docs/historico/`).
 
-Última atualização: **2026-05-06 12:30 BRT** (sessão fechada com agent stopped — root cause externo)
+Última atualização: **2026-05-06 13:20 BRT** (aba /admin → Backfill implementada; agent stopped externo persiste)
+
+### Done na tarde 06/mai (sessão 2)
+
+- ✅ **Aba `/admin → 📦 Backfill` implementada** (4 boxes):
+  - **Iniciar Backfill**: multiselect tickers (com filtro), date range, force_refetch, ETA estimado
+  - **Jobs em andamento**: dashboard com progresso (barra + counters ok/skip/err), auto-refresh 2s enquanto running, ver-items + cancel
+  - **Falhas**: filtro por data + ticker, query em `backfill_job_items WHERE status='err'`, botão "Reagendar resultados" (cria job novo só com falhas)
+  - **Importar Arquivo**: multipart `UploadFile`, OHLC 1m funcional (CSV/Parquet/JSONL), Tickers placeholder (501)
+- 📦 **Tabelas novas**: `backfill_jobs` + `backfill_job_items` em TimescaleDB. SQL idempotente em `init_timescale/007_backfill_jobs.sql`. Migration ts_0005 registry-only (Decisão 23). Aplicar em containers existentes: `python scripts/apply_backfill_migration.py` ou `docker exec finanalytics_timescale psql ... < init_timescale/007_backfill_jobs.sql`.
+- 🔌 **Endpoints novos** (todos `require_master`):
+  - `POST /api/v1/admin/backfill/jobs` cria + dispara worker async
+  - `GET /api/v1/admin/backfill/jobs[/{id}[/items]]`
+  - `POST /api/v1/admin/backfill/jobs/{id}/cancel` (worker checa entre items)
+  - `GET /api/v1/admin/backfill/failures?date_start&date_end[&ticker]`
+  - `GET /api/v1/admin/backfill/tickers` (proxy `:8002/tickers/active`)
+  - `POST /api/v1/admin/import/ohlc-1m` multipart
+- 🧠 **Worker**: `application/services/backfill_runner.py` — single `asyncio.Lock`, sequencial (DLL serializa), httpx async, skip se `market_history_trades` já tem dado (a menos que `force_refetch`). Limitação conhecida: API restart durante job → items 'running' órfãos (v2 adiciona recovery query).
+- 📥 **Importer refatorado**: `application/services/ohlc_importer.py` extraído de `scripts/import_historical_1m.py`. CLI mantém contrato. CSV agora tem auto-detect de separador (vírgula/ponto-e-vírgula/tab) — útil pra Nelogica PT-BR.
+- ✅ **Smoke E2E validado**: criar job → worker → items pra err graciosamente (agent down) → failures dashboard mostra → cancel job 5×4=20 items para no item 10 → import CSV 5 linhas vai pra `ohlc_1m` com source `smoke_test`. Cleanup feito.
+- ✅ **Folder-import com pasta DINÂMICA** (sessão tarde 06/mai, evolução): aba `/admin → 📦 Backfill` Box 4 tem 2 modos — **📂 Pasta no servidor** (default) e **⬆ Upload manual**.
+  - Operador aponta a pasta no momento da importação (input mandatório). Aceita Windows-path `E:\sua\pasta` ou container-path `/host_e/sua/pasta`.
+  - Drive `E:` montado amplo em `/host_e` no api container via `docker-compose.wsl.yml`. Para adicionar D: ou C:, estender `HOST_DRIVE_MOUNTS` em `admin_import.py` + volume no compose.
+  - Subpastas criadas DENTRO da pasta de origem (auditoria local): OK → `<pasta>/historico/<run_id>/`, falha → `<pasta>/erros/<run_id>/`. run_id = `YYYYMMDD-HHMMSSZ` UTC. Dry-run preserva arquivos.
+  - Path traversal protegido: `_validate_under_mount` exige path resolvido sob `/host_e`. Drive não-montado → 400 com mensagem clara. CSV PT-BR (`;` + `,` decimal) auto-detectado.
+  - Endpoints: `GET /api/v1/admin/import/inbox?folder=...` (mandatório) lista arquivos. `POST /api/v1/admin/import/ohlc-1m/folder` body `{folder, dry_run, source, column_map, only_tickers, min_price}` processa.
+  - Smoke validado: pasta `E:\test_nelogica_dynamic\` arbitrária, 3 CSVs (PT-BR + EN + invalido), 2 movidos pra historico/<run_id>/, 1 com OHLC inconsistente pra erros/<run_id>/, 3 linhas em DB. Cleanup feito.
+  - Para volumes muito grandes use modo Pasta (cap 5000 arquivos/chamada vs 50 do upload).
+- ✅ **Refinamentos UI/UX no Backfill** (sessão 06/mai, 4ª iteração):
+  - **Tickers vêm do DB** (`profit_subscribed_tickers`), não do agent — funciona com agent off (validado: 358 tickers retornados). `?include_inactive=true` opcional.
+  - **Caixa de seleção `<select multiple>`** substituiu checkbox-list (mais compacta) com pills dos selecionados embaixo + botão `×` em cada pill pra remover individualmente. Filtro preserva estado entre re-renderizações.
+  - **Preview de colunas em mini-tabela**: 2 linhas (header gold + 1ª linha do arquivo), com warning explícito quando colunas todas vazias ("separador pode estar incorreto"). Modo Pasta lê via `/inbox` (server-side, csv.Sniffer); modo Upload usa FileReader client-side.
+  - **Barra de progresso indeterminada** (CSS animation `bfProgressSlide`) durante o request de import.
+- ✅ **Mapping arquivo→banco + colunas novas** (sessão 06/mai, 5ª iteração):
+  - **Tabela de mapeamento UI** abaixo do preview: cada coluna do arquivo vira uma linha com dropdown pra escolher coluna do DB (ou `(ignorar)`). **Auto-detect heurístico** PT-BR/EN cobre Ativo/Ticker→ticker, Data→time, Abertura→open, Máxima→high, Mínima→low, Fechamento→close, Quantidade→quantidade, Volume→volume, Negócios→trades, Aftermarket→aftermarket, VWAP→vwap. Duplicatas marcadas com border vermelho + ⚠.
+  - Botões "↻ Auto-detectar" e "{ } texto" (toggle do input textual avançado pra bypass).
+  - **Schema `ohlc_1m`** ganhou 2 colunas (`init_timescale/008_ohlc_1m_extra_cols.sql`, alembic `ts_0006`):
+    - `aftermarket BOOLEAN` — TRUE se barra negociada em after-market
+    - `quantidade BIGINT` — #ações/contratos negociados (distinto de `volume` que é R$ financeiro)
+  - **`ohlc_importer.py`** lê esses 2 campos via `parse_bool` (true/1/yes/sim/s/t e equivalentes pt-br) e `to_int`. UPSERT usa `COALESCE(EXCLUDED.col, ohlc_1m.col)` pra não sobrescrever com NULL em re-imports.
+  - **Smoke validado**: PETR4 com 3 barras (2 normais + 1 after-market às 19:00), `column_map` PT-BR completo → DB tem `aftermarket=f|f|t`, `quantidade=100000|80000|5000`, `volume=3.85M|3.09M|194K`. Cleanup feito.
 
 ## Top priority — pegar antes do próximo smoke real
 

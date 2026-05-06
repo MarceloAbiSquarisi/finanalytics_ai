@@ -1,0 +1,467 @@
+"""
+Repositorio asyncpg para backfill_jobs + backfill_job_items.
+
+Acessa o TimescaleDB (mesmo onde market_history_trades vive) usando a
+mesma normalizacao de DSN do admin.py (asyncpg nao aceita
+postgresql+asyncpg://). Sem ORM — admin/ohlc/rebuild ja segue esse padrao.
+
+Funcoes principais:
+  create_job_with_items  — cria job + items (cartesian tickers x trading days)
+  list_jobs              — lista paginada
+  get_job                — detalhe + counters
+  list_items             — items de 1 job, opcional filter por status
+  list_failures          — cross-job: status='err' filtrado por target_date
+  next_pending_item      — usado pelo runner pra pegar o proximo item
+  start_item / finish_item — atualiza status e counters do job
+  cancel_job             — flag cancel_requested = TRUE
+  mark_job_running       — started_at + status='running'
+  mark_job_finished      — finished_at + status final
+  is_job_cancel_requested
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime, timedelta
+import os
+from typing import Any
+
+import asyncpg
+
+_TS_DSN_RAW = (
+    os.getenv("TIMESCALE_URL")
+    or os.getenv("PROFIT_TIMESCALE_DSN")
+    or "postgresql://finanalytics:timescale_secret@timescale:5432/market_data"
+)
+_TS_DSN = _TS_DSN_RAW.replace("postgresql+asyncpg://", "postgres://").replace(
+    "postgresql://", "postgres://"
+)
+
+
+HOLIDAYS_BR_2026: set[date] = {
+    date(2026, 1, 1),
+    date(2026, 2, 16), date(2026, 2, 17),
+    date(2026, 4, 3), date(2026, 4, 21),
+    date(2026, 5, 1), date(2026, 6, 4),
+    date(2026, 9, 7), date(2026, 10, 12),
+    date(2026, 11, 2), date(2026, 11, 15),
+    date(2026, 12, 25),
+}
+
+
+def is_trading_day(d: date) -> bool:
+    return d.weekday() < 5 and d not in HOLIDAYS_BR_2026
+
+
+def trading_days_in_range(start: date, end: date) -> list[date]:
+    if end < start:
+        return []
+    out: list[date] = []
+    d = start
+    while d <= end:
+        if is_trading_day(d):
+            out.append(d)
+        d += timedelta(days=1)
+    return out
+
+
+async def _connect() -> asyncpg.Connection:
+    return await asyncpg.connect(_TS_DSN)
+
+
+# ── jobs CRUD ────────────────────────────────────────────────────────────────
+
+
+async def create_job_with_items(
+    *,
+    tickers: list[str],
+    date_start: date,
+    date_end: date,
+    force_refetch: bool,
+    requested_by: str | None,
+    exchange_for: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Cria job + items (1 por ticker x trading_day no range).
+
+    `exchange_for` mapeia ticker -> exchange (default 'B'). Tickers sem mapping
+    caem em 'B' (acoes B3).
+    """
+    days = trading_days_in_range(date_start, date_end)
+    tickers = [t.strip().upper() for t in tickers if t and t.strip()]
+    if not tickers:
+        raise ValueError("tickers vazio")
+    if not days:
+        raise ValueError("sem trading days no range informado")
+
+    exchange_for = exchange_for or {}
+    items_payload = [
+        (t, exchange_for.get(t, "B"), d) for d in days for t in tickers
+    ]
+    total_items = len(items_payload)
+
+    conn = await _connect()
+    try:
+        async with conn.transaction():
+            row = await conn.fetchrow(
+                """
+                INSERT INTO backfill_jobs
+                    (status, tickers, date_start, date_end, force_refetch,
+                     total_items, requested_by)
+                VALUES ('queued', $1::text[], $2, $3, $4, $5, $6)
+                RETURNING id, created_at
+                """,
+                tickers,
+                date_start,
+                date_end,
+                force_refetch,
+                total_items,
+                requested_by,
+            )
+            job_id = int(row["id"])
+            await conn.executemany(
+                """
+                INSERT INTO backfill_job_items
+                    (job_id, ticker, exchange, target_date, status)
+                VALUES ($1, $2, $3, $4, 'pending')
+                ON CONFLICT (job_id, ticker, exchange, target_date) DO NOTHING
+                """,
+                [(job_id, t, ex, d) for (t, ex, d) in items_payload],
+            )
+        return {
+            "id": job_id,
+            "created_at": row["created_at"],
+            "total_items": total_items,
+            "trading_days": len(days),
+        }
+    finally:
+        await conn.close()
+
+
+async def list_jobs(limit: int = 20) -> list[dict[str, Any]]:
+    conn = await _connect()
+    try:
+        rows = await conn.fetch(
+            """
+            SELECT id, created_at, started_at, finished_at, status,
+                   cancel_requested, tickers, date_start, date_end,
+                   force_refetch, total_items, done_items, ok_items,
+                   err_items, skip_items, requested_by
+            FROM backfill_jobs
+            ORDER BY id DESC
+            LIMIT $1
+            """,
+            limit,
+        )
+        return [_row_to_job(r) for r in rows]
+    finally:
+        await conn.close()
+
+
+async def get_job(job_id: int) -> dict[str, Any] | None:
+    conn = await _connect()
+    try:
+        row = await conn.fetchrow(
+            """
+            SELECT id, created_at, started_at, finished_at, status,
+                   cancel_requested, tickers, date_start, date_end,
+                   force_refetch, total_items, done_items, ok_items,
+                   err_items, skip_items, requested_by, notes
+            FROM backfill_jobs
+            WHERE id = $1
+            """,
+            job_id,
+        )
+        return _row_to_job(row) if row else None
+    finally:
+        await conn.close()
+
+
+async def list_items(
+    job_id: int,
+    *,
+    status: str | None = None,
+    limit: int = 5000,
+) -> list[dict[str, Any]]:
+    conn = await _connect()
+    try:
+        if status:
+            rows = await conn.fetch(
+                """
+                SELECT id, job_id, ticker, exchange, target_date, status,
+                       ticks_returned, inserted, elapsed_s, error_msg,
+                       attempts, started_at, finished_at
+                FROM backfill_job_items
+                WHERE job_id = $1 AND status = $2
+                ORDER BY target_date, ticker
+                LIMIT $3
+                """,
+                job_id, status, limit,
+            )
+        else:
+            rows = await conn.fetch(
+                """
+                SELECT id, job_id, ticker, exchange, target_date, status,
+                       ticks_returned, inserted, elapsed_s, error_msg,
+                       attempts, started_at, finished_at
+                FROM backfill_job_items
+                WHERE job_id = $1
+                ORDER BY target_date, ticker
+                LIMIT $2
+                """,
+                job_id, limit,
+            )
+        return [_row_to_item(r) for r in rows]
+    finally:
+        await conn.close()
+
+
+async def list_failures(
+    *,
+    date_start: date,
+    date_end: date,
+    ticker: str | None = None,
+    limit: int = 1000,
+) -> list[dict[str, Any]]:
+    conn = await _connect()
+    try:
+        if ticker:
+            rows = await conn.fetch(
+                """
+                SELECT id, job_id, ticker, exchange, target_date, status,
+                       ticks_returned, inserted, elapsed_s, error_msg,
+                       attempts, started_at, finished_at
+                FROM backfill_job_items
+                WHERE status = 'err'
+                  AND target_date BETWEEN $1 AND $2
+                  AND ticker = $3
+                ORDER BY target_date DESC, ticker
+                LIMIT $4
+                """,
+                date_start, date_end, ticker.upper(), limit,
+            )
+        else:
+            rows = await conn.fetch(
+                """
+                SELECT id, job_id, ticker, exchange, target_date, status,
+                       ticks_returned, inserted, elapsed_s, error_msg,
+                       attempts, started_at, finished_at
+                FROM backfill_job_items
+                WHERE status = 'err'
+                  AND target_date BETWEEN $1 AND $2
+                ORDER BY target_date DESC, ticker
+                LIMIT $3
+                """,
+                date_start, date_end, limit,
+            )
+        return [_row_to_item(r) for r in rows]
+    finally:
+        await conn.close()
+
+
+# ── runner helpers ──────────────────────────────────────────────────────────
+
+
+async def mark_job_running(job_id: int) -> None:
+    conn = await _connect()
+    try:
+        await conn.execute(
+            """
+            UPDATE backfill_jobs
+               SET status = 'running', started_at = NOW()
+             WHERE id = $1 AND status = 'queued'
+            """,
+            job_id,
+        )
+    finally:
+        await conn.close()
+
+
+async def mark_job_finished(job_id: int, *, status: str) -> None:
+    conn = await _connect()
+    try:
+        await conn.execute(
+            """
+            UPDATE backfill_jobs
+               SET status = $2, finished_at = NOW()
+             WHERE id = $1
+            """,
+            job_id, status,
+        )
+    finally:
+        await conn.close()
+
+
+async def cancel_job(job_id: int) -> bool:
+    conn = await _connect()
+    try:
+        out = await conn.execute(
+            """
+            UPDATE backfill_jobs
+               SET cancel_requested = TRUE
+             WHERE id = $1 AND status IN ('queued', 'running')
+            """,
+            job_id,
+        )
+        return out.endswith(" 1")
+    finally:
+        await conn.close()
+
+
+async def is_cancel_requested(job_id: int) -> bool:
+    conn = await _connect()
+    try:
+        v = await conn.fetchval(
+            "SELECT cancel_requested FROM backfill_jobs WHERE id = $1",
+            job_id,
+        )
+        return bool(v)
+    finally:
+        await conn.close()
+
+
+async def next_pending_item(job_id: int) -> dict[str, Any] | None:
+    conn = await _connect()
+    try:
+        row = await conn.fetchrow(
+            """
+            SELECT id, ticker, exchange, target_date, attempts
+            FROM backfill_job_items
+            WHERE job_id = $1 AND status = 'pending'
+            ORDER BY target_date, ticker
+            LIMIT 1
+            """,
+            job_id,
+        )
+        if not row:
+            return None
+        return {
+            "id": int(row["id"]),
+            "ticker": row["ticker"],
+            "exchange": row["exchange"],
+            "target_date": row["target_date"],
+            "attempts": int(row["attempts"]),
+        }
+    finally:
+        await conn.close()
+
+
+async def start_item(item_id: int) -> None:
+    conn = await _connect()
+    try:
+        await conn.execute(
+            """
+            UPDATE backfill_job_items
+               SET status = 'running', started_at = NOW(),
+                   attempts = attempts + 1
+             WHERE id = $1
+            """,
+            item_id,
+        )
+    finally:
+        await conn.close()
+
+
+async def finish_item(
+    item_id: int,
+    *,
+    status: str,  # ok|skip|err
+    ticks_returned: int | None = None,
+    inserted: int | None = None,
+    elapsed_s: float | None = None,
+    error_msg: str | None = None,
+) -> None:
+    conn = await _connect()
+    try:
+        async with conn.transaction():
+            row = await conn.fetchrow(
+                """
+                UPDATE backfill_job_items
+                   SET status = $2, ticks_returned = $3, inserted = $4,
+                       elapsed_s = $5, error_msg = $6, finished_at = NOW()
+                 WHERE id = $1
+                RETURNING job_id
+                """,
+                item_id, status, ticks_returned, inserted, elapsed_s, error_msg,
+            )
+            if not row:
+                return
+            job_id = int(row["job_id"])
+            col = {"ok": "ok_items", "skip": "skip_items", "err": "err_items"}.get(status)
+            if col:
+                await conn.execute(
+                    f"UPDATE backfill_jobs "
+                    f"SET done_items = done_items + 1, {col} = {col} + 1 "
+                    f"WHERE id = $1",
+                    job_id,
+                )
+    finally:
+        await conn.close()
+
+
+# ── helpers integracao com market_history_trades / ohlc_1m ──────────────────
+
+
+async def already_has_history(ticker: str, day: date) -> bool:
+    """Check em market_history_trades — mesmo predicate do backfill_resilient."""
+    conn = await _connect()
+    try:
+        v = await conn.fetchval(
+            "SELECT 1 FROM market_history_trades "
+            "WHERE ticker = $1 AND trade_date::date = $2 LIMIT 1",
+            ticker, day,
+        )
+        return v is not None
+    except Exception:
+        return False
+    finally:
+        await conn.close()
+
+
+# ── row mappers ─────────────────────────────────────────────────────────────
+
+
+def _row_to_job(r: asyncpg.Record) -> dict[str, Any]:
+    return {
+        "id": int(r["id"]),
+        "created_at": _iso(r["created_at"]),
+        "started_at": _iso(r.get("started_at")),
+        "finished_at": _iso(r.get("finished_at")),
+        "status": r["status"],
+        "cancel_requested": bool(r.get("cancel_requested", False)),
+        "tickers": list(r["tickers"]),
+        "date_start": r["date_start"].isoformat() if r["date_start"] else None,
+        "date_end": r["date_end"].isoformat() if r["date_end"] else None,
+        "force_refetch": bool(r["force_refetch"]),
+        "total_items": int(r["total_items"]),
+        "done_items": int(r["done_items"]),
+        "ok_items": int(r["ok_items"]),
+        "err_items": int(r["err_items"]),
+        "skip_items": int(r["skip_items"]),
+        "requested_by": r.get("requested_by"),
+        "notes": r.get("notes") if "notes" in r.keys() else None,
+    }
+
+
+def _row_to_item(r: asyncpg.Record) -> dict[str, Any]:
+    return {
+        "id": int(r["id"]),
+        "job_id": int(r["job_id"]),
+        "ticker": r["ticker"],
+        "exchange": r["exchange"],
+        "target_date": r["target_date"].isoformat() if r["target_date"] else None,
+        "status": r["status"],
+        "ticks_returned": int(r["ticks_returned"]) if r["ticks_returned"] is not None else None,
+        "inserted": int(r["inserted"]) if r["inserted"] is not None else None,
+        "elapsed_s": float(r["elapsed_s"]) if r["elapsed_s"] is not None else None,
+        "error_msg": r["error_msg"],
+        "attempts": int(r["attempts"]),
+        "started_at": _iso(r.get("started_at")),
+        "finished_at": _iso(r.get("finished_at")),
+    }
+
+
+def _iso(v: Any) -> str | None:
+    if v is None:
+        return None
+    if isinstance(v, datetime):
+        return v.isoformat()
+    return str(v)
