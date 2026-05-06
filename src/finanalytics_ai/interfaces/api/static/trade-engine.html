@@ -178,6 +178,12 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
   <div class="panel" id="panel-strategies">
     <div class="controls">
       <button class="btn" onclick="loadStrategies()">Atualizar</button>
+      <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px">
+        Timeframe
+        <select id="strat-tf-filter" onchange="renderStrategies()" style="font-family:'DM Mono',monospace;font-size:12px;padding:3px 6px">
+          <option value="">todos</option>
+        </select>
+      </label>
       <span style="font-size:12px;color:var(--muted)" id="strat-count"></span>
       <span style="font-size:11px;color:var(--muted);margin-left:auto">Catálogo populado por <code>tools/dump_strategies_catalog.py</code> no trading-engine</span>
     </div>
@@ -282,8 +288,9 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
     </div>
 
     <div class="kpi-row" id="exec-kpis"></div>
+    <div id="exec-sigma"></div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;margin-top:14px">
       <div>
         <div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-family:'DM Mono',monospace">ROLLING SHARPE 60d</div>
         <canvas id="exec-rolling-sharpe" height="160"></canvas>
@@ -378,36 +385,54 @@ document.querySelectorAll('.tab').forEach(function(t){
 
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]});}
 
+var STRATEGIES_CACHE=[];
+
 async function loadStrategies(){
   try{
     var data=await authFetch('/api/v1/trading-engine/strategies');
-    document.getElementById('strat-count').textContent=data.count+' estratégias';
-    var grid=document.getElementById('strat-grid');
-    if(!data.strategies.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1">Catálogo vazio. No trading-engine: <code>uv run python tools/dump_strategies_catalog.py</code></div>';return;}
-    grid.innerHTML=data.strategies.map(function(s){
-      var params=s.params_json||{};
-      var pRows=Object.keys(params).sort().map(function(k){
-        return '<div class="p-row"><span class="p-key">'+escapeHtml(k)+'</span><span class="p-val">'+escapeHtml(params[k])+'</span></div>';
-      }).join('');
-      var nRuns=s.n_runs||0;
-      var statsHtml='<div class="strat-stats">'+
-        '<div><span>Backtests</span><span class="kv-blue">'+nRuns+'</span></div>'+
-        '<div><span>Trades total</span><span>'+(s.total_trades||0)+'</span></div>'+
-        '<div><span>PnL médio</span><span class="'+((Number(s.avg_pnl)||0)>=0?'kv-pos':'kv-neg')+'">'+(s.avg_pnl!=null?fmtNum(s.avg_pnl,2):'—')+'</span></div>'+
-        '<div><span>Hit rate médio</span><span class="kv-gold">'+(s.avg_hit_rate!=null?fmtNum(s.avg_hit_rate*100,1)+'%':'—')+'</span></div>'+
-        '<div><span>Sharpe médio</span><span>'+(s.avg_sharpe!=null?fmtNum(s.avg_sharpe,2):'—')+'</span></div>'+
-        '<div><span>Último run</span><span>'+(s.last_run_at?fmtTs(s.last_run_at).split(',')[0]:'—')+'</span></div>'+
-      '</div>';
-      var descId='desc-'+s.name;
-      return '<div class="strat-card">'+
-        '<div class="strat-head"><div class="strat-name">'+escapeHtml(s.name)+'</div><div class="strat-tf">'+escapeHtml(s.timeframe||'')+'</div></div>'+
-        (s.description?'<div class="strat-desc" id="'+descId+'">'+escapeHtml(s.description)+'</div><button class="strat-toggle" onclick="document.getElementById(\''+descId+'\').classList.toggle(\'expanded\');this.textContent=this.textContent==\'expandir\'?\'recolher\':\'expandir\'">expandir</button>':'')+
-        statsHtml+
-        '<div><div style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace;margin-bottom:4px">PARAMS</div><div class="strat-params">'+(pRows||'<div class="p-row"><span class="p-key">(sem params)</span></div>')+'</div></div>'+
-        '<div class="strat-foot"><span>'+escapeHtml(s.source_file||'')+'</span><span>git: '+(s.git_sha?escapeHtml(s.git_sha.substring(0,7)):'dirty')+'</span></div>'+
-      '</div>';
+    STRATEGIES_CACHE=data.strategies||[];
+    var tfs={};
+    STRATEGIES_CACHE.forEach(function(s){if(s.timeframe)tfs[s.timeframe]=true;});
+    var sel=document.getElementById('strat-tf-filter');
+    var current=sel.value;
+    sel.innerHTML='<option value="">todos</option>'+Object.keys(tfs).sort().map(function(tf){
+      return '<option value="'+escapeHtml(tf)+'"'+(tf===current?' selected':'')+'>'+escapeHtml(tf)+'</option>';
     }).join('');
+    renderStrategies();
   }catch(e){}
+}
+
+function renderStrategies(){
+  var tfFilter=document.getElementById('strat-tf-filter').value;
+  var rows=tfFilter?STRATEGIES_CACHE.filter(function(s){return s.timeframe===tfFilter;}):STRATEGIES_CACHE;
+  document.getElementById('strat-count').textContent=rows.length+' estratégias'+(tfFilter?' ('+tfFilter+')':'');
+  var grid=document.getElementById('strat-grid');
+  if(!rows.length){grid.innerHTML='<div class="empty" style="grid-column:1/-1">'+(STRATEGIES_CACHE.length?'Nenhuma estratégia para o timeframe selecionado.':'Catálogo vazio. No trading-engine: <code>uv run python tools/dump_strategies_catalog.py</code>')+'</div>';return;}
+  grid.innerHTML=rows.map(function(s){
+    var params=s.params_json||{};
+    var pRows=Object.keys(params).sort().map(function(k){
+      return '<div class="p-row"><span class="p-key">'+escapeHtml(k)+'</span><span class="p-val">'+escapeHtml(params[k])+'</span></div>';
+    }).join('');
+    var nRuns=s.n_runs||0;
+    var statsHtml='<div class="strat-stats">'+
+      '<div><span>Backtests</span><span class="kv-blue">'+nRuns+'</span></div>'+
+      '<div><span>Trades total</span><span>'+(s.total_trades||0)+'</span></div>'+
+      '<div><span>PnL médio</span><span class="'+((Number(s.avg_pnl)||0)>=0?'kv-pos':'kv-neg')+'">'+(s.avg_pnl!=null?fmtNum(s.avg_pnl,2):'—')+'</span></div>'+
+      '<div><span>Hit rate médio</span><span class="kv-gold">'+(s.avg_hit_rate!=null?fmtNum(s.avg_hit_rate*100,1)+'%':'—')+'</span></div>'+
+      '<div><span>Sharpe médio</span><span>'+(s.avg_sharpe!=null?fmtNum(s.avg_sharpe,2):'—')+'</span></div>'+
+      '<div><span>Último run</span><span>'+(s.last_run_at?fmtTs(s.last_run_at).split(',')[0]:'—')+'</span></div>'+
+    '</div>';
+    var descId='desc-'+s.name;
+    var label=s.display_name||s.name;
+    var idHint=(s.display_name&&s.display_name!==s.name)?'<div style="font-size:10px;color:var(--muted);font-family:DM Mono,monospace;margin-top:2px">'+escapeHtml(s.name)+'</div>':'';
+    return '<div class="strat-card">'+
+      '<div class="strat-head"><div class="strat-name">'+escapeHtml(label)+idHint+'</div><div class="strat-tf">'+escapeHtml(s.timeframe||'')+'</div></div>'+
+      (s.description?'<div class="strat-desc" id="'+descId+'">'+escapeHtml(s.description)+'</div><button class="strat-toggle" onclick="document.getElementById(\''+descId+'\').classList.toggle(\'expanded\');this.textContent=this.textContent==\'expandir\'?\'recolher\':\'expandir\'">expandir</button>':'')+
+      statsHtml+
+      '<div><div style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace;margin-bottom:4px">PARAMS</div><div class="strat-params">'+(pRows||'<div class="p-row"><span class="p-key">(sem params)</span></div>')+'</div></div>'+
+      '<div class="strat-foot"><span>'+escapeHtml(s.source_file||'')+'</span><span>git: '+(s.git_sha?escapeHtml(s.git_sha.substring(0,7)):'dirty')+'</span></div>'+
+    '</div>';
+  }).join('');
 }
 
 async function loadOrders(){
@@ -494,9 +519,11 @@ async function loadBacktests(){
     var tbody=document.querySelector('#bt-tbl tbody');
     tbody.innerHTML=data.backtests.length?data.backtests.map(function(b){
       var win=fmtTs(b.from_ts).split(',')[0]+' → '+fmtTs(b.to_ts).split(',')[0];
+      var stratLabel=b.strategy_display_name||b.strategy||'';
+      var stratHint=(b.strategy_display_name&&b.strategy_display_name!==b.strategy)?'<div style="font-size:10px;color:var(--muted);font-family:DM Mono,monospace">'+escapeHtml(b.strategy)+'</div>':'';
       return '<tr class="clickable" onclick="openBacktestDetail(\''+b.run_id+'\')">'+
         '<td>'+fmtTs(b.created_at)+'</td>'+
-        '<td>'+(b.strategy||'')+'</td>'+
+        '<td>'+escapeHtml(stratLabel)+stratHint+'</td>'+
         '<td>'+(b.symbol||'')+'</td>'+
         '<td>'+(b.timeframe||'')+'</td>'+
         '<td>'+win+'</td>'+
@@ -512,10 +539,130 @@ async function loadBacktests(){
 }
 
 var btChart=null;
+var mcChart=null;
+var MC_TRADE_PNLS=[];
+
+function tradePnlsFromEquityCurve(curve){
+  // curve: [[ts,equity], ...]; per-trade pnl = equity[i] - equity[i-1] (cum=0 antes).
+  var prev=0, out=[];
+  for(var i=0;i<curve.length;i++){
+    var v=Number(curve[i][1]);
+    if(!isFinite(v)) continue;
+    out.push(v-prev);
+    prev=v;
+  }
+  return out;
+}
+
+// Mulberry32 — PRNG seedável; mesmo seed = mesma distribuição (determinístico
+// como o monte_carlo_drawdown do engine, premissa G7.4).
+function _seededRng(seed){
+  var s=seed>>>0;
+  return function(){
+    s=(s+0x6D2B79F5)>>>0;
+    var t=s;
+    t=Math.imul(t^(t>>>15), t|1);
+    t^=t+Math.imul(t^(t>>>7), t|61);
+    return ((t^(t>>>14))>>>0)/4294967296;
+  };
+}
+
+function _percentile(sortedAsc, p){
+  if(!sortedAsc.length) return 0;
+  var idx=Math.min(sortedAsc.length-1, Math.max(0, Math.floor(p*sortedAsc.length)));
+  return sortedAsc[idx];
+}
+
+function runMonteCarlo(){
+  var pnls=MC_TRADE_PNLS;
+  var status=document.getElementById('mc-status');
+  var output=document.getElementById('mc-output');
+  if(!pnls.length){ status.textContent='sem trades'; output.innerHTML=''; return; }
+  var nSims=Math.max(100, Math.min(100000, parseInt(document.getElementById('mc-n-sims').value,10)||10000));
+  var ruin=parseFloat(document.getElementById('mc-ruin').value)||0;
+  var seed=parseInt(document.getElementById('mc-seed').value,10)||42;
+  var rng=_seededRng(seed);
+  status.textContent='rodando '+nSims+' sims…';
+  // setTimeout pra dar repaint do status antes do compute pesado
+  setTimeout(function(){
+    var t0=performance.now();
+    var ddDist=new Array(nSims), peakDist=new Array(nSims), troughDist=new Array(nSims), ruinCount=0;
+    var arr=pnls.slice();
+    var n=arr.length;
+    var netPnl=0; for(var z=0;z<n;z++) netPnl+=arr[z];
+    for(var s=0;s<nSims;s++){
+      // Fisher-Yates
+      for(var i=n-1;i>0;i--){
+        var j=Math.floor(rng()*(i+1));
+        var tmp=arr[i]; arr[i]=arr[j]; arr[j]=tmp;
+      }
+      var running=0, peak=0, trough=0, worst=0;
+      for(var k=0;k<n;k++){
+        running+=arr[k];
+        if(running>peak) peak=running;
+        if(running<trough) trough=running;
+        var dd=running-peak;
+        if(dd<worst) worst=dd;
+      }
+      ddDist[s]=worst;
+      peakDist[s]=peak;
+      troughDist[s]=trough;
+      if(worst<=ruin) ruinCount++;
+    }
+    ddDist.sort(function(a,b){return a-b});
+    peakDist.sort(function(a,b){return a-b});
+    troughDist.sort(function(a,b){return a-b});
+    var ddP5=_percentile(ddDist,0.05), ddP50=_percentile(ddDist,0.50), ddP95=_percentile(ddDist,0.95);
+    var ddWorst=ddDist[0];
+    var pkP50=_percentile(peakDist,0.50), pkP95=_percentile(peakDist,0.95);
+    var trP5=_percentile(troughDist,0.05), trP50=_percentile(troughDist,0.50);
+    var probRuin=ruinCount/nSims;
+    var elapsed=Math.round(performance.now()-t0);
+    status.textContent=nSims+' sims · '+n+' trades · '+elapsed+'ms';
+    var probClass=probRuin>=0.05?'kv-neg':(probRuin>=0.01?'kv-gold':'kv-pos');
+    output.innerHTML=
+      '<div class="kpi-row">'+
+        '<div class="kpi-card"><div class="kpi-label">DD p5</div><div class="kpi-value kv-neg">'+fmtNum(ddP5,2)+'</div></div>'+
+        '<div class="kpi-card"><div class="kpi-label">DD mediana</div><div class="kpi-value">'+fmtNum(ddP50,2)+'</div></div>'+
+        '<div class="kpi-card"><div class="kpi-label">DD p95</div><div class="kpi-value">'+fmtNum(ddP95,2)+'</div></div>'+
+        '<div class="kpi-card"><div class="kpi-label">DD pior</div><div class="kpi-value kv-neg">'+fmtNum(ddWorst,2)+'</div></div>'+
+        '<div class="kpi-card"><div class="kpi-label">Equity peak p50</div><div class="kpi-value kv-pos">'+fmtNum(pkP50,2)+'</div></div>'+
+        '<div class="kpi-card"><div class="kpi-label">Equity peak p95</div><div class="kpi-value kv-pos">'+fmtNum(pkP95,2)+'</div></div>'+
+        '<div class="kpi-card"><div class="kpi-label">Equity trough p5</div><div class="kpi-value kv-neg">'+fmtNum(trP5,2)+'</div></div>'+
+        '<div class="kpi-card"><div class="kpi-label">P(ruína ≤ '+fmtNum(ruin,0)+')</div><div class="kpi-value '+probClass+'">'+fmtNum(probRuin*100,2)+'%</div></div>'+
+      '</div>'+
+      '<div style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace;margin-bottom:6px">'+
+        'Histograma do max drawdown (BRL) — '+nSims+' permutações da ordem dos '+n+' trades. '+
+        'PnL final invariante sob shuffle ('+fmtNum(netPnl,2)+' BRL).'+
+      '</div>'+
+      '<canvas id="mc-hist" height="120"></canvas>';
+    // Histograma: 30 bins entre ddWorst e 0
+    var nBins=30;
+    var minDd=ddWorst, maxDd=0;
+    var span=maxDd-minDd;
+    if(span<=0) span=1;
+    var bins=new Array(nBins).fill(0);
+    var labels=new Array(nBins);
+    for(var b=0;b<nBins;b++){
+      labels[b]=fmtNum(minDd+(b+0.5)*(span/nBins),0);
+    }
+    for(var x=0;x<ddDist.length;x++){
+      var bi=Math.min(nBins-1, Math.floor((ddDist[x]-minDd)/span*nBins));
+      bins[bi]++;
+    }
+    if(mcChart){ mcChart.destroy(); mcChart=null; }
+    mcChart=new Chart(document.getElementById('mc-hist'),{
+      type:'bar',
+      data:{labels:labels,datasets:[{label:'sims',data:bins,backgroundColor:'rgba(255,61,90,.55)',borderColor:'#ff3d5a',borderWidth:1}]},
+      options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4a6a8a',maxTicksLimit:10},title:{display:true,text:'max DD (BRL)',color:'#4a6a8a'}},y:{ticks:{color:'#4a6a8a'},title:{display:true,text:'sims',color:'#4a6a8a'}}}}
+    });
+  },10);
+}
+
 async function openBacktestDetail(runId){
   try{
     var data=await authFetch('/api/v1/trading-engine/backtests/'+encodeURIComponent(runId));
-    document.getElementById('bt-detail-title').textContent=data.strategy+' / '+data.symbol+' ('+(data.timeframe||'')+')';
+    document.getElementById('bt-detail-title').textContent=(data.strategy_display_name||data.strategy)+' / '+data.symbol+' ('+(data.timeframe||'')+')';
     var win=fmtTs(data.from_ts)+' → '+fmtTs(data.to_ts);
     var advHtml='';
     if(data.advanced){
@@ -531,8 +678,53 @@ async function openBacktestDetail(runId){
           '<div class="kpi-card"><div class="kpi-label">Tail Ratio</div><div class="kpi-value">'+fmtNum(a.tail_ratio,3)+'</div></div>'+
           '<div class="kpi-card"><div class="kpi-label">PRR</div><div class="kpi-value">'+fmtNum(a.pessimistic_return_ratio,3)+'</div></div>'+
           '<div class="kpi-card"><div class="kpi-label">Top10 PnL %</div><div class="kpi-value '+((a.pnl_concentration_top10||0)>0.6?'kv-neg':'')+'">'+fmtNum((a.pnl_concentration_top10||0)*100,1)+'%</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">Stability R² §3.3</div><div class="kpi-value '+((a.stability_r2||0)>=0.9?'kv-pos':((a.stability_r2||0)>=0.7?'kv-gold':''))+'">'+fmtNum(a.stability_r2,3)+'</div></div>'+
         '</div>';
+      // §4.1 + §4.2 — comportamento
+      var awd=a.avg_winner_duration_min, ald=a.avg_loser_duration_min;
+      var rmd=a.r_multiples_distribution||{};
+      var disp=(awd!=null&&ald!=null)?(awd>ald?'kv-pos':'kv-neg'):'';
+      var blowOut=(rmd.below_minus_one_pct||0)>0.05?'kv-neg':((rmd.below_minus_one_pct||0)>0.01?'kv-gold':'kv-pos');
+      advHtml+='<div style="font-size:11px;color:var(--muted);margin:14px 0 6px;font-family:DM Mono,monospace;letter-spacing:.06em">Comportamentais §4.1-4.2</div>'+
+        '<div class="kpi-row">'+
+          '<div class="kpi-card"><div class="kpi-label">Dur. winner (min)</div><div class="kpi-value '+disp+'">'+(awd!=null?fmtNum(awd,1):'—')+'</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">Dur. loser (min)</div><div class="kpi-value">'+(ald!=null?fmtNum(ald,1):'—')+'</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">R-mult p5</div><div class="kpi-value kv-neg">'+fmtNum(rmd.p5,2)+'R</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">R-mult mediana</div><div class="kpi-value">'+fmtNum(rmd.p50,2)+'R</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">R-mult p95</div><div class="kpi-value kv-pos">'+fmtNum(rmd.p95,2)+'R</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">R &lt; -1 (slippage)</div><div class="kpi-value '+blowOut+'">'+fmtNum((rmd.below_minus_one_pct||0)*100,1)+'%</div></div>'+
+        '</div>'+
+        '<div style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace;margin-top:-4px;margin-bottom:6px">'+
+          (awd!=null&&ald!=null?(awd>ald?'✓ winners > losers (deixa correr, corta perda).':'⚠ losers ≥ winners — possível disposition effect na lógica.'):'(sem dados de duração)')+' '+
+          (rmd.below_minus_one_pct>0.01?('⚠ '+fmtNum((rmd.below_minus_one_pct||0)*100,1)+'% dos trades com R < −1 indicam slippage/gap.'):'')+
+        '</div>';
+      var mc=a.monte_carlo_dd;
+      if(mc&&mc.n_sims>0){
+        advHtml+='<div style="font-size:11px;color:var(--muted);margin:14px 0 6px;font-family:DM Mono,monospace;letter-spacing:.06em">Monte Carlo §1.4 — '+mc.n_sims+' permutações da ordem de '+mc.n_trades+' trades</div>'+
+          '<div class="kpi-row">'+
+            '<div class="kpi-card"><div class="kpi-label">DD p5 (5% pior)</div><div class="kpi-value kv-neg">'+fmtNum(mc.p5,2)+'</div></div>'+
+            '<div class="kpi-card"><div class="kpi-label">DD p50 (mediana)</div><div class="kpi-value">'+fmtNum(mc.p50,2)+'</div></div>'+
+            '<div class="kpi-card"><div class="kpi-label">DD p95 (5% melhor)</div><div class="kpi-value">'+fmtNum(mc.p95,2)+'</div></div>'+
+            '<div class="kpi-card"><div class="kpi-label">DD pior caso</div><div class="kpi-value kv-neg">'+fmtNum(mc.worst,2)+'</div></div>'+
+          '</div>'+
+          '<div style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace;margin-top:-4px;margin-bottom:6px">'+
+            'Distribuição do max drawdown (BRL) sob shuffle dos trades. '+
+            'Em 95% das ordens, DD ≥ '+fmtNum(mc.p5,0)+'. '+
+            'Suporte emocional/financeiro mínimo: '+fmtNum(mc.worst,0)+'.'+
+          '</div>';
+      }
     }
+    // Monte Carlo §1.4 — client-side, roda do equity_curve. Funciona pra
+    // backtests antigos (sem advanced.monte_carlo_dd persistido).
+    var mcInteractive='<div style="font-size:11px;color:var(--muted);margin:14px 0 6px;font-family:DM Mono,monospace;letter-spacing:.06em">Monte Carlo §1.4 (interativo)</div>'+
+      '<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px">'+
+        '<label style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace">n_sims<br><input type="number" id="mc-n-sims" value="10000" min="100" max="100000" step="500" style="width:90px;padding:3px 6px;font-family:DM Mono,monospace;font-size:12px"></label>'+
+        '<label style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace">limite de ruína (BRL)<br><input type="number" id="mc-ruin" value="-10000" step="500" style="width:110px;padding:3px 6px;font-family:DM Mono,monospace;font-size:12px"></label>'+
+        '<label style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace">seed<br><input type="number" id="mc-seed" value="42" style="width:70px;padding:3px 6px;font-family:DM Mono,monospace;font-size:12px"></label>'+
+        '<button class="btn" onclick="runMonteCarlo()">Rodar</button>'+
+        '<span id="mc-status" style="font-size:11px;color:var(--muted);font-family:DM Mono,monospace"></span>'+
+      '</div>'+
+      '<div id="mc-output"></div>';
     var dsr=data.deflated_sharpe;
     var roc=data.roc_auc;
     var statHtml='';
@@ -563,9 +755,12 @@ async function openBacktestDetail(runId){
       '</div>'+
       advHtml+
       statHtml+
+      mcInteractive+
       '<div style="font-family:DM Mono,monospace;font-size:12px;color:var(--muted);margin-bottom:8px">window: '+win+'</div>'+
       '<div style="font-family:DM Mono,monospace;font-size:12px;color:var(--muted);margin-bottom:14px">git: '+(data.git_sha||'dirty')+' · run_id: '+data.run_id+' · '+(data.duration_ms||0)+'ms</div>'+
       '<details style="font-family:DM Mono,monospace;font-size:12px"><summary style="cursor:pointer;color:var(--blue)">Params</summary><pre style="background:#0a1220;padding:10px;border-radius:6px;overflow-x:auto;margin-top:6px">'+JSON.stringify(data.params||data.params_json,null,2)+'</pre></details>';
+    // Cache trade pnls (diffs do equity_curve) pra runMonteCarlo()
+    MC_TRADE_PNLS=tradePnlsFromEquityCurve(data.equity_curve||[]);
     var curve=data.equity_curve||[];
     var labels=curve.map(function(p){return p[0].split('T')[0]});
     var values=curve.map(function(p){return Number(p[1])});
@@ -778,15 +973,51 @@ async function loadExecution(){
     // KPIs row (último snapshot + agg latency)
     var last=items[items.length-1]||{};
     var lat=agg.latency||{};
+    // §5.1 slippage real/modelado: 1.0 = parity, >1.5 = backtest otimista
+    var slipR=last.slippage_realized_vs_modeled_ratio;
+    var slipClass=slipR==null?'':(slipR<=1.2?'kv-pos':slipR<=1.5?'kv-gold':'kv-neg');
+    // §5.2 fill_ratio ∈ [0,1], <0.85 problemático
+    var fillR=last.fill_ratio;
+    var fillClass=fillR==null?'':(fillR>=0.95?'kv-pos':fillR>=0.85?'kv-gold':'kv-neg');
+    // §5.4 adverse selection ratio: >0.6 = sendo "pego" por ordens informadas
+    var advS=last.adverse_selection_ratio;
+    var advClass=advS==null?'':(advS<=0.5?'kv-pos':advS<=0.6?'kv-gold':'kv-neg');
     var kpiHtml=
-      '<div class="kpi-card"><div class="kpi-label">Rolling Sharpe 60d</div><div class="kpi-value '+(last.rolling_sharpe_60d>=1.5?'kv-pos':last.rolling_sharpe_60d>=0?'kv-gold':'kv-neg')+'">'+fmtNum(last.rolling_sharpe_60d,3)+'</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Rolling Sharpe 60d §6.1</div><div class="kpi-value '+(last.rolling_sharpe_60d>=1.5?'kv-pos':last.rolling_sharpe_60d>=0?'kv-gold':'kv-neg')+'">'+fmtNum(last.rolling_sharpe_60d,3)+'</div></div>'+
       '<div class="kpi-card"><div class="kpi-label">Rolling PF 60d</div><div class="kpi-value">'+fmtNum(last.rolling_pf_60d,2)+'</div></div>'+
-      '<div class="kpi-card"><div class="kpi-label">Drawdown atual</div><div class="kpi-value kv-neg">'+fmtPctSafe(last.current_drawdown_pct,2)+'</div></div>'+
-      '<div class="kpi-card"><div class="kpi-label">Drift p-value</div><div class="kpi-value '+(last.distribution_drift_p_value!=null&&last.distribution_drift_p_value<0.01?'kv-neg':'')+'">'+fmtNum(last.distribution_drift_p_value,4)+'</div></div>'+
-      '<div class="kpi-card"><div class="kpi-label">Latency p50</div><div class="kpi-value kv-blue">'+fmtNum(lat.p50,1)+' ms</div></div>'+
-      '<div class="kpi-card"><div class="kpi-label">Latency p95</div><div class="kpi-value '+(lat.p95>250?'kv-neg':'kv-blue')+'">'+fmtNum(lat.p95,1)+' ms</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">DD atual §6.2</div><div class="kpi-value kv-neg">'+fmtPctSafe(last.current_drawdown_pct,2)+'</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Drift p-value §6.3</div><div class="kpi-value '+(last.distribution_drift_p_value!=null&&last.distribution_drift_p_value<0.01?'kv-neg':'')+'">'+fmtNum(last.distribution_drift_p_value,4)+'</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Slippage real/modelado §5.1</div><div class="kpi-value '+slipClass+'">'+(slipR!=null?fmtNum(slipR,2)+'×':'—')+'</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Fill ratio §5.2</div><div class="kpi-value '+fillClass+'">'+(fillR!=null?fmtNum(fillR*100,1)+'%':'—')+'</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Latency p50 §5.3</div><div class="kpi-value kv-blue">'+fmtNum(lat.p50,1)+' ms</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Latency p95 §5.3</div><div class="kpi-value '+(lat.p95>250?'kv-neg':'kv-blue')+'">'+fmtNum(lat.p95,1)+' ms</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Latency p99 §5.3</div><div class="kpi-value '+(lat.p99>500?'kv-neg':'kv-blue')+'">'+(lat.p99!=null?fmtNum(lat.p99,1)+' ms':'—')+'</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Adverse selection §5.4</div><div class="kpi-value '+advClass+'">'+(advS!=null?fmtNum(advS*100,1)+'%':'—')+'</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Rolling PF 180d §7.3</div><div class="kpi-value '+(last.rolling_pf_180d!=null?(last.rolling_pf_180d<1.0?'kv-neg':last.rolling_pf_180d<1.3?'kv-gold':'kv-pos'):'')+'">'+(last.rolling_pf_180d!=null?fmtNum(last.rolling_pf_180d,2):'—')+'</div></div>'+
+      '<div class="kpi-card"><div class="kpi-label">Mudança estrutural §7.5</div><div class="kpi-value '+(last.structural_change_active?'kv-neg':'kv-pos')+'">'+(last.structural_change_active?'KILL':'OK')+'</div></div>'+
       '<div class="kpi-card"><div class="kpi-label">Samples (n)</div><div class="kpi-value">'+(lat.n||0)+'</div></div>';
     document.getElementById('exec-kpis').innerHTML=kpiHtml;
+
+    // §6.5 Régua 2σ — live_pnl_60d vs (backtest_mean − 2σ). Box dedicado.
+    var lp=last.live_pnl_60d, bm=last.backtest_pnl_60d_mean, bs=last.backtest_pnl_60d_std;
+    var sigmaBox=document.getElementById('exec-sigma');
+    if(lp!=null && bm!=null && bs!=null){
+      var threshold=bm-2*bs;
+      var breached=lp<threshold;
+      var z=bs>0?(lp-bm)/bs:0;
+      sigmaBox.innerHTML=
+        '<div style="font-size:11px;color:var(--muted);margin:14px 0 6px;font-family:DM Mono,monospace;letter-spacing:.06em">RÉGUA 2σ §6.5 — live 60d vs janela equivalente do backtest</div>'+
+        '<div class="kpi-row">'+
+          '<div class="kpi-card"><div class="kpi-label">PnL live 60d</div><div class="kpi-value '+(lp>=0?'kv-pos':'kv-neg')+'">'+fmtNum(lp,2)+'</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">Backtest mean</div><div class="kpi-value">'+fmtNum(bm,2)+'</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">σ backtest</div><div class="kpi-value">'+fmtNum(bs,2)+'</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">Threshold (mean − 2σ)</div><div class="kpi-value">'+fmtNum(threshold,2)+'</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">Z-score live</div><div class="kpi-value '+(z<=-2?'kv-neg':z<=-1?'kv-gold':'kv-pos')+'">'+fmtNum(z,2)+'σ</div></div>'+
+          '<div class="kpi-card"><div class="kpi-label">Status</div><div class="kpi-value '+(breached?'kv-neg':'kv-pos')+'">'+(breached?'PAUSE §6.5':'OK')+'</div></div>'+
+        '</div>';
+    } else {
+      sigmaBox.innerHTML='<div style="font-size:11px;color:var(--muted);margin:14px 0 0;font-family:DM Mono,monospace">§6.5 régua 2σ — sem dados ainda (live_pnl_60d / backtest_mean / σ não populados pelo monitoring_worker).</div>';
+    }
 
     // Rolling Sharpe timeline
     var labels=items.map(function(r){return (r.snapshot_date||'').slice(0,10)});
@@ -882,18 +1113,25 @@ function renderStrategyOptions(selectId,countId,filter,opts){
   var prevValue=sel.value;
   var groups={};
   var total=0;
-  STRATEGY_NAMES.forEach(function(n){
-    if(q && n.toLowerCase().indexOf(q)===-1) return;
-    var g=classifyStrategy(n);
-    (groups[g]=groups[g]||[]).push(n);
+  STRATEGY_NAMES.forEach(function(s){
+    var label=s.display_name||s.name;
+    if(q && s.name.toLowerCase().indexOf(q)===-1 && label.toLowerCase().indexOf(q)===-1) return;
+    var g=classifyStrategy(s.name);
+    (groups[g]=groups[g]||[]).push(s);
     total++;
   });
   var html=opts.includeAll?'<option value="">(todas)</option>':'';
   GROUP_ORDER.forEach(function(g){
     if(!groups[g]) return;
-    groups[g].sort();
+    groups[g].sort(function(a,b){
+      var la=(a.display_name||a.name), lb=(b.display_name||b.name);
+      return la<lb?-1:la>lb?1:0;
+    });
     html+='<optgroup label="'+g+' ('+groups[g].length+')">';
-    groups[g].forEach(function(n){html+='<option value="'+n+'">'+n+'</option>';});
+    groups[g].forEach(function(s){
+      var label=s.display_name||s.name;
+      html+='<option value="'+escapeHtml(s.name)+'">'+escapeHtml(label)+'</option>';
+    });
     html+='</optgroup>';
   });
   sel.innerHTML=html;
@@ -908,7 +1146,7 @@ function renderStrategyOptions(selectId,countId,filter,opts){
 async function populateStrategyDropdowns(){
   try{
     var data=await authFetch('/api/v1/trading-engine/strategies');
-    STRATEGY_NAMES=((data&&data.strategies)||[]).map(function(s){return s.name;});
+    STRATEGY_NAMES=((data&&data.strategies)||[]).map(function(s){return {name:s.name,display_name:s.display_name||s.name};});
     renderStrategyOptions('val-strategy','val-strategy-count','');
     renderStrategyOptions('exec-strategy','exec-strategy-count','');
     renderStrategyOptions('bt-strategy',null,'',{includeAll:true});

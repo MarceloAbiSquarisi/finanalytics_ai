@@ -519,7 +519,10 @@ async def list_execution_quality_snapshots(
             consecutive_days_negative_sharpe, consecutive_days_below_cdi,
             distribution_drift_p_value, slippage_realized_vs_modeled_ratio,
             fill_ratio, p50_latency_ms, p95_latency_ms,
-            adverse_selection_ratio, alerts, created_at
+            adverse_selection_ratio,
+            live_pnl_60d, backtest_pnl_60d_mean, backtest_pnl_60d_std,
+            rolling_pf_180d, structural_change_active,
+            alerts, created_at
         FROM trading_engine_orders.engine_metrics_daily
         WHERE strategy = :strategy
         ORDER BY snapshot_date DESC
