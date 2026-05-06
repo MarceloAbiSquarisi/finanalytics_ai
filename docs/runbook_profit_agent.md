@@ -49,6 +49,34 @@ echo "delta=$((T2-T1))"  # esperado > 0 em pregão
 
 **Fix**: Restart via API (não NSSM). `_hard_exit()` via TerminateProcess garante shutdown limpo.
 
+### P11 — Restart loop com session Nelogica server-side stuck (smoke 06/mai)
+
+**Sintoma**: Após `Restart-Service FinAnalyticsAgent` (ou `/agent/restart`), agent boot OK (login_ok=True, market_connected=True, 369 subscribed), MAS `total_ticks=0` por 5+ min em mercado aberto. Watchdog dispara `heal_triggered reason=no_ticks_market_open` a cada 5min, NSSM relança, novo PID continua sem ticks. Loop infinito.
+
+```bash
+# Confirmar: heal_triggered repetido a cada 5min
+grep "heal_triggered" logs/profit_agent.log | tail -10
+# total_ticks_queued não cresce
+curl -s http://localhost:8002/status | jq .total_ticks_queued
+```
+
+**Diagnóstico**: TerminateProcess (sem DLL.DLLFinalize antes) deixa subscription session viva no servidor Nelogica. Novo PID consegue login mas server acha que ainda está pusheando dados pro PID anterior, então não envia ticks pro novo.
+
+**Fix automático** (commit `<TBD>` 06/mai): `_self_heal_restart` e handler `/restart` agora chamam `DLLFinalize()` com timeout 2s ANTES do TerminateProcess. Happy path: server invalida session limpa. Bad path (Finalize trava): cai pro hard_exit como antes.
+
+**Fallback manual** (se fix automático não resolver — ex. session presa há horas):
+
+1. **Login no Profit Pro UI Windows** com a mesma credencial PROFIT_USERNAME do `.env`
+2. Esperar conexão estabelecer (icone verde Nelogica)
+3. **Logout via UI** (Menu → Sair)
+4. Aguardar 30s
+5. `Restart-Service FinAnalyticsAgent` no PowerShell
+6. Validar: `curl http://localhost:8002/status | jq .total_ticks_queued` deve crescer em 30s
+
+Isso força o servidor Nelogica a invalidar todas as sessions ativas dessa credencial. Próximo login da DLL via NSSM começa fresh.
+
+**Último recurso** (sessions presas em múltiplas instâncias): contatar suporte Nelogica pra reset server-side da conta.
+
 ### P6/O1 — Zombie pair (2 listeners em :8002)
 
 **Sintoma**: `/oco/groups` retorna `count: 0` mas log diz `oco.state_loaded n=2`. State inconsistente entre requests.
