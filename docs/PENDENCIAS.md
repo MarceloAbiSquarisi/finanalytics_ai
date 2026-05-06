@@ -23,8 +23,17 @@
 
 ### P0 — descoberto durante smoke /hub 06/mai
 
-- [x] ~~**Watchdog cego (counter sobe mesmo com queue.Full)**~~ — **FIX 06/mai**: `_total_ticks_queued` incrementado APENAS após `put_nowait` OK (3 callbacks: V1/V2/HistV2). Watchdog usa esse counter. `/status` retorna ambos `total_ticks` (received) e `total_ticks_queued` (persisted). Heartbeat também mostra ambos pra detectar discrepância. **Investigado** P0 #15.
-- [x] ~~**Restart sem recuperação de ticks (session Nelogica stuck)**~~ — **FIX 06/mai**: `_self_heal_restart` e `/restart` HTTP handler chamam `DLLFinalize()` com timeout 2s ANTES do `TerminateProcess`. Happy path: invalida session server-side. Bad path: timeout → hard_exit como antes. Runbook P11 documentado em `docs/runbook_profit_agent.md` com fallback Profit Pro UI manual. **Investigado** P0 #15.
+- [x] ~~**Watchdog cego (counter sobe mesmo com queue.Full)**~~ — **FIX 06/mai** (commit `2cb0cf0`): `_total_ticks_queued` incrementado APENAS após `put_nowait` OK (3 callbacks: V1/V2/HistV2). Watchdog usa esse counter. `/status` retorna ambos `total_ticks` (received) e `total_ticks_queued` (persisted). Heartbeat também mostra ambos pra detectar discrepância. Validado live: pattern `_total_ticks_queued` aparece corretamente em /status.
+- [x] ~~**Restart sem recuperação de ticks — fix técnico DLLFinalize**~~ — **FIX 06/mai** (commit `2cb0cf0`): `_self_heal_restart` e `/restart` HTTP handler chamam `DLLFinalize()` com timeout 2s ANTES do `TerminateProcess`. Validado live em vários ciclos: `self_heal.dll_finalize_ok` (~720ms) e fallback `dll_finalize_timeout` ambos funcionam. Runbook P11 documentado em `docs/runbook_profit_agent.md`.
+- [ ] **🔴 ATIVO: Server Nelogica não pusha ticks pra credencial 06/mai** — após múltiplas mitigações (DLLFinalize fix, Profit Pro UI logout manual, 5min idle, fresh nssm start), agent permanece em estado UP+connected+0_ticks. Profit Pro UI funciona normal com a mesma credencial (validado pelo log do user que mostrou OrderHistoryCallback Count=88, position callbacks). Hipóteses:
+  1. **Rate limit/blacklist server-side** após 15+ logins failed em 2h — só passa com tempo (1-2h+ idle ou no próximo dia)
+  2. **DLL state cached em kernel/shared memory** que só Windows reboot limpa
+  3. **Algum mismatch específico** entre nossa DLL version + server config
+
+  Próximas ações sugeridas (não tentadas hoje):
+  - Restart Windows host completo (limpa kernel objects/COM cache)
+  - Esperar até amanhã mercado fechado pra retry com state limpo
+  - Contatar suporte Nelogica se persistir após reboot/24h
 - [ ] **`zombie_scan_failed` no boot** — `'NoneType' object has no attribute 'splitlines'` consistente em todo boot. Subprocess decode error ('utf-8' can't decode byte 0xe4) — `tasklist`/`wmic` retornando CP1252. Não bloqueia mas pollui log.
 - [ ] **Bug latente: V1 callback faz trabalho real** — comentário diz "apenas satisfazem a DLL na init", mas implementação de `_trade_v1_init` faz `self._total_ticks += 1` + `self._db_queue.put_nowait(...)`. Se V1 e V2 ambas firarem, double-counting. Pattern Delphi-aligned 06/mai pode ter agravado isso.
 
