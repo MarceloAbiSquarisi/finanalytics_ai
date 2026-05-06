@@ -2,7 +2,7 @@
 
 > **Para Claude/agente:** este é o primeiro arquivo a consultar em qualquer sessão. Contém pendências priorizadas + carryover de sessões anteriores. Atualizar ao fim de cada sessão (mover concluídas pra `## Done recente` e depois pra `docs/historico/`).
 
-Última atualização: **2026-05-06 09:50 BRT** (após sessão noite 05/mai → manhã 06/mai: refactor init pattern Delphi + watchdog + backfill resilient)
+Última atualização: **2026-05-06 10:30 BRT** (após smoke real do refactor Delphi-aligned com pregão aberto)
 
 ## Top priority — pegar antes do próximo smoke real
 
@@ -13,16 +13,17 @@
 - 🔴 **kill switch ON**: `robot_risk_state.paused=True reason=end_of_smoke_05mai_pause_overnight`
 - ✅ 2 commits feat/trade-engine-validate-execution-tabs sincados origin: `be82bdd` (profit-agent refactor) + `bf30bbf` (backfill resilient)
 - ⏸️ **Backfill 2026-05-05 PAUSED** — state preservado em `E:\finanalytics_data\backfill_resilient_state.json` (ok=2 skip=27 err=0 de 373 tickers, retomar via `pwsh scripts/backfill_supervisor.ps1`)
-- ⚠️ **Smoke do refactor pendente**: validações live (ticks flowing, watchdog, InvalidTickerCallback) ainda não feitas com mercado aberto. Disponível no momento (10h BRT).
+- ✅ **Smoke do refactor DONE 06/mai 10:25** — todas 5 validações live passaram, refactor `be82bdd` validado em produção (ver Done recente).
 
 ### P0 — pendentes pra próximo smoke
 
 - [x] ~~Confirmar posição PETR4 broker = 0~~ — **DONE 05/mai 16h** via /positions/dll fresh (2.3s response, fix #2 confirmado). Smoke validacao pos-fixes: 3 SELLs disparadas com OCOs bilaterais (#3) preenchendo automaticamente, posição final = 0 sem intervencao manual. Cached DB ainda mostra net_qty=-700 stale (callbacks dropped durante bug #2 ativo); não reverte sem reconcile profundo.
 - [x] ~~Resume kill switch antes do smoke~~ — **DONE 05/mai**: ciclo paused→active→3 dispatches→paused completo executado. Kill switch volta pra `paused=True smoke_validacao_fixes_done_05mai` ao fim.
+- [x] ~~Smoke validação refactor Delphi-aligned~~ — **DONE 06/mai 10:25** (ver Done recente).
 
 ### P1 — qualidade/robustez
 
-- [ ] **Pairs sizing não respeita lot_size** — descoberto smoke 05/mai 17:28: `evaluate_active_pairs` calcula qty=`beta×capital/price` direto, sem arredondar pro lote do ticker. Resultado: P0 #1 (validate_order_quantity no agent) bloqueou pair_dispatch com `qty=93 nao e' multiplo do lote=100; sugestao: 100`. **Defesa em profundidade do P0 #1 funcionou** (trade não foi enviado naked), mas pairs nunca consegue tradar enquanto sizing não arredondar. Fix: aplicar `(qty // lot_size) * lot_size` em `_handle_pair_evaluation` antes de chamar `dispatch_pair_order`. Local provável: `auto_trader_worker.py:_handle_pair_evaluation` ou similar — onde calcula leg_a_qty/leg_b_qty.
+- [x] ~~**Pairs sizing não respeita lot_size**~~ — **DONE 06/mai** em `auto_trader_worker.py:_compute_leg_quantities` + 6 testes novos cobrindo lot=100/1/None + cenário smoke 05/mai (qty=93→0). Próxima abertura de pair vai arredondar antes de dispatch.
 - [ ] **Trailing stop automático nas posições** — fix 04/mai cobriu OCO estático bilateral; trailing dinâmico (atualizar SL conforme preço caminha a favor) ainda pendente. `validate_attach_oco_params` já aceita `is_trailing/trail_distance/trail_pct` per-level mas dispatcher só passa SL fixo. Defer pra sessão dedicada.
 - [ ] **Escapar `$$` no `.env PROFIT_SIM_ROUTING_PASSWORD`** — compose interpreta `$utD_$` como var → senha truncada para `wB#.&5hd!8$`. Irrelevante em sim path (não injeta senha) mas precisa correto antes de production. Trocar pra `wB#.&5hd!8$$utD_$$`.
 - [ ] **Lookup automático de `lot_size` por ticker** — hoje hardcoded `100` no config_json. Para futuros (WINFUT/WDOFUT) lote é 1; para BDR alguns são 1, outros 10. Adicionar coluna `tickers.standard_lot` ou tabela de referência. Substitui o context.get("lot_size", 100).
@@ -45,7 +46,22 @@
 
 ## Done recente (mover para histórico após 1 semana)
 
-### 2026-05-06 (sessão noite 05→06/mai: refactor Delphi-aligned + backfill resilient)
+### 2026-05-06 manhã (smoke validação refactor Delphi-aligned com pregão aberto)
+
+5 validações live passaram às 10:00-10:25 BRT (~2h após boot do refactor às 08:25):
+
+- ✅ **Status agent UP** — login_ok+activate_ok+market_connected+routing_connected+db_connected todos True; 387 subscribed; uptime ~5h estável.
+- ✅ **Ticks flowing saudável** — 28-46k ticks/min × 180-195 tickers ativos por minuto; total counter 697k → 971k em 5min (~55k tps avg). Refactor não quebrou ingestão.
+- ✅ **InvalidTickerCallback firing** — 21 tickers rejeitados durante boot 08:25:11-14 SEM AV nativo: WDOM26/WINM26 (futuros vencidos), AZUL4/EMBR3/ELET3/6/BRFS3/CPLE5-6/MRFG3/PETZ3/PORT3/RDNI3/REAG3/RNEW11/SRNA3/STBP3/ZAMP3/LVTC3 (delisted/M&A/halt), OZMM26 (opção), e XPTO (test garbage no DB). Agent sobreviveu — pre-refactor isso causava AV em `SubscribePriceDepth+0xD1`.
+- ✅ **Watchdog ativo + sem reconnect storm** — `dll_watchdog_started` 08:25:14; zero `reconnect_storm`/`no_ticks_market_open`/`login_lost` em 5h+ de mercado aberto. Total ticks crescendo continuamente (stuck-detector implicitly OK).
+- ✅ **State decoder limpo** — boot Delphi-aligned: login síncrono via `DLLInitializeLogin`, sem state_cb spam de inicialização (esperado, callbacks registrados pré-wait); zero state transitions desde 08:25 = conexão totalmente estável. Compare com pré-refactor: 02:59-03:01 storm de 50+ transições cstRoteamento em 2min.
+
+**Bug latente descoberto durante validação**:
+- `XPTO` ticker no `profit_subscribed_tickers` — provavelmente artefato de teste antigo. Limpar do DB.
+- 17 tickers delisted/M&A/halt confirmados pelo callback. Limpar do DB também.
+- (NÃO tocar em WDOM26/WINM26 — alias resolver vai re-subscribed pro contrato vigente quando código rolar pro próximo vencimento.)
+
+### 2026-05-06 madrugada (sessão noite 05→06/mai: refactor Delphi-aligned + backfill resilient)
 
 **Root cause de instabilidade DLL identificado** (via Erro.log nativo `C:\Nelogica\Erro.log` + comparacao com `Nelogica/Exemplo Delphi/`):
 - 4 crashes consecutivos em `ConnectorMarketDataLibraryU.SubscribePriceDepth+0xD1` com `Read of address 0x270` = struct interno NULL
