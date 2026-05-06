@@ -143,8 +143,10 @@ def parse_bool(v: Any) -> bool | None:
 
 
 def read_csv(path: Path) -> Iterator[dict[str, Any]]:
+    # utf-8-sig consome BOM ﻿ se presente (exports Excel/Notepad Windows
+    # costumam ter — sem isso a 1ª coluna vira "﻿Ativo" e quebra mapping).
     # Tenta detectar separador (Nelogica costuma exportar com ';' em PT-BR).
-    with path.open("r", encoding="utf-8", errors="replace") as f:
+    with path.open("r", encoding="utf-8-sig", errors="replace") as f:
         sample = f.read(4096)
         f.seek(0)
         try:
@@ -157,7 +159,7 @@ def read_csv(path: Path) -> Iterator[dict[str, Any]]:
 
 
 def read_jsonl(path: Path) -> Iterator[dict[str, Any]]:
-    with path.open("r", encoding="utf-8", errors="replace") as f:
+    with path.open("r", encoding="utf-8-sig", errors="replace") as f:
         for line in f:
             line = line.strip()
             if not line:

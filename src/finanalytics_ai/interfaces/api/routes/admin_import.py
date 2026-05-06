@@ -134,7 +134,8 @@ def _preview_columns(path: Path, max_bytes: int = 8192) -> dict[str, Any]:
     try:
         ext = path.suffix.lower()
         if ext in (".csv", ".txt"):
-            with path.open("r", encoding="utf-8", errors="replace") as f:
+            # utf-8-sig consome BOM se presente (export Windows tipico).
+            with path.open("r", encoding="utf-8-sig", errors="replace") as f:
                 sample = f.read(max_bytes)
             if not sample:
                 return {"error": "arquivo vazio"}
@@ -157,7 +158,7 @@ def _preview_columns(path: Path, max_bytes: int = 8192) -> dict[str, Any]:
                 "sample_first_row": sample_row,
             }
         if ext in (".jsonl", ".json"):
-            with path.open("r", encoding="utf-8", errors="replace") as f:
+            with path.open("r", encoding="utf-8-sig", errors="replace") as f:
                 line = f.readline().strip()
             if not line:
                 return {"error": "arquivo vazio"}
