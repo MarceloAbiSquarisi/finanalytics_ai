@@ -354,22 +354,43 @@ from finanalytics_ai.workers.profit_agent_validators import (  # noqa: E402
 
 # ---------------------------------------------------------------------------
 
-CONN_STATE_LOGIN = 0
+# TConnStateType (LegacyProfitDataTypesU.pas linhas 6-9):
+# Renomeado 05/mai noite — antes CONN_STATE_LOGIN=0 / CONN_STATE_MARKET_LOGIN=3
+# (rotulos errados que mascaravam diagnostico).
+CONN_STATE_INFO = 0          # cstInfo (login geral via TConnInfo)
 
-CONN_STATE_ROUTING = 1
+CONN_STATE_ROUTING = 1       # cstRoteamento
 
-CONN_STATE_MARKET_DATA = 2
+CONN_STATE_MARKET_DATA = 2   # cstMarketData
 
-CONN_STATE_MARKET_LOGIN = 3
+CONN_STATE_ACTIVATION = 3    # cstActivation (licenca via TConnActivation)
+
+# Backwards-compat aliases (codigo legado pode referenciar):
+CONN_STATE_LOGIN = CONN_STATE_INFO
+CONN_STATE_MARKET_LOGIN = CONN_STATE_ACTIVATION
 
 
-LOGIN_CONNECTED = 0
+# TConnInfo (LegacyProfitDataTypesU.pas linhas 11-15) — codes de cstInfo:
+LOGIN_CONNECTED = 0          # ciArSuccess
+LOGIN_INVALID = 1            # ciArLoginInvalid (username errado)
+PASSWORD_INVALID = 2         # ciArPasswordInvalid
+PASSWORD_BLOCKED = 3         # ciArPasswordBlocked
+PASSWORD_EXPIRED = 4         # ciArPasswordExpired
 
-MARKET_CONNECTED = 4
+MARKET_CONNECTED = 4         # cmdConnectedLogged
 
-ACTIVATE_VALID = 0
+ACTIVATE_VALID = 0           # caValid
 
 ROUTING_BROKER_CONNECTED = 5
+
+# Decodificador human-readable pra logs do state_cb
+_CONN_INFO_NAMES = {
+    0: "ciArSuccess",
+    1: "ciArLoginInvalid",
+    2: "ciArPasswordInvalid",
+    3: "ciArPasswordBlocked",
+    4: "ciArPasswordExpired",
+}
 
 
 ORDER_TYPE_MARKET = 1
@@ -603,6 +624,33 @@ class ProfitAgent:
 
         log.info("profit_agent.starting version=1.0.0")
 
+        # Boot diagnostics — credentials presence + service identity.
+        # Adicionado 05/mai noite apos sessao em que callbacks DLL nunca
+        # chegaram e ficamos cegos sobre identidade do processo / .env carregado.
+        try:
+            import getpass as _gp
+            log.info(
+                "profit_agent.boot_identity user=%s computer=%s pid=%d",
+                _gp.getuser(),
+                os.environ.get("COMPUTERNAME", "?"),
+                os.getpid(),
+            )
+        except Exception as exc:
+            log.warning("profit_agent.boot_identity_failed err=%s", exc)
+        log.info(
+            "profit_agent.credentials_loaded act_key_len=%d username_len=%d password_len=%d dll_path=%s",
+            len(self._act_key or ""),
+            len(self._username or ""),
+            len(self._password or ""),
+            self._dll_path,
+        )
+        if not (self._act_key and self._username and self._password):
+            log.error(
+                "profit_agent.credentials_missing — DLL nao logara. "
+                "Verifique D:\\Projetos\\finanalytics_ai_fresh\\.env "
+                "PROFIT_ACTIVATION_KEY/PROFIT_USERNAME/PROFIT_PASSWORD"
+            )
+
         # 1. Carrega DLL (antes de qualquer outra coisa)
 
         log.info("profit_agent.loading_dll path=%s", self._dll_path)
@@ -630,6 +678,34 @@ class ProfitAgent:
 
             # with self._state_lock bloqueia result=4 de ser entregue)
 
+            # 05/mai noite: log INFO de cada transicao (antes era silencioso, ficavamos
+            # cegos sobre o que a DLL estava reportando durante init). Sem lock, nao
+            # bloqueia entrega de result=4.
+            try:
+                _ct_name = {0: "cstInfo", 1: "cstRoteamento", 2: "cstMarketData", 3: "cstActivation"}.get(
+                    conn_type, f"UNKNOWN_{conn_type}"
+                )
+                # Para cstInfo, decodificar TConnInfo (login result codes) — fix 05/mai noite,
+                # diagnostico real-time de invalid_login/invalid_password/blocked/expired.
+                if conn_type == 0:
+                    _info_name = _CONN_INFO_NAMES.get(result, f"unknown_{result}")
+                    log.info("state_cb conn_type=0(cstInfo) result=%d(%s)", result, _info_name)
+                    if result != 0:
+                        log.error(
+                            "state_cb LOGIN_REJECTED reason=%s — verifique PROFIT_USERNAME/PASSWORD no .env",
+                            _info_name,
+                        )
+                else:
+                    log.info("state_cb conn_type=%d(%s) result=%d", conn_type, _ct_name, result)
+                # Watchdog tracking: feed state transitions for storm detection
+                wd = getattr(self, "_dll_watchdog_state", None)
+                if wd is not None and conn_type in (1, 2):  # routing/market-data flips
+                    import time as _tm_w
+                    wd["state_transitions_5min"].append(_tm_w.time())
+                    wd["last_state_change"] = _tm_w.time()
+            except Exception:
+                pass
+
             if conn_type == CONN_STATE_MARKET_DATA:
                 self._market_ok = result == MARKET_CONNECTED
 
@@ -644,6 +720,8 @@ class ProfitAgent:
 
             elif conn_type == CONN_STATE_ROUTING:
                 self._routing_ok = result == ROUTING_BROKER_CONNECTED
+                if result == ROUTING_BROKER_CONNECTED:
+                    self._routing_connected.set()
 
         # Callbacks V1 REAIS para DLLInitializeLogin — padrao do teste 11 que funcionou.
 
@@ -788,25 +866,28 @@ class ProfitAgent:
 
         self._setup_dll_restypes()
 
-        # 5. DLLInitializeLogin com noops V1 — padrao dos testes que funcionaram
-
+        # 5. DLLInitializeLogin — match EXATO do pattern Delphi (frmClientU.pas:362-375).
+        # Refactor 06/mai: slot 8 (new_trade) e slot 13 (progress) = None,
+        # como Delphi faz. V1 trade callback REAL provoca AV em SubscribePriceDepth
+        # (Erro.log C:\Nelogica\Erro.log: 4 crashes em SubscribePriceDepth+0xD1
+        # = "Read of address 0x270" = struct interno NULL durante init agressivo).
         log.info("profit_agent.initializing_market_data")
 
         ret_md = self._dll.DLLInitializeLogin(
             c_wchar_p(self._act_key),
             c_wchar_p(self._username),
             c_wchar_p(self._password),
-            _state_cb_init,  # state
-            None,  # history
-            None,  # order_change
-            _account_cb_init,  # account
-            _trade_v1_init,  # new_trade V1 REAL (necessario para result=4)
-            _daily_v1_init,  # new_daily V1 REAL (necessario para result=4)
-            None,  # price_book
-            None,  # offer_book
-            None,  # history_trade
-            _noop_progress,  # progress
-            _noop_tiny,  # tiny_book
+            _state_cb_init,    # 4: state
+            None,              # 5: history
+            None,              # 6: order_change
+            _account_cb_init,  # 7: account
+            None,              # 8: new_trade — Delphi passa nil; V2 cuida via Set*
+            _daily_v1_init,    # 9: new_daily
+            None,              # 10: price_book
+            None,              # 11: offer_book
+            None,              # 12: history_trade
+            None,              # 13: progress — Delphi passa nil
+            _noop_tiny,        # 14: tiny_book
         )
 
         if ret_md != 0:
@@ -816,18 +897,50 @@ class ProfitAgent:
 
         log.info("profit_agent.dll_initialized market_ret=%d", ret_md)
 
+        # 5b. Registra TODOS callbacks IMEDIATAMENTE — pattern Delphi
+        # (frmClientU.pas:380-407). Antes registravamos APOS wait, deixando
+        # janela onde DLL recebia eventos sem handler -> InvalidTicker
+        # acumulava state corrupto -> AV em SubscribePriceDepth depois.
+        # Comment antigo "registrar antes impede result=4" era falso (testado
+        # com Delphi como referencia 06/mai).
+        log.info("profit_agent.registering_callbacks_pre_wait")
+        self._post_connect_setup()
+
         # 4. Aguarda conexao (threading.Event — sem asyncio)
 
         log.info("profit_agent.waiting_connection timeout=180s")
 
-        connected = self._market_connected.wait(timeout=180.0)
+        # Watchdog periodico durante wait — loga estado parcial a cada 30s.
+        # Antes: 180s de silencio total se DLL nao entregasse cmdConnectedLogged;
+        # ficavamos cegos sobre se algum callback parcial chegou (ex: activation OK
+        # mas market_data stuck em cmdConnectedWaiting).
+        connected = False
+        _t0_wait = time.time()
+        for _i_wait in range(6):  # 6 x 30s = 180s
+            connected = self._market_connected.wait(timeout=30.0)
+            if connected:
+                break
+            log.info(
+                "profit_agent.waiting_partial elapsed_s=%d login_ok=%s activate_ok=%s "
+                "routing_ok=%s market_ok=%s",
+                int(time.time() - _t0_wait),
+                self._login_ok,
+                self._activate_ok,
+                self._routing_ok,
+                self._market_ok,
+            )
 
         if not connected:
-            log.warning("profit_agent.market_timeout continuing_anyway")
+            log.warning(
+                "profit_agent.market_timeout continuing_anyway "
+                "final_state login_ok=%s activate_ok=%s routing_ok=%s market_ok=%s",
+                self._login_ok,
+                self._activate_ok,
+                self._routing_ok,
+                self._market_ok,
+            )
 
-        # 5. Registra callbacks V2 APOS market connected (padrao teste 11)
-
-        self._post_connect_setup()
+        # 5. (Callbacks ja' registrados antes do wait — pattern Delphi)
 
         # 6. Inicia DB (APOS DLL conectar)
 
@@ -992,19 +1105,37 @@ class ProfitAgent:
 
         log.info("profit_agent.http_started port=%d", http_port)
 
-        # 10. Heartbeat loop (main thread)
+        # 10. Watchdog thread — detecta DLL silent death + reconnect storms.
+        # Refactor 06/mai: agent crashava silencioso apos cycles cstMarketData
+        # 0->1->2->4 (reconnect storms), processo continuava vivo mas wedged.
+        # Watchdog conta state transitions e self-heal via _hard_exit.
+        self._dll_watchdog_state = {
+            "last_state_change": time.time(),
+            "state_transitions_5min": [],
+            "last_login_ok": True,
+            "reconnect_storms": 0,
+        }
+        wd_thread = threading.Thread(target=self._dll_watchdog_loop, daemon=True)
+        wd_thread.start()
+        log.info("profit_agent.dll_watchdog_started")
+
+        # 11. Heartbeat loop (main thread)
 
         self._heartbeat_loop()
 
     def _post_connect_setup(self) -> None:
-        """
+        """Registra Set*Callback PRE-wait (pattern Delphi frmClientU.pas:380-407).
 
-        Registra Set*Callback V2 APOS market connected.
+        Refactor 06/mai: chamado IMEDIATAMENTE apos DLLInitializeLogin retornar
+        NL_OK, ANTES de wait pelo cmdConnectedLogged. Antes era chamado depois,
+        deixando janela onde DLL recebia eventos de invalid ticker / asset list
+        sem handler -> state interno corrompia -> AV em SubscribePriceDepth.
 
-        Padrao validado pelo teste 11: Set*Callback antes do DLLInitializeLogin
-
-        impede result=4 de ser entregue.
-
+        Adicionado vs versao antiga (presentes no Delphi):
+          - SetEnabledHistOrder(1) FIRST
+          - SetInvalidTickerCallback (alimenta self._invalid_tickers, evita
+            re-subscribe de tickers que DLL ja' rejeitou)
+          - SetChangeStateTickerCallback (auctioned/halted/etc — nao re-subscribe)
         """
 
         if not self._dll:
@@ -1019,13 +1150,22 @@ class ProfitAgent:
 
             cbs = self._callbacks
 
+        # Pattern Delphi: PRIMEIRO habilita historico de ordens, DEPOIS callbacks.
+        try:
+            fn_seho = getattr(self._dll, "SetEnabledHistOrder", None)
+            if fn_seho:
+                fn_seho.argtypes = [c_int]
+                fn_seho.restype = c_int
+                ret_seho = fn_seho(1)
+                log.info("profit_agent.SetEnabledHistOrder(1) ret=%d", ret_seho)
+        except Exception as exc:
+            log.warning("profit_agent.SetEnabledHistOrder failed e=%s", exc)
+
         # Indices na lista self._callbacks (definida em _register_callbacks):
-
         # [0]=state, [1]=account, [2]=trade_v1, [3]=daily, [4]=progress,
-
         # [5]=tiny, [6]=trade_v2, [7]=asset_info_v2, [8]=asset, [9]=adjust_v2,
-
         # [10]=price_depth, [11]=order, [12]=trading_msg, [13]=broker_account
+        # [14]=invalid_ticker, [15]=change_state_ticker (novos 06/mai)
 
         setters = [
             ("SetTradeCallbackV2", 6),
@@ -1037,6 +1177,8 @@ class ProfitAgent:
             ("SetOrderCallback", 11),
             ("SetTradingMessageResultCallback", 12),
             ("SetBrokerAccountListChangedCallback", 13),
+            ("SetInvalidTickerCallback", 14),
+            ("SetChangeStateTickerCallback", 15),
         ]
 
         for fn_name, cb_idx in setters:
@@ -1159,9 +1301,26 @@ class ProfitAgent:
             self._subscribed.add(alias_key)  # garante alias registrado tambem
             return True, 0  # ja subscrito — idempotente
 
+        # Skip se DLL ja' rejeitou esse ticker (InvalidTickerCallback marcou).
+        # Evita re-subscribe em loop -> SubscribePriceDepth em state corrupto.
+        if not hasattr(self, "_invalid_tickers"):
+            self._invalid_tickers = set()
+        if key in self._invalid_tickers:
+            log.info("profit_agent.subscribe_skipped_invalid ticker=%s", ticker)
+            return False, -1
+
         ret_t = self._dll.SubscribeTicker(c_wchar_p(ticker), c_wchar_p(exchange))
 
-        # SubscribePriceDepth - habilitado apos implementacao do price_depth_cb
+        # SubscribePriceDepth — chamado apos SubscribeTicker. Se DLL nao aceitou
+        # SubscribeTicker (ret != 0) skipamos PriceDepth pra reduzir risk de AV
+        # em state interno corrompido. Erro.log 05/mai mostrou 4 AVs em
+        # SubscribePriceDepth+0xD1 (Read of address 0x270 = struct interno NULL).
+        if ret_t != 0:
+            log.warning(
+                "profit_agent.subscribe_failed ticker=%s ret=%d skip_price_depth=true",
+                ticker, ret_t,
+            )
+            return False, ret_t
 
         conn_id = TConnectorAssetIdentifier(
             Version=0,
@@ -1170,21 +1329,27 @@ class ProfitAgent:
             FeedType=c_ubyte(0),
         )
 
-        ret_d = self._dll.SubscribePriceDepth(byref(conn_id))
+        try:
+            ret_d = self._dll.SubscribePriceDepth(byref(conn_id))
+        except OSError as exc:
+            # Native exception (AV) escapou — DLL state corrupto. Marca invalid.
+            log.error(
+                "profit_agent.subscribe_depth_native_exc ticker=%s exc=%s",
+                ticker, exc,
+            )
+            self._invalid_tickers.add(key)
+            ret_d = -1
 
         if ret_d != 0:
             log.warning("profit_agent.subscribe_depth_failed ticker=%s ret=%d", ticker, ret_d)
 
-        if ret_t == 0:
-            self._subscribed.add(key)
-            self._subscribed.add(alias_key)  # alias resolve pro mesmo contrato
-            log.info(
-                "profit_agent.subscribed ticker=%s exchange=%s alias=%s", ticker, exchange, original
-            )
-            return True, 0
-
-        log.warning("profit_agent.subscribe_failed ticker=%s ret=%d", ticker, ret_t)
-        return False, ret_t
+        # ret_t == 0 confirmado acima (early-return se nao). Marca subscribed.
+        self._subscribed.add(key)
+        self._subscribed.add(alias_key)  # alias resolve pro mesmo contrato
+        log.info(
+            "profit_agent.subscribed ticker=%s exchange=%s alias=%s", ticker, exchange, original
+        )
+        return True, 0
 
     # ------------------------------------------------------------------
 
@@ -1265,8 +1430,14 @@ class ProfitAgent:
             "SetOrderCallback",
             "SetTradingMessageResultCallback",
             "SetBrokerAccountListChangedCallback",
+            "SetInvalidTickerCallback",
+            "SetChangeStateTickerCallback",
         ):
-            getattr(dll, _fn).restype = None
+            try:
+                getattr(dll, _fn).restype = None
+            except AttributeError:
+                # Funcao opcional ausente em algumas versoes da DLL
+                pass
 
         # ── Roteamento ────────────────────────────────────────────────────
 
@@ -2094,31 +2265,73 @@ class ProfitAgent:
 
             log.info("broker_account_changed broker=%d changed=%d", broker_id, changed)
 
-        # Set*Callback V2 registrados aqui como refs mas NAO chamados ainda.
+        # 14. Invalid ticker (Delphi CallbackHandlerU.pas:463-466)
+        # Quando DLL/server determina que ticker subscrito nao existe ou
+        # nao e' valido pra essa licenca/feed. Sem este handler a DLL acumula
+        # state corrupto -> AV em SubscribePriceDepth (Erro.log 4 ocorrencias).
+        @WINFUNCTYPE(None, POINTER(TConnectorAssetIdentifier))
+        def invalid_ticker_cb(asset_ptr) -> None:
+            try:
+                a = asset_ptr.contents
+                ticker = (a.Ticker or "").upper()
+                exchange = a.Exchange or ""
+                key = f"{ticker}:{exchange}"
+                if not hasattr(self, "_invalid_tickers"):
+                    self._invalid_tickers = set()
+                if key not in self._invalid_tickers:
+                    self._invalid_tickers.add(key)
+                    log.warning("invalid_ticker ticker=%s exchange=%s", ticker, exchange)
+            except Exception as exc:
+                log.warning("invalid_ticker_cb_error e=%s", exc)
 
-        # Serao ativados via _post_connect_setup() APOS result=4 (MARKET_CONNECTED).
+        # 15. Change state ticker (Delphi CallbackHandlerU.pas:317)
+        # Estados: astAuctioned, astFrozen, astInhibited, astClosed, astPreOpening,
+        # astPreClosing, astOpened (LegacyProfitDataTypesU.pas:48-61).
+        # Tracking pra logar/skipar — DLL pode rejeitar SubscribePriceDepth
+        # em ticker em certos estados.
+        @WINFUNCTYPE(None, TAssetID, c_wchar_p, c_int)
+        def change_state_ticker_cb(asset_id, date_str, state) -> None:
+            try:
+                ticker = asset_id.ticker or ""
+                if not ticker:
+                    return
+                # Track only state changes (avoid log spam — astOpened=0 frequente)
+                if state in (2, 3, 4, 6):  # frozen/inhibited/auctioned/closed
+                    if not hasattr(self, "_ticker_states"):
+                        self._ticker_states = {}
+                    prev = self._ticker_states.get(ticker)
+                    if prev != state:
+                        self._ticker_states[ticker] = state
+                        state_name = {0: "opened", 2: "frozen", 3: "inhibited",
+                                     4: "auctioned", 6: "closed", 10: "preClosing",
+                                     13: "preOpening"}.get(state, f"state_{state}")
+                        log.info("ticker_state_change ticker=%s state=%s(%d)",
+                                ticker, state_name, state)
+            except Exception:
+                pass
 
-        # O teste 11 prova que chamar Set*Callback ANTES do DLLInitializeLogin
-
-        # impede result=4 de chegar.
-
-        # Guarda todas as refs (CRITICO: manter em memoria para evitar GC)
+        # Set*Callback V2 registrados como refs (CRITICO: GC protection).
+        # Refactor 06/mai: ATIVADOS via _post_connect_setup() chamado IMEDIATAMENTE
+        # apos DLLInitializeLogin retornar NL_OK (pattern Delphi). Antes era
+        # depois do wait — janela de exposicao sem handlers causava AVs.
 
         self._callbacks = [
-            state_cb,
-            account_cb,
-            new_trade_cb,
-            daily_cb,
-            progress_cb,
-            tiny_book_cb,
-            trade_v2_cb,
-            asset_info_v2_cb,
-            asset_cb,
-            adjust_v2_cb,
-            price_depth_cb,
-            order_cb,
-            trading_msg_cb,
-            broker_account_cb,
+            state_cb,             # 0
+            account_cb,           # 1
+            new_trade_cb,         # 2
+            daily_cb,             # 3
+            progress_cb,          # 4
+            tiny_book_cb,         # 5
+            trade_v2_cb,          # 6
+            asset_info_v2_cb,     # 7
+            asset_cb,             # 8
+            adjust_v2_cb,         # 9
+            price_depth_cb,       # 10
+            order_cb,             # 11
+            trading_msg_cb,       # 12
+            broker_account_cb,    # 13
+            invalid_ticker_cb,    # 14 (novo 06/mai)
+            change_state_ticker_cb,  # 15 (novo 06/mai)
         ]
 
     # ------------------------------------------------------------------
@@ -4677,6 +4890,99 @@ class ProfitAgent:
     # Heartbeat loop (main thread)
 
     # ------------------------------------------------------------------
+
+    def _dll_watchdog_loop(self) -> None:
+        """Watchdog auto-healing pra DLL Nelogica instavel.
+
+        Detecta:
+          1. Reconnect storms — 3+ transicoes cstMarketData em <2min indica
+             instabilidade da conexao. Loga + agenda restart preventivo.
+          2. Silent death — login_ok=True por >5min sem qualquer evento DLL
+             (state_cb, ticks, orders). DLL ConnectorThread provavelmente
+             travada. Self-heal via _hard_exit (NSSM restart).
+          3. Heartbeat ausente em mercado aberto — durante 10:00-17:30 BRT,
+             se total_ticks nao cresce em 5min, DLL stuck. Self-heal.
+
+        Window minima: 60s entre checks pra evitar false positive.
+        Cooldown: 5min apos heal pra evitar restart loop.
+        """
+        import threading as _th_w
+        last_heal_ts = 0.0
+        last_ticks_seen = 0
+        last_ticks_change_ts = time.time()
+
+        while not self._stop_event.is_set():
+            time.sleep(60)
+            now = time.time()
+            wd = getattr(self, "_dll_watchdog_state", None)
+            if not wd:
+                continue
+
+            # Limpa state transitions mais antigas que 2min
+            cutoff = now - 120
+            wd["state_transitions_5min"] = [t for t in wd["state_transitions_5min"] if t > cutoff]
+
+            # 1. Reconnect storm
+            if len(wd["state_transitions_5min"]) >= 6:
+                wd["reconnect_storms"] += 1
+                log.warning(
+                    "watchdog.reconnect_storm transitions=%d in_2min storms_total=%d",
+                    len(wd["state_transitions_5min"]),
+                    wd["reconnect_storms"],
+                )
+                if wd["reconnect_storms"] >= 3 and (now - last_heal_ts) > 300:
+                    log.error("watchdog.heal_triggered reason=reconnect_storm")
+                    last_heal_ts = now
+                    _th_w.Thread(target=self._self_heal_restart, daemon=True).start()
+                    continue
+
+            # 2/3. Stuck detection — ticks nao crescem
+            if self._total_ticks != last_ticks_seen:
+                last_ticks_seen = self._total_ticks
+                last_ticks_change_ts = now
+            stuck_seconds = now - last_ticks_change_ts
+
+            # Mercado aberto BRT (10:00-17:30) — usa hora local
+            try:
+                from datetime import datetime as _dt_w
+                hour_local = _dt_w.now().hour
+                market_open_hours = 10 <= hour_local < 18
+            except Exception:
+                market_open_hours = False
+
+            if market_open_hours and self._login_ok and stuck_seconds > 300:
+                log.warning(
+                    "watchdog.no_ticks market_open stuck_s=%d login_ok=%s",
+                    int(stuck_seconds), self._login_ok,
+                )
+                if (now - last_heal_ts) > 600:
+                    log.error("watchdog.heal_triggered reason=no_ticks_market_open")
+                    last_heal_ts = now
+                    _th_w.Thread(target=self._self_heal_restart, daemon=True).start()
+                    continue
+
+            # 4. Login lost (era OK, agora False) — DLL desconectou
+            if wd["last_login_ok"] and not self._login_ok:
+                log.warning("watchdog.login_lost transitioning was_ok_now_false")
+            wd["last_login_ok"] = self._login_ok
+
+    def _self_heal_restart(self) -> None:
+        """Self-heal: log + _hard_exit. NSSM watchdog restart o processo.
+
+        Delay 2s antes do exit pra log chegar ao disco. Importante:
+        este metodo NAO deve ser chamado se houver operacao critica em
+        progresso (ex: collect_history em mid-flight com state DLL).
+        """
+        log.error("self_heal.scheduling_hard_exit_in_2s")
+        try:
+            time.sleep(2)
+        except Exception:
+            pass
+        try:
+            _hard_exit(0)  # module-level helper (kernel32.TerminateProcess)
+        except Exception:
+            import os as _os_h
+            _os_h._exit(0)
 
     def _heartbeat_loop(self) -> None:
 
