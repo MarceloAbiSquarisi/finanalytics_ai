@@ -1,6 +1,16 @@
 -- Subscreve todos os tickers da carteira/watchlist em profit_subscribed_tickers.
 -- Idempotente: ON CONFLICT (ticker, exchange) DO UPDATE preserva ticker existente,
 -- só atualiza active=true para reativar caso tenha sido desativado.
+--
+-- ⚠️ ATENÇÃO 06/mai/2026: 18 tickers desta lista foram desativados por
+-- InvalidTickerCallback durante boot do refactor Delphi-aligned (DLL Nelogica
+-- rejeitou subscribe). Confirmado via 0 ticks em 7 dias. Lista:
+--   AZUL4, EMBR3, ELET3, ELET6, BRFS3, CPLE5, CPLE6, MRFG3, PETZ3, PORT3,
+--   RDNI3, REAG3, RNEW11, SRNA3, STBP3, ZAMP3, LVTC3, XPTO
+-- Causa provável: corporate actions (BRFS3+MRFG3 → MBRF3, AZUL4 ch.11 2025, etc).
+-- NÃO RE-RODAR este SQL as-is sem revisar essas linhas, ou serão reativadas.
+-- Para auditoria: SELECT ticker, notes FROM profit_subscribed_tickers
+--                 WHERE notes ILIKE '%INVALID 06/mai%';
 
 INSERT INTO profit_subscribed_tickers (ticker, exchange, active, subscribe_book, priority, notes, updated_at)
 VALUES
