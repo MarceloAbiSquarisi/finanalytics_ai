@@ -2,18 +2,19 @@
 
 > **Para Claude/agente:** este é o primeiro arquivo a consultar em qualquer sessão. Contém pendências priorizadas + carryover de sessões anteriores. Atualizar ao fim de cada sessão (mover concluídas pra `## Done recente` e depois pra `docs/historico/`).
 
-Última atualização: **2026-05-06 10:30 BRT** (após smoke real do refactor Delphi-aligned com pregão aberto)
+Última atualização: **2026-05-06 12:30 BRT** (sessão fechada com agent stopped — root cause externo)
 
 ## Top priority — pegar antes do próximo smoke real
 
-### Estado atual do sistema (manhã 06/mai, pregão aberto)
+### Estado atual do sistema (tarde 06/mai)
 
-- 🟢 **profit_agent** UP com **NOVO init pattern Delphi** (callbacks pre-wait), 387 subscribed, watchdog ativo
-- 🟢 **auto_trader** Up mas paused via kill switch DB
+- 🛑 **profit_agent NSSM STOPPED** (12:29 BRT) — manualmente pra evitar restart-loop infinito noite. Ticks parou de fluir ~11:00 BRT (causa root externa, server Nelogica não pusha mais pra credencial). Próxima sessão: tentar `nssm start FinAnalyticsAgent` com mercado fechado / ou após Windows reboot.
+- 🟢 **auto_trader** Up mas paused via kill switch DB (irrelevante enquanto agent down)
 - 🔴 **kill switch ON**: `robot_risk_state.paused=True reason=end_of_smoke_05mai_pause_overnight`
-- ✅ 2 commits feat/trade-engine-validate-execution-tabs sincados origin: `be82bdd` (profit-agent refactor) + `bf30bbf` (backfill resilient)
+- ✅ 8 commits feat/trade-engine-validate-execution-tabs sincados origin (master..HEAD): `69ae21c` UI trade-engine + `58cc960` cleanup tickers + `cb1ed02` pairs lot_size + `f059aa1` docs + `0136990` asyncpg fix + `934b46d` /hub display fix + `2cb0cf0` profit-agent DLLFinalize+watchdog + `8f2ec82` docs final smoke.
 - ⏸️ **Backfill 2026-05-05 PAUSED** — state preservado em `E:\finanalytics_data\backfill_resilient_state.json` (ok=2 skip=27 err=0 de 373 tickers, retomar via `pwsh scripts/backfill_supervisor.ps1`)
-- ✅ **Smoke do refactor DONE 06/mai 10:25** — todas 5 validações live passaram, refactor `be82bdd` validado em produção (ver Done recente).
+- ✅ **Smoke do refactor DONE 06/mai 10:25** — todas 5 validações live passaram (08:25 boot até ~11:00 quando entrou em stuck state).
+- ✅ **Smoke /hub 06/mai (display + offline)** — display fixado (`934b46d`), bug raiz "agent stuck server-side" identificado mas não resolvível em código (commit `2cb0cf0` deu fix técnico; runbook P11 documenta fallback manual).
 
 ### P0 — pendentes pra próximo smoke
 
