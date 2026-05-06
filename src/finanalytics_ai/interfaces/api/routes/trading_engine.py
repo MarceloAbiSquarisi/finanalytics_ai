@@ -564,7 +564,7 @@ async def list_execution_quality_samples(
         LIMIT :limit
     """)
     rows = (await session.execute(
-        query, {"strategy": strategy, "days": days, "limit": limit},
+        query, {"strategy": strategy, "days": str(days), "limit": limit},
     )).fetchall()
     return {
         "strategy": strategy,
@@ -610,8 +610,8 @@ async def get_execution_quality_aggregate(
         GROUP BY hour
         ORDER BY hour
     """)
-    lat = (await session.execute(latency_q, {"strategy": strategy, "days": days})).first()
-    by_hour = (await session.execute(by_hour_q, {"strategy": strategy, "days": days})).fetchall()
+    lat = (await session.execute(latency_q, {"strategy": strategy, "days": str(days)})).first()
+    by_hour = (await session.execute(by_hour_q, {"strategy": strategy, "days": str(days)})).fetchall()
     return {
         "strategy": strategy,
         "days": days,
