@@ -21,9 +21,24 @@
 - [x] ~~Resume kill switch antes do smoke~~ — **DONE 05/mai**: ciclo paused→active→3 dispatches→paused completo executado. Kill switch volta pra `paused=True smoke_validacao_fixes_done_05mai` ao fim.
 - [x] ~~Smoke validação refactor Delphi-aligned~~ — **DONE 06/mai 10:25** (ver Done recente).
 
+### P0 — descoberto durante smoke /hub 06/mai (escalado de P1)
+
+- [ ] **Agent stuck SEM watchdog detectar** — Sintoma: hub mostrou "Profit Agent offline" às 11:00 BRT mesmo com NSSM SERVICE_RUNNING. Diagnóstico:
+  - Process aceita TCP mas HTTP handler thread travado (várias conexões em CLOSE_WAIT em :8002)
+  - Log floodado com `TICK_V1 callback error (count=171001)` — `queue.Full` (str vazia) — db_queue lotada, db_writer travado
+  - Watchdog cego porque `self._total_ticks` incrementa NA LINHA 758 (antes do `put_nowait` 762), então counter sobe mesmo com 100% das ticks erroreando. Watchdog acha que está saudável.
+  - Fix proposto: rastrear `_total_ticks_persisted` (incrementado APÓS put bem-sucedido OU após DB insert). Watchdog usa esse counter.
+- [ ] **Restart-Service não recupera ticks** — Pós `Restart-Service FinAnalyticsAgent` 11:16 BRT: agent boot OK, login_ok=True, market_connected=True, 369 subscribed. **Mas Total Ticks=0 por 10+ min** mesmo com mercado aberto. Suspeito: Nelogica server mantém subscription session do PID anterior, novo PID se subscreve mas server não re-pusha. Investigar:
+  - Se `/agent/restart` (com `_hard_exit` Win32) tem comportamento melhor que `Restart-Service`
+  - Se precisa pre-restart explicit unsubscribe-all + sleep antes do exit
+  - Se DLL precisa Logout antes do exit pra invalidar session no server
+- [ ] **`zombie_scan_failed` no boot** — `'NoneType' object has no attribute 'splitlines'` consistente em todo boot. Subprocess decode error ('utf-8' can't decode byte 0xe4) — `tasklist`/`wmic` retornando CP1252. Não bloqueia mas pollui log.
+- [ ] **Bug latente: V1 callback faz trabalho real** — comentário diz "apenas satisfazem a DLL na init", mas implementação de `_trade_v1_init` faz `self._total_ticks += 1` + `self._db_queue.put_nowait(...)`. Se V1 e V2 ambas firarem, double-counting. Pattern Delphi-aligned 06/mai pode ter agravado isso.
+
 ### P1 — qualidade/robustez
 
 - [x] ~~**Pairs sizing não respeita lot_size**~~ — **DONE 06/mai** em `auto_trader_worker.py:_compute_leg_quantities` + 6 testes novos cobrindo lot=100/1/None + cenário smoke 05/mai (qty=93→0). Próxima abertura de pair vai arredondar antes de dispatch.
+- [x] ~~**/hub Profit Agent (NELOGICA) section text cut**~~ — **DONE 06/mai** commit `934b46d`. Section escapava de `.main` (estava após `</div></div></div>` que fechavam fa-page-content). Fix: mover pra dentro de `#monitorContent` + remover `<` órfão linha 349.
 - [ ] **Trailing stop automático nas posições** — fix 04/mai cobriu OCO estático bilateral; trailing dinâmico (atualizar SL conforme preço caminha a favor) ainda pendente. `validate_attach_oco_params` já aceita `is_trailing/trail_distance/trail_pct` per-level mas dispatcher só passa SL fixo. Defer pra sessão dedicada.
 - [ ] **Escapar `$$` no `.env PROFIT_SIM_ROUTING_PASSWORD`** — compose interpreta `$utD_$` como var → senha truncada para `wB#.&5hd!8$`. Irrelevante em sim path (não injeta senha) mas precisa correto antes de production. Trocar pra `wB#.&5hd!8$$utD_$$`.
 - [ ] **Lookup automático de `lot_size` por ticker** — hoje hardcoded `100` no config_json. Para futuros (WINFUT/WDOFUT) lote é 1; para BDR alguns são 1, outros 10. Adicionar coluna `tickers.standard_lot` ou tabela de referência. Substitui o context.get("lot_size", 100).
