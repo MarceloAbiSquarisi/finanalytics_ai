@@ -402,10 +402,32 @@ def start_http_server(agent, port: int) -> None:
                 # explicito do _hard_exit antes de schedular o exit thread.
                 from finanalytics_ai.workers.profit_agent import _hard_exit
 
+                # Smoke 06/mai 11:00: TerminateProcess sem DLLFinalize deixa
+                # session Nelogica viva server-side, novo PID nao recebe ticks.
+                # Best-effort Finalize com timeout 2s antes do hard_exit.
                 def _exit_soon():
                     import time as _tm_r
 
                     _tm_r.sleep(0.5)  # deixa resposta HTTP chegar no cliente
+                    try:
+                        done = _th_r.Event()
+
+                        def _cleanup() -> None:
+                            try:
+                                if getattr(agent, "_dll", None) is not None:
+                                    agent._dll.DLLFinalize()
+                            except Exception as exc:
+                                log.warning("restart.dll_finalize_error err=%s", exc)
+                            finally:
+                                done.set()
+
+                        _th_r.Thread(target=_cleanup, daemon=True).start()
+                        if done.wait(timeout=2.0):
+                            log.info("restart.dll_finalize_ok")
+                        else:
+                            log.warning("restart.dll_finalize_timeout fallback=hard_exit")
+                    except Exception as exc:
+                        log.warning("restart.dll_cleanup_exception err=%s", exc)
                     _hard_exit(0)
 
                 _th_r.Thread(target=_exit_soon, daemon=True).start()

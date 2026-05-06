@@ -526,6 +526,13 @@ class ProfitAgent:
         # Contadores
 
         self._total_ticks = 0
+        # Smoke 06/mai 11:00: V1/V2 callbacks incrementavam _total_ticks ANTES
+        # do put_nowait. Quando db_queue lotou (db_writer travado), 100% das
+        # ticks eram dropadas mas counter subia mesmo assim, enganando o watchdog
+        # (que checa "_total_ticks crescendo == saudavel"). Resultado: agent
+        # ficou stuck por horas sem self-heal. Fix: counter separado incrementado
+        # APENAS apos put bem-sucedido. Watchdog usa este.
+        self._total_ticks_queued = 0
         # D6 (24/abr): DLL retorna 0 em SubscribeTicker mesmo para ticker inexistente
         # — precisamos rastrear ticks recebidos para validar. Chave "TICKER:EXCHANGE".
         self._last_tick_at: dict[str, datetime] = {}
@@ -775,6 +782,7 @@ class ProfitAgent:
                         "is_edit": bool(edit),
                     }
                 )
+                self._total_ticks_queued += 1  # watchdog signal
 
                 if self._total_ticks <= 5:
                     log.info("TICK_V1 ticker=%s price=%s qty=%s", ticker, price, qty)
@@ -1596,6 +1604,7 @@ class ProfitAgent:
                         "is_edit": bool(is_edit),
                     }
                 )
+                agent._total_ticks_queued += 1  # watchdog signal
 
             except queue.Full:
                 pass
@@ -1774,9 +1783,10 @@ class ProfitAgent:
                         "is_edit": bool(flags & 1),
                     }
                 )
+                agent._total_ticks_queued += 1  # watchdog signal
 
             except queue.Full:
-                pass  # descarta se fila cheia
+                pass  # descarta se fila cheia (counter NAO incrementa → watchdog detecta)
 
             if agent._sse_clients:
                 import json as _j
@@ -4212,6 +4222,7 @@ class ProfitAgent:
             "activate_ok": self._activate_ok,
             "subscribed_tickers": list(self._subscribed),
             "total_ticks": self._total_ticks,
+            "total_ticks_queued": self._total_ticks_queued,
             "total_orders": self._total_orders,
             "total_assets": self._total_assets,
             "db_queue_size": self._db_queue.qsize(),
@@ -4936,9 +4947,12 @@ class ProfitAgent:
                     _th_w.Thread(target=self._self_heal_restart, daemon=True).start()
                     continue
 
-            # 2/3. Stuck detection — ticks nao crescem
-            if self._total_ticks != last_ticks_seen:
-                last_ticks_seen = self._total_ticks
+            # 2/3. Stuck detection — ticks PERSISTIDAS nao crescem.
+            # Smoke 06/mai: usar _total_ticks_queued (post put_nowait OK), nao
+            # _total_ticks (received). Isso evita falso healthy quando queue
+            # cheia faz put_nowait sempre falhar.
+            if self._total_ticks_queued != last_ticks_seen:
+                last_ticks_seen = self._total_ticks_queued
                 last_ticks_change_ts = now
             stuck_seconds = now - last_ticks_change_ts
 
@@ -4967,15 +4981,43 @@ class ProfitAgent:
             wd["last_login_ok"] = self._login_ok
 
     def _self_heal_restart(self) -> None:
-        """Self-heal: log + _hard_exit. NSSM watchdog restart o processo.
+        """Self-heal: best-effort DLLFinalize + _hard_exit. NSSM restart processo.
 
-        Delay 2s antes do exit pra log chegar ao disco. Importante:
-        este metodo NAO deve ser chamado se houver operacao critica em
-        progresso (ex: collect_history em mid-flight com state DLL).
+        Smoke 06/mai 11:00 BRT revelou: TerminateProcess sem DLLFinalize antes
+        deixa subscription session viva no servidor Nelogica. Novo PID consegue
+        login mas nao recebe ticks (server acha que ja esta servindo o PID
+        anterior). Watchdog dispara de novo em 5min → restart loop.
+
+        Fix: tentar DLLFinalize com timeout 2s antes do TerminateProcess. Happy
+        path: server invalida session limpa, novo PID assina fresh. Bad path:
+        Finalize trava (DLL ConnectorThread bug) → cai pro hard_exit como antes.
         """
         log.error("self_heal.scheduling_hard_exit_in_2s")
+
+        # Best-effort DLL cleanup (smoke 06/mai)
         try:
-            time.sleep(2)
+            import threading as _th_h
+            done = _th_h.Event()
+
+            def _cleanup() -> None:
+                try:
+                    if self._dll is not None:
+                        self._dll.DLLFinalize()
+                except Exception as exc:
+                    log.warning("self_heal.dll_finalize_error err=%s", exc)
+                finally:
+                    done.set()
+
+            _th_h.Thread(target=_cleanup, daemon=True).start()
+            if done.wait(timeout=2.0):
+                log.info("self_heal.dll_finalize_ok")
+            else:
+                log.warning("self_heal.dll_finalize_timeout fallback=hard_exit")
+        except Exception as exc:
+            log.warning("self_heal.dll_cleanup_exception err=%s", exc)
+
+        try:
+            time.sleep(0.5)  # log flush
         except Exception:
             pass
         try:
@@ -4995,8 +5037,9 @@ class ProfitAgent:
                 self._db.update_agent_status(self.get_status())
 
             log.info(
-                "heartbeat ticks=%d orders=%d assets=%d queue=%d",
+                "heartbeat ticks=%d queued=%d orders=%d assets=%d queue=%d",
                 self._total_ticks,
+                self._total_ticks_queued,
                 self._total_orders,
                 self._total_assets,
                 self._db_queue.qsize(),
