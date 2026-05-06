@@ -516,6 +516,7 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
             <label>Pasta <span style="color:var(--red)">*</span></label>
             <input id="bf-folder-path" type="text" placeholder="E:\nelogica\export_2026-04-30">
           </div>
+          <button class="btn btn-sm btn-primary" onclick="bfOpenFolderBrowser()" title="Navegar até a pasta">📁 Procurar</button>
           <button class="btn btn-sm btn-ghost" onclick="bfRefreshInbox()">↻ Listar arquivos</button>
         </div>
         <div id="bf-folder-files" style="margin-top:10px;font-family:monospace;font-size:12px;color:var(--muted);background:var(--s2);border:1px solid var(--border);border-radius:5px;padding:8px;max-height:160px;overflow:auto">
@@ -567,7 +568,7 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
       </div>
       <div style="display:flex;gap:10px;margin-top:14px;align-items:center">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;color:var(--text)">
-          <input type="checkbox" id="bf-import-dryrun" checked>
+          <input type="checkbox" id="bf-import-dryrun">
           Dry-run (não escreve no DB)
         </label>
         <button class="btn btn-primary" onclick="bfDoImport()" id="bf-btn-import" style="margin-left:auto">⬆ Importar</button>
@@ -619,6 +620,25 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
       <button class="btn btn-primary" onclick="createUser()">Criar Usuário</button>
     </div>
     <div id="cuMsg" class="msg"></div>
+  </div>
+</div>
+
+<!-- MODAL: Folder Browser (Backfill / Importar pasta) -->
+<div class="modal-overlay" id="modalFolderBrowse">
+  <div class="modal" style="width:680px;max-width:95vw">
+    <div class="modal-title">
+      📁 Escolher pasta
+      <button class="modal-close" onclick="closeModal('modalFolderBrowse')">×</button>
+    </div>
+    <div id="bf-browse-breadcrumb" style="font-family:monospace;font-size:13px;color:var(--gold);padding:8px 12px;background:var(--s2);border:1px solid var(--border);border-radius:5px;margin-bottom:10px;word-break:break-all">Drives disponíveis</div>
+    <div id="bf-browse-list" style="background:var(--s1);border:1px solid var(--border);border-radius:6px;max-height:400px;min-height:200px;overflow:auto;padding:6px;font-family:monospace;font-size:13px">
+      <div class="empty" style="padding:20px">Carregando…</div>
+    </div>
+    <div style="margin-top:8px;font-size:12px;color:var(--muted);font-family:monospace" id="bf-browse-files-info">—</div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modalFolderBrowse')">Cancelar</button>
+      <button class="btn btn-primary" onclick="bfBrowseSelect()" id="bf-browse-select-btn" disabled>Selecionar esta pasta</button>
+    </div>
   </div>
 </div>
 
@@ -1164,6 +1184,78 @@ async function bfRefreshInbox() {
     box.innerHTML = `<span style="color:var(--red)">Falha de rede: ${err.message}</span>`;
     bfClearImportPreview();
   }
+}
+
+// ─── Folder browser modal ────────────────────────────────────────────────────
+let bfBrowseSelectedWindows = null;
+
+async function bfOpenFolderBrowser() {
+  bfBrowseSelectedWindows = null;
+  document.getElementById('bf-browse-select-btn').disabled = true;
+  openModal('modalFolderBrowse');
+  // Inicia da pasta atual do input se preenchida (e válida); senão raiz
+  const initialPath = document.getElementById('bf-folder-path').value.trim();
+  await bfBrowseLoad(initialPath || null);
+}
+
+async function bfBrowseLoad(path) {
+  const list = document.getElementById('bf-browse-list');
+  const crumb = document.getElementById('bf-browse-breadcrumb');
+  const info = document.getElementById('bf-browse-files-info');
+  const btn = document.getElementById('bf-browse-select-btn');
+  list.innerHTML = '<div class="empty" style="padding:20px">Carregando…</div>';
+  let data;
+  try {
+    const url = path ? `${IMPORT_API}/browse?path=${encodeURIComponent(path)}` : `${IMPORT_API}/browse`;
+    const res = await fetch(url, { headers: H() });
+    data = await res.json();
+    if (!res.ok) {
+      list.innerHTML = `<div class="empty" style="padding:20px;color:var(--red)">Erro: ${data.detail || res.status}</div>`;
+      info.textContent = '—';
+      btn.disabled = true;
+      return;
+    }
+  } catch (err) {
+    list.innerHTML = `<div class="empty" style="padding:20px;color:var(--red)">Falha de rede: ${err.message}</div>`;
+    return;
+  }
+
+  bfBrowseSelectedWindows = data.current || null;
+  crumb.textContent = data.current || 'Drives disponíveis';
+  btn.disabled = data.is_root || !data.current;
+
+  let html = '';
+  // botão "voltar"
+  if (data.parent !== null && data.parent !== undefined) {
+    const target = data.parent === '' ? '' : data.parent.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const targetExpr = data.parent === '' ? 'null' : `'${target}'`;
+    html += `<div onclick="bfBrowseLoad(${targetExpr})" style="padding:7px 10px;cursor:pointer;border-radius:4px;color:var(--accent)" onmouseenter="this.style.background='rgba(0,212,255,.08)'" onmouseleave="this.style.background='transparent'">⬆ ..</div>`;
+  }
+  // subdirs
+  for (const d of (data.subdirs || [])) {
+    const wp = (d.windows_path || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    html += `<div onclick="bfBrowseLoad('${wp}')" style="padding:7px 10px;cursor:pointer;border-radius:4px" onmouseenter="this.style.background='rgba(0,212,255,.08)'" onmouseleave="this.style.background='transparent'">📂 ${d.name}</div>`;
+  }
+  if (!html) html = '<div class="empty" style="padding:20px">Sem subpastas.</div>';
+  list.innerHTML = html;
+
+  // info de arquivos OHLC
+  if (data.files_count > 0) {
+    const sample = (data.files || []).slice(0, 5).map(f => f.name).join(', ');
+    const more = data.files_count > 5 ? ` (+${data.files_count - 5})` : '';
+    info.innerHTML = `<span style="color:var(--green)">📄 ${data.files_count} arquivo(s) importáveis</span>: ${sample}${more}`;
+  } else if (!data.is_root) {
+    info.innerHTML = '<span style="color:var(--muted)">Sem arquivos CSV/Parquet/JSONL nesta pasta.</span>';
+  } else {
+    info.textContent = '—';
+  }
+}
+
+function bfBrowseSelect() {
+  if (!bfBrowseSelectedWindows) return;
+  document.getElementById('bf-folder-path').value = bfBrowseSelectedWindows;
+  closeModal('modalFolderBrowse');
+  bfRefreshInbox();
 }
 
 function bfShowImportPreview(preview, filename) {

@@ -108,6 +108,24 @@ def _resolve_folder(raw_path: str) -> Path:
     return p
 
 
+def _to_windows_path(p: Path) -> str:
+    """Converte /host_e/foo/bar -> 'E:\\foo\\bar' pra display amigavel.
+
+    Se o path nao estiver sob nenhum mount, retorna POSIX original.
+    """
+    p_resolved = p.resolve()
+    for letter, mount in HOST_DRIVE_MOUNTS.items():
+        mount_resolved = mount.resolve()
+        if p_resolved == mount_resolved:
+            return f"{letter}:\\"
+        try:
+            rel = p_resolved.relative_to(mount_resolved)
+            return f"{letter}:\\" + str(rel).replace("/", "\\")
+        except ValueError:
+            continue
+    return str(p_resolved)
+
+
 def _list_inbox(folder: Path) -> list[Path]:
     if not folder.exists() or not folder.is_dir():
         return []
@@ -297,6 +315,85 @@ class FolderImportRequest(BaseModel):
     min_price: float = Field(default=DEFAULT_MIN_PRICE)
     dry_run: bool = Field(default=False)
     max_files: int = Field(default=MAX_FOLDER_FILES, ge=1, le=MAX_FOLDER_FILES)
+
+
+@router.get("/browse")
+async def browse_folder(
+    path: str | None = None,
+    _: User = Depends(require_master),
+) -> dict[str, Any]:
+    """Navegador de pastas pro modal "📁 Procurar" do UI.
+
+    Sem path: retorna lista dos drives raiz disponiveis.
+    Com path: retorna conteudo (subdirs + arquivos OHLC se houver).
+    """
+    # Caso 1: lista de drives raiz
+    if not path:
+        drives = []
+        for letter, mount in HOST_DRIVE_MOUNTS.items():
+            if mount.exists():
+                drives.append({
+                    "name": f"{letter}:\\",
+                    "windows_path": f"{letter}:\\",
+                    "container_path": str(mount),
+                })
+        return {
+            "is_root": True,
+            "current": None,
+            "current_container": None,
+            "parent": None,
+            "subdirs": drives,
+            "files": [],
+            "files_count": 0,
+        }
+
+    # Caso 2: pasta especifica
+    p = _resolve_folder(path)
+    p_resolved = p.resolve()
+
+    subdirs: list[dict[str, Any]] = []
+    files: list[dict[str, Any]] = []
+    try:
+        for child in sorted(p_resolved.iterdir(), key=lambda x: x.name.lower()):
+            try:
+                if child.is_dir():
+                    subdirs.append({
+                        "name": child.name,
+                        "windows_path": _to_windows_path(child),
+                        "container_path": str(child),
+                    })
+                elif child.is_file():
+                    if child.suffix.lower() in ALLOWED_OHLC_EXTS:
+                        files.append({
+                            "name": child.name,
+                            "size_bytes": child.stat().st_size,
+                        })
+            except (PermissionError, OSError):
+                continue
+    except (PermissionError, OSError) as exc:
+        raise HTTPException(403, f"sem permissao em {p_resolved}: {exc}")
+
+    # Determina parent: se estamos na raiz de um mount -> "" (volta pra lista
+    # de drives); senao parent é o diretorio pai dentro do mesmo mount.
+    parent: str | None = None
+    is_at_drive_root = False
+    for mount in HOST_DRIVE_MOUNTS.values():
+        if p_resolved == mount.resolve():
+            is_at_drive_root = True
+            parent = ""  # volta pra lista de drives
+            break
+    if not is_at_drive_root:
+        parent = _to_windows_path(p_resolved.parent)
+
+    return {
+        "is_root": False,
+        "current": _to_windows_path(p_resolved),
+        "current_container": str(p_resolved),
+        "parent": parent,
+        "subdirs": subdirs,
+        "files": files[:200],
+        "files_count": len(files),
+    }
 
 
 @router.get("/inbox")
