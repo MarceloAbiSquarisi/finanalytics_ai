@@ -53,8 +53,15 @@ if _env_file.exists():
                 os.environ[_k] = _v
 
 AGENT_URL = os.environ.get("PROFIT_AGENT_URL", "http://localhost:8002")
-TIMEOUT_S = 300
-TIMEOUT_FUT = 1200
+# Reduzido de 300/1200 para 60/300 apos sessao 06/mai 02h: DLL Nelogica nao
+# tem CancelHistoryTrade — quando server nao responde para um ticker, DLL
+# fica stuck emitindo progress=0 a cada 25s indefinidamente. Cada timeout
+# longo so amplifica wall-clock perdido (30 tickers * 300s = 2.5h).
+TIMEOUT_S = 60
+TIMEOUT_FUT = 300
+# Early-exit: se N tickers consecutivos timeoutarem, DLL provavelmente esta
+# stuck e proximos N+1.. tambem timeoutarao. Aborta cedo pra restart manual.
+MAX_CONSECUTIVE_ERRORS = 5
 FUTURES_EXCHANGE = {"F"}
 DELAY_S = 2
 
@@ -191,6 +198,7 @@ def main() -> int:
     skip = 0
     err = 0
     total_ticks = 0
+    consecutive_errors = 0
 
     for i, t in enumerate(tickers, 1):
         ticker = t["ticker"]
@@ -203,6 +211,7 @@ def main() -> int:
         if status == "ok":
             ok += 1
             total_ticks += ticks
+            consecutive_errors = 0
             emit(
                 "PROGRESS",
                 ticker=ticker,
@@ -214,6 +223,7 @@ def main() -> int:
             )
         else:
             err += 1
+            consecutive_errors += 1
             emit(
                 "ERROR",
                 ticker=ticker,
@@ -221,7 +231,19 @@ def main() -> int:
                 status=status,
                 elapsed_s=round(elapsed, 1),
                 i=i,
+                consecutive_errors=consecutive_errors,
             )
+            # Early-exit: DLL provavelmente stuck — abortar pra forca user
+            # restart agent + investigar (DLL Nelogica nao tem CancelHistory).
+            if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
+                emit(
+                    "ABORT",
+                    reason="consecutive_errors_threshold",
+                    threshold=MAX_CONSECUTIVE_ERRORS,
+                    last_ticker=ticker,
+                    i=i,
+                )
+                break
         time.sleep(DELAY_S)
 
     duration_min = round((time.time() - t0) / 60, 1)

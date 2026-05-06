@@ -111,3 +111,10 @@ _archive_logs/
 
 # Logs runtime (profit_agent, api, NSSM stdout/stderr) — voláteis, sem valor histórico
 logs/
+
+# Nelogica reference: manual + DLL samples (Win32/Win64 binaries ~110MB)
+# Local-only checkout — pegar oficialmente do site Nelogica para validar versao DLL
+Nelogica/
+
+# Screenshots ad-hoc — fora do repositorio
+robot_status_*.png
