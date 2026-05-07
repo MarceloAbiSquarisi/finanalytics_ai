@@ -15,12 +15,12 @@ Endpoints:
   POST   /api/v1/admin/ohlc/rebuild  (sessão 30/abr)
 """
 
-from datetime import date as _date
+from datetime import date as _date, timedelta
 import os
 import uuid
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
@@ -444,3 +444,73 @@ async def rebuild_ohlc_day(
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
     finally:
         await conn.close()
+
+
+# ── Market Data gap analysis (07/mai) ─────────────────────────────────────────
+# Identifica dias uteis sem dado para um ticker num range. Util pra escolher
+# alvos de backfill direcionado depois de import incompleto / lacunas
+# historicas.
+
+_GAPS_SOURCES = {
+    "ohlc_1m": ("ohlc_1m", "time"),
+    "market_history_trades": ("market_history_trades", "trade_date"),
+}
+
+
+@router.get("/marketdata/gaps")
+async def get_marketdata_gaps(
+    ticker: str = Query(..., min_length=1, max_length=20),
+    date_start: _date = Query(...),
+    date_end: _date = Query(...),
+    source: str = Query("ohlc_1m"),
+    _: User = Depends(require_master),
+) -> dict:
+    if date_end < date_start:
+        raise HTTPException(400, "date_end < date_start")
+    if (date_end - date_start) > timedelta(days=730):
+        raise HTTPException(400, "range maximo: 2 anos")
+    if source not in _GAPS_SOURCES:
+        raise HTTPException(400, f"source invalido. Use: {list(_GAPS_SOURCES)}")
+    table, time_col = _GAPS_SOURCES[source]
+
+    ticker_u = ticker.upper().strip()
+    sql = f"""
+        SELECT DISTINCT ({time_col})::date AS day
+        FROM {table}
+        WHERE ticker = $1
+          AND {time_col} >= $2::date
+          AND {time_col} <  ($3::date + INTERVAL '1 day')
+        ORDER BY day
+    """
+
+    conn = await asyncpg.connect(_TS_DSN)
+    try:
+        rows = await conn.fetch(sql, ticker_u, date_start, date_end)
+        present = {r["day"] for r in rows}
+    finally:
+        await conn.close()
+
+    # gera lista de trading days no range (skip fim-de-semana e feriados B3)
+    from finanalytics_ai.infrastructure.database.repositories.backfill_repo import (
+        trading_days_in_range,
+    )
+    all_days = trading_days_in_range(date_start, date_end)
+    missing = [d for d in all_days if d not in present]
+    present_in_range = [d for d in all_days if d in present]
+    coverage = (
+        round(100.0 * len(present_in_range) / len(all_days), 1)
+        if all_days else 0.0
+    )
+
+    return {
+        "ticker": ticker_u,
+        "source": source,
+        "date_start": date_start.isoformat(),
+        "date_end": date_end.isoformat(),
+        "total_trading_days": len(all_days),
+        "present_count": len(present_in_range),
+        "missing_count": len(missing),
+        "coverage_pct": coverage,
+        "present_days": [d.isoformat() for d in present_in_range],
+        "missing_days": [d.isoformat() for d in missing],
+    }

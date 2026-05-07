@@ -372,6 +372,43 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
         </table>
       </div>
     </div>
+
+    <!-- Gaps de Market Data ─────────────────────────────────────────── -->
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:18px;margin-top:18px">
+      <div class="sec-header" style="margin-bottom:10px">
+        <span class="sec-title">📅 Gaps de Market Data</span>
+      </div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5">
+        Verifica quais <strong>dias úteis</strong> (skip fim-de-semana e feriados B3) estão sem dados para um ticker no range — útil pra identificar lacunas e disparar backfill direcionado.
+      </p>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
+        <div class="form-group">
+          <label>Ticker <span style="color:var(--red)">*</span></label>
+          <input id="gaps-ticker" type="text" placeholder="PETR4" style="text-transform:uppercase">
+        </div>
+        <div class="form-group">
+          <label>Data inicial <span style="color:var(--red)">*</span></label>
+          <input id="gaps-start" type="date">
+        </div>
+        <div class="form-group">
+          <label>Data final <span style="color:var(--red)">*</span></label>
+          <input id="gaps-end" type="date">
+        </div>
+        <div class="form-group">
+          <label>Fonte</label>
+          <select id="gaps-source">
+            <option value="ohlc_1m">ohlc_1m (bars 1m)</option>
+            <option value="market_history_trades">market_history_trades (ticks)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions" style="margin-top:12px;justify-content:flex-start">
+        <button class="btn btn-primary btn-sm" onclick="gapsCheck()" id="gaps-btn">🔍 Buscar gaps</button>
+        <button class="btn btn-warn btn-sm" onclick="gapsSchedule()" id="gaps-btn-schedule" disabled title="Cria backfill job pros dias faltantes (só funciona com fonte=ohlc_1m sem efeito direto, mas roda /collect_history que popula market_history_trades)">↻ Reagendar dias faltantes como backfill</button>
+      </div>
+      <div id="gapsMsg" class="msg"></div>
+      <div id="gapsResult" style="margin-top:14px;display:none"></div>
+    </div>
   </div>
 
   <!-- TAB BACKFILL -->
@@ -1749,6 +1786,93 @@ function bfRenderImportResult(data) {
         <tbody>${filesRows}</tbody>
       </table>
     </div>`;
+}
+
+// ── Gaps de Market Data (DB tab) ─────────────────────────────────────────────
+let gapsLastResult = null;
+
+async function gapsCheck() {
+  const ticker = document.getElementById('gaps-ticker').value.trim().toUpperCase();
+  const start = document.getElementById('gaps-start').value;
+  const end = document.getElementById('gaps-end').value;
+  const source = document.getElementById('gaps-source').value;
+  if (!ticker || !start || !end) {
+    showMsg('gapsMsg', 'Preencha ticker e datas.', 'error'); return;
+  }
+  const btn = document.getElementById('gaps-btn');
+  btn.disabled = true; btn.textContent = '⌛ Buscando…';
+  const result = document.getElementById('gapsResult');
+  result.style.display = 'none';
+  document.getElementById('gaps-btn-schedule').disabled = true;
+  try {
+    const qs = new URLSearchParams({ ticker, date_start: start, date_end: end, source });
+    const res = await fetch(`${API}/marketdata/gaps?${qs}`, { headers: H() });
+    const data = await res.json();
+    if (!res.ok) {
+      showMsg('gapsMsg', `Erro: ${data.detail || res.status}`, 'error');
+      return;
+    }
+    gapsLastResult = data;
+    document.getElementById('gaps-btn-schedule').disabled = data.missing_count === 0;
+    showMsg('gapsMsg', `${ticker}: ${data.present_count}/${data.total_trading_days} dias presentes (${data.coverage_pct}% cobertura). ${data.missing_count} faltantes.`, data.missing_count === 0 ? 'success' : 'error');
+    result.style.display = 'block';
+    result.innerHTML = gapsRenderResult(data);
+  } catch (err) {
+    showMsg('gapsMsg', `Falha de rede: ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '🔍 Buscar gaps';
+  }
+}
+
+function gapsRenderResult(d) {
+  const cov = d.coverage_pct;
+  const covColor = cov >= 95 ? 'var(--green)' : cov >= 80 ? 'var(--gold)' : 'var(--red)';
+  const missingRows = d.missing_days.slice(0, 200).map(day => {
+    const dt = new Date(day + 'T00:00:00');
+    const dow = ['dom','seg','ter','qua','qui','sex','sab'][dt.getDay()];
+    return `<tr><td style="font-family:monospace">${day}</td><td style="color:var(--muted)">${dow}</td></tr>`;
+  }).join('');
+  const moreNote = d.missing_days.length > 200 ? `<div style="color:var(--muted);font-size:11px;margin-top:4px;text-align:center">... e mais ${d.missing_days.length - 200} dias</div>` : '';
+  return `
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:10px;font-family:monospace;font-size:13px">
+      <div><strong>${d.ticker}</strong> · fonte <code style="color:var(--accent)">${d.source}</code> · range ${d.date_start} → ${d.date_end}</div>
+      <div style="margin-top:6px">
+        Cobertura: <strong style="color:${covColor};font-size:15px">${cov}%</strong>
+        · presentes: <span style="color:var(--green)">${d.present_count}</span>
+        · faltantes: <span style="color:var(--red)">${d.missing_count}</span>
+        · total dias úteis: ${d.total_trading_days}
+      </div>
+    </div>
+    ${d.missing_count ? `
+      <div class="tbl-wrap" style="max-height:340px;overflow:auto">
+        <table style="font-size:12px">
+          <thead><tr><th>Dia faltante</th><th>DoW</th></tr></thead>
+          <tbody>${missingRows}</tbody>
+        </table>
+      </div>
+      ${moreNote}
+    ` : '<div style="text-align:center;padding:20px;color:var(--green);font-size:14px">✓ Cobertura completa no range — sem dias faltantes.</div>'}`;
+}
+
+async function gapsSchedule() {
+  if (!gapsLastResult || !gapsLastResult.missing_days?.length) return;
+  const ticker = gapsLastResult.ticker;
+  const days = gapsLastResult.missing_days;
+  const dateStart = days[0];
+  const dateEnd = days[days.length - 1];
+  if (!confirm(`Criar backfill job pra ${ticker} cobrindo ${days.length} dia(s) faltante(s) (${dateStart} → ${dateEnd})?\n\nObs: o job tenta TODO o range — dias já presentes serão pulados via skip_in_db.`)) return;
+  try {
+    const res = await fetch(`${BF_API}/jobs`, {
+      method: 'POST',
+      headers: H(),
+      body: JSON.stringify({ tickers: [ticker], date_start: dateStart, date_end: dateEnd, force_refetch: false }),
+    });
+    const data = await res.json();
+    if (!res.ok) { showMsg('gapsMsg', `Erro: ${data.detail||res.status}`, 'error'); return; }
+    showMsg('gapsMsg', `Backfill job #${data.id} criado (${data.total_items} items). Acompanhe na aba Backfill.`, 'success');
+  } catch (err) {
+    showMsg('gapsMsg', `Falha de rede: ${err.message}`, 'error');
+  }
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
