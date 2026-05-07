@@ -1082,7 +1082,7 @@ function bfRenderJobs(jobs) {
     const tickersTxt = j.tickers.length > 4
       ? `${j.tickers.slice(0,3).join(',')}… (+${j.tickers.length - 3})`
       : j.tickers.join(',');
-    const statusBadge = bfStatusBadge(j.status, j.cancel_requested);
+    const statusBadge = bfStatusBadge(j);
     const canCancel = (j.status === 'queued' || j.status === 'running') && !j.cancel_requested;
     const actions = `
       <button class="btn btn-sm btn-ghost" onclick="bfShowJobItems(${j.id})" title="Ver items">👁</button>
@@ -1099,17 +1099,41 @@ function bfRenderJobs(jobs) {
   }).join('');
 }
 
-function bfStatusBadge(s, cancel) {
-  const map = {
-    queued: ['rgba(168,85,247,.15)','var(--purple)','rgba(168,85,247,.3)','queued'],
-    running: ['rgba(0,212,255,.12)','var(--accent)','rgba(0,212,255,.3)','running'],
-    done: ['rgba(0,230,118,.1)','var(--green)','rgba(0,230,118,.3)','done'],
-    cancelled: ['rgba(255,61,90,.08)','var(--red)','rgba(255,61,90,.3)','cancelled'],
-    failed: ['rgba(255,61,90,.15)','var(--red)','rgba(255,61,90,.4)','failed'],
-  };
-  const c = map[s] || map.queued;
-  const suffix = cancel && s !== 'cancelled' ? ' (cancel...)' : '';
-  return `<span class="badge" style="background:${c[0]};color:${c[1]};border:1px solid ${c[2]}">${c[3]}${suffix}</span>`;
+function bfStatusBadge(statusOrJob, cancel) {
+  // Aceita string (legacy) ou objeto job (preferido — usa counters pra
+  // diferenciar "done OK" de "done com erros" / "failed").
+  let s, ok, err, skip, total, cancelReq;
+  if (typeof statusOrJob === 'string') {
+    s = statusOrJob; cancelReq = cancel;
+  } else {
+    s = statusOrJob.status; cancelReq = statusOrJob.cancel_requested;
+    ok = statusOrJob.ok_items; err = statusOrJob.err_items;
+    skip = statusOrJob.skip_items; total = statusOrJob.total_items;
+  }
+  // Se job terminou (done/cancelled), classifica pelos counters:
+  // - todos OK/skip → green "done"
+  // - 100% err → red "falhou"
+  // - misto → gold "concluído com erros"
+  let label = s, color = 'green', bg = 'rgba(0,230,118,.1)', bd = 'rgba(0,230,118,.3)';
+  if (s === 'queued') {
+    label = 'queued'; color = 'var(--purple)'; bg = 'rgba(168,85,247,.15)'; bd = 'rgba(168,85,247,.3)';
+  } else if (s === 'running') {
+    label = 'running'; color = 'var(--accent)'; bg = 'rgba(0,212,255,.12)'; bd = 'rgba(0,212,255,.3)';
+  } else if (s === 'cancelled') {
+    label = 'cancelado'; color = 'var(--red)'; bg = 'rgba(255,61,90,.08)'; bd = 'rgba(255,61,90,.3)';
+  } else if (s === 'failed') {
+    label = 'falhou'; color = 'var(--red)'; bg = 'rgba(255,61,90,.15)'; bd = 'rgba(255,61,90,.4)';
+  } else if (s === 'done') {
+    if (total != null && err === total && total > 0) {
+      label = 'falhou (todos err)'; color = 'var(--red)'; bg = 'rgba(255,61,90,.15)'; bd = 'rgba(255,61,90,.4)';
+    } else if (err > 0) {
+      label = `done c/ ${err} err`; color = 'var(--gold)'; bg = 'rgba(240,180,41,.1)'; bd = 'rgba(240,180,41,.3)';
+    } else {
+      label = 'done'; color = 'var(--green)'; bg = 'rgba(0,230,118,.1)'; bd = 'rgba(0,230,118,.3)';
+    }
+  }
+  const suffix = cancelReq && s !== 'cancelled' ? ' (cancel...)' : '';
+  return `<span class="badge" style="background:${bg};color:${color};border:1px solid ${bd}">${label}${suffix}</span>`;
 }
 
 async function bfCancelJob(id) {
