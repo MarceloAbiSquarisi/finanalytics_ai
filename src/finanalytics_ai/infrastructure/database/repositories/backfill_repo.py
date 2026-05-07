@@ -38,14 +38,21 @@ _TS_DSN = _TS_DSN_RAW.replace("postgresql+asyncpg://", "postgres://").replace(
 
 
 # Feriados B3 — calculados via lib `holidays` (BR + subdiv SP) com cache
-# por ano. Inclui feriados nacionais + Carnaval (seg+ter) + Corpus Christi
-# que sao "optional" no Brasil mas a B3 fecha em todos.
+# por ano. Inclui:
+#   - Feriados nacionais públicos (Confraternização, Tiradentes, Natal, ...)
+#   - Carnaval (seg+ter) e Corpus Christi (categoria 'optional', mas B3 fecha)
+#   - Quarta-feira de Cinzas (meio-pregão, geralmente skipado em backtest)
+#   - Vésperas Natal e Ano-Novo (meio-pregão, geralmente skipado em backtest)
+#   - Consciência Negra (nacional desde 2024 via Lei 14.759/2023)
 #
-# Nomes considerados feriado B3 (exclui 'Início da Quaresma' = quarta de
-# cinzas pq B3 abre 13h, e excursoes locais sem fechamento).
+# Decisão: tratar dias de meio-pregão como holiday completo. Para backtests
+# day-trade, sessoes parciais (10h-14h ou 13h-18h) tem liquidez ruim e
+# frequentemente sao excluidas. Backfill esses dias retorna 0 ou poucos
+# ticks e fica como ruido em gaps query — preferivel marcar como feriado.
 _B3_HOLIDAY_NAMES: frozenset[str] = frozenset({
     "Confraternização Universal",
     "Carnaval",
+    "Início da Quaresma",         # Quarta de cinzas (B3 abre 13h)
     "Sexta-feira Santa",
     "Tiradentes",
     "Dia do Trabalhador",
@@ -57,7 +64,9 @@ _B3_HOLIDAY_NAMES: frozenset[str] = frozenset({
     # Nacional pela Lei 14.759/2023 (a partir de 2024). Nome canonico
     # da lib `holidays`: "Dia Nacional de Zumbi e da Consciência Negra".
     "Dia Nacional de Zumbi e da Consciência Negra",
+    "Véspera de Natal",            # 24/12 — B3 fecha 14h
     "Natal",
+    "Véspera de Ano-Novo",         # 31/12 — B3 fecha 14h
 })
 
 _B3_HOLIDAYS_CACHE: dict[int, frozenset[date]] = {}
