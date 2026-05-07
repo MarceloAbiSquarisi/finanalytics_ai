@@ -404,6 +404,74 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
         </table>
       </div>
     </div>
+
+    <!-- ── Grafana silences ─────────────────────────────────────────── -->
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:18px;margin-top:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+        <div style="font-size:14px;font-weight:600;color:var(--text)">📈 Grafana — silenciamento de alertas</div>
+        <small id="notif-grafana-health" style="color:var(--muted);font-size:11px">—</small>
+      </div>
+      <small style="color:var(--muted);font-size:12px;display:block;margin-bottom:14px">
+        Grafana fala direto com Pushover (via <code>contact-points.yml</code>) — não passa pelos toggles acima.
+        Aqui você cria/expira <strong>silences</strong> via API do Alertmanager.
+      </small>
+
+      <div class="form-grid" style="grid-template-columns:auto auto auto auto;gap:10px;align-items:end;margin-bottom:12px">
+        <div class="form-group" style="margin:0">
+          <label style="font-size:12px">Escopo</label>
+          <select id="grafana-silence-scope" style="background:var(--s1);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px">
+            <option value="all">Todos os alertas</option>
+            <option value="critical">Apenas critical</option>
+            <option value="warning">Apenas warning</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label style="font-size:12px">Duração</label>
+          <select id="grafana-silence-duration" style="background:var(--s1);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px">
+            <option value="1">1 hora</option>
+            <option value="4" selected>4 horas</option>
+            <option value="8">8 horas</option>
+            <option value="24">24 horas</option>
+            <option value="168">7 dias (max)</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;flex:1;min-width:180px">
+          <label style="font-size:12px">Comentário</label>
+          <input id="grafana-silence-comment" type="text" placeholder="motivo (manutenção, debug, etc)" value="">
+        </div>
+        <button class="btn btn-warn" onclick="grafanaCreateSilence()" id="btn-grafana-silence">🔇 Silenciar</button>
+      </div>
+      <div id="grafana-silence-msg" class="msg"></div>
+
+      <div style="margin-top:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:13px;color:var(--text);font-weight:600">Silences ativos</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px">
+              <input type="checkbox" id="grafana-silence-managed-only" onchange="grafanaLoadSilences()"> só /admin
+            </label>
+            <button class="btn btn-sm" onclick="grafanaLoadSilences()">↻</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+            <thead>
+              <tr style="background:var(--s1)">
+                <th style="text-align:left;padding:8px;border-bottom:1px solid var(--border)">Matchers</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid var(--border)">Início</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid var(--border)">Fim</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid var(--border)">Por</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid var(--border)">Comentário</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid var(--border)"></th>
+              </tr>
+            </thead>
+            <tbody id="grafana-silence-tbody">
+              <tr><td colspan="6" style="padding:12px;color:var(--muted)">Carregando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- TAB BANCO DE DADOS -->
@@ -956,6 +1024,8 @@ function notifOnTabOpen() {
   notifLoadSettings();
   notifLoadStats();
   notifLoadLog();
+  grafanaCheckHealth();
+  grafanaLoadSilences();
 }
 
 async function notifLoadSettings() {
@@ -1081,6 +1151,116 @@ async function notifLoadStats() {
     document.getElementById('notif-stats-line').textContent =
       `7 dias — sent ${t.sent || 0} · skipped ${t.skipped || 0} · failed ${t.failed || 0}`;
   } catch {}
+}
+
+// ── Grafana silences ──────────────────────────────────────────────────────────
+async function grafanaCheckHealth() {
+  const el = document.getElementById('notif-grafana-health');
+  try {
+    const res = await fetch(`${NOTIF_API}/grafana/health`, { headers: H() });
+    const data = await res.json();
+    if (data.ok) {
+      el.style.color = 'var(--green)';
+      el.textContent = `✓ Grafana OK (${data.auth_method})`;
+    } else if (!data.auth_configured) {
+      el.style.color = 'var(--gold)';
+      el.textContent = '⚠ sem GRAFANA_API_TOKEN/BASIC_AUTH no .env';
+    } else {
+      el.style.color = 'var(--red)';
+      el.textContent = `✗ Grafana ${data.status || data.error || 'erro'}`;
+    }
+  } catch (e) {
+    el.style.color = 'var(--red)';
+    el.textContent = `✗ ${e.message}`;
+  }
+}
+
+async function grafanaCreateSilence() {
+  const scope = document.getElementById('grafana-silence-scope').value;
+  const duration_hours = parseFloat(document.getElementById('grafana-silence-duration').value);
+  const comment = document.getElementById('grafana-silence-comment').value.trim() || `silenced ${scope}`;
+  const btn = document.getElementById('btn-grafana-silence');
+  if (!await FAModal.confirm({
+    title: 'Silenciar alertas Grafana',
+    text: `Silenciar ${scope === 'all' ? 'TODOS os alertas' : 'alertas ' + scope} por ${duration_hours}h?\n\nNenhum push do Grafana sairá nesse período.`,
+    okLabel: '🔇 Silenciar',
+    variant: 'warn',
+  })) return;
+  btn.disabled = true; btn.textContent = '⌛ criando…';
+  try {
+    const res = await fetch(`${NOTIF_API}/grafana/silences`, {
+      method: 'POST', headers: H(),
+      body: JSON.stringify({ scope, duration_hours, comment }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || res.status);
+    showMsg('grafana-silence-msg',
+      `Silence criado: id=${data.silence_id}, expira em ${new Date(data.ends_at).toLocaleString('pt-BR')}`,
+      'success');
+    grafanaLoadSilences();
+  } catch (e) {
+    showMsg('grafana-silence-msg', `Erro: ${e.message}`, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '🔇 Silenciar';
+  }
+}
+
+async function grafanaExpireSilence(id) {
+  if (!await FAModal.confirm({
+    title: 'Expirar silence',
+    text: `Reativar alertas (id=${id})?`,
+    okLabel: '✓ Expirar',
+    variant: 'primary',
+  })) return;
+  try {
+    const res = await fetch(`${NOTIF_API}/grafana/silences/${encodeURIComponent(id)}`, {
+      method: 'DELETE', headers: H(),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || res.status);
+    }
+    grafanaLoadSilences();
+  } catch (e) {
+    alert(`Falha: ${e.message}`);
+  }
+}
+
+async function grafanaLoadSilences() {
+  const onlyManaged = document.getElementById('grafana-silence-managed-only').checked;
+  const tbody = document.getElementById('grafana-silence-tbody');
+  try {
+    const params = new URLSearchParams({ only_active: 'true', only_managed: onlyManaged ? 'true' : 'false' });
+    const res = await fetch(`${NOTIF_API}/grafana/silences?${params}`, { headers: H() });
+    if (res.status === 503) {
+      tbody.innerHTML = `<tr><td colspan="6" style="padding:12px;color:var(--gold)">⚠ Grafana auth não configurada — definir GRAFANA_API_TOKEN no .env</td></tr>`;
+      return;
+    }
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    if (!data.rows.length) {
+      tbody.innerHTML = `<tr><td colspan="6" style="padding:12px;color:var(--muted)">Nenhum silence ativo.</td></tr>`;
+      return;
+    }
+    const escapeHtml = s => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const fmt = iso => iso ? new Date(iso).toLocaleString('pt-BR') : '—';
+    tbody.innerHTML = data.rows.map(r => {
+      const matchers = (r.matchers || []).map(m =>
+        `${m.name}${m.isRegex ? '=~' : '='}${m.value}`).join(', ');
+      const tag = r.managed ? `<span style="color:var(--accent);font-size:10px;margin-left:4px">[admin]</span>` : '';
+      return `
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:6px 8px"><code style="font-size:11px;color:var(--text)">${escapeHtml(matchers)}</code>${tag}</td>
+          <td style="padding:6px 8px;color:var(--muted);white-space:nowrap">${fmt(r.starts_at)}</td>
+          <td style="padding:6px 8px;color:var(--muted);white-space:nowrap">${fmt(r.ends_at)}</td>
+          <td style="padding:6px 8px;color:var(--muted)">${escapeHtml(r.created_by || '—')}</td>
+          <td style="padding:6px 8px;color:var(--muted);font-size:11px;max-width:300px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(r.comment || '')}</td>
+          <td style="padding:6px 8px"><button class="btn btn-sm btn-info" onclick="grafanaExpireSilence('${escapeHtml(r.id)}')">✓ expirar</button></td>
+        </tr>`;
+    }).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="6" style="padding:12px;color:var(--red)">Falha: ${e.message}</td></tr>`;
+  }
 }
 
 // ── Backfill ──────────────────────────────────────────────────────────────────
