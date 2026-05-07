@@ -95,12 +95,14 @@ async def _run_job_body(job_id: int) -> None:
     force = bool(job["force_refetch"])
 
     timeout = max(TIMEOUT_S, TIMEOUT_FUT_S) + 30
+    cancelled = False
     async with httpx.AsyncClient(timeout=timeout) as client:
         while True:
             if await backfill_repo.is_cancel_requested(job_id):
                 logger.info("backfill.job.cancelled", job_id=job_id)
                 await backfill_repo.mark_job_finished(job_id, status="cancelled")
-                return
+                cancelled = True
+                break
 
             item = await backfill_repo.next_pending_item(job_id)
             if item is None:
@@ -109,8 +111,64 @@ async def _run_job_body(job_id: int) -> None:
             await backfill_repo.start_item(item["id"])
             await _process_item(client, job_id, item, force=force)
 
-    await backfill_repo.mark_job_finished(job_id, status="done")
-    logger.info("backfill.job.done", job_id=job_id)
+    if not cancelled:
+        await backfill_repo.mark_job_finished(job_id, status="done")
+        logger.info("backfill.job.done", job_id=job_id)
+
+    # Pushover alert se houve erros ou cancel — operador precisa saber
+    # que coleta agendada não completou full success.
+    final_job = await backfill_repo.get_job(job_id)
+    if final_job:
+        await _maybe_alert_job_outcome(final_job, was_cancelled=cancelled)
+
+
+async def _maybe_alert_job_outcome(job: dict[str, Any], *, was_cancelled: bool) -> None:
+    """Dispara push (Pushover) quando job de backfill termina com falha ou
+    cancelamento. Job 100% ok é silencioso (sucesso é o esperado).
+    """
+    err = int(job.get("err_items") or 0)
+    ok = int(job.get("ok_items") or 0)
+    skip = int(job.get("skip_items") or 0)
+    total = int(job.get("total_items") or 0)
+    done = int(job.get("done_items") or 0)
+    incomplete = done < total  # cancel ou crash deixou items pending
+
+    if not (err > 0 or was_cancelled or incomplete):
+        return  # sucesso completo — silencioso
+
+    job_id = job.get("id")
+    tickers_preview = ",".join(job.get("tickers") or [])[:120]
+    if was_cancelled:
+        title = f"Backfill #{job_id} cancelado"
+    elif err > 0 and ok == 0:
+        title = f"Backfill #{job_id} FALHOU"
+    elif incomplete:
+        title = f"Backfill #{job_id} incompleto"
+    else:
+        title = f"Backfill #{job_id} c/ erros"
+
+    msg_lines = [
+        f"Range {job.get('date_start')} → {job.get('date_end')}",
+        f"Tickers: {tickers_preview}",
+        f"Items: ok={ok} skip={skip} err={err} done={done}/{total}",
+    ]
+    if incomplete:
+        msg_lines.append(f"⚠ {total - done} item(s) não processado(s)")
+    msg = "\n".join(msg_lines)
+
+    critical = (err > 0 and ok == 0) or was_cancelled
+    try:
+        from finanalytics_ai.infrastructure.notifications.pushover import (
+            notify_system,
+        )
+        sent = await notify_system(title=title, message=msg, critical=critical)
+        logger.info(
+            "backfill.job.alert_dispatched",
+            job_id=job_id, sent=sent, critical=critical,
+            err=err, ok=ok, skip=skip, done=done, total=total,
+        )
+    except Exception as exc:
+        logger.warning("backfill.job.alert_failed", job_id=job_id, error=str(exc))
 
 
 async def _process_item(

@@ -101,6 +101,46 @@ def emit(tag: str, **kwargs) -> None:
     print(" ".join(parts), flush=True)
 
 
+def pushover_alert(title: str, message: str, *, critical: bool = False) -> bool:
+    """Push direto via API Pushover — usado em terminus do script (DONE c/
+    err, AGENT_STUCK, STOPPED_BY_SIGNAL incompleto, FATAL).
+
+    Standalone — nao depende do FastAPI app. Lê creds das mesmas env vars
+    que o app (PUSHOVER_USER_KEY + PUSHOVER_APP_TOKEN).
+
+    Fire-and-forget: erros sao logados via emit() mas nao quebram o exit
+    do script.
+    """
+    user = os.environ.get("PUSHOVER_USER_KEY", "").strip()
+    token = os.environ.get("PUSHOVER_APP_TOKEN", "").strip()
+    if not (user and token):
+        emit("PUSHOVER_SKIP", reason="missing_creds")
+        return False
+    try:
+        data = json.dumps({
+            "token": token,
+            "user": user,
+            "title": f"FinAnalytics: {title}",
+            "message": message[:1024],
+            "priority": 1 if critical else 0,
+            "sound": "siren" if critical else None,
+        }).encode("utf-8")
+        # api Pushover aceita JSON com Content-Type correto
+        req = urllib.request.Request(
+            "https://api.pushover.net/1/messages.json",
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=10) as r:
+            ok = 200 <= r.status < 300
+            emit("PUSHOVER", sent=ok, code=r.status, critical=critical)
+            return ok
+    except Exception as exc:
+        emit("PUSHOVER_ERR", err=type(exc).__name__, msg=str(exc)[:120])
+        return False
+
+
 def is_trading_day(d: date) -> bool:
     return d.weekday() < 5 and d not in HOLIDAYS_BR_2026
 
@@ -285,8 +325,19 @@ def main() -> int:
 
     for i, t in enumerate(pending, 1):
         if _stop:
-            emit("STOPPED_BY_SIGNAL", processed=i - 1, remaining=len(pending) - i + 1)
+            remaining = len(pending) - i + 1
+            emit("STOPPED_BY_SIGNAL", processed=i - 1, remaining=remaining)
             save_state(state)
+            s = state["summary"]
+            pushover_alert(
+                title=f"Backfill {day.isoformat()} interrompido (signal)",
+                message=(
+                    f"Coleta diária parada por sinal antes de completar.\n"
+                    f"Processados: {i - 1}/{len(pending)} · Restantes: {remaining}\n"
+                    f"OK={s['ok']} skip={s['skip']} err={s['err']}"
+                ),
+                critical=True,
+            )
             return EXIT_OK
 
         ticker = t["ticker"]
@@ -358,6 +409,17 @@ def main() -> int:
                     last_ticker=ticker,
                     request_action="restart_agent_and_resume",
                 )
+                pushover_alert(
+                    title=f"Backfill {day.isoformat()} ABORTOU — agent stuck",
+                    message=(
+                        f"{consecutive_errors} erros consecutivos. "
+                        f"Último ticker: {ticker}.\n"
+                        f"Supervisor deve reiniciar profit_agent e re-rodar backfill.\n"
+                        f"Processados: {i}/{len(pending)} · "
+                        f"OK={state['summary']['ok']} err={state['summary']['err']}"
+                    ),
+                    critical=True,
+                )
                 return EXIT_AGENT_STUCK
 
         save_state(state)
@@ -367,6 +429,23 @@ def main() -> int:
     s = state["summary"]
     emit("DONE", day=day.isoformat(), ok=s["ok"], skip=s["skip"], err=s["err"],
          abort_count=s["abort_count"], state_file=str(STATE_FILE))
+
+    # Pushover quando coleta agendada termina com falhas. Sucesso completo
+    # (err==0 E nada pendente) é silencioso por design.
+    if s["err"] > 0:
+        total_pendente = len(pending)
+        processados = s["ok"] + s["skip"] + s["err"]
+        incompleto = processados < total_pendente
+        pushover_alert(
+            title=f"Backfill {day.isoformat()} c/ {s['err']} falha(s)",
+            message=(
+                f"Coleta diária terminou com erros.\n"
+                f"OK={s['ok']} skip={s['skip']} err={s['err']}"
+                + (f" · {total_pendente - processados} item(s) não processado(s)" if incompleto else "")
+                + f"\nState file: {STATE_FILE.name}"
+            ),
+            critical=False,
+        )
     return EXIT_OK
 
 
@@ -375,4 +454,13 @@ if __name__ == "__main__":
         sys.exit(main())
     except Exception as exc:
         emit("FATAL", err=type(exc).__name__, msg=str(exc)[:200])
+        pushover_alert(
+            title="Backfill resilient FATAL",
+            message=(
+                f"Script abortou com exception {type(exc).__name__}: "
+                f"{str(exc)[:300]}\nVerifique logs do NSSM service "
+                f"FinAnalyticsBackfill."
+            ),
+            critical=True,
+        )
         sys.exit(EXIT_FATAL)
