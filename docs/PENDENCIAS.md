@@ -2,7 +2,44 @@
 
 > **Para Claude/agente:** este é o primeiro arquivo a consultar em qualquer sessão. Contém pendências priorizadas + carryover de sessões anteriores. Atualizar ao fim de cada sessão (mover concluídas pra `## Done recente` e depois pra `docs/historico/`).
 
-Última atualização: **2026-05-07 09:00 BRT** (boot resilience P0+P1+P2 ativo + WDOFUT 1 dia validado)
+Última atualização: **2026-05-07 19:00 BRT** (R5 harness end-to-end: walk-forward + DSR Neff + vol-target + persistência DB + UI /r5)
+
+### Done 07/mai tarde-noite (sessão R5 harness)
+
+R5 multi-ticker walk-forward completo end-to-end com correção Bailey/LdP de multiple-testing bias:
+
+- ✅ **R5 harness MVP** (commit `ec877a8`): `scripts/r5_harness.py` agrega N tickers via `mlstrategy_backtest_wf.run_wf_for_ticker()` (refatorado pra ser callable). Smoke 5 tickers em 45s.
+
+- ✅ **Pickles h3/h5 top-20**: 18 pickles gerados (9 ações × 2 horizontes), `predict_ensemble` agora retorna 4 horizontes (1d/3d/5d/21d, peso uniforme 0.25 cada). 11 FIIs/ETFs abortaram com `train < 50 rows` (Yahoo 2y insuficiente). Workaround: `OMP_NUM_THREADS=4` + `/tmp/models_out` + `docker cp`.
+
+- ✅ **Universo full 87 tickers** (run id=1 baseline): sharpe_max=1.375 (CSMG3), dd_avg=33.7%, dd_max=99.5% (GFSA3), 12.2 min total. dsr_proxy_raw=0 (E[max]_N=87=2.48 inalcançável — falso negativo).
+
+- ✅ **Neff correction LdP** (commit `4ddcf2c`): `_load_test_returns_matrix` + `_compute_neff` calculam mean_corr + N_eff_var (Mertens) + N_eff_eig (participation ratio = (Σλ)²/Σλ², Bailey/LdP). Sobre 87 tickers: ρ̄=0.224, **N_eff_eig=10.7**, N_eff_var=4.3. Aplica `deflated_sharpe()` full no best_ticker (skew/kurt do underlying).
+
+- ✅ **Filtros min_close + vol-targeting** (commit `857508c`):
+  - `--min-close 1.00` filtra penny stocks (0/87 excluídos no run atual).
+  - `--target-vol 0.02`: pos_size = clip(target/train_vol_21d, 0.1, 1.0). Median pos=0.71. GFSA3=0.363, IRBR3=0.367.
+  - **Resultado** (run id=2 filter): sharpe_max=1.351 (BBSE3), **dd_avg 33.7→23.6%, dd_max 99.5→66.2%**. GFSA3 dd 99.5→36.1% e ret +264→+446% (path dependency win). DSR full BBSE3: skew=-0.96 kurt=14.1, prob_real=55.7% (vs 70.4% baseline com CSMG3 — skew negativo penaliza).
+
+- ✅ **Persistência DB** (commit `bfff89d`): migration `0027_r5_harness_runs` cria `r5_runs` + `r5_ticker_results` em `finanalytics`. Schema separado de `backtest_results` (que é per-(ticker, config)). Idempotência via `generated_at`. Script `scripts/r5_ingest.py` glob-aware. 2 runs ingestados validados via SQL cross-run query.
+
+- ✅ **API + UI /r5** (commits `22c7155` + `e351a69`):
+  - 5 endpoints `require_master`: list runs, run detail, run tickers (sortable), ticker history (cross-run), runs diff.
+  - Página `/r5` com lista de runs → drill-down → per-ticker sortable → diff mode (clica "Diff vs ..." + outro run = tabela de Δsharpe/Δret/Δdd).
+  - Sidebar/breadcrumbs/command palette/i18n integrados (entre Backtest e Otimizador na seção Análise & ML).
+  - Validado via Playwright: tabela 87 tickers renderiza, GFSA3 mostra pos=0.36 dd=36.1%.
+
+**Lições aprendidas (registradas como memórias)**:
+- DSR cru com N grande é falso negativo quando trials são correlacionados (B3 stocks ρ̄≈0.22). Sempre corrigir via N_eff_eig.
+- Vol-targeting é win unilateral pra deployment: sharpe preservado, drawdown -30% agregado, GFSA3 dobra final equity.
+- `kill -9` de dentro do container falha quando processos foram spawnados via `docker exec -d` sob outro uid → restart container resolve.
+- Container CPU 1600% sem processos visíveis = procurar zombies via `docker top` (host PIDs) + restart.
+- `<faSidebar>` não é um custom element real; sidebar.js auto-replace busca `.fa-sidebar` (aside).
+
+**Próximos increments R5** (não atacados hoje):
+1. Survivorship via `b3_delisted_tickers` (tabela existe via 0025, mas vazia — precisa pipeline CVM/B3 pra popular)
+2. Param sensitivity sweep (varrer th_buy/th_sell/retrain_days, ingest cada um)
+3. Trade-level DSR (skew/kurt das pnl_pct dos trades, não do underlying — mais correto teoricamente)
 
 ### Done 07/mai (sessão boot resilience)
 
@@ -118,7 +155,8 @@
 
 ### Ativas
 
-- [ ] **Aguardando arquivo Nelogica 1m** → rodar `docs/runbook_import_dados_historicos.md`. Inclui treinar pickles h3/h5 para `predict_ensemble` multi-horizon real (hoje só h21 existe).
+- [x] ~~**Pickles h3/h5 multi-horizon** (carryover Nelogica)~~ — **DONE 07/mai** sessão R5 (ver Done acima). 18 pickles gerados (9 ações), `predict_ensemble` retorna 4 horizontes. 11 FIIs/ETFs abortaram com Yahoo 2y; aguardando arquivo Nelogica para cobrir o restante.
+- [ ] **Aguardando arquivo Nelogica 1m completo** → cobrir tickers que falharam no h3/h5 (FIIs/ETFs com <2y Yahoo). Runbook em `docs/runbook_import_dados_historicos.md`.
 - [ ] **C5 Passos 2-6** (VIEW unified + UI pill manual/engine) bloqueados pela migration do trading-engine R-06; agente `trig_01VDzH3xriAC777KZku42SbK` p/ 21/mai abre PR pareado.
 - [ ] **E1 fetcher concreto** — classifier `ResearchClassifier` + worker scaffold prontos; aguardando definição da fonte de dados p/ implementar `ResearchFetcher`.
 
