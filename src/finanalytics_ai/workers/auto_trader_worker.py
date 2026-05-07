@@ -588,6 +588,7 @@ async def _handle_pair_evaluation(
                         f"Manual cleanup necessário antes de re-trade desse pair."
                     ),
                     critical=True,
+                    category="auto_trader",
                 )
             except Exception as exc:
                 logger.warning(

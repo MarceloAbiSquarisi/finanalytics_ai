@@ -133,6 +133,23 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
 .fa-sb-sub-link svg { flex-shrink: 0; }
 .fa-sb-sub-link span { opacity: 0; transition: opacity .15s; }
 .fa-sidebar.open .fa-sb-sub-link span { opacity: 1; }
+
+/* toggle switch (notificações) */
+.switch { position: relative; display: inline-block; width: 46px; height: 24px; flex-shrink: 0; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch .slider {
+  position: absolute; cursor: pointer; inset: 0;
+  background: #2a3a4d; border: 1px solid var(--border); border-radius: 24px;
+  transition: .2s;
+}
+.switch .slider::before {
+  content: ""; position: absolute; height: 18px; width: 18px;
+  left: 2px; top: 2px; background: #cdd6e0; border-radius: 50%;
+  transition: .2s;
+}
+.switch input:checked + .slider { background: var(--accent); border-color: var(--accent); }
+.switch input:checked + .slider::before { transform: translateX(22px); background: #fff; }
+.switch input:disabled + .slider { opacity: .5; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -216,7 +233,7 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
   <div class="tabs">
     <div class="tab active" onclick="switchTab('users',this)">👥 Usuários</div>
     <div class="tab" onclick="switchTab('agents',this)">🏦 Agentes Financeiros</div>
-    <div class="tab" onclick="switchTab('system',this)">🛠️ Sistema</div>
+    <div class="tab" onclick="switchTab('system',this);notifOnTabOpen()">🛠️ Sistema</div>
     <div class="tab" onclick="switchTab('db',this)">🗃️ Banco de Dados</div>
     <div class="tab" onclick="switchTab('backfill',this);bfOnTabOpen()">📦 Backfill</div>
   </div>
@@ -299,6 +316,93 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
       </div>
       <div id="ohlcMsg" class="msg"></div>
       <div id="ohlcResult" style="margin-top:14px;font-family:monospace;font-size:13px;color:var(--text);display:none;padding:12px;background:var(--s1);border-radius:6px;border:1px solid var(--border)"></div>
+    </div>
+
+    <!-- ── SUB-SECTION: Notificações Pushover ─────────────────────────── -->
+    <div class="sec-header" style="margin-top:24px">
+      <span class="sec-title">Notificações Pushover (alertas para celular)</span>
+    </div>
+
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:4px">Master switch</div>
+          <small style="color:var(--muted);font-size:12px">
+            Desligar aqui silencia todos os canais sem mexer em <code>.env</code>. Volta sozinho ao ligar.
+          </small>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="notif-master-toggle" onchange="notifToggle('master_enabled', this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:14px">
+      <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:10px">Categorias</div>
+      <small style="color:var(--muted);font-size:12px;display:block;margin-bottom:14px">
+        Toggle por origem do alerta. <strong>Grafana</strong> envia direto via contact-point — não passa por aqui.
+      </small>
+      <div id="notif-categories" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">
+        <div style="color:var(--muted);font-size:13px">Carregando…</div>
+      </div>
+    </div>
+
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:14px">
+      <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:10px">Teste rápido</div>
+      <small style="color:var(--muted);font-size:12px;display:block;margin-bottom:12px">
+        Dispara um push com categoria <code>test</code>. Útil pra validar credenciais + rota de entrega.
+      </small>
+      <div class="form-grid" style="grid-template-columns:1fr auto;gap:10px;align-items:end">
+        <div class="form-group" style="margin:0">
+          <label style="font-size:12px">Mensagem</label>
+          <input id="notif-test-msg" type="text" value="Pushover funcionando — disparado pelo /admin">
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);white-space:nowrap;padding-bottom:6px">
+          <input type="checkbox" id="notif-test-critical"> critical (siren)
+        </label>
+      </div>
+      <div class="form-actions" style="margin-top:12px">
+        <button class="btn btn-info" onclick="notifSendTest()" id="btn-notif-test">📤 Enviar teste</button>
+      </div>
+      <div id="notif-test-msg-out" class="msg"></div>
+    </div>
+
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:18px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text)">Histórico (últimas 100)</div>
+          <small id="notif-stats-line" style="color:var(--muted);font-size:12px">—</small>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <select id="notif-log-cat" onchange="notifLoadLog()" style="background:var(--s1);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px">
+            <option value="">Todas categorias</option>
+          </select>
+          <select id="notif-log-outcome" onchange="notifLoadLog()" style="background:var(--s1);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px">
+            <option value="">Todos resultados</option>
+            <option value="sent">sent</option>
+            <option value="skipped">skipped</option>
+            <option value="failed">failed</option>
+          </select>
+          <button class="btn btn-sm" onclick="notifLoadLog()">↻</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+          <thead>
+            <tr style="background:var(--s1)">
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--border)">Quando</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--border)">Cat.</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--border)">Título</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--border)">Resultado</th>
+              <th style="text-align:left;padding:8px;border-bottom:1px solid var(--border)">Detalhes</th>
+            </tr>
+          </thead>
+          <tbody id="notif-log-tbody">
+            <tr><td colspan="5" style="padding:12px;color:var(--muted)">Carregando…</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -834,6 +938,149 @@ async function rebuildOhlc() {
     btn.disabled = false;
     btn.textContent = '↻ Reconstruir bars 1m';
   }
+}
+
+// ── Notificações Pushover (Sistema) ───────────────────────────────────────────
+const NOTIF_API = '/api/v1/admin/notifications';
+const NOTIF_CAT_LABELS = {
+  backfill:    { icon: '📦', name: 'Backfill',    desc: 'Coletas históricas (admin + NSSM)' },
+  scheduler:   { icon: '⏰', name: 'Scheduler',   desc: 'Reconcile DLL ↔ DB falhando' },
+  auto_trader: { icon: '🤖', name: 'Auto-trader', desc: 'NAKED LEG, rejeições do dispatcher' },
+  indicator:   { icon: '📊', name: 'Indicador',   desc: 'Alertas de preço/threshold (bus)' },
+  system:      { icon: '🛠️', name: 'Sistema',     desc: 'Workers e healthchecks gerais' },
+  test:        { icon: '🧪', name: 'Teste',       desc: 'Pings do botão "Enviar teste"' },
+};
+let _notifLogTimer = null;
+
+function notifOnTabOpen() {
+  notifLoadSettings();
+  notifLoadStats();
+  notifLoadLog();
+}
+
+async function notifLoadSettings() {
+  try {
+    const res = await fetch(`${NOTIF_API}/settings`, { headers: H() });
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    document.getElementById('notif-master-toggle').checked = !!data.master_enabled;
+    const wrap = document.getElementById('notif-categories');
+    const cats = Object.keys(data.categories);
+    wrap.innerHTML = cats.map(c => {
+      const meta = NOTIF_CAT_LABELS[c] || { icon: '•', name: c, desc: '' };
+      const on = data.categories[c];
+      return `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:var(--s1);border:1px solid var(--border);border-radius:6px">
+          <div style="min-width:0">
+            <div style="font-size:13px;color:var(--text)">${meta.icon} ${meta.name}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis">${meta.desc}</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" ${on ? 'checked' : ''} onchange="notifToggle('cat_${c}', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>`;
+    }).join('');
+    // Popula filtro de categoria do log
+    const sel = document.getElementById('notif-log-cat');
+    if (sel.options.length <= 1) {
+      cats.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c; opt.textContent = c;
+        sel.appendChild(opt);
+      });
+    }
+  } catch (e) {
+    document.getElementById('notif-categories').innerHTML =
+      `<div style="color:var(--red);font-size:13px">Falha ao carregar settings: ${e.message}</div>`;
+  }
+}
+
+async function notifToggle(key, enabled) {
+  try {
+    const res = await fetch(`${NOTIF_API}/settings`, {
+      method: 'PUT', headers: H(),
+      body: JSON.stringify({ key, enabled }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || res.status);
+    }
+  } catch (e) {
+    alert(`Falha ao atualizar ${key}: ${e.message}`);
+    notifLoadSettings();  // revert UI
+  }
+}
+
+async function notifSendTest() {
+  const btn = document.getElementById('btn-notif-test');
+  const message = document.getElementById('notif-test-msg').value || 'teste';
+  const critical = document.getElementById('notif-test-critical').checked;
+  btn.disabled = true; btn.textContent = '⌛ enviando…';
+  try {
+    const res = await fetch(`${NOTIF_API}/test`, {
+      method: 'POST', headers: H(),
+      body: JSON.stringify({ message, critical }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || res.status);
+    showMsg('notif-test-msg-out',
+      data.sent ? 'Enviado ✓ (verifica o celular)' : 'Skipped — categoria/master desligado ou sem credenciais',
+      data.sent ? 'success' : 'warn');
+    notifLoadLog();
+    notifLoadStats();
+  } catch (e) {
+    showMsg('notif-test-msg-out', `Erro: ${e.message}`, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '📤 Enviar teste';
+  }
+}
+
+async function notifLoadLog() {
+  const cat = document.getElementById('notif-log-cat').value;
+  const out = document.getElementById('notif-log-outcome').value;
+  const params = new URLSearchParams({ limit: '100' });
+  if (cat) params.set('category', cat);
+  if (out) params.set('outcome', out);
+  const tbody = document.getElementById('notif-log-tbody');
+  try {
+    const res = await fetch(`${NOTIF_API}/log?${params}`, { headers: H() });
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    if (!data.rows.length) {
+      tbody.innerHTML = `<tr><td colspan="5" style="padding:12px;color:var(--muted)">Nenhum registro.</td></tr>`;
+      return;
+    }
+    const escapeHtml = s => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    tbody.innerHTML = data.rows.map(r => {
+      const dt = r.sent_at ? new Date(r.sent_at).toLocaleString('pt-BR') : '—';
+      const outcomeColor = r.outcome === 'sent' ? 'var(--green)' : r.outcome === 'failed' ? 'var(--red)' : 'var(--muted)';
+      const detail = r.outcome === 'skipped' ? `skip: ${r.skip_reason || '—'}`
+        : r.outcome === 'failed' ? (r.error_msg ? r.error_msg.slice(0, 80) : 'erro')
+        : (r.priority >= 1 ? '⚠ critical' : '');
+      return `
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:6px 8px;color:var(--muted);white-space:nowrap">${dt}</td>
+          <td style="padding:6px 8px"><code style="font-size:11px;color:var(--accent)">${escapeHtml(r.category)}</code></td>
+          <td style="padding:6px 8px;color:var(--text)">${escapeHtml(r.title || '—')}</td>
+          <td style="padding:6px 8px;color:${outcomeColor};font-weight:600">${r.outcome}</td>
+          <td style="padding:6px 8px;color:var(--muted);font-size:11px">${escapeHtml(detail)}</td>
+        </tr>`;
+    }).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="5" style="padding:12px;color:var(--red)">Falha: ${e.message}</td></tr>`;
+  }
+}
+
+async function notifLoadStats() {
+  try {
+    const res = await fetch(`${NOTIF_API}/stats?days=7`, { headers: H() });
+    if (!res.ok) return;
+    const data = await res.json();
+    const t = data.totals || {};
+    document.getElementById('notif-stats-line').textContent =
+      `7 dias — sent ${t.sent || 0} · skipped ${t.skipped || 0} · failed ${t.failed || 0}`;
+  } catch {}
 }
 
 // ── Backfill ──────────────────────────────────────────────────────────────────

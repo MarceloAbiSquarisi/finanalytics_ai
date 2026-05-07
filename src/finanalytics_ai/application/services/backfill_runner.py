@@ -162,7 +162,7 @@ async def _maybe_alert_job_outcome(job: dict[str, Any], *, was_cancelled: bool) 
         from finanalytics_ai.infrastructure.notifications.pushover import (
             notify_system,
         )
-        sent = await notify_system(title=title, message=msg, critical=critical)
+        sent = await notify_system(title=title, message=msg, critical=critical, category="backfill")
         logger.info(
             "backfill.job.alert_dispatched",
             job_id=job_id, sent=sent, critical=critical,

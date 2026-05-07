@@ -115,6 +115,13 @@ def register_routers(app: FastAPI, logger=None) -> None:
     except Exception as _e:
         logger.warning("admin_import.router.SKIP", error=str(_e))
     try:
+        from finanalytics_ai.interfaces.api.routes import admin_notifications
+
+        app.include_router(admin_notifications.router, tags=["Admin Notifications"])
+        logger.info("admin_notifications.router.ok")
+    except Exception as _e:
+        logger.warning("admin_notifications.router.SKIP", error=str(_e))
+    try:
         from finanalytics_ai.interfaces.api.routes import import_route
 
         app.include_router(import_route.router, tags=["Import"])

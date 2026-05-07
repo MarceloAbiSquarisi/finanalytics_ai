@@ -53,6 +53,7 @@ async def send(
     url: str | None = None,
     url_title: str | None = None,
     sound: str | None = None,
+    category: str = "system",
 ) -> bool:
     """Envia push via Pushover. Fire-and-forget — nao bloqueia caller.
 
@@ -64,16 +65,58 @@ async def send(
         url: URL clicavel anexada.
         url_title: Texto do link.
         sound: Override do sound (siren/cosmic/falling/etc).
+        category: Canal logico — backfill | scheduler | auto_trader |
+                  indicator | system | test. Usado para toggle e log.
 
     Returns:
-        True se HTTP 200, False caso erro/disabled.
+        True se HTTP 200, False caso erro/disabled/skip.
     """
+    # Lazy import p/ evitar ciclo (pushover.py é importado em modulos
+    # que podem ser importados antes do setup do DB).
+    try:
+        from finanalytics_ai.infrastructure.database.repositories import (
+            notifications_repo,
+        )
+    except Exception:  # pragma: no cover
+        notifications_repo = None  # type: ignore[assignment]
+
+    async def _log(outcome: str, skip_reason: str | None = None,
+                   error_msg: str | None = None) -> None:
+        if notifications_repo is None:
+            return
+        try:
+            await notifications_repo.log_notification(
+                category=category,
+                title=title or "",
+                message=message[:4000],
+                priority=priority,
+                critical=(priority >= 1),
+                outcome=outcome,
+                skip_reason=skip_reason,
+                error_msg=error_msg,
+            )
+        except Exception:
+            pass
+
     if not ENABLED:
         logger.debug("pushover.skip", reason="disabled")
+        await _log("skipped", skip_reason="disabled")
         return False
     if not USER_KEY or not APP_TOKEN:
         logger.warning("pushover.missing_credentials")
+        await _log("skipped", skip_reason="no_creds")
         return False
+
+    # Toggle por categoria via DB (fail-open se DB indisponivel).
+    if notifications_repo is not None:
+        try:
+            ok_cat, skip_reason = await notifications_repo.is_category_enabled(category)
+            if not ok_cat:
+                logger.info("pushover.skip", reason=skip_reason, category=category)
+                await _log("skipped", skip_reason=skip_reason)
+                return False
+        except Exception as exc:
+            logger.debug("pushover.toggle_check_failed", error=str(exc))
 
     try:
         import httpx
@@ -104,11 +147,17 @@ async def send(
                 "pushover.sent",
                 status=resp.status_code,
                 priority=priority,
+                category=category,
                 title=(title or "")[:50],
             )
+            if ok:
+                await _log("sent")
+            else:
+                await _log("failed", error_msg=f"http {resp.status_code}: {resp.text[:200]}")
             return ok
     except Exception as exc:
-        logger.warning("pushover.failed", error=str(exc))
+        logger.warning("pushover.failed", error=str(exc), category=category)
+        await _log("failed", error_msg=f"{type(exc).__name__}: {str(exc)[:200]}")
         return False
 
 
@@ -117,6 +166,7 @@ async def notify_system(
     message: str,
     *,
     critical: bool = False,
+    category: str = "system",
 ) -> bool:
     """Helper para qualquer modulo emitir alerta system-level.
 
@@ -125,6 +175,7 @@ async def notify_system(
             "Reconcile loop failed",
             f"profit_agent unreachable for {n} cycles",
             critical=True,
+            category="scheduler",
         )
     """
     return await send(
@@ -132,6 +183,7 @@ async def notify_system(
         title=f"FinAnalytics: {title}",
         priority=1 if critical else 0,
         sound="siren" if critical else None,
+        category=category,
     )
 
 
@@ -156,7 +208,7 @@ async def _bus_consumer(bus: NotificationBus) -> None:
                 # Alertas de indicador sao priority normal — alertas
                 # criticos vem do Grafana via contact-points.yml com
                 # priority=1 e som siren.
-                await send(message=msg, title=title, priority=0)
+                await send(message=msg, title=title, priority=0, category="indicator")
             except Exception as exc:
                 logger.warning("pushover.bus_consumer.dispatch_failed", error=str(exc))
             finally:

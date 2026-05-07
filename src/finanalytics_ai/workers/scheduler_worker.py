@@ -1421,6 +1421,7 @@ async def schedule_loop() -> None:
                                 f"Agent={PROFIT_AGENT_URL}. Verificar host Windows."
                             ),
                             critical=True,
+                            category="scheduler",
                         )
                         notified = True
                     except Exception as _pex:
