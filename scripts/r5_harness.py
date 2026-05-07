@@ -39,11 +39,13 @@ _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT / "src"))
 sys.path.insert(0, str(_ROOT / "scripts"))
 
+import numpy as np
 import psycopg2
 
 from finanalytics_ai.domain.backtesting.metrics import (
     deflated_sharpe,
     expected_max_sharpe,
+    sample_skew_kurtosis,
 )
 from mlstrategy_backtest_wf import run_wf_for_ticker
 
@@ -79,6 +81,97 @@ def _query_universe(top: int | None = None, min_rows: int = 250) -> list[str]:
         return [r[0] for r in cur.fetchall()]
 
 
+def _load_test_returns_matrix(
+    tickers: list[str], train_end: str = "2023-12-31"
+) -> tuple[list[str], np.ndarray]:
+    """Carrega retornos diários do test window (close-to-close pct change).
+
+    Returns:
+      (kept_tickers, R) — R shape (T, K) com K = #tickers que tiveram dados
+      suficientes (>= 50 dias). Datas alinhadas via inner-join em `dia`.
+    """
+    sql = (
+        "SELECT dia, close FROM features_daily_full "
+        "WHERE ticker = %s AND dia > %s ORDER BY dia ASC"
+    )
+    series: dict[str, list[tuple]] = {}
+    with psycopg2.connect(DSN) as conn, conn.cursor() as cur:
+        for t in tickers:
+            cur.execute(sql, (t, train_end))
+            rows = cur.fetchall()
+            if len(rows) >= 50:
+                series[t] = rows
+
+    if not series:
+        return [], np.zeros((0, 0))
+
+    common_days = None
+    for rows in series.values():
+        days = {r[0] for r in rows}
+        common_days = days if common_days is None else (common_days & days)
+    if not common_days:
+        return [], np.zeros((0, 0))
+    days_sorted = sorted(common_days)
+
+    kept: list[str] = []
+    cols: list[list[float]] = []
+    for t, rows in series.items():
+        by_day = {r[0]: float(r[1]) for r in rows if r[1] is not None}
+        closes = [by_day.get(d) for d in days_sorted]
+        if any(c is None or c <= 0 for c in closes):
+            continue
+        rets = [
+            float(np.log(closes[i] / closes[i - 1])) for i in range(1, len(closes))
+        ]
+        kept.append(t)
+        cols.append(rets)
+
+    if not cols:
+        return [], np.zeros((0, 0))
+    R = np.asarray(cols, dtype=float).T
+    return kept, R
+
+
+def _compute_neff(R: np.ndarray) -> dict[str, float | int]:
+    """Estima N_eff (numero efetivo de trials independentes) de uma matriz
+    de retornos correlacionados.
+
+    Dois estimadores complementares:
+
+    1. **Variance-based (Mertens / Bailey):**
+         N_eff = N / (1 + ρ̄ · (N-1))
+       Usa correlação média off-diagonal. Simples, pessimista quando ρ é
+       heterogêneo.
+
+    2. **Participation ratio (eigenvalue-based, LdP):**
+         N_eff_eig = (Σ λᵢ)² / Σ λᵢ²   (= rank efetivo da matriz)
+       Robusto a distribuições não-uniformes de correlação.
+    """
+    K = R.shape[1]
+    if K < 2:
+        return {"mean_corr": 0.0, "n_eff_var": float(K), "n_eff_eig": float(K), "n_raw": K}
+
+    C = np.corrcoef(R, rowvar=False)
+    mask = ~np.eye(K, dtype=bool)
+    rho_bar = float(np.mean(C[mask]))
+    rho_bar_clamped = max(0.0, min(0.999, rho_bar))
+
+    n_eff_var = K / (1.0 + rho_bar_clamped * (K - 1))
+
+    eigvals = np.linalg.eigvalsh(C)
+    eigvals = np.clip(eigvals, 0.0, None)
+    s = float(np.sum(eigvals))
+    s2 = float(np.sum(eigvals**2))
+    n_eff_eig = (s * s) / s2 if s2 > 0 else float(K)
+
+    return {
+        "mean_corr": round(rho_bar, 4),
+        "n_eff_var": round(n_eff_var, 2),
+        "n_eff_eig": round(n_eff_eig, 2),
+        "n_raw": K,
+    }
+
+
 def _summarize_result(out: dict) -> dict:
     """Reduz BacktestResult em dict serializável."""
     if not out["ok"]:
@@ -101,15 +194,18 @@ def _summarize_result(out: dict) -> dict:
     }
 
 
-def _aggregate(results: list[dict], ann_factor: float = 252.0) -> dict:
-    """Agrega métricas global + DSR sobre os N trials.
+def _aggregate(
+    results: list[dict],
+    train_end: str = "2023-12-31",
+    ann_factor: float = 252.0,
+) -> dict:
+    """Agrega métricas global + DSR sobre os N trials, com correção Neff.
 
-    Sharpe agregado: usa pnl_pct flat de TODOS trades (cross-ticker, equal
-    weight). Não é cumulative por capital — é uma média de retornos por
-    trade, anualizada por ann_factor / avg_trade_duration. MVP — refinar
-    em V2 com cumulative pnl curve.
-
-    DSR: aplicado ao melhor Sharpe per-ticker, com N = #tickers válidos.
+    Por que Neff:
+      Os N tickers do universo NÃO são trials independentes — ações B3 têm
+      correlação ~0.3-0.5. DSR cru com N=87 estima E[max SR | H0] ≈ 2.48,
+      um benchmark inalcançável. Corrigindo para N_eff (≈ 6-15 quando ρ̄≈0.4)
+      o teste passa a ter poder estatístico realista.
     """
     valid = [r for r in results if r["ok"]]
     n = len(valid)
@@ -122,16 +218,54 @@ def _aggregate(results: list[dict], ann_factor: float = 252.0) -> dict:
     returns = [r["metrics"].get("total_return_pct", 0.0) or 0.0 for r in valid]
     n_trades = sum(r["trades"] for r in valid)
 
-    # DSR sobre o top-1 Sharpe — assume N = #tickers como nº trials independentes
     sharpe_max = max(sharpes)
     sharpe_median = statistics.median(sharpes)
     sharpe_std = statistics.pstdev(sharpes) if n > 1 else 0.0
+    best_idx = sharpes.index(sharpe_max)
+    best = valid[best_idx]
+    best_ticker = best["ticker"]
 
-    # Para DSR precisamos da serie de retornos per-trade do top trial, mas
-    # como só temos summary aqui, usamos formula simplificada: penalize via
-    # expected_max_sharpe(N).
-    e_max_sharpe = expected_max_sharpe(n)
-    dsr_proxy_top = max(0.0, sharpe_max - e_max_sharpe) if n >= 2 else sharpe_max
+    # === Neff correction ===
+    tickers = [r["ticker"] for r in valid]
+    neff_info: dict[str, float | int] = {
+        "mean_corr": 0.0, "n_eff_var": float(n), "n_eff_eig": float(n), "n_raw": n,
+    }
+    R: np.ndarray = np.zeros((0, 0))
+    try:
+        kept, R = _load_test_returns_matrix(tickers, train_end=train_end)
+        if R.size > 0:
+            neff_info = _compute_neff(R)
+    except Exception as exc:
+        neff_info["error"] = str(exc)[:120]
+
+    n_eff = int(round(max(2.0, float(neff_info.get("n_eff_eig", n)))))
+
+    # === DSR proxy raw (N) e corrigido (N_eff) ===
+    e_max_raw = expected_max_sharpe(n)
+    e_max_neff = expected_max_sharpe(n_eff)
+    dsr_proxy_raw = max(0.0, sharpe_max - e_max_raw) if n >= 2 else sharpe_max
+    dsr_proxy_neff = max(0.0, sharpe_max - e_max_neff) if n_eff >= 2 else sharpe_max
+
+    # === DSR completo no melhor ticker (com skew/kurt do underlying) ===
+    dsr_best: dict = {}
+    if R.size > 0 and best_ticker in tickers:
+        try:
+            col = tickers.index(best_ticker)
+            ret_series = R[:, col].tolist() if col < R.shape[1] else []
+            if len(ret_series) >= 30:
+                skew, kurt = sample_skew_kurtosis(ret_series)
+                T = len(ret_series)
+                dsr_full = deflated_sharpe(
+                    observed_sharpe=sharpe_max,
+                    num_trials=n_eff,
+                    sample_size=T,
+                    skew=skew,
+                    kurtosis=kurt,
+                    annualization_factor=ann_factor,
+                )
+                dsr_best = dsr_full.to_dict()
+        except Exception as exc:
+            dsr_best = {"error": str(exc)[:120]}
 
     return {
         "n_valid": n,
@@ -148,10 +282,14 @@ def _aggregate(results: list[dict], ann_factor: float = 252.0) -> dict:
         "return_avg": round(statistics.mean(returns), 2),
         "return_median": round(statistics.median(returns), 2),
         "return_total_sum": round(sum(returns), 2),
-        "expected_max_sharpe_under_null": round(e_max_sharpe, 4),
-        "dsr_top1_proxy": round(dsr_proxy_top, 4),
+        "expected_max_sharpe_raw": round(e_max_raw, 4),
+        "expected_max_sharpe_neff": round(e_max_neff, 4),
+        "dsr_proxy_raw_N": round(dsr_proxy_raw, 4),
+        "dsr_proxy_neff": round(dsr_proxy_neff, 4),
+        "neff": neff_info,
+        "dsr_best_ticker_full": dsr_best,
         "n_negative_sharpe": sum(1 for s in sharpes if s < 0),
-        "best_ticker": valid[sharpes.index(sharpe_max)]["ticker"],
+        "best_ticker": best_ticker,
         "worst_ticker": valid[sharpes.index(min(sharpes))]["ticker"],
     }
 
@@ -219,7 +357,7 @@ def main() -> int:
             marker = f" sharpe={sr:.2f} trades={n_trades} ret={ret:.1f}%"
         print(f"[{i:>3}/{len(tickers)}] {t:<8} {elapsed:>5.1f}s {status}{marker}")
 
-    aggregate = _aggregate(results)
+    aggregate = _aggregate(results, train_end=args.train_end)
     elapsed_total = round(time.time() - t_start, 1)
 
     output = {
