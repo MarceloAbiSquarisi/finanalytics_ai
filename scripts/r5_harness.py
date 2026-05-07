@@ -81,6 +81,49 @@ def _query_universe(top: int | None = None, min_rows: int = 250) -> list[str]:
         return [r[0] for r in cur.fetchall()]
 
 
+def _query_train_stats(
+    tickers: list[str], train_end: str = "2023-12-31"
+) -> dict[str, dict[str, float]]:
+    """Estatísticas do train window por ticker, usadas pelos filtros do
+    harness (min_close, vol-targeting).
+
+    Returns:
+      {ticker: {median_close, mean_vol_21d}, ...}
+    """
+    sql = """
+        SELECT ticker,
+               percentile_cont(0.5) WITHIN GROUP (ORDER BY close) AS median_close,
+               avg(vol_21d) FILTER (WHERE vol_21d IS NOT NULL) AS mean_vol_21d
+        FROM features_daily_full
+        WHERE dia <= %s AND ticker = ANY(%s)
+        GROUP BY ticker
+    """
+    out: dict[str, dict[str, float]] = {}
+    with psycopg2.connect(DSN) as conn, conn.cursor() as cur:
+        cur.execute(sql, (train_end, tickers))
+        for t, mc, mv in cur.fetchall():
+            out[t] = {
+                "median_close": float(mc) if mc is not None else 0.0,
+                "mean_vol_21d": float(mv) if mv is not None else 0.0,
+            }
+    return out
+
+
+def _vol_target_size(
+    train_vol: float, target_vol: float, floor: float = 0.1, cap: float = 1.0
+) -> float:
+    """Position size por vol-targeting: pos = clip(target/train, floor, cap).
+
+    Tickers de baixa vol → pos = cap (não passa de 100% capital).
+    Tickers de alta vol  → pos < 1.0 (reduz exposição).
+
+    floor previne de zerar exposição em outliers.
+    """
+    if train_vol is None or train_vol <= 0:
+        return cap
+    return max(floor, min(cap, target_vol / train_vol))
+
+
 def _load_test_returns_matrix(
     tickers: list[str], train_end: str = "2023-12-31"
 ) -> tuple[list[str], np.ndarray]:
@@ -309,6 +352,12 @@ def main() -> int:
     ap.add_argument("--out-dir", default=str(_ROOT / "backtest_runs"))
     ap.add_argument("--limit", type=int, default=None,
                     help="limite max de tickers (smoke testing)")
+    ap.add_argument("--min-close", type=float, default=1.0,
+                    help="median_close mínima no train window (filtra penny stocks). 0=desabilita")
+    ap.add_argument("--target-vol", type=float, default=0.02,
+                    help="vol diaria alvo p/ position sizing. 0=desabilita (pos=1.0)")
+    ap.add_argument("--vol-pos-floor", type=float, default=0.1)
+    ap.add_argument("--vol-pos-cap", type=float, default=1.0)
     args = ap.parse_args()
 
     if args.tickers:
@@ -321,6 +370,30 @@ def main() -> int:
         print("Universo vazio.")
         return 2
 
+    # === Filtro min_close + vol-targeting ===
+    train_stats = _query_train_stats(tickers, train_end=args.train_end)
+    excluded_penny: list[tuple[str, float]] = []
+    pos_size_map: dict[str, float] = {}
+    use_vol_target = args.target_vol and args.target_vol > 0
+    kept: list[str] = []
+    for t in tickers:
+        s = train_stats.get(t, {"median_close": 0.0, "mean_vol_21d": 0.0})
+        if args.min_close > 0 and s["median_close"] < args.min_close:
+            excluded_penny.append((t, s["median_close"]))
+            continue
+        kept.append(t)
+        if use_vol_target:
+            pos_size_map[t] = _vol_target_size(
+                s["mean_vol_21d"], args.target_vol,
+                floor=args.vol_pos_floor, cap=args.vol_pos_cap,
+            )
+        else:
+            pos_size_map[t] = 1.0
+    tickers = kept
+    if not tickers:
+        print(f"Universo vazio após filtros (min_close={args.min_close}).")
+        return 2
+
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
@@ -328,6 +401,13 @@ def main() -> int:
 
     print(f"R5 harness — N={len(tickers)} tickers, h={args.horizon}, "
           f"retrain={args.retrain_days}d, train_end={args.train_end}")
+    if excluded_penny:
+        print(f"  excluidos por min_close < R$ {args.min_close}: {len(excluded_penny)} "
+              f"({', '.join(t for t, _ in excluded_penny[:5])}...)")
+    if use_vol_target:
+        ps_vals = list(pos_size_map.values())
+        print(f"  vol-target target_vol={args.target_vol} pos_size: "
+              f"min={min(ps_vals):.2f} median={statistics.median(ps_vals):.2f} max={max(ps_vals):.2f}")
     print(f"output: {out_path}")
     print()
 
@@ -335,6 +415,7 @@ def main() -> int:
     t_start = time.time()
     for i, t in enumerate(tickers, 1):
         t0 = time.time()
+        ps = pos_size_map.get(t, 1.0)
         out = run_wf_for_ticker(
             ticker=t,
             horizon=args.horizon,
@@ -343,10 +424,14 @@ def main() -> int:
             th_buy=args.th_buy,
             th_sell=args.th_sell,
             train_end=args.train_end,
+            position_size=ps,
         )
         elapsed = time.time() - t0
         summ = _summarize_result(out)
         summ["elapsed_s"] = round(elapsed, 1)
+        summ["position_size"] = round(ps, 3)
+        summ["train_median_close"] = round(train_stats.get(t, {}).get("median_close", 0.0), 4)
+        summ["train_mean_vol_21d"] = round(train_stats.get(t, {}).get("mean_vol_21d", 0.0), 4)
         results.append(summ)
         status = "OK" if summ["ok"] else f"FAIL: {summ.get('error', '?')[:60]}"
         marker = ""
@@ -354,7 +439,7 @@ def main() -> int:
             sr = summ["metrics"].get("sharpe_ratio", 0)
             n_trades = summ["trades"]
             ret = summ["metrics"].get("total_return_pct", 0)
-            marker = f" sharpe={sr:.2f} trades={n_trades} ret={ret:.1f}%"
+            marker = f" sharpe={sr:.2f} trades={n_trades} ret={ret:.1f}% pos={ps:.2f}"
         print(f"[{i:>3}/{len(tickers)}] {t:<8} {elapsed:>5.1f}s {status}{marker}")
 
     aggregate = _aggregate(results, train_end=args.train_end)
@@ -371,6 +456,10 @@ def main() -> int:
             "th_buy": args.th_buy,
             "th_sell": args.th_sell,
             "train_end": args.train_end,
+            "min_close": args.min_close,
+            "target_vol": args.target_vol if use_vol_target else None,
+            "vol_pos_floor": args.vol_pos_floor,
+            "vol_pos_cap": args.vol_pos_cap,
         },
         "universe": {
             "n_tickers": len(tickers),
@@ -378,6 +467,7 @@ def main() -> int:
             "source": "explicit" if args.tickers else (
                 f"top_{args.top}" if args.top else f"coverage_min_{args.min_rows}"
             ),
+            "excluded_penny": [{"ticker": t, "median_close": round(c, 4)} for t, c in excluded_penny],
         },
         "aggregate": aggregate,
         "per_ticker": results,
