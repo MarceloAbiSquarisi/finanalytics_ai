@@ -93,6 +93,25 @@ def start_http_server(agent, port: int) -> None:
             if self.path == "/status":
                 self._send_json(agent.get_status())
 
+            elif self.path == "/history_progress":
+                # Estado da coleta /collect_history em curso (atualizado pelos
+                # callbacks DLL). UI usa pra mostrar barra "% do dia atual".
+                hp = getattr(agent, "_history_progress", None)
+                if not isinstance(hp, dict) or not hp.get("active"):
+                    self._send_json({"active": False})
+                else:
+                    elapsed = max(0.0, time.time() - float(hp.get("started_at") or 0))
+                    self._send_json({
+                        "active": True,
+                        "ticker": hp.get("ticker"),
+                        "exchange": hp.get("exchange"),
+                        "dt_start": hp.get("dt_start"),
+                        "dt_end": hp.get("dt_end"),
+                        "progress_pct": int(hp.get("progress_pct") or 0),
+                        "ticks_so_far": int(hp.get("ticks_so_far") or 0),
+                        "elapsed_s": round(elapsed, 1),
+                    })
+
             elif self.path == "/metrics":
                 body = agent.get_metrics().encode("utf-8")
                 self.send_response(200)

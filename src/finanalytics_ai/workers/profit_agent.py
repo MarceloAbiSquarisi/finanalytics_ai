@@ -4600,6 +4600,19 @@ class ProfitAgent:
             _win_end = datetime(2099, 1, 1, tzinfo=UTC)
         _hist_ticker_up = ticker.upper()
         self._collecting_history_ticker = _hist_ticker_up
+        # ── Progress tracking p/ /history_progress (UI inline progress bar) ──
+        # Tupla (ticker, dt_start, dt_end, started_at, pct, ticks). Atualizada
+        # pelo _progress_cb e a cada N ticks em _cb_v1.
+        self._history_progress = {
+            "ticker": _hist_ticker_up,
+            "exchange": exchange,
+            "dt_start": dt_start,
+            "dt_end": dt_end,
+            "started_at": time.time(),
+            "progress_pct": 0,
+            "ticks_so_far": 0,
+            "active": True,
+        }
         log.info(
             "collect_history FILTERS ticker=%s window=%s→%s",
             _hist_ticker_up,
@@ -4792,6 +4805,9 @@ class ProfitAgent:
 
                 if len(ticks) % 1000 == 0:
                     log.info("collect_history v1 ticks=%d", len(ticks))
+                    # Atualiza progress dict p/ /history_progress
+                    if isinstance(getattr(self, "_history_progress", None), dict):
+                        self._history_progress["ticks_so_far"] = len(ticks)
 
                 # PATCH contaminacao: NAO mais empurrar para _db_queue durante
                 # modo historico — isso poluia profit_ticks com time=now para
@@ -4809,6 +4825,10 @@ class ProfitAgent:
             log.info(
                 "collect_history progress ticker=%s pct=%d", asset_id.ticker or ticker, progress
             )
+            # Atualiza progress dict p/ /history_progress
+            if isinstance(getattr(self, "_history_progress", None), dict):
+                self._history_progress["progress_pct"] = int(progress)
+                self._history_progress["ticks_so_far"] = len(ticks)
 
             if progress >= 100:
                 log.info("collect_history progress=100 done total=%d", len(ticks))
@@ -4895,6 +4915,8 @@ class ProfitAgent:
 
             # PATCH contaminacao: limpa flag se abortamos cedo
             self._collecting_history_ticker = None
+            if isinstance(getattr(self, "_history_progress", None), dict):
+                self._history_progress["active"] = False
 
             return {"error": f"GetHistoryTrades: {ret_name}", "ret": ret}
 
@@ -4931,6 +4953,10 @@ class ProfitAgent:
 
         # PATCH contaminacao: limpa flag de modo historico
         self._collecting_history_ticker = None
+        if isinstance(getattr(self, "_history_progress", None), dict):
+            self._history_progress["active"] = False
+            self._history_progress["progress_pct"] = 100
+            self._history_progress["ticks_so_far"] = len(ticks)
 
         # ── Persiste em batch (executemany — muito mais rápido) ──────────────
         inserted = 0

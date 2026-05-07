@@ -55,6 +55,30 @@ _TS_DSN = _TS_DSN_RAW.replace("postgresql+asyncpg://", "postgres://").replace(
 )
 
 
+@router.get("/agent/history_progress")
+async def agent_history_progress(
+    _: User = Depends(require_master),
+) -> dict[str, Any]:
+    """Proxy p/ profit_agent /history_progress.
+
+    Retorna o estado da coleta /collect_history em curso (callback DLL).
+    UI usa pra mostrar barra "% do dia atual" ao lado do progress total.
+
+    Se agent off ou sem coleta ativa: {active: False}.
+    """
+    import httpx
+
+    agent_url = os.getenv("PROFIT_AGENT_URL", "http://172.17.80.1:8002")
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            r = await client.get(f"{agent_url.rstrip('/')}/history_progress")
+            if r.status_code != 200:
+                return {"active": False, "agent_status": r.status_code}
+            return r.json()
+    except Exception as exc:
+        return {"active": False, "agent_error": f"{type(exc).__name__}: {str(exc)[:120]}"}
+
+
 @router.get("/tickers")
 async def list_subscribed_tickers(
     include_inactive: bool = Query(False),
