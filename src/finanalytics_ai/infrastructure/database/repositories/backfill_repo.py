@@ -54,7 +54,9 @@ _B3_HOLIDAY_NAMES: frozenset[str] = frozenset({
     "Nossa Senhora Aparecida",
     "Finados",
     "Proclamação da República",
-    "Consciência Negra",          # nacional desde 2024
+    # Nacional pela Lei 14.759/2023 (a partir de 2024). Nome canonico
+    # da lib `holidays`: "Dia Nacional de Zumbi e da Consciência Negra".
+    "Dia Nacional de Zumbi e da Consciência Negra",
     "Natal",
 })
 
