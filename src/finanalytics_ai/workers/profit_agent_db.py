@@ -25,10 +25,16 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 import logging
+import os
 import threading
 import time
 
 log = logging.getLogger("profit_agent.db")
+
+# Statement timeout default 10s — cobre INSERT batches + DDL de boot,
+# detecta lock contention em DB rapidamente em vez de wait forever.
+# Override via env PROFIT_DB_STATEMENT_TIMEOUT_MS.
+_STATEMENT_TIMEOUT_MS = int(os.environ.get("PROFIT_DB_STATEMENT_TIMEOUT_MS", "10000"))
 
 
 class DBWriter:
@@ -60,13 +66,34 @@ class DBWriter:
             self._conn = None
             return False
 
+    def _apply_session_settings(self) -> None:
+        """statement_timeout protege contra DB locks indefinidos (boot + runtime).
+
+        Aplicado em connect() e em todo reconnect — sem isso, qualquer query
+        em deadlock/lock contention faz a thread bloquear sem timeout, o que
+        em boot deixa profit_agent stuck antes do HTTP server subir.
+        """
+        if self._conn is None:
+            return
+        try:
+            with self._conn.cursor() as cur:
+                cur.execute(f"SET statement_timeout = {_STATEMENT_TIMEOUT_MS}")
+        except Exception as exc:
+            log.warning("db.session_settings_failed err=%s", exc)
+
     def connect(self) -> bool:
         try:
             import psycopg2  # type: ignore
 
-            self._conn = psycopg2.connect(self._dsn)
+            # connect_timeout protege fase TCP/SSL — sem isso wait padrao
+            # pode chegar a minutos se DB host nao respondendo.
+            self._conn = psycopg2.connect(self._dsn, connect_timeout=5)
             self._conn.autocommit = True
-            log.info("db.connected dsn=%s", self._dsn.split("@")[-1])
+            self._apply_session_settings()
+            log.info(
+                "db.connected dsn=%s stmt_timeout_ms=%d",
+                self._dsn.split("@")[-1], _STATEMENT_TIMEOUT_MS,
+            )
             return True
         except Exception as e:
             log.error("db.connect_failed error=%s", e)
@@ -88,8 +115,9 @@ class DBWriter:
 
         for attempt in range(1, 4):
             try:
-                self._conn = psycopg2.connect(self._dsn)
+                self._conn = psycopg2.connect(self._dsn, connect_timeout=5)
                 self._conn.autocommit = True
+                self._apply_session_settings()
                 log.info("db.reconnected attempt=%d dsn=%s", attempt, self._dsn.split("@")[-1])
                 return True
             except Exception as e:

@@ -468,6 +468,16 @@ class ProfitAgent:
 
     def __init__(self) -> None:
 
+        # Boot phase tracking — usado pelo /status e pelo boot watchdog.
+        # Phase progride: init -> starting -> loading_dll -> dll_init ->
+        # wait_market -> db_connect -> db_setup -> subscribe -> ready.
+        # Em qualquer travada, /status reporta a fase corrente (HTTP sobe
+        # cedo, antes da DLL).
+        self._boot_phase: str = "init"
+        self._boot_started_at: float = time.time()
+        self._boot_phase_history: list[tuple[str, float]] = [("init", self._boot_started_at)]
+        self._boot_phase_lock = threading.Lock()
+
         self._dll: WinDLL | None = None
 
         self._db: DBWriter | None = None
@@ -623,6 +633,58 @@ class ProfitAgent:
 
     # ------------------------------------------------------------------
 
+    # Boot phase tracking + watchdog
+    #   - _set_boot_phase loga e atualiza self._boot_phase a cada etapa
+    #     (lido por /status pra diagnostico em <1s vs análise manual de log)
+    #   - _boot_watchdog_loop sobe junto com HTTP server e mata o processo
+    #     se boot não chegar em "ready" em PROFIT_BOOT_TIMEOUT_S (default 5min).
+    #     NSSM restarta automaticamente, evitando agent stuck infinito.
+
+    # ------------------------------------------------------------------
+
+    def _set_boot_phase(self, name: str, **extras) -> None:
+        now = time.time()
+        elapsed = now - self._boot_started_at
+        with self._boot_phase_lock:
+            self._boot_phase = name
+            self._boot_phase_history.append((name, now))
+            # cap history em 50 entries pra evitar crescimento indefinido
+            if len(self._boot_phase_history) > 50:
+                self._boot_phase_history = self._boot_phase_history[-50:]
+        extras_str = " ".join(f"{k}={v}" for k, v in extras.items())
+        log.info("boot.phase=%s elapsed_s=%.1f %s", name, elapsed, extras_str)
+
+    def _boot_watchdog_loop(self, timeout_s: int) -> None:
+        """Mata processo se boot não chegar em ready em timeout_s segundos.
+
+        Sobe junto com o HTTP server (logo no início de start()). Se a DLL
+        ou DB ou subscribe loop travarem, este watchdog detecta após
+        timeout_s e força _hard_exit. NSSM restart kicks in. Sem este
+        watchdog, agent pode ficar stuck "Running" indefinidamente.
+        """
+        deadline = self._boot_started_at + timeout_s
+        while time.time() < deadline:
+            phase = self._boot_phase
+            if phase == "ready":
+                log.info(
+                    "boot.watchdog.ready phase=ready elapsed_s=%.1f",
+                    time.time() - self._boot_started_at,
+                )
+                return
+            if phase in ("error", "stuck"):
+                log.error("boot.watchdog.bad_phase phase=%s", phase)
+                self._hard_exit(f"boot_phase_{phase}")
+                return
+            time.sleep(2)
+        # timeout expirado — boot não completou
+        log.error(
+            "boot.watchdog.timeout phase=%s elapsed_s=%.1f — forcing hard exit (NSSM will restart)",
+            self._boot_phase, time.time() - self._boot_started_at,
+        )
+        self._hard_exit("boot_timeout")
+
+    # ------------------------------------------------------------------
+
     # Inicializacao
 
     # ------------------------------------------------------------------
@@ -630,6 +692,30 @@ class ProfitAgent:
     def start(self) -> None:
 
         log.info("profit_agent.starting version=1.0.0")
+        self._set_boot_phase("starting")
+
+        # P0 fix (07/mai): sobe HTTP server + boot watchdog ANTES de qualquer
+        # chamada DLL/DB. Sem isso, qualquer trava em DLL Login / DB / subscribe
+        # loop deixa porta 8002 fechada → API Linux perde acesso remoto pra
+        # comandar restart, watchdog externo fica cego, NSSM acha que está OK.
+        # Agora /status responde com boot_phase desde o início; /restart sempre
+        # acessível; boot watchdog mata processo se não chegar em "ready" em
+        # PROFIT_BOOT_TIMEOUT_S (default 300s).
+        http_port = int(os.getenv("PROFIT_AGENT_PORT", "8001"))
+        _http_thread = threading.Thread(
+            target=self._start_http, args=(http_port,),
+            daemon=True, name="profit_agent_http_early",
+        )
+        _http_thread.start()
+        log.info("profit_agent.http_started_early port=%d", http_port)
+
+        boot_timeout_s = int(os.getenv("PROFIT_BOOT_TIMEOUT_S", "300"))
+        _boot_wd = threading.Thread(
+            target=self._boot_watchdog_loop, args=(boot_timeout_s,),
+            daemon=True, name="profit_agent_boot_watchdog",
+        )
+        _boot_wd.start()
+        log.info("profit_agent.boot_watchdog_started timeout_s=%d", boot_timeout_s)
 
         # Boot diagnostics — credentials presence + service identity.
         # Adicionado 05/mai noite apos sessao em que callbacks DLL nunca
@@ -660,6 +746,7 @@ class ProfitAgent:
 
         # 1. Carrega DLL (antes de qualquer outra coisa)
 
+        self._set_boot_phase("loading_dll", path=self._dll_path)
         log.info("profit_agent.loading_dll path=%s", self._dll_path)
 
         self._dll = WinDLL(self._dll_path)
@@ -879,6 +966,7 @@ class ProfitAgent:
         # como Delphi faz. V1 trade callback REAL provoca AV em SubscribePriceDepth
         # (Erro.log C:\Nelogica\Erro.log: 4 crashes em SubscribePriceDepth+0xD1
         # = "Read of address 0x270" = struct interno NULL durante init agressivo).
+        self._set_boot_phase("dll_initialize_login")
         log.info("profit_agent.initializing_market_data")
 
         ret_md = self._dll.DLLInitializeLogin(
@@ -916,6 +1004,7 @@ class ProfitAgent:
 
         # 4. Aguarda conexao (threading.Event — sem asyncio)
 
+        self._set_boot_phase("wait_market_connected", timeout_s=180)
         log.info("profit_agent.waiting_connection timeout=180s")
 
         # Watchdog periodico durante wait — loga estado parcial a cada 30s.
@@ -952,11 +1041,13 @@ class ProfitAgent:
 
         # 6. Inicia DB (APOS DLL conectar)
 
+        self._set_boot_phase("db_connect")
         log.info("profit_agent.connecting_db")
 
         self._db = DBWriter(self._ts_dsn)
 
         if self._db.connect():
+            self._set_boot_phase("db_setup")
             self._db.execute(
                 "UPDATE profit_agent_status SET started_at=%s, version=%s WHERE id=1",
                 (datetime.now(tz=UTC), "1.0.0"),
@@ -1077,6 +1168,7 @@ class ProfitAgent:
             log.warning("profit_agent.get_account_count_error e=%s", e)
 
         # 8. Subscreve tickers — UNION (env ∪ DB) com dedup.
+        self._set_boot_phase("subscribe_tickers")
         # Fix P0 04/mai: era `if db: DB else env` — quando DB conectava
         # mas vazio (post-restart sem seed), terminava com 0 subscriptions.
         # Nova semantica (resolve_subscribe_list, validators.py testavel):
@@ -1103,15 +1195,9 @@ class ProfitAgent:
         for ticker, exchange in tickers_to_subscribe:
             self._subscribe(ticker, exchange)
 
-        # 9. Inicia HTTP server em thread separada
-
-        http_port = int(os.getenv("PROFIT_AGENT_PORT", "8001"))
-
-        http_thread = threading.Thread(target=self._start_http, args=(http_port,), daemon=True)
-
-        http_thread.start()
-
-        log.info("profit_agent.http_started port=%d", http_port)
+        # 9. HTTP server JÁ subiu cedo no início de start() (P0 fix 07/mai).
+        # Aqui apenas marca boot=ready pra watchdog liberar.
+        self._set_boot_phase("ready", subscribed=len(self._subscribed))
 
         # 10. Watchdog thread — detecta DLL silent death + reconnect storms.
         # Refactor 06/mai: agent crashava silencioso apos cycles cstMarketData
@@ -4215,18 +4301,35 @@ class ProfitAgent:
 
     def get_status(self) -> dict:
 
+        # Defensivo: HTTP server sobe ANTES de DLL/DB inicializarem (P0 fix
+        # 07/mai). Atributos como _db, _db_queue, _subscribed podem nao existir
+        # ainda no momento que /status responde durante boot.
+        try:
+            db_queue_size = self._db_queue.qsize() if hasattr(self, "_db_queue") else 0
+        except Exception:
+            db_queue_size = 0
+        boot_elapsed = round(time.time() - self._boot_started_at, 1)
         return {
-            "market_connected": self._market_ok,
-            "routing_connected": self._routing_ok,
-            "login_ok": self._login_ok,
-            "activate_ok": self._activate_ok,
-            "subscribed_tickers": list(self._subscribed),
-            "total_ticks": self._total_ticks,
-            "total_ticks_queued": self._total_ticks_queued,
-            "total_orders": self._total_orders,
-            "total_assets": self._total_assets,
-            "db_queue_size": self._db_queue.qsize(),
-            "db_connected": self._db is not None and self._db.is_connected,
+            "boot_phase": self._boot_phase,
+            "boot_elapsed_s": boot_elapsed,
+            "boot_phase_history": [
+                {"phase": p, "elapsed_s": round(ts - self._boot_started_at, 1)}
+                for p, ts in self._boot_phase_history[-15:]
+            ],
+            "market_connected": getattr(self, "_market_ok", False),
+            "routing_connected": getattr(self, "_routing_ok", False),
+            "login_ok": getattr(self, "_login_ok", False),
+            "activate_ok": getattr(self, "_activate_ok", False),
+            "subscribed_tickers": list(getattr(self, "_subscribed", [])),
+            "total_ticks": getattr(self, "_total_ticks", 0),
+            "total_ticks_queued": getattr(self, "_total_ticks_queued", 0),
+            "total_orders": getattr(self, "_total_orders", 0),
+            "total_assets": getattr(self, "_total_assets", 0),
+            "db_queue_size": db_queue_size,
+            "db_connected": (
+                self._db is not None and self._db.is_connected
+                if getattr(self, "_db", None) else False
+            ),
         }
 
     def get_metrics(self) -> str:
