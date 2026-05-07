@@ -25,6 +25,7 @@ import os
 import time
 from typing import Any
 
+import asyncpg
 import httpx
 import structlog
 
@@ -236,6 +237,18 @@ async def _process_item(
             elapsed_s=elapsed,
             error_msg=err_msg,
         )
+
+        # Auto-rebuild ohlc_1m a partir de market_history_trades. Disparado
+        # quando final='ok' (DLL retornou ok) E ticks > 0 (havia dados).
+        # NAO usa `inserted > 0` pq re-run com force_refetch e ticks ja em
+        # DB tem inserted=0 (ON CONFLICT DO NOTHING) mas o agregado ainda
+        # precisa rodar (caso comum: bars 1m nunca foram geradas pra esse
+        # dia mesmo com market_history_trades populado).
+        # Items skip/err NAO disparam rebuild. Falha aqui apenas warna.
+        if final == "ok" and ticks > 0:
+            await _rebuild_ohlc_1m_for_ticker_day(
+                ticker=ticker, target_date=target_date, job_id=job_id,
+            )
     except httpx.TimeoutException:
         await backfill_repo.finish_item(
             item["id"],
@@ -257,3 +270,98 @@ async def _process_item(
             elapsed_s=time.time() - t0,
             error_msg=f"err: {type(exc).__name__}: {str(exc)[:200]}",
         )
+
+
+async def _rebuild_ohlc_1m_for_ticker_day(
+    *,
+    ticker: str,
+    target_date: date,
+    job_id: int | None = None,
+) -> dict[str, int] | None:
+    """Reconstroi ohlc_1m a partir de market_history_trades pro par
+    (ticker, dia). Chamado automaticamente apos backfill /collect_history
+    bem-sucedido — garante que bars 1m ficam sincronizados com ticks
+    recem-importados sem operador precisar reconstruir manualmente.
+
+    NOTA: a view continuous aggregate `ohlc_1m_from_ticks` (usada pelo
+    /admin/ohlc/rebuild) agrega de `profit_ticks` (LIVE callback),
+    enquanto backfill enche `market_history_trades` (HISTORICO via DLL).
+    Por isso aqui agregamos direto de market_history_trades em vez de
+    usar a view.
+
+    Estrategia DELETE+INSERT atomico em transaction (mesma do
+    /admin/ohlc/rebuild). source='history_agg_v1' diferencia de
+    'tick_agg_v1' (live) e de 'nelogica_1m'/etc (file imports).
+
+    Falha aqui apenas loga warning — o item ja foi marcado como ok pq a
+    coleta principal foi sucesso. Rebuild e secundario.
+    """
+    from finanalytics_ai.infrastructure.database.repositories.backfill_repo import _TS_DSN
+
+    t0 = time.time()
+    try:
+        conn = await asyncpg.connect(_TS_DSN, timeout=10)
+    except Exception as exc:
+        logger.warning(
+            "backfill.ohlc_rebuild.connect_failed",
+            ticker=ticker, target_date=str(target_date),
+            job_id=job_id, error=str(exc),
+        )
+        return None
+    try:
+        async with conn.transaction():
+            del_q = await conn.execute(
+                """
+                DELETE FROM ohlc_1m
+                WHERE time >= $1::date
+                  AND time <  ($1::date + INTERVAL '1 day')
+                  AND ticker = $2
+                """,
+                target_date, ticker,
+            )
+            # Agregacao 1-minuto de market_history_trades:
+            #   open  = primeiro tick do bucket
+            #   close = ultimo tick do bucket
+            #   high/low = max/min de price
+            #   volume = soma de quantity (#contratos/acoes)
+            #   trades = count(*)
+            ins_q = await conn.execute(
+                """
+                INSERT INTO ohlc_1m
+                    (time, ticker, open, high, low, close, volume, trades, source)
+                SELECT
+                    time_bucket('1 minute', trade_date) AS time,
+                    ticker,
+                    (array_agg(price ORDER BY trade_date, trade_number))[1] AS open,
+                    max(price) AS high,
+                    min(price) AS low,
+                    (array_agg(price ORDER BY trade_date DESC, trade_number DESC))[1] AS close,
+                    sum(quantity)::bigint AS volume,
+                    count(*)::int AS trades,
+                    'history_agg_v1' AS source
+                FROM market_history_trades
+                WHERE ticker = $2
+                  AND trade_date >= $1::date
+                  AND trade_date <  ($1::date + INTERVAL '1 day')
+                GROUP BY time_bucket('1 minute', trade_date), ticker
+                """,
+                target_date, ticker,
+            )
+        deleted = int(del_q.split()[-1]) if del_q.startswith("DELETE") else 0
+        inserted = int(ins_q.split()[-1]) if ins_q.startswith("INSERT") else 0
+        logger.info(
+            "backfill.ohlc_rebuilt",
+            job_id=job_id, ticker=ticker, target_date=str(target_date),
+            deleted=deleted, inserted=inserted,
+            elapsed_s=round(time.time() - t0, 2),
+        )
+        return {"deleted": deleted, "inserted": inserted}
+    except Exception as exc:
+        logger.warning(
+            "backfill.ohlc_rebuild_failed",
+            job_id=job_id, ticker=ticker, target_date=str(target_date),
+            error=f"{type(exc).__name__}: {str(exc)[:200]}",
+        )
+        return None
+    finally:
+        await conn.close()
