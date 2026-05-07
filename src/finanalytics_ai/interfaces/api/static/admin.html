@@ -614,54 +614,34 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
           </select>
         </div>
       </div>
-      <div class="form-actions" style="margin-top:12px;justify-content:flex-start;flex-wrap:wrap;gap:8px">
-        <button class="btn btn-primary btn-sm" onclick="gapsCheck()" id="gaps-btn">🔍 Buscar gaps</button>
-        <button class="btn btn-success btn-sm" onclick="gapsFillNow()" id="gaps-btn-fill-now" disabled
-                title="Cria job + acompanha progresso aqui. DLL serializa — pode levar minutos.">
-          ▶ Preencher agora
-        </button>
-        <button class="btn btn-warn btn-sm" onclick="gapsSchedule()" id="gaps-btn-schedule" disabled
-                title="Cria job e abre na aba Backfill — não bloqueia esta tela.">
-          📋 Agendar (em background)
-        </button>
-      </div>
-      <div id="gapsMsg" class="msg"></div>
-      <div id="gapsProgress" style="margin-top:14px;display:none;padding:14px;background:var(--s1);border:1px solid var(--border);border-radius:6px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-          <div>
-            <div style="font-size:13px;color:var(--text);font-weight:600">
-              <span id="gaps-progress-title">Job em andamento</span>
-            </div>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <span id="gaps-progress-status" style="font-size:11px;color:var(--muted)"></span>
-            <button class="btn btn-sm btn-danger" onclick="gapsCancelJob()" id="gaps-btn-cancel">⏹ Cancelar</button>
-          </div>
+      <div style="display:flex;align-items:center;gap:14px;margin-top:12px;flex-wrap:wrap">
+        <div class="form-actions" style="margin:0;justify-content:flex-start;flex-wrap:wrap;gap:8px">
+          <button class="btn btn-primary btn-sm" onclick="gapsCheck()" id="gaps-btn">🔍 Buscar gaps</button>
+          <button class="btn btn-success btn-sm" onclick="gapsFillNow()" id="gaps-btn-fill-now" disabled
+                  title="Cria job apenas pros dias com gap + acompanha progresso aqui.">
+            ▶ Preencher agora
+          </button>
+          <button class="btn btn-warn btn-sm" onclick="gapsSchedule()" id="gaps-btn-schedule" disabled
+                  title="Cria job e abre na aba Backfill — não bloqueia esta tela.">
+            📋 Agendar (em background)
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="gapsCancelJob()" id="gaps-btn-cancel" style="display:none">⏹ Cancelar</button>
         </div>
-
-        <!-- Total: items done / total -->
-        <div style="margin-bottom:10px">
+        <!-- TOTAL bar — inline ao lado dos botões, só visível quando job ativo -->
+        <div id="gapsTotalProgress" style="display:none;flex:1;min-width:220px;max-width:420px">
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:3px">
-            <span><strong style="color:var(--text)">Total</strong> <span id="gaps-progress-counters">0/0 · ok=0 skip=0 err=0</span></span>
+            <span><strong style="color:var(--text)" id="gaps-progress-title">Job</strong>
+              <span id="gaps-progress-counters">0/0 · ok=0 skip=0 err=0</span>
+              <span id="gaps-progress-status" style="margin-left:6px"></span>
+            </span>
             <span id="gaps-progress-total-pct">0%</span>
           </div>
-          <div style="background:var(--s2);border-radius:3px;height:8px;overflow:hidden">
+          <div style="background:var(--s1);border:1px solid var(--border);border-radius:3px;height:10px;overflow:hidden">
             <div id="gaps-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--green));transition:.3s"></div>
           </div>
         </div>
-
-        <!-- Por dia: pct do collect_history em curso -->
-        <div>
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:3px">
-            <span><strong style="color:var(--text)">Item atual</strong> <span id="gaps-progress-current" style="font-family:monospace">—</span></span>
-            <span id="gaps-progress-day-pct">—</span>
-          </div>
-          <div style="background:var(--s2);border-radius:3px;height:8px;overflow:hidden">
-            <div id="gaps-progress-day-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--gold),var(--accent));transition:.3s"></div>
-          </div>
-          <small id="gaps-progress-day-meta" style="color:var(--muted);font-size:10.5px;display:block;margin-top:3px">aguardando item…</small>
-        </div>
       </div>
+      <div id="gapsMsg" class="msg"></div>
       <div id="gapsResult" style="margin-top:14px;display:none"></div>
     </div>
   </div>
@@ -2551,7 +2531,20 @@ function gapsRenderResult(d) {
   const missingRows = d.missing_days.slice(0, 200).map(day => {
     const dt = new Date(day + 'T00:00:00');
     const dow = ['dom','seg','ter','qua','qui','sex','sab'][dt.getDay()];
-    return `<tr><td style="font-family:monospace">${day}</td><td style="color:var(--muted)">${dow}</td></tr>`;
+    // ID por linha pra atualizar status/progress durante coleta
+    const safeId = day.replace(/-/g, '');
+    return `
+      <tr id="gaps-row-${safeId}" data-day="${day}">
+        <td style="font-family:monospace;white-space:nowrap">${day}</td>
+        <td style="color:var(--muted)">${dow}</td>
+        <td id="gaps-row-${safeId}-status" style="color:var(--muted);font-family:monospace;font-size:11px">pending</td>
+        <td style="min-width:160px;width:35%">
+          <div style="background:var(--s1);border:1px solid var(--border);border-radius:3px;height:8px;overflow:hidden">
+            <div id="gaps-row-${safeId}-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--gold),var(--accent));transition:.3s"></div>
+          </div>
+          <small id="gaps-row-${safeId}-meta" style="color:var(--muted);font-size:10.5px;display:block;margin-top:2px">—</small>
+        </td>
+      </tr>`;
   }).join('');
   const moreNote = d.missing_days.length > 200 ? `<div style="color:var(--muted);font-size:11px;margin-top:4px;text-align:center">... e mais ${d.missing_days.length - 200} dias</div>` : '';
   return `
@@ -2567,7 +2560,14 @@ function gapsRenderResult(d) {
     ${d.missing_count ? `
       <div class="tbl-wrap" style="max-height:340px;overflow:auto">
         <table style="font-size:12px">
-          <thead><tr><th>Dia faltante</th><th>DoW</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Dia faltante</th>
+              <th>DoW</th>
+              <th>Status</th>
+              <th>Progresso</th>
+            </tr>
+          </thead>
           <tbody>${missingRows}</tbody>
         </table>
       </div>
@@ -2621,14 +2621,13 @@ async function gapsFillNow() {
   if (!await FAModal.confirm({
     title: 'Preencher gaps agora',
     text:
-      `${ticker} · ${days.length} dia(s) faltante(s)\n` +
-      `Range: ${dateStart} → ${dateEnd}\n\n` +
-      `Cria backfill job e mostra progresso aqui. ` +
-      `DLL serializa — ~60-300s por dia. Outros jobs em fila esperam.`,
+      `${ticker} · ${days.length} dia(s) com gap\n` +
+      `Job tenta APENAS estes ${days.length} dia(s) (não o range cheio).\n\n` +
+      `Progresso por dia aparece na tabela. ` +
+      `DLL serializa — ~60-300s por dia.`,
     okLabel: '▶ Iniciar',
     variant: 'primary',
   })) return;
-  // Disable buttons while running
   document.getElementById('gaps-btn-fill-now').disabled = true;
   document.getElementById('gaps-btn-schedule').disabled = true;
   document.getElementById('gaps-btn').disabled = true;
@@ -2636,7 +2635,14 @@ async function gapsFillNow() {
     const res = await fetch(`${BF_API}/jobs`, {
       method: 'POST',
       headers: H(),
-      body: JSON.stringify({ tickers: [ticker], date_start: dateStart, date_end: dateEnd, force_refetch: false }),
+      body: JSON.stringify({
+        tickers: [ticker],
+        date_start: dateStart,
+        date_end: dateEnd,
+        // dates[] força criar items SO' pros gaps (não pro range cheio)
+        dates: days,
+        force_refetch: false,
+      }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -2645,25 +2651,75 @@ async function gapsFillNow() {
       return;
     }
     gapsActiveJobId = data.id;
-    showMsg('gapsMsg', `Job #${data.id} criado (${data.total_items} items). Acompanhando…`, 'success');
-    document.getElementById('gaps-progress-title').textContent =
-      `Job #${data.id} — ${ticker} · ${data.total_items} item(s)`;
-    document.getElementById('gapsProgress').style.display = 'block';
+    showMsg('gapsMsg', `Job #${data.id} criado (${data.total_items} dias). Acompanhando…`, 'success');
+    document.getElementById('gaps-progress-title').textContent = `Job #${data.id}`;
+    document.getElementById('gapsTotalProgress').style.display = 'block';
+    document.getElementById('gaps-btn-cancel').style.display = 'inline-flex';
     gapsPollTimer = setInterval(_gapsPollJob, 2000);
-    _gapsPollJob();  // tick imediato
+    _gapsPollJob();
   } catch (err) {
     showMsg('gapsMsg', `Falha de rede: ${err.message}`, 'error');
     _gapsRestoreButtons();
   }
 }
 
+function _gapsRowEl(day, suffix) {
+  return document.getElementById(`gaps-row-${day.replace(/-/g, '')}${suffix}`);
+}
+
+function _gapsStatusBadge(status) {
+  const map = {
+    pending:  ['pending',  'var(--muted)'],
+    running:  ['⟳ running','var(--accent)'],
+    ok:       ['✓ ok',     'var(--green)'],
+    skip:     ['skip',     'var(--muted)'],
+    err:      ['✗ err',    'var(--red)'],
+  };
+  const [label, color] = map[status] || [status, 'var(--muted)'];
+  return `<span style="color:${color}">${label}</span>`;
+}
+
+function _gapsApplyRowState(item, agentProg) {
+  const day = item.target_date;
+  if (!day) return;
+  const statusEl = _gapsRowEl(day, '-status');
+  const barEl    = _gapsRowEl(day, '-bar');
+  const metaEl   = _gapsRowEl(day, '-meta');
+  if (!statusEl) return;  // dia fora dos 200 visiveis
+  statusEl.innerHTML = _gapsStatusBadge(item.status);
+  let pct = 0;
+  let meta = '—';
+  if (item.status === 'running') {
+    if (agentProg && agentProg.active &&
+        agentProg.ticker?.toUpperCase() === item.ticker?.toUpperCase()) {
+      pct = Math.max(0, Math.min(100, agentProg.progress_pct || 0));
+      meta = `${(agentProg.ticks_so_far || 0).toLocaleString('pt-BR')} ticks · ${agentProg.elapsed_s ?? 0}s`;
+    } else {
+      meta = 'aguardando primeiro callback…';
+    }
+  } else if (item.status === 'ok') {
+    pct = 100;
+    meta = `${(item.ticks_returned || 0).toLocaleString('pt-BR')} ticks · ${(item.inserted || 0).toLocaleString('pt-BR')} inseridos · ${item.elapsed_s ?? 0}s`;
+  } else if (item.status === 'skip') {
+    pct = 100;
+    meta = item.error_msg || 'já em DB';
+    barEl.style.background = 'linear-gradient(90deg,var(--muted),var(--muted))';
+  } else if (item.status === 'err') {
+    pct = 100;
+    meta = (item.error_msg || 'erro').slice(0, 80);
+    barEl.style.background = 'linear-gradient(90deg,var(--red),var(--red))';
+  }
+  barEl.style.width = `${pct}%`;
+  metaEl.textContent = meta;
+}
+
 async function _gapsPollJob() {
   if (!gapsActiveJobId) return;
   try {
-    // Faz 2 fetches em paralelo: estado do job + progresso do agent
-    const [jobRes, agentRes] = await Promise.all([
+    const [jobRes, agentRes, itemsRes] = await Promise.all([
       fetch(`${BF_API}/jobs/${gapsActiveJobId}`, { headers: H() }),
       fetch(`${BF_API}/agent/history_progress`, { headers: H() }).catch(() => null),
+      fetch(`${BF_API}/jobs/${gapsActiveJobId}/items?limit=1000`, { headers: H() }),
     ]);
     if (!jobRes.ok) return;
     const job = await jobRes.json();
@@ -2672,56 +2728,31 @@ async function _gapsPollJob() {
     const ok    = job.ok_items || 0;
     const skip  = job.skip_items || 0;
     const err   = job.err_items || 0;
-    // ── Barra TOTAL: items completos ──
+    // ── TOTAL bar ──
     const totalPct = total ? Math.floor(100 * done / total) : 0;
     document.getElementById('gaps-progress-bar').style.width = `${totalPct}%`;
     document.getElementById('gaps-progress-total-pct').textContent = `${totalPct}%`;
     document.getElementById('gaps-progress-counters').textContent =
       `${done}/${total} · ok=${ok} skip=${skip} err=${err}`;
-    document.getElementById('gaps-progress-status').textContent = job.status;
-    // ── Barra ITEM ATUAL (per-day pct do agent /history_progress) ──
-    let dayPct = 0;
-    let dayLabel = '—';
-    let dayMeta = 'aguardando item…';
-    if (job.status === 'running') {
-      // Pega item rodando p/ exibir ticker+data
-      const itemsRes = await fetch(`${BF_API}/jobs/${gapsActiveJobId}/items?status=running`, { headers: H() });
-      let curItem = null;
-      if (itemsRes.ok) {
-        const items = (await itemsRes.json()).items || [];
-        if (items.length) curItem = items[0];
-      }
-      // Cruza com /history_progress do agent
-      let agentProg = null;
-      if (agentRes && agentRes.ok) agentProg = await agentRes.json();
-      if (curItem) {
-        dayLabel = `${curItem.ticker} ${curItem.target_date} (${done + 1}/${total})`;
-        if (agentProg && agentProg.active &&
-            agentProg.ticker?.toUpperCase() === curItem.ticker?.toUpperCase()) {
-          dayPct = Math.max(0, Math.min(100, agentProg.progress_pct || 0));
-          dayMeta = `${(agentProg.ticks_so_far || 0).toLocaleString('pt-BR')} ticks · ${agentProg.elapsed_s ?? 0}s`;
-        } else {
-          dayMeta = 'agent ainda não reportou progresso (aguardando primeiro callback)';
-        }
-      }
-    } else {
-      dayLabel =
-        job.status === 'done' ? '✓ Concluído' :
-        job.status === 'cancelled' ? '⏹ Cancelado' :
-        job.status === 'failed' ? '✗ Falhou' : job.status;
-      dayPct = ['done','cancelled','failed'].includes(job.status) ? 100 : 0;
+    document.getElementById('gaps-progress-status').textContent =
+      job.status === 'running' ? '' :
+      job.status === 'done' ? '✓ done' :
+      job.status === 'cancelled' ? '⏹ cancelled' :
+      job.status === 'failed' ? '✗ failed' : job.status;
+    // ── Per-row update ──
+    let agentProg = null;
+    if (agentRes && agentRes.ok) agentProg = await agentRes.json();
+    if (itemsRes.ok) {
+      const items = (await itemsRes.json()).items || [];
+      for (const it of items) _gapsApplyRowState(it, agentProg);
     }
-    document.getElementById('gaps-progress-current').textContent = dayLabel;
-    document.getElementById('gaps-progress-day-pct').textContent =
-      job.status === 'running' ? `${dayPct}%` : '';
-    document.getElementById('gaps-progress-day-bar').style.width = `${dayPct}%`;
-    document.getElementById('gaps-progress-day-meta').textContent = dayMeta;
-    // ── Encerra polling ──
+    // ── Encerramento ──
     if (['done', 'cancelled', 'failed'].includes(job.status)) {
       clearInterval(gapsPollTimer);
       gapsPollTimer = null;
       gapsActiveJobId = null;
       _gapsRestoreButtons();
+      document.getElementById('gaps-btn-cancel').style.display = 'none';
       const finalMsg = job.status === 'done' && err === 0
         ? `✓ Backfill concluído: ${ok} ok, ${skip} skip.`
         : job.status === 'done'
@@ -2730,10 +2761,14 @@ async function _gapsPollJob() {
       showMsg('gapsMsg', finalMsg,
         job.status === 'done' && err === 0 ? 'success' :
         job.status === 'cancelled' ? 'warn' : 'error');
-      setTimeout(() => gapsCheck(), 500);
+      // Re-busca gaps p/ atualizar tabela após 2s (dá tempo de DB committar)
+      setTimeout(() => {
+        document.getElementById('gapsTotalProgress').style.display = 'none';
+        gapsCheck();
+      }, 2000);
     }
   } catch (e) {
-    // tolerante a falhas transientes do polling
+    // tolerante a falhas transientes
   }
 }
 

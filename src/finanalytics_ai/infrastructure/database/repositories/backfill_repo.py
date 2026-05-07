@@ -79,18 +79,28 @@ async def create_job_with_items(
     force_refetch: bool,
     requested_by: str | None,
     exchange_for: dict[str, str] | None = None,
+    specific_days: list[date] | None = None,
 ) -> dict[str, Any]:
-    """Cria job + items (1 por ticker x trading_day no range).
+    """Cria job + items (1 por ticker x dia).
+
+    Por default usa todos os trading_days no range [date_start, date_end].
+    Se `specific_days` for fornecido, usa apenas esses (ainda dentro do range).
+    Util para "preencher só os gaps" sem tentar dias ja presentes.
 
     `exchange_for` mapeia ticker -> exchange (default 'B'). Tickers sem mapping
     caem em 'B' (acoes B3).
     """
-    days = trading_days_in_range(date_start, date_end)
+    if specific_days:
+        # Filtra: aceita apenas dias dentro do range informado p/ consistencia
+        # com date_start/date_end gravados no job.
+        days = sorted({d for d in specific_days if date_start <= d <= date_end})
+    else:
+        days = trading_days_in_range(date_start, date_end)
     tickers = [t.strip().upper() for t in tickers if t and t.strip()]
     if not tickers:
         raise ValueError("tickers vazio")
     if not days:
-        raise ValueError("sem trading days no range informado")
+        raise ValueError("sem dias no range informado")
 
     exchange_for = exchange_for or {}
     items_payload = [

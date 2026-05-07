@@ -40,6 +40,9 @@ class CreateJobRequest(BaseModel):
     date_start: _date
     date_end: _date
     force_refetch: bool = Field(default=False)
+    # Opcional: lista exata de dias a coletar. Se vazio, usa todos os
+    # trading_days no range. Util p/ "Preencher agora" focar so' nos gaps.
+    dates: list[_date] | None = Field(default=None)
 
 
 # ── tickers (DB-direct, funciona com agent off) ─────────────────────────────
@@ -150,6 +153,7 @@ async def create_job(
             exchange_for={
                 t.upper(): backfill_runner._exchange_for_ticker(t) for t in body.tickers
             },
+            specific_days=body.dates,
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc))
