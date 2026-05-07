@@ -2,7 +2,32 @@
 
 > **Para Claude/agente:** este é o primeiro arquivo a consultar em qualquer sessão. Contém pendências priorizadas + carryover de sessões anteriores. Atualizar ao fim de cada sessão (mover concluídas pra `## Done recente` e depois pra `docs/historico/`).
 
-Última atualização: **2026-05-06 13:20 BRT** (aba /admin → Backfill implementada; agent stopped externo persiste)
+Última atualização: **2026-05-07 09:00 BRT** (boot resilience P0+P1+P2 ativo + WDOFUT 1 dia validado)
+
+### Done 07/mai (sessão boot resilience)
+
+- ✅ **profit_agent boot resilience** (commits `d35cb96` `7e72570` `893b8c3`):
+  - **P0.1 HTTP server cedo**: sobe ANTES de DLL/DB. `/status` responde com `boot_phase` desde init. API Linux nunca perde controle remoto.
+  - **P0.2 Boot watchdog interno**: thread auxiliar mata processo se `phase != ready` em 300s (env `PROFIT_BOOT_TIMEOUT_S`). NSSM restarta.
+  - **P1.1 Heartbeat por etapa**: 9 fases instrumentadas (init → starting → loading_dll → dll_initialize_login → wait_market_connected → db_connect → db_setup → subscribe_tickers → ready). `boot_phase_history` exposto via `/status` com elapsed_s por etapa. Diagnóstico em segundos.
+  - **P1.2 DB statement_timeout=10s + connect_timeout=5s**: lock contention vira erro rápido em vez de wait forever. Override via `PROFIT_DB_STATEMENT_TIMEOUT_MS`.
+  - **P2.1 Subscribe em thread daemon**: loop sequencial em thread separada (NÃO paralelizamos por DLL não documentar thread safety pra SubscribeTicker/PriceDepth — Erro.log 05/mai mostrou 4 AVs em paralelizações). Main parte pra `ready` em 120s mesmo com subscribe travado. Subscribe parcial > boot stuck. `subscribe_progress {total, completed, failed, current}` em `/status`.
+  - **P2.2 Healthcheck externo**: `scripts/healthcheck_profit_agent.ps1` (curl :8002/status, 3 tries + cooldown 180s, restart se phase!=ready ou boot_elapsed > 600s). Setup via `scripts/setup_healthcheck_task.ps1` que auto-eleva UAC e registra Scheduled Task como SYSTEM 1×/min.
+  - Bug PowerShell encontrado em smoke: Write-Output dentro de função PS poluía return value. Fix: Write-Host (não vai pra output stream).
+
+- ✅ **Job badge UX fix** (commit `5c2573d`): badge não mostra mais verde "done" enganoso quando 100% items deram err. Agora diferencia ok/done c/ N err/falhou (todos err) por counters.
+
+- ⚠ **Smoke WDOFUT 04-06/05** (job #8): 1/3 sucesso real
+  - 04/05: ok 521.507 ticks em 5m29s ← backfill comprovadamente funcional
+  - 05/05: err ReadError 119s (conexão fechou — provável restart do agent que fiz durante smoke)
+  - 06/05: err timeout 365s (>300s+30s buffer pra futures — DLL ocasionalmente demora)
+  - Re-tentar vai resolver os 2; foram blips transitórios, não bug estrutural.
+
+### Setup pendente do user (1 click, depois da sessão)
+
+- [ ] Rodar `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\setup_healthcheck_task.ps1` pra ativar o Scheduled Task do healthcheck externo (P2.2). UAC vai pedir aprovação.
+
+### Done na tarde 06/mai (sessão 2)
 
 ### Done na tarde 06/mai (sessão 2)
 
