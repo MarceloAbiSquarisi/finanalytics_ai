@@ -172,10 +172,20 @@ async def create_job(
 @router.get("/jobs")
 async def list_jobs(
     limit: int = Query(20, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     _: User = Depends(require_master),
 ) -> dict[str, Any]:
-    jobs = await backfill_repo.list_jobs(limit=limit)
-    return {"jobs": jobs, "count": len(jobs)}
+    jobs, total, active = await backfill_repo.list_jobs(
+        limit=limit, offset=offset,
+    )
+    return {
+        "jobs": jobs,
+        "count": len(jobs),
+        "total": total,
+        "active": active,  # running OR queued, em qualquer página
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 @router.get("/jobs/{job_id}")

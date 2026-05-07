@@ -712,7 +712,10 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
     <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:18px">
       <div class="sec-header" style="margin-bottom:10px">
         <span class="sec-title">Jobs (auto-refresh 2s enquanto running)</span>
-        <button class="btn btn-sm btn-ghost" onclick="bfLoadJobs()">↻ Refresh</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <small style="color:var(--muted);font-size:11px" id="bf-jobs-summary">—</small>
+          <button class="btn btn-sm btn-ghost" onclick="bfLoadJobs()">↻ Refresh</button>
+        </div>
       </div>
       <div class="tbl-wrap">
         <table style="font-size:13px">
@@ -723,6 +726,26 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
             <tr><td colspan="7" class="empty">Carregando…</td></tr>
           </tbody>
         </table>
+      </div>
+      <!-- Pagination -->
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap">
+        <div style="display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted)">
+          <span>Por página:</span>
+          <select id="bf-jobs-page-size" onchange="bfJobsChangePageSize()" style="background:var(--s1);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px">
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+          <span id="bf-jobs-page-info" style="margin-left:10px"></span>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn btn-sm btn-ghost" onclick="bfJobsGoPage(0)" id="bf-jobs-pg-first" title="Primeira">«</button>
+          <button class="btn btn-sm btn-ghost" onclick="bfJobsGoPage(bfJobsPage - 1)" id="bf-jobs-pg-prev" title="Anterior">‹</button>
+          <span id="bf-jobs-pg-current" style="font-size:12px;color:var(--text);font-family:monospace;padding:0 6px">1 / 1</span>
+          <button class="btn btn-sm btn-ghost" onclick="bfJobsGoPage(bfJobsPage + 1)" id="bf-jobs-pg-next" title="Próxima">›</button>
+          <button class="btn btn-sm btn-ghost" onclick="bfJobsGoPage(bfJobsLastPage)" id="bf-jobs-pg-last" title="Última">»</button>
+        </div>
       </div>
     </div>
 
@@ -1485,6 +1508,10 @@ let bfTickers = [];           // [{ticker, exchange}]
 let bfTickerFilter = '';
 let bfSelected = new Set();
 let bfJobsPollTimer = null;
+let bfJobsPage = 0;
+let bfJobsPageSize = 20;
+let bfJobsTotal = 0;
+let bfJobsLastPage = 0;
 let bfFailuresCache = [];
 
 function bfOnTabOpen() {
@@ -1694,17 +1721,67 @@ async function bfStart() {
 
 async function bfLoadJobs() {
   try {
-    const res = await fetch(`${BF_API}/jobs?limit=20`, { headers: H() });
+    const offset = bfJobsPage * bfJobsPageSize;
+    const res = await fetch(
+      `${BF_API}/jobs?limit=${bfJobsPageSize}&offset=${offset}`,
+      { headers: H() },
+    );
     if (!res.ok) return;
     const data = await res.json();
-    bfRenderJobs(data.jobs || []);
-    const anyRunning = (data.jobs || []).some(j => j.status === 'running' || j.status === 'queued');
-    if (anyRunning && !bfJobsPollTimer) {
+    const jobs = data.jobs || [];
+    bfJobsTotal = data.total || 0;
+    bfJobsLastPage = Math.max(0, Math.ceil(bfJobsTotal / bfJobsPageSize) - 1);
+    // Se a pagina atual ficou alem do fim (ex: cancelou jobs), volta pra ultima
+    if (bfJobsPage > bfJobsLastPage) {
+      bfJobsPage = bfJobsLastPage;
+      return bfLoadJobs();
+    }
+    bfRenderJobs(jobs);
+    bfRenderJobsPagination();
+    // Auto-refresh: usa o counter `active` (running OR queued, em qualquer
+    // pagina). Garante que polling continua rodando mesmo se usuario
+    // navegar pra paginas mais antigas durante um job ativo.
+    const anyActive = (data.active || 0) > 0;
+    if (anyActive && !bfJobsPollTimer) {
       bfJobsPollTimer = setInterval(bfLoadJobs, 2000);
-    } else if (!anyRunning && bfJobsPollTimer) {
+    } else if (!anyActive && bfJobsPollTimer) {
       clearInterval(bfJobsPollTimer); bfJobsPollTimer = null;
     }
   } catch {}
+}
+
+function bfRenderJobsPagination() {
+  const total = bfJobsTotal;
+  const start = bfJobsTotal === 0 ? 0 : bfJobsPage * bfJobsPageSize + 1;
+  const end = Math.min(total, (bfJobsPage + 1) * bfJobsPageSize);
+  document.getElementById('bf-jobs-summary').textContent =
+    total === 0 ? '' : `${total} job${total === 1 ? '' : 's'}`;
+  document.getElementById('bf-jobs-page-info').textContent =
+    total === 0 ? '' : `${start}–${end} de ${total}`;
+  document.getElementById('bf-jobs-pg-current').textContent =
+    `${bfJobsPage + 1} / ${bfJobsLastPage + 1}`;
+  document.getElementById('bf-jobs-pg-first').disabled = bfJobsPage === 0;
+  document.getElementById('bf-jobs-pg-prev').disabled = bfJobsPage === 0;
+  document.getElementById('bf-jobs-pg-next').disabled = bfJobsPage >= bfJobsLastPage;
+  document.getElementById('bf-jobs-pg-last').disabled = bfJobsPage >= bfJobsLastPage;
+}
+
+function bfJobsGoPage(p) {
+  const target = Math.max(0, Math.min(bfJobsLastPage, p));
+  if (target === bfJobsPage) return;
+  bfJobsPage = target;
+  // Cancela auto-refresh atual; bfLoadJobs reativa se necessario
+  if (bfJobsPollTimer) { clearInterval(bfJobsPollTimer); bfJobsPollTimer = null; }
+  bfLoadJobs();
+}
+
+function bfJobsChangePageSize() {
+  const newSize = parseInt(document.getElementById('bf-jobs-page-size').value, 10);
+  if (!newSize || newSize === bfJobsPageSize) return;
+  bfJobsPageSize = newSize;
+  bfJobsPage = 0;  // volta pra primeira pagina pra evitar offset invalido
+  if (bfJobsPollTimer) { clearInterval(bfJobsPollTimer); bfJobsPollTimer = null; }
+  bfLoadJobs();
 }
 
 function bfRenderJobs(jobs) {

@@ -302,9 +302,22 @@ async def create_job_with_items(
         await conn.close()
 
 
-async def list_jobs(limit: int = 20) -> list[dict[str, Any]]:
+async def list_jobs(
+    limit: int = 20, offset: int = 0
+) -> tuple[list[dict[str, Any]], int, int]:
+    """Retorna (jobs_da_pagina, total_geral, active_globally)."""
     conn = await _connect()
     try:
+        counts = await conn.fetchrow(
+            """
+            SELECT
+              count(*) AS total,
+              count(*) FILTER (WHERE status IN ('running','queued')) AS active
+            FROM backfill_jobs
+            """
+        )
+        total = int(counts["total"] or 0)
+        active = int(counts["active"] or 0)
         rows = await conn.fetch(
             """
             SELECT id, created_at, started_at, finished_at, status,
@@ -313,11 +326,11 @@ async def list_jobs(limit: int = 20) -> list[dict[str, Any]]:
                    err_items, skip_items, requested_by
             FROM backfill_jobs
             ORDER BY id DESC
-            LIMIT $1
+            LIMIT $1 OFFSET $2
             """,
-            limit,
+            limit, offset,
         )
-        return [_row_to_job(r) for r in rows]
+        return [_row_to_job(r) for r in rows], total, active
     finally:
         await conn.close()
 
