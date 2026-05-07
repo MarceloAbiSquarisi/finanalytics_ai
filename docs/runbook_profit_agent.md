@@ -23,18 +23,12 @@ Fases esperadas (em ordem): `init → starting → loading_dll → dll_initializ
 - **Subscribe parcial > boot stuck** (P2): subscribe loop em thread daemon; main parte pra `ready` em 120s mesmo se travado (env `PROFIT_SUBSCRIBE_TIMEOUT_S`). Logs: `subscribe.timeout_partial`.
 - **Healthcheck externo** (P2): `scripts/healthcheck_profit_agent.ps1` deve rodar via Task Scheduler 1×/min. Cobre o caso pos-ready (agent vivo mas DLL stuck mid-runtime).
 
-### Setup do healthcheck externo (Admin PowerShell, 1×)
+### Setup do healthcheck externo (1×, auto-eleva via UAC)
 ```powershell
-$action = New-ScheduledTaskAction -Execute 'pwsh.exe' `
-  -Argument '-NoProfile -ExecutionPolicy Bypass -File "D:\Projetos\finanalytics_ai_fresh\scripts\healthcheck_profit_agent.ps1"'
-$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) `
-  -RepetitionInterval (New-TimeSpan -Minutes 1)
-$principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -RunLevel Highest
-$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable `
-  -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 2)
-Register-ScheduledTask -TaskName 'FinAnalytics_AgentHealthcheck' `
-  -Action $action -Trigger $trigger -Principal $principal -Settings $settings
+pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\setup_healthcheck_task.ps1
 ```
+
+O script `setup_healthcheck_task.ps1` faz auto-elevação UAC (caso não esteja em PowerShell Admin), remove task antiga se houver, registra nova como `SYSTEM` com RunLevel Highest e RepetitionInterval 1min. Idempotente. Para remover: `... -File scripts\setup_healthcheck_task.ps1 -Remove`. Para usar usuário interativo em vez de SYSTEM: `... -User`.
 
 Logs do healthcheck: `D:\Projetos\finanalytics_ai_fresh\logs\agent_healthcheck.log`. Cooldown de 180s entre restarts evita loop.
 
