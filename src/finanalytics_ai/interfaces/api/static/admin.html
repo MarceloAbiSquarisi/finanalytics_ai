@@ -65,6 +65,10 @@ body.sb-open .fa-page-content{margin-left:var(--sb-w)}
 .btn-ghost:hover{color:var(--text);border-color:var(--border2)}
 .btn-warn{background:rgba(240,180,41,.1);border:1px solid rgba(240,180,41,.3);color:var(--gold)}
 .btn-warn:hover{background:rgba(240,180,41,.2)}
+.btn-success{background:rgba(91,219,138,.12);border:1px solid rgba(91,219,138,.35);color:var(--green)}
+.btn-success:hover:not(:disabled){background:rgba(91,219,138,.22)}
+.btn-info{background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.3);color:var(--accent)}
+.btn-info:hover:not(:disabled){background:rgba(0,212,255,.16)}
 .tbl-wrap{overflow-x:auto;border-radius:7px;border:1px solid var(--border)}
 table{width:100%;border-collapse:collapse;min-width:500px}
 th{background:var(--s1);color:var(--muted);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)}
@@ -610,11 +614,36 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
           </select>
         </div>
       </div>
-      <div class="form-actions" style="margin-top:12px;justify-content:flex-start">
+      <div class="form-actions" style="margin-top:12px;justify-content:flex-start;flex-wrap:wrap;gap:8px">
         <button class="btn btn-primary btn-sm" onclick="gapsCheck()" id="gaps-btn">🔍 Buscar gaps</button>
-        <button class="btn btn-warn btn-sm" onclick="gapsSchedule()" id="gaps-btn-schedule" disabled title="Cria backfill job pros dias faltantes (só funciona com fonte=ohlc_1m sem efeito direto, mas roda /collect_history que popula market_history_trades)">↻ Reagendar dias faltantes como backfill</button>
+        <button class="btn btn-success btn-sm" onclick="gapsFillNow()" id="gaps-btn-fill-now" disabled
+                title="Cria job + acompanha progresso aqui. DLL serializa — pode levar minutos.">
+          ▶ Preencher agora
+        </button>
+        <button class="btn btn-warn btn-sm" onclick="gapsSchedule()" id="gaps-btn-schedule" disabled
+                title="Cria job e abre na aba Backfill — não bloqueia esta tela.">
+          📋 Agendar (em background)
+        </button>
       </div>
       <div id="gapsMsg" class="msg"></div>
+      <div id="gapsProgress" style="margin-top:14px;display:none;padding:14px;background:var(--s1);border:1px solid var(--border);border-radius:6px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+          <div>
+            <div style="font-size:13px;color:var(--text);font-weight:600">
+              <span id="gaps-progress-title">Job em andamento</span>
+            </div>
+            <small id="gaps-progress-current" style="color:var(--muted);font-size:11px;font-family:monospace">—</small>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span id="gaps-progress-status" style="font-size:11px;color:var(--muted)"></span>
+            <button class="btn btn-sm btn-danger" onclick="gapsCancelJob()" id="gaps-btn-cancel">⏹ Cancelar</button>
+          </div>
+        </div>
+        <div style="background:var(--s2);border-radius:3px;height:10px;overflow:hidden">
+          <div id="gaps-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--green));transition:.3s"></div>
+        </div>
+        <small id="gaps-progress-counters" style="color:var(--muted);font-size:11px;display:block;margin-top:6px">0/0 · ok=0 skip=0 err=0</small>
+      </div>
       <div id="gapsResult" style="margin-top:14px;display:none"></div>
     </div>
   </div>
@@ -2475,6 +2504,7 @@ async function gapsCheck() {
   const result = document.getElementById('gapsResult');
   result.style.display = 'none';
   document.getElementById('gaps-btn-schedule').disabled = true;
+  document.getElementById('gaps-btn-fill-now').disabled = true;
   try {
     const qs = new URLSearchParams({ ticker, date_start: start, date_end: end, source });
     const res = await fetch(`${API}/marketdata/gaps?${qs}`, { headers: H() });
@@ -2484,7 +2514,9 @@ async function gapsCheck() {
       return;
     }
     gapsLastResult = data;
-    document.getElementById('gaps-btn-schedule').disabled = data.missing_count === 0;
+    const hasGaps = data.missing_count > 0;
+    document.getElementById('gaps-btn-schedule').disabled = !hasGaps;
+    document.getElementById('gaps-btn-fill-now').disabled = !hasGaps;
     showMsg('gapsMsg', `${ticker}: ${data.present_count}/${data.total_trading_days} dias presentes (${data.coverage_pct}% cobertura). ${data.missing_count} faltantes.`, data.missing_count === 0 ? 'success' : 'error');
     result.style.display = 'block';
     result.innerHTML = gapsRenderResult(data);
@@ -2532,12 +2564,12 @@ async function gapsSchedule() {
   const dateStart = days[0];
   const dateEnd = days[days.length - 1];
   if (!await FAModal.confirm({
-    title: 'Reagendar gaps como Backfill Job',
+    title: 'Agendar gaps em background',
     text:
       `${ticker} · ${days.length} dia(s) faltante(s)\n` +
       `Range: ${dateStart} → ${dateEnd}\n\n` +
-      `O job tenta TODO o range — dias já presentes serão pulados automaticamente (skip_in_db).`,
-    okLabel: '↻ Criar job',
+      `Cria job que roda em background — acompanhe na aba Backfill. Esta tela fica livre.`,
+    okLabel: '📋 Agendar',
     variant: 'primary',
   })) return;
   try {
@@ -2552,6 +2584,135 @@ async function gapsSchedule() {
   } catch (err) {
     showMsg('gapsMsg', `Falha de rede: ${err.message}`, 'error');
   }
+}
+
+// ── Preencher agora (foreground job + polling inline) ────────────────────────
+let gapsActiveJobId = null;
+let gapsPollTimer = null;
+
+async function gapsFillNow() {
+  if (!gapsLastResult || !gapsLastResult.missing_days?.length) return;
+  if (gapsActiveJobId) {
+    showMsg('gapsMsg', 'Já existe um job rodando aqui. Aguarde ou cancele.', 'warn');
+    return;
+  }
+  const ticker = gapsLastResult.ticker;
+  const days = gapsLastResult.missing_days;
+  const dateStart = days[0];
+  const dateEnd = days[days.length - 1];
+  if (!await FAModal.confirm({
+    title: 'Preencher gaps agora',
+    text:
+      `${ticker} · ${days.length} dia(s) faltante(s)\n` +
+      `Range: ${dateStart} → ${dateEnd}\n\n` +
+      `Cria backfill job e mostra progresso aqui. ` +
+      `DLL serializa — ~60-300s por dia. Outros jobs em fila esperam.`,
+    okLabel: '▶ Iniciar',
+    variant: 'primary',
+  })) return;
+  // Disable buttons while running
+  document.getElementById('gaps-btn-fill-now').disabled = true;
+  document.getElementById('gaps-btn-schedule').disabled = true;
+  document.getElementById('gaps-btn').disabled = true;
+  try {
+    const res = await fetch(`${BF_API}/jobs`, {
+      method: 'POST',
+      headers: H(),
+      body: JSON.stringify({ tickers: [ticker], date_start: dateStart, date_end: dateEnd, force_refetch: false }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showMsg('gapsMsg', `Erro: ${data.detail || res.status}`, 'error');
+      _gapsRestoreButtons();
+      return;
+    }
+    gapsActiveJobId = data.id;
+    showMsg('gapsMsg', `Job #${data.id} criado (${data.total_items} items). Acompanhando…`, 'success');
+    document.getElementById('gaps-progress-title').textContent =
+      `Job #${data.id} — ${ticker} · ${data.total_items} item(s)`;
+    document.getElementById('gapsProgress').style.display = 'block';
+    gapsPollTimer = setInterval(_gapsPollJob, 2000);
+    _gapsPollJob();  // tick imediato
+  } catch (err) {
+    showMsg('gapsMsg', `Falha de rede: ${err.message}`, 'error');
+    _gapsRestoreButtons();
+  }
+}
+
+async function _gapsPollJob() {
+  if (!gapsActiveJobId) return;
+  try {
+    const res = await fetch(`${BF_API}/jobs/${gapsActiveJobId}`, { headers: H() });
+    if (!res.ok) return;
+    const job = await res.json();
+    const total = job.total_items || 0;
+    const done  = job.done_items || 0;
+    const ok    = job.ok_items || 0;
+    const skip  = job.skip_items || 0;
+    const err   = job.err_items || 0;
+    const pct = total ? Math.floor(100 * done / total) : 0;
+    document.getElementById('gaps-progress-bar').style.width = `${pct}%`;
+    document.getElementById('gaps-progress-counters').textContent =
+      `${done}/${total} (${pct}%) · ok=${ok} skip=${skip} err=${err}`;
+    document.getElementById('gaps-progress-status').textContent = job.status;
+    // Pega item rodando agora (running) p/ exibir
+    if (job.status === 'running') {
+      const itemsRes = await fetch(`${BF_API}/jobs/${gapsActiveJobId}/items?status=running`, { headers: H() });
+      if (itemsRes.ok) {
+        const items = (await itemsRes.json()).items || [];
+        if (items.length) {
+          const it = items[0];
+          document.getElementById('gaps-progress-current').textContent =
+            `coletando ${it.ticker} ${it.target_date} (item ${done + 1}/${total})`;
+        }
+      }
+    } else {
+      document.getElementById('gaps-progress-current').textContent =
+        job.status === 'done' ? '✓ Concluído' :
+        job.status === 'cancelled' ? '⏹ Cancelado' :
+        job.status === 'failed' ? '✗ Falhou' : job.status;
+    }
+    // Encerrar polling quando terminar
+    if (['done', 'cancelled', 'failed'].includes(job.status)) {
+      clearInterval(gapsPollTimer);
+      gapsPollTimer = null;
+      gapsActiveJobId = null;
+      _gapsRestoreButtons();
+      const finalMsg = job.status === 'done' && err === 0
+        ? `✓ Backfill concluído: ${ok} ok, ${skip} skip.`
+        : job.status === 'done'
+          ? `⚠ Concluído com ${err} erro(s) (${ok} ok, ${skip} skip).`
+          : `${job.status === 'cancelled' ? '⏹ cancelado' : '✗ falhou'} — ${err} erro(s).`;
+      showMsg('gapsMsg', finalMsg,
+        job.status === 'done' && err === 0 ? 'success' :
+        job.status === 'cancelled' ? 'warn' : 'error');
+      // Re-busca gaps para refletir novo estado dos dados
+      setTimeout(() => gapsCheck(), 500);
+    }
+  } catch (e) {
+    // tolerante a falhas transientes do polling
+  }
+}
+
+async function gapsCancelJob() {
+  if (!gapsActiveJobId) return;
+  if (!await FAModal.confirm({
+    title: 'Cancelar backfill',
+    text: `Cancelar job #${gapsActiveJobId}? Item em andamento termina; próximos são pulados.`,
+    okLabel: '⏹ Cancelar',
+    variant: 'danger',
+  })) return;
+  try {
+    await fetch(`${BF_API}/jobs/${gapsActiveJobId}/cancel`, { method: 'POST', headers: H() });
+  } catch {}
+}
+
+function _gapsRestoreButtons() {
+  document.getElementById('gaps-btn').disabled = false;
+  // fill-now/schedule só re-habilitam se ainda há gaps no último resultado
+  const hasGaps = gapsLastResult && gapsLastResult.missing_days?.length;
+  document.getElementById('gaps-btn-fill-now').disabled = !hasGaps;
+  document.getElementById('gaps-btn-schedule').disabled = !hasGaps;
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
