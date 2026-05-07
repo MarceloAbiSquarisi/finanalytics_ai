@@ -447,28 +447,38 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
   <!-- TAB BANCO DE DADOS -->
   <div class="tab-panel" id="tab-db">
     <div class="sec-header">
-      <span class="sec-title">Reconstrução de Bars 1m (OHLC)</span>
+      <span class="sec-title">Reconstrução de Bars OHLC (multi-timeframe)</span>
     </div>
-    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:18px;max-width:720px;margin-bottom:18px">
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:18px;max-width:820px;margin-bottom:18px">
       <p style="font-size:14px;color:var(--muted);margin-bottom:14px;line-height:1.5">
-        Reconstrói os bars 1m em <code style="color:var(--accent)">ohlc_1m</code> a partir do continuous aggregate
-        <code style="color:var(--accent)">ohlc_1m_from_ticks</code> (filtra ticks fora do pregão B3, 12-21 UTC).
-        Use para corrigir dias com ruído pre-market ou dados stale após restart do agent.
-        <strong style="color:var(--gold)">DELETE + INSERT</strong> — operação destrutiva, sem rollback após confirmar.
+        <strong>1m</strong>: DELETE+INSERT em <code style="color:var(--accent)">ohlc_1m</code> a partir do continuous aggregate
+        <code style="color:var(--accent)">ohlc_1m_from_ticks</code> — destrutivo, filtra ticks pre-market.<br>
+        <strong>5m / 15m / 1h / 1d</strong>: refresh hierárquico das CAGGs (re-agrega de <code>ohlc_1m</code> em cascata).
+        Idempotente, ignora filtro de ticker.
       </p>
-      <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:14px">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr;gap:14px">
+        <div class="form-group">
+          <label>Timeframe</label>
+          <select id="ohlc-timeframe" onchange="ohlcOnTimeframeChange()" style="background:var(--s1);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:13px">
+            <option value="1m" selected>1m (DELETE+INSERT)</option>
+            <option value="5m">5m (CAGG)</option>
+            <option value="15m">15m (CAGG)</option>
+            <option value="1h">1h (CAGG)</option>
+            <option value="1d">1d (CAGG)</option>
+          </select>
+        </div>
         <div class="form-group">
           <label>Data <span style="color:var(--red)">*</span></label>
           <input id="ohlc-date" type="date" required>
         </div>
         <div class="form-group">
-          <label>Ticker (opcional — vazio = todos)</label>
-          <input id="ohlc-ticker" type="text" placeholder="ex: ITUB4 (deixe vazio p/ todos)" style="text-transform:uppercase">
+          <label>Ticker (só 1m; vazio = todos)</label>
+          <input id="ohlc-ticker" type="text" placeholder="ex: ITUB4" style="text-transform:uppercase">
         </div>
       </div>
       <div class="form-actions" style="margin-top:14px">
         <button class="btn btn-warn" onclick="rebuildOhlc()" id="btn-rebuild-ohlc">
-          ↻ Reconstruir bars 1m
+          ↻ Reconstruir bars
         </button>
       </div>
       <div id="ohlcMsg" class="msg"></div>
@@ -959,21 +969,46 @@ function logout() {
   location.href = '/';
 }
 
-// ── OHLC Rebuild (Sistema) ────────────────────────────────────────────────────
+// ── OHLC Rebuild (Banco de Dados) ─────────────────────────────────────────────
+function ohlcOnTimeframeChange() {
+  const tf = document.getElementById('ohlc-timeframe').value;
+  const tickerEl = document.getElementById('ohlc-ticker');
+  // Ticker so' aplica em 1m (DELETE+INSERT). Para CAGGs, refresh é por bucket.
+  if (tf !== '1m') {
+    tickerEl.value = '';
+    tickerEl.disabled = true;
+    tickerEl.placeholder = 'N/A para CAGG (refresh por bucket)';
+  } else {
+    tickerEl.disabled = false;
+    tickerEl.placeholder = 'ex: ITUB4';
+  }
+}
+
 async function rebuildOhlc() {
   const dateEl = document.getElementById('ohlc-date');
   const tickerEl = document.getElementById('ohlc-ticker');
+  const tfEl = document.getElementById('ohlc-timeframe');
   const btn = document.getElementById('btn-rebuild-ohlc');
   const resultEl = document.getElementById('ohlcResult');
   const date = (dateEl.value || '').trim();
   const ticker = (tickerEl.value || '').trim().toUpperCase();
+  const timeframe = tfEl.value;
   if (!date) { showMsg('ohlcMsg', 'Informe a data.', 'error'); return; }
-  const scope = ticker ? `${ticker} em ${date}` : `TODOS os tickers em ${date}`;
+  const isOneM = timeframe === '1m';
+  const _CHAIN = ['5m','15m','1h','1d'];
+  const _idx = _CHAIN.indexOf(timeframe);
+  const _scopeChain = _idx <= 0 ? '' : ` (cascata: ${_CHAIN.slice(0, _idx + 1).join(' → ')})`;
+  const scope = isOneM
+    ? (ticker ? `${ticker} em ${date}` : `TODOS os tickers em ${date}`)
+    : `bars ${timeframe} em ${date}${_scopeChain}`;
+  const text = isOneM
+    ? `Reconstruir ${scope}?\n\nDELETE + INSERT — destrutivo, sem rollback após confirmar.`
+    : `Refresh ${scope}?\n\nIdempotente — apenas re-agrega bars existentes.`;
   if (!await FAModal.confirm({
-    title: 'Reconstruir bars 1m',
-    text: `Reconstruir ${scope}?\n\nDELETE + INSERT — destrutivo, sem rollback após confirmar.`,
+    title: `Reconstruir bars ${timeframe}`,
+    text,
     okLabel: '↻ Reconstruir',
-    variant: 'danger',
+    variant: isOneM ? 'danger' : 'warn',
   })) return;
   btn.disabled = true;
   btn.textContent = '⌛ Reconstruindo…';
@@ -982,28 +1017,43 @@ async function rebuildOhlc() {
     const res = await fetch(`${API}/ohlc/rebuild`, {
       method: 'POST',
       headers: H(),
-      body: JSON.stringify({ date, ticker: ticker || null }),
+      body: JSON.stringify({ date, ticker: ticker || null, timeframe }),
     });
     const data = await res.json();
     if (!res.ok) {
       showMsg('ohlcMsg', `Erro: ${data.detail || res.status}`, 'error');
     } else {
-      showMsg('ohlcMsg', `OK: ${data.deleted} deletados, ${data.inserted} inseridos.`, 'success');
+      showMsg('ohlcMsg', `OK: ${data.deleted || 0} deletados, ${data.inserted || 0} inseridos.`, 'success');
       resultEl.style.display = 'block';
-      resultEl.innerHTML = `
+      let html = `
         <div><strong>status:</strong> ${data.status}</div>
         <div><strong>date:</strong> ${data.date}</div>
+        <div><strong>timeframe:</strong> ${data.timeframe}</div>
         <div><strong>ticker:</strong> ${data.ticker || '(todos)'}</div>
-        <div><strong>deleted:</strong> ${data.deleted}</div>
-        <div><strong>inserted:</strong> ${data.inserted}</div>
-        <div><strong>net_change:</strong> ${data.net_change > 0 ? '+' : ''}${data.net_change}</div>
+        <div><strong>deleted:</strong> ${data.deleted || 0}</div>
+        <div><strong>inserted/net:</strong> ${data.net_change > 0 ? '+' : ''}${data.net_change || 0}</div>
       `;
+      if (data.refreshed_chain) {
+        html += `<div style="margin-top:6px"><strong>chain:</strong> ${data.refreshed_chain.join(' → ')}</div>`;
+        const before = data.bars_before || {}, after = data.bars_after || {};
+        html += `<div><strong>bars by view:</strong></div>`;
+        for (const view of data.refreshed_chain) {
+          const b = before[view] || 0, a = after[view] || 0;
+          const delta = a - b;
+          html += `<div style="margin-left:14px">${view}: ${b} → ${a} (${delta >= 0 ? '+' : ''}${delta})</div>`;
+        }
+      }
+      if (data.warnings && data.warnings.length) {
+        html += `<div style="margin-top:8px;color:var(--gold)"><strong>⚠ avisos:</strong></div>`;
+        for (const w of data.warnings) html += `<div style="color:var(--gold);margin-left:14px">${w}</div>`;
+      }
+      resultEl.innerHTML = html;
     }
   } catch (err) {
     showMsg('ohlcMsg', `Falha de rede: ${err.message}`, 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = '↻ Reconstruir bars 1m';
+    btn.textContent = '↻ Reconstruir bars';
   }
 }
 

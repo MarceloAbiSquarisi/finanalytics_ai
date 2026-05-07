@@ -363,9 +363,19 @@ class OHLCRebuildRequest(BaseModel):
     date: _date = Field(..., description="Dia a reconstruir (YYYY-MM-DD)")
     ticker: str | None = Field(
         default=None,
-        description="Ticker específico ou null para todos do dia",
+        description="Ticker específico ou null para todos do dia (so' aplica a 1m)",
         max_length=20,
     )
+    timeframe: str = Field(
+        default="1m",
+        description="Timeframe a reconstruir: 1m | 5m | 15m | 1h | 1d",
+        pattern=r"^(1m|5m|15m|1h|1d)$",
+    )
+
+
+# Hierarquia das CAGGs (refresh upstream antes do alvo p/ garantir
+# consistencia caso refresh policies estejam atrasadas).
+_CAGG_HIERARCHY: list[str] = ["ohlc_5m", "ohlc_15m", "ohlc_1h", "ohlc_1d"]
 
 
 @router.post("/ohlc/rebuild")
@@ -375,72 +385,133 @@ async def rebuild_ohlc_day(
 ) -> dict:
     target = body.date.isoformat()
     ticker = (body.ticker or "").strip().upper() or None
+    timeframe = body.timeframe
 
     conn = await asyncpg.connect(_TS_DSN)
     try:
-        async with conn.transaction():
-            if ticker:
-                deleted_q = await conn.execute(
-                    """
-                    DELETE FROM ohlc_1m
-                    WHERE time >= $1::date
-                      AND time <  ($1::date + INTERVAL '1 day')
-                      AND ticker = $2
-                    """,
-                    target,
-                    ticker,
-                )
-                inserted_q = await conn.execute(
-                    """
-                    INSERT INTO ohlc_1m (time, ticker, open, high, low, close, volume, trades, source)
-                    SELECT time, ticker, open, high, low, close, volume, COALESCE(trades, 0), 'tick_agg_v1'
-                    FROM ohlc_1m_from_ticks
-                    WHERE time >= $1::date
-                      AND time <  ($1::date + INTERVAL '1 day')
-                      AND ticker = $2
-                    """,
-                    target,
-                    ticker,
-                )
-            else:
-                deleted_q = await conn.execute(
-                    """
-                    DELETE FROM ohlc_1m
-                    WHERE time >= $1::date
-                      AND time <  ($1::date + INTERVAL '1 day')
-                    """,
-                    target,
-                )
-                inserted_q = await conn.execute(
-                    """
-                    INSERT INTO ohlc_1m (time, ticker, open, high, low, close, volume, trades, source)
-                    SELECT time, ticker, open, high, low, close, volume, COALESCE(trades, 0), 'tick_agg_v1'
-                    FROM ohlc_1m_from_ticks
-                    WHERE time >= $1::date
-                      AND time <  ($1::date + INTERVAL '1 day')
-                    """,
-                    target,
-                )
-        deleted = int(deleted_q.split()[-1]) if deleted_q.startswith("DELETE") else 0
-        inserted = int(inserted_q.split()[-1]) if inserted_q.startswith("INSERT") else 0
+        # ── 1m: DELETE+INSERT a partir do continuous aggregate raw ───────────
+        if timeframe == "1m":
+            async with conn.transaction():
+                if ticker:
+                    deleted_q = await conn.execute(
+                        """
+                        DELETE FROM ohlc_1m
+                        WHERE time >= $1::date
+                          AND time <  ($1::date + INTERVAL '1 day')
+                          AND ticker = $2
+                        """,
+                        target, ticker,
+                    )
+                    inserted_q = await conn.execute(
+                        """
+                        INSERT INTO ohlc_1m (time, ticker, open, high, low, close, volume, trades, source)
+                        SELECT time, ticker, open, high, low, close, volume, COALESCE(trades, 0), 'tick_agg_v1'
+                        FROM ohlc_1m_from_ticks
+                        WHERE time >= $1::date
+                          AND time <  ($1::date + INTERVAL '1 day')
+                          AND ticker = $2
+                        """,
+                        target, ticker,
+                    )
+                else:
+                    deleted_q = await conn.execute(
+                        """
+                        DELETE FROM ohlc_1m
+                        WHERE time >= $1::date
+                          AND time <  ($1::date + INTERVAL '1 day')
+                        """,
+                        target,
+                    )
+                    inserted_q = await conn.execute(
+                        """
+                        INSERT INTO ohlc_1m (time, ticker, open, high, low, close, volume, trades, source)
+                        SELECT time, ticker, open, high, low, close, volume, COALESCE(trades, 0), 'tick_agg_v1'
+                        FROM ohlc_1m_from_ticks
+                        WHERE time >= $1::date
+                          AND time <  ($1::date + INTERVAL '1 day')
+                        """,
+                        target,
+                    )
+            deleted = int(deleted_q.split()[-1]) if deleted_q.startswith("DELETE") else 0
+            inserted = int(inserted_q.split()[-1]) if inserted_q.startswith("INSERT") else 0
+            logger.info(
+                "admin.ohlc.rebuild",
+                date=target, ticker=ticker, timeframe=timeframe,
+                deleted=deleted, inserted=inserted, actor=actor.user_id,
+            )
+            return {
+                "status": "ok",
+                "date": target,
+                "ticker": ticker,
+                "timeframe": timeframe,
+                "deleted": deleted,
+                "inserted": inserted,
+                "net_change": inserted - deleted,
+            }
+
+        # ── 5m/15m/1h/1d: refresh continuous aggregate ────────────────────────
+        # CAGG refresh nao aceita filtro de ticker — opera por bucket. Se
+        # ticker foi passado, ignora (com aviso no response).
+        # Hierarquia: refresha upstream antes do alvo p/ consistencia.
+        target_view = f"ohlc_{timeframe}"
+        idx = _CAGG_HIERARCHY.index(target_view)
+        chain = _CAGG_HIERARCHY[: idx + 1]
+        bars_before = {}
+        for view in chain:
+            row = await conn.fetchrow(
+                f"SELECT count(*) AS c FROM {view} "
+                "WHERE time >= $1::date AND time < ($1::date + INTERVAL '1 day')",
+                body.date,
+            )
+            bars_before[view] = int(row["c"]) if row else 0
+        # CALL refresh_continuous_aggregate nao roda em transaction.
+        # asyncpg connection default e' auto-commit (sem transaction()).
+        # Datas validadas pelo Pydantic (_date), seguro p/ string-format.
+        next_day = (body.date + timedelta(days=1)).isoformat()
+        for view in chain:
+            await conn.execute(
+                f"CALL refresh_continuous_aggregate("
+                f"'{view}', '{target}'::timestamptz, '{next_day}'::timestamptz)"
+            )
+        bars_after = {}
+        for view in chain:
+            row = await conn.fetchrow(
+                f"SELECT count(*) AS c FROM {view} "
+                "WHERE time >= $1::date AND time < ($1::date + INTERVAL '1 day')",
+                body.date,
+            )
+            bars_after[view] = int(row["c"]) if row else 0
+
         logger.info(
-            "admin.ohlc.rebuild",
-            date=target,
-            ticker=ticker,
-            deleted=deleted,
-            inserted=inserted,
+            "admin.ohlc.cagg_refresh",
+            date=target, timeframe=timeframe, chain=chain,
+            bars_before=bars_before, bars_after=bars_after,
             actor=actor.user_id,
         )
+        warnings = []
+        if ticker:
+            warnings.append(
+                f"ticker={ticker} ignorado: CAGG refresh opera por bucket "
+                "(re-agrega TODOS os tickers do dia)."
+            )
         return {
             "status": "ok",
             "date": target,
-            "ticker": ticker,
-            "deleted": deleted,
-            "inserted": inserted,
-            "net_change": inserted - deleted,
+            "ticker": None,
+            "timeframe": timeframe,
+            "refreshed_chain": chain,
+            "bars_before": bars_before,
+            "bars_after": bars_after,
+            "deleted": 0,
+            "inserted": sum(bars_after.values()) - sum(bars_before.values()),
+            "net_change": sum(bars_after.values()) - sum(bars_before.values()),
+            "warnings": warnings,
         }
     except Exception as exc:
-        logger.warning("admin.ohlc.rebuild_failed", error=str(exc), date=target, ticker=ticker)
+        logger.warning(
+            "admin.ohlc.rebuild_failed",
+            error=str(exc), date=target, ticker=ticker, timeframe=timeframe,
+        )
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
     finally:
         await conn.close()
