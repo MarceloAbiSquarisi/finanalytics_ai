@@ -2,7 +2,47 @@
 
 > **Para Claude/agente:** este é o primeiro arquivo a consultar em qualquer sessão. Contém pendências priorizadas + carryover de sessões anteriores. Atualizar ao fim de cada sessão (mover concluídas pra `## Done recente` e depois pra `docs/historico/`).
 
-Última atualização: **2026-05-07 19:00 BRT** (R5 harness end-to-end: walk-forward + DSR Neff + vol-target + persistência DB + UI /r5)
+Última atualização: **2026-05-07 21:30 BRT** (R5 sweep 12 runs + trade-level DSR — id=11 emerge como deployment candidate com prob_real=72%)
+
+### Done 07/mai noite (sessão R5 sweep + trade-level DSR)
+
+Continuação direta do harness end-to-end (3 commits adicionais):
+
+- ✅ **R5 param sweep** (commit `fa29413`): `scripts/r5_sweep.py` (7 single-axis: th/retrain/horizon/tvol) + `scripts/r5_sweep_combo.py` (3 combos defensivos). 10 runs novos no DB (id=3..12). Sequencial — paralelizar saturaria CPU (vide `feedback_zombie_python_container.md`).
+
+  **Sensitivity ranking vs filter baseline (id=2 sharpe=1.351, prob=55.7%):**
+  - **retrain=42** (id=5): sharpe→1.865 (+38%), prob→91.8%, ret_sum 4132%→8203% — winner credível (mesmo skew/kurt do baseline).
+  - **horizon=42** (id=8): sharpe→1.940, prob_under=99.8% **suspeito** (PETR4 underlying skew=11.86 kurt=218 distorce Mertens).
+  - **horizon=10** (id=7): sharpe→1.781, prob=86.6%, BMEB4 19 trades.
+  - **vol=0.015** (id=9): sharpe=igual, dd_avg 23.6%→18.6% (-5pp).
+  - **th=0.05/0.15** (id=3,4): sharpe Δ ≤ +0.23, return cai com seletividade.
+  - **retrain=126** (id=6): essencialmente idêntico ao baseline.
+
+  **Combos (sweep #2):**
+  - **id=10 retr42+vol015**: sharpe=1.832, prob=90.9%, dd=18.7%, ret=5475% — efeitos somam linearmente (sharpe do retrain + dd do vol). Best deployment dentro do sweep.
+  - id=11 h10+vol015: sharpe=1.795, prob=87.1%, dd=19.9%, n_trades=19.
+  - id=12 h42+vol015: prob_under=99.7% mantém suspeita.
+
+- ✅ **Trade-level DSR** (commit `71e3652`): `scripts/r5_trade_level_dsr.py` re-roda WF do best_ticker de cada run, extrai `trade.pnl_pct`, computa DSR completo com:
+  - `annualization_factor = 252/avg_duration_days`
+  - `sample_size = num_trades`
+  - `skew, kurt = momentos amostrais dos pnl_pct`
+
+  **Findings reveladores:**
+  - Trade-level skew/kurt são **muito menores** que underlying (PETR4: 11.86/218 → 1.25/3.08). Estratégia naturalmente filtra outliers via thresholds + holding.
+  - **id=12 não é puro artifact** — trade-level confirma 92% mas com N=7 trades só (insuficiente).
+  - **id=2 filter baseline é PIOR que parecia**: prob_trade=21% (vs 55.7% under). Without winner config, é noise.
+  - **id=11 (h=10+vol015)** emerge como melhor candidato: prob_trade=72% com N=19 trades (sample size adequado).
+  - Confiável só com `n_trades ≥ 17`. CSMG3/PETR4 com 7-8 trades têm Mertens unreliable (T pequeno → sigma minúsculo → z explode pra 100%).
+
+**Conclusão R5 deployment-ready:**
+- **Prefer id=11** (h=10, retrain=63, target_vol=0.015): sharpe=1.795, dd_avg=19.87%, prob_trade=72%, sample size adequado.
+- Próximo nível pra subir prob_real: rolling-origin walk-forward com 3-5 folds (cada fold com universo + Neff + DSR independente, agregar).
+
+**Memórias persistentes adicionais:**
+- Trade-level DSR é o "número honesto" mas exige `n_trades ≥ 17` pra Mertens funcionar.
+- Underlying-DSR superestima prob_real em horizons longos (kurt explode).
+- Effects orthogonal: retrain ↑ sharpe; vol-target ↓ drawdown; combinam aditivamente.
 
 ### Done 07/mai tarde-noite (sessão R5 harness)
 
