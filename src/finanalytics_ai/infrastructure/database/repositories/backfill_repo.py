@@ -37,19 +37,63 @@ _TS_DSN = _TS_DSN_RAW.replace("postgresql+asyncpg://", "postgres://").replace(
 )
 
 
-HOLIDAYS_BR_2026: set[date] = {
-    date(2026, 1, 1),
-    date(2026, 2, 16), date(2026, 2, 17),
-    date(2026, 4, 3), date(2026, 4, 21),
-    date(2026, 5, 1), date(2026, 6, 4),
-    date(2026, 9, 7), date(2026, 10, 12),
-    date(2026, 11, 2), date(2026, 11, 15),
-    date(2026, 12, 25),
-}
+# Feriados B3 — calculados via lib `holidays` (BR + subdiv SP) com cache
+# por ano. Inclui feriados nacionais + Carnaval (seg+ter) + Corpus Christi
+# que sao "optional" no Brasil mas a B3 fecha em todos.
+#
+# Nomes considerados feriado B3 (exclui 'Início da Quaresma' = quarta de
+# cinzas pq B3 abre 13h, e excursoes locais sem fechamento).
+_B3_HOLIDAY_NAMES: frozenset[str] = frozenset({
+    "Confraternização Universal",
+    "Carnaval",
+    "Sexta-feira Santa",
+    "Tiradentes",
+    "Dia do Trabalhador",
+    "Corpus Christi",
+    "Independência do Brasil",
+    "Nossa Senhora Aparecida",
+    "Finados",
+    "Proclamação da República",
+    "Consciência Negra",          # nacional desde 2024
+    "Natal",
+})
+
+_B3_HOLIDAYS_CACHE: dict[int, frozenset[date]] = {}
+
+
+def _b3_holidays_for_year(year: int) -> frozenset[date]:
+    cached = _B3_HOLIDAYS_CACHE.get(year)
+    if cached is not None:
+        return cached
+    try:
+        import holidays as _hol
+        h = _hol.country_holidays(
+            "BR", subdiv="SP", years=year,
+            categories=("public", "optional"),
+        )
+        result = frozenset(d for d, name in h.items() if name in _B3_HOLIDAY_NAMES)
+    except Exception:
+        # Fallback minimo (apenas feriados fixos) se lib nao disponivel.
+        result = frozenset({
+            date(year, 1, 1),    # Confraternização
+            date(year, 4, 21),   # Tiradentes
+            date(year, 5, 1),    # Trabalhador
+            date(year, 9, 7),    # Independência
+            date(year, 10, 12),  # Aparecida
+            date(year, 11, 2),   # Finados
+            date(year, 11, 15),  # República
+            date(year, 12, 25),  # Natal
+        })
+    _B3_HOLIDAYS_CACHE[year] = result
+    return result
+
+
+def is_b3_holiday(d: date) -> bool:
+    return d in _b3_holidays_for_year(d.year)
 
 
 def is_trading_day(d: date) -> bool:
-    return d.weekday() < 5 and d not in HOLIDAYS_BR_2026
+    return d.weekday() < 5 and not is_b3_holiday(d)
 
 
 def trading_days_in_range(start: date, end: date) -> list[date]:

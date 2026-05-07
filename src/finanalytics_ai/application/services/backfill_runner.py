@@ -187,6 +187,13 @@ async def _process_item(
         await backfill_repo.finish_item(
             item["id"], status="skip", error_msg="ja existe em market_history_trades"
         )
+        # Mesmo em skip, garante que ohlc_1m está sincronizado com os ticks
+        # já presentes em market_history_trades. Caso comum: fluxo "Preencher
+        # gaps" no source=ohlc_1m onde os ticks existem mas as bars 1m nunca
+        # foram geradas (ou foram truncadas). Idempotente: DELETE+INSERT.
+        await _rebuild_ohlc_1m_for_ticker_day(
+            ticker=ticker, target_date=target_date, job_id=job_id,
+        )
         return
 
     is_fut = exchange.upper() in FUTURES_EXCHANGE
