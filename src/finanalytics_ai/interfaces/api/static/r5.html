@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>R5 Backtest | FinAnalytics AI</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<meta name="robots" content="noindex, nofollow">
+<script>(function(){try{var t=localStorage.getItem('fa_theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script>
+<link rel="stylesheet" href="/static/theme.css">
+<style>
+:root {
+  --navy:#0A1628; --navy-mid:#0D2144; --blue:#3ABFF8; --gold:#F0B429;
+  --green:#2ED47A; --red:#E05555; --white:#E8F4FD; --muted:#6A9EBF;
+  --border:rgba(58,191,248,.12); --card:rgba(13,33,68,.75);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--navy);color:var(--white);font-family:'Syne',sans-serif;min-height:100vh}
+main{position:relative;z-index:1;padding:24px;max-width:1500px;margin:0 auto}
+.page-title{font-size:26px;font-weight:800;margin-bottom:4px}
+.page-sub{font-size:15px;color:var(--muted);font-family:monospace;margin-bottom:24px}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:18px;margin-bottom:18px;backdrop-filter:blur(8px)}
+.card-title{font-size:14px;font-weight:700;color:var(--blue);font-family:monospace;
+  text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px}
+
+table.r5{width:100%;border-collapse:collapse;font-family:monospace;font-size:13px}
+table.r5 th{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);
+  color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.7px;
+  font-weight:600;cursor:pointer;user-select:none}
+table.r5 th:hover{color:var(--blue)}
+table.r5 td{padding:7px 10px;border-bottom:1px solid rgba(58,191,248,.04)}
+table.r5 tr:hover td{background:rgba(58,191,248,.04)}
+table.r5 tr.clickable{cursor:pointer}
+.num{font-variant-numeric:tabular-nums}
+.pos{color:var(--green)}.neg{color:var(--red)}
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px 18px;
+  font-family:monospace;font-size:13px}
+.kv .k{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+.kv .v{color:var(--white);font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+.kv .v.acc{color:var(--blue)}.kv .v.gold{color:var(--gold)}
+.kv .v.green{color:var(--green)}.kv .v.red{color:var(--red)}
+
+.btn{background:transparent;color:var(--blue);border:1px solid rgba(58,191,248,.3);
+  border-radius:6px;padding:6px 12px;font-family:monospace;font-size:12px;cursor:pointer;
+  transition:all .15s}
+.btn:hover{background:rgba(58,191,248,.08)}
+.btn.gold{color:var(--gold);border-color:rgba(240,180,41,.3)}
+.btn.gold:hover{background:rgba(240,180,41,.08)}
+
+.bar{display:inline-flex;align-items:center;gap:6px}
+.bar-fill{height:6px;background:linear-gradient(90deg,var(--blue),var(--gold));
+  border-radius:3px;min-width:0}
+
+.access-denied{display:none;text-align:center;padding:60px;color:var(--muted)}
+.empty{text-align:center;padding:30px;color:var(--muted);font-family:monospace}
+</style>
+</head>
+<body>
+<faSidebar></faSidebar>
+<main>
+<h1 class="page-title">R5 Backtest Harness</h1>
+<p class="page-sub">walk-forward multi-ticker · DSR (LdP 2014) · vol-targeting</p>
+
+<div id="accessDenied" class="access-denied">
+  <h2>403 — Acesso restrito</h2>
+  <p>Apenas usuários master. <a href="/dashboard" style="color:var(--blue)">Voltar</a></p>
+</div>
+
+<div id="content" style="display:none">
+
+<!-- Runs list -->
+<div class="card" id="runsCard">
+  <div class="card-title">RUNS RECENTES</div>
+  <div id="runsTable"><div class="empty">Carregando...</div></div>
+</div>
+
+<!-- Run detail (toggled) -->
+<div class="card" id="runDetail" style="display:none">
+  <div class="card-title">
+    <span id="runDetailTitle">DETALHE</span>
+    <button class="btn" style="float:right" onclick="closeDetail()">Fechar</button>
+    <button class="btn gold" style="float:right;margin-right:8px" onclick="enterDiffMode()">Diff vs ...</button>
+  </div>
+  <div id="runDetailBody"></div>
+</div>
+
+<!-- Per-ticker table -->
+<div class="card" id="tickersCard" style="display:none">
+  <div class="card-title">PER-TICKER (sort por header)</div>
+  <div id="tickersTable"><div class="empty">Carregando tickers...</div></div>
+</div>
+
+<!-- Diff view -->
+<div class="card" id="diffCard" style="display:none">
+  <div class="card-title">
+    <span id="diffTitle">DIFF</span>
+    <button class="btn" style="float:right" onclick="closeDiff()">Fechar</button>
+  </div>
+  <div id="diffBody"></div>
+</div>
+
+</div>
+</main>
+
+<script src="/static/auth_guard.js"></script>
+<script src="/static/sidebar.js"></script>
+<script>
+let CURRENT_RUN = null;
+let CURRENT_RUN_META = null;
+let CURRENT_TICKERS = [];
+let TICKER_SORT = {col: 'sharpe_ratio', desc: true};
+let DIFF_MODE = false;
+
+const fmt = {
+  num(v, dec=2){ if(v==null||isNaN(v)) return '—'; return Number(v).toFixed(dec); },
+  pct(v, dec=2){ if(v==null||isNaN(v)) return '—'; return Number(v).toFixed(dec)+'%'; },
+  signed(v, dec=2){ if(v==null||isNaN(v)) return '—'; const n=Number(v); return (n>=0?'+':'')+n.toFixed(dec); },
+  date(s){ if(!s) return '—'; return new Date(s).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}); },
+};
+
+function colorClass(v){ return v==null?'':(v>=0?'pos':'neg'); }
+
+async function fetchJson(url){
+  const r = await fetch(url, {headers: FAAuth.headers()});
+  if(!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  return r.json();
+}
+
+async function loadRuns(){
+  try {
+    const d = await fetchJson('/api/v1/r5/runs?limit=50');
+    renderRunsTable(d.runs);
+  } catch(e) {
+    document.getElementById('runsTable').innerHTML = `<div class="empty" style="color:var(--red)">Erro: ${e.message}</div>`;
+  }
+}
+
+function renderRunsTable(runs){
+  if(!runs || !runs.length){
+    document.getElementById('runsTable').innerHTML = '<div class="empty">Nenhum run persistido. Rode <code>python scripts/r5_ingest.py backtest_runs/r5_*.json</code> dentro do container.</div>';
+    return;
+  }
+  const html = `<table class="r5">
+    <thead><tr>
+      <th>id</th><th>data</th><th class="num">N</th><th>params</th>
+      <th class="num">sh_max</th><th class="num">sh_avg</th>
+      <th class="num">dd_avg</th><th class="num">dd_max</th>
+      <th class="num">ret_sum</th><th>best</th>
+      <th class="num">N_eff</th><th class="num">prob_real</th>
+      <th>elapsed</th>
+    </tr></thead>
+    <tbody>${runs.map(r => `
+      <tr class="clickable" onclick="openRun(${r.id})">
+        <td>${r.id}</td>
+        <td>${fmt.date(r.generated_at)}</td>
+        <td class="num">${r.n_valid}/${r.n_total}</td>
+        <td>h=${r.horizon} retr=${r.retrain_days}d ${r.target_vol?'vt='+r.target_vol:''}</td>
+        <td class="num"><b>${fmt.num(r.sharpe_max,3)}</b></td>
+        <td class="num">${fmt.num(r.sharpe_avg,3)}</td>
+        <td class="num">${fmt.num(r.drawdown_avg,1)}%</td>
+        <td class="num">${fmt.num(r.drawdown_max,1)}%</td>
+        <td class="num">${fmt.num(r.return_total_sum,0)}%</td>
+        <td>${r.best_ticker || '—'}</td>
+        <td class="num">${fmt.num(r.n_eff_eig,1)}</td>
+        <td class="num">${r.dsr_full_prob_real != null ? (Number(r.dsr_full_prob_real)*100).toFixed(1)+'%' : '—'}</td>
+        <td>${fmt.num(r.elapsed_total_s,0)}s</td>
+      </tr>`).join('')}
+    </tbody></table>`;
+  document.getElementById('runsTable').innerHTML = html;
+}
+
+async function openRun(id){
+  if(DIFF_MODE){
+    DIFF_MODE = false;
+    runDiff(CURRENT_RUN, id);
+    return;
+  }
+  CURRENT_RUN = id;
+  document.getElementById('runDetail').style.display = 'block';
+  document.getElementById('tickersCard').style.display = 'block';
+  document.getElementById('diffCard').style.display = 'none';
+  document.getElementById('runDetailTitle').textContent = `DETALHE — RUN #${id}`;
+  document.getElementById('runDetailBody').innerHTML = '<div class="empty">Carregando...</div>';
+  document.getElementById('tickersTable').innerHTML = '<div class="empty">Carregando...</div>';
+
+  try {
+    const [det, tk] = await Promise.all([
+      fetchJson(`/api/v1/r5/runs/${id}`),
+      fetchJson(`/api/v1/r5/runs/${id}/tickers?sort=sharpe&desc=true&limit=200`),
+    ]);
+    CURRENT_RUN_META = det.run;
+    CURRENT_TICKERS = tk.tickers;
+    renderRunDetail(det.run);
+    renderTickers();
+  } catch(e) {
+    document.getElementById('runDetailBody').innerHTML = `<div class="empty" style="color:var(--red)">Erro: ${e.message}</div>`;
+  }
+
+  window.scrollTo({top: document.getElementById('runDetail').offsetTop - 20, behavior:'smooth'});
+}
+
+function renderRunDetail(r){
+  const probReal = r.dsr_full_prob_real != null ? (Number(r.dsr_full_prob_real)*100).toFixed(1)+'%' : '—';
+  const probColor = r.dsr_full_prob_real == null ? '' :
+                    r.dsr_full_prob_real >= 0.95 ? 'green' :
+                    r.dsr_full_prob_real >= 0.5 ? 'gold' : 'red';
+
+  document.getElementById('runDetailBody').innerHTML = `
+    <div class="kv">
+      <div><div class="k">Geradoem</div><div class="v">${fmt.date(r.generated_at)}</div></div>
+      <div><div class="k">Tickers</div><div class="v">${r.n_valid}/${r.n_total}</div></div>
+      <div><div class="k">Trades total</div><div class="v">${r.n_trades_total}</div></div>
+      <div><div class="k">Elapsed</div><div class="v">${fmt.num(r.elapsed_total_s,0)}s</div></div>
+      <div><div class="k">Horizon</div><div class="v">${r.horizon}d</div></div>
+      <div><div class="k">Retrain</div><div class="v">${r.retrain_days}d</div></div>
+      <div><div class="k">Train end</div><div class="v">${r.train_end || '—'}</div></div>
+      <div><div class="k">Target vol</div><div class="v acc">${r.target_vol || 'off'}</div></div>
+      <div><div class="k">Min close</div><div class="v">${r.min_close ? 'R$ '+r.min_close : 'off'}</div></div>
+      <div><div class="k">Th buy/sell</div><div class="v">${r.th_buy} / ${r.th_sell}</div></div>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:18px 0">
+    <div class="kv">
+      <div><div class="k">Sharpe avg</div><div class="v acc">${fmt.num(r.sharpe_avg,3)}</div></div>
+      <div><div class="k">Sharpe median</div><div class="v">${fmt.num(r.sharpe_median,3)}</div></div>
+      <div><div class="k">Sharpe max</div><div class="v gold">${fmt.num(r.sharpe_max,3)}</div></div>
+      <div><div class="k">Sharpe min</div><div class="v red">${fmt.num(r.sharpe_min,3)}</div></div>
+      <div><div class="k">Drawdown avg</div><div class="v">${fmt.num(r.drawdown_avg,2)}%</div></div>
+      <div><div class="k">Drawdown max</div><div class="v red">${fmt.num(r.drawdown_max,2)}%</div></div>
+      <div><div class="k">Win rate avg</div><div class="v green">${fmt.num(r.win_rate_avg,2)}%</div></div>
+      <div><div class="k">Return avg</div><div class="v">${fmt.num(r.return_avg,2)}%</div></div>
+      <div><div class="k">Return total sum</div><div class="v">${fmt.num(r.return_total_sum,0)}%</div></div>
+      <div><div class="k">Best</div><div class="v green">${r.best_ticker || '—'}</div></div>
+      <div><div class="k">Worst</div><div class="v red">${r.worst_ticker || '—'}</div></div>
+      <div><div class="k">N negative</div><div class="v">${r.n_negative_sharpe}</div></div>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:18px 0">
+    <div class="card-title" style="margin-bottom:10px">DEFLATED SHARPE (LdP 2014)</div>
+    <div class="kv">
+      <div><div class="k">Mean correlation</div><div class="v">${fmt.num(r.mean_corr,3)}</div></div>
+      <div><div class="k">N raw</div><div class="v">${r.n_raw}</div></div>
+      <div><div class="k">N_eff (eig)</div><div class="v acc">${fmt.num(r.n_eff_eig,1)}</div></div>
+      <div><div class="k">N_eff (var)</div><div class="v">${fmt.num(r.n_eff_var,1)}</div></div>
+      <div><div class="k">E[max] raw N</div><div class="v">${fmt.num(r.expected_max_sharpe_raw,3)}</div></div>
+      <div><div class="k">E[max] N_eff</div><div class="v">${fmt.num(r.expected_max_sharpe_neff,3)}</div></div>
+      <div><div class="k">DSR z (full)</div><div class="v">${fmt.signed(r.dsr_full_z,3)}</div></div>
+      <div><div class="k">prob_real</div><div class="v ${probColor}">${probReal}</div></div>
+      <div><div class="k">Best skew/kurt</div><div class="v">${fmt.num(r.dsr_full_skew,2)} / ${fmt.num(r.dsr_full_kurtosis,1)}</div></div>
+    </div>`;
+}
+
+function renderTickers(){
+  if(!CURRENT_TICKERS.length){
+    document.getElementById('tickersTable').innerHTML = '<div class="empty">Sem tickers</div>';
+    return;
+  }
+  const cols = [
+    ['ticker','Ticker','ticker'],
+    ['sharpe_ratio','Sharpe','num'],
+    ['total_return_pct','Return%','num'],
+    ['max_drawdown_pct','DD%','num'],
+    ['win_rate_pct','Win%','num'],
+    ['trades','Trades','num'],
+    ['profit_factor','PF','num'],
+    ['calmar_ratio','Calmar','num'],
+    ['position_size','Pos','num'],
+    ['train_mean_vol_21d','train_vol','num'],
+    ['final_equity','Final eq','num'],
+  ];
+  const sorted = [...CURRENT_TICKERS].sort((a,b)=>{
+    const va=a[TICKER_SORT.col], vb=b[TICKER_SORT.col];
+    if(va==null) return 1; if(vb==null) return -1;
+    if(typeof va==='string') return TICKER_SORT.desc ? vb.localeCompare(va) : va.localeCompare(vb);
+    return TICKER_SORT.desc ? (vb-va) : (va-vb);
+  });
+  const html = `<table class="r5">
+    <thead><tr>${cols.map(([c,l,t])=>`<th class="${t}" onclick="sortTickers('${c}')">${l}${TICKER_SORT.col===c?(TICKER_SORT.desc?' ↓':' ↑'):''}</th>`).join('')}</tr></thead>
+    <tbody>${sorted.map(r=>`
+      <tr>
+        <td><a href="/r5/ticker/${r.ticker}" onclick="event.preventDefault(); loadTickerHistory('${r.ticker}')" style="color:var(--blue)">${r.ticker}</a></td>
+        <td class="num ${colorClass(r.sharpe_ratio)}">${fmt.signed(r.sharpe_ratio,3)}</td>
+        <td class="num ${colorClass(r.total_return_pct)}">${fmt.signed(r.total_return_pct,1)}%</td>
+        <td class="num">${fmt.num(r.max_drawdown_pct,1)}%</td>
+        <td class="num">${fmt.num(r.win_rate_pct,1)}%</td>
+        <td class="num">${r.trades||0}</td>
+        <td class="num">${fmt.num(r.profit_factor,2)}</td>
+        <td class="num">${fmt.num(r.calmar_ratio,2)}</td>
+        <td class="num">${fmt.num(r.position_size,2)}</td>
+        <td class="num">${fmt.num(r.train_mean_vol_21d,4)}</td>
+        <td class="num">R$ ${fmt.num(r.final_equity,0)}</td>
+      </tr>`).join('')}
+    </tbody></table>`;
+  document.getElementById('tickersTable').innerHTML = html;
+}
+
+function sortTickers(col){
+  if(TICKER_SORT.col === col) TICKER_SORT.desc = !TICKER_SORT.desc;
+  else { TICKER_SORT.col = col; TICKER_SORT.desc = true; }
+  renderTickers();
+}
+
+function closeDetail(){
+  document.getElementById('runDetail').style.display = 'none';
+  document.getElementById('tickersCard').style.display = 'none';
+  CURRENT_RUN = null;
+  CURRENT_TICKERS = [];
+  DIFF_MODE = false;
+}
+
+function enterDiffMode(){
+  DIFF_MODE = true;
+  alert('Clique em outro run na lista para comparar.');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+async function runDiff(runA, runB){
+  document.getElementById('diffCard').style.display = 'block';
+  document.getElementById('diffTitle').textContent = `DIFF — RUN #${runA} vs RUN #${runB}`;
+  document.getElementById('diffBody').innerHTML = '<div class="empty">Carregando...</div>';
+  try {
+    const d = await fetchJson(`/api/v1/r5/runs/${runA}/diff/${runB}`);
+    renderDiff(d);
+    window.scrollTo({top: document.getElementById('diffCard').offsetTop - 20, behavior:'smooth'});
+  } catch(e) {
+    document.getElementById('diffBody').innerHTML = `<div class="empty" style="color:var(--red)">Erro: ${e.message}</div>`;
+  }
+}
+
+function renderDiff(d){
+  const a = d.run_a, b = d.run_b;
+  const html = `
+    <div class="kv">
+      <div><div class="k">Run A</div><div class="v">#${a.id} target_vol=${a.target_vol||'off'}</div></div>
+      <div><div class="k">Run B</div><div class="v">#${b.id} target_vol=${b.target_vol||'off'}</div></div>
+      <div><div class="k">A sharpe avg / dd avg</div><div class="v">${fmt.num(a.sharpe_avg,3)} / ${fmt.num(a.drawdown_avg,1)}%</div></div>
+      <div><div class="k">B sharpe avg / dd avg</div><div class="v">${fmt.num(b.sharpe_avg,3)} / ${fmt.num(b.drawdown_avg,1)}%</div></div>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:18px 0">
+    <table class="r5">
+      <thead><tr>
+        <th>ticker</th>
+        <th class="num">A sh</th><th class="num">B sh</th><th class="num">Δ sh</th>
+        <th class="num">A ret%</th><th class="num">B ret%</th><th class="num">Δ ret</th>
+        <th class="num">A dd%</th><th class="num">B dd%</th><th class="num">Δ dd</th>
+        <th class="num">A pos</th><th class="num">B pos</th>
+      </tr></thead>
+      <tbody>${d.diffs.map(r=>`
+        <tr>
+          <td>${r.ticker}</td>
+          <td class="num ${colorClass(r.a_sharpe)}">${fmt.signed(r.a_sharpe,2)}</td>
+          <td class="num ${colorClass(r.b_sharpe)}">${fmt.signed(r.b_sharpe,2)}</td>
+          <td class="num ${colorClass(r.d_sharpe)}"><b>${fmt.signed(r.d_sharpe,2)}</b></td>
+          <td class="num ${colorClass(r.a_ret)}">${fmt.signed(r.a_ret,1)}</td>
+          <td class="num ${colorClass(r.b_ret)}">${fmt.signed(r.b_ret,1)}</td>
+          <td class="num ${colorClass(r.d_ret)}">${fmt.signed(r.d_ret,1)}</td>
+          <td class="num">${fmt.num(r.a_dd,1)}</td>
+          <td class="num">${fmt.num(r.b_dd,1)}</td>
+          <td class="num ${r.d_dd<0?'pos':r.d_dd>0?'neg':''}">${fmt.signed(r.d_dd,1)}</td>
+          <td class="num">${fmt.num(r.a_pos,2)}</td>
+          <td class="num">${fmt.num(r.b_pos,2)}</td>
+        </tr>`).join('')}</tbody></table>`;
+  document.getElementById('diffBody').innerHTML = html;
+}
+
+function closeDiff(){ document.getElementById('diffCard').style.display = 'none'; }
+
+async function loadTickerHistory(ticker){
+  try {
+    const d = await fetchJson(`/api/v1/r5/tickers/${ticker}`);
+    if(!d.history.length){ alert(`Sem histórico para ${ticker}`); return; }
+    const lines = d.history.map(h=>
+      `Run #${h.run_id} (${fmt.date(h.generated_at)}): pos=${fmt.num(h.position_size,2)} sh=${fmt.signed(h.sharpe_ratio,2)} ret=${fmt.signed(h.total_return_pct,1)}% dd=${fmt.num(h.max_drawdown_pct,1)}% trades=${h.trades}`
+    ).join('\n');
+    alert(`Histórico ${ticker}:\n\n${lines}`);
+  } catch(e) {
+    alert('Erro: '+e.message);
+  }
+}
+
+// init
+(async ()=>{
+  const me = await FAAuth.requireAuth({
+    allowedRoles: ['admin','master'],
+    onDenied: ()=>{ document.getElementById('accessDenied').style.display='flex'; }
+  });
+  if(!me) return;
+  document.getElementById('content').style.display = 'block';
+  loadRuns();
+})();
+</script>
+</body>
+</html>

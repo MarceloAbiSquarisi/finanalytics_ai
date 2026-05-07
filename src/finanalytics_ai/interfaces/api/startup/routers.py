@@ -122,6 +122,13 @@ def register_routers(app: FastAPI, logger=None) -> None:
     except Exception as _e:
         logger.warning("admin_notifications.router.SKIP", error=str(_e))
     try:
+        from finanalytics_ai.interfaces.api.routes import r5_routes
+
+        app.include_router(r5_routes.router, tags=["R5 Backtest"])
+        logger.info("r5_routes.router.ok")
+    except Exception as _e:
+        logger.warning("r5_routes.router.SKIP", error=str(_e))
+    try:
         from finanalytics_ai.interfaces.api.routes import import_route
 
         app.include_router(import_route.router, tags=["Import"])
@@ -710,6 +717,10 @@ def register_routers(app: FastAPI, logger=None) -> None:
     @app.get("/backtest", response_class=HTMLResponse, include_in_schema=False)
     async def serve_backtest() -> HTMLResponse:
         return _html("backtest.html")
+
+    @app.get("/r5", response_class=HTMLResponse, include_in_schema=False)
+    async def serve_r5() -> HTMLResponse:
+        return _html("r5.html")
 
     @app.get("/robot", response_class=HTMLResponse, include_in_schema=False)
     async def serve_robot() -> HTMLResponse:
