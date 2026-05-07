@@ -798,7 +798,12 @@ async function rebuildOhlc() {
   const ticker = (tickerEl.value || '').trim().toUpperCase();
   if (!date) { showMsg('ohlcMsg', 'Informe a data.', 'error'); return; }
   const scope = ticker ? `${ticker} em ${date}` : `TODOS os tickers em ${date}`;
-  if (!confirm(`Reconstruir bars 1m de ${scope}?\n\nDELETE + INSERT — destrutivo, sem rollback.`)) return;
+  if (!await FAModal.confirm({
+    title: 'Reconstruir bars 1m',
+    text: `Reconstruir ${scope}?\n\nDELETE + INSERT — destrutivo, sem rollback após confirmar.`,
+    okLabel: '↻ Reconstruir',
+    variant: 'danger',
+  })) return;
   btn.disabled = true;
   btn.textContent = '⌛ Reconstruindo…';
   resultEl.style.display = 'none';
@@ -1006,7 +1011,23 @@ async function bfStart() {
   if (!dateStart || !dateEnd) { showMsg('bfStartMsg', 'Defina o range de datas.', 'error'); return; }
   const days = bfTradingDaysBetween(dateStart, dateEnd);
   const total = tickers.length * days;
-  if (!confirm(`Iniciar backfill de ${tickers.length} ticker(s) × ${days} dia(s) útil(eis) = ${total} items?\n\nDLL serializa — pode levar horas para jobs grandes.`)) return;
+  const etaMin = Math.round(total * 90 / 60);
+  const tickersPreview = tickers.length > 6
+    ? tickers.slice(0, 5).join(', ') + ', ...+' + (tickers.length - 5)
+    : tickers.join(', ');
+  const ok = await FAModal.confirm({
+    title: 'Iniciar Backfill',
+    text:
+      `${tickers.length} ticker(s) × ${days} dia(s) útil(eis) = ${total} items.\n` +
+      `Range: ${dateStart} → ${dateEnd}\n` +
+      `Tickers: ${tickersPreview}\n` +
+      (force ? '⚠ Force refetch ATIVO (re-fetch mesmo se já existir).\n' : '') +
+      `\nEstimativa: ~${etaMin} min se DLL precisar buscar tudo (skip rápido em dias já presentes).`,
+    okLabel: '▶ Iniciar Backfill',
+    cancelLabel: 'Cancelar',
+    variant: force ? 'warn' : 'primary',
+  });
+  if (!ok) return;
   const btn = document.getElementById('bf-btn-start');
   btn.disabled = true; btn.textContent = '⌛ Criando…';
   try {
@@ -1092,7 +1113,13 @@ function bfStatusBadge(s, cancel) {
 }
 
 async function bfCancelJob(id) {
-  if (!confirm(`Cancelar job #${id}?\n\nO worker para no próximo item.`)) return;
+  if (!await FAModal.confirm({
+    title: 'Cancelar Backfill Job',
+    text: `Cancelar job #${id}?\n\nO worker para no próximo item processado.`,
+    okLabel: '⏹ Cancelar job',
+    cancelLabel: 'Voltar',
+    variant: 'warn',
+  })) return;
   try {
     const res = await fetch(`${BF_API}/jobs/${id}/cancel`, { method: 'POST', headers: H() });
     if (!res.ok) { const e = await res.json(); alert(`Erro: ${e.detail||res.status}`); return; }
@@ -1164,7 +1191,12 @@ async function bfRetryFailures() {
   const dates = bfFailuresCache.map(f => f.target_date).sort();
   const dateStart = dates[0];
   const dateEnd = dates[dates.length - 1];
-  if (!confirm(`Criar novo job com ${tickers.length} ticker(s) único(s), ${dateStart} → ${dateEnd}?\n\nForce-refetch ATIVO (re-executa mesmo se já tiver dado).`)) return;
+  if (!await FAModal.confirm({
+    title: 'Reagendar falhas como novo job',
+    text: `${tickers.length} ticker(s) único(s) · ${dateStart} → ${dateEnd}\n\n⚠ Force-refetch ATIVO — re-executa mesmo se já tiver dado.`,
+    okLabel: '↻ Criar job',
+    variant: 'warn',
+  })) return;
   try {
     const res = await fetch(`${BF_API}/jobs`, {
       method: 'POST',
@@ -1860,7 +1892,15 @@ async function gapsSchedule() {
   const days = gapsLastResult.missing_days;
   const dateStart = days[0];
   const dateEnd = days[days.length - 1];
-  if (!confirm(`Criar backfill job pra ${ticker} cobrindo ${days.length} dia(s) faltante(s) (${dateStart} → ${dateEnd})?\n\nObs: o job tenta TODO o range — dias já presentes serão pulados via skip_in_db.`)) return;
+  if (!await FAModal.confirm({
+    title: 'Reagendar gaps como Backfill Job',
+    text:
+      `${ticker} · ${days.length} dia(s) faltante(s)\n` +
+      `Range: ${dateStart} → ${dateEnd}\n\n` +
+      `O job tenta TODO o range — dias já presentes serão pulados automaticamente (skip_in_db).`,
+    okLabel: '↻ Criar job',
+    variant: 'primary',
+  })) return;
   try {
     const res = await fetch(`${BF_API}/jobs`, {
       method: 'POST',
