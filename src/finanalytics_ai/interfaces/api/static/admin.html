@@ -234,7 +234,7 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
     <div class="tab active" onclick="switchTab('users',this)">👥 Usuários</div>
     <div class="tab" onclick="switchTab('agents',this)">🏦 Agentes Financeiros</div>
     <div class="tab" onclick="switchTab('system',this);notifOnTabOpen()">🛠️ Sistema</div>
-    <div class="tab" onclick="switchTab('db',this)">🗃️ Banco de Dados</div>
+    <div class="tab" onclick="switchTab('db',this);ohlcOnDbTabOpen()">🗃️ Banco de Dados</div>
     <div class="tab" onclick="switchTab('backfill',this);bfOnTabOpen()">📦 Backfill</div>
   </div>
 
@@ -448,40 +448,67 @@ select.role-sel{background:var(--s2);border:1px solid var(--border);border-radiu
   <div class="tab-panel" id="tab-db">
     <div class="sec-header">
       <span class="sec-title">Reconstrução de Bars OHLC (multi-timeframe)</span>
+      <small style="color:var(--muted)" id="ohlc-tickers-count">0 tickers</small>
     </div>
-    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:18px;max-width:820px;margin-bottom:18px">
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:18px">
       <p style="font-size:14px;color:var(--muted);margin-bottom:14px;line-height:1.5">
         <strong>1m</strong>: DELETE+INSERT em <code style="color:var(--accent)">ohlc_1m</code> a partir do continuous aggregate
         <code style="color:var(--accent)">ohlc_1m_from_ticks</code> — destrutivo, filtra ticks pre-market.<br>
-        <strong>5m / 15m / 1h / 1d</strong>: refresh hierárquico das CAGGs (re-agrega de <code>ohlc_1m</code> em cascata).
-        Idempotente, ignora filtro de ticker.
+        <strong>5m / 15m / 1h / 1d</strong>: refresh hierárquico das CAGGs (re-agrega em cascata, idempotente).
+        Filtro de ticker em CAGG é cosmético — refresh é por bucket.
       </p>
-      <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr;gap:14px">
-        <div class="form-group">
-          <label>Timeframe</label>
-          <select id="ohlc-timeframe" onchange="ohlcOnTimeframeChange()" style="background:var(--s1);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:13px">
-            <option value="1m" selected>1m (DELETE+INSERT)</option>
-            <option value="5m">5m (CAGG)</option>
-            <option value="15m">15m (CAGG)</option>
-            <option value="1h">1h (CAGG)</option>
-            <option value="1d">1d (CAGG)</option>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div>
+          <div class="form-group">
+            <label>Tickers (vazio = todos)</label>
+            <input id="ohlc-search" type="text" placeholder="filtrar..." oninput="ohlcFilterTickers(this.value)" style="margin-bottom:6px">
+          </div>
+          <select id="ohlc-tickers-select" multiple size="10"
+                  style="background:var(--s1);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:monospace;font-size:13px;padding:4px;width:100%;outline:none"
+                  onchange="ohlcOnSelectChange()">
+            <option disabled>Carregando…</option>
           </select>
+          <small style="color:var(--muted);font-size:12px;display:block;margin-top:4px">
+            Ctrl+click pra alternar · Shift+click pra range · ou use os botões abaixo.
+          </small>
+          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+            <button class="btn btn-sm btn-ghost" onclick="ohlcSelectAll(true)">Selecionar todos (filtrados)</button>
+            <button class="btn btn-sm btn-ghost" onclick="ohlcSelectAll(false)">Limpar</button>
+            <button class="btn btn-sm btn-ghost" onclick="ohlcReloadTickers()" title="Recarregar do agent">↻</button>
+            <small id="ohlc-selected-count" style="color:var(--muted);margin-left:auto;align-self:center">0 selecionados</small>
+          </div>
+          <div id="ohlc-selected-pills" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;max-height:90px;overflow:auto"></div>
         </div>
-        <div class="form-group">
-          <label>Data <span style="color:var(--red)">*</span></label>
-          <input id="ohlc-date" type="date" required>
-        </div>
-        <div class="form-group">
-          <label>Ticker (só 1m; vazio = todos)</label>
-          <input id="ohlc-ticker" type="text" placeholder="ex: ITUB4" style="text-transform:uppercase">
+        <div>
+          <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group">
+              <label>Timeframe</label>
+              <select id="ohlc-timeframe" onchange="ohlcOnTimeframeChange()" style="background:var(--s1);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:13px;width:100%">
+                <option value="1m" selected>1m (DELETE+INSERT)</option>
+                <option value="5m">5m (CAGG)</option>
+                <option value="15m">15m (CAGG)</option>
+                <option value="1h">1h (CAGG)</option>
+                <option value="1d">1d (CAGG)</option>
+              </select>
+            </div>
+            <div></div>
+            <div class="form-group">
+              <label>Data inicial <span style="color:var(--red)">*</span></label>
+              <input id="ohlc-date-start" type="date" required>
+            </div>
+            <div class="form-group">
+              <label>Data final <span style="color:var(--red)">*</span></label>
+              <input id="ohlc-date-end" type="date" required>
+            </div>
+          </div>
+          <div class="form-actions" style="margin-top:14px">
+            <button class="btn btn-warn" onclick="rebuildOhlc()" id="btn-rebuild-ohlc">
+              ↻ Reconstruir bars
+            </button>
+          </div>
+          <div id="ohlcMsg" class="msg"></div>
         </div>
       </div>
-      <div class="form-actions" style="margin-top:14px">
-        <button class="btn btn-warn" onclick="rebuildOhlc()" id="btn-rebuild-ohlc">
-          ↻ Reconstruir bars
-        </button>
-      </div>
-      <div id="ohlcMsg" class="msg"></div>
       <div id="ohlcResult" style="margin-top:14px;font-family:monospace;font-size:13px;color:var(--text);display:none;padding:12px;background:var(--s1);border-radius:6px;border:1px solid var(--border)"></div>
     </div>
 
@@ -970,40 +997,148 @@ function logout() {
 }
 
 // ── OHLC Rebuild (Banco de Dados) ─────────────────────────────────────────────
-function ohlcOnTimeframeChange() {
-  const tf = document.getElementById('ohlc-timeframe').value;
-  const tickerEl = document.getElementById('ohlc-ticker');
-  // Ticker so' aplica em 1m (DELETE+INSERT). Para CAGGs, refresh é por bucket.
-  if (tf !== '1m') {
-    tickerEl.value = '';
-    tickerEl.disabled = true;
-    tickerEl.placeholder = 'N/A para CAGG (refresh por bucket)';
-  } else {
-    tickerEl.disabled = false;
-    tickerEl.placeholder = 'ex: ITUB4';
+let ohlcTickers = [];          // [{ticker, exchange?}]
+let ohlcSelected = new Set();  // tickers selecionados (preserva ao filtrar)
+let ohlcTickerFilter = '';
+
+function ohlcOnDbTabOpen() {
+  if (!ohlcTickers.length) ohlcReloadTickers();
+  // Default range: D-7 .. D-1
+  const ds = document.getElementById('ohlc-date-start');
+  const de = document.getElementById('ohlc-date-end');
+  if (ds && !ds.value) {
+    const d = new Date(); d.setDate(d.getDate() - 7);
+    ds.value = d.toISOString().slice(0, 10);
+  }
+  if (de && !de.value) {
+    const d = new Date(); d.setDate(d.getDate() - 1);
+    de.value = d.toISOString().slice(0, 10);
   }
 }
 
+async function ohlcReloadTickers() {
+  const sel = document.getElementById('ohlc-tickers-select');
+  sel.innerHTML = '<option disabled>Carregando…</option>';
+  try {
+    const res = await fetch(`/api/v1/admin/backfill/tickers`, { headers: H() });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      sel.innerHTML = `<option disabled>Erro: ${err.detail || res.status}</option>`;
+      return;
+    }
+    const data = await res.json();
+    ohlcTickers = data.tickers || [];
+    document.getElementById('ohlc-tickers-count').textContent = `${ohlcTickers.length} tickers`;
+    ohlcRenderTickers();
+  } catch (err) {
+    sel.innerHTML = `<option disabled>Falha de rede: ${err.message}</option>`;
+  }
+}
+
+function ohlcFilterTickers(q) {
+  ohlcTickerFilter = (q || '').trim().toUpperCase();
+  ohlcRenderTickers();
+}
+
+function ohlcRenderTickers() {
+  const sel = document.getElementById('ohlc-tickers-select');
+  const f = ohlcTickerFilter;
+  const items = ohlcTickers.filter(t => !f || t.ticker.includes(f));
+  if (!items.length) {
+    sel.innerHTML = '<option disabled>Nenhum ticker.</option>';
+    return;
+  }
+  sel.innerHTML = items.map(t => {
+    const isSel = ohlcSelected.has(t.ticker) ? 'selected' : '';
+    const fut = t.exchange === 'F' ? ' [FUT]' : '';
+    return `<option value="${t.ticker}" ${isSel}>${t.ticker}${fut}</option>`;
+  }).join('');
+}
+
+function ohlcOnSelectChange() {
+  const sel = document.getElementById('ohlc-tickers-select');
+  const visible = new Set();
+  for (const opt of sel.options) if (opt.value) visible.add(opt.value);
+  for (const t of Array.from(ohlcSelected)) {
+    if (visible.has(t) && !_ohlcIsOptSelected(sel, t)) ohlcSelected.delete(t);
+  }
+  for (const opt of sel.selectedOptions) if (opt.value) ohlcSelected.add(opt.value);
+  ohlcUpdateSelectedCount();
+  ohlcRenderSelectedPills();
+}
+
+function _ohlcIsOptSelected(sel, value) {
+  for (const opt of sel.selectedOptions) if (opt.value === value) return true;
+  return false;
+}
+
+function ohlcSelectAll(on) {
+  if (on) {
+    const f = ohlcTickerFilter;
+    ohlcTickers.filter(t => !f || t.ticker.includes(f)).forEach(t => ohlcSelected.add(t.ticker));
+  } else {
+    ohlcSelected.clear();
+  }
+  ohlcRenderTickers();
+  ohlcUpdateSelectedCount();
+  ohlcRenderSelectedPills();
+}
+
+function ohlcUpdateSelectedCount() {
+  document.getElementById('ohlc-selected-count').textContent =
+    `${ohlcSelected.size} selecionado${ohlcSelected.size === 1 ? '' : 's'}`;
+}
+
+function ohlcRenderSelectedPills() {
+  const wrap = document.getElementById('ohlc-selected-pills');
+  if (!ohlcSelected.size) { wrap.innerHTML = ''; return; }
+  const tickers = Array.from(ohlcSelected).sort();
+  wrap.innerHTML = tickers.map(t => `
+    <span style="background:var(--accent);color:#000;padding:2px 6px;border-radius:10px;font-size:11px;font-family:monospace;display:inline-flex;align-items:center;gap:4px">
+      ${t} <button onclick="ohlcRemovePill('${t}')" style="background:none;border:0;color:#000;cursor:pointer;font-size:14px;padding:0;line-height:1">×</button>
+    </span>`).join('');
+}
+
+function ohlcRemovePill(t) {
+  ohlcSelected.delete(t);
+  ohlcRenderTickers();
+  ohlcUpdateSelectedCount();
+  ohlcRenderSelectedPills();
+}
+
+function ohlcOnTimeframeChange() {
+  // Sem mudanca cosmetica — multi-select continua disponivel; backend
+  // applies filter to 1m (real) e a CAGG (cosmético com warning).
+}
+
 async function rebuildOhlc() {
-  const dateEl = document.getElementById('ohlc-date');
-  const tickerEl = document.getElementById('ohlc-ticker');
+  const date_start = document.getElementById('ohlc-date-start').value;
+  const date_end = document.getElementById('ohlc-date-end').value;
   const tfEl = document.getElementById('ohlc-timeframe');
   const btn = document.getElementById('btn-rebuild-ohlc');
   const resultEl = document.getElementById('ohlcResult');
-  const date = (dateEl.value || '').trim();
-  const ticker = (tickerEl.value || '').trim().toUpperCase();
   const timeframe = tfEl.value;
-  if (!date) { showMsg('ohlcMsg', 'Informe a data.', 'error'); return; }
+  if (!date_start || !date_end) { showMsg('ohlcMsg', 'Informe data inicial e final.', 'error'); return; }
+  if (date_end < date_start) { showMsg('ohlcMsg', 'Data final deve ser >= data inicial.', 'error'); return; }
+  const tickers = Array.from(ohlcSelected);
   const isOneM = timeframe === '1m';
   const _CHAIN = ['5m','15m','1h','1d'];
   const _idx = _CHAIN.indexOf(timeframe);
   const _scopeChain = _idx <= 0 ? '' : ` (cascata: ${_CHAIN.slice(0, _idx + 1).join(' → ')})`;
+  const tickerScope = tickers.length === 0
+    ? 'TODOS os tickers'
+    : tickers.length <= 5
+      ? tickers.join(', ')
+      : `${tickers.length} tickers (${tickers.slice(0, 3).join(', ')}, …)`;
+  const range = date_start === date_end ? date_start : `${date_start} → ${date_end}`;
   const scope = isOneM
-    ? (ticker ? `${ticker} em ${date}` : `TODOS os tickers em ${date}`)
-    : `bars ${timeframe} em ${date}${_scopeChain}`;
+    ? `${tickerScope} em ${range}`
+    : `bars ${timeframe} em ${range}${_scopeChain}`;
   const text = isOneM
     ? `Reconstruir ${scope}?\n\nDELETE + INSERT — destrutivo, sem rollback após confirmar.`
-    : `Refresh ${scope}?\n\nIdempotente — apenas re-agrega bars existentes.`;
+    : tickers.length
+      ? `Refresh ${scope}?\n\n⚠ Filtro de ticker é cosmético: CAGG refresh re-agrega TODOS os tickers do range. Idempotente.`
+      : `Refresh ${scope}?\n\nIdempotente — apenas re-agrega bars existentes.`;
   if (!await FAModal.confirm({
     title: `Reconstruir bars ${timeframe}`,
     text,
@@ -1017,7 +1152,11 @@ async function rebuildOhlc() {
     const res = await fetch(`${API}/ohlc/rebuild`, {
       method: 'POST',
       headers: H(),
-      body: JSON.stringify({ date, ticker: ticker || null, timeframe }),
+      body: JSON.stringify({
+        date_start, date_end,
+        tickers: tickers.length ? tickers : null,
+        timeframe,
+      }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -1027,9 +1166,9 @@ async function rebuildOhlc() {
       resultEl.style.display = 'block';
       let html = `
         <div><strong>status:</strong> ${data.status}</div>
-        <div><strong>date:</strong> ${data.date}</div>
+        <div><strong>range:</strong> ${data.date_start} → ${data.date_end}</div>
         <div><strong>timeframe:</strong> ${data.timeframe}</div>
-        <div><strong>ticker:</strong> ${data.ticker || '(todos)'}</div>
+        <div><strong>tickers:</strong> ${(data.tickers && data.tickers.length) ? `${data.tickers.length} (${data.tickers.slice(0,5).join(', ')}${data.tickers.length>5?', …':''})` : '(todos)'}</div>
         <div><strong>deleted:</strong> ${data.deleted || 0}</div>
         <div><strong>inserted/net:</strong> ${data.net_change > 0 ? '+' : ''}${data.net_change || 0}</div>
       `;
