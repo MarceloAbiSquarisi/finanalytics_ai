@@ -103,8 +103,72 @@ def is_b3_holiday(d: date) -> bool:
     return d in _b3_holidays_for_year(d.year)
 
 
+# ── Dias atipicos B3 — tabela b3_no_trading_days ─────────────────────────────
+# Cache em memoria do que tem em b3_no_trading_days (set pequeno, geralmente
+# < 100 entradas em decada). Carregado sob demanda via load_b3_no_trading_days
+# (idealmente no startup do app, mas tolerante a uso lazy).
+_B3_NO_TRADING_DAYS: set[date] = set()
+_B3_NO_TRADING_LOADED: bool = False
+
+
+async def load_b3_no_trading_days() -> None:
+    """Recarrega cache de dias atipicos B3 do DB. Idempotente.
+
+    Chamado no startup do app e apos cada insert via mark_b3_no_trading_day.
+    """
+    global _B3_NO_TRADING_DAYS, _B3_NO_TRADING_LOADED
+    try:
+        conn = await _connect()
+        try:
+            rows = await conn.fetch("SELECT target_date FROM b3_no_trading_days")
+        finally:
+            await conn.close()
+        _B3_NO_TRADING_DAYS = {r["target_date"] for r in rows}
+        _B3_NO_TRADING_LOADED = True
+    except Exception:
+        # Fail-open: tabela nao existe ou DB off — usa cache atual (provavelmente
+        # vazio). Nunca quebra is_trading_day por causa disso.
+        _B3_NO_TRADING_LOADED = True
+
+
+async def mark_b3_no_trading_day(
+    d: date, *, job_id: int | None = None, notes: str | None = None
+) -> None:
+    """Marca um dia como atipico B3 (sem pregao). Adiciona ao cache.
+
+    Usado pelo backfill_runner quando coleta retorna ok com ticks=0:
+    sinal forte de que B3 nao teve pregao naquele dia (apesar de
+    weekday < 5 e nao ser feriado oficial).
+    """
+    try:
+        conn = await _connect()
+        try:
+            await conn.execute(
+                """
+                INSERT INTO b3_no_trading_days
+                    (target_date, discovered_by_job_id, notes)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (target_date) DO NOTHING
+                """,
+                d, job_id, notes,
+            )
+        finally:
+            await conn.close()
+        _B3_NO_TRADING_DAYS.add(d)
+    except Exception:
+        pass  # nao bloqueia o caller
+
+
+def is_b3_no_trading_day(d: date) -> bool:
+    return d in _B3_NO_TRADING_DAYS
+
+
 def is_trading_day(d: date) -> bool:
-    return d.weekday() < 5 and not is_b3_holiday(d)
+    return (
+        d.weekday() < 5
+        and not is_b3_holiday(d)
+        and not is_b3_no_trading_day(d)
+    )
 
 
 def trading_days_in_range(start: date, end: date) -> list[date]:

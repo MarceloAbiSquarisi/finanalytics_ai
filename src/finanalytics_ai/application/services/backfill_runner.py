@@ -256,6 +256,18 @@ async def _process_item(
             await _rebuild_ohlc_1m_for_ticker_day(
                 ticker=ticker, target_date=target_date, job_id=job_id,
             )
+
+        # Auto-marca como dia atipico B3 quando coleta retorna 0 ticks
+        # SEM erro (final='ok'). Sinal forte de que B3 nao teve pregao
+        # naquele dia apesar de nao ser feriado oficial (ex: Aniversario
+        # Bovespa antecipado, feriados estaduais SP). Proxima query de
+        # gaps ja' nao mostra esse dia, evitando loop.
+        if final == "ok" and ticks == 0:
+            await backfill_repo.mark_b3_no_trading_day(
+                target_date,
+                job_id=job_id,
+                notes=f"agent retornou 0 ticks (auto, ticker={ticker})",
+            )
     except httpx.TimeoutException:
         await backfill_repo.finish_item(
             item["id"],

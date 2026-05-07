@@ -567,6 +567,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as _moe:
         logger.warning("market_open_refresh.FAILED", error=str(_moe))
 
+    # Carrega cache de b3_no_trading_days (dias atipicos B3 sem pregao
+    # mesmo nao sendo feriado nacional). Necessario antes do primeiro
+    # is_trading_day() — gaps query, backfill scheduling, etc.
+    try:
+        from finanalytics_ai.infrastructure.database.repositories import (
+            backfill_repo as _bfr,
+        )
+        await _bfr.load_b3_no_trading_days()
+        logger.info("b3_no_trading_days.loaded", count=len(_bfr._B3_NO_TRADING_DAYS))
+    except Exception as _e:
+        logger.warning("b3_no_trading_days.load_failed", error=str(_e))
+
     logger.info(
         "api.ready", postgres=True, timescale=timescale_ok, kafka=kafka_ok, producer=producer_ok
     )
