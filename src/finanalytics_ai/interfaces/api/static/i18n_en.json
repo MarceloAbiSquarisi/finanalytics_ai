@@ -48,6 +48,7 @@
   "nav.forecast": "Forecast",
   "nav.ml": "Probabilistic ML",
   "nav.backtest": "Backtest",
+  "nav.r5": "R5 Harness",
   "nav.optimizer": "Optimizer",
   "nav.performance": "Performance",
   "nav.var": "VaR",

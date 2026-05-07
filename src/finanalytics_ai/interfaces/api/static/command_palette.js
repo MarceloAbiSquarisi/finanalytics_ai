@@ -44,6 +44,7 @@
     { label: 'Forecast',             section: 'Navegacao', href: '/forecast' },
     { label: 'ML Probabilistico',    section: 'Navegacao', href: '/ml', keywords: 'machine learning' },
     { label: 'Backtest',             section: 'Navegacao', href: '/backtest' },
+    { label: 'R5 Harness',           section: 'Navegacao', href: '/r5', keywords: 'walk forward dsr deflated sharpe vol target' },
     { label: 'Otimizador',           section: 'Navegacao', href: '/optimizer', keywords: 'portfolio rebalance' },
     { label: 'Performance',          section: 'Navegacao', href: '/performance' },
     { label: 'VaR',                  section: 'Navegacao', href: '/var', keywords: 'value at risk' },

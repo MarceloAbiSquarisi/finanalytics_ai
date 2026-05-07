@@ -32,6 +32,7 @@
     '/forecast':         ['Analise & ML', 'Forecast'],
     '/ml':               ['Analise & ML', 'ML Probabilistico'],
     '/backtest':         ['Analise & ML', 'Backtest'],
+    '/r5':               ['Analise & ML', 'R5 Harness'],
     '/optimizer':        ['Analise & ML', 'Otimizador'],
     '/performance':      ['Analise & ML', 'Performance'],
     '/var':              ['Analise & ML', 'VaR'],
