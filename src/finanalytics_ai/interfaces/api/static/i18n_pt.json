@@ -49,6 +49,7 @@
   "nav.ml": "ML Probabilístico",
   "nav.backtest": "Backtest",
   "nav.r5": "R5 Harness",
+  "nav.paper": "Paper Trade",
   "nav.optimizer": "Otimizador",
   "nav.performance": "Performance",
   "nav.var": "VaR",

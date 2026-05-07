@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paper Trade R5 | FinAnalytics AI</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<meta name="robots" content="noindex, nofollow">
+<script>(function(){try{var t=localStorage.getItem('fa_theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}})();</script>
+<link rel="stylesheet" href="/static/theme.css">
+<style>
+:root {
+  --navy:#0A1628; --navy-mid:#0D2144; --blue:#3ABFF8; --gold:#F0B429;
+  --green:#2ED47A; --red:#E05555; --white:#E8F4FD; --muted:#6A9EBF;
+  --border:rgba(58,191,248,.12); --card:rgba(13,33,68,.75);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--navy);color:var(--white);font-family:'Syne',sans-serif;min-height:100vh}
+main{position:relative;z-index:1;padding:24px;max-width:1500px;margin:0 auto}
+.page-title{font-size:26px;font-weight:800;margin-bottom:4px}
+.page-sub{font-size:15px;color:var(--muted);font-family:monospace;margin-bottom:24px}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:18px;margin-bottom:18px;backdrop-filter:blur(8px)}
+.card-title{font-size:14px;font-weight:700;color:var(--blue);font-family:monospace;
+  text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px}
+
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px 18px;
+  font-family:monospace;font-size:13px}
+.kv .k{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+.kv .v{color:var(--white);font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+.kv .v.green{color:var(--green)}.kv .v.red{color:var(--red)}.kv .v.gold{color:var(--gold)}
+
+table.r5{width:100%;border-collapse:collapse;font-family:monospace;font-size:13px}
+table.r5 th{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);
+  color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.7px;font-weight:600}
+table.r5 td{padding:7px 10px;border-bottom:1px solid rgba(58,191,248,.04)}
+.num{font-variant-numeric:tabular-nums}
+.pos{color:var(--green)}.neg{color:var(--red)}
+.sig-buy{color:var(--green);font-weight:700}
+.sig-sell{color:var(--red);font-weight:700}
+.sig-hold{color:var(--muted)}
+
+.access-denied{display:none;text-align:center;padding:60px;color:var(--muted)}
+.empty{text-align:center;padding:30px;color:var(--muted);font-family:monospace}
+</style>
+</head>
+<body>
+<aside class="fa-sidebar" id="fa-sidebar"></aside>
+<main>
+<h1 class="page-title">Paper Trading R5</h1>
+<p class="page-sub">forward-test do best config (h=10, retrain=63, vol=0.015) · top-18 universe</p>
+
+<div id="accessDenied" class="access-denied">
+  <h2>403 — Acesso restrito (master only)</h2>
+</div>
+
+<div id="content" style="display:none">
+  <div class="card" id="kpiCard">
+    <div class="card-title">SUMMARY <span style="float:right;font-weight:400;font-size:11px;color:var(--muted)" id="metaInfo"></span></div>
+    <div id="kpis" class="empty">Carregando...</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">SIGNALS HOJE <span id="signalsDate" style="float:right;color:var(--muted);font-weight:400;font-size:11px"></span></div>
+    <div id="signalsTable"><div class="empty">—</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">POSIÇÕES ABERTAS</div>
+    <div id="positionsTable"><div class="empty">—</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">EQUITY CURVE</div>
+    <div id="equityTable"><div class="empty">—</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">TRADES FECHADOS</div>
+    <div id="tradesTable"><div class="empty">—</div></div>
+  </div>
+</div>
+</main>
+
+<script src="/static/auth_guard.js"></script>
+<script src="/static/sidebar.js"></script>
+<script>
+const RUN_NAME = 'r5-id11-top18';
+const fmt = {
+  brl(v){if(v==null)return '—';return 'R$ '+Number(v).toLocaleString('pt-BR',{maximumFractionDigits:2,minimumFractionDigits:2});},
+  pct(v){if(v==null)return '—';return Number(v).toFixed(2)+'%';},
+  signed(v){if(v==null)return '—';const n=Number(v);return (n>=0?'+':'')+n.toFixed(3);},
+  num(v,d=2){if(v==null)return '—';return Number(v).toFixed(d);},
+};
+
+async function fetchJson(url){
+  const r = await fetch(url, {headers: FAAuth.headers()});
+  if(!r.ok) throw new Error(r.status+' '+r.statusText);
+  return r.json();
+}
+
+async function loadAll(){
+  try {
+    const [run, signals] = await Promise.all([
+      fetchJson(`/api/v1/paper/runs/${RUN_NAME}`),
+      fetchJson(`/api/v1/paper/runs/${RUN_NAME}/signals`),
+    ]);
+    renderRun(run.run);
+    renderSignals(signals);
+  } catch(e) {
+    document.getElementById('kpis').innerHTML = `<div class="empty" style="color:var(--red)">Erro: ${e.message}</div>`;
+  }
+}
+
+function renderRun(r){
+  const state = typeof r.state_json === 'string' ? JSON.parse(r.state_json) : r.state_json;
+  const eq = state.equity_curve || [];
+  const last = eq.length ? eq[eq.length-1] : null;
+  const trades = state.trades_history || [];
+  const positions = state.positions || {};
+
+  const initialCap = Number(r.initial_capital);
+  const totalEq = last ? last.total : initialCap;
+  const ret = ((totalEq / initialCap) - 1) * 100;
+  const cash = state.cash || initialCap;
+
+  const sumPnl = trades.reduce((s,t)=>s+(t.pnl||0), 0);
+  const winners = trades.filter(t=>(t.pnl||0)>0).length;
+  const winrate = trades.length ? (winners/trades.length*100) : 0;
+
+  document.getElementById('metaInfo').textContent =
+    `started=${r.started_at} last_step=${r.last_step_date||'—'} N_slots=${r.n_slots}`;
+
+  const retCls = ret>=0?'green':'red';
+  document.getElementById('kpis').innerHTML = `<div class="kv">
+    <div><div class="k">Total Equity</div><div class="v ${retCls}">${fmt.brl(totalEq)}</div></div>
+    <div><div class="k">Cash</div><div class="v">${fmt.brl(cash)}</div></div>
+    <div><div class="k">Retorno</div><div class="v ${retCls}">${(ret>=0?'+':'')+ret.toFixed(2)}%</div></div>
+    <div><div class="k">Posições abertas</div><div class="v">${Object.keys(positions).length}</div></div>
+    <div><div class="k">Trades fechados</div><div class="v">${trades.length}</div></div>
+    <div><div class="k">Win rate</div><div class="v">${winrate.toFixed(1)}%</div></div>
+    <div><div class="k">PnL realizado</div><div class="v ${sumPnl>=0?'green':'red'}">${fmt.brl(sumPnl)}</div></div>
+  </div>`;
+
+  // Positions
+  const posArr = Object.entries(positions).map(([t,p])=>({ticker:t, ...p}));
+  if(posArr.length){
+    document.getElementById('positionsTable').innerHTML = `<table class="r5">
+      <thead><tr><th>ticker</th><th>open_date</th><th class="num">qty</th><th class="num">open_price</th><th class="num">slot_value</th></tr></thead>
+      <tbody>${posArr.map(p=>`
+        <tr><td>${p.ticker}</td><td>${p.open_date}</td>
+        <td class="num">${p.qty}</td><td class="num">R$ ${Number(p.open_price).toFixed(2)}</td>
+        <td class="num">${fmt.brl(p.slot_value)}</td></tr>`).join('')}
+      </tbody></table>`;
+  } else {
+    document.getElementById('positionsTable').innerHTML = '<div class="empty">Nenhuma posição aberta</div>';
+  }
+
+  // Equity curve (last 30)
+  const last30 = eq.slice(-30);
+  if(last30.length){
+    document.getElementById('equityTable').innerHTML = `<table class="r5">
+      <thead><tr><th>date</th><th class="num">cash</th><th class="num">positions</th><th class="num">total</th><th class="num">N pos</th></tr></thead>
+      <tbody>${last30.reverse().map(e=>`
+        <tr><td>${e.date}</td><td class="num">${fmt.brl(e.cash)}</td>
+        <td class="num">${fmt.brl(e.positions_value)}</td>
+        <td class="num"><b>${fmt.brl(e.total)}</b></td>
+        <td class="num">${e.n_open_positions}</td></tr>`).join('')}
+      </tbody></table>`;
+  } else {
+    document.getElementById('equityTable').innerHTML = '<div class="empty">Sem snapshots</div>';
+  }
+
+  // Trades history
+  if(trades.length){
+    const last20 = trades.slice(-20).reverse();
+    document.getElementById('tradesTable').innerHTML = `<table class="r5">
+      <thead><tr><th>ticker</th><th>open</th><th>close</th><th class="num">qty</th><th class="num">open_px</th><th class="num">close_px</th><th class="num">pnl</th><th class="num">pnl%</th></tr></thead>
+      <tbody>${last20.map(t=>{
+        const cls = (t.pnl||0)>=0?'pos':'neg';
+        return `<tr><td>${t.ticker}</td><td>${t.open_date}</td><td>${t.close_date}</td>
+        <td class="num">${t.qty}</td><td class="num">R$ ${Number(t.open_price).toFixed(2)}</td>
+        <td class="num">R$ ${Number(t.close_price).toFixed(2)}</td>
+        <td class="num ${cls}">${fmt.brl(t.pnl)}</td>
+        <td class="num ${cls}">${(t.pnl_pct>=0?'+':'')+Number(t.pnl_pct).toFixed(2)}%</td></tr>`;
+      }).join('')}
+      </tbody></table>`;
+  } else {
+    document.getElementById('tradesTable').innerHTML = '<div class="empty">Nenhum trade fechado ainda</div>';
+  }
+}
+
+function renderSignals(d){
+  document.getElementById('signalsDate').textContent = d.date || '';
+  if(!d.signals.length){
+    document.getElementById('signalsTable').innerHTML = '<div class="empty">Nenhum signal</div>';
+    return;
+  }
+  const sorted = [...d.signals].sort((a,b)=>{
+    const ord = {buy:0, sell:2, hold:1};
+    return (ord[a.signal]||3) - (ord[b.signal]||3) || (b.score - a.score);
+  });
+  document.getElementById('signalsTable').innerHTML = `<table class="r5">
+    <thead><tr><th>ticker</th><th>signal</th><th class="num">score</th><th class="num">prob_pos</th>
+    <th class="num">close</th><th class="num">vol_21d</th></tr></thead>
+    <tbody>${sorted.map(s=>{
+      const cls = `sig-${s.signal}`;
+      return `<tr><td>${s.ticker}</td>
+      <td><span class="${cls}">${s.signal.toUpperCase()}</span></td>
+      <td class="num">${fmt.signed(s.score)}</td>
+      <td class="num">${fmt.num(s.prob_pos,3)}</td>
+      <td class="num">R$ ${Number(s.current_close).toFixed(2)}</td>
+      <td class="num">${fmt.num(s.vol_21d,4)}</td></tr>`;
+    }).join('')}
+    </tbody></table>`;
+}
+
+(async ()=>{
+  const me = await FAAuth.requireAuth({
+    allowedRoles: ['admin','master'],
+    onDenied: ()=>{ document.getElementById('accessDenied').style.display='flex'; }
+  });
+  if(!me) return;
+  document.getElementById('content').style.display = 'block';
+  loadAll();
+})();
+</script>
+</body>
+</html>
