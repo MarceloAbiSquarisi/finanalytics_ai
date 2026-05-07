@@ -278,57 +278,100 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def main() -> int:
-    args = parse_args()
-    features = FEATURES_EQUITY + ([] if args.no_rf else FEATURES_RF)
-    print(
-        f"WF backtest {args.ticker}  feat={len(features)}  h={args.horizon}d  retrain={args.retrain_days}d  include_rf={not args.no_rf}"
-    )
+def run_wf_for_ticker(
+    *,
+    ticker: str,
+    include_rf: bool = True,
+    horizon: int = 21,
+    commission: float = 0.001,
+    train_end: str = "2023-12-31",
+    retrain_days: int = 63,
+    th_buy: float = 0.10,
+    th_sell: float = -0.10,
+    initial_capital: float = 100_000.0,
+    position_size: float = 1.0,
+) -> dict[str, Any]:
+    """Rodar walk-forward p/ 1 ticker. Retorna dict com result + scores.
 
-    rows = load_rows(args.ticker, include_rf=not args.no_rf, horizon=args.horizon)
+    Reutilizado pelo r5_harness.py p/ batch multi-ticker. Retorna dict
+    em vez de exception p/ caller decidir error handling.
+
+    Returns: {ok: bool, ticker, error?, result?, retrains?, n_scores?, ...}
+    """
+    features = FEATURES_EQUITY + ([] if not include_rf else FEATURES_RF)
+    try:
+        rows = load_rows(ticker, include_rf=include_rf, horizon=horizon)
+    except Exception as exc:
+        return {"ok": False, "ticker": ticker, "error": f"load_rows: {exc}"}
+    if not rows:
+        return {"ok": False, "ticker": ticker, "error": "no rows"}
     dates = [r.dia for r in rows]
-    train_end = date.fromisoformat(args.train_end)
-    # test_start_idx: primeiro row com dia > train_end
-    test_start_idx = next((i for i, d in enumerate(dates) if d > train_end), len(rows))
+    train_end_d = date.fromisoformat(train_end)
+    test_start_idx = next((i for i, d in enumerate(dates) if d > train_end_d), len(rows))
     if test_start_idx >= len(rows) - 20:
-        print(f"test window muito curta ({len(rows) - test_start_idx}) — abort")
-        return 2
-    print(
-        f"  total rows={len(rows)}  test_start_idx={test_start_idx}  test_len={len(rows) - test_start_idx}"
-    )
+        return {"ok": False, "ticker": ticker,
+                "error": f"test window curta ({len(rows) - test_start_idx})"}
 
     strategy = WalkForwardStrategy(
         features=features,
         rows=rows,
+        th_buy=th_buy,
+        th_sell=th_sell,
+        test_start_idx=test_start_idx,
+        retrain_days=retrain_days,
+    )
+    bars = rows_to_bars(rows, test_start_idx)
+    if not bars:
+        return {"ok": False, "ticker": ticker, "error": "no bars"}
+    try:
+        result = run_backtest(
+            bars=bars,
+            strategy=strategy,
+            ticker=ticker,
+            initial_capital=initial_capital,
+            position_size=position_size,
+            commission_pct=commission,
+            range_period="test_wf",
+        )
+    except Exception as exc:
+        return {"ok": False, "ticker": ticker, "error": f"run_backtest: {exc}"}
+
+    return {
+        "ok": True,
+        "ticker": ticker,
+        "result": result,
+        "retrains": strategy.retrains,
+        "n_scores": len(strategy.scores_log),
+        "test_len": len(rows) - test_start_idx,
+        "horizon": horizon,
+        "include_rf": include_rf,
+    }
+
+
+def main() -> int:
+    args = parse_args()
+    print(
+        f"WF backtest {args.ticker}  h={args.horizon}d  retrain={args.retrain_days}d  "
+        f"include_rf={not args.no_rf}"
+    )
+    out = run_wf_for_ticker(
+        ticker=args.ticker,
+        include_rf=not args.no_rf,
+        horizon=args.horizon,
+        commission=args.commission,
+        train_end=args.train_end,
+        retrain_days=args.retrain_days,
         th_buy=args.th_buy,
         th_sell=args.th_sell,
-        test_start_idx=test_start_idx,
-        retrain_days=args.retrain_days,
     )
-
-    bars = rows_to_bars(rows, test_start_idx)
-    # Match bars com rows[test_start_idx:] (filtrando close <= 0)
-    print(f"  bars={len(bars)}  rodando walk-forward (retrain_days={args.retrain_days})...")
-    result = run_backtest(
-        bars=bars,
-        strategy=strategy,
-        ticker=args.ticker,
-        initial_capital=100_000.0,
-        position_size=1.0,
-        commission_pct=args.commission,
-        range_period="test_wf",
-    )
-
-    print(f"\n=== WF Backtest Metrics ({strategy.retrains} re-treinos) ===")
+    if not out["ok"]:
+        print(f"ABORT: {out['error']}")
+        return 2
+    result = out["result"]
+    print(f"\n=== WF Backtest Metrics ({out['retrains']} re-treinos) ===")
     for k, v in result.metrics.to_dict().items():
         print(f"  {k:>24} = {v}")
     print(f"Trades={len(result.trades)}  winners={sum(1 for t in result.trades if t.is_winner)}")
-    if strategy.scores_log:
-        arr = np.array(strategy.scores_log)
-        print(
-            f"Scores: mean={arr.mean():.4f}  std={arr.std():.4f}  "
-            f"min={arr.min():.4f}  max={arr.max():.4f}"
-        )
     return 0
 
 
