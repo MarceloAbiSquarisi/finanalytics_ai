@@ -35,6 +35,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--top", type=int, default=20)
     ap.add_argument("--horizon", type=int, default=21)
+    ap.add_argument("--out-dir", default=None,
+                    help="Override pickle output dir (default: ../models)")
     args = ap.parse_args()
 
     tickers = top_tickers(args.top)
@@ -49,6 +51,8 @@ def main() -> int:
         t0 = time.time()
         print(f"\n[{i}/{len(tickers)}] {t}")
         cmd = [str(python), str(script), "--ticker", t, "--horizon", str(args.horizon)]
+        if args.out_dir:
+            cmd += ["--out-dir", args.out_dir]
         cp = subprocess.run(cmd, cwd=str(root), capture_output=True, text=True)
         ok = cp.returncode == 0
         print(cp.stdout[-800:])
