@@ -57,13 +57,14 @@ def main() -> None:
     print()
     print("## Resumo por ano")
     print()
-    print("| Ano | Feriados B3 | Atípicos | Dias úteis |")
-    print("|---|---|---|---|")
+    print("| Ano | Feriados B3 | Atípicos | Dias úteis (stocks) | Dias úteis (futures) |")
+    print("|---|---|---|---|---|")
     for y in range(2017, 2036):
         hols = r._b3_holidays_for_year(y)
         atypical = {d for d in r._B3_NO_TRADING_DAYS if d.year == y}
-        tdays = r.trading_days_in_range(date(y, 1, 1), date(y, 12, 31))
-        print(f"| {y} | {len(hols)} | {len(atypical)} | {len(tdays)} |")
+        tdays_s = r.trading_days_in_range(date(y, 1, 1), date(y, 12, 31), "B")
+        tdays_f = r.trading_days_in_range(date(y, 1, 1), date(y, 12, 31), "F")
+        print(f"| {y} | {len(hols)} | {len(atypical)} | {len(tdays_s)} | {len(tdays_f)} |")
     print()
     print("## Detalhe ano-a-ano")
     print()
@@ -80,9 +81,16 @@ def main() -> None:
         for d, name in sorted(h.items()):
             if d in bset:
                 rows.append((d, "Feriado B3", name))
-        for d in sorted(r._B3_NO_TRADING_DAYS):
-            if d.year == y:
-                rows.append((d, "Atípico", "B3 sem pregão"))
+        for d, segments in sorted(r._B3_NO_TRADING_DAYS.items()):
+            if d.year != y:
+                continue
+            for seg in sorted(segments):
+                seg_label = {
+                    "all": "B3 sem pregão",
+                    "stocks": "Bovespa fechado (futuros operando)",
+                    "futures": "BM&F fechado (ações operando)",
+                }.get(seg, seg)
+                rows.append((d, f"Atípico ({seg})", seg_label))
         rows.sort()
         for d, tipo, name in rows:
             marker = "🔴 " if tipo == "Atípico" else ""

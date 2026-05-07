@@ -598,11 +598,17 @@ async def get_marketdata_gaps(
     finally:
         await conn.close()
 
-    # gera lista de trading days no range (skip fim-de-semana e feriados B3)
+    # gera lista de trading days no range (skip fim-de-semana, feriados e
+    # atipicos B3 — respeitando segmento do ticker p/ casos como 2026-04-17
+    # onde acoes fecharam mas futuros operaram).
     from finanalytics_ai.infrastructure.database.repositories.backfill_repo import (
         trading_days_in_range,
     )
-    all_days = trading_days_in_range(date_start, date_end)
+    from finanalytics_ai.application.services.backfill_runner import (
+        _exchange_for_ticker,
+    )
+    exchange = _exchange_for_ticker(ticker_u)
+    all_days = trading_days_in_range(date_start, date_end, exchange)
     missing = [d for d in all_days if d not in present]
     present_in_range = [d for d in all_days if d in present]
     coverage = (

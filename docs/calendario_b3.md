@@ -20,27 +20,27 @@
 
 ## Resumo por ano
 
-| Ano | Feriados B3 | Atípicos | Dias úteis |
-|---|---|---|---|
-| 2017 | 15 | 0 | 248 |
-| 2018 | 15 | 0 | 247 |
-| 2019 | 15 | 0 | 250 |
-| 2020 | 15 | 0 | 248 |
-| 2021 | 15 | 2 | 246 |
-| 2022 | 15 | 1 | 249 |
-| 2023 | 15 | 1 | 247 |
-| 2024 | 16 | 0 | 250 |
-| 2025 | 16 | 0 | 249 |
-| 2026 | 16 | 0 | 246 |
-| 2027 | 16 | 0 | 248 |
-| 2028 | 16 | 0 | 247 |
-| 2029 | 16 | 0 | 246 |
-| 2030 | 16 | 0 | 249 |
-| 2031 | 16 | 0 | 249 |
-| 2032 | 16 | 0 | 249 |
-| 2033 | 16 | 0 | 250 |
-| 2034 | 16 | 0 | 247 |
-| 2035 | 16 | 0 | 246 |
+| Ano | Feriados B3 | Atípicos | Dias úteis (stocks) | Dias úteis (futures) |
+|---|---|---|---|---|
+| 2017 | 15 | 0 | 248 | 248 |
+| 2018 | 15 | 0 | 247 | 247 |
+| 2019 | 15 | 0 | 250 | 250 |
+| 2020 | 15 | 0 | 248 | 248 |
+| 2021 | 15 | 2 | 246 | 246 |
+| 2022 | 15 | 1 | 249 | 249 |
+| 2023 | 15 | 1 | 247 | 247 |
+| 2024 | 16 | 0 | 250 | 250 |
+| 2025 | 16 | 0 | 249 | 249 |
+| 2026 | 16 | 1 | 245 | 246 |
+| 2027 | 16 | 0 | 248 | 248 |
+| 2028 | 16 | 0 | 247 | 247 |
+| 2029 | 16 | 0 | 246 | 246 |
+| 2030 | 16 | 0 | 249 | 249 |
+| 2031 | 16 | 0 | 249 | 249 |
+| 2032 | 16 | 0 | 249 | 249 |
+| 2033 | 16 | 0 | 250 | 250 |
+| 2034 | 16 | 0 | 247 | 247 |
+| 2035 | 16 | 0 | 246 | 246 |
 
 ## Detalhe ano-a-ano
 
@@ -129,7 +129,7 @@
 | Data | DoW | Tipo | Motivo |
 |---|---|---|---|
 | 2021-01-01 | sex | Feriado B3 | Confraternização Universal |
-| 2021-01-25 | seg | 🔴 Atípico | B3 sem pregão |
+| 2021-01-25 | seg | Atípico (all) | B3 sem pregão |
 | 2021-02-15 | seg | Feriado B3 | Carnaval |
 | 2021-02-16 | ter | Feriado B3 | Carnaval |
 | 2021-02-17 | qua | Feriado B3 | Início da Quaresma |
@@ -137,7 +137,7 @@
 | 2021-04-21 | qua | Feriado B3 | Tiradentes |
 | 2021-05-01 | sab | Feriado B3 | Dia do Trabalhador |
 | 2021-06-03 | qui | Feriado B3 | Corpus Christi |
-| 2021-07-09 | sex | 🔴 Atípico | B3 sem pregão |
+| 2021-07-09 | sex | Atípico (all) | B3 sem pregão |
 | 2021-09-07 | ter | Feriado B3 | Independência do Brasil |
 | 2021-10-12 | ter | Feriado B3 | Nossa Senhora Aparecida |
 | 2021-11-02 | ter | Feriado B3 | Finados |
@@ -164,7 +164,7 @@
 | 2022-11-15 | ter | Feriado B3 | Proclamação da República |
 | 2022-12-24 | sab | Feriado B3 | Véspera de Natal |
 | 2022-12-25 | dom | Feriado B3 | Natal |
-| 2022-12-30 | sex | 🔴 Atípico | B3 sem pregão |
+| 2022-12-30 | sex | Atípico (all) | B3 sem pregão |
 | 2022-12-31 | sab | Feriado B3 | Véspera de Ano-Novo |
 
 ### 2023
@@ -185,7 +185,7 @@
 | 2023-11-15 | qua | Feriado B3 | Proclamação da República |
 | 2023-12-24 | dom | Feriado B3 | Véspera de Natal |
 | 2023-12-25 | seg | Feriado B3 | Natal |
-| 2023-12-29 | sex | 🔴 Atípico | B3 sem pregão |
+| 2023-12-29 | sex | Atípico (all) | B3 sem pregão |
 | 2023-12-31 | dom | Feriado B3 | Véspera de Ano-Novo |
 
 ### 2024
@@ -239,6 +239,7 @@
 | 2026-02-17 | ter | Feriado B3 | Carnaval |
 | 2026-02-18 | qua | Feriado B3 | Início da Quaresma |
 | 2026-04-03 | sex | Feriado B3 | Sexta-feira Santa |
+| 2026-04-17 | sex | Atípico (stocks) | Bovespa fechado (futuros operando) |
 | 2026-04-21 | ter | Feriado B3 | Tiradentes |
 | 2026-05-01 | sex | Feriado B3 | Dia do Trabalhador |
 | 2026-06-04 | qui | Feriado B3 | Corpus Christi |

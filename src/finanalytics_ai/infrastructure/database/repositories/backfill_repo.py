@@ -104,80 +104,108 @@ def is_b3_holiday(d: date) -> bool:
 
 
 # ── Dias atipicos B3 — tabela b3_no_trading_days ─────────────────────────────
-# Cache em memoria do que tem em b3_no_trading_days (set pequeno, geralmente
-# < 100 entradas em decada). Carregado sob demanda via load_b3_no_trading_days
-# (idealmente no startup do app, mas tolerante a uso lazy).
-_B3_NO_TRADING_DAYS: set[date] = set()
+# Cache em memoria. Estrutura: dict[date, set[str]] mapeando data → conjunto
+# de segmentos fechados naquela data. Segmentos: 'all', 'stocks', 'futures'.
+#
+# Lookup is_b3_no_trading_day(d, exchange):
+#   - Mapeia exchange ('B' → 'stocks', 'F' → 'futures')
+#   - Retorna True se 'all' OR matching_segment in cache[d]
+_B3_NO_TRADING_DAYS: dict[date, set[str]] = {}
 _B3_NO_TRADING_LOADED: bool = False
 
 
-async def load_b3_no_trading_days() -> None:
-    """Recarrega cache de dias atipicos B3 do DB. Idempotente.
+def _exchange_to_segment(exchange: str) -> str:
+    """Mapeia exchange code (DLL) -> segmento da b3_no_trading_days."""
+    return "futures" if (exchange or "").upper() == "F" else "stocks"
 
-    Chamado no startup do app e apos cada insert via mark_b3_no_trading_day.
-    """
+
+async def load_b3_no_trading_days() -> None:
+    """Recarrega cache de dias atipicos B3 do DB. Idempotente."""
     global _B3_NO_TRADING_DAYS, _B3_NO_TRADING_LOADED
     try:
         conn = await _connect()
         try:
-            rows = await conn.fetch("SELECT target_date FROM b3_no_trading_days")
+            rows = await conn.fetch(
+                "SELECT target_date, segment FROM b3_no_trading_days"
+            )
         finally:
             await conn.close()
-        _B3_NO_TRADING_DAYS = {r["target_date"] for r in rows}
+        cache: dict[date, set[str]] = {}
+        for r in rows:
+            cache.setdefault(r["target_date"], set()).add(r["segment"])
+        _B3_NO_TRADING_DAYS = cache
         _B3_NO_TRADING_LOADED = True
     except Exception:
-        # Fail-open: tabela nao existe ou DB off — usa cache atual (provavelmente
-        # vazio). Nunca quebra is_trading_day por causa disso.
         _B3_NO_TRADING_LOADED = True
 
 
 async def mark_b3_no_trading_day(
-    d: date, *, job_id: int | None = None, notes: str | None = None
+    d: date,
+    *,
+    segment: str = "all",
+    job_id: int | None = None,
+    notes: str | None = None,
 ) -> None:
-    """Marca um dia como atipico B3 (sem pregao). Adiciona ao cache.
+    """Marca um dia como atipico B3 (sem pregao) p/ um segmento.
 
-    Usado pelo backfill_runner quando coleta retorna ok com ticks=0:
-    sinal forte de que B3 nao teve pregao naquele dia (apesar de
-    weekday < 5 e nao ser feriado oficial).
+    Args:
+        d: data
+        segment: 'all' (default), 'stocks', ou 'futures'
+        job_id: backfill job que descobriu (opcional)
+        notes: razao livre (opcional)
     """
+    if segment not in ("all", "stocks", "futures"):
+        segment = "all"
     try:
         conn = await _connect()
         try:
             await conn.execute(
                 """
                 INSERT INTO b3_no_trading_days
-                    (target_date, discovered_by_job_id, notes)
-                VALUES ($1, $2, $3)
-                ON CONFLICT (target_date) DO NOTHING
+                    (target_date, segment, discovered_by_job_id, notes)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (target_date, segment) DO NOTHING
                 """,
-                d, job_id, notes,
+                d, segment, job_id, notes,
             )
         finally:
             await conn.close()
-        _B3_NO_TRADING_DAYS.add(d)
+        _B3_NO_TRADING_DAYS.setdefault(d, set()).add(segment)
     except Exception:
         pass  # nao bloqueia o caller
 
 
-def is_b3_no_trading_day(d: date) -> bool:
-    return d in _B3_NO_TRADING_DAYS
+def is_b3_no_trading_day(d: date, exchange: str = "B") -> bool:
+    """True se a data esta marcada como atipica para o segmento do ticker.
+
+    'all' no cache afeta qualquer exchange. Senao, casa pelo segmento
+    derivado do exchange.
+    """
+    segments = _B3_NO_TRADING_DAYS.get(d)
+    if not segments:
+        return False
+    if "all" in segments:
+        return True
+    return _exchange_to_segment(exchange) in segments
 
 
-def is_trading_day(d: date) -> bool:
+def is_trading_day(d: date, exchange: str = "B") -> bool:
     return (
         d.weekday() < 5
         and not is_b3_holiday(d)
-        and not is_b3_no_trading_day(d)
+        and not is_b3_no_trading_day(d, exchange)
     )
 
 
-def trading_days_in_range(start: date, end: date) -> list[date]:
+def trading_days_in_range(
+    start: date, end: date, exchange: str = "B"
+) -> list[date]:
     if end < start:
         return []
     out: list[date] = []
     d = start
     while d <= end:
-        if is_trading_day(d):
+        if is_trading_day(d, exchange):
             out.append(d)
         d += timedelta(days=1)
     return out
@@ -209,22 +237,31 @@ async def create_job_with_items(
     `exchange_for` mapeia ticker -> exchange (default 'B'). Tickers sem mapping
     caem em 'B' (acoes B3).
     """
-    if specific_days:
-        # Filtra: aceita apenas dias dentro do range informado p/ consistencia
-        # com date_start/date_end gravados no job.
-        days = sorted({d for d in specific_days if date_start <= d <= date_end})
-    else:
-        days = trading_days_in_range(date_start, date_end)
     tickers = [t.strip().upper() for t in tickers if t and t.strip()]
     if not tickers:
         raise ValueError("tickers vazio")
-    if not days:
-        raise ValueError("sem dias no range informado")
-
     exchange_for = exchange_for or {}
-    items_payload = [
-        (t, exchange_for.get(t, "B"), d) for d in days for t in tickers
-    ]
+
+    # Trading days POR TICKER: respeita segment do calendario (ex: 17/04/2026
+    # aparece para futuros mas nao para acoes). Se specific_days informado,
+    # filtra cada ticker individualmente — dias atipicos do segmento ficam
+    # de fora mesmo se vieram na lista.
+    items_payload: list[tuple[str, str, date]] = []
+    for t in tickers:
+        ex = exchange_for.get(t, "B")
+        if specific_days:
+            t_days = [
+                d for d in specific_days
+                if date_start <= d <= date_end and is_trading_day(d, ex)
+            ]
+        else:
+            t_days = trading_days_in_range(date_start, date_end, ex)
+        for d in sorted(set(t_days)):
+            items_payload.append((t, ex, d))
+
+    if not items_payload:
+        raise ValueError("sem (ticker, dia) validos no range informado")
+    days = sorted({d for (_, _, d) in items_payload})
     total_items = len(items_payload)
 
     conn = await _connect()
