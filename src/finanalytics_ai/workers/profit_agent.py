@@ -1192,8 +1192,84 @@ class ProfitAgent:
             len(db_tickers),
             bool(self._db),
         )
-        for ticker, exchange in tickers_to_subscribe:
-            self._subscribe(ticker, exchange)
+
+        # P2 fix (07/mai): subscribe loop roda em thread daemon. Main thread
+        # aguarda até PROFIT_SUBSCRIBE_TIMEOUT_S (default 120s) e parte pra
+        # "ready" mesmo se loop travar. Sem isso, qualquer SubscribeTicker
+        # trava (DLL stuck server-side) bloqueava boot inteiro. NAO
+        # paralelizamos pq DLL não documenta thread safety pra
+        # SubscribeTicker/SubscribePriceDepth (Erro.log 05/mai mostrou 4 AVs).
+        # Subscribe parcial é melhor que boot stuck — HTTP fica usável,
+        # operador vê via /status e pode rodar /agent/restart.
+        subscribe_done = threading.Event()
+        sub_progress = {
+            "completed": 0,
+            "failed": 0,
+            "total": len(tickers_to_subscribe),
+            "current": None,
+            "stuck_warned": set(),
+        }
+        self._subscribe_progress = sub_progress  # exposto via /status
+
+        def _subscribe_worker():
+            for i, (ticker, exchange) in enumerate(tickers_to_subscribe):
+                sub_progress["current"] = f"{ticker}:{exchange}"
+                t0 = time.time()
+                try:
+                    ok, ret = self._subscribe(ticker, exchange)
+                    if ok:
+                        sub_progress["completed"] += 1
+                    else:
+                        sub_progress["failed"] += 1
+                except Exception as exc:
+                    sub_progress["failed"] += 1
+                    log.warning(
+                        "subscribe.error ticker=%s exch=%s err=%s",
+                        ticker, exchange, exc,
+                    )
+                elapsed = time.time() - t0
+                if elapsed > 2.0:
+                    log.warning(
+                        "subscribe.slow ticker=%s exch=%s elapsed_s=%.2f",
+                        ticker, exchange, elapsed,
+                    )
+                if (i + 1) % 50 == 0:
+                    log.info(
+                        "subscribe.progress %d/%d completed=%d failed=%d",
+                        i + 1, sub_progress["total"],
+                        sub_progress["completed"], sub_progress["failed"],
+                    )
+            sub_progress["current"] = None
+            subscribe_done.set()
+            log.info(
+                "subscribe.done total=%d completed=%d failed=%d",
+                sub_progress["total"], sub_progress["completed"],
+                sub_progress["failed"],
+            )
+
+        _sub_thread = threading.Thread(
+            target=_subscribe_worker, daemon=True,
+            name="profit_agent_subscribe",
+        )
+        _sub_thread.start()
+
+        subscribe_timeout_s = int(os.getenv("PROFIT_SUBSCRIBE_TIMEOUT_S", "120"))
+        if subscribe_done.wait(timeout=subscribe_timeout_s):
+            log.info(
+                "subscribe.completed_in_time completed=%d failed=%d",
+                sub_progress["completed"], sub_progress["failed"],
+            )
+        else:
+            # Timeout: parte pra ready com subscribe parcial. Thread daemon
+            # continua tentando os restantes em background — eventualmente
+            # termina ou processo morre via boot/runtime watchdog.
+            log.warning(
+                "subscribe.timeout_partial elapsed_s=%d completed=%d/%d "
+                "failed=%d current=%s — boot continua mesmo assim",
+                subscribe_timeout_s, sub_progress["completed"],
+                sub_progress["total"], sub_progress["failed"],
+                sub_progress["current"],
+            )
 
         # 9. HTTP server JÁ subiu cedo no início de start() (P0 fix 07/mai).
         # Aqui apenas marca boot=ready pra watchdog liberar.
@@ -4309,6 +4385,15 @@ class ProfitAgent:
         except Exception:
             db_queue_size = 0
         boot_elapsed = round(time.time() - self._boot_started_at, 1)
+        sp = getattr(self, "_subscribe_progress", None)
+        subscribe_status = None
+        if sp is not None:
+            subscribe_status = {
+                "total": sp.get("total", 0),
+                "completed": sp.get("completed", 0),
+                "failed": sp.get("failed", 0),
+                "current": sp.get("current"),
+            }
         return {
             "boot_phase": self._boot_phase,
             "boot_elapsed_s": boot_elapsed,
@@ -4316,6 +4401,7 @@ class ProfitAgent:
                 {"phase": p, "elapsed_s": round(ts - self._boot_started_at, 1)}
                 for p, ts in self._boot_phase_history[-15:]
             ],
+            "subscribe_progress": subscribe_status,
             "market_connected": getattr(self, "_market_ok", False),
             "routing_connected": getattr(self, "_routing_ok", False),
             "login_ok": getattr(self, "_login_ok", False),

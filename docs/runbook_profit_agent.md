@@ -1,7 +1,44 @@
 # Runbook — profit_agent (Windows host :8002)
 
 > Troubleshooting dos bugs P1-P7 + O1 catalogados em `Melhorias.md`.
-> Última revisão: 28/abr/2026 (sessão fix-batch — commits `27e04d3` `efc4235` `568e9a3`).
+> Última revisão: 07/mai/2026 (P0+P1+P2 boot resilience — commit `d35cb96` + healthcheck script).
+
+## Boot resilience (sessão 07/mai)
+
+Se agent fica `Running` no NSSM mas `:8002` não responde, ou `/status` retorna `boot_phase != ready` por mais de 10min, ou DLL trava mid-runtime:
+
+### Diagnóstico rápido
+```powershell
+# Phase atual + history
+Invoke-WebRequest http://localhost:8002/status -UseBasicParsing | Select -Expand Content | ConvertFrom-Json | Format-List boot_phase, boot_elapsed_s, boot_phase_history, subscribe_progress
+
+# Se a chamada timeout, agent está stuck antes do HTTP server (improvável agora — HTTP sobe na fase 0)
+```
+
+Fases esperadas (em ordem): `init → starting → loading_dll → dll_initialize_login → wait_market_connected → db_connect → db_setup → subscribe_tickers → ready`. Onde travou identifica a causa raiz.
+
+### Mitigações automáticas
+- **Boot watchdog interno** (P0): mata processo se não chegar em `ready` em 300s (env `PROFIT_BOOT_TIMEOUT_S`). NSSM restarta. Logs: `boot.watchdog.timeout`.
+- **DB statement_timeout** (P1): 10s default. Lock contention vira erro rápido. Override via `PROFIT_DB_STATEMENT_TIMEOUT_MS`.
+- **Subscribe parcial > boot stuck** (P2): subscribe loop em thread daemon; main parte pra `ready` em 120s mesmo se travado (env `PROFIT_SUBSCRIBE_TIMEOUT_S`). Logs: `subscribe.timeout_partial`.
+- **Healthcheck externo** (P2): `scripts/healthcheck_profit_agent.ps1` deve rodar via Task Scheduler 1×/min. Cobre o caso pos-ready (agent vivo mas DLL stuck mid-runtime).
+
+### Setup do healthcheck externo (Admin PowerShell, 1×)
+```powershell
+$action = New-ScheduledTaskAction -Execute 'pwsh.exe' `
+  -Argument '-NoProfile -ExecutionPolicy Bypass -File "D:\Projetos\finanalytics_ai_fresh\scripts\healthcheck_profit_agent.ps1"'
+$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) `
+  -RepetitionInterval (New-TimeSpan -Minutes 1)
+$principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -RunLevel Highest
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable `
+  -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 2)
+Register-ScheduledTask -TaskName 'FinAnalytics_AgentHealthcheck' `
+  -Action $action -Trigger $trigger -Principal $principal -Settings $settings
+```
+
+Logs do healthcheck: `D:\Projetos\finanalytics_ai_fresh\logs\agent_healthcheck.log`. Cooldown de 180s entre restarts evita loop.
+
+
 
 ## Restart do agent
 
