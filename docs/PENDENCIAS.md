@@ -2,7 +2,47 @@
 
 > **Para Claude/agente:** este é o primeiro arquivo a consultar em qualquer sessão. Contém pendências priorizadas + carryover de sessões anteriores. Atualizar ao fim de cada sessão (mover concluídas pra `## Done recente` e depois pra `docs/historico/`).
 
-Última atualização: **2026-05-07 21:30 BRT** (R5 sweep 12 runs + trade-level DSR — id=11 emerge como deployment candidate com prob_real=72%)
+Última atualização: **2026-05-07 23:00 BRT** (R5 final: rolling-origin 5 folds + portfolio multi-asset + forward-test paper /paper)
+
+### Done 07/mai final (sessão R5 rolling + portfolio + forward-test paper)
+
+Continuação completando o ciclo R5 (4 commits):
+
+- ✅ **Rolling-origin walk-forward 5 folds** (commit `5382c3f`): `scripts/r5_rolling_origin.py` + `r5_rolling_analyze.py`. Config fixa = id=11 (h=10, retrain=63, vol=0.015), 5 train_end values (2022-06 → 2024-06).
+  - **Sharpe_max consistente 1.57-1.84** across 4 anos OOS (range tight).
+  - **18 tickers** com sharpe > 0.5 em TODOS os 6 folds = "consistent winners".
+  - **BMEB4 é THE winner**: best em 3/5 folds, top-3 em todos, range [1.47, 1.84], anti-overfit (sharpe 1.84 fold 2022 ≈ 1.79 fold 2024).
+  - **Top-10 intersection**: apenas 3 tickers (BMEB4, MDNE3, NEOE3) ficam top-10 em **todos** os folds.
+
+- ✅ **Portfolio multi-asset** (commit `3eadf6d`): `scripts/r5_portfolio.py` agrega trades de N tickers em 1 cash flow simulation com slots independentes.
+  - **18 tickers, slot R$ 5556, capital R$ 100k** → final R$ 461.5k (**+361.5%**)
+  - **Sharpe_portfolio = 1.11** (vs single best BMEB4 = 1.78 — diluição)
+  - **Max drawdown = 3.17%** (vs ~30% single best — **10x reduction**)
+  - **Calmar = 114** (vs 7 single best — **16x melhor risk-adjusted**)
+  - 214 trades executados, 0 skipped, 8 simultaneas no peak.
+
+- ✅ **Forward-test paper** (commit `1b2e907`): Migration `0028_paper_trading` + `scripts/r5_paper_step.py` + endpoints `/api/v1/paper/*` + página `/paper`.
+  - **paper_runs** (header com state_json: positions/cash/equity_curve/trades_history) + **paper_signals** (audit per ticker × dia)
+  - Script idempotente: `--create-run` setup; `--as-of YYYY-MM-DD` daily step (gera signals, fecha SELL, abre BUY com lot=100, MTM)
+  - Endpoints `require_master`: list runs, run detail, signals do dia
+  - UI `/paper`: KPIs (equity/cash/retorno/win rate), signals BUY/SELL/HOLD sortable, posições abertas, equity curve last 30, trades fechados last 20
+  - Sidebar/breadcrumbs/palette/i18n integrados ao lado de R5 Harness.
+  - Smoke 2026-04-30: paper_run id=1 'r5-id11-top18' criado, 18 signals, 8 positions abertas (DIRR3, NEOE3, CPLE3, CMIG3, ENGI11, CYRE3, EQTL3, HAPV3), R$37.5k allocated.
+  - **Limitação conhecida**: lot=100 + slot R$5556 bloqueia BMEB4 (R$72.85, qty=0) — best ticker do harness fica fora. Próxima iteração: dynamic slot proporcional ao preço, ou capital maior, ou fractional shares.
+
+**Operação contínua**: rodar `paper_step.py --as-of <hoje>` daily após pregão. Página `/paper` reflete state em tempo real.
+
+**Cadeia científica consolidada (4 níveis)**:
+1. Backtest filter run (id=2): prob_trade=21% (single fold, baseline)
+2. Sweep retrain=42 (id=5): prob=92% (single fold, optimized)
+3. Rolling 5 folds: sharpe consistente 1.57-1.84 across 4 anos = sinal não é noise
+4. Portfolio diversificado: Calmar 16x melhor que best single = diversification benefit real
+
+**Próximos passos pra deployment real do robô** (sem mais R5 work):
+- Trailing stop dinâmico (P1 antigo)
+- Lookup automático lot_size por ticker (P1)
+- Reativar agente Nelogica (esperar 24h ou Windows reboot)
+- Cron diário `paper_step.py` 18:30 BRT após close
 
 ### Done 07/mai noite (sessão R5 sweep + trade-level DSR)
 
